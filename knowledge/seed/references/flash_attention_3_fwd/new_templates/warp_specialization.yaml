@@ -1,0 +1,46 @@
+name: warp_specialization
+version: 1
+level_from: 2
+level_to: 3
+change: vertical
+refines: work_assign
+produces: [work_assign, sync]
+object:
+  type: executor_role
+  description: "A role (producer of data movement, consumer doing compute, epilogue) bound to a fixed subset of the CTA's warps or warpgroups; roles communicate only through shared memory and barriers."
+variables:
+  - {name: producer_warps, kind: numeric, binding: compile, role: software, domain: {lo: 1, hi: 4}, meaning: "warps in the producer role (FlashAttention-3: one warpgroup, of which one warp issues TMA)"}
+  - {name: issuing_threads, kind: numeric, binding: compile, role: software, domain: [1, 32, 128], meaning: "threads of the producer that actually issue loads"}
+  - {name: consumer_groups, kind: numeric, binding: compile, role: software, domain: {lo: 1, hi: 3}, meaning: "consumer warpgroups doing MMA and softmax"}
+  - {name: epilogue_role, kind: structure, binding: compile, role: software, domain: [consumers, separate], meaning: "who runs the epilogue"}
+constraints:
+  - {id: c_threads, expr: "(producer_warps + 4 * consumer_groups) * 32 <= hw.max_threads_per_cta", meaning: "all roles fit in one CTA", cls: resource}
+preconditions:
+  - {id: pre_async, expr: "p.transfers_are_async", meaning: "data movement can be issued by a few threads and completes asynchronously (TMA or cp.async with mbarrier), so consumers need not participate", cls: semantic}
+program:
+  description: "Branch on warpgroup index: warpgroup 0 runs the load loop over tiles, the others run the MMA/softmax loop; both loops visit the same tile sequence and synchronize per stage (hopper/flash_fwd_kernel_sm90.h:308-446)."
+  fragments: {}
+backward_map: "Interleave the producer's loads into the consumers' program in stage order: the single-role program where every warp both loads and computes."
+obligations:
+  - {name: same_sequence, statement: "Producer and consumers visit the same tiles and stages in the same order.", method: test}
+  - {name: handshake_complete, statement: "Every stage the producer fills is consumed and released exactly once, and the producer waits for release before refilling.", method: exhaustive}
+  - {name: no_deadlock, statement: "With the declared barrier arrival counts, neither role waits forever, including at the tail where the producer finishes first.", method: exhaustive}
+cost:
+  - {unit: issue, work: "p.tiles * p.loads_per_tile", overlap: overlappable}
+scope:
+  predicate: "True"
+  text: "Kernels whose loads can be issued asynchronously by a few threads (TMA, cp.async with mbarrier) so that compute warps never stall on address generation."
+requires_hw: [mbarrier]
+relations:
+  - {type: requires, target: async_transfer, note: "producer loads must be asynchronous"}
+  - {type: requires, target: per_slot_handshake, note: "roles communicate through per-stage full/empty barriers"}
+  - {type: enables, target: register_rebalancing}
+signature:
+  algorithm: "producer/consumer warp roles"
+  reuse: null
+  storage: "smem stages shared between roles"
+  boundary: "pipeline tail"
+  resources: [issue, tensor]
+numeric_risk: null
+expected_sass: []
+summary: "Splits the CTA's warps into a producer role that only moves data and consumer roles that only compute. Roles meet at per-stage barriers, so the obligations are a matching visit order and deadlock freedom. Enables giving the roles different register budgets."

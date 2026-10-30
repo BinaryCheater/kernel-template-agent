@@ -1,0 +1,9 @@
+missing: template
+description: >-
+  [ux-09] staged_relayout's obligations speak of a barrier between write and read; with a TMA reader,
+  a barrier alone does not make generic-proxy smem writes visible to the async proxy. The Template needs
+  a reader-dependent obligation (proxy fence before the barrier), or a separate sync Template for cross-proxy
+  visibility. Not resolved here.
+level: 3
+pattern_guess: transfer
+attribution: verification

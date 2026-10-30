@@ -1,0 +1,9 @@
+missing: template
+description: >-
+  [ux-02] No pool Template assigns transaction classes to warp roles. This step refines several transactions
+  at once (every load's issuer, every MMA's issuer and the sync between them); the skill asks to split
+  such steps, but the role split is one indivisible choice, so it is recorded as one Template whose produces
+  lists work_assign and sync. Proposed: warp_specialization@1.
+level: 3
+pattern_guess: work_assign
+attribution: space

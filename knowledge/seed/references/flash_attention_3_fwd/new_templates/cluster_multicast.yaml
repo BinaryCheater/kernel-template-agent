@@ -1,0 +1,43 @@
+name: cluster_multicast
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: transfer
+produces: [transfer, sync]
+object:
+  type: multicast_group
+  description: "A group of CTAs in one thread-block cluster that receive the same global tile from one TMA load issued with a multicast mask, each CTA issuing a slice."
+variables:
+  - {name: cluster_size, kind: numeric, binding: compile, role: software, domain: [1, 2, 4], meaning: "CTAs in the cluster sharing the tile (1 = no multicast)"}
+  - {name: shared_operand, kind: structure, binding: compile, role: software, domain: [kv, b_operand, a_operand], meaning: "which operand is common to the cluster's CTAs"}
+constraints:
+  - {id: c_cluster, expr: "cluster_size <= hw.max_cluster_size", meaning: "cluster fits the hardware limit", cls: resource}
+preconditions:
+  - {id: pre_same_tile, expr: "p.operand_tile_shared_by_cluster", meaning: "all CTAs of the cluster need the same tile at the same pipeline stage (here: neighbouring Q tiles of the same head read the same K/V)", cls: semantic}
+program:
+  description: "Cluster (ClusterM = 2, along Q tiles) launched only for non-causal fp16 with head dim >= 128 and an even number of Q tiles; K/V TMA copies carry mcast_mask_kv; the empty barrier counts consumers of all CTAs; cluster_arrive/wait at start (hopper/flash_fwd_launch_template.h:210-219; hopper/mainloop_fwd_sm90_tma_gmma_ws.hpp:740-768; hopper/flash_fwd_kernel_sm90.h:298-303)."
+  fragments: {}
+backward_map: "Each CTA loads the whole tile itself: the per-CTA transfer, with the shared global read duplicated."
+obligations:
+  - {name: same_stage, statement: "All CTAs of the cluster consume the multicast tile in the same stage slot and release it before it is overwritten for any of them.", method: exhaustive}
+  - {name: cluster_sync_at_exit, statement: "No CTA exits while a peer may still write into its shared memory.", method: test}
+cost:
+  - {unit: l2, work: "p.shared_tile_bytes / cluster_size", overlap: overlappable}
+scope:
+  predicate: "True"
+  text: "Neighbouring CTAs that read the same operand tile in lock step (attention K/V across Q tiles, GEMM B across M tiles)."
+requires_hw: [tma, cluster_multicast]
+relations:
+  - {type: requires, target: async_transfer, note: "mechanism = controller (TMA)"}
+  - {type: requires, target: per_slot_handshake, note: "release must count consumers of every CTA in the cluster"}
+signature:
+  algorithm: "TMA multicast within a thread-block cluster"
+  reuse: "one global read feeds several CTAs"
+  storage: null
+  boundary: "odd number of tiles (cluster disabled)"
+  resources: [l2]
+numeric_risk: null
+expected_sass:
+  - {when: "cluster_size > 1", must_contain: [UTMALDG.2D.MULTICAST], must_not_contain: []}
+summary: "Loads a tile once and multicasts it to all CTAs of a thread-block cluster that need it. Cuts L2 traffic for operands shared by neighbouring tiles. Requires the CTAs to consume the tile in lock step and to synchronize before exit."
