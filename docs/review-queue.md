@@ -87,6 +87,7 @@ Decisions made without the user that need review. Newest last. Each entry: quest
 - **Choice:** a worker image from the NGC PyTorch 26.03 image (pinned digest) plus a pinned pip lock; codegen in the container without network or GPU; compile with the host CUDA 13.0 nvcc mounted read-only.
 - **Rationale:** TileLang needs torch/TVM wheels that are heavy for the project venv and would not resolve on the macOS control plane; the container's own CUDA 13.2 needs forward-compatibility mode, so cubins built by it may not match the host driver.
 - **Cost of changing later:** low: `docker/worker/`, `kta.backends.tilelang`; changing TileLang version means regenerating `requirements.lock` (`docker/lock`).
+- **Status:** the user accepted the container approach on 2026-10-30 (via the coordinator); the pinned base, TileLang-only content and host-CUDA mount remain defaults.
 
 ## D188 — What `support: yes/no/unknown` means for a HwFeature
 

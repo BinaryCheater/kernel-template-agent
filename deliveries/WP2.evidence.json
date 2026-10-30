@@ -1,6 +1,6 @@
 [
   {
-    "claim": "scripts/worker-setup registers spark over the ssh transport as a GPU worker: deploys this commit, runs uv sync --frozen, builds the TileLang worker image, and writes an EnvManifest and a Worker whose labels were probed on spark (gpu=sm_121, cuda=13.0, backend.cuda, backend.tilelang, pools)",
+    "claim": "scripts/worker-setup registers spark over the ssh transport as a GPU worker: deploys this commit, runs uv sync --frozen, builds the TileLang worker image, and writes an EnvManifest and a Worker whose labels were probed on spark (gpu=sm_121, cuda=13.0, backend.cuda, backend.tilelang, pools) (the gpu label is on the Worker record itself; the WP2 gate checks it)",
     "command": "KTA_ENV=dev KTA_WP=WP2 KTA_DATA=~/kta-data scripts/worker-setup spark",
     "workers": [
       "spark"
@@ -13,7 +13,7 @@
     "env_manifests": [
       "27e6395fae377a0310125fd1aa8794cee70d51138da5a68b26460bc3ddba0e7d"
     ],
-    "requires_gpu": true,
+    "requires_gpu": false,
     "git_commit": "6f5796469d10e9e7d82091cdbe37d043513d721c",
     "dirty": false,
     "env": "dev",

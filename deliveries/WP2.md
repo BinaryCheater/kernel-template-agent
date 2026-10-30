@@ -1,6 +1,6 @@
 # WP2 delivery: targets, execution, backends
 
-Branch `wp/WP2`, cut from `integration` @ `6762cc0` (WP0, WP1, WP13 merged). Code commit of all evidence runs: `6f5796469d10e9e7d82091cdbe37d043513d721c` (clean). The exception is the cached Builds in claim 6, which were compiled at the earlier clean commit `302bc15306aa` of this branch. Evidence outputs are kept outside git under `~/kta-data/dev/WP2/evidence/6f5796469d10e9e7d82091cdbe37d043513d721c/` on the control host. Records are in `~/kta-data/dev/WP2/kta.db`. Claim numbers below are 0-based indexes into `deliveries/WP2.evidence.json`.
+Branch `wp/WP2`, cut from `integration` @ `6762cc0` (WP0, WP1, WP13 merged). Code commit of all evidence runs: `6f5796469d10e9e7d82091cdbe37d043513d721c` (clean). The ssh-transport concurrency fix (D196, see Known issues) was committed after these runs and is exercised by the gate's GPU acceptance run. The exception is the cached Builds in claim 6, which were compiled at the earlier clean commit `302bc15306aa` of this branch. Evidence outputs are kept outside git under `~/kta-data/dev/WP2/evidence/6f5796469d10e9e7d82091cdbe37d043513d721c/` on the control host. Records are in `~/kta-data/dev/WP2/kta.db`. Claim numbers below are 0-based indexes into `deliveries/WP2.evidence.json`.
 
 ## What was done
 
@@ -103,7 +103,7 @@ HwFeature support on gb10 (D188):
 
 ## Fixtures and simplifications
 
-- No `# kta:fixture` markers in `src/`.
+- `src/kta/store/bench.py` (`# kta:fixture` on `_body`, WP1): synthetic record bodies of the store benchmark, stored with origin `fixture`; inherited from WP1, not used by WP2. WP2 adds no `# kta:fixture` markers.
 - Allowed simplification used: container isolation is used only for external code (TileLang codegen). KTA's own jobs (harness runs, probes, nvcc compiles) run in the worker's host environment (D187).
 - Deliberately simple first kernels (D94): vector add (N = 2^20 fp32) per backend, a spin kernel for the timeout test, and a one-function C file for the CPU compile job.
 - `tests/unit/test_execution_local.py` registers the local worker a second time with hand-written GPU labels and device `0`, to test the lease scheduling rules on a machine without a GPU. Its jobs are shell commands and never touch a GPU. A health-check command that cannot answer (`nvidia_smi = "/nonexistent/nvidia-smi"`) stands in for a hung GPU. These are unit tests in env `test`; every claimed capability ran for real on spark and slai.
@@ -115,6 +115,7 @@ HwFeature support on gb10 (D188):
 - **Timing path is a first version.** The harness times each launch with a pair of CUDA events, including launch overhead. WP3 owns the measurement protocol.
 - **Features that cannot be exercised stay `unknown`:** TMA tensor copies need a host-encoded `CUtensorMap` and are not yet exercised. `setmaxnreg` and 256-bit `ld.global.v8` report `yes` on sm_121a; that is what the toolchain and hardware accepted, not a documented capability claim.
 - **Unit tests in a worker deployment.** Worker deployments are `git archive` trees without `.git`. There, 3 gate-tool tests (`test_gate_delivery.py::test_evidence_format`, `test_gate_wp1.py::test_wp1_gate_accepts_a_valid_benchmark_record`, `test_gate_wp1.py::test_wp1_gate_rejects_dirty_control_or_unlisted`) fail because they need git history. In a git checkout (claim 5) all 190 pass.
+- **ssh connection bursts.** Without connection sharing (socket directory longer than 60 characters, as in pytest temp dirs) many parallel jobs open one ssh connection each; spark's sshd reset some (`MaxStartups`), which showed up as `infra` compiles and `unknown` features in one gate run. The ssh transport now caps 8 concurrent calls per worker and retries connections refused before the command started (D196).
 - **Gate needs deployed workers.** The WP2 gate runs the GPU acceptance tests, which reach spark and slai over ssh. The commit under test must be deployed on both (`scripts/worker-setup spark`, `scripts/worker-setup slai`, or `scripts/remote-run sync` plus `uv sync --frozen`). The final delivery commit was deployed this way.
 - **Data written during WP2** (all inside project directories):
   - spark: `~/kta-work/src/<commit>` for the WP2 commits, `~/kta-work/data/{dev/WP2,test-worker}`, and the Docker image `kta-worker:tilelang-0.1.15`;
@@ -124,7 +125,7 @@ HwFeature support on gb10 (D188):
 
 ## New decisions
 
-D180, D181 (needs user review), D182, D183, D184 (needs user review), D185, D186 (needs user review), D187 (needs user review), D188 (needs user review), D189, D190, D191, D192, D193, D194, D195, D196, D197, D198 (needs user review), D199.
+D180, D181 (needs user review), D182, D183, D184 (needs user review), D185, D186 (needs user review), D187 (container approach accepted by the user on 2026-10-30), D188 (needs user review), D189, D190, D191, D192, D193, D194, D195, D196, D197, D198 (needs user review), D199.
 
 ## Needed changes
 

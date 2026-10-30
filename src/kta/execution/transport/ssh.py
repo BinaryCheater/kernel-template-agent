@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import shlex
 import subprocess
+import threading
+import time
 from pathlib import Path
 from typing import Literal
 
@@ -20,6 +22,17 @@ from kta.execution.transport.local import WORKER_MODULE, check_reply
 EXIT_NOT_DEPLOYED = 97
 SSH_EXIT_FAILED = 255
 MAX_SOCKET_DIR = 60
+# sshd refuses bursts of unauthenticated connections (MaxStartups, default 10); calls per
+# worker are capped, and connections refused before the command started are retried.
+MAX_CONCURRENT = 8
+CONNECT_RETRIES = 4
+NOT_CONNECTED = (
+    "kex_exchange_identification",
+    "Connection reset by",
+    "Connection refused",
+    "Connection closed by",
+    "ssh_exchange_identification",
+)
 
 
 def remote_path(path: str) -> str:
@@ -44,6 +57,7 @@ class SshTransport:
         self.wp = wp
         self.commit = commit
         self.sockets = sockets
+        self.slots = threading.BoundedSemaphore(MAX_CONCURRENT)
 
     def script(self, args: list[str]) -> str:
         root = remote_path(self.config.root or "")
@@ -75,18 +89,35 @@ class SshTransport:
             opts += ["-o", "ControlPersist=120"]
         return ["ssh", *opts, self.config.ssh or "", self.script(args)]
 
-    def call(self, args: list[str], stdin: bytes, timeout_s: float) -> bytes:
+    def _once(
+        self, args: list[str], stdin: bytes, timeout_s: float
+    ) -> subprocess.CompletedProcess[bytes]:
         try:
-            proc = subprocess.run(
-                self.argv(args), input=stdin, capture_output=True, timeout=timeout_s, check=False
-            )
+            with self.slots:
+                return subprocess.run(
+                    self.argv(args),
+                    input=stdin,
+                    capture_output=True,
+                    timeout=timeout_s,
+                    check=False,
+                )
         except subprocess.TimeoutExpired as exc:
             raise ExecutionError(
                 "infra", f"{self.config.name}: no answer over ssh in {timeout_s}s"
             ) from exc
+
+    def call(self, args: list[str], stdin: bytes, timeout_s: float) -> bytes:
+        proc = self._once(args, stdin, timeout_s)
+        detail = proc.stderr.decode("utf-8", "replace").strip()[-500:]
+        for attempt in range(CONNECT_RETRIES):
+            # Retry only when the connection was never established: the command did not run.
+            if proc.returncode != SSH_EXIT_FAILED or not any(m in detail for m in NOT_CONNECTED):
+                break
+            time.sleep(0.5 * (attempt + 1))  # kta:allowed backoff before reconnecting
+            proc = self._once(args, stdin, timeout_s)
+            detail = proc.stderr.decode("utf-8", "replace").strip()[-500:]
         if proc.returncode == EXIT_NOT_DEPLOYED:
             raise ExecutionError("infra", proc.stderr.decode("utf-8", "replace").strip())
         if proc.returncode == SSH_EXIT_FAILED:
-            detail = proc.stderr.decode("utf-8", "replace").strip()[-500:]
             raise ExecutionError("infra", f"{self.config.name}: ssh failed: {detail}")
         return check_reply(self.config.name, proc)
