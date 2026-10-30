@@ -76,17 +76,20 @@ def check_delivery_sections(root: Path, wp: str) -> CheckResult:
 
 
 def check_fixture_declarations(root: Path, wp: str) -> CheckResult:
+    """Every marker is declared in the delivery note of some WP (the one that added it).
+
+    Markers inherited through a merge stay covered by their own WP's note, so later WPs
+    do not have to re-declare them; a marker no note declares fails.
+    """
     markers = fixture_markers(root)
     if not markers:
         return CheckResult("fixture declarations", "PASS", "no # kta:fixture markers")
-    path = delivery_path(root, wp)
-    declared = (
-        split_sections(path.read_text(encoding="utf-8")).get("fixtures", "")
-        if path.exists()
-        else ""
+    notes = sorted((root / "deliveries").glob("*.md"))
+    declared = "\n".join(
+        split_sections(n.read_text(encoding="utf-8")).get("fixtures", "") for n in notes
     )
     findings = [
-        f"{f}:{n} not listed in 'Fixtures and simplifications'"
+        f"{f}:{n} not listed in any delivery note's 'Fixtures and simplifications'"
         for f, n in markers
         if f not in declared
     ]
