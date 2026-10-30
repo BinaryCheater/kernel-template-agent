@@ -38,6 +38,7 @@ class WorkerSpec:
     pools: dict[str, int] = field(default_factory=lambda: {"cpu": 1})
     image: str | None = None
     cuda_home: str = "/usr/local/cuda"
+    nvidia_smi: str = "nvidia-smi"  # GPU query and post-timeout health check
 
     @property
     def offers_gpu(self) -> bool:
@@ -64,8 +65,8 @@ def _run(argv: list[str]) -> str | None:
     return proc.stdout.strip() if proc.returncode == 0 else None
 
 
-def gpus() -> list[dict[str, str]]:
-    out = _run(["nvidia-smi", "--query-gpu=index,name,compute_cap", "--format=csv,noheader"])
+def gpus(nvidia_smi: str = "nvidia-smi") -> list[dict[str, str]]:
+    out = _run([nvidia_smi, "--query-gpu=index,name,compute_cap", "--format=csv,noheader"])
     found: list[dict[str, str]] = []
     for line in (out or "").splitlines():
         parts = [p.strip() for p in line.split(",")]
@@ -103,7 +104,7 @@ def probe(spec: WorkerSpec) -> dict[str, Any]:
         if manifest.cuda:
             labels["cuda"] = ".".join(manifest.cuda.split(".")[:2])
     if spec.offers_gpu:
-        found = gpus()
+        found = gpus(spec.nvidia_smi)
         devices = [g["index"] for g in found]
         if found:
             labels["gpu"] = found[0]["sm"]

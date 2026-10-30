@@ -85,9 +85,9 @@ def _limit_memory(mem_limit_mb: int) -> None:
     resource.setrlimit(resource.RLIMIT_AS, (limit, limit))
 
 
-def gpu_healthy(device: str | None) -> bool:
+def gpu_healthy(device: str | None, nvidia_smi: str = "nvidia-smi") -> bool:
     """Whether the GPU answers a query within HEALTH_TIMEOUT_S (decision D191)."""
-    smi = shutil.which("nvidia-smi")
+    smi = shutil.which(nvidia_smi)
     if smi is None:
         return False
     argv = [smi, "--query-gpu=index,utilization.gpu", "--format=csv,noheader"]
@@ -199,7 +199,7 @@ def run_job(
         wall_s = time.monotonic() - start
         stderr_tail = stderr_path.read_bytes()[-4096:]
         kind = _classify(proc.returncode, timed_out, stderr_tail)
-        if kind in ("timeout", "oom") and job.uses_gpu and not gpu_healthy(device):
+        if kind in ("timeout", "oom") and job.uses_gpu and not gpu_healthy(device, spec.nvidia_smi):
             kind = "gpu_hang"
         outputs = {
             str(p.relative_to(job_dir / "out")): cache.add(p)
@@ -222,15 +222,21 @@ def run_job(
 
 
 def _emit(data: Any) -> None:
-    sys.stdout.write(json.dumps(data, sort_keys=True) + "\n")
+    """A reply on stdout: the worker protocol's channel to the control plane."""
+    sys.stdout.write(json.dumps(data, sort_keys=True) + "\n")  # kta:allowed protocol reply
     sys.stdout.flush()
+
+
+def _fail(message: str, code: int) -> int:
+    """An error on stderr; the transport maps the exit code to an error type."""
+    sys.stderr.write(message + "\n")  # kta:allowed protocol error channel
+    return code
 
 
 def main(argv: list[str] | None = None) -> int:
     args = sys.argv[1:] if argv is None else argv
     if not args:
-        sys.stderr.write("usage: python -m kta.execution.worker info|has|put|get|run|serve\n")
-        return 2
+        return _fail("usage: python -m kta.execution.worker info|has|put|get|run|serve", 2)
     cmd, rest = args[0], args[1:]
     try:
         if cmd == "serve":
@@ -254,14 +260,11 @@ def main(argv: list[str] | None = None) -> int:
             spec = WorkerSpec.from_dict(req["spec"])
             _emit(run_job(job, req["job_id"], spec, req.get("device"), dirs))
         else:
-            sys.stderr.write(f"unknown worker command {cmd!r}\n")
-            return 2
+            return _fail(f"unknown worker command {cmd!r}", 2)
     except NotSupported as exc:
-        sys.stderr.write(f"not supported: {exc}\n")
-        return 3
+        return _fail(f"not supported: {exc}", 3)
     except KtaError as exc:
-        sys.stderr.write(f"worker error: {exc}\n")
-        return 4
+        return _fail(f"worker error: {exc}", 4)
     return 0
 
 

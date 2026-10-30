@@ -19,6 +19,7 @@ from kta.execution.transport.local import WORKER_MODULE, check_reply
 
 EXIT_NOT_DEPLOYED = 97
 SSH_EXIT_FAILED = 255
+MAX_SOCKET_DIR = 60
 
 
 def remote_path(path: str) -> str:
@@ -65,17 +66,14 @@ class SshTransport:
         )
 
     def argv(self, args: list[str]) -> list[str]:
-        self.sockets.mkdir(mode=0o700, parents=True, exist_ok=True)
-        return [
-            "ssh",
-            "-o", "BatchMode=yes",
-            "-o", "ConnectTimeout=15",
-            "-o", "ControlMaster=auto",
-            "-o", f"ControlPath={self.sockets}/%C",
-            "-o", "ControlPersist=120",
-            self.config.ssh or "",
-            self.script(args),
-        ]  # fmt: skip
+        opts = ["-o", "BatchMode=yes", "-o", "ConnectTimeout=15"]
+        # Unix socket paths are limited to ~104 bytes and %C expands to 40 characters;
+        # with a longer directory (pytest temp dirs) each call opens its own connection.
+        if len(str(self.sockets)) <= MAX_SOCKET_DIR:
+            self.sockets.mkdir(mode=0o700, parents=True, exist_ok=True)
+            opts += ["-o", "ControlMaster=auto", "-o", f"ControlPath={self.sockets}/%C"]
+            opts += ["-o", "ControlPersist=120"]
+        return ["ssh", *opts, self.config.ssh or "", self.script(args)]
 
     def call(self, args: list[str], stdin: bytes, timeout_s: float) -> bytes:
         try:

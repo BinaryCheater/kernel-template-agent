@@ -22,7 +22,7 @@ from kta.core.context import Clock
 from kta.core.errors import ExecutionError
 from kta.core.jobs import Job, JobKind, JobResult, JobRunner
 from kta.core.schemas import Actor, Record
-from kta.core.schemas.evaluation import Check
+from kta.core.schemas.evaluation import Build, Check
 from kta.core.schemas.hardware import Target
 from kta.core.schemas.process import Report
 from kta.store.base import Ops, Store
@@ -30,6 +30,7 @@ from kta.store.base import Ops, Store
 log = logging.getLogger("kta.backends.smoke")
 CHECKER = Actor(type="checker", name="kta smoke vector-add@1")
 REPORTER = Actor(type="tool", name="kta backend selftest")
+BUILDER = Actor(type="tool", name="kta backend selftest")
 N = 1 << 20
 BLOCK = 256
 
@@ -53,6 +54,7 @@ def vadd(A: T.Tensor((N,), "float32"), B: T.Tensor((N,), "float32"), C: T.Tensor
         for i in T.Parallel(BLOCK):
             C[bx * BLOCK + i] = A[bx * BLOCK + i] + B[bx * BLOCK + i]
 """
+C_SOURCE = "int kta_add(int a, int b) { return a + b; }\n"
 CUDA_SPIN = """\
 extern "C" __global__ void spin(int* flag) {
   // Never true: the buffer is zeroed. The volatile read keeps the loop alive.
@@ -300,6 +302,26 @@ class Smoke:
             spin,
             refs_extra,
         )
+
+    def cpu_compile(self, requires: dict[str, str]) -> str:
+        """A C compile job on a CPU worker chosen by labels; returns the Build record ID."""
+        source = self.ex.put_blob(C_SOURCE.encode(), "text/x-c")
+        job = Job(
+            kind="compile",
+            argv=["sh", "-c", "cc -O2 -c hello.c -o out/hello.o && cc --version | head -1"],
+            requires=requires,
+            inputs={"hello.c": source},
+        )
+        result = self.ex.run(job)
+        log_text = self.ex.read_blob(result.stdout_blob).decode("utf-8", "replace")
+        obj = result.outputs.get("hello.o")
+        body = Build(ok=result.ok and obj is not None, log_summary=log_text[-1500:])
+        blobs = {"src/hello.c": source, "log": result.stderr_blob, "stdout": result.stdout_blob}
+        if obj is not None:
+            blobs["module"] = obj
+        refs: dict[str, str | list[str]] = {"env": result.env_manifest, "worker": result.worker}
+        rec = Record.new("Build", body, BUILDER, self.clock.now(), refs=refs, blobs=blobs)
+        return self.store.put(rec)
 
     def _report(
         self,

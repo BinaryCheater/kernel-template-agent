@@ -58,10 +58,11 @@ class WorkerConfig:
     cuda_home: str = "/usr/local/cuda"
     image: str | None = None
     pools: dict[str, int] = field(default_factory=lambda: {"cpu": 1})
+    nvidia_smi: str = "nvidia-smi"
 
     @property
     def spec(self) -> WorkerSpec:
-        return WorkerSpec(self.name, dict(self.pools), self.image, self.cuda_home)
+        return WorkerSpec(self.name, dict(self.pools), self.image, self.cuda_home, self.nvidia_smi)
 
     @classmethod
     def from_mapping(cls, name: str, data: dict[str, Any]) -> WorkerConfig:

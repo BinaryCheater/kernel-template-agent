@@ -142,6 +142,11 @@ def cmd_selftest(args: argparse.Namespace, make_ctx: ContextFactory) -> int:
     with command(make_ctx, "backend-selftest", f"kta backend selftest {args.test}") as ctx:
         smoke, ex, _ = _smoke(ctx)
         cuda = resolve("backend.cuda", ctx)
+        if args.test == "cpu-compile":
+            build_id = smoke.cpu_compile({"arch": args.arch})
+            rec = resolve("store", ctx).get(build_id)
+            _out(args, {"build": build_id, **rec.body}, f"build {build_id} ok={rec.body['ok']}")
+            return 0 if rec.body["ok"] else 1
         if args.test == "lease":
             gpu = [w.name for w in ex.workers if w.reg.worker.labels.get("gpu") == smoke.target.sm]
             if not gpu:
@@ -186,7 +191,8 @@ def add_exec_commands(
     s.add_argument("--json", action="store_true")
     s.set_defaults(func=lambda a: cmd_smoke(a, make_ctx))
     t = bc.add_parser("selftest", help="executor behaviour on the GPU worker")
-    t.add_argument("test", choices=["lease", "timeout"])
+    t.add_argument("test", choices=["lease", "timeout", "cpu-compile"])
+    t.add_argument("--arch", default="x86_64", help="cpu-compile: worker arch label to require")
     t.add_argument("--seed", type=int, default=2)
     t.add_argument("--timeout", type=int, default=10)
     t.add_argument("--json", action="store_true")
