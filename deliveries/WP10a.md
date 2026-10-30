@@ -165,9 +165,8 @@ writing, not exhaustively.
 
 ## Known issues
 
-- Decision IDs D100–D106 are placeholders: on `integration` D77–D96 and D120–D139 are taken; the
-  range for WP10a has been asked from the coordinator.
-- `wp/WP10a` has not yet merged `integration`; the gate output below is pending that merge.
+- The gate's "reference schemas" check is a WARN: YAML is parsed only until WP1 provides
+  `kta.core.schemas`; the coordinator will ask for a re-merge and rerun after WP1.
 - Upstream sources are shallow clones in a session scratch directory; `source.yaml` has the URL
   and commit to re-fetch them.
 - Line citations were verified to be in range, not semantically re-read one by one.
@@ -204,5 +203,30 @@ writing, not exhaustively.
 
 ## Gate output
 
-Pending: `scripts/gate WP10a` will be run after `integration` (with WP0's gate) is merged into
-`wp/WP10a`, and its output pasted here verbatim.
+`KTA_DATA=~/kta-data scripts/gate WP10a` on `wp/WP10a` after merging `integration` @ 8819762:
+
+```
+gate WP10a: PASSED (21 pass, 1 warn, 0 fail)
+  PASS ruff format
+  PASS ruff check
+  PASS import layers
+  PASS residue
+  PASS test doubles
+  PASS error handling
+  PASS print
+  PASS subprocess outside Executor
+  PASS secrets
+  PASS acceptance lock — 1 locked files unchanged
+  PASS pyright
+  PASS unit tests — 41 passed
+  PASS contract tests — 2 passed
+  PASS fake coverage — 1 fake(s) covered
+  PASS registry (kta doctor, dev)
+  PASS delivery note
+  PASS fixture declarations — no # kta:fixture markers
+  PASS decision log — 105 decisions
+  PASS skipped tests — none
+  PASS evidence — 8 claim(s)
+  PASS references — 7 references
+  WARN reference schemas — kta.core.schemas not available yet; YAML parsed only
+```
