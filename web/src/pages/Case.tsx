@@ -1,11 +1,12 @@
 import { useMemo } from "react";
 import { Link, useNavigate, useParams } from "react-router";
-import { api, nowMs } from "../data/source";
+import { api } from "../data/source";
 import type { CaseDetail, Machines } from "../data/types";
 import { useApi } from "../data/useApi";
+import { useNow } from "../data/live";
 import { AXIS, EChart, TOOLTIP, echarts, type EOption } from "../components/EChart";
 import { Chip, Loading, Panel, RecordLink, Stat } from "../components/ui";
-import { dur, hhmm, pct, stateTone, us } from "../components/format";
+import { dur, fix1, hhmm, pct, stateTone, us } from "../components/format";
 
 const TONE_COLOR: Record<string, string> = { running: "#2a78d6", waiting: "#fab219", ok: "#0ca30c", fail: "#d03b3b", human: "#6250d6", idle: "#898781" };
 
@@ -24,7 +25,7 @@ export function CaseList() {
             <td><Link to={`/cases/${c.id}`}><b>{c.name}</b></Link></td>
             <td className="mono small">{c.problem}</td>
             <td><Chip tone={stateTone(solve, c.state)}>{c.state}</Chip></td>
-            <td className="num">{c.round}/5</td>
+            <td className="num">{c.round || "—"}/5</td>
             <td className="r num">{us(c.bound_us)}</td>
             <td className="r num">{us(c.best_us)}</td>
             <td><div className="row"><div className="bar" style={{ flex: 1 }}><span className="used" style={{ width: `${(c.pct_of_bound ?? 0) * 100}%` }} /></div>
@@ -61,12 +62,12 @@ function CaseBody({ c, m }: { c: CaseDetail; m: Machines }) {
         </div>
       </div>
       <div className="stats">
-        <Stat label="Lower bound" value={c.bound_us.toFixed(1)} unit="µs" record={c.bound_record} foot="theoretical, from the hardware model" />
-        <Stat label={`Strongest reference · ${strongest.name}`} value={strongest.us.toFixed(1)} unit="µs" record={strongest.record}
+        <Stat label="Lower bound" value={fix1(c.bound_us)} unit="µs" record={c.bound_record} foot="theoretical, from the hardware model" />
+        <Stat label={strongest ? `Strongest reference · ${strongest.name}` : "Strongest reference"} value={fix1(strongest?.us)} unit={strongest ? "µs" : undefined} record={strongest?.record}
           foot={c.references.length > 1 ? `${c.references.length} references measured` : "measured under measure-v1"} />
-        <Stat label="Best result" value={c.best ? c.best.us.toFixed(1) : "—"} unit={c.best ? "µs" : undefined} record={c.best?.record}
+        <Stat label="Best result" value={fix1(c.best?.us)} unit={c.best ? "µs" : undefined} record={c.best?.record}
           foot={c.best ? <Link to={`/results/${c.best.solution}`}>why this holds →</Link> : "no measured result yet"} />
-        <Stat label="% of bound" value={pct(c.pct_of_bound)} foot={c.best ? `${(strongest.us / c.best.us).toFixed(2)}× vs strongest reference` : "—"} />
+        <Stat label="% of bound" value={pct(c.pct_of_bound)} foot={c.best?.us && strongest ? `${(strongest.us / c.best.us).toFixed(2)}× vs strongest reference` : "—"} />
       </div>
 
       <Panel primary title="Iteration timeline" sub="each row is one round of the solve loop; segments are states, ◆ tasks created, ✕ rejections; the judging outcome closes the round">
@@ -76,7 +77,7 @@ function CaseBody({ c, m }: { c: CaseDetail; m: Machines }) {
             <div key={r.n} className="round-note">
               <b>Round {r.n}</b>
               {r.outcome ? <span> — {r.outcome.rule ? `rule ${r.outcome.rule}: ` : ""}<RecordLink id={r.outcome.record} label={r.outcome.label} /></span>
-                : <span className="muted"> — in progress ({r.steps[r.steps.length - 1].state}{r.steps[r.steps.length - 1].note ? `: ${r.steps[r.steps.length - 1].note}` : ""})</span>}
+                : <span className="muted"> — {r.n < c.rounds.length ? "left the round in" : "in progress:"} {r.steps[r.steps.length - 1].state}{r.steps[r.steps.length - 1].note ? ` (${r.steps[r.steps.length - 1].note})` : ""}</span>}
             </div>
           ))}
         </div>
@@ -95,7 +96,7 @@ function CaseBody({ c, m }: { c: CaseDetail; m: Machines }) {
                 <td className="mono small"><RecordLink id={x.record} label={Object.entries(x.assignment).map(([k, v]) => `${k}=${v}`).join(" ")} /></td>
                 <td className="r num">{us(x.predicted_us)}</td>
                 <td className="r num">{x.measured_us ? us(x.measured_us) : <span className="muted">pending</span>}</td>
-                <td>{x.check_passed === undefined ? <span className="muted small">—</span> : <Chip tone={x.check_passed ? "ok" : "fail"}>{x.check_passed ? "passed" : "failed"}</Chip>}</td>
+                <td>{x.check_passed == null ? <span className="muted small">—</span> : <Chip tone={x.check_passed ? "ok" : "fail"}>{x.check_passed ? "passed" : "failed"}</Chip>}</td>
               </tr>
             ))}</tbody>
           </table>
@@ -117,7 +118,7 @@ function CaseBody({ c, m }: { c: CaseDetail; m: Machines }) {
           )}
         </Panel>
         <Panel title="Gaps raised" sub="what the pool could not explain">
-          {c.gaps.length === 0 ? <div className="empty">No gap recorded for this case.</div> : c.gaps.map((g) => <div key={g}><RecordLink id={g} label="Gap: global-load latency exposed in the K loop (missing Template, level 3)" /></div>)}
+          {c.gaps.length === 0 ? <div className="empty">No gap recorded for this case.</div> : c.gaps.map((g) => <div key={g.id}><RecordLink id={g.id} label={`Gap: ${g.description}`} /></div>)}
           <details><summary>All references</summary>
             <table className="t"><tbody>{c.references.map((r) => <tr key={r.name}><td>{r.name}</td><td className="r num"><RecordLink id={r.record} label={us(r.us)} /></td></tr>)}</tbody></table>
           </details>
@@ -129,7 +130,7 @@ function CaseBody({ c, m }: { c: CaseDetail; m: Machines }) {
 
 function Timeline({ c, m }: { c: CaseDetail; m: Machines }) {
   const solve = m.machines.find((x) => x.id === "solve");
-  const now = nowMs();
+  const now = useNow();
   const option = useMemo<EOption>(() => {
     const segs = c.rounds.flatMap((r, ri) => r.steps.filter((s) => s.state !== "accepted").map((s) => ({
       value: [ri, Date.parse(s.start), s.end ? Date.parse(s.end) : now], s, tone: stateTone(solve, s.state),

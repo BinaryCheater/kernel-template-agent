@@ -73,3 +73,10 @@ Decisions made without the user that need review. Newest last. Each entry: quest
 - **Choice:** see web/DESIGN.md: Overview = solve loop (full width) → Now band (agent slots, GPU lease, pools, workers, budget, inbox) → expand loop → task lifecycle → pipeline strip; other pages each have one primary visual (resource board, swimlanes, iteration timeline, evidence chain, chain DAG, discovery curve).
 - **Rationale:** the solve loop needs the full width to stay legible (9 layers); the Now band answers "what is happening" right under it.
 - **Cost of changing later:** low; layout lives in page components only.
+
+## D169 — Record conventions the API reads
+
+- **Question:** the pages (case timeline, evidence chain, running jobs, GPU lease, coverage) must be derived from records and ops tables, but the schemas do not say which refs, Report titles, span attrs or loop data keys connect them.
+- **Choice:** the table in spec/modules/api-web.md "Record conventions" (e.g. Solution refs case/family/measurement/check/bound; judgement Report with data.units and explained_share; loop_step spans per state; job spans with job_id/pool/worker; lock `gpu:<worker>:<device>`; Worker label `pools`).
+- **Rationale:** without one written convention each producer would invent its own and the frontend could not show their work; the fixture world (D168) exercises every convention.
+- **Cost of changing later:** low until WP2/WP6/WP7 write records; afterwards a migration of the views (records are immutable).

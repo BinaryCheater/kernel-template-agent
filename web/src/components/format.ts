@@ -22,8 +22,9 @@ export function hhmm(iso: string, seconds = false): string {
 }
 
 export const shortId = (id: string) => (id.length > 26 ? id.slice(0, 10) : id.slice(-8));
-export const us = (v: number | undefined) => (v === undefined ? "—" : `${v < 10 ? v.toFixed(1) : v.toFixed(1)} µs`);
-export const pct = (v: number | undefined, digits = 0) => (v === undefined ? "—" : `${(v * 100).toFixed(digits)}%`);
+export const us = (v: number | null | undefined) => (v == null ? "—" : `${v.toFixed(1)} µs`);
+export const pct = (v: number | null | undefined, digits = 0) => (v == null ? "—" : `${(v * 100).toFixed(digits)}%`);
+export const fix1 = (v: number | null | undefined) => (v == null ? "—" : v.toFixed(1));
 
 const WORD_TONE: Record<string, Tone> = {
   running: "running", leased: "running", submitted: "running", checking: "running",
@@ -43,6 +44,6 @@ export function stateTone(m: MachineDef | undefined, state: string): Tone {
   return "running";
 }
 
-export const wordTone = (w: string | undefined): Tone => (w ? WORD_TONE[w] ?? "idle" : "idle");
+export const wordTone = (w: string | null | undefined): Tone => (w ? WORD_TONE[w] ?? "idle" : "idle");
 
 export const LEVEL_NAMES = ["computation graph", "operator transform", "tensor execution mapping", "instruction schedule", "system architecture", "microarchitecture"];

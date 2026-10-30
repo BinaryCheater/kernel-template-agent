@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Serve the KTA API on the control host ([api] host/port in config/kta.toml).
+# Needs KTA_ENV (and KTA_WP in dev) and KTA_DATA, like every kta process.
+set -euo pipefail
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$root"
+exec uv run --frozen --quiet python -m kta.api "$@"

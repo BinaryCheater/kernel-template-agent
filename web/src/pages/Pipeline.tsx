@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router";
-import { USING_SAMPLE, api, nowMs } from "../data/source";
+import { api } from "../data/source";
+import { useNow } from "../data/live";
 import type { Span, TraceInfo } from "../data/types";
 import { useApi } from "../data/useApi";
 import { Loading, Panel } from "../components/ui";
@@ -11,9 +12,13 @@ const WINDOWS = [{ label: "15 min", min: 15 }, { label: "1 h", min: 60 }, { labe
 const LANE_GROUPS = ["process", "agent", "worker", "gpu", "human"];
 
 export function Pipeline() {
-  const tr = useApi(api.trace, []);
+  const now = useNow();
+  const [win, setWin] = useState(60);
+  // Fetch the window rounded to the minute so the live tick does not refetch every 5 s.
+  const minute = Math.floor(now / 60_000);
+  const tr = useApi(() => api.trace(now - win * 60_000, now), [win, minute]);
   if (!tr.data) return <Loading error={tr.error} />;
-  return <PipelineBody spans={tr.data.spans} traces={tr.data.traces} />;
+  return <PipelineBody spans={tr.data.spans} traces={tr.data.traces} now={now} win={win} setWin={setWin} />;
 }
 
 /** Busy seconds of a lane in [from, to): union of non-waiting spans. */
@@ -30,9 +35,7 @@ function busy(spans: Span[], from: number, to: number, now: number): number {
   return total / 1000;
 }
 
-function PipelineBody({ spans, traces }: { spans: Span[]; traces: TraceInfo[] }) {
-  const now = nowMs();
-  const [win, setWin] = useState(60);
+function PipelineBody({ spans, traces, now, win, setWin }: { spans: Span[]; traces: TraceInfo[]; now: number; win: number; setWin: (m: number) => void }) {
   const [trace, setTrace] = useState("");
   const [groups, setGroups] = useState<Set<string>>(new Set(LANE_GROUPS));
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -84,7 +87,7 @@ function PipelineBody({ spans, traces }: { spans: Span[]; traces: TraceInfo[] })
       </div>
 
       <Panel primary title="Swimlanes" sub="time → ; one row per lane (overlapping work stacks into extra rows). Click an agent session to expand its thinking and tool calls."
-        right={<span className="muted">{USING_SAMPLE ? "follow-now is live once SSE is connected" : "following now"}</span>}>
+        right={<span className="muted">window follows now (live)</span>}>
         <div className="filters">
           <label>Window
             <select value={win} onChange={(e) => setWin(Number(e.target.value))}>{WINDOWS.map((w) => <option key={w.min} value={w.min}>{w.label}</option>)}</select>

@@ -1,10 +1,13 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { NavLink, matchPath, useLocation } from "react-router";
-import { USING_SAMPLE, api, nowMs } from "../data/source";
+import { api } from "../data/source";
+import { useLive } from "../data/live";
 import type { Snapshot } from "../data/types";
 import { useApi } from "../data/useApi";
 import { hhmm } from "./format";
 import { RecordDrawer } from "./RecordDrawer";
+
+const STATIC = new URLSearchParams(window.location.search).has("static");
 
 export interface PageMeta {
   path: string;
@@ -32,6 +35,10 @@ export function Shell({ pages, children }: { pages: PageMeta[]; children: ReactN
   const meta = pages.find((p) => matchPath({ path: p.path, end: true }, loc.pathname)) ?? pages[0];
   const snaps = useApi(api.snapshots, []);
   const active = useApi(api.active, []);
+  const metaApi = useApi(api.meta, []);
+  const live = useLive();
+  const origins = metaApi.data?.origins ?? {};
+  const synthetic = (origins.fixture ?? 0) + (origins.simulated ?? 0);
   const [snapshot, setSnapshot] = useState("");
   useEffect(() => {
     if (!snapshot && snaps.data?.length) setSnapshot(snaps.data[snaps.data.length - 1].id);
@@ -60,10 +67,13 @@ export function Shell({ pages, children }: { pages: PageMeta[]; children: ReactN
           <div className="foot">Read-only view (WP9a). Actions arrive in WP9b.</div>
         </nav>
         <div className="main">
-          {USING_SAMPLE && (
+          {metaApi.error && (
+            <div className="sample-banner down" role="alert"><b>API UNREACHABLE</b><span>{metaApi.error}. Start it with <span className="mono">KTA_ENV=dev KTA_WP=WP9a uv run python -m kta.api</span>.</span></div>
+          )}
+          {synthetic > 0 && (
             <div className="sample-banner" role="note">
-              <b>SAMPLE DATA</b>
-              <span>Everything on this page comes from a hand-written sample in <span className="mono">web/src/sample/</span> (origin = fixture). No real runs are shown until the store and API are connected (D95).</span>
+              <b>FIXTURE DATA</b>
+              <span>This store ({metaApi.data?.env}) holds {synthetic} synthetic records (origin fixture/simulated, written by <span className="mono">scripts/seed-dev</span>) and {origins.real ?? 0} real ones. Synthetic records are never evidence.</span>
             </div>
           )}
           <header className="topbar">
@@ -78,9 +88,10 @@ export function Shell({ pages, children }: { pages: PageMeta[]; children: ReactN
                 {(snaps.data ?? []).map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
               </select>
             </label>
-            <span className="asof" title="Time of the data shown">
-              <span className="chip idle"><span className="dot" />{USING_SAMPLE ? "static sample" : "live"}</span>
-              as of {hhmm(new Date(nowMs()).toISOString(), true)} UTC
+            <span className="asof" title={live.lastEvent ? `last event ${hhmm(new Date(live.lastEvent).toISOString(), true)} UTC` : "no event yet"}>
+              {STATIC ? <span className="chip idle"><span className="dot" />static view</span>
+                : <span className={`chip ${live.connected ? "ok" : "fail"}`}><span className="dot" />{live.connected ? "live" : "disconnected"}</span>}
+              {hhmm(new Date(live.now).toISOString())} UTC
             </span>
           </header>
           <div className="content">{children}</div>

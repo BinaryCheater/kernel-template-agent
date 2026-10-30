@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router";
-import { api, nowMs } from "../data/source";
+import { api } from "../data/source";
 import type { ActiveRuns, MachineDef, Machines } from "../data/types";
 import { useApi } from "../data/useApi";
+import { useNow } from "../data/live";
 import { Branches, DiagramLegend, StateMachine } from "../components/StateMachine";
 import { Chip, Loading, Panel, RecordLink, UsageBar } from "../components/ui";
 import { dur, hhmm, since } from "../components/format";
@@ -102,7 +103,7 @@ function MachinePanel(p: {
 }
 
 function Instances({ def, state, a, close }: { def: MachineDef; state: string; a: ActiveRuns; close: () => void }) {
-  const now = nowMs();
+  const now = useNow();
   const nav = useNavigate();
   const doc = def.states.find((s) => s.id === state);
   const loops = def.id === "task" ? [] : a.loops.filter((l) => l.machine === def.id && l.state === state);
@@ -145,8 +146,8 @@ function Instances({ def, state, a, close }: { def: MachineDef; state: string; a
 }
 
 function NowPanel({ a }: { a: ActiveRuns }) {
-  const now = nowMs();
-  const loopName = (id: string) => a.loops.find((l) => l.id === id)?.subject_name ?? "";
+  const now = useNow();
+  const loopName = (id: string | null | undefined) => a.loops.find((l) => l.id === id)?.subject_name ?? "";
   const pools = a.workers.flatMap((w) => w.pools.map((p) => ({ ...p, worker: w.name })));
   const lease = a.leases[0];
   const holder = lease && a.jobs.find((j) => j.id === lease.holder_job);
@@ -174,8 +175,8 @@ function NowPanel({ a }: { a: ActiveRuns }) {
           {lease ? (
             <div className="slot busy">
               <div className="row"><span className="mono small">{lease.gpu}</span><span className="small ellipsis">{holder?.name}</span>
-                <span className="num small" style={{ marginLeft: "auto" }}>{dur(since(lease.since, now))}</span></div>
-              <UsageBar used={since(lease.since, now)} limit={lease.max_s} />
+                <span className="num small" style={{ marginLeft: "auto" }}>{lease.since ? dur(since(lease.since, now)) : "—"}</span></div>
+              <UsageBar used={lease.since ? since(lease.since, now) : 0} limit={lease.max_s} />
               <div className="small muted">max hold {dur(lease.max_s)}; shared GPU jobs pause while held</div>
             </div>
           ) : <div className="slot free small muted">free</div>}
@@ -221,9 +222,9 @@ function NowPanel({ a }: { a: ActiveRuns }) {
 }
 
 function PipelineStrip() {
-  const tr = useApi(api.trace, []);
   const nav = useNavigate();
-  const now = nowMs();
+  const now = useNow();
+  const tr = useApi(() => api.trace(now - 45 * 60_000, now), [Math.floor(now / 60_000)]);
   if (!tr.data) return <Loading error={tr.error} />;
   return (
     <Panel title="Recent pipeline" sub="last 45 minutes, one row per lane — what ran in parallel" right={<Link to="/pipeline">Open pipeline →</Link>}>

@@ -1,20 +1,13 @@
-import { defineConfig, type Plugin } from "vite";
+import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
-import { parse } from "yaml";
 
-// Phase A only: the orchestrator's machines.yaml (D96) is compiled to JSON at build time.
-// Phase B serves the same file through GET /machines and this plugin goes away.
-function yamlAsJson(): Plugin {
-  return {
-    name: "kta-yaml-as-json",
-    transform(code, id) {
-      if (!id.endsWith(".yaml")) return null;
-      return { code: `export default ${JSON.stringify(parse(code))};`, map: null };
-    },
-  };
-}
+// The KTA API listens on the control host ([api] in config/kta.toml); the dev server proxies
+// /api to it so the browser talks to one origin.
+const API = process.env.KTA_API ?? "http://127.0.0.1:7310";
 
 export default defineConfig({
-  plugins: [react(), yamlAsJson()],
-  server: { fs: { allow: [".."] } },
+  plugins: [react()],
+  server: {
+    proxy: { "/api": { target: API, changeOrigin: false, rewrite: (p) => p.replace(/^\/api/, "") } },
+  },
 });

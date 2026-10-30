@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Seed $KTA_DATA/dev/<WP>/ with origin="fixture" records for frontend work (WP9a, D168).
+set -euo pipefail
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$root"
+export PYTHONPATH="$root/tools${PYTHONPATH:+:$PYTHONPATH}"
+export KTA_ENV="${KTA_ENV:-dev}"
+exec uv run --frozen --quiet python -m kta_devseed "$@"

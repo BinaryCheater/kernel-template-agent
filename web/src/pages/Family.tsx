@@ -87,12 +87,12 @@ function TemplateCard({ n }: { n: ChainNode }) {
   return (
     <Panel title={<span className="mono">{n.template}</span>} sub="Template card" right={<RecordLink id={n.template_record} />}>
       <div className="stack" style={{ gap: 10 }}>
-        <div className="row wrap"><AssuranceChip a={n.assurance} /><span className="tag">{n.change}</span>
-          <span className="small ink2">level {n.level_from} → {n.level_to}</span></div>
+        <div className="row wrap"><AssuranceChip a={n.assurance} />{n.change && <span className="tag">{n.change}</span>}
+          {n.change && <span className="small ink2">level {n.level_from} → {n.level_to}</span>}</div>
         <p style={{ margin: 0 }}>{n.summary}</p>
         <dl className="kv">
           <dt>refines</dt><dd>{n.applies_to}</dd>
-          <dt>levels</dt><dd className="small">{LEVEL_NAMES[n.level_from]} → {LEVEL_NAMES[n.level_to]}</dd>
+          <dt>levels</dt><dd className="small">{n.level_from == null ? "—" : `${LEVEL_NAMES[n.level_from]} → ${LEVEL_NAMES[n.level_to ?? n.level_from]}`}</dd>
           <dt>requires hw</dt><dd className="mono small">{n.requires_hw.length ? n.requires_hw.join(", ") : "—"}</dd>
           <dt>bindings</dt><dd className="mono small">{Object.keys(n.bindings).length ? Object.entries(n.bindings).map(([k, v]) => `${k} ← ${v}`).join(", ") : "—"}</dd>
         </dl>

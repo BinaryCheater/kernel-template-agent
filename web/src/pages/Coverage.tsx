@@ -11,6 +11,13 @@ export function Coverage() {
   const { snapshot, snapshots } = useSnapshot();
   const cov = useApi(() => (snapshot ? api.coverage(snapshot) : Promise.reject(new Error("no snapshot yet"))), [snapshot]);
   const m = useApi(api.machines, []);
+  if (cov.status === 501) {
+    return (
+      <Panel primary title="No coverage report for this snapshot" sub={snapshots.find((s) => s.id === snapshot)?.label}>
+        <div className="empty">{cov.error}. Coverage is computed by the expand loop (WP10b/WP11) and stored as a Report; pick another snapshot above.</div>
+      </Panel>
+    );
+  }
   if (!cov.data || !m.data) return <Loading error={snapshot ? cov.error ?? m.error : undefined} />;
   return <CoverageBody c={cov.data} m={m.data} label={snapshots.find((s) => s.id === snapshot)?.label ?? ""} />;
 }

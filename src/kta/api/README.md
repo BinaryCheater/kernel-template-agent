@@ -8,8 +8,10 @@ HTTP API (read and operation endpoints) for the web frontend; holds the single s
 
 ## Public interface
 
-- read endpoints (WP9a)
-- operation endpoints (WP9b)
+- read endpoints and SSE (WP9a): `read.py`, `events.py`; views in `runs.py`, `trace.py`, `cases.py`, `pool.py`
+- `app.py`: `create_app(api)`, `open_api(ctx)`; `python -m kta.api` serves it (`scripts/api`)
+- record conventions the views read: spec/modules/api-web.md "Record conventions" (D169)
+- operation and write endpoints (WP9b)
 
 ## Dependencies
 

@@ -1,8 +1,9 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router";
-import { api, nowMs } from "../data/source";
+import { api } from "../data/source";
 import type { ActiveRuns, BudgetNode, Job, Machines } from "../data/types";
 import { useApi } from "../data/useApi";
+import { useNow } from "../data/live";
 import { Chip, Loading, Panel, RecordLink, UsageBar } from "../components/ui";
 import { dur, hhmm, since, stateTone } from "../components/format";
 import { kindStyle } from "../components/Swimlanes";
@@ -15,8 +16,8 @@ export function Running() {
 }
 
 function RunningBody({ a, m }: { a: ActiveRuns; m: Machines }) {
-  const now = nowMs();
-  const loopName = (id?: string) => a.loops.find((l) => l.id === id)?.subject_name ?? "";
+  const now = useNow();
+  const loopName = (id?: string | null) => a.loops.find((l) => l.id === id)?.subject_name ?? "";
   const jobsOf = (pool: string, worker: string) => a.jobs.filter((j) => j.pool === pool && j.worker === worker);
   return (
     <div className="stack">
@@ -142,7 +143,7 @@ function BoardRow({ label, hint, children }: { label: string; hint: string; chil
   );
 }
 
-function JobCell({ j, now, lease, owner }: { j: Job; now: number; lease?: { since: string; max_s: number }; owner: string }) {
+function JobCell({ j, now, lease, owner }: { j: Job; now: number; lease?: { since: string | null; max_s: number }; owner: string }) {
   const st = kindStyle(j.kind);
   const run = j.started_at ? since(j.started_at, now) : 0;
   return (
@@ -151,7 +152,7 @@ function JobCell({ j, now, lease, owner }: { j: Job; now: number; lease?: { sinc
         <span className="small num" style={{ marginLeft: "auto" }}>{dur(run)}</span></div>
       <div className="cell-title ellipsis">{j.name}</div>
       <div className="small muted">{owner || "agent tool call"} · queued {dur(since(j.queued_at, now) - run)}</div>
-      {lease && <><UsageBar used={since(lease.since, now)} limit={lease.max_s} /><div className="small muted">exclusive lease, max {dur(lease.max_s)}</div></>}
+      {lease?.since && <><UsageBar used={since(lease.since, now)} limit={lease.max_s} /><div className="small muted">exclusive lease, max {dur(lease.max_s)}</div></>}
     </div>
   );
 }

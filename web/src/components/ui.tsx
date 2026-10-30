@@ -26,7 +26,7 @@ export function Chip({ tone, children, title }: { tone: Tone; children: ReactNod
   );
 }
 
-export const AssuranceChip = ({ a }: { a?: string }) => (a ? <span className="chip assur" title="Assurance level">{a}</span> : null);
+export const AssuranceChip = ({ a }: { a?: string | null }) => (a ? <span className="chip assur" title="Assurance level">{a}</span> : null);
 
 /** Hook to open the record drawer; the open record lives in `?rec=` so it is linkable. */
 export function useOpenRecord() {
@@ -39,7 +39,7 @@ export function useOpenRecord() {
 }
 
 /** A record id rendered as a link that opens the record drawer. */
-export function RecordLink({ id, label, title }: { id: string; label?: ReactNode; title?: string }) {
+export function RecordLink({ id, label, title }: { id: string | null | undefined; label?: ReactNode; title?: string }) {
   const open = useOpenRecord();
   if (!id) return <span className="muted">—</span>;
   return (
@@ -49,7 +49,7 @@ export function RecordLink({ id, label, title }: { id: string; label?: ReactNode
   );
 }
 
-export function Stat(props: { label: string; value: ReactNode; unit?: string; foot?: ReactNode; record?: string }) {
+export function Stat(props: { label: string; value: ReactNode; unit?: string; foot?: ReactNode; record?: string | null }) {
   const v = (
     <>
       {props.value}

@@ -193,13 +193,13 @@ Unknown kinds (the table is open) get gray and are listed as "other" in the lege
 
 ## 5. Data access
 
-- Phase A: `web/src/data/source.ts` defines one async function per API endpoint
-  (spec/modules/api-web.md). The only implementation is `sample.ts` over
-  `web/src/sample/` (`kta:fixture`, D95). State machines are read from
-  `src/kta/orchestrator/machines.yaml` at build time.
-- Phase B: the same functions call the real API (`/runs/active`, `/trace`, `/cases/{id}/timeline`,
-  `/lineage/{id}`, `/families/{id}/chain`, `/coverage`, `/records/{id}`, `/machines`, SSE
-  `/events`) and the sample path is deleted.
+- `web/src/data/source.ts` has one async function per API endpoint; the Vite dev server proxies
+  `/api` to the KTA API (`scripts/api`, D173). Pages never hold data of their own.
+- Live updates: `web/src/data/live.tsx` listens to SSE `/api/events`; every event bumps a data
+  version (throttled to 2 s) and all `useApi` calls re-fetch, keeping the old data on screen.
+- Provenance: `GET /meta` returns record counts by origin; any fixture/simulated records turn on
+  the FIXTURE DATA banner (D168). Missing evidence links are listed on the Result page.
+- Phase A's sample dataset (`web/src/sample/`) and build-time YAML plugin are deleted.
 
 ## 6. Open questions for the user
 

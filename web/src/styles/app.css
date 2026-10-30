@@ -210,3 +210,5 @@ table.hwgrid td.has.as-declared { background: #f3f2ee; color: var(--ink-2); outl
 table.hwgrid td.has.as-bounded { background: var(--st-ok-tint); color: #006300; }
 table.hwgrid td b { display: block; font-size: 14px; }
 table.hwgrid td span { font-size: 10px; }
+.sample-banner.down { background: var(--st-fail-tint); color: #9b1f1f; border-bottom-color: #eeb1b1; }
+.missing { background: var(--st-fail-tint); color: #9b1f1f; border-radius: var(--radius); padding: var(--s2) var(--s4); }
