@@ -13,7 +13,8 @@ import os
 import re
 import sqlite3
 import subprocess
-from collections.abc import Callable
+from collections.abc import Callable, Generator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, cast
 
@@ -586,6 +587,28 @@ SPECIFIC: dict[str, Callable[[Path, set[str]], list[CheckResult]]] = {
     "WP10a": wp10a,
     "WP13": wp13,
 }
+
+
+_STAGE: list[str] = ["full"]
+
+
+@contextmanager
+def stage(name: str) -> Generator[None]:
+    """Set the gate stage that WP-specific checks see (D320)."""
+    _STAGE.append(name)
+    try:
+        yield
+    finally:
+        _STAGE.pop()
+
+
+def code_stage() -> bool:
+    return _STAGE[-1] == "code"
+
+
+def pending_real(name: str, what: str) -> CheckResult:
+    """Use in place of a check that needs a real run or measurement, in the code stage only."""
+    return CheckResult(name, "WARN", f"pending real run (code stage): {what}")
 
 
 def run_specific(wp: str, root: Path, passed: set[str]) -> list[CheckResult]:
