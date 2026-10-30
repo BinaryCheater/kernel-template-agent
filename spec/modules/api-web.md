@@ -71,6 +71,11 @@ Additions made in WP9b (D340–D354):
 - A HumanAction written by the API has `action = "<verb>"` or `"<verb> <compact JSON>"`, the
   subject in refs and an actor `human` named by `[api] operator` (D342).
 - `POST /write/record` needs `Authorization: Bearer <task token>` (D352).
+- Wiring (D355–D358): cancel, retry and create-task go through WP6's `TaskQueue`, `/inbox` is
+  WP6's `kta.orchestrator.inbox.inbox`, approve-profile is WP8's `approve_profile`, batch verify
+  is `kta.agents.batches.verify`, task tokens are checked with `kta.agents.guard.verify_task_token`
+  and the key from `[agents] token_key_file` (never created by the API). Priority, pause, resume
+  and the re-verification of a flagged record still answer 501 until WP6 provides them.
 - Reads: `GET /tasks/{id}` (task detail), `GET /blobs/{sha256}` (text blobs), `GET /agents`
   (runtime skills, AgentProfile versions, `current_profile` history, batch environments),
   `POST /agents/batches/{batch}/verify` (delegated to WP8), `GET /pool?snapshot=`,
@@ -85,8 +90,8 @@ WP10b) must write them this way for the pages to show their work:
 | --- | --- |
 | Loop instance | `loops` row: `kind` = `solve`/`expand`, `subject` = Case/Reference ID; `data` keys `name`, `round`, `started_at`, `state_since`, `waiting_on` (task ID), `escalated` (bool) |
 | Loop state history | one `loop_step` span per state: `trace_id` = loop ID, lane `process:solve`/`process:learn`, attrs `state`, `round`, `note` |
-| Task | `tasks` row; `work_unit` = loop ID; `lease_owner` = agent slot (`agent:<n>`); the agent session is an `agent_session` span with attrs `task_id` (an open one means the task is running) |
-| Rejection | Check record with `actor.task` = task ID and `passed = false` |
+| Task | `tasks` row; `state` is the task lifecycle state of machines.yaml (D265, shown as stored, D357); `work_unit` = loop ID or `human:<id>`; `lease_owner` = agent slot (`agent:<n>`); the agent session is an `agent_session` span with attrs `task_id` |
+| Rejection | Report `title = "done_checks"` written in the task (`actor.task`), `data.passed = false`, `data.checks` (`name`, `passed`, `failures`) (D276, D357); the ops pointer `task:<id>` names the `last_rejection` |
 | Job | an open `job_queue` span (queued) or `compile`/`check`/`measure`/`profile`/`job_run` span (running) on lane `worker:<host>:<pool>` or `gpu:<worker>:<device>`; attrs `job_id`, `job_kind`, `pool`, `worker`, `task_id` |
 | GPU lease | lock `gpu:<worker>:<device>` held by the job ID; a `lock_hold` span with attrs `lock` |
 | Worker capacity | Worker record label `pools` = `"<pool>:<capacity>,..."`; health from the `workers` table |

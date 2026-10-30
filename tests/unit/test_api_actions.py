@@ -10,7 +10,7 @@ import pytest
 
 from apihelp import put, request, seeded_api
 from kta.agents.profile import write_profile
-from kta.api import opsread
+from kta.api import operate, opsread
 from kta.api.app import create_app
 from kta.api.common import Api
 from kta.api.wiring import HUMAN_PRIORITY, NEEDS
@@ -288,3 +288,13 @@ def test_action_log_is_newest_first_with_parameters(api: Api) -> None:
     assert status == 200
     assert [x["verb"] for x in log] == ["budget", "flag"]
     assert log[0]["params"]["scope"] == "global" and log[1]["refs"] == {"subject": tid}
+
+
+def test_parse_action_reads_every_writer() -> None:
+    assert operate.parse_action('budget {"scope":"global"}')["params"] == {"scope": "global"}
+    assert operate.parse_action("task cancel 01ABC") == {
+        "verb": "cancel",
+        "params": None,
+        "args": "01ABC",
+    }
+    assert operate.parse_action("approve_profile")["verb"] == "approve_profile"

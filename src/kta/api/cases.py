@@ -26,7 +26,6 @@ from kta.api.common import (
 )
 from kta.store.base import SpanRow
 
-
 # Lifecycle states (D265) of a task still being worked on, i.e. neither terminal nor waiting
 # for you.
 LIVE_TASK = ("queued", "leased", "running", "submitted", "checking", "rejected", "expired")

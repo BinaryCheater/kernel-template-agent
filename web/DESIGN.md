@@ -214,11 +214,14 @@ Status: assistant's design (D348, needs the user's review). Every control posts 
 - **One dialog for every operation** (`web/src/components/actions.tsx`): title naming the
   subject, what will happen, the records it writes (from `GET /actions/capabilities`), a reason
   field (marked *required* for reject, deprecate, budget and retry; the API answers 400 without
-  one), extra fields when needed (budget limit), then the result: the HumanAction ID as a record
-  link, the number of records marked stale, follow-ups that could not be created.
+  one), extra fields when needed (budget limit). The result opens in a separate modal held at
+  the top level (D359), because its subject may leave the page when the data refreshes: the
+  HumanAction ID as a record link, the new task state with a link to the task, the records
+  marked stale, follow-ups that could not be created, a batch check's problems.
 - **Unwired operations are visible, not hidden or faked** (D341): drawn as dashed, disabled
-  buttons tagged "not wired" whose tooltip names what they need (WP6 task queue, WP8 profile
-  pointer, ...). A 501 that still reaches the dialog says "Not available yet. Nothing was written."
+  buttons tagged "not wired" whose tooltip names what they need (after D355: priority, pause,
+  resume). A 501 that still reaches the dialog says "Not available yet. Nothing was written."
+  What a wired operation does not do yet (`partial`) is shown in its dialog and on the Inbox.
 - **Controls sit next to their subject**: the record drawer offers flag / reject / deprecate /
   confirm / approve for any record; Running and Task offer cancel / retry; the Result page flag /
   reject; Experiments approve-and-freeze; Improvement approve; Agents "make current".

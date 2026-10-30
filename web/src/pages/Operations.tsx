@@ -33,7 +33,7 @@ function StartTask({ m }: { m: Machines }) {
   const [type, setType] = useState("T1");
   const [goal, setGoal] = useState("");
   const [inputs, setInputs] = useState("");
-  const [priority, setPriority] = useState(0);
+  const [priority, setPriority] = useState(100); // tasks you start come first (11 §4.2)
   const fams = useApi(() => api.families(), []);
   const ids = inputs.split(ID_SPLIT).filter(Boolean);
   const def = m.task_types.find((t) => t.id === type);
