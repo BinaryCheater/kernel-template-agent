@@ -21,7 +21,7 @@ WRITER_TYPES = ("agent", "tool")
 
 def bearer(authorization: str | None) -> str:
     if not authorization or not authorization.startswith("Bearer "):
-        raise PermissionDenied("POST /write/record needs Authorization: Bearer <task token>")
+        raise PermissionDenied("token endpoints need Authorization: Bearer <task token>")
     return authorization.removeprefix("Bearer ").strip()
 
 
