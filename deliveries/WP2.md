@@ -200,4 +200,30 @@ Requested by the coordinator after the first WP2 version, code stage only (real 
 
 ### Follow-up gate output (code stage)
 
-(pending)
+At `8e822e3`:
+
+```
+gate WP2 --stage code: PASSED (21 pass, 1 warn, 0 fail)
+  PASS ruff format
+  PASS ruff check
+  PASS import layers
+  PASS residue
+  PASS test doubles
+  PASS error handling
+  PASS print
+  PASS subprocess outside Executor
+  PASS secrets
+  PASS acceptance lock — 7 locked files unchanged
+  PASS pyright
+  PASS unit tests — 534 passed
+  PASS contract tests — 5 passed
+  PASS fake coverage — 1 fake(s) covered
+  PASS registry (kta doctor, dev)
+  PASS delivery note
+  PASS fixture declarations — 1 declared
+  PASS decision log — 322 decisions
+  PASS skipped tests — none
+  PASS evidence — 7 claim(s)
+  WARN WP2 acceptance tests — pending real run (code stage): GPU acceptance run on spark/slai
+  PASS WP2 records — Target, Build, Worker, EnvManifest, Check listed and real
+```
