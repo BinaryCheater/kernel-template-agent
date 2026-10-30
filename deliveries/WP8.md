@@ -149,7 +149,7 @@ What the full gate (`KTA_DATA=~/kta-data scripts/gate WP8`) still requires. Step
 
 ## Gate output
 
-`KTA_DATA=~/kta-data scripts/gate --stage code WP8` on `wp/WP8` @ 764d544 (the commit before this note's gate paste):
+`KTA_DATA=~/kta-data scripts/gate --stage code WP8` on `wp/WP8` @ a12732d (round 2, the commit before this note's gate paste):
 
 ```
 gate WP8 --stage code: PASSED (22 pass, 2 warn, 0 fail)
@@ -164,17 +164,17 @@ gate WP8 --stage code: PASSED (22 pass, 2 warn, 0 fail)
   PASS secrets
   PASS acceptance lock — 7 locked files unchanged
   PASS pyright
-  PASS unit tests — 358 passed
+  PASS unit tests — 530 passed
   PASS contract tests — 5 passed
   PASS fake coverage — 1 fake(s) covered
   PASS registry (kta doctor, dev)
   PASS delivery note
   PASS fixture declarations — 1 declared
-  PASS decision log — 236 decisions
+  PASS decision log — 322 decisions
   PASS skipped tests — none
   WARN evidence — evidence list is empty
-  PASS WP8 tests — 12 named tests passed
-  PASS runtime skills — 5 skills
+  PASS WP8 tests — 14 named tests passed
+  PASS runtime skills — 7 skills
   PASS non-persistent session options — none in src/
   WARN WP8 agent runs — pending real run (code stage): real T1, resume, induced write
 ```
