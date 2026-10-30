@@ -1,0 +1,65 @@
+matched: 17
+total: 23
+unmatched_transactions:
+- level: 2
+  pattern_guess: store
+  description: >-
+    [ux-01] weights permuted offline into tile and fragment order and packed 8 per int32 (chain step prepack).
+  where: marlin/__init__.py:40-68, 102-139
+- level: 1
+  pattern_guess: contract
+  description: >-
+    [ux-02] int4 -> fp16 conversion with lop3 magic numbers, folded zero point and group scale inside
+    the MMA loop (chain step dequant).
+  where: marlin/marlin_cuda_kernel.cu:116-160, 442-464
+- level: 2
+  pattern_guess: work_assign
+  description: >-
+    [ux-03] #SMs CTAs each take an equal contiguous range of (column slice, k-tile) units that may cross
+    column boundaries (chain step stripes).
+  where: marlin/marlin_cuda_kernel.cu:229-298
+- level: 3
+  pattern_guess: reduce
+  description: >-
+    [ux-04] CTAs sharing a column slice add their partials into C in slice order under a lock with acquire/release,
+    storing intermediates in fp16 (chain step global_combine).
+  where: marlin/marlin_cuda_kernel.cu:162-188, 514-571, 674-678
+- level: 3
+  pattern_guess: reduce
+  description: >-
+    [ux-05] warps that split the CTA tile along K combine their partials through a shared-memory log tree
+    (chain step smem_combine).
+  where: marlin/marlin_cuda_kernel.cu:466-509
+- level: 3
+  pattern_guess: store
+  description: >-
+    [ux-06] register fragments of A, packed B and scales double-buffered by k % 2 without barriers (chain
+    step frag_stages, bound S=2, P=1, beta=0, which violates multi_buffer_rotation's obligation P <= S
+    - 2 + beta).
+  where: marlin/marlin_cuda_kernel.cu:374-377, 425-440, 637-646
+- level: 2
+  pattern_guess: other
+  description: >-
+    [ux-07] (thread_m_blocks, thread_n_blocks, thread_k_blocks, group_blocks) chosen from M and groupsize
+    among ten compiled instances; (thread_k, thread_n) = (128, 128) for M <= 16 else (64, 256).
+  where: marlin/marlin_cuda_kernel.cu:754-805
+- level: 3
+  pattern_guess: issue_order
+  description: >-
+    [ux-08] the matmul loop puts the M dimension innermost so the compiler can overlap the dequantization
+    of the next B fragment with the MMAs of the current one; the overlap itself is left to nvcc.
+  where: marlin/marlin_cuda_kernel.cu:442-464
+- level: 3
+  pattern_guess: other
+  description: >-
+    [ux-09] register allocation and unrolling of the fully unrolled pipeline (the comment at 654-655 notes
+    other loop shapes compiled worse) are decided by nvcc.
+  where: marlin/marlin_cuda_kernel.cu:635-647, 654-655
+reproduction_error: null
+notes: >-
+  Pool at decomposition time: seed plus proposals of the GEMM, FlashAttention-2 and FlashAttention-3 references
+  (27 Templates, 2 new Patterns). 23 chain steps: 17 matched, 5 use Templates proposed here, 1 partial
+  (frag_stages, the same register double-buffer finding as the CUTLASS reference; no fix was proposed
+  in between, so it recurs). Three transactions are explained by no step. cache_eviction_hint, proposed
+  for FlashAttention-3's TMA hints, matched Marlin's cp.async L2::evict_first policy. Not built or run;
+  no reproduction.

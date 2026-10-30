@@ -1,0 +1,15 @@
+name: gemm_f16_int4w_grouped
+reference_impl: "C = A @ dequant(B) with dequant(q)[k, n] = (q[k, n] - 8) * s[k // groupsize, n], computed in float32 from the unpacked weights (test.py compares against torch.matmul with the dequantized fp16 weight)"
+inputs:
+  - {name: A, shape: [M, K], dtype: f16, layout: row_major}
+  - {name: B, shape: [K, N], dtype: int4_symmetric, layout: "marlin_prepacked (16x64 tiles permuted into mma fragment order, 8 int4 per int32)"}
+  - {name: s, shape: [G, N], dtype: f16, layout: "row_major, columns permuted (G = K / groupsize, or 1 for per-channel)"}
+  - {name: workspace, shape: [N_div_128_times_max_par], dtype: i32, layout: "zero-initialized lock array"}
+outputs:
+  - {name: C, shape: [M, N], dtype: f16, layout: row_major}
+params:
+  groupsize: "-1 (per output channel) or 128, compile-time dispatch"
+  M: "int, runtime; typical inference batch 1-64, larger M handled by host splitting"
+  N: "int, runtime, multiple of thread_n"
+  K: "int, runtime, multiple of thread_k"
+  tolerance: "fp16 output; partial sums between CTAs are stored in fp16 in C, so the error contract must allow fp16 rounding of partial sums"

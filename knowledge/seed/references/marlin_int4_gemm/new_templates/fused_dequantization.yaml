@@ -1,0 +1,46 @@
+name: fused_dequantization
+version: 1
+level_from: 1
+level_to: 3
+change: vertical
+refines: contract
+produces: [map, contract]
+object:
+  type: register_dequantizer
+  description: "Conversion of packed low-bit weight fragments to the compute dtype in registers, immediately before the MMA that consumes them, including zero-point and group-scale application."
+variables:
+  - {name: method, kind: structure, binding: compile, role: software, domain: [magic_number_lop3, cvt_instructions, lookup_table], meaning: "how bits become fp16 (Marlin: lop3 into the mantissa of 0x6400 then fp16 sub / fma)"}
+  - {name: zero_point, kind: structure, binding: compile, role: software, domain: [symmetric_folded, asymmetric_per_group, none], meaning: "zero-point handling"}
+  - {name: scale_site, kind: structure, binding: compile, role: software, domain: [per_group_before_mma, per_channel_in_epilogue], meaning: "where scales are applied"}
+  - {name: group_size, kind: numeric, binding: compile, role: software, domain: [-1, 32, 64, 128], meaning: "rows per scale group; -1 = per channel"}
+constraints:
+  - {id: c_site, expr: "group_size != -1 or scale_site == 'per_channel_in_epilogue'", meaning: "per-channel scales commute with the K sum and move to the epilogue", cls: semantic}
+preconditions:
+  - {id: pre_exact_int, expr: "p.weight_bits <= 10", meaning: "integer weights are exactly representable in the fp16 mantissa, so the magic-number conversion is exact", cls: semantic}
+program:
+  description: "Per k-subtile: take a 32-bit word of 8 int4 values, two lop3 ops place nibbles into fp16 mantissas with exponent 0x64, __hsub2 / __hfma2 subtract the bias and the folded zero point 8, multiply by the group scale, feed the two B fragments to mma (marlin/marlin_cuda_kernel.cu:116-160, 442-464)."
+  fragments: {}
+backward_map: "Replace the in-register conversion by reading a materialized fp16 weight matrix dequant(B): the plain fp16 GEMM."
+obligations:
+  - {name: exact_conversion, statement: "For every 4-bit pattern the produced fp16 equals q - 8 exactly.", method: exhaustive}
+  - {name: scale_error, statement: "Applying scales in fp16 before the MMA stays within the contract tolerance.", method: test}
+cost:
+  - {unit: fma, work: "p.K * p.N * p.m_tiles / 2", overlap: overlappable}
+  - {unit: dram, work: "p.K * p.N / 2", overlap: overlappable}
+scope:
+  predicate: "True"
+  text: "GEMMs with low-bit integer weights and fp16/bf16 activations, especially memory-bound small-M inference."
+requires_hw: [lop3]
+relations:
+  - {type: requires, target: compute_instruction_selection}
+  - {type: requires, target: offline_operand_prepack, note: "bit order must match the lop3 extraction"}
+signature:
+  algorithm: "in-register int4 -> fp16 dequantization fused before MMA"
+  reuse: "weights read once from DRAM at 4 bits"
+  storage: "registers"
+  boundary: null
+  resources: [fma, dram]
+numeric_risk: "Group scales are applied in fp16 per element before accumulation; check with large-magnitude scales and long K (input distributions: wide_scale, long_k)."
+expected_sass:
+  - {when: "method == 'magic_number_lop3'", must_contain: [LOP3.LUT, HFMA2], must_not_contain: [I2F]}
+summary: "Converts packed low-bit weights to fp16 in registers right before the MMA that uses them, with zero point and group scale. Keeps DRAM traffic at the packed width. The magic-number method is exact for integers that fit the fp16 mantissa."

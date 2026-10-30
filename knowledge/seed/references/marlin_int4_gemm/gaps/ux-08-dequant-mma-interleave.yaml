@@ -1,0 +1,8 @@
+missing: template
+description: >-
+  [ux-08] Intra-iteration interleaving of CUDA-core work (dequant) with synchronous mma.sync is an issue_order
+  choice expressed only as loop order; cross_iteration_software_pipelining requires an asynchronous MMA
+  and explicit waits, so it does not apply. Whether the overlap happens is visible only in SASS.
+level: 3
+pattern_guess: issue_order
+attribution: intent_sass
