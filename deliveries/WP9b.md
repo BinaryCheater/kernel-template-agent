@@ -117,5 +117,30 @@ D340, D341, D342 (needs user review), D343 (needs user review), D344, D345 (need
 Run: `KTA_DATA=~/kta-data scripts/gate --stage code WP9b` on the control host, at the code commit plus these delivery files.
 
 ```text
-(filled in after the run)
+gate WP9b --stage code: PASSED (24 pass, 1 warn, 0 fail)
+  PASS ruff format
+  PASS ruff check
+  PASS import layers
+  PASS residue
+  PASS test doubles
+  PASS error handling
+  PASS print
+  PASS subprocess outside Executor
+  PASS secrets
+  PASS acceptance lock — 7 locked files unchanged
+  PASS pyright
+  PASS unit tests — 479 passed
+  PASS contract tests — 5 passed
+  PASS fake coverage — 1 fake(s) covered
+  PASS registry (kta doctor, dev)
+  PASS delivery note
+  PASS fixture declarations — 1 declared
+  PASS decision log — 285 decisions
+  PASS skipped tests — none
+  PASS evidence — 3 claim(s)
+  PASS WP9b API tests — 23 tests passed
+  PASS operations tested — every spec operation is exercised
+  PASS web build — tsc + vite build of HEAD in a clean directory
+  PASS no sample data in web/ — web/src reads the API only
+  WARN WP9b real operations — pending real run (code stage): start a T1, cancel a task and reject a result from the UI against real records in dev/WP9b; screenshots in the delivery note
 ```
