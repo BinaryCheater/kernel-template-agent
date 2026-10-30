@@ -15,8 +15,12 @@ class ConfigError(KtaError):
     pass
 
 
-class SchemaError(KtaError):
-    """A record or knowledge object does not match its schema."""
+class SchemaError(KtaError, ValueError):
+    """A record or knowledge object does not match its schema.
+
+    Also a ValueError, so callers that validate data (and pydantic validators) can
+    treat schema problems like any other invalid value.
+    """
 
 
 class NotSupported(KtaError):
