@@ -178,5 +178,27 @@ D260, D261 (needs user review), D262 (needs user review), D263 (needs user revie
 Run: `KTA_DATA=~/kta-data scripts/gate WP6` on the control host, at the code commit plus these delivery files.
 
 ```text
-(pasted below after the final run)
+gate WP6: PASSED (22 pass, 0 warn, 0 fail)
+  PASS ruff format
+  PASS ruff check
+  PASS import layers
+  PASS residue
+  PASS test doubles
+  PASS error handling
+  PASS print
+  PASS subprocess outside Executor
+  PASS secrets
+  PASS acceptance lock — 7 locked files unchanged
+  PASS pyright
+  PASS unit tests — 347 passed
+  PASS contract tests — 2 passed
+  PASS fake coverage — 1 fake(s) covered
+  PASS registry (kta doctor, dev)
+  PASS delivery note
+  PASS fixture declarations — 1 declared
+  PASS decision log — 217 decisions
+  PASS skipped tests — none
+  PASS evidence — 5 claim(s)
+  PASS WP6 transition tests — 4 tests passed
+  PASS judging rules tested — rules [1, 2, 3, 4] each tested
 ```
