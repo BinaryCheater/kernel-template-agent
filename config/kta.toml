@@ -23,7 +23,7 @@ root = "~/kta-work"
 path = ["~/.local/bin", "/usr/local/cuda/bin"]
 cuda_home = "/usr/local/cuda"
 image = "kta-worker:tilelang-0.1.15"
-pools = { cpu = 18, "gpu-shared" = 2, "gpu-exclusive" = 1 }
+pools = { cpu = 18, "gpu-shared" = 2, "gpu-exclusive" = 1, agent = 2 }
 
 [workers.slai]
 transport = "ssh"
@@ -33,3 +33,19 @@ root = "/storage/kta-work"
 path = ["/storage/kta-work/.uv/bin"]
 env = { UV_CACHE_DIR = "/storage/kta-work/.uv/cache", UV_PYTHON_INSTALL_DIR = "/storage/kta-work/.uv/python", TMPDIR = "/storage/kta-work/tmp" }
 pools = { cpu = 16 }
+
+# Runtime agents (spec/modules/agents.md, decision D300): agent CLIs run as Executor jobs
+# in the `agent` pool of this worker; workspaces and CLI homes live in its data directory.
+[agents]
+worker = "spark"
+pool = "agent"
+agent_user = "kta-agent"            # created by scripts/kta-agent-setup (needs approval)
+token_key_file = "~/.config/kta/task-token.key"
+api_url = ""                        # KTA_API for the agent-side kta (WP6/WP9); empty until then
+secrets_file = "~/.config/kta/secrets.env"
+watch = ["~/.codex", "~"]
+
+[agents.hosts.spark]
+codex_cmd = ["/home/memx/.nvm/versions/node/v22.21.1/bin/node", "/home/memx/.nvm/versions/node/v22.21.1/bin/codex"]
+auth_dir = "~/.config/kta/auth/codex"
+nvidia_smi = "nvidia-smi"
