@@ -1,0 +1,163 @@
+# Orchestrator state machines: the single definition (D96).
+#
+# Source: docs/design/10 §2.1 (solve loop), §2.2 (expand loop), §3.1-§3.2 (task types and
+# lifecycle); docs/design/11 §3.4 (budget exhaustion). The frontend draws these diagrams from this
+# file (via GET /machines) and WP6 implements `step` against it, with a consistency test.
+#
+# Field meanings
+#   state.kind      step      deterministic work done by the orchestrator or the executor
+#                   wait      the instance waits for something outside the loop (a task, a job)
+#                   terminal  no outgoing transition in normal operation
+#   state.work      who does the work while in this state: orchestrator | executor | agent | human
+#   transition.kind normal | creates_task | resume | retry | human | any
+#   transition.rule evaluation order when a state has several guarded exits (judging: 1-4)
+#   transition.label short display label for diagrams (at most 16 characters); `when` is the full condition
+#   from: "*"       the transition is allowed from any non-terminal state
+#   notes           paths the design documents do not specify; kept visible instead of guessed
+
+version: 1
+
+task_types:
+  - {id: T1, name: build or extend family, by: worker, delivers: Family (chain + generator)}
+  - {id: T2, name: decompose reference, by: worker, delivers: Reconstruction}
+  - {id: T3, name: extract Template, by: worker, delivers: Template (declared)}
+  - {id: T4, name: diagnose model, by: worker, delivers: revised cost terms}
+  - {id: T5, name: write microbenchmark, by: worker, delivers: benchmark and result}
+  - {id: T6, name: fix family or Template, by: worker, delivers: new Family or Template version}
+
+machines:
+  - id: solve
+    title: Solve loop
+    instance_of: Case
+    process: solve
+    summary: One instance per Case. Finds, builds, checks and measures candidates from the pool,
+      then judges the result against the bound and the references.
+    limits:
+      max_rounds: 5
+      on_exhausted: escalate   # the instance stays in its state and an inbox item is raised
+    states:
+      - {id: new, kind: step, work: orchestrator, initial: true,
+         does: Normalize the Case and fix the baseline set}
+      - {id: bounded, kind: step, work: orchestrator,
+         does: Compute the theoretical lower bound per shape bucket}
+      - {id: retrieving, kind: step, work: orchestrator,
+         does: Retrieve legal Templates from the current pool snapshot}
+      - {id: solving, kind: step, work: orchestrator,
+         does: Shortlist candidates with the pre-compile model (default 64)}
+      - {id: building, kind: step, work: executor,
+         does: Compile in parallel, read feedback, check SASS, re-rank, keep top k (default 8)}
+      - {id: checking, kind: step, work: executor,
+         does: Full correctness checks on the top k}
+      - {id: measuring, kind: step, work: executor,
+         does: Measure under the protocol; measure baselines if needed}
+      - {id: judging, kind: step, work: orchestrator,
+         does: Compare with bound and references, decompose the gap per unit, apply rules 1-4}
+      - {id: waiting, kind: wait, work: agent,
+         does: Wait for the created task to be accepted, then resume at the state that created it}
+      - {id: accepted, kind: terminal, work: orchestrator,
+         does: Criterion met; the Solution is recorded}
+    transitions:
+      - {from: new, to: bounded, kind: normal}
+      - {from: bounded, to: retrieving, kind: normal}
+      - {from: retrieving, to: solving, kind: normal, label: found, when: legal Templates found}
+      - {from: retrieving, to: waiting, kind: creates_task, creates: [T1], label: none legal,
+         when: no legal Template}
+      - {from: solving, to: building, kind: normal}
+      - {from: building, to: checking, kind: normal}
+      - {from: checking, to: measuring, kind: normal}
+      - {from: measuring, to: judging, kind: normal}
+      - {from: judging, to: waiting, kind: creates_task, rule: 1, creates: [T6], label: check failed,
+         when: a correctness check failed}
+      - {from: judging, to: waiting, kind: creates_task, rule: 2, creates: [T4], label: model off,
+         when: predicted and measured ranking disagree, or error above threshold}
+      - {from: judging, to: accepted, kind: normal, rule: 3, label: criterion met,
+         when: not below the strongest reference, or the gap to the bound is explained}
+      - {from: judging, to: waiting, kind: creates_task, rule: 4, creates: [T2, T1], label: gap unexplained,
+         when: gap cannot be explained}
+      - {from: waiting, to: retrieving, kind: resume, label: resume, when: task from retrieving accepted}
+      - {from: waiting, to: judging, kind: resume, label: resume, when: task from judging accepted}
+    notes:
+      - Resuming at judging after T6, T4 or T1/T2 (rules 1, 2, 4) follows docs/design/10 §2.1 literally; whether building and
+        measuring rerun first is not specified there (to be settled with WP6).
+
+  - id: expand
+    title: Expand loop
+    instance_of: Reference
+    process: learn
+    summary: One instance per Reference. Freezes, measures and decomposes a reference
+      implementation into a composition chain, extracting what the pool is missing.
+    states:
+      - {id: frozen, kind: step, work: executor, initial: true,
+         does: Freeze the source to a commit or hash; build it in a container}
+      - {id: measured, kind: step, work: executor,
+         does: Check and measure under our protocol to get the reference point}
+      - {id: analyzing, kind: wait, work: agent,
+         does: T2 decomposes the reference into a chain and matches each step to Templates}
+      - {id: gap, kind: wait, work: agent,
+         does: Unmatched steps are written as Gaps; T3 (and T1 if needed) fill them}
+      - {id: reconstructed, kind: step, work: executor,
+         does: All steps matched; generate the kernel from a family and reproduce performance}
+      - {id: reproduced, kind: step, work: executor,
+         does: Reproduction error within epsilon and checks pass}
+      - {id: ablated, kind: step, work: executor,
+         does: Switch off each removable chain step and measure (calibration data)}
+      - {id: covered, kind: terminal, work: orchestrator,
+         does: Coverage status updated}
+    transitions:
+      - {from: frozen, to: measured, kind: normal}
+      - {from: measured, to: analyzing, kind: creates_task, creates: [T2]}
+      - {from: analyzing, to: reconstructed, kind: normal, label: all matched, when: every step matched}
+      - {from: analyzing, to: gap, kind: creates_task, creates: [T3, T1], label: unmatched,
+         when: some steps unmatched}
+      - {from: gap, to: analyzing, kind: resume, label: resume, when: extraction tasks accepted}
+      - {from: reconstructed, to: reproduced, kind: normal, label: within ε, when: error within epsilon}
+      - {from: reproduced, to: ablated, kind: normal}
+      - {from: ablated, to: covered, kind: normal}
+    notes:
+      - What happens when reproduction misses epsilon is not specified in docs/design/10 §2.2.
+
+  - id: task
+    title: Task lifecycle
+    instance_of: TaskCard
+    process: any
+    summary: Every agent task (T1-T6) goes through this lifecycle. Agents only submit
+      proposals; the fixed done-checks decide acceptance.
+    limits:
+      max_retries: 2
+    states:
+      - {id: created, kind: step, work: orchestrator, initial: true,
+         does: Task card written as an immutable record}
+      - {id: queued, kind: wait, work: orchestrator,
+         does: Waits for an agent slot and a budget reservation}
+      - {id: leased, kind: step, work: orchestrator,
+         does: Lease taken; workspace and TASK.md prepared}
+      - {id: running, kind: step, work: agent,
+         does: Agent works in its isolated workspace through kta commands}
+      - {id: submitted, kind: step, work: agent,
+         does: Agent submitted files and a delivery note}
+      - {id: checking, kind: step, work: executor,
+         does: Fixed done-checks of the task type run}
+      - {id: accepted, kind: terminal, work: orchestrator,
+         does: Checks passed; the owning loop resumes}
+      - {id: rejected, kind: step, work: orchestrator,
+         does: Checks failed; the rejection reason goes into the next prompt}
+      - {id: expired, kind: step, work: orchestrator,
+         does: Over budget or unresponsive; handled as rejected}
+      - {id: escalated, kind: wait, work: human,
+         does: Retry limit exceeded; waits in your inbox (retry with note, modify, drop)}
+      - {id: cancelled, kind: terminal, work: human,
+         does: Cancelled by you}
+    transitions:
+      - {from: created, to: queued, kind: normal}
+      - {from: queued, to: leased, kind: normal}
+      - {from: leased, to: running, kind: normal}
+      - {from: running, to: submitted, kind: normal}
+      - {from: submitted, to: checking, kind: normal}
+      - {from: checking, to: accepted, kind: normal, label: pass, when: done-checks pass}
+      - {from: checking, to: rejected, kind: normal, label: fail, when: a done-check fails}
+      - {from: running, to: expired, kind: normal, label: over budget, when: over budget or no response}
+      - {from: expired, to: rejected, kind: normal}
+      - {from: rejected, to: queued, kind: retry, label: retry +1, when: retries below limit (retry +1)}
+      - {from: rejected, to: escalated, kind: normal, label: limit hit, when: retry limit exceeded}
+      - {from: escalated, to: queued, kind: human, label: you retry, when: you retry with a note}
+      - {from: "*", to: cancelled, kind: any, label: you cancel, when: you cancel}

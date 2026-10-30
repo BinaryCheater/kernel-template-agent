@@ -24,3 +24,17 @@ Decisions made without the user that need review. Newest last. Each entry: quest
 - **Choice:** WP9a phase A builds the full UI against a small sample dataset kept only in `web/`, flagged in code and shown with a SAMPLE DATA banner on every page; phase B switches to the real API over the store and deletes the sample path. Final WP9a acceptance still requires WP7's real records.
 - **Rationale:** lets you review layout and readability now instead of after M1.
 - **Cost of changing later:** low; the alternative is to wait for WP1 (frontend design review slips accordingly).
+
+## D164 — Format of `src/kta/orchestrator/machines.yaml`
+
+- **Question:** D96 makes one YAML file the definition of the solve loop, expand loop and task lifecycle for both the frontend and WP6's `step`, but the design documents give tables, not a data format.
+- **Choice:** states with `kind`/`work`/`does`; transitions with `kind`, `rule`, `creates`, `when`, short `label`; `from: "*"` for "any state"; escalation after the round limit is an instance flag, not a state; unspecified paths are written under `notes` instead of guessed. Two such notes are open: (1) what happens when reproduction misses ε in the expand loop; (2) after a task created at `judging` (T6, T4, T1/T2) is accepted, design/10 §2.1 says "resume at the creating state" — whether building and measuring rerun first is not said.
+- **Rationale:** keeps the diagrams and the orchestrator on one definition and makes gaps in the design visible on the Overview page.
+- **Cost of changing later:** low before WP6 implements `step`; afterwards the consistency test and the frontend change together.
+
+## D165 — Frontend information architecture and Overview layout
+
+- **Question:** you asked for a readable frontend whose home page shows the state-machine flowcharts and current work; the exact page split and layout were left to the assistant (D93).
+- **Choice:** see web/DESIGN.md: Overview = solve loop (full width) → Now band (agent slots, GPU lease, pools, workers, budget, inbox) → expand loop → task lifecycle → pipeline strip; other pages each have one primary visual (resource board, swimlanes, iteration timeline, evidence chain, chain DAG, discovery curve).
+- **Rationale:** the solve loop needs the full width to stay legible (9 layers); the Now band answers "what is happening" right under it.
+- **Cost of changing later:** low; layout lives in page components only.
