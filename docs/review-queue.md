@@ -283,3 +283,10 @@ Decisions made without the user that need review. Newest last. Each entry: quest
 - **Choice:** the named acceptance tests; WP4's seed check; every seed family plus the WP5 GEMM test family validates and assembles, and together they use all five seed Templates.
 - **Rationale:** checks that the seed's Templates compose into a formulation, not only that each validates.
 - **Cost of changing later:** low: one function in `tools/kta_gate/specific.py`.
+
+## D322 — How batch agent environments are generated
+
+- **Question**: what makes a batch's agent workspace "completely generable", and where does it live?
+- **Choice**: one AgentProfile id plus a code commit determine the batch. Skills are deterministic tar blobs and templates are blobs. `kta agents env build <batch>` writes `$KTA_DATA/<env>/batches/<batch>/` with `env.lock.json`; `verify` regenerates and compares before every run; a batch is never overwritten; credentials are linked per work unit and are never stored.
+- **Why**: the profile is already the single record of agent behaviour (agents.md "Controlled configuration"). Storing content instead of paths survives source changes, and regenerating plus comparing makes isolation checkable instead of assumed.
+- **Cost of changing later**: low until WP12. The layout and command names live in the agents module and the CLI only. Batches already built keep their lock files.

@@ -133,3 +133,37 @@ agent 的行为由三样东西决定：给它的上下文、它的循环策略�
 - 真实运行：一次真实的 T1（用 WP7 的 GEMM 族为起点，改一个 dtype 或形状条件），从领取到被接受或被正确驳回；有完整的 AgentRun 和时间构成。
 - 一次会话恢复：被驳回后重试时使用 `resume`，交付说明给出两次的墙钟时间对比；会话文件能被 `parse_session` 解析出事件。
 - 权限：在 agent 工作区中尝试直接写存储目录、直接调用 GPU，均被拒绝或被检测到。
+
+## Skills, backup and regenerable batch environments (D321, D322)
+
+Two kinds of skills, never mixed:
+
+| kind | source | used by | installed to |
+| --- | --- | --- | --- |
+| construction skills | `.agents/skills/<name>/` in this repo | coding agents that build KTA | nowhere; read in place |
+| runtime skills | `src/kta/agents/skills/<name>/` | KTA's worker agents (T1–T6) | copied into the worker workspace's `.agents/skills/` by the runner |
+
+Runtime skills are listed with their task types, author WP and status in `src/kta/agents/skills/README.md` (the runtime skill catalogue). Construction skills are listed in `.agents/skills/README.md`. A runtime skill never references construction skills, the repo layout, or `spec/`.
+
+**Backup.** Everything an agent sees is stored as content, not only referenced:
+- each runtime skill version is a blob, a deterministic tar of its directory (sorted entries, fixed mtime/uid/gid/mode). Its id is `<name>@<sha256 of the tar>`. `AgentProfile.skill_bundles` maps each such id to its blob;
+- prompt templates and `home_files` are already blobs (§4.9);
+- when a profile version is recorded, all of its blobs are written to the store, so the profile can be rebuilt after the source tree changes. `kta agents export-profile <id> <dir>` writes the files back out; the backup worker (slai) receives them with the store backup.
+
+**Batch environments.** A new batch (an experiment batch or any new major round of runs) gets its own isolated root, generated only from records:
+
+```
+$KTA_DATA/<env>/batches/<batch>/
+  env.lock.json          # batch name, profile id, code commit, CLI version, every generated file → sha256
+  agent-home-template/   # CODEX_HOME seed: exactly profile.home_files
+  skills/<name>@<hash>/  # unpacked skill_bundles
+  prompts/               # prefix, step and message templates
+  agent-home/<work_unit>/   # per work unit, created from agent-home-template
+  work/<work_unit>/         # per work unit worker workspace (git), as in "workspace" above
+```
+
+- `kta agents env build <batch> --profile <id>` creates the root. It refuses an existing batch name: batches are never overwritten.
+- `kta agents env verify <batch>` regenerates the template parts into a temporary directory and compares them with `env.lock.json`. Every run starts with this check, and any difference refuses the start.
+- Work units inside a batch take their home, skills and prompts from the batch root only. Nothing is read from `~/.codex`, the repo checkout, or another batch.
+- The same profile id and code commit always produce byte-identical template parts. This is how a batch is reproduced on a new machine.
+- Credentials are linked into `agent-home/<work_unit>/` at start (D76). They are never part of the template, the lock file, a blob or an archive.
