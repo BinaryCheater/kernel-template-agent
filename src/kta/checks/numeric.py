@@ -30,7 +30,13 @@ NAME = "numeric_checker"
 def compare_output(
     got: np.ndarray[Any, Any], ref: np.ndarray[Any, Any], tol: dict[str, Any]
 ) -> dict[str, Any]:
-    g = got.astype(np.float64)
+    with np.errstate(invalid="ignore", over="ignore"):
+        return _compare(got.astype(np.float64), ref, tol)
+
+
+def _compare(
+    g: np.ndarray[Any, Any], ref: np.ndarray[Any, Any], tol: dict[str, Any]
+) -> dict[str, Any]:
     both_nan = np.isnan(g) & np.isnan(ref)
     same_inf = np.isinf(g) & np.isinf(ref) & (np.sign(g) == np.sign(ref))
     err = np.abs(g - ref)
@@ -46,7 +52,7 @@ def compare_output(
         "nan_count": int(np.count_nonzero(np.isnan(g) & ~np.isnan(ref))),
         "nonfinite_where_ref_finite": bad_nonfinite,
         "max_abs_err": float(np.max(np.where(finite & np.isfinite(g), err, 0.0), initial=0.0)),
-        "rel_l2": rel_l2 if bad_nonfinite == 0 else float("inf"),
+        "rel_l2": rel_l2 if bad_nonfinite == 0 else None,  # undefined with non-finite output
     }
 
 
@@ -115,7 +121,8 @@ def run_numeric(
             tol = tolerance(contract, t.dtype)
             stats = compare_output(got, ref.outputs[i][t.name], tol)
             limit = tol.get("rel_l2")
-            if stats["mismatches"] or (limit is not None and stats["rel_l2"] > float(limit)):
+            l2 = stats["rel_l2"]
+            if stats["mismatches"] or (limit is not None and (l2 is None or l2 > float(limit))):
                 ev.failures.append(
                     {
                         "check": "numeric",

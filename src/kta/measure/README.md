@@ -8,7 +8,24 @@ Measurement harness and versioned measurement protocols; comparisons and profile
 
 ## Public interface
 
-- `measure`, `compare`, `profile`
+- `measure`, `compare`, `profile` (spec signatures; they resolve store and executor from the Context), and `Measurer` with the same methods for callers that hold their own store and executor.
+- `protocol.ensure_v1`, `protocol.ensure_protocol`, `protocol.load_params`; `noise.noise_probe`, `noise.revise_protocol`.
+- Return values carry the record ID: `Measured(id, body, times_us)`, `Comparison` (with the Report ID) (D224).
+
+## Files
+
+| File | Role |
+| --- | --- |
+| `bench.py` | worker-side job `{python} -m kta.measure.bench spec.json`: run or time one or two modules |
+| `jobs.py` | control-side bench job builder (launch from the Build's `build_key` blob, buffers from the Problem) |
+| `protocol.py` | `measure-v<n>` Protocol records |
+| `runner.py` | `measure`, `compare` and Measurement records |
+| `stats.py` | median, bootstrap CIs, significance, noise summary |
+| `noise.py` | noise probe and the `measure-v2` revision |
+| `profile.py` | Nsight Compute profiles (NotSupported where counters are admin-only) |
+| `nvml.py` | clock, temperature, power samples (worker side) |
+| `inputs.py` | input generators shared with checks |
+| `selftest.py` | simple real kernels used by WP3's runs (D94) |
 
 ## Dependencies
 
