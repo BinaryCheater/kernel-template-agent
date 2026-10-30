@@ -173,6 +173,14 @@ D260, D261 (needs user review), D262 (needs user review), D263 (needs user revie
   - `spec/modules/orchestrator-cli.md`: implementation note on `step` and its files, done-check names, CLI additions and deviations;
   - `spec/modules/core-store.md`: the three additive ops methods.
 
+## Pending real runs
+
+WP6 is not record-backed (D84); its real-run acceptance is part of WP7 (spec/modules/orchestrator-cli.md "验收"). Still owed, paused by D320:
+
+- **The real solve loop run (WP7).** `kta solve` on the GEMM case from `new` to `accepted` or to a recorded judgement. It needs an HwModel record with measured gb10 peaks, a family whose generator returns `entry` and `launch`, and a baseline Measurement. This is the first real run of the `solving`, `building`, `checking`, `measuring` and `judging` work (`solve_work.py`) and of `verify_space` / `failing_cases_pass` (T1/T6 done-checks) on spark.
+- **Restart in the middle of the run (WP7).** Kill the solve process mid-run, restart it, and check that it continues from the stored state. This is tested only on a local test store so far.
+- **Rerun of the WP6 dev evidence after the merge.** The runs in `deliveries/WP6.evidence.json` were made at `3a5fece`, before `integration` @ `868885b` was merged. They were not repeated (D320: no remote or real runs now). All of them were local; none used spark.
+
 ## Gate output
 
 Run: `KTA_DATA=~/kta-data scripts/gate WP6` on the control host, at the code commit plus these delivery files.
