@@ -1,0 +1,96 @@
+[project]
+name = "kta"
+version = "0.1.0"
+description = "KTA: a kernel optimization agent system built on refined Templates"
+requires-python = "==3.12.*"
+dependencies = [
+  "pydantic>=2.9",
+  "fastapi>=0.115",
+  "uvicorn>=0.32",
+  "highspy>=1.8",
+  "pyyaml>=6.0",
+  "numpy>=2.1",
+]
+
+[project.scripts]
+kta = "kta.cli.main:main"
+
+[dependency-groups]
+dev = [
+  "ruff>=0.8",
+  "pyright[nodejs]>=1.1.390",
+  "import-linter>=2.1",
+  "pytest>=8.3",
+  "types-pyyaml>=6.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.11,<0.12"]
+build-backend = "uv_build"
+
+[tool.uv]
+# Keep dependency installs inside the project; never touch user-level tool dirs.
+package = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tools", "tests"]
+# Markdown specs contain Python-like pseudo code; never reformat them. .claude/ holds worktrees.
+extend-exclude = ["*.md", ".claude"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "BLE", "S110", "T20", "PIE", "RUF"]
+ignore = ["RUF001", "RUF002", "RUF003"]
+
+[tool.ruff.lint.per-file-ignores]
+"src/kta/cli/output.py" = ["T20"]
+"tools/**" = ["T20"]
+"scripts/**" = ["T20"]
+"tests/**" = ["T20", "S110"]
+
+[tool.pyright]
+include = ["src", "tools", "tests"]
+pythonVersion = "3.12"
+typeCheckingMode = "standard"
+strict = ["src/kta/core", "src/kta/store", "src/kta/orchestrator"]
+venvPath = "."
+venv = ".venv"
+extraPaths = ["tools"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["tools", "tests"]
+addopts = "--strict-markers -p no:cacheprovider"
+markers = [
+  "gpu: needs a GPU; jobs go through the Executor to a GPU worker",
+  "contract: interface contract tests run against every implementation, including fakes",
+  "acceptance: locked acceptance tests of a work package",
+]
+
+[tool.importlinter]
+root_package = "kta"
+
+[[tool.importlinter.contracts]]
+id = "layers"
+name = "Module layers (spec/modules/README.md)"
+type = "layers"
+layers = [
+  "kta.cli | kta.api",
+  "kta.agents",
+  "kta.orchestrator",
+  "kta.checks | kta.solve",
+  "kta.measure | kta.formulation",
+  "kta.backends | kta.knowledge | kta.models",
+  "kta.execution",
+  "kta.targets",
+  "kta.store",
+  "kta.core",
+]
+
+[[tool.importlinter.contracts]]
+id = "checks-independent"
+name = "Checkers must not use the generator's knowledge logic"
+type = "forbidden"
+source_modules = ["kta.checks"]
+forbidden_modules = ["kta.knowledge"]
