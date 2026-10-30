@@ -77,3 +77,67 @@ def test_large_dynamic_range_inputs() -> None:
     mags = np.abs(x)
     assert mags.min() >= 2.0**-6 and mags.max() <= 2.0**3
     assert (x < 0).any() and (x > 0).any()
+
+
+def test_replay_recomputes_a_measurement_from_its_blobs(ctx: Context, store: Store) -> None:
+    import json
+
+    from kta.core.jobs import JobResult
+    from kta.core.schemas import Actor, Record
+    from kta.core.schemas.evaluation import Case
+    from kta.measure.protocol import ensure_v1, load_params
+    from kta.measure.runner import Measurer, Timed
+    from kta_wp7.replay import replay_measurement
+
+    def put(kind: str, body: dict[str, object]) -> str:
+        return store.put(Record.new(kind, body, Actor(type="tool", name="t"), ctx.clock.now()))
+
+    env = put(
+        "EnvManifest",
+        {
+            "role": "worker",
+            "host": "h",
+            "os": "o",
+            "arch": "a",
+            "python": "3",
+            "uv": "u",
+            "uv_lock_sha256": "x",
+            "commit": "c",
+            "dirty": False,
+        },
+    )
+    worker = put(
+        "Worker",
+        {"name": "w", "host": "h", "transport": "ssh", "labels": {}, "devices": [], "commit": "c"},
+    )
+    pid = ensure_v1(store, ctx.clock)
+    sample = {
+        "sm_mhz": 1,
+        "sm_max_mhz": 2,
+        "mem_mhz": None,
+        "temp_c": 40,
+        "power_w": 10.0,
+        "throttle_reasons": 0,
+    }
+    timing = {
+        "times_ms": [[1.0, 1.1, 0.9, 1.05, 0.95] * 20],
+        "flush_bytes": 1,
+        "warmup_iters": 10,
+        "loop_s": 0.2,
+        "env_start": sample,
+        "env_end": sample,
+    }
+    tblob = store.put_blob(json.dumps(timing).encode(), "application/json")
+    meta = {"job_id": "01JOB", "ctx_seed": ctx.seed}
+    pblob = store.put_blob(json.dumps(meta).encode(), "application/json")
+    result = JobResult(
+        True, 0, 1.0, 0.0, worker, "0", env, tblob, tblob, {"timing.json": tblob}, job_id="01JOB"
+    )
+    m = Measurer(store, None, ctx.clock, ctx.rng, ctx.seed)  # type: ignore[arg-type]
+    t = Timed(result, timing, pblob, load_params(store, pid))
+    body, times = m.measurement_body(t, 0, "subject", pid)
+    case = Case(problem="p", shape_dist=[], objective="weighted_latency", target="gb10")
+    refs: dict[str, str | list[str]] = {"env": env, "worker": worker, "protocol": pid}
+    mid = m.write_measurement(t, body, times, refs, case).id
+    assert replay_measurement(store, mid, "subject") == []
+    assert replay_measurement(store, mid, "other")  # another stream gives another CI

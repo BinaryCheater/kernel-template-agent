@@ -121,6 +121,7 @@ class Measurer:
             )
         timing = json.loads(self.ex.read_blob(result.outputs["timing.json"]))
         meta = {
+            "job_id": result.job_id,  # names the bootstrap streams, so a replay can recompute CIs
             "spec": bench.spec_blob,
             "shape": shape,
             "ctx_seed": self.seed,

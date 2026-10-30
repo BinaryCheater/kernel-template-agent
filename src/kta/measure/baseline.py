@@ -64,7 +64,7 @@ def ensure_baseline(
 
 def _job(
     m: Measurer, baseline: dict[str, Any], case: Case, shape: dict[str, Any], protocol_id: str
-) -> tuple[Job, list[str]]:
+) -> tuple[Job, dict[str, Any]]:
     params = load_params(m.store, protocol_id)
     problem = jobs.problem_of(m.store, case)
     tag = f"{canonical_json(shape).decode()}:baseline:{baseline['call']}"
@@ -110,7 +110,7 @@ def _job(
         "input_dist": "normal",
         "input_sets": params.min_input_sets,
     }
-    return job, [m.ex.put_blob(json.dumps(meta, sort_keys=True).encode(), "application/json")]
+    return job, meta
 
 
 def measure_baseline(
@@ -127,7 +127,7 @@ def measure_baseline(
     if rec.kind != "Report" or rec.body.get("subject") != "baseline":
         raise ConfigError(f"{baseline_id[:12]} is not a baseline Report")
     baseline: dict[str, Any] = rec.body["data"]
-    job, (params_blob,) = _job(m, baseline, case, shape, protocol_id)
+    job, meta = _job(m, baseline, case, shape, protocol_id)
     result = m.ex.run(job)
     if not result.ok or "timing.json" not in result.outputs:
         stderr = m.ex.read_blob(result.stderr_blob).decode("utf-8", "replace")[-2000:]
@@ -136,6 +136,8 @@ def measure_baseline(
             f"baseline job {result.job_id} failed: {stderr}",
         )
     timing = json.loads(m.ex.read_blob(result.outputs["timing.json"]))
+    meta["job_id"] = result.job_id
+    params_blob = m.ex.put_blob(json.dumps(meta, sort_keys=True).encode(), "application/json")
     t = Timed(result, timing, params_blob, load_params(m.store, protocol_id))
     body, times_us = m.measurement_body(t, 0, baseline_id, protocol_id)
     body.clocks["library_versions"] = timing.get("versions", {})
