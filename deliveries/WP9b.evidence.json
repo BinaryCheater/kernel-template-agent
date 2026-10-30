@@ -1,8 +1,8 @@
 [
   {
-    "claim": "The WP9b API tests pass: every operation endpoint writes a HumanAction with the right actor (human, [api] operator), action text, reason and refs; reject marks dependents stale; flag sets suspect and reports the missing re-verification; a missing or blank required reason is 400; unknown tasks or records are 404; operations that need WP6/WP8 answer 501 and write nothing; /write/record needs a task token; the task, agents, pool, experiments and improvement views; the WP9b gate tests; and WP9a's view tests still pass. Stores are seeded through tools/kta_devseed, so all records are origin=fixture; code stage only (D320).",
-    "command": "uv run --frozen pytest -v tests/unit/test_api_actions.py tests/unit/test_api_wp9b_views.py tests/unit/test_gate_wp9b.py tests/unit/test_api_views.py",
-    "git_commit": "acba0bd62aa47f9d220f908d09ae09a1599a15eb",
+    "claim": "The WP9b API tests pass over the merged WP6/WP8 code: reject, flag, deprecate, confirm, approve and budget write correct HumanActions; a missing or blank required reason is 400; cancel, retry and create-task go through WP6's TaskQueue (lifecycle states, human work unit, HumanActions); /inbox is WP6's generator; approve-profile moves current_profile through WP8's approve_profile; a real batch built by kta.agents.batches verifies ok and fails after a file edit; /write/record accepts a record only with a valid, unexpired task token for a live task issued with the configured key; priority, pause and resume are still 501 and write nothing; the unwired port answers 501; plus the task, agents, pool, experiments and improvement views, the WP9b gate tests and WP9a's view tests. Stores are seeded through tools/kta_devseed (origin fixture); code stage only (D320).",
+    "command": "uv run --frozen pytest -v tests/unit/test_api_actions.py tests/unit/test_api_wp9b_views.py tests/unit/test_api_wiring.py tests/unit/test_gate_wp9b.py tests/unit/test_api_views.py",
+    "git_commit": "6c8a99013a8a170ed133b703f09ecc6d50e339f9",
     "dirty": false,
     "env": "dev",
     "control_host": "Mac.lan",
@@ -11,13 +11,13 @@
     "blob_ids": [],
     "env_manifests": [],
     "requires_gpu": false,
-    "started_at": "2026-10-30T18:21:24Z",
-    "output": "Mac.lan:~/kta-data/dev/WP9b-fixture-acba0bd/evidence/pytest-acba0bd.txt"
+    "started_at": "2026-10-30T18:39:31Z",
+    "output": "Mac.lan:~/kta-data/dev/WP9b-fixture-6c8a990/evidence/pytest-6c8a990.txt"
   },
   {
-    "claim": "The web frontend with the WP9b pages (Inbox, Task, Operations, Pool, Model, Experiments, Improvement, Agents) and the operation controls type-checks and builds from git archive HEAD web in a fresh directory, with the lockfile-installed node_modules linked in.",
+    "claim": "The web frontend with the WP9b pages and the wired operation controls type-checks and builds from git archive HEAD web in a fresh directory, with the lockfile-installed node_modules linked in.",
     "command": "T=$(mktemp -d) && git archive --format=tar HEAD web | tar -x -C $T && ln -s $PWD/web/node_modules $T/web/node_modules && cd $T/web && npm run build",
-    "git_commit": "acba0bd62aa47f9d220f908d09ae09a1599a15eb",
+    "git_commit": "6c8a99013a8a170ed133b703f09ecc6d50e339f9",
     "dirty": false,
     "env": "dev",
     "control_host": "Mac.lan",
@@ -26,13 +26,13 @@
     "blob_ids": [],
     "env_manifests": [],
     "requires_gpu": false,
-    "started_at": "2026-10-30T18:21:26Z",
-    "output": "Mac.lan:~/kta-data/dev/WP9b-fixture-acba0bd/evidence/web-build-acba0bd.txt"
+    "started_at": "2026-10-30T18:39:34Z",
+    "output": "Mac.lan:~/kta-data/dev/WP9b-fixture-6c8a990/evidence/web-build-6c8a990.txt"
   },
   {
-    "claim": "Over a fresh fixture store (181 records, all origin=fixture), a real uvicorn server running create_app(open_api(ctx)) answers 200 on /meta, /actions/capabilities, /inbox, /agents, /pool, /experiments, /improvements, /model/residuals and a task detail; POST /actions/reject without a reason is 400 and with one writes a HumanAction and marks 3 dependents stale; flag and budget write HumanActions; cancel and create-task are 501 naming the missing WP6 function; /write/record without a token is 403. The HumanActions read back from the store carry actor human 'user' with this commit and dirty=false. Fixture subjects only: the real-record acceptance is pending (D320).",
-    "command": "KTA_DATA=~/kta-data scripts/seed-dev --wp WP9b-fixture-acba0bd && KTA_ENV=dev KTA_WP=WP9b-fixture-acba0bd KTA_DATA=~/kta-data uv run --frozen python api_smoke.py 7331",
-    "git_commit": "acba0bd62aa47f9d220f908d09ae09a1599a15eb",
+    "claim": "Over a fresh fixture store (181 fixture records, plus one real AgentProfile written by the smoke script with kta.agents.profile.write_profile), a real uvicorn server running create_app(open_api(ctx)) answers 200 on every read endpoint; reject without a reason is 400 and with one writes a HumanAction and marks dependents stale; flag and budget write HumanActions; cancel (running -> cancelled) and retry (escalated -> queued) go through WP6's TaskQueue, which writes 'task cancel/retry <id>' HumanActions; create-task queues a T1 in a human:<id> work unit and the API writes a create_task HumanAction; approve-profile moves current_profile; a batch built from the profile verifies ok; priority and pause are 501; /write/record is 403 without a token and with a token when no key exists. Fixture subjects only: the real-record acceptance is pending (D320).",
+    "command": "KTA_DATA=~/kta-data scripts/seed-dev --wp WP9b-fixture-6c8a990-2 && KTA_ENV=dev KTA_WP=WP9b-fixture-6c8a990-2 KTA_DATA=~/kta-data uv run --frozen python api_smoke.py 7331",
+    "git_commit": "6c8a99013a8a170ed133b703f09ecc6d50e339f9",
     "dirty": false,
     "env": "dev",
     "control_host": "Mac.lan",
@@ -41,7 +41,7 @@
     "blob_ids": [],
     "env_manifests": [],
     "requires_gpu": false,
-    "started_at": "2026-10-30T18:21:27Z",
-    "output": "Mac.lan:~/kta-data/dev/WP9b-fixture-acba0bd/evidence/api-smoke-acba0bd.txt"
+    "started_at": "2026-10-30T18:39:45Z",
+    "output": "Mac.lan:~/kta-data/dev/WP9b-fixture-6c8a990/evidence/api-smoke-6c8a990.txt"
   }
 ]
