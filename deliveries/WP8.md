@@ -150,7 +150,7 @@ What the full gate (`KTA_DATA=~/kta-data scripts/gate WP8`) still requires. Step
 
 ## Gate output
 
-`KTA_DATA=~/kta-data scripts/gate --stage code WP8` on `wp/WP8` @ 26c21f0 (round 3, the commit before this note's gate paste):
+`KTA_DATA=~/kta-data scripts/gate --stage code WP8` on `wp/WP8` @ 0943d7f (round 3, the commit before this note's gate paste):
 
 ```
 gate WP8 --stage code: PASSED (22 pass, 2 warn, 0 fail)
