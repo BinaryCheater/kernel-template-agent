@@ -68,9 +68,7 @@ def stage_row(stage: dict, ledger: Path) -> dict:
         "author_failed_wall_s": author_wall if (failed and not timed_out) else 0.0,
         "solver_s": _num(cost.get("solver_s")),
         "gpu_wall_including_queue_s": _num(cost.get("gpu_wall_including_queue_s")),
-        "worker_compile_first_call_s": _num(
-            worker.get("construction_compile_first_call_s")
-        ),
+        "worker_compile_first_call_s": _num(worker.get("construction_compile_first_call_s")),
         "worker_qualification_s": _num(worker.get("qualification_s")),
         "worker_measurement_s": _num(worker.get("measurement_s")),
         "worker_process_active_s": _num(worker.get("process_active_s")),
@@ -88,9 +86,7 @@ def stage_row(stage: dict, ledger: Path) -> dict:
     if stage.get("solver"):
         solve_dir = Path(stage["solver"])
         receipts = sorted(solve_dir.glob("*.receipt.json"))
-        row["solve_stage_wall_s"] = sum(
-            _num(c.load_json(p).get("wall_s")) for p in receipts
-        )
+        row["solve_stage_wall_s"] = sum(_num(c.load_json(p).get("wall_s")) for p in receipts)
         row["sources"]["solve_receipts"] = c.rel(solve_dir) + "/*.receipt.json"
     if stage.get("evaluation"):
         fb = c.feedback_dir_for(stage["evaluation"])
@@ -146,9 +142,7 @@ def trajectory_summary(rows: list[dict], record: dict, export_path: Path) -> dic
     e2e = record.get("trajectory_end_to_end_wall_s")
     sums["trajectory_end_to_end_wall_s"] = e2e
     accounted = (
-        sums["author_wall_s"]
-        + sums["solve_stage_wall_s"]
-        + sums["gpu_wall_including_queue_s"]
+        sums["author_wall_s"] + sums["solve_stage_wall_s"] + sums["gpu_wall_including_queue_s"]
     )
     sums["accounted_wall_s"] = accounted
     sums["unaccounted_wait_s"] = (e2e - accounted) if e2e is not None else None
@@ -164,13 +158,9 @@ def shares(traj: dict) -> dict:
         return {}
     a = traj["author_wall_s"]
     return {
-        "author_productive": (
-            a - traj["author_timeout_wall_s"] - traj["author_failed_wall_s"]
-        )
+        "author_productive": (a - traj["author_timeout_wall_s"] - traj["author_failed_wall_s"])
         / total,
-        "author_timeout_or_failed": (
-            traj["author_timeout_wall_s"] + traj["author_failed_wall_s"]
-        )
+        "author_timeout_or_failed": (traj["author_timeout_wall_s"] + traj["author_failed_wall_s"])
         / total,
         "solve_stage": traj["solve_stage_wall_s"] / total,
         "gpu_worker_active": traj["worker_process_active_s"] / total,
@@ -206,9 +196,7 @@ def build(f2_root: Path) -> dict:
             ledger=c.rel(path),
             prior_protocol_author_wall_s=prior,
         )
-        summary["shares_of_end_to_end"] = (
-            shares(summary) if task != "attn-small" else {}
-        )
+        summary["shares_of_end_to_end"] = shares(summary) if task != "attn-small" else {}
         trajectories.append(summary)
         stages.extend(rows)
     return {
@@ -302,9 +290,7 @@ def per_stage_medians(stages: list[dict]) -> dict:
             group = [
                 s
                 for s in stages
-                if s["task"] == task
-                and s["arm"] == arm
-                and s["provider_returncode"] == 0
+                if s["task"] == task and s["arm"] == arm and s["provider_returncode"] == 0
             ]
             out[f"{task}/{arm}"] = {
                 "n_stages": len(group),
@@ -338,8 +324,7 @@ def pooled_shares(trajs: list[dict]) -> dict:
             "end_to_end_wall_s": total,
             "shares": {
                 k: sum(
-                    t["shares_of_end_to_end"][k] * t["trajectory_end_to_end_wall_s"]
-                    for t in group
+                    t["shares_of_end_to_end"][k] * t["trajectory_end_to_end_wall_s"] for t in group
                 )
                 / total
                 for k in keys
@@ -358,9 +343,7 @@ def provider_connection(stages: list[dict]) -> dict:
         "sessions_with_startup_chain": sum(
             1 for s in sessions if s["provider_startup_stall_s"] > 0
         ),
-        "sessions_with_chain_ge_60s": sum(
-            1 for s in sessions if s["provider_retry_span_s"] >= 60
-        ),
+        "sessions_with_chain_ge_60s": sum(1 for s in sessions if s["provider_retry_span_s"] >= 60),
         "author_wall_s": author,
         "retry_span_s_lower_bound": retry,
         "startup_stall_s_upper_bound": stall,
@@ -372,9 +355,7 @@ def provider_connection(stages: list[dict]) -> dict:
 def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--f2-root", type=Path, default=c.F2_ROOT)
-    ap.add_argument(
-        "--out", type=Path, default=Path("deliveries/WP13/f2-time-breakdown.json")
-    )
+    ap.add_argument("--out", type=Path, default=Path("deliveries/WP13/f2-time-breakdown.json"))
     args = ap.parse_args(argv)
     result = build(args.f2_root)
     c.write_json(args.out, result)

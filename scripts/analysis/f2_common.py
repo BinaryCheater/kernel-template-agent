@@ -121,9 +121,7 @@ def kendall_tau_b(xs: list[float], ys: list[float]) -> float | None:
                 concordant += 1
             else:
                 discordant += 1
-    denom = math.sqrt(
-        (concordant + discordant + ties_x) * (concordant + discordant + ties_y)
-    )
+    denom = math.sqrt((concordant + discordant + ties_x) * (concordant + discordant + ties_y))
     if denom == 0:
         return None
     return (concordant - discordant) / denom

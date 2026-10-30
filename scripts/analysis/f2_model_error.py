@@ -43,10 +43,7 @@ def stage_pairs(fb: Path, seen: set[str]) -> tuple[list[dict], dict]:
     ms_path = fb / "mechanical-summary.json"
     sf = c.load_json(sf_path)
     ms = c.load_json(ms_path)
-    pred = {
-        _key(x["assignment"]): x["prediction_us"]
-        for x in sf.get("cpu_formula_audit") or []
-    }
+    pred = {_key(x["assignment"]): x["prediction_us"] for x in sf.get("cpu_formula_audit") or []}
     info = {
         "feedback": c.rel(fb),
         "cpu_audit_complete": bool(sf.get("cpu_audit_complete")),
@@ -144,9 +141,7 @@ def error_summary(pairs: list[dict]) -> dict:
         "frac_overpredicted": sum(1 for x in rel if x > 0) / len(rel),
     }
     for w in WITHIN:
-        out[f"frac_within_{int(w * 100)}pct"] = sum(1 for x in absr if x <= w) / len(
-            absr
-        )
+        out[f"frac_within_{int(w * 100)}pct"] = sum(1 for x in absr if x <= w) / len(absr)
     return out
 
 
@@ -241,9 +236,7 @@ def summarise(stages: list[dict], select) -> dict:
         r: error_summary([p for p in pairs if p["role"] == r])
         for r in ("model", "default", "probe")
     }
-    noise = [
-        p["capture_ab_max_dev"] for p in pairs if p["capture_ab_max_dev"] is not None
-    ]
+    noise = [p["capture_ab_max_dev"] for p in pairs if p["capture_ab_max_dev"] is not None]
     return {
         "stages": len(chosen),
         "all_pairs": error_summary(pairs),
@@ -256,9 +249,7 @@ def summarise(stages: list[dict], select) -> dict:
             1 for s in chosen if "model" in s["info"]["not_qualified"]
         ),
         "configs": sum(s["info"]["configs"] for s in chosen),
-        "configs_without_prediction": sum(
-            len(s["info"]["no_prediction"]) for s in chosen
-        ),
+        "configs_without_prediction": sum(len(s["info"]["no_prediction"]) for s in chosen),
     }
 
 
@@ -366,9 +357,7 @@ NOTES = [
 def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--f2-root", type=Path, default=c.F2_ROOT)
-    ap.add_argument(
-        "--out", type=Path, default=Path("deliveries/WP13/f2-model-error.json")
-    )
+    ap.add_argument("--out", type=Path, default=Path("deliveries/WP13/f2-model-error.json"))
     args = ap.parse_args(argv)
     result = build(args.f2_root)
     c.write_json(args.out, result)
