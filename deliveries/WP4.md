@@ -62,7 +62,7 @@ The knowledge module (`src/kta/knowledge/`), covered by unit and acceptance test
 
 ## Fixtures and simplifications
 
-- No `# kta:fixture` in `src/`. The test family under `tests/knowhelp.py` (`family_dir`) is test data for the validator tests, not a kernel.
+- WP4 adds no `# kta:fixture` to `src/`. Inherited from WP1, unchanged: `src/kta/store/bench.py` (`# kta:fixture` on `_body`), the synthetic record bodies of the store benchmark (D156). The test family under `tests/knowhelp.py` (`family_dir`) is test data for the validator tests, not a kernel.
 - Simplification allowed by WP4: retrieval ranking does not use Solutions (%-of-bound), which do not exist yet. It ranks by assurance and reuse count (D210).
 - The seed Templates' obligations are listed only (assurance `declared`); none is checked. This is what knowledge.md asks for.
 - No skipped tests.
