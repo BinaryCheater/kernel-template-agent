@@ -80,7 +80,9 @@ def _runs(
         return store.put(Record.new("AgentRun", body, actor, T0, refs=refs))  # type: ignore[arg-type]
 
     first = run("s1", [], None)
-    induced = [{"kind": "write_outside_workspace", "detail": "x"}] if violation else []
+    induced: list[dict[str, object]] = (
+        [{"kind": "write_outside_workspace", "detail": "x"}] if violation else []
+    )
     second = run("s1" if resumed else "s2", induced, first)
     return {first, second}
 
