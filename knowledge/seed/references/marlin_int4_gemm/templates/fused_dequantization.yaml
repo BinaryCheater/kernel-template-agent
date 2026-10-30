@@ -1,7 +1,7 @@
 name: fused_dequantization
 version: 1
-level_from: 1
-level_to: 3
+level_from: 3
+level_to: 5
 change: vertical
 refines: contract
 produces: [map, contract]
@@ -19,7 +19,6 @@ preconditions:
   - {id: pre_exact_int, expr: "p.weight_bits <= 10", meaning: "integer weights are exactly representable in the fp16 mantissa, so the magic-number conversion is exact", cls: semantic}
 program:
   description: "Per k-subtile: take a 32-bit word of 8 int4 values, two lop3 ops place nibbles into fp16 mantissas with exponent 0x64, __hsub2 / __hfma2 subtract the bias and the folded zero point 8, multiply by the group scale, feed the two B fragments to mma (marlin/marlin_cuda_kernel.cu:116-160, 442-464)."
-  fragments: {}
 backward_map: "Replace the in-register conversion by reading a materialized fp16 weight matrix dequant(B): the plain fp16 GEMM."
 obligations:
   - {name: exact_conversion, statement: "For every 4-bit pattern the produced fp16 equals q - 8 exactly.", method: exhaustive}
@@ -35,9 +34,10 @@ effects:
 scope:
   predicate: "True"
   text: "GEMMs with low-bit integer weights and fp16/bf16 activations, especially memory-bound small-M inference. The magic-number method also needs lop3.b32, which the GB10 feature list (src/kta/targets/gb10/features.yaml) does not contain yet, so requires_hw names only the packed fp16 FMA (D108)."
-# requires_hw uses WP2 feature names (D108). lop3 has no feature entry yet; it is listed
-# under Needed changes in deliveries/WP10a.md.
-requires_hw: [fma_f16x2]
+# requires names abstract Capabilities (D442, migrated by WP14). lop3 has no ISA feature entry
+# yet; it is listed under Needed changes in deliveries/WP10a.md.
+requires: [packed_half_arith]
+probed_on: []
 relations:
   - {type: requires, target: compute_instruction_selection}
   - {type: requires, target: offline_operand_prepack, note: "bit order must match the lop3 extraction"}
@@ -48,6 +48,4 @@ signature:
   boundary: null
   resources: [fma, dram]
 numeric_risk: "Group scales are applied in fp16 per element before accumulation; check with large-magnitude scales and long K (input distributions: wide_scale, long_k)."
-expected_sass:
-  - {when: "method == 'magic_number_lop3'", must_contain: [LOP3.LUT, HFMA2], must_not_contain: [I2F]}
 summary: "Converts packed low-bit weights to fp16 in registers right before the MMA that uses them, with zero point and group scale. Keeps DRAM traffic at the packed width. The magic-number method is exact for integers that fit the fp16 mantissa."

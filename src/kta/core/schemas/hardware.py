@@ -1,5 +1,5 @@
-"""Hardware and environment: Target, HwFeature, HwFact, Worker, EnvManifest, HwModel
-(spec/schemas.md §4.6)."""
+"""Hardware and environment: Target, Capability, CapabilityDecl, HwFeature, HwFact,
+Worker, EnvManifest, HwModel (spec/schemas.md §4.6)."""
 
 from __future__ import annotations
 
@@ -9,6 +9,7 @@ from pydantic import Field, model_validator
 
 from kta.core.schemas.common import Body, Unit
 from kta.core.schemas.hwmodel import EfficiencySpec, InteractionSpec, Provenance, TableSpec
+from kta.core.schemas.knowledge import ParamSpec
 
 
 class Target(Body):
@@ -22,7 +23,37 @@ class Target(Body):
     backends: dict[str, str] = Field(default_factory=lambda: dict[str, str]())
 
 
+class Capability(Body):
+    """An abstract hardware capability a Template can require (D-T8, D442), e.g. a
+    managed scratchpad or asynchronous bulk copy; Targets declare it with parameters."""
+
+    name: str
+    description: str
+    unit: Unit | None = None
+    params: list[ParamSpec] = Field(default_factory=lambda: list[ParamSpec]())
+    # ISA features (HwFeature names) that provide it; a probe of one infers support.
+    realised_by: list[str] = Field(default_factory=lambda: list[str]())
+
+
+CapabilitySupport = Literal["yes", "no", "unknown"]
+
+
+class CapabilityDecl(Body):
+    """One Target's declaration of one Capability; the newest per pair wins (D442)."""
+
+    target: str  # Target name
+    capability: str  # Capability name
+    status: CapabilitySupport
+    params: dict[str, int | float | str | bool] = Field(
+        default_factory=lambda: dict[str, int | float | str | bool]()
+    )
+    basis: Literal["documented", "probed", "inferred"]
+    note: str = ""
+
+
 class HwFeature(Body):
+    """An ISA instruction family and its probe result per Target (realisation level)."""
+
     name: str
     unit: Unit
     instructions: list[str] = Field(default_factory=lambda: list[str]())

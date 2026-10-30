@@ -5,11 +5,11 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, field_validator, model_validator
 
 from kta.core.ids import is_record_id
 from kta.core.schemas.common import ActorType, Origin
-from kta.core.schemas.registry import InvalidBody, kind_spec, normalize_body, parse_body
+from kta.core.schemas.registry import InvalidBody, kind_spec, normalize_body, upcast_body
 
 RefValue = str | list[str]
 
@@ -43,6 +43,10 @@ class Record(BaseModel):
     The body is validated against the kind's model and stored in normalized form
     (defaults filled in), so equal content always yields the same ID. The JSON field
     ``schema`` is ``schema_`` in Python because ``schema`` shadows a BaseModel attribute.
+
+    A record stored under an older schema version keeps its stored body for hashing
+    (``to_json_dict``, ``stored_body``) while ``body`` holds the upcast, current shape
+    (D440). ``schema_`` stays the stored version, so readers can tell.
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True, populate_by_name=True)
@@ -55,6 +59,7 @@ class Record(BaseModel):
     body: dict[str, Any]
     blobs: dict[str, str] = Field(default_factory=lambda: dict[str, str]())
     origin: Origin
+    _stored_body: dict[str, Any] | None = PrivateAttr(default=None)
 
     @field_validator("created_at")
     @classmethod
@@ -66,7 +71,7 @@ class Record(BaseModel):
     @model_validator(mode="after")
     def _check(self) -> Record:
         spec = kind_spec(self.kind)
-        if not 1 <= self.schema_ <= spec.version:
+        if self.schema_ > spec.version:
             raise InvalidBody(f"{self.kind} schema {self.schema_}; current is {spec.version}")
         for key, value in self.refs.items():
             for rid in [value] if isinstance(value, str) else value:
@@ -80,18 +85,24 @@ class Record(BaseModel):
             raise InvalidBody(f"{self.kind} needs refs {missing}")
         if self.kind == "Template" and self.actor.type != "human" and not self.refs.get("sources"):
             raise InvalidBody("Template needs refs.sources unless the actor is human")
-        if self.schema_ < spec.version:
-            # A stored older body (D461): validate its upcast form, keep the body as stored
-            # so the record's ID does not change. Readers parse it with ``body_model``.
-            parse_body(self.kind, self.body, self.schema_)
-            return self
         # Normalize in place: the model is frozen, but validation is construction time.
-        object.__setattr__(self, "body", normalize_body(self.kind, self.body))
+        if self.schema_ < spec.version:
+            # A stored body is already normalized under its own version; keep it as is.
+            self._stored_body = self.body
+            current = upcast_body(self.kind, self.schema_, self.body)
+            object.__setattr__(self, "body", normalize_body(self.kind, current))
+        else:
+            object.__setattr__(self, "body", normalize_body(self.kind, self.body))
         return self
 
-    def body_model(self) -> BaseModel:
-        """The body as the current schema's model (older bodies upcast, D461)."""
-        return parse_body(self.kind, self.body, self.schema_)
+    @property
+    def stored_body(self) -> dict[str, Any]:
+        """The body exactly as stored (an older shape when the record was upcast)."""
+        return self._stored_body if self._stored_body is not None else self.body
+
+    @property
+    def upcast(self) -> bool:
+        return self._stored_body is not None
 
     @classmethod
     def new(
@@ -118,7 +129,10 @@ class Record(BaseModel):
 
     def to_json_dict(self) -> dict[str, Any]:
         """The stored JSON form (``schema`` under its JSON name); the ID is computed from it."""
-        return self.model_dump(mode="json", by_alias=True)
+        data = self.model_dump(mode="json", by_alias=True)
+        if self._stored_body is not None:
+            data["body"] = self._stored_body
+        return data
 
     def ref_ids(self) -> list[tuple[str, str]]:
         """(rel, id) pairs from refs, list values expanded."""

@@ -1,0 +1,16 @@
+template: cross_lane_reduction@1
+backend: any
+isa:
+  family: sm
+  min: '30'
+requires:
+- shfl_sync
+fragments: {}
+expected_sass:
+- when: 'True'
+  must_contain:
+  - SHFL.BFLY
+  must_not_contain: []
+probed_on: []
+summary: Migrated by WP14 from the Template's v1 fields requires_hw, expected_sass and program.fragments
+  (D443); backend-independent.

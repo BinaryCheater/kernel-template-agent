@@ -1,7 +1,7 @@
 name: pingpong_schedule
 version: 1
-level_from: 3
-level_to: 3
+level_from: 5
+level_to: 5
 change: vertical
 refines: issue_order
 produces: [issue_order, sync]
@@ -17,7 +17,6 @@ preconditions:
   - {id: pre_independent, expr: "p.groups_independent", meaning: "the groups work on disjoint rows, so the order changes only timing", cls: semantic}
 program:
   description: "Before its GEMMs a group waits on its own scheduler barrier (warp_scheduler_barrier_sync); after issuing them it arrives on the next group's barrier (warp_scheduler_barrier_arrive); group 1 is primed at start (hopper/mainloop_fwd_sm90_tma_gmma_ws.hpp:915-950, 1176-1183)."
-  fragments: {}
 backward_map: "Drop the barriers: groups issue whenever ready. Values are unchanged because groups own disjoint output rows."
 obligations:
   - {name: no_deadlock, statement: "The turn order is a cycle in which every group eventually gets its turn, including when groups have different numbers of iterations (causal) and at the last tile.", method: exhaustive}
@@ -29,7 +28,8 @@ effects:
 scope:
   predicate: "True"
   text: "Two or three consumer warpgroups sharing the tensor cores, each with a non-tensor-core stage long enough to hide another group's GEMMs."
-requires_hw: [named_barrier]
+requires: [named_barriers]
+probed_on: []
 relations:
   - {type: requires, target: warp_specialization}
 signature:
@@ -39,6 +39,4 @@ signature:
   boundary: "unequal iteration counts"
   resources: [tensor]
 numeric_risk: null
-expected_sass:
-  - {when: "True", must_contain: [BAR.SYNC, BAR.ARV], must_not_contain: []}
 summary: "Makes consumer warpgroups take turns on the tensor cores with named barriers, so one group's GEMMs hide another's softmax. Pure reordering of independent work. Its obligation is deadlock freedom of the turn cycle."

@@ -1,7 +1,7 @@
 name: cross_iteration_software_pipelining
 version: 1
-level_from: 3
-level_to: 3
+level_from: 5
+level_to: 5
 change: vertical
 refines: issue_order
 produces: [issue_order, sync]
@@ -18,7 +18,6 @@ preconditions:
   - {id: pre_async_mma, expr: "p.mma_is_async", meaning: "the compute instruction is asynchronous (wgmma) so a later stage can run while it is in flight", cls: semantic}
 program:
   description: "Prologue computes QK^T and softmax of the first block; steady state issues QK^T(n), then PV(n+1) with the previous P, waits for QK^T only (warpgroup_wait<1>), runs softmax(n) while PV is in flight, then waits for PV and releases V; epilogue drains the last PV (hopper/mainloop_fwd_sm90_tma_gmma_ws.hpp:1138-1250)."
-  fragments: {}
 backward_map: "Remove the skew: run each iteration's stages to completion in order; the skewed program computes the same values because each stage still waits for its inputs."
 obligations:
   - {name: dependencies_kept, statement: "Every stage reads registers only after the asynchronous instruction that writes them has been waited for, and registers being read by an in-flight instruction are not overwritten.", method: test}
@@ -31,7 +30,8 @@ effects:
 scope:
   predicate: "True"
   text: "Loops whose body has an asynchronous tensor-core stage and a CUDA-core / SFU stage that can be skewed by one iteration."
-requires_hw: [wgmma]
+requires: [warpgroup_mma]
+probed_on: []
 relations:
   - {type: requires, target: compute_instruction_selection, note: "needs an asynchronous MMA"}
 signature:
@@ -41,6 +41,4 @@ signature:
   boundary: "prologue and epilogue iterations"
   resources: [tensor, sfu]
 numeric_risk: null
-expected_sass:
-  - {when: "True", must_contain: [WARPGROUP.DEPBAR.LE], must_not_contain: []}
 summary: "Skews the stages of consecutive iterations so a CUDA-core stage of iteration n runs while an asynchronous tensor-core stage of iteration n+1 is in flight. Requires asynchronous MMA and explicit waits. The obligation is that no register is read before its producer has been waited for."

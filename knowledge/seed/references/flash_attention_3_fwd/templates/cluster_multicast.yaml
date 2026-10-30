@@ -1,7 +1,7 @@
 name: cluster_multicast
 version: 1
-level_from: 3
-level_to: 4
+level_from: 5
+level_to: 6
 change: vertical
 refines: transfer
 produces: [transfer, sync]
@@ -17,7 +17,6 @@ preconditions:
   - {id: pre_same_tile, expr: "p.operand_tile_shared_by_cluster", meaning: "all CTAs of the cluster need the same tile at the same pipeline stage (here: neighbouring Q tiles of the same head read the same K/V)", cls: semantic}
 program:
   description: "Cluster (ClusterM = 2, along Q tiles) launched only for non-causal fp16 with head dim >= 128 and an even number of Q tiles; K/V TMA copies carry mcast_mask_kv; the empty barrier counts consumers of all CTAs; cluster_arrive/wait at start (hopper/flash_fwd_launch_template.h:210-219; hopper/mainloop_fwd_sm90_tma_gmma_ws.hpp:740-768; hopper/flash_fwd_kernel_sm90.h:298-303)."
-  fragments: {}
 backward_map: "Each CTA loads the whole tile itself: the per-CTA transfer, with the shared global read duplicated."
 obligations:
   - {name: same_stage, statement: "All CTAs of the cluster consume the multicast tile in the same stage slot and release it before it is overwritten for any of them.", method: exhaustive}
@@ -30,10 +29,11 @@ effects:
   overlap: []
 scope:
   predicate: "True"
-  text: "Neighbouring CTAs that read the same operand tile in lock step (attention K/V across Q tiles, GEMM B across M tiles). Also needs the .multicast::cluster form of cp.async.bulk.tensor, which the GB10 feature list (src/kta/targets/gb10/features.yaml) does not contain yet, so requires_hw omits it (D108)."
-# requires_hw uses WP2 feature names (D108). The multicast form of cp.async.bulk.tensor has no
-# feature entry yet; it is listed under Needed changes in deliveries/WP10a.md.
-requires_hw: [cp_async_bulk_tensor, barrier_cluster]
+  text: "Neighbouring CTAs that read the same operand tile in lock step (attention K/V across Q tiles, GEMM B across M tiles). Also needs the .multicast::cluster form of cp.async.bulk.tensor, which the GB10 feature list (src/kta/targets/gb10/features.yaml) does not contain yet; the Template requires the abstract capability cluster_multicast instead (D108, D442)."
+# requires names abstract Capabilities (D442, migrated from WP2 feature names by WP14). The
+# multicast form of cp.async.bulk.tensor has no ISA feature entry yet (deliveries/WP10a.md).
+requires: [bulk_tensor_copy, thread_block_cluster, cluster_multicast]
+probed_on: []
 relations:
   - {type: requires, target: async_transfer, note: "mechanism = controller (TMA)"}
   - {type: requires, target: per_slot_handshake, note: "release must count consumers of every CTA in the cluster"}
@@ -44,6 +44,4 @@ signature:
   boundary: "odd number of tiles (cluster disabled)"
   resources: [l2]
 numeric_risk: null
-expected_sass:
-  - {when: "cluster_size > 1", must_contain: [UTMALDG.2D.MULTICAST], must_not_contain: []}
 summary: "Loads a tile once and multicasts it to all CTAs of a thread-block cluster that need it. Cuts L2 traffic for operands shared by neighbouring tiles. Requires the CTAs to consume the tile in lock step and to synchronize before exit."

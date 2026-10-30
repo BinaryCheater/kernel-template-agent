@@ -1,0 +1,14 @@
+template: staged_relayout@1
+backend: any
+isa:
+  family: sm
+requires: []
+fragments: {}
+expected_sass:
+- when: write_instruction == 'stmatrix'
+  must_contain:
+  - STSM
+  must_not_contain: []
+probed_on: []
+summary: Migrated by WP14 from the Template's v1 fields requires_hw, expected_sass and program.fragments
+  (D443); backend-independent.

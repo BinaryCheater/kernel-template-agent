@@ -1,7 +1,7 @@
 name: warp_specialization
 version: 1
-level_from: 2
-level_to: 3
+level_from: 4
+level_to: 5
 change: vertical
 refines: work_assign
 produces: [work_assign, sync]
@@ -19,7 +19,6 @@ preconditions:
   - {id: pre_async, expr: "p.transfers_are_async", meaning: "data movement can be issued by a few threads and completes asynchronously (TMA or cp.async with mbarrier), so consumers need not participate", cls: semantic}
 program:
   description: "Branch on warpgroup index: warpgroup 0 runs the load loop over tiles, the others run the MMA/softmax loop; both loops visit the same tile sequence and synchronize per stage (hopper/flash_fwd_kernel_sm90.h:308-446)."
-  fragments: {}
 backward_map: "Interleave the producer's loads into the consumers' program in stage order: the single-role program where every warp both loads and computes."
 obligations:
   - {name: same_sequence, statement: "Producer and consumers visit the same tiles and stages in the same order.", method: test}
@@ -34,7 +33,8 @@ effects:
 scope:
   predicate: "True"
   text: "Kernels whose loads can be issued asynchronously by a few threads (TMA, cp.async with mbarrier) so that compute warps never stall on address generation."
-requires_hw: [mbarrier]
+requires: [async_transaction_barrier]
+probed_on: []
 relations:
   - {type: requires, target: async_transfer, note: "producer loads must be asynchronous"}
   - {type: requires, target: per_slot_handshake, note: "roles communicate through per-stage full/empty barriers"}
@@ -46,5 +46,4 @@ signature:
   boundary: "pipeline tail"
   resources: [issue, tensor]
 numeric_risk: null
-expected_sass: []
 summary: "Splits the CTA's warps into a producer role that only moves data and consumer roles that only compute. Roles meet at per-stage barriers, so the obligations are a matching visit order and deadlock freedom. Enables giving the roles different register budgets."

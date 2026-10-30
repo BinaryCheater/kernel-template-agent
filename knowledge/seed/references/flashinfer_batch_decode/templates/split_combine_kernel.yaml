@@ -1,7 +1,7 @@
 name: split_combine_kernel
 version: 1
-level_from: 2
-level_to: 3
+level_from: 4
+level_to: 5
 change: vertical
 refines: reduce
 produces: [transfer, reduce]
@@ -17,7 +17,6 @@ preconditions:
   - {id: pre_assoc, expr: "p.reduce_assoc and (combine_op == 'add' or p.rescalable)", meaning: "the combine is associative; for attention states it must be rescalable", cls: semantic}
 program:
   description: "Main kernel writes o and lse per (request, chunk) to tmp_v / tmp_s at o_indptr offsets; VariableLengthMergeStates launches a persistent kernel that, per (request, head), merges the chunks' states with state_t::merge and writes the final o and lse (include/flashinfer/attention/decode.cuh:815-835; include/flashinfer/attention/cascade.cuh:374-475, 690-725; include/flashinfer/attention/state.cuh:53-70)."
-  fragments: {}
 backward_map: "Merge the partial states of each output in any order: equal to the unsplit online reduction over the whole KV range."
 obligations:
   - {name: all_partials_merged, statement: "For each output, exactly the partials in [o_indptr[b], o_indptr[b+1]) are merged.", method: exhaustive}
@@ -34,7 +33,8 @@ effects:
 scope:
   predicate: "True"
   text: "Split reductions where the number of partials per output varies at run time or exceeds what one CTA can merge in place."
-requires_hw: []
+requires: []
+probed_on: []
 relations:
   - {type: requires, target: reduction_partition}
   - {type: alternative_of, target: ordered_global_combine}
@@ -46,5 +46,4 @@ signature:
   boundary: "requests with a single chunk (merge copies)"
   resources: [dram, launch]
 numeric_risk: "Merge order and partial precision affect rounding; with rescaled_merge, empty chunks must not produce NaN (input distribution: very_short_and_very_long_requests)."
-expected_sass: []
 summary: "Writes per-split partial results to a global buffer and merges them in a second kernel. Handles a runtime-varying number of partials per output without cross-CTA locks. Costs an extra launch and a round trip of the partials through DRAM."

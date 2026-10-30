@@ -1,0 +1,6 @@
+name: programmatic_dependent_launch
+description: A kernel can start before its predecessor finishes and wait on it explicitly (griddepcontrol).
+unit: launch
+params: []
+realised_by:
+- griddepcontrol

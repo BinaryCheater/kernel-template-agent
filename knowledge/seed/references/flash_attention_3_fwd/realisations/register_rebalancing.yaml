@@ -1,0 +1,16 @@
+template: register_rebalancing@1
+backend: any
+isa:
+  family: sm
+  min: 90a
+requires:
+- setmaxnreg
+fragments: {}
+expected_sass:
+- when: 'True'
+  must_contain:
+  - USETMAXREG
+  must_not_contain: []
+probed_on: []
+summary: Migrated by WP14 from the Template's v1 fields requires_hw, expected_sass and program.fragments
+  (D443); backend-independent.

@@ -46,7 +46,7 @@ def test_record_round_trips_through_json() -> None:
     rec = pattern("p")
     again = Record.model_validate(rec.to_json_dict())
     assert record_id(again) == record_id(rec)
-    assert rec.to_json_dict()["schema"] == 1
+    assert rec.to_json_dict()["schema"] == KINDS["Pattern"].version
 
 
 def test_validate_body_raises_value_error_subclass() -> None:
@@ -80,7 +80,7 @@ def test_envelope_rules() -> None:
     with pytest.raises(ValueError, match="set together"):
         Actor(type="tool", name="t", commit="a" * 40)
     with pytest.raises(ValueError, match="schema"):
-        Record.model_validate({**pattern("p").to_json_dict(), "schema": 2})
+        Record.model_validate({**pattern("p").to_json_dict(), "schema": 99})
 
 
 TEMPLATE: dict[str, Any] = {
@@ -118,7 +118,7 @@ TEMPLATE: dict[str, Any] = {
             "cls": "resource",
         },
     ],
-    "program": {"description": "cp.async ring buffer", "fragments": {"cuda": "a" * 64}},
+    "program": {"description": "cp.async ring buffer"},
     "backward_map": "slot i holds tile k mod stages",
     "scope": {"predicate": "hw.has_cp_async", "text": "GPUs with cp.async"},
     "signature": {"algorithm": "ring buffer"},

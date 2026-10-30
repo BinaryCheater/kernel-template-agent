@@ -11,6 +11,7 @@ from kta.core.schemas.evaluation import Case
 from kta.core.schemas.hardware import HwModel
 from kta.formulation import assemble
 from kta.knowledge import errors_of, load_family, validate_family
+from kta.knowledge.realisations import expected_sass
 from kta.models import UnitModel
 from kta.solve import solve
 from kta.store.base import Store
@@ -134,7 +135,8 @@ def test_sass_expectation_from_constant_binding(ctx: Context, store: Store) -> N
     seed(ctx, store)
     fp = load_family(r.FAMILY_DIR)
     a = {"BM": 128, "BN": 128, "BK": 64, "S": 2, "P": 1, "threads": 128, "split": 1, "KT": 64}
-    sass, _ = sass_for(fp, templates_of(store, fp), a)
+    refs = [i.template for i in fp.chain.items]
+    sass, _ = sass_for(fp, templates_of(store, fp), a, expected_sass(store, refs, "tilelang"))
     assert [s.must_contain for s in sass] == [["HMMA.16816.F32"]]
 
 

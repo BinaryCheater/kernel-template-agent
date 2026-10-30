@@ -29,6 +29,7 @@ from kta.core.schemas.knowledge import SassExpect, Template
 from kta.execution import JobExecutor
 from kta.knowledge import FamilyPackage, load_family, seed_dir
 from kta.knowledge.pool import find_template
+from kta.knowledge.realisations import expected_sass
 from kta.measure.runner import Measurer
 from kta.models import MODEL_SUBJECT, MachineModel, UnitModel, load_machine, load_model, save_model
 from kta.store.base import Store
@@ -162,6 +163,13 @@ def templates_of(store: Store, fp: FamilyPackage) -> dict[str, Template]:
     return out
 
 
+def chain_sass(store: Store, fp: FamilyPackage, assignment: Mapping[str, Any]) -> list[SassExpect]:
+    """``sass_for`` with the chain's Templates and their Realisations' expectations."""
+    refs = [item.template for item in fp.chain.items]
+    expectations = expected_sass(store, refs, fp.family.backend)
+    return sass_for(fp, templates_of(store, fp), assignment, expectations)
+
+
 def _generator(fp: FamilyPackage) -> Callable[..., Any]:
     spec = importlib.util.spec_from_file_location(f"kta_family_{fp.family.name}", fp.gen_path)
     if spec is None or spec.loader is None:
@@ -212,13 +220,18 @@ def builder(
 
 
 def sass_for(
-    fp: FamilyPackage, templates: Mapping[str, Template], assignment: Mapping[str, Any]
+    fp: FamilyPackage,
+    templates: Mapping[str, Template],
+    assignment: Mapping[str, Any],
+    expectations: Mapping[str, list[SassExpect]],
 ) -> list[SassExpect]:
     """The chain's SASS expectations whose ``when`` holds (D361).
 
-    ``when`` names Template variables, so it is evaluated per chain item over that item's
-    bindings: a binding naming a family variable takes the assignment's value, a constant
-    binding stays. The kept expectations are passed on with ``when = "True"``.
+    ``expectations`` maps each Template ref to the SASS expectations of its Realisations
+    on the family's backend (D443). ``when`` names Template variables, so it is evaluated
+    per chain item over that item's bindings: a binding naming a family variable takes
+    the assignment's value, a constant binding stays. The kept expectations are passed
+    on with ``when = "True"``.
     """
     out: list[SassExpect] = []
     for item in fp.chain.items:
@@ -228,7 +241,7 @@ def sass_for(
             for v in t.variables
             if v.name in item.bindings
         }
-        for e in t.expected_sass:
+        for e in expectations.get(item.template, []):
             if Expr.parse(e.when, set(env)).eval(env) is True:
                 out.append(
                     SassExpect(

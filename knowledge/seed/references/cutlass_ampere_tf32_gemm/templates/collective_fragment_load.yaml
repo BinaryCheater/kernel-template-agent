@@ -1,7 +1,7 @@
 name: collective_fragment_load
 version: 1
-level_from: 2
-level_to: 3
+level_from: 4
+level_to: 5
 change: vertical
 refines: transfer
 produces: [transfer]
@@ -17,7 +17,6 @@ preconditions:
   - {id: pre_layout, expr: "p.consumer_fragment_layout_known", meaning: "the consumer instruction's fragment layout is fixed by an earlier step", cls: semantic}
 program:
   description: "Each lane supplies one row address; the warp receives the 8x8 sub-matrices permuted into mma fragment order (CUTLASS MmaTensorOpMultiplicandTileIterator -> arch::ldsm)."
-  fragments: {}
 backward_map: "Gathering the fragments of all lanes yields the shared-memory tile; the lane distribution is erased."
 obligations:
   - {name: lane_mapping, statement: "Lane l receives exactly the elements the consumer instruction assigns to lane l.", method: exhaustive}
@@ -31,7 +30,8 @@ effects:
 scope:
   predicate: "True"
   text: "Register fragments for warp-level tensor-core instructions fed from shared memory."
-requires_hw: [ldmatrix]
+requires: [matrix_fragment_load]
+probed_on: []
 relations:
   - {type: requires, target: compute_instruction_selection, note: "fragment layout comes from the chosen instruction"}
 signature:
@@ -41,7 +41,4 @@ signature:
   boundary: null
   resources: [smem, issue]
 numeric_risk: null
-expected_sass:
-  - {when: "instruction == 'ldmatrix_x4' and not transpose", must_contain: [LDSM.16.M88.4], must_not_contain: []}
-  - {when: "transpose", must_contain: [LDSM.16.MT88], must_not_contain: []}
 summary: "Loads a shared-memory tile into registers with a warp-collective instruction that already places elements in the consumer instruction's fragment layout. Optionally transposes. Removes per-lane address arithmetic and bank-unfriendly scalar loads."

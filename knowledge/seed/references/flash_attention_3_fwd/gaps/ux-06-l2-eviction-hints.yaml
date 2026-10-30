@@ -2,6 +2,6 @@ missing: template
 description: >-
   [ux-06] No pool Template attaches a cache policy to a transfer. Proposed: cache_eviction_hint@1. Its
   effect is timing only, so it can be checked only by measurement.
-level: 4
+level: 6
 pattern_guess: transfer
 attribution: space

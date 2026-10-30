@@ -22,3 +22,7 @@ HTTP API (read and operation endpoints) for the web frontend; holds the single s
 
 - May import: `core`, `store`, `targets`, `execution`, `backends`, `knowledge`, `models`, `measure`, `formulation`, `checks`, `solve`, `orchestrator`, `agents`.
 - Enforced by import-linter (`pyproject.toml`, `[tool.importlinter]`).
+
+## WP14 (D449, D452)
+
+`GET /pool/diff?a=&b=` (`pool.diff` over `kta.knowledge.pooldiff`); `common.body` and `GET /records/{id}` serve upcast bodies (`stored_body`, `upcast_from` for old records).

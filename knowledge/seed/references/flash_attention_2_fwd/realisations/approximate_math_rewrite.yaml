@@ -1,0 +1,19 @@
+template: approximate_math_rewrite@1
+backend: any
+isa:
+  family: sm
+requires: []
+fragments: {}
+expected_sass:
+- when: rewrite == 'exp_to_exp2_folded_scale'
+  must_contain:
+  - MUFU.EX2
+  - FFMA
+  must_not_contain: []
+- when: rewrite == 'rsqrt_approx'
+  must_contain:
+  - MUFU.RSQ
+  must_not_contain: []
+probed_on: []
+summary: Migrated by WP14 from the Template's v1 fields requires_hw, expected_sass and program.fragments
+  (D443); backend-independent.

@@ -1,7 +1,7 @@
 name: smem_partial_combine
 version: 1
-level_from: 2
-level_to: 3
+level_from: 4
+level_to: 5
 change: vertical
 refines: reduce
 produces: [transfer, sync, reduce]
@@ -19,7 +19,6 @@ preconditions:
   - {id: pre_assoc, expr: "p.reduce_assoc", meaning: "the combine is associative (tree reorders it)", cls: semantic}
 program:
   description: "Each round: some warps write partials to smem, barrier, others read and accumulate, barrier; the final value stays in the reading warp or is written to an smem slot and read by all after a barrier (Marlin thread_block_reduce marlin/marlin_cuda_kernel.cu:466-509; FlashInfer sync_state; vLLM cub::BlockReduce + s_variance)."
-  fragments: {}
 backward_map: "Sum (or merge) all warps' partials in any order: the unsplit reduction."
 obligations:
   - {name: exactly_once, statement: "Each warp's partial is combined exactly once.", method: exhaustive}
@@ -34,7 +33,8 @@ effects:
 scope:
   predicate: "True"
   text: "Reductions whose partials are spread over several warps of a CTA (K split across warps, rows reduced by a whole CTA, attention states split across warps)."
-requires_hw: []
+requires: []
+probed_on: []
 relations:
   - {type: requires, target: reduction_partition}
   - {type: alternative_of, target: cross_lane_reduction, note: "lane exchange within one warp vs smem across warps; often composed"}
@@ -45,6 +45,4 @@ signature:
   boundary: null
   resources: [smem]
 numeric_risk: "Reorders the combine; result depends on the number of participating warps, which can depend on launch configuration."
-expected_sass:
-  - {when: "True", must_contain: [BAR.SYNC], must_not_contain: []}
 summary: "Combines partials held by different warps of a CTA through shared memory with barriers between rounds. Can leave the result in one warp or broadcast it. Reorders the combine, so the result depends on how many warps take part."

@@ -109,12 +109,12 @@ def test_schema_1_cost_record_upcasts_on_read_and_keeps_its_id(store: Store) -> 
         "origin": "real",
     }
     rec = Record.model_validate(stored)
-    assert rec.body == body  # the stored body is never rewritten
+    assert rec.stored_body == body and rec.upcast  # the stored body is never rewritten
     rid = store.put(rec)
     again = store.get(rid)
     assert record_id(again) == rid and again.schema_ == 1
-    t = again.body_model()
-    assert isinstance(t, Template) and t.effects.upcast_from == "cost"
+    t = Template.model_validate(again.body)
+    assert t.effects.upcast_from == "cost"
     assert [(c.unit, c.overlap) for c in t.cost] == [("issue", "serial"), ("dram", "overlappable")]
     assert [x.kind for x in t.effects.transactions] == ["unit:issue", "unit:dram"]
     hit = find_template(store, "multi_buffer_rotation@1")

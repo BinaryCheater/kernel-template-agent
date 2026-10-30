@@ -1,7 +1,7 @@
 name: masked_tile_pruning
 version: 1
-level_from: 1
-level_to: 2
+level_from: 3
+level_to: 4
 change: restriction
 refines: reduce
 produces: [reduce, map]
@@ -18,7 +18,6 @@ preconditions:
   - {id: pre_neutral, expr: "p.mask_value_is_identity", meaning: "masked elements take the identity of the reduction (-inf for max / exp-sum), so skipping a fully masked tile is exact", cls: semantic}
 program:
   description: "Compute the first and last unmasked tile index from the output tile position and the mask; loop only over that range; run the first masked_steps iterations with elementwise masking and the rest without (FlashAttention-2 n_block_max for causal and n_masking_steps peeling)."
-  fragments: {}
 backward_map: "Re-insert the skipped tiles as all-identity contributions and drop the peeling: the reduction over all tiles with elementwise masking."
 obligations:
   - {name: skipped_fully_masked, statement: "Every skipped tile is fully masked for every row of the output tile.", method: exhaustive}
@@ -33,7 +32,8 @@ effects:
 scope:
   predicate: "True"
   text: "Reductions over a structurally masked domain (causal or windowed attention, sequence-length residues)."
-requires_hw: []
+requires: []
+probed_on: []
 relations:
   - {type: requires, target: reduction_partition, note: "tiles of the reduction partition are the unit of skipping"}
 signature:
@@ -43,5 +43,4 @@ signature:
   boundary: "diagonal tiles and sequence-length residue"
   resources: [tensor]
 numeric_risk: null
-expected_sass: []
 summary: "Uses the structure of a mask to skip reduction tiles that are fully masked and to confine elementwise masking to a few peeled iterations. A restriction of the iteration space whose obligation is that skipped tiles contribute only the identity. The number of peeled steps depends on the tile shapes and the mask."

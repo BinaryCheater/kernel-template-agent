@@ -1,5 +1,5 @@
 name: transfer
-level: 2
+level: 4
 category: transfer
 params:
   - {name: src, type: enum, values: [reg, smem, tmem, l2, gmem], meaning: "source storage level"}

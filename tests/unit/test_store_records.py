@@ -66,12 +66,12 @@ def test_query_filters_and_order(store: SqliteStore) -> None:
     store.put(pattern("p"))
     assert [store.put(gap("gap number 0", n=0))] == ids[:1]
     assert len(store.query("Gap")) == 6
-    assert [r.body["level"] for r in store.query("Gap", {"level": {">=": 4}})] == [4, 5]
+    assert [r.body["level"] for r in store.query("Gap", {"level": {">=": 4}})] == [4, 5, 6]
     assert len(store.query("Gap", {"level": {"in": [1, 3]}})) == 2
     assert len(store.query("Gap", {"level": {"!=": 1}})) == 5
     assert len(store.query("Gap", {"pattern_guess": None})) == 6
     assert len(store.query("Gap", {"actor.name": "test", "origin": "real"})) == 6
-    assert store.query("Gap", order="-body.level", limit=2)[0].body["level"] == 5
+    assert store.query("Gap", order="-body.level", limit=2)[0].body["level"] == 6
     assert store.query("Pattern", {"name": "p"})[0].body["name"] == "p"
     for bad in ({"name; DROP": 1}, {"level": {"~": 1}}, {"level": {"in": []}}):
         with pytest.raises(ConfigError):

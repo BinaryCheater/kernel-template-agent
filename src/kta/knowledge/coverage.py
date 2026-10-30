@@ -19,6 +19,7 @@ from kta.core.schemas import Record
 from kta.core.schemas.common import Assurance, Level
 from kta.core.schemas.knowledge import Gap
 from kta.knowledge import pool
+from kta.knowledge.capabilities import availability, target_capabilities
 from kta.knowledge.types import CoverageReport
 from kta.store.base import Store
 
@@ -154,11 +155,11 @@ def _references(store: Store, recons: list[tuple[str, Record]]) -> list[dict[str
 def _hw_grid(
     store: Store, templates: list[tuple[str, Record]]
 ) -> dict[str, dict[str, dict[str, int]]]:
-    """HwFeature -> refined Pattern -> assurance -> Template count ("none" for no feature)."""
+    """Capability -> refined Pattern -> assurance -> Template count ("none": requires none)."""
     grid: dict[str, dict[str, dict[str, int]]] = {}
     for rid, rec in templates:
         _, assurance = pool.status_of(store, rid)
-        for feature in rec.body.get("requires_hw") or ["none"]:
+        for feature in rec.body.get("requires") or ["none"]:
             cell = grid.setdefault(feature, {}).setdefault(rec.body["refines"], {})
             cell[assurance] = cell.get(assurance, 0) + 1
     return grid
@@ -197,11 +198,52 @@ def _missing_templates(store: Store, recons: list[tuple[str, Record]]) -> list[s
     return sorted(r for r in refs if pool.find_template(store, r) is None)
 
 
-def coverage_report(store: Store, snapshot_id: str | None, rng: random.Random) -> CoverageReport:
+def known_targets(store: Store) -> list[str]:
+    """Target names that declared capabilities, were probed, or have a Target record."""
+    names = {str(r.body["target"]) for r in pool.records(store, "CapabilityDecl")}
+    names |= {str(r.body["name"]) for r in pool.records(store, "Target")}
+    for rec in pool.records(store, "HwFeature"):
+        names |= set(rec.body.get("support", {}))
+    return sorted(names)
+
+
+def _availability(
+    store: Store, templates: list[tuple[str, Record]], targets: list[str]
+) -> dict[str, dict[str, Any]]:
+    """Per target: Templates available, known but unavailable here, unconfirmed (D445)."""
+    out: dict[str, dict[str, Any]] = {}
+    for target in targets:
+        states = target_capabilities(store, target)
+        unavailable: list[str] = []
+        unconfirmed: list[str] = []
+        for _, rec in templates:
+            ref = pool.template_ref(str(rec.body["name"]), int(rec.body["version"]))
+            a = availability(rec.body.get("requires") or [], target, states)
+            if a.missing:
+                unavailable.append(ref)
+            elif a.unconfirmed:
+                unconfirmed.append(ref)
+        out[target] = {
+            "available": len(templates) - len(unavailable) - len(unconfirmed),
+            "known_unavailable_here": len(unavailable),
+            "unconfirmed_here": len(unconfirmed),
+            "unavailable": sorted(unavailable),
+            "unconfirmed": sorted(unconfirmed),
+        }
+    return out
+
+
+def coverage_report(
+    store: Store,
+    snapshot_id: str | None,
+    rng: random.Random,
+    targets: list[str] | None = None,
+) -> CoverageReport:
     """All coverage quantities of 21 §2 for a PoolSnapshot (``None``: the whole store).
 
     ``rng`` drives the discovery-curve shuffles; pass ``ctx.rng("coverage")`` and record
-    the seed with the report.
+    the seed with the report. ``targets`` (default: every known Target name) are the
+    Targets for which Template availability is counted (D445).
     """
     members = _members(store, snapshot_id)
     recons = _latest(_select(store, "Reconstruction", members))
@@ -257,6 +299,9 @@ def coverage_report(store: Store, snapshot_id: str | None, rng: random.Random) -
             ),
         },
         pending=dict(PENDING),
+        availability=_availability(
+            store, templates, known_targets(store) if targets is None else targets
+        ),
     )
 
 

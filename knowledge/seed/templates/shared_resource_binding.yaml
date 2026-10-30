@@ -1,7 +1,7 @@
 name: shared_resource_binding
 version: 1
-level_from: 4
-level_to: 5
+level_from: 6
+level_to: 7
 change: vertical
 refines: access
 produces: [access]
@@ -22,7 +22,6 @@ program:
   description: >-
     Address the tile through the bank map (e.g. column chunk XOR row) on every write and read of the
     buffer; the hardware arbitrates the resulting requests.
-  fragments: {}
 backward_map: >-
   The bank map is a bijection on addresses inside the tile; reading through its inverse gives the
   logical layout, and arbitration order does not change the values read.
@@ -41,7 +40,8 @@ scope:
   text: >-
     Accesses to banked on-chip memory with a declared arbitration contract. On GB10 the chip
     variables (queue depth, bank count and width) are fixed hardware values, not decisions.
-requires_hw: []
+requires: []
+probed_on: []
 relations:
   - {type: requires, target: physical_storage, note: "binds the requests of a buffer in banked memory"}
 signature:
@@ -51,7 +51,6 @@ signature:
   boundary: null
   resources: [smem]
 numeric_risk: null
-expected_sass: []
 summary: >-
   Paper GEMM step 5: an untimed access becomes requests to banks, ports and bounded queues. The
   software decision is the bank binding (swizzle); on GB10 the queue depth and port counts are fixed

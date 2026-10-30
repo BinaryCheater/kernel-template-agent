@@ -3,6 +3,6 @@ description: >-
   [ux-02] The Pattern table has no prefix-scan transaction: it is neither reduce (one result) nor map
   (independent). Proposed Pattern scan (category other, since the schema's category list has no scan).
   No Template proposed; the scan is done by a library call.
-level: 1
+level: 3
 pattern_guess: scan
 attribution: space

@@ -1,7 +1,7 @@
 name: block_rasterization
 version: 1
-level_from: 2
-level_to: 2
+level_from: 4
+level_to: 4
 change: vertical
 refines: work_assign
 produces: [work_assign]
@@ -17,7 +17,6 @@ preconditions:
   - {id: pre_indep, expr: "p.independent_outputs", meaning: "tiles are independent; any order is semantically valid", cls: semantic}
 program:
   description: "Decode (m_tile, n_tile) from the launch index with the chosen interleave (CUTLASS GemmIdentityThreadblockSwizzle::get_tile_offset; Triton pid -> (pid_m, pid_n) with GROUP_SIZE_M)."
-  fragments: {}
 backward_map: "Any permutation of independent tiles computes the same outputs; the order is erased."
 obligations:
   - {name: permutation, statement: "The launch index -> tile map is a bijection onto valid tiles (extra launch indices exit).", method: exhaustive}
@@ -30,7 +29,8 @@ effects:
 scope:
   predicate: "True"
   text: "Grids of independent tiles that reuse operands across tiles."
-requires_hw: []
+requires: []
+probed_on: []
 relations:
   - {type: requires, target: output_tiling}
 signature:
@@ -40,5 +40,4 @@ signature:
   boundary: "partial groups at the grid edge"
   resources: [l2]
 numeric_risk: null
-expected_sass: []
 summary: "Chooses the order in which tiles are launched so concurrently running tiles share operands in L2. Pure permutation of independent work, so its obligation is only bijectivity. The group width is the main variable."

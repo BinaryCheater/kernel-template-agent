@@ -3,7 +3,7 @@
 
 import type {
   ActionLogEntry, ActiveRuns, AgentsView, BlobText, Capability, CaseDetail, CaseIndexRow, CoverageReport,
-  FamilyDetail, FamilySummary, ImprovementsView, InboxItem, Machines, Meta, PoolView, RecordEnvelope,
+  FamilyDetail, FamilySummary, ImprovementsView, InboxItem, Machines, Meta, PoolDiff, PoolView, RecordEnvelope,
   Quotas, Residual, ResultDetail, Snapshot, Span, TaskDetail, TraceInfo, ExperimentProtocol,
 } from "./types";
 
@@ -61,6 +61,7 @@ export const api = {
   families: (snapshot?: string) => get<FamilySummary[]>("/families", { snapshot }),
   familyChain: (id: string) => get<FamilyDetail>(`/families/${enc(id)}/chain`),
   snapshots: () => get<Snapshot[]>("/snapshots"),
+  poolDiff: (a: string, b: string) => get<PoolDiff>("/pool/diff", { a, b }),
   coverage: (snapshot: string) => get<CoverageReport>("/coverage", { snapshot }),
   // WP9b
   capabilities: () => get<Capability[]>("/actions/capabilities"),

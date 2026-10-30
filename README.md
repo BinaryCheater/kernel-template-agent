@@ -1,56 +1,209 @@
-# KTA（Kernel Template Agent）
+# KTA — Kernel Template Agent
 
-一个从 GB10 起步、基于细化 Template 积累的 kernel 优化 agent 系统。本仓库是一个独立的 agent workspace（自己的 git 仓库、AGENTS.md 和 `.agents/skills/`）。它位于研究仓库 agentic-codesign 之中，但不 import 其中的代码；上一级目录的材料只作只读参考。论文中的方法名 Formulaic 保持不变，与本系统分开。
+**Kernel optimisation as accumulated, checkable knowledge, not one-off token spend.**
 
-**当前状态（2026-10-30）**：设计文档和施工规范已写好，尚未开始实现。已确认：名称 KTA、独立 workspace、运行时先接 Codex（预留 Claude Code、pi、DeepSeek harness）、加入流水图、AI 调用必须可追溯、控制面与计算资源可分离部署、环境自包含、在本机开发；其余决策见决策日志。
+KTA is a research system for designing high-performance GPU kernels with LLM agents. Instead of asking a strong model to write each kernel from scratch, KTA makes the expert's knowledge explicit — as refined *Templates*, *Chains* of them, a declarative *hardware model*, and scoped *Findings* — and lets a deterministic pipeline search over it. The agent is called only where something is genuinely missing, and what it contributes is kept, checked and reused.
 
-## 给施工 agent
+> **Status (2026-10-31): research prototype, code stage.** The planned system is written and passes its code-stage gates; **nothing has been run for real yet** (no GPU measurements, no autonomous agent runs). Every real run the code owes is listed in its work package's delivery note. Fixture data in the UI is labelled as such. See [Status and roadmap](#status-and-roadmap).
 
-从 [AGENTS.md](AGENTS.md) 开始，然后读 [spec/workplan.md](spec/workplan.md) 中你负责的工作包。
+---
 
-## 给人读的设计文档
+## The idea in one paragraph
 
-| 文档 | 回答什么 | 阅读时间 |
+Kernel design can be **white-boxed**. Every kernel is a set of transactions — compute, data movement, synchronisation — scheduled on finite hardware resources over time. An expert's tricks are transformations of that schedule, each with a contract saying when it is safe and what it does to cost. If those tricks are written down as executable, verifiable units and composed by a solver against a hardware model, then a search over accumulated knowledge can reach state-of-the-art kernels, and the agent is needed only to fill real gaps. The alternative — a strong model spending many tokens per kernel and keeping nothing but code — is our control arm, not our method.
+
+## Key ideas
+
+### One paradigm, one ruler
+
+- **One vocabulary.** A table of transaction patterns (reduce, contract, transfer, sync, …) and a table of resources (tensor cores, shared memory, DRAM, issue slots, …). Both tables are open: what cannot be described goes to `other` and is *counted*. We never pretend the vocabulary is complete.
+- **One ruler.** Every resource has a measurable peak, so for any problem the **speed-of-light (SOL) bound** is computable without knowing the best kernel. A kernel is finished when some bottleneck unit does no more than the minimal work *and* is busy from start to finish.
+- **The gap decides what happens next.** The distance to the bound is decomposed into named parts —
+
+  ```
+  T_measured − T_SOL  =  ε (model error)  +  δ (solver)  +  Δpre (preconditions)  +  L_rep (representation)  +  irreducible
+  ```
+
+  — attributed in a fixed order, and that decomposition (not the agent's judgement) routes the next action: calibrate the model, open a variable, add a template, or accept. Idle time blamed on a hardware *wall* is that wall's shadow price: on a fixed chip it separates scheduling problems from hardware limits; in co-design it is what relaxing the wall would buy.
+
+### Three kinds of knowledge
+
+| Kind | Object | What it says |
 | --- | --- | --- |
-| [00 总览](docs/design/00-overview.md) | 系统要证明什么、和谁比、做哪几件事、怎样变好 | 10 分钟 |
-| [01 思维模型](docs/design/01-thinking-model.md) | 人读的整体思考：要证明什么、怎样看问题、在意什么、必须存在什么、已定与待定的决策、要做的实验、范围 | 15 分钟 |
-| [02 设计笔记](docs/design/02-design-notes.md) | 讨论产生的细节，按待合并的目标文档组织：推导、知识层次、Template 效应、硬件性能模型、稳态投影与 formulation、循环与桥接、验证、学习流程；完整决策台账与待定决策 | 40 分钟 |
-| [变更日志](docs/changelog.md) | 每轮设计讨论改了什么、提出了哪些设计要求及其状态、施工接下来该做什么 | 5 分钟 |
-| [10 Agent 系统](docs/design/10-agent-system.md) | 编排器与任务；agent 的角色、会话、上下文和实例数；工具、skills 与池知识的区分；失败处理 | 25 分钟 |
-| [11 进程、资源与并发](docs/design/11-processes-resources-concurrency.md) | 几个独立进程怎样分工；时间和资源边界；并行、锁与崩溃恢复 | 15 分钟 |
-| [12 Agent 控制项](docs/design/12-agent-controls.md) | 预算、失败轮数、会话与上下文、防钻牛角尖／偷懒／hack 检查、升级与可靠性：每个旋钮的默认值、它防止什么失败、在哪里设置（含拟开放的前端设置） | 10 分钟 |
-| [20 存储与检索](docs/design/20-storage-retrieval.md) | 存什么、放哪里、怎样版本化、怎样查 | 15 分钟 |
-| [21 知识准入与覆盖](docs/design/21-knowledge-admission-coverage.md) | 知识怎样被记录和分级使用；不知道全集时怎样估计覆盖；结构自身的覆盖 | 15 分钟 |
-| [22 细化 Template、组合链与可执行族](docs/design/22-template-format-retrieval-composition.md) | 知识单元的定义（沿用论文）；组合链；可执行族；formulation 的拼装；增量复用；检索；保证等级 | 20 分钟 |
-| [23 知识的结构](docs/design/23-knowledge-structure.md) | 知识对象的类型和关系图；各功能怎样在图上计算 | 10 分钟 |
-| [24 拆解参考实现](docs/design/24-reference-decomposition.md) | 怎样把 SOTA 实现拆成组合链来检验覆盖；首批对象；可预见的难点 | 10 分钟 |
-| [30 前端与监督](docs/design/30-frontend-and-supervision.md) | 你怎样观察系统、什么时候需要你、能做哪些介入；覆盖页；流水图 | 10 分钟 |
-| [40 模块与代码质量](docs/design/40-modules-and-code-quality.md) | 模块怎样拆分、什么可以替换、软件栈 | 10 分钟 |
-| [50 实验与证据](docs/design/50-experiments.md) | 实验设计、测量与检查的规则 | 10 分钟 |
-| [60 施工与验收](docs/design/60-build-and-acceptance.md) | coding agent 怎样施工、怎样防止假完成、你怎样验收 | 10 分钟 |
-| [70 其他 kernel agent](docs/design/70-related-systems.md) | 对照维度；已知系统；可借鉴的检查项 | 10 分钟 |
-| [决策日志](docs/decisions.md) | 每个决策一行：选了什么、谁定的、状态 | 5 分钟 |
+| what can be built | **Template**, **Chain** | the moves, and known-good compositions of them |
+| what it costs | **Hardware model** | resources, walls, reservation tables, efficiency, interactions — as data |
+| where it pays | **Finding** | an empirical claim with its scope, evidence and status |
 
-## 施工规范
+The formulation for a case is *derived* from these three; nobody writes an optimisation model by hand. A state-of-the-art kernel mostly teaches a *sentence* (a chain with bindings and the regime where it wins) and rarely a new *letter* (a template). Composition knowledge — which moves go together, in which order — is what makes SOTA *reachable* rather than merely *expressible*, and it emerges as statistics over reconstructed chains.
 
-| 文件 | 内容 |
+### The Template: a trick with a contract
+
+A Template is one refinement step — a parameterised program transformation that turns a coarse transaction into finer ones and introduces exactly one new object (a shared-memory slot, a pipeline stage, a split of a reduction). It has three faces, each read by a different consumer:
+
+| Face | Answers | Read by |
+| --- | --- | --- |
+| transformation | which transaction becomes which; variables; abstract program | solver, generator |
+| contract | when it is safe and why: constraints, preconditions, obligations, scope Γ | verifier, retrieval |
+| effects | what it does to cost, *in transaction terms only* | hardware model, solver |
+
+A template carries **no hardware numbers and no performance conclusions**: it declares the transactions it adds, the storage it occupies and what may overlap; the hardware model prices that. This keeps one calibration valid for every template, and lets knowledge outlive the chip it was learnt on.
+
+### The hardware model is data, not code
+
+The simulator, the optimisation model and the profiling report all derive from **one declarative source**: resources (with ncu counter names), walls (with their cliff), per-operation reservation tables, efficiency curves, and measured interactions. Fine-grained sharing (two datapaths behind one adder tree) is just another resource, discovered by pairwise interference microbenchmarks. Completeness is never asserted — it is *measured* as coverage of the instruction classes that appear in real kernels.
+
+Four fidelity levels share one parameter table:
+
+| Level | Form | Used for |
+| --- | --- | --- |
+| L1 analytic | steady-state (modulo-scheduling) projection | inside the MIP, microseconds |
+| L2 transaction-level simulation | per-CTA transaction graph on resources | occupancy timelines, idle attribution, what-if wall moves |
+| L3 SASS-level simulation | instruction-level simulator | post-compile re-ranking and diagnosis |
+| L4 measurement | GPU timing and counters | the final word, and calibration |
+
+Because L1 is a well-defined relaxation of L2, the MIP can be **checked against the simulator without a GPU**: rank correlation on sampled points, and the optimistic bound (MIP ≤ simulator) must hold.
+
+### Solve ranks, measurement decides
+
+The model's job is to *rank* candidates well enough to pick what is worth measuring, not to predict absolute time. A solve shortlists candidates, compiles them in parallel, checks their SASS against each template's expected traces, verifies correctness on the top *k*, and measures under a frozen protocol. Every solve also records selection controls (model top-*k* vs. copied assignment vs. random *k*) so that a solver that adds nothing cannot hide.
+
+### Loops with bridges
+
+```
+design loop     (user + assistant)  ── design docs, decision ledger, deliveries, canaries
+ system loop    (per batch)         ── checks, routing rules, access discipline, model versions
+  knowledge loop (across cases)     ── templates, hardware-model structure, findings
+   case loop     (per case)         ── subspace, model parameters  → gap decomposition
+    solve loop   (per formulation)  ── the assignment              → candidates + predictions
+```
+
+Each loop changes one kind of thing and reads the outer loop's objects as constants. Loops talk only through immutable records: downward bridges are *versions*, upward bridges are *evidence*. Solving, learning and calibrating run as independent processes that never share an agent context.
+
+### Levels and transfer
+
+Refinement levels (1 workload · 2 graph · 3 operators · 4 tensor map · 5 instructions · 6 architecture · 7 microarchitecture) say how fine a decision is. A second, orthogonal axis says how far it *transfers*: semantic → mechanism (needs an abstract capability) → realisation (backend/ISA) → chip instance → chip × workload finding. Knowledge is attached at the most general layer where it still holds, so moving to a new chip keeps the semantics and mechanisms, replaces realisations and instance numbers, and demotes findings to priors. Mechanisms the current chip cannot run (e.g. TMA multicast on GB10) are still recorded as *unprobed* and wake up when a chip that has them arrives.
+
+## Design principles we hold ourselves to
+
+- **Honest verification.** Proofs cover what they cover; everything else is `tested`, never `proved`. The weakest link — whether agent-written generator code implements a template's intent — is guarded by code markers, expected-SASS checks and sanitizers.
+- **Agents game checks; design for it.** A gain counts only if it exceeds the noise band *and* is attributed to a named mechanism. Two null rounds close a case. Task cards fix their checks; hidden shapes stay hidden; planted canary faults test the checkers; agents cannot write measurements or verdicts.
+- **Finite context.** Agents get a one-screen task header and a versioned access discipline (situation → fetch → decide); everything else is pulled by ID, and pulls are logged.
+- **Real or declared.** A capability is claimed only after a real run. Test doubles live in `tests/fakes/`; any simplification carries a `# kta:fixture` marker and is listed in the delivery note. Unsupported paths raise `NotSupported` instead of returning plausible numbers.
+- **Parameters by experiment, not by fiat.** Which model per task type, effort level, resume vs. fresh sessions, retries, the noise band: each is a small experiment (X1–X12). Until it has run, the value is a labelled default in one versioned controls table.
+- **Simple first.** One runtime agent role, a few instances, no sub-agent trees. Agent-hours are the scarce resource; GPU-seconds are cheap.
+- **Staged release.** S0 deterministic golden path (no agent) → S1 hand-stepped agent tasks → S2 one autonomous case loop → S3 knowledge loop → S4 open. No stage opens until the previous one is understood.
+
+## What we claim, and how it is measured
+
+The central claim is relative and scoped — for a stated class of workloads, one architecture class and a stated correctness contract. Coverage of state-of-the-art kernels is reported in four levels; the thesis lives at level 3:
+
+| Level | Meaning | Measured by |
+| --- | --- | --- |
+| 1 expressible | the SOTA kernel is a point of our space | reconstruction match rate (73 % of 135 steps over 7 references, first pass) |
+| 2 reproducible | generating from that point reproduces its performance | reproduction error on the reference's own configuration |
+| 3 reachable | given only the problem, the system finds that point or an equally good one | blind reconstruction |
+| 4 surpassed | the blind result beats the reference under the same contract | same |
+
+Secondary claims: **amortisation** (cost per new case falls as the pool grows; a weak model with the pool approaches a strong model without it) and **diagnosability** (every shortfall is attributed to one component). Experiments compare three knowledge conditions — from scratch, the pool rendered as text, and the executable Template pool — each with a strong and a weak model.
+
+**Scope v1.** GEMM, quantised GEMM/GEMV, attention prefill and decode, MoE grouped GEMM, norm — on NVIDIA GB10 (sm_121). Backends: TileLang primary, CUDA C++ with inline PTX as the escape hatch, Triton for controls. Out of scope and counted separately: graph-level optimisation and system-level features (host planners, paged-KV machinery, dispatch).
+
+## How a case is solved
+
+```
+Case ─▶ SOL bound ─▶ retrieve legal chains (Γ, capabilities) ──(none)──▶ agent task: extend the space
+     ─▶ FormulationPlan (deterministic default; agent plans are scored against it)
+     ─▶ projection compiler ─▶ MIP over the open variables ─▶ shortlist
+     ─▶ generate + compile in parallel ─▶ SASS intent checks ─▶ correctness on top-k ─▶ measure
+     ─▶ gap decomposition ─▶ accept │ calibrate the model │ extend the space │ repair a template
+```
+
+Everything except "extend", "calibrate" (diagnosis) and "repair" is deterministic code. Agent work arrives as typed tasks (T1 family, T2 decomposition, T3 template, T4 model diagnosis, T5 microbenchmark, T6 repair) with fixed checks, budgets and a persistent, resumable session per work unit.
+
+## How the system learns
+
+Learning from a reference implementation is an automated pipeline, not hand work:
+
+```
+intake (clone at commit, license, hash, build, run + SASS + profile)
+  → decompose (agent, T2: the reference as a chain over our templates)
+  → admit (deterministic; errors go back to the same session; language gaps admitted as `proposed`)
+  → reproduce (our family vs. the reference's performance core, within ε)
+  → ablate (toggle steps on our own family; detect coupled pairs)
+  → cover (coverage update, pool snapshot, waiting cases resume)
+```
+
+Cost is tiered (L0 analysis → L1 measure → L2 reproduce → L3 ablate → L4 blind), so expensive steps run only where a new capability is at stake.
+
+## Architecture
+
+```
+src/kta/
+  core          schemas, IDs, expression language, config, context          layer 0
+  store         immutable records, artefacts, snapshots, invalidation        layer 1
+  targets       hardware targets and capabilities                            layer 2
+  execution     remote job execution (ssh/docker workers), GPU leases        layer 3
+  backends · knowledge · models                                              layer 4
+  measure · formulation                                                      layer 5
+  checks · solve                                                             layer 6
+  orchestrator  loops, task queue, processes, budgets                        layer 7
+  agents        task cards, prompts, workspaces, sessions, provider adapters layer 8
+  cli · api     the `kta` command and the HTTP API                           layer 9
+web/            React + Vite frontend (HTTP API only)
+knowledge/      seed patterns, templates, families, references
+```
+
+A module imports only from lower layers (enforced by import-linter); checkers may not import the knowledge module, so a generator can never check itself. The control plane (API, store, orchestrator) runs locally; compilation and GPU work go through the Executor to remote workers. Every AI call goes through an adapter that persists the session and its usage; each batch gets an isolated, fully regenerable agent workspace (prompts, configuration, skills).
+
+The frontend shows what runs now, each case's iterations, the evidence chain behind every result, coverage, the pool, the hardware model, and an inbox of things that need a human.
+
+## Getting started
+
+Requirements: Python 3.12 via [uv](https://docs.astral.sh/uv/) 0.11, Node (version in `web/.nvmrc`). Everything installs into the project directory.
+
+```bash
+scripts/bootstrap                 # uv sync --frozen, npm ci, data directories
+export KTA_DATA=~/kta-data KTA_ENV=dev
+uv run kta doctor                 # implementations in use, lock-file check
+uv run kta init                   # create the store and import the seed knowledge
+scripts/seed-dev                  # optional: fixture records for the UI (labelled FIXTURE)
+uv run python -m kta.api          # HTTP API
+(cd web && npm run dev)           # frontend at http://127.0.0.1:5173
+```
+
+GPU work needs a registered worker (`kta worker`, `scripts/worker-setup`); see `spec/modules/target-exec.md`. Quality gate for a work package:
+
+```bash
+scripts/gate --stage code WP15
+```
+
+## Status and roadmap
+
+| | State |
 | --- | --- |
-| [AGENTS.md](AGENTS.md) | 施工入口：读什么、原则、环境、决策、交付 |
-| [spec/conventions.md](spec/conventions.md) | 工程约定：记录、产物、日志的分工；环境与数据隔离；代码、错误、日志、测试；远端运行与证据清单；不允许的做法 |
-| [spec/schemas.md](spec/schemas.md) | 全部记录与知识对象的字段；表达式语言；状态推进规则 |
-| [spec/modules/](spec/modules/README.md) | 各模块的职责、接口、行为、验收；模块层次 |
-| [spec/workplan.md](spec/workplan.md) | 14 个工作包：依赖、产出、验收、允许的简化 |
-| [spec/gate.md](spec/gate.md) | 验收脚本的检查项 |
-| [.agents/skills/](.agents/skills/README.md) | 施工 skills（workspace 级） |
-| [src/kta/agents/skills/decompose-kernel](src/kta/agents/skills/decompose-kernel/SKILL.md) | 运行时 skill：拆解参考 kernel 的方法 |
+| Rounds 1–3 (WP0–WP13): infrastructure, knowledge, models and solve, orchestrator, agents, API and frontend, decomposition of 7 references | merged; WP0–WP5 passed the full gate with real runs, later WPs at code stage |
+| Round 4 (WP14–WP21): knowledge model v2, template effects and the declarative hardware model, transaction-level simulator, projection compiler, gap routing, FormulationPlan and access discipline, learning-loop runner, controls registry and staged release | in construction |
+| S0 golden path (GEMM on GB10, no agent) | next real run |
+| Small parameter experiments X1–X12, then the main experiments | after S0; see `docs/design/02-design-notes.md` §11 for the order |
 
-## 两种 agent
+## Documentation
 
-- **施工 agent**：编写 KTA 本身代码的 coding agent，可以是 Claude Code、Codex 或其他模型。见 60 与 AGENTS.md。
-- **运行时 agent（worker）**：KTA 运行时调用的 LLM agent，负责写族、拆解参考实现、提取 Template 等。见 10。
+Design documents are human-readable; construction follows `spec/`. Older documents are in Chinese; new ones are in English.
 
-## 依据标记
+| Document | Answers |
+| --- | --- |
+| [01 Thinking model](docs/design/01-thinking-model.md) | what we want to show, how we think about the problem, what we are careful about, decisions, experiments |
+| [02 Design notes](docs/design/02-design-notes.md) | the detail behind 01: derivation, knowledge layers, template effects, hardware model, projection and formulation, loops, verification, learning; decision ledger |
+| [12 Agent controls](docs/design/12-agent-controls.md) | every budget, cut-off and anti-gaming control, with the failure it prevents |
+| [Change log](docs/changelog.md) | what each design conversation and work package changed |
+| [00 Overview](docs/design/00-overview.md) | goals, comparisons, core concepts (zh) |
+| [10 Agent system](docs/design/10-agent-system.md) · [11 Processes](docs/design/11-processes-resources-concurrency.md) | orchestration, tasks, sessions; processes, resources, concurrency (zh) |
+| [20 Storage](docs/design/20-storage-retrieval.md) · [21 Admission and coverage](docs/design/21-knowledge-admission-coverage.md) · [22 Templates](docs/design/22-template-format-retrieval-composition.md) · [23 Knowledge structure](docs/design/23-knowledge-structure.md) · [24 Reference decomposition](docs/design/24-reference-decomposition.md) | the knowledge side (zh) |
+| [30 Frontend](docs/design/30-frontend-and-supervision.md) · [40 Modules](docs/design/40-modules-and-code-quality.md) · [50 Experiments](docs/design/50-experiments.md) · [60 Build and acceptance](docs/design/60-build-and-acceptance.md) · [70 Related systems](docs/design/70-related-systems.md) | supervision, code structure, experiment rules, construction, related work (zh) |
+| [Decisions](docs/decisions.md) · [Review queue](docs/review-queue.md) | every decision, who made it, and what awaits review |
+| [AGENTS.md](AGENTS.md) · [spec/](spec/workplan.md) · [construction skills](.agents/skills/README.md) | for the coding agents that build KTA |
+| [Runtime skills](src/kta/agents/skills/README.md) | skills KTA's own agents use at run time |
 
-每份设计文档末尾有"依据与待核实"一节，标出哪些内容是凭记忆或推断写的、哪些数值是先填的。检查义务后移：第一阶段靠经验和测试保证可用，形式化保证与覆盖在积累中逐步可见（22 §6、21 §2.4）。
+## Background
 
-早期长稿 [kernel-agent-design.md](../docs/discussions/kernel-agent-design.md) 仅作素材，以本目录为准。
+KTA builds on *Learning to Formulate* (Formulaic; Yi Ding and Li Shang, [arXiv:2610.39380](https://arxiv.org/abs/2610.39380); local copy in [`docs/references/`](docs/references/)), which introduced the refined-template tuple, refinement levels, walls with shadow prices and local proofs that compose. KTA keeps the template tuple, the levels and the division of labour between solver, verifier and agent, and departs from the paper where running the system argues for it — most visibly in deriving formulations mechanically from template effects and a declarative hardware model, rather than having an agent write one per case.

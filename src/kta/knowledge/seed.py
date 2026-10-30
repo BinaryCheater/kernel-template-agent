@@ -2,11 +2,15 @@
 
 Layout of the seed directory (decision D204); every YAML file holds one record body:
 
-    sources/*.yaml      Source        (cited by every seed Template)
-    patterns/*.yaml     Pattern
-    structures/*.yaml   Structure
-    templates/*.yaml    Template      refs.sources = all seed Sources
-    references/<ref>/   one decomposed reference (WP10a layout, refs implied, D100)
+    sources/*.yaml          Source          (cited by every seed Template)
+    patterns/*.yaml         Pattern
+    structures/*.yaml       Structure
+    capabilities/*.yaml     Capability      refs.sources = all seed Sources (D442)
+    targets/<t>/*.yaml      CapabilityDecl  one per (target, capability) (D442)
+    templates/*.yaml        Template        refs.sources = all seed Sources
+    realisations/*.yaml     Realisation     refs.template by name@version (D443)
+    references/<ref>/       one decomposed reference (WP10a layout, refs implied, D100);
+                            its realisations/ as above
 
 A batch is validated as a whole against the store plus the batch itself, and written in
 one ``put_many`` only when it has no error, so a bad batch writes nothing. Records whose
@@ -31,10 +35,11 @@ from kta.core.errors import ConfigError, SchemaError
 from kta.core.ids import record_id
 from kta.core.schemas import Actor, InvalidBody, Record, RefValue
 from kta.core.schemas.hardware import HwFeature
-from kta.core.schemas.knowledge import Chain, Template
+from kta.core.schemas.knowledge import Chain, Realisation, Template
 from kta.knowledge.chains import validate_chain
 from kta.knowledge.pending import PendingView
 from kta.knowledge.pool import names as pool_names
+from kta.knowledge.realisations import validate_realisation
 from kta.knowledge.templates import validate_template
 from kta.knowledge.types import Issue, errors_of
 from kta.store import CodeState, code_state
@@ -48,6 +53,9 @@ IDENTITY: dict[str, tuple[str, ...]] = {
     "Pattern": ("name",),
     "Structure": ("name",),
     "Template": ("name", "version"),
+    "Capability": ("name",),
+    "CapabilityDecl": ("target", "capability"),
+    "Realisation": ("template", "backend"),
     "HwArch": ("name", "version"),
     "HwModel": ("target", "version"),
     "Gap": ("description",),
@@ -149,6 +157,8 @@ class _Batch:
                 found = validate_template(Template.model_validate(rec.body), view, None)
             elif rec.kind == "Chain":
                 found = validate_chain(Chain.model_validate(rec.body), view)
+            elif rec.kind == "Realisation":
+                found = validate_realisation(Realisation.model_validate(rec.body), view)
             for i in found:
                 issue = Issue(i.kind, i.message, f"{where}: {i.where}", i.severity)
                 (self.issues if i.severity == "error" else self.result.warnings).append(issue)
@@ -175,10 +185,38 @@ def import_seed(
         batch.add("Pattern", p)
     for p in _yamls(root / "structures"):
         batch.add("Structure", p)
+    src: dict[str, RefValue] = {"sources": sources} if sources else {}
+    for p in _yamls(root / "capabilities"):
+        batch.add("Capability", p, src)
+    targets = root / "targets"
+    for d in sorted(targets.iterdir()) if targets.is_dir() else []:
+        for p in _yamls(d):
+            batch.add("CapabilityDecl", p, src)
     for p in _yamls(root / "templates"):
         batch.add("Template", p, {"sources": sources})
+    _add_realisations(batch, root / "realisations", sources)
     _hardware(batch, root / "hardware")
     return batch.commit()
+
+
+def _add_realisations(batch: _Batch, directory: Path, sources: list[str]) -> None:
+    """Realisations reference their Template (``template: name@version``) by record ID."""
+    for p in _yamls(directory):
+        refs: dict[str, RefValue] = {"sources": sources} if sources else {}
+        tid = _template_id(batch, str(_body(p).get("template", "")))
+        if tid is None:
+            batch.issues.append(Issue("unknown_template", "Template not in the store", str(p)))
+            continue
+        batch.add("Realisation", p, {**refs, "template": tid})
+
+
+def _template_id(batch: _Batch, ref: str) -> str | None:
+    name, _, version = ref.partition("@")
+    view = PendingView(batch.store, batch.records)
+    found = view.query(
+        "Template", {"name": name, "version": int(version) if version.isdigit() else -1}
+    )
+    return record_id(found[-1]) if found else None
 
 
 def _hardware(batch: _Batch, directory: Path) -> None:
@@ -235,8 +273,9 @@ def import_hw_catalog(
 ) -> ImportResult:
     """Write declared HwFeature records for names the store does not know yet.
 
-    Templates' ``requires_hw`` must name existing HwFeatures. Any HwFeature with the same
-    name (declared earlier or probed) already satisfies that, so those names are skipped.
+    HwFeatures are ISA instruction families: Realisations name them in ``requires`` and
+    Capabilities in ``realised_by`` (D442, D443). Any HwFeature with the same name
+    (declared earlier or probed) already serves, so those names are skipped.
     """
     actor = _actor(code or code_state())
     result = ImportResult("hw_catalog")
@@ -276,6 +315,10 @@ def import_references(
             batch.add(
                 "Template", p, {"sources": [per[ref]["source"]]} if per[ref]["source"] else {}
             )
+    for ref in refs:  # phase 2b: Realisations of those Templates (D443)
+        _add_realisations(
+            batch, ref / "realisations", [per[ref]["source"]] if per[ref]["source"] else []
+        )
     for ref in refs:  # phase 3: chains and reconstructions, in pool order
         chain = batch.add("Chain", ref / "chain.yaml", _chain_refs(batch, ref / "chain.yaml"))
         links: dict[str, RefValue] = {"gaps": per[ref]["gaps"]} if per[ref]["gaps"] else {}

@@ -343,6 +343,18 @@ Parameters that govern the system are set by small experiments, not by fiat; unt
 | X7 | L2 reproduction ε | distribution of reproduction error over the 7 references | 12 §4 / 02 §8.4 |
 | X8 | measured points k and exploration share | rank correlation and hit rate vs k, share | 12 §1, §3 |
 | X9 | task wall-clock budgets | completion-time distribution per task type from S1/S2 | 12 §1 |
+| X10 | hardware-model instance values | GB10 peak and pairwise interference microbenchmarks (A, B, A+B) per instruction class (D-T15) | 02 §4 resources, interactions |
+| X11 | MIP ↔ L2 acceptance thresholds | sampled subspace of the GEMM family: distribution of rank correlation and of optimistic-bound violations | WP17 check thresholds |
+| X12 | concurrent agent instances | 2 vs 4 instances on one batch: throughput, GPU queue wait, rate-limit hits | 12 §1 agent instances |
+
+**Order (cheap and decisive first; added 2026-10-31).** Each step needs only what the previous ones settled.
+
+1. *No agent, GPU minutes:* X6 noise band (every later comparison uses it) → X10 peaks and interference → S0 golden path → X8 measured points and exploration share, and O3 rank correlation from the same data.
+2. *No GPU:* X11 MIP ↔ L2 thresholds on the GEMM family; O5 fault-injection routing check.
+3. *References, mostly deterministic:* L1 measure + SASS census on the seven references → X7 reproduction ε from L2 attempts.
+4. *Small agent spend (S1/S2), one task type at a time:* X1 model per task type (include a cheap tier: some task types may not need the strongest model) → X2 effort → X5 retries → X3/O11 resume vs fresh (also tests the 60 % context threshold) → X4/O10 access discipline vs dump vs free browsing (also header size) → X12 instances.
+5. *Read from S1/S2 logs, no dedicated runs:* X9 task budgets; rounds per case, null-round limit, escalation thresholds, model-term provisionality, level-choice ratio. These are revised from logs, not experimented on.
+6. *Claims:* O12 blind reconstruction, O7 amortisation (WP12); O1, O9 saturation and granularity as references accumulate.
 
 ---
 

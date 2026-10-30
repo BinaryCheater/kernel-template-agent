@@ -127,9 +127,14 @@ Additions made in WP1 (D146, D152): `Store.put_many(records)` (one transaction),
 - 单元测试：`main` 环境拒绝 fixture 记录和 dirty 写入；注册表在 dev 环境拒绝 fixture 实现；ID 稳定性；UPDATE/DELETE 被触发器拒绝；refs 缺失时 put 失败；状态推进规则逐条测试；失效传播在一个五层依赖图上正确；CAS 指针并发更新只有一个成功。
 - 真实运行：在 spark 的数据目录上建库，写入 10 万条合成记录（标 origin="fixture"），查询和全文检索 p95 < 50 ms，记录耗时写入交付说明。
 
+## WP14 additions (D440, D448)
+
+- `KindSpec.upcasters` and `registry.upcast_body(kind, schema, body)`: records stored under an older schema version are read with the stored body kept for hashing and `body` upcast (spec/schemas.md §1). `KindSpec.version` is `1 + len(upcasters)`; `KindSpec.legacy_of` names the replacement of a superseded kind (Regime, Negative → Finding).
+- `kta.core.schemas.levels`: `LEVEL_NAMES` (1–7), `LEVEL_MAPPINGS` (`paper-0to5@1`), `map_level`.
+- Status rules (`kta.store.status`): `system` may move a record down the promotion ladder (demotion), never up; checkers still only promote.
 ## WP15 implementation notes (D461, D462)
 
-- Schema upcasts: `KindSpec.upcasts`, `upcast_body(kind, schema, body)`, `parse_body(kind, body, schema=None)`, `Record.body_model()`; `Record` accepts an older schema and keeps its stored body (and so its ID) unchanged (spec/schemas.md §1).
+- Schema upcasts (D461): WP15 appends Template 2→3 (`cost` → `effects`) and identity steps HwModel 1→2, Prediction 1→2 to D440's `KindSpec.upcasters` (spec/schemas.md §1).
 - `Expr.parse(src, declared, roots=("hw", "p", "case"))` and `Expr.eval(env, hw, p, case, extra=None)`: the hardware model's expressions use the roots `hw`, `tx`, `f`, `tbl` (spec/schemas.md §3).
 - New kinds: HwArch, ModelVersion, RegressionSet (core/schemas/hwmodel.py); Template 2, HwModel 2, Prediction 2.
 

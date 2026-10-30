@@ -2,6 +2,6 @@ missing: template
 description: >-
   [ux-01] reduction_partition can bind num_groups to a runtime value, but the pool has no Template for
   the planner that produces per-CTA descriptors and its exact-cover obligation. Proposed: runtime_work_descriptors@1.
-level: 2
+level: 4
 pattern_guess: work_assign
 attribution: space

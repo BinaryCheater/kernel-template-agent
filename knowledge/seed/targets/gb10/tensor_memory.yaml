@@ -1,0 +1,6 @@
+target: gb10
+capability: tensor_memory
+status: 'no'
+params: {}
+basis: documented
+note: 'PTX ISA target requirements: tcgen05 requires sm_100a-class targets; not sm_121.'

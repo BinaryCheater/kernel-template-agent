@@ -1,7 +1,7 @@
 name: online_rescaled_reduction
 version: 1
-level_from: 1
-level_to: 1
+level_from: 3
+level_to: 3
 change: expansion
 refines: reduce
 produces: [reduce, map]
@@ -19,7 +19,6 @@ preconditions:
   - {id: pre_assoc, expr: "p.assoc and p.rescalable", meaning: "the combine is associative and partial results can be corrected by a factor when the reference point (max) changes", cls: semantic}
 program:
   description: "For each tile: m_new = max(m, rowmax(tile)); c = exp(m - m_new); l = c*l + rowsum(exp(tile - m_new)); o = c*o + exp(tile - m_new) @ V; at the end o /= l and lse = m + log(l) (FlashAttention-2 Softmax::softmax_rescale_o and normalize_softmax_lse)."
-  fragments: {}
 backward_map: "Unroll the recurrence: after the last tile, (m, l, o) equal (max over the row, sum of exp(x - max), sum of exp(x - max) v), so o / l is the two-pass softmax-weighted sum."
 obligations:
   - {name: invariant, statement: "After consuming any prefix of tiles, (m, l, o) equal the exact max, rescaled sum and rescaled accumulator of that prefix.", method: proof}
@@ -35,7 +34,8 @@ effects:
 scope:
   predicate: "True"
   text: "Reductions whose combine is associative and rescalable: softmax denominators, attention outputs, logsumexp, Welford-style statistics."
-requires_hw: []
+requires: []
+probed_on: []
 relations:
   - {type: enables, target: operator_fusion, note: "makes the softmax-then-matmul consumer tile-local so QK^T, softmax and PV fuse"}
   - {type: requires, target: reduction_partition, note: "the tiles come from a partition of the reduction"}
@@ -46,5 +46,4 @@ signature:
   boundary: "fully masked rows"
   resources: [fma, sfu]
 numeric_risk: "Rounding differs from the two-pass form; the correction factor underflows for large max jumps. Check with inputs that have large score ranges and rows that are fully masked (input distributions: large_logits, fully_masked_rows)."
-expected_sass: []
 summary: "Replaces a two-pass reduction (max, then sum) by a single pass that carries a running reference point and rescales earlier contributions when it changes. Requires an associative, rescalable combine. Its key obligation is the prefix invariant."

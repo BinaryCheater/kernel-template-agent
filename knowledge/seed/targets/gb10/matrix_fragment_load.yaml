@@ -1,0 +1,6 @@
+target: gb10
+capability: matrix_fragment_load
+status: 'yes'
+params: {}
+basis: documented
+note: 'PTX ISA target requirements: ldmatrix requires sm_75 or higher.'

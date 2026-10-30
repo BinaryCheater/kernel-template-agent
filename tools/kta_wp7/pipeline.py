@@ -30,6 +30,7 @@ from kta.core.schemas.process import Report
 from kta.formulation import Formulation, assemble
 from kta.knowledge import FamilyPackage
 from kta.knowledge.pool import find_template
+from kta.knowledge.realisations import expected_sass
 from kta.measure.baseline import measure_baseline
 from kta.measure.runner import Measurer
 from kta.models import MachineModel, UnitModel
@@ -120,7 +121,10 @@ def templates_of(store: Store, fp: FamilyPackage) -> dict[str, Template]:
 
 
 def sass_for(
-    fp: FamilyPackage, templates: dict[str, Template], assignment: dict[str, Any]
+    fp: FamilyPackage,
+    templates: dict[str, Template],
+    assignment: dict[str, Any],
+    expectations: dict[str, list[SassExpect]],
 ) -> tuple[list[SassExpect], dict[str, Any]]:
     """The chain's SASS expectations whose ``when`` holds, evaluated over each item's
     Template variables (constants from bindings, family values otherwise)."""
@@ -132,7 +136,7 @@ def sass_for(
             for v in t.variables
             if v.name in item.bindings
         }
-        for e in t.expected_sass:
+        for e in expectations.get(item.template, []):
             if Expr.parse(e.when, set(env)).eval(env) is True:
                 out.append(
                     SassExpect(
@@ -155,7 +159,9 @@ def check(
     module: BuiltModule,
     shape: dict[str, Any],
 ) -> Checked:
-    sass, assignment = sass_for(fp, templates, c.assignment)
+    refs = [item.template for item in fp.chain.items]
+    expectations = expected_sass(e.store, refs, fp.family.backend)
+    sass, assignment = sass_for(fp, templates, c.assignment, expectations)
     return run_full(
         e.c,
         module,

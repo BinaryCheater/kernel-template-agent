@@ -1,72 +1,72 @@
 matched: 20
 total: 29
 unmatched_transactions:
-- level: 2
+- level: 4
   pattern_guess: work_assign
   description: >-
     [ux-01] persistent CTAs loop over tiles fetched by static stride (non-causal) or by an atomic counter
     in longest-first, L2-sectioned order (causal), with the index broadcast through smem (chain step sched).
   where: hopper/tile_scheduler.hpp:141-215, 220-366; hopper/flash_fwd_launch_template.h:61-76
-- level: 3
+- level: 5
   pattern_guess: work_assign
   description: >-
     [ux-02] warpgroup 0 only issues loads, warpgroups 1-2 only compute (chain step ws). The step changes
     the executor of the transfers and of the compute at the same time.
   where: hopper/flash_fwd_kernel_sm90.h:75-78, 208, 308-446
-- level: 3
+- level: 5
   pattern_guess: store
   description: >-
     [ux-03] registers moved from the producer (24) to the consumers (240) with setmaxnreg (chain step
     regs).
   where: hopper/flash_fwd_kernel_sm90.h:82-83, 309, 361
-- level: 3
+- level: 5
   pattern_guess: sync
   description: >-
     [ux-04] each K/V slot has a full and an empty mbarrier with phase parity; TMA completes full via a
     transaction count (chain step kv_handshake).
   where: hopper/mainloop_fwd_sm90_tma_gmma_ws.hpp:283-289, 750-768, 1140-1143, 1185-1188
-- level: 4
+- level: 6
   pattern_guess: transfer
   description: >-
     [ux-05] for non-causal, a 2-CTA cluster along M shares K/V: one TMA load multicast to both CTAs (chain
     step multicast).
   where: hopper/flash_fwd_launch_template.h:210-219; hopper/mainloop_fwd_sm90_tma_gmma_ws.hpp:740-768
-- level: 4
+- level: 6
   pattern_guess: transfer
   description: '[ux-06] K/V loads carry EVICT_LAST, Q loads EVICT_FIRST (chain step cache_hint).'
   where: hopper/mainloop_fwd_sm90_tma_gmma_ws.hpp:753, 767, 820
-- level: 3
+- level: 5
   pattern_guess: issue_order
   description: >-
     [ux-07] QK^T of block n and PV of block n+1 are issued back to back, and softmax of n runs while PV
     is in flight (chain step intra_overlap).
   where: hopper/mainloop_fwd_sm90_tma_gmma_ws.hpp:1138-1250
-- level: 3
+- level: 5
   pattern_guess: issue_order
   description: >-
     [ux-08] the two consumer warpgroups take turns on the tensor cores via named barriers (chain step
     pingpong).
   where: hopper/mainloop_fwd_sm90_tma_gmma_ws.hpp:915-950, 1176, 1183
-- level: 3
+- level: 5
   pattern_guess: transfer
   description: >-
     [ux-09] the epilogue staging matches staged_relayout, but before the TMA store reads smem_o the threads
     must issue fence_view_async_shared (generic -> async proxy) and only then arrive on the barrier (chain
     step epi_stage, partial).
   where: hopper/epilogue_fwd.hpp:258-262
-- level: 2
+- level: 4
   pattern_guess: other
   description: >-
     [ux-10] kBlockN (176 vs 128), the scheduler class (static vs dynamic) and the cluster size are chosen
     per workload flags (causal, head dim, tile parity). No chain step explains choosing among bindings.
   where: hopper/tile_size.h:31-33; hopper/flash_fwd_launch_template.h:41-76, 210-219
-- level: 5
+- level: 7
   pattern_guess: access
   description: >-
     [ux-11] the kernel statically assigns IDs from the 16 hardware named barriers (QueryEmpty, WarpSchedulerWG1-3,
     PFull, PEmpty, plus reserved IDs used by the scheduler and epilogue).
   where: hopper/named_barrier.hpp:50-59; hopper/tile_scheduler.hpp:327-331, 345-363
-- level: 3
+- level: 5
   pattern_guess: other
   description: >-
     [ux-12] register allocation within the 240-register consumer budget is decided by nvcc; whether tOrO

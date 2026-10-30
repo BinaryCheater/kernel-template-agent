@@ -1,0 +1,18 @@
+template: fused_dequantization@1
+backend: any
+isa:
+  family: sm
+  min: '53'
+requires:
+- fma_f16x2
+fragments: {}
+expected_sass:
+- when: method == 'magic_number_lop3'
+  must_contain:
+  - LOP3.LUT
+  - HFMA2
+  must_not_contain:
+  - I2F
+probed_on: []
+summary: Migrated by WP14 from the Template's v1 fields requires_hw, expected_sass and program.fragments
+  (D443); backend-independent.

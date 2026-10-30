@@ -1,0 +1,6 @@
+name: warp_shuffle
+description: Register exchange among the lanes of a warp without the scratchpad.
+unit: issue
+params: []
+realised_by:
+- shfl_sync

@@ -31,7 +31,7 @@ A retrieved item applies only if all of these hold. Check them; do not assume th
 | --- | --- | --- |
 | Does it refine the transaction you have (same Pattern, same level)? | Template `refines`, `level` | treat as not applicable |
 | Does Γ hold for every shape of the case? | `kta query pool` shows Γ true/false/unknown | unknown means you must state the assumption |
-| Are the hardware features it requires supported on the target? | `requires_hw`, `kta show <HwFeature>` | do not use it |
+| Are the capabilities it requires available on the target? | `requires`, `kta show <Capability>`; retrieval on the target already hides unavailable ones | do not use it |
 | Can your step's choices be written as values of its variables? | Template variables and domains | partial match: say what is missing |
 | Are its obligations satisfiable here (capacity, ordering, alignment)? | obligations, constraints | name the one you cannot meet |
 

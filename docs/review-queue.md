@@ -601,6 +601,47 @@ Decisions made without the user that need review. Newest last. Each entry: quest
 - **Why**: code stage (D320); no real records exist that a schema change would strand; building the golden path on the old `cost` schema would mean doing it twice.
 - **Cost to change**: (5) reverting means keeping both `cost` and `effects` readers (upcast exists either way); (1)–(4), (6), (7) are data or protocol definitions, cheap to change.
 
+## D440 — Schema versions and upcast on read (WP14)
+
+- **Question:** round 4 changes record shapes, but records are immutable and their ID is the hash of the stored JSON.
+- **Choice:** each kind has a tuple of upcasters (version = 1 + its length); a stored older body is upcast when read; `Record` keeps the stored body for hashing and transfer and shows the current shape as `body`.
+- **Rationale:** readers see one shape, nothing stored is rewritten, `record_id` stays stable. The alternative (keep every old model and branch in every reader) spreads version checks through the code.
+- **Cost of changing later:** low for new steps (append a function); WP15 appends its Template `cost → effects` step to the same tuple (note left for the coordinator).
+
+## D441 — Level numbering 1–7 and the mapping from 0–5 (WP14)
+
+- **Question:** D-T7 adopts the research frontend's 1–7; stored records and seed used the paper's 0–5.
+- **Choice:** mapping `paper-0to5@1`: old n → n + 2 (0 graph → 2 graph … 5 microarchitecture → 7); nothing maps to 1 (workload). The seed is migrated in place by a recorded script; stored records are upcast on read.
+- **Rationale:** the paper's 0 is "computation graph", the frontend's 2 is "graph"; every later level keeps its order. 
+- **Cost of changing later:** low: a new named mapping and an upcaster; the seed migration is re-runnable.
+
+## D442/D443 — Capability, CapabilityDecl and Realisation (WP14)
+
+- **Question:** how to replace HwFeature (D-T8) without losing the probe machinery, and where code and SASS expectations live.
+- **Choice:** Templates require abstract Capabilities; Targets declare them per record (newest wins) or support is inferred from probes of the ISA features that realise them; HwFeature stays as the ISA-level probe. Realisation = template × backend × ISA range with fragments, ISA constraints and expected SASS. Migrated seed realisations use backend `any`.
+- **Rationale:** a new chip (or an NPU) adds declarations and realisations; Templates do not change. Declarations as separate records let a target "declare the capability" without rewriting anything.
+- **Cost of changing later:** medium: Capability names are in every Template's `requires`; the ISA → Capability table is in the migration script. Backend `any` realisations should be split per backend once real families exist.
+
+## D445 — Availability: what counts as unavailable (WP14)
+
+- **Question:** whether `unknown` support hides a Template on a target.
+- **Choice:** only `yes` makes a Template available (as before for HwFeature support); hidden ones are counted separately as "known, unavailable here" (`no`) and "unconfirmed here" (`unknown`).
+- **Rationale:** a mechanism that cannot be shown to run should not enter search, but must stay visible; splitting the count tells which ones a probe could wake up.
+- **Cost of changing later:** low: `capabilities.availability`.
+
+## D446/D448 — One ladder, promotion and demotion (WP14)
+
+- **Question:** D-open-1 (answered by D325's default) and how counter-evidence acts without a human.
+- **Choice:** one ladder on the existing status values with evidence rules per step (≥ 2 replications; explanation or a CI; agreeing hold-out). Counter-evidence demotes one step as actor `system` (new store rule: system may move down, never up) and dependents become `stale`; rejection stays human-only. `review` only proposes promotions into the model, Γ/regime or a new Pattern.
+- **Rationale:** reuses the stored status values, so no StatusChange is invalidated; demotion is invalidation, like `stale`, which is already a system action.
+- **Cost of changing later:** low for thresholds (registry knobs once WP21 merges); medium for the actor rule (store/status.py, locked WP1 tests constrain checkers).
+
+## D451 — GB10 capability declarations from documentation (WP14)
+
+- **Question:** which Capabilities GB10 has, before any probe (D320).
+- **Choice:** documented values with the source in each note; `warpgroup_mma` and `tensor_memory` `no`; `cluster_multicast` and `register_reallocation` `unknown` until probed; others `yes`.
+- **Rationale:** the PTX ISA target requirements decide wgmma and tcgen05; multicast benefit and setmaxnreg on sm_121 are not documented clearly enough to assert.
+- **Cost of changing later:** low: a new CapabilityDecl record (newest wins); a probe can also infer support.
 ## D460 — Template effects schema (transactions, storage, overlap)
 
 - **Question:** how `cost` becomes `effects` (02 §3 sketch only).

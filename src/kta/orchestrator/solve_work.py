@@ -194,7 +194,7 @@ def _bucket(loop: Loop, name: str) -> Mapping[str, Any]:
 
 
 def _sass(svc: Services, loop: Loop, fp: Any, module: Any, assignment: dict[str, Any]) -> None:
-    expect = pipeline.sass_for(fp, pipeline.templates_of(svc.store, fp), assignment)
+    expect = pipeline.chain_sass(svc.store, fp, assignment)
     if expect and module.sass_blob:
         sass_check(svc.checker(), module, expect, assignment)
 
@@ -252,7 +252,7 @@ def work_checking(svc: Services, loop: Loop) -> Facts:
             case_id=cv.id,
             shape=shape,
             build_for=pipeline.builder(svc, fp, a),
-            sass=pipeline.sass_for(fp, pipeline.templates_of(svc.store, fp), a),
+            sass=pipeline.chain_sass(svc.store, fp, a),
             assignment=a,
             sanitizer_shape=small,
         ).id

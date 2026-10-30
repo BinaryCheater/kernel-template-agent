@@ -1,0 +1,7 @@
+name: async_copy
+description: Asynchronous element-wise copy from global memory into the scratchpad, completed by a later
+  wait (cp.async).
+unit: lsu
+params: []
+realised_by:
+- cp_async

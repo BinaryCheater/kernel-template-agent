@@ -65,7 +65,7 @@ def _body(kind: str, i: int, words: _Words, rng: random.Random) -> dict[str, Any
     if kind == "Pattern":
         return {
             "name": f"pattern_{i}",
-            "level": i % 6,
+            "level": 1 + i % 7,
             "category": "other",
             "description": words.text(30),
             "examples": [words.text(6), words.text(6)],
@@ -74,7 +74,7 @@ def _body(kind: str, i: int, words: _Words, rng: random.Random) -> dict[str, Any
         return {
             "missing": rng.choice(["template", "hw_fact", "check", "other"]),
             "description": words.text(25),
-            "level": i % 6,
+            "level": 1 + i % 7,
             "attribution": rng.choice(["space", "model", "process", "other"]),
         }
     if kind == "Negative":
@@ -142,7 +142,7 @@ def _queries(store: SqliteStore, rng: random.Random) -> dict[str, Callable[[], o
             "Gap", {"attribution": rng.choice(["model", "space"])}, order="-created_at"
         ),
         "query_level_range": lambda: store.query(
-            "Gap", {"level": {">=": rng.randrange(6)}}, limit=100
+            "Gap", {"level": {">=": 1 + rng.randrange(7)}}, limit=100
         ),
         "neighbors_in": lambda: store.neighbors(rng.choice(pattern_ids), direction="in"),
         "lineage": lambda: store.lineage(rng.choice(gaps), depth=3),

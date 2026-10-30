@@ -1,0 +1,6 @@
+target: gb10
+capability: bulk_tensor_copy
+status: 'yes'
+params: {}
+basis: documented
+note: 'PTX ISA target requirements: cp.async.bulk.tensor requires sm_90 or higher.'

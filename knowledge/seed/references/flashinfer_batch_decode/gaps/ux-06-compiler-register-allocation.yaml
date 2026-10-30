@@ -1,5 +1,5 @@
 missing: other
 description: '[ux-06] Same as cutlass_ampere_tf32_gemm ux-13.'
-level: 3
+level: 5
 pattern_guess: other
 attribution: intent_sass

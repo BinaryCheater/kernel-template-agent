@@ -1,0 +1,7 @@
+name: warpgroup_mma
+description: Asynchronous matrix multiply-accumulate issued by a warpgroup with operands read from the
+  scratchpad through descriptors (wgmma).
+unit: tensor
+params: []
+realised_by:
+- wgmma

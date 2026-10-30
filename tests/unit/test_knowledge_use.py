@@ -152,6 +152,8 @@ def test_retrieve_templates_filters_and_ranks(pool: Store) -> None:
 
 
 def test_required_hw_feature_must_be_yes_on_target(pool: Store) -> None:
+    """A legacy HwFeature name in ``requires`` (pre-D442 records) is answered by its
+    support table."""
     src = source_id(pool)
     for feature, support in (("cp_async", "yes"), ("tmem", "no")):
         put(
@@ -159,7 +161,7 @@ def test_required_hw_feature_must_be_yes_on_target(pool: Store) -> None:
             "HwFeature",
             {"name": feature, "unit": "smem", "description": feature, "support": {"gb10": support}},
         )
-        t = template("async_transfer", name=f"copy_{feature}", requires_hw=[feature], relations=[])
+        t = template("async_transfer", name=f"copy_{feature}", requires=[feature], relations=[])
         put_template(pool, t, [src])
     found = [c.name for c in retrieve_templates(pool, pattern="transfer", case=case({"M": 1}))]
     assert "copy_cp_async@1" in found and "copy_tmem@1" not in found
@@ -239,7 +241,7 @@ def test_coverage_report(pool: Store) -> None:
     assert (rep.templates_observed, rep.singletons, rep.doubletons) == (3, 2, 0)
     assert rep.chao1 == 4.0 and rep.good_turing == pytest.approx(1 - 2 / 5)
     assert len(rep.discovery_mean) == 3 and rep.discovery_mean[-1] == 3
-    assert rep.unmatched_by_level == {"0": 0, "1": 0, "2": 3, "3": 0, "4": 0, "5": 0}
+    assert rep.unmatched_by_level == {str(n): 3 if n == 2 else 0 for n in range(1, 8)}
     assert rep.unmatched_by_pattern == {"map": 3}
     assert rep.assurance == {"declared": 7, "tested": 0, "bounded": 0, "proved": 0}
     assert rep.other_patterns == 0

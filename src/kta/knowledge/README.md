@@ -23,6 +23,14 @@ Functions that read the pool take the `Store` as a parameter (D200). Validators 
 - May import: `core`, `store`, `targets`, `execution`.
 - Enforced by import-linter (`pyproject.toml`, `[tool.importlinter]`).
 
+## Knowledge model v2 (WP14, D440–D454)
+
+- `capabilities.py`: `target_capabilities`, `template_availability` — Capability support per Target (declaration, else inferred from ISA probes, else unknown).
+- `realisations.py`: `realisations_of`, `expected_sass`, `probed_on`, `validate_realisation` — code and SASS per backend × ISA range; schema-1 Template bodies read as a legacy realisation.
+- `findings.py`: `findings` (Regime and Negative read as Findings; `prior` out of scope), `couplings`.
+- `ladder.py`, `promotion.py`: one status ladder with evidence rules; `promote`, `demote` (stale propagation), `review`.
+- `pooldiff.py`: `diff(store, a, b)` between two PoolSnapshots.
+- Retrieval with a target hides Templates whose Capabilities are not `yes`; `retrieve.unavailable_templates` and `CoverageReport.availability` count them.
 ## WP15 (D460, D465)
 
 Effects validation (expressions, storage levels, `unpriced_operation_class` warning); seed import of `knowledge/seed/hardware/` (HwArch, HwModel); retrieval by resource through HwArch reservation tables.

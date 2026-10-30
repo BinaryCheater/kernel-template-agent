@@ -1,14 +1,15 @@
-"""Kind name -> body model, schema version and envelope rules.
+"""Kind name -> body model, schema version, upcasters and envelope rules.
 
 This is a constant table, not a mutable registry: adding a kind is a code change with a
-schema version, so stored records always know which model validated them.
+schema version, so stored records always know which model validated them. A kind's
+version is ``1 + len(upcasters)``; a stored body of version n is read through
+``upcasters[n - 1:]`` (D440).
 """
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, cast
+from typing import Any
 
 from pydantic import BaseModel, ValidationError
 
@@ -18,7 +19,7 @@ from kta.core.schemas import hardware as hw
 from kta.core.schemas import hwmodel as hm
 from kta.core.schemas import knowledge as kn
 from kta.core.schemas import process as pr
-from kta.core.schemas.effects import upcast_template_body
+from kta.core.schemas import upcast as up
 
 
 class InvalidBody(SchemaError):
@@ -28,17 +29,18 @@ class InvalidBody(SchemaError):
 @dataclass(frozen=True)
 class KindSpec:
     model: type[BaseModel]
-    version: int = 1
     # refs keys that must be present (spec/schemas.md §1 and per-kind "refs" lines).
     required_refs: tuple[str, ...] = ()
     # refs key -> kind the referenced record must have.
     ref_kinds: dict[str, str] = field(default_factory=lambda: dict[str, str]())
-    # Stored schema version n -> function turning a version-n body into a version-n+1
-    # body (decision D461). A missing step means the old body is valid as it is (only
-    # optional fields were added). Stored bodies are never rewritten; upcasts run on read.
-    upcasts: dict[int, Callable[[dict[str, Any]], dict[str, Any]]] = field(
-        default_factory=lambda: dict[int, Callable[[dict[str, Any]], dict[str, Any]]]()
-    )
+    # upcasters[n - 1] maps a stored body of version n to version n + 1.
+    upcasters: tuple[up.Upcaster, ...] = ()
+    # Readable but superseded: new code writes the replacement kind (D442, D444).
+    legacy_of: str | None = None
+
+    @property
+    def version(self) -> int:
+        return 1 + len(self.upcasters)
 
 
 _ENV = {"env": "EnvManifest"}
@@ -46,12 +48,16 @@ _JOB = {"env": "EnvManifest", "worker": "Worker"}
 
 KINDS: dict[str, KindSpec] = {
     # knowledge
-    "Pattern": KindSpec(kn.Pattern),
+    "Pattern": KindSpec(kn.Pattern, upcasters=(up.pattern_v1,)),
     "Template": KindSpec(
         kn.Template,
-        version=2,  # 2: cost -> effects (D461)
         ref_kinds={"previous": "Template", "sources": "Source"},
-        upcasts={1: upcast_template_body},
+        upcasters=(up.template_v1, up.template_v2_effects),  # 3: cost -> effects (D461)
+    ),
+    "Realisation": KindSpec(
+        kn.Realisation,
+        required_refs=("template",),
+        ref_kinds={"template": "Template", "sources": "Source", "previous": "Realisation"},
     ),
     "Chain": KindSpec(kn.Chain, ref_kinds={"templates": "Template"}),
     "Family": KindSpec(
@@ -66,20 +72,29 @@ KINDS: dict[str, KindSpec] = {
             "gaps": "Gap",
             "measurement": "Measurement",
         },
+        upcasters=(up.reconstruction_v1,),
     ),
     "Structure": KindSpec(kn.Structure),
-    "Regime": KindSpec(kn.Regime),
-    "Negative": KindSpec(kn.Negative),
-    "Gap": KindSpec(kn.Gap),
+    "Finding": KindSpec(kn.Finding, ref_kinds={"sources": "Source"}),
+    "Coupling": KindSpec(kn.Coupling, ref_kinds={"sources": "Source", "family": "Family"}),
+    "Regime": KindSpec(kn.Regime, legacy_of="Finding"),
+    "Negative": KindSpec(kn.Negative, legacy_of="Finding"),
+    "Gap": KindSpec(kn.Gap, upcasters=(up.gap_v1,)),
     # hardware
     "Target": KindSpec(hw.Target),
+    "Capability": KindSpec(hw.Capability, ref_kinds={"sources": "Source"}),
+    "CapabilityDecl": KindSpec(
+        hw.CapabilityDecl, ref_kinds={"target": "Target", "sources": "Source"}
+    ),
     "HwFeature": KindSpec(hw.HwFeature),
     "HwFact": KindSpec(hw.HwFact),
     "Worker": KindSpec(hw.Worker),
     "EnvManifest": KindSpec(hw.EnvManifest),
     # 2: architecture class + chip instance (D463); schema-1 bodies are valid as they are.
     "HwModel": KindSpec(
-        hw.HwModel, version=2, ref_kinds={"arch": "HwArch", "previous_instance": "HwModel"}
+        hw.HwModel,
+        ref_kinds={"arch": "HwArch", "previous_instance": "HwModel"},
+        upcasters=(up.identity,),
     ),
     "HwArch": KindSpec(hm.HwArch, ref_kinds={"previous": "HwArch", "sources": "Source"}),
     "ModelVersion": KindSpec(
@@ -97,7 +112,7 @@ KINDS: dict[str, KindSpec] = {
     "Contract": KindSpec(ev.Contract),
     "Case": KindSpec(ev.Case),
     "Candidate": KindSpec(ev.Candidate),
-    "Prediction": KindSpec(ev.Prediction, version=2),  # 2: bounds, unpriced (D464)
+    "Prediction": KindSpec(ev.Prediction, upcasters=(up.identity,)),  # 2: bounds, unpriced
     "Build": KindSpec(ev.Build, required_refs=("env", "worker"), ref_kinds=_JOB),
     "Check": KindSpec(ev.Check, required_refs=("env", "worker"), ref_kinds=_JOB),
     "Measurement": KindSpec(ev.Measurement, required_refs=("env", "worker"), ref_kinds=_JOB),
@@ -130,36 +145,28 @@ def model_for(kind: str) -> type[BaseModel]:
     return kind_spec(kind).model
 
 
-def upcast_body(kind: str, schema: int, body: dict[str, Any]) -> dict[str, Any]:
-    """``body`` of stored schema version ``schema`` in the current version's form."""
-    spec = kind_spec(kind)
-    if not 1 <= schema <= spec.version:
-        raise InvalidBody(f"{kind} schema {schema}; current is {spec.version}")
-    out = body
-    try:
-        for version in range(schema, spec.version):
-            step = spec.upcasts.get(version)
-            out = step(out) if step else out
-    except (KeyError, TypeError, ValueError) as exc:
-        raise InvalidBody(f"{kind}: cannot upcast schema {schema} body: {exc}") from exc
-    return out
-
-
-def parse_body(kind: str, body: Any, schema: int | None = None) -> BaseModel:
-    """The validated body model; raises InvalidBody (a ValueError) on any problem.
-
-    ``schema`` is the version the body was stored with (default: current); older bodies
-    are upcast first.
-    """
+def parse_body(kind: str, body: Any) -> BaseModel:
+    """The validated body model; raises InvalidBody (a ValueError) on any problem."""
     model = model_for(kind)
     if not isinstance(body, dict):
         raise InvalidBody(f"{kind} body must be a mapping, got {type(body).__name__}")
-    if schema is not None:
-        body = upcast_body(kind, schema, cast(dict[str, Any], body))
     try:
         return model.model_validate(body)
     except ValidationError as exc:
         raise InvalidBody(f"{kind}: {exc}") from exc
+
+
+def upcast_body(kind: str, schema: int, body: dict[str, Any]) -> dict[str, Any]:
+    """``body`` stored as version ``schema`` of ``kind``, in the current version's shape."""
+    spec = kind_spec(kind)
+    if schema < 1 or schema > spec.version:
+        raise InvalidBody(f"{kind} schema {schema}; current is {spec.version}")
+    for step in spec.upcasters[schema - 1 :]:
+        try:
+            body = step(body)
+        except (KeyError, TypeError, ValueError) as exc:
+            raise InvalidBody(f"{kind} v{schema} body cannot be upcast: {exc}") from exc
+    return body
 
 
 def validate_body(kind: str, body: dict[str, Any]) -> None:

@@ -1,5 +1,5 @@
 name: sync
-level: 3
+level: 5
 category: sync
 params:
   - {name: producers, type: str, meaning: "who writes the protected data"}

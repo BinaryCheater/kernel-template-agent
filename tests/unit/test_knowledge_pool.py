@@ -38,7 +38,10 @@ def test_seed_import_is_idempotent(ctx: Context, store: Store) -> None:
         "Source": 1,
         "Pattern": 8,
         "Structure": 9,
+        "Capability": 16,
+        "CapabilityDecl": 16,
         "Template": 7,
+        "Realisation": 1,
         "HwArch": 1,
         "HwModel": 1,
     }

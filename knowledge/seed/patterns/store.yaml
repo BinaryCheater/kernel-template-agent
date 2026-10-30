@@ -1,5 +1,5 @@
 name: store
-level: 2
+level: 4
 category: store
 params:
   - {name: size_bytes, type: int, meaning: "bytes of one value (or one generation of a tile)"}

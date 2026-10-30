@@ -1,0 +1,7 @@
+target: gb10
+capability: managed_scratchpad
+status: 'yes'
+params:
+  bytes_per_cta: 101376
+basis: documented
+note: 'CUDA programming guide, compute capability 12.x: 99 KB opt-in shared memory per block.'

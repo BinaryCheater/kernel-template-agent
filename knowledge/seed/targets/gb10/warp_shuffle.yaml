@@ -1,0 +1,6 @@
+target: gb10
+capability: warp_shuffle
+status: 'yes'
+params: {}
+basis: documented
+note: 'PTX ISA target requirements: shfl.sync requires sm_30 or higher.'

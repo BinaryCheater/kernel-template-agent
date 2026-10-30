@@ -2,6 +2,6 @@ missing: template
 description: >-
   [ux-05] No pool Template lets one transfer feed several CTAs. Proposed: cluster_multicast@1 (level 3
   -> 4: placement across SMs).
-level: 4
+level: 6
 pattern_guess: transfer
 attribution: space

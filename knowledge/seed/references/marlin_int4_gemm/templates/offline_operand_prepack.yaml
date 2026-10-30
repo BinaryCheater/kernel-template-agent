@@ -1,7 +1,7 @@
 name: offline_operand_prepack
 version: 1
-level_from: 0
-level_to: 2
+level_from: 2
+level_to: 4
 change: vertical
 refines: store
 produces: [store, map]
@@ -19,7 +19,6 @@ preconditions:
   - {id: pre_const, expr: "p.operand_is_constant", meaning: "the operand is constant across calls (weights), so the permutation cost is paid once", cls: semantic}
 program:
   description: "Host: quantize, permute rows/columns into tile order, apply the fragment permutation and interleave, pack 8 int4 values per int32 (marlin/__init__.py:40-68, 102-139). Kernel: each thread reads its fragment as one contiguous int4 vector without address shuffling."
-  fragments: {}
 backward_map: "Apply the inverse permutation and unpack: the operand in its logical row-major layout."
 obligations:
   - {name: permutation_inverse, statement: "The kernel's read map composed with the host permutation is the identity on logical (k, n) indices.", method: exhaustive}
@@ -33,7 +32,8 @@ effects:
 scope:
   predicate: "True"
   text: "Constant operands (inference weights) whose layout the kernel author controls."
-requires_hw: []
+requires: []
+probed_on: []
 relations:
   - {type: enables, target: collective_fragment_load, note: "fragments become one vector load (lds128) instead of ldmatrix"}
   - {type: enables, target: fused_dequantization}
@@ -44,5 +44,4 @@ signature:
   boundary: "shapes must be whole tiles"
   resources: [dram]
 numeric_risk: null
-expected_sass: []
 summary: "Rewrites a constant operand once, offline, into the exact order the kernel's fragments and dequantization trick consume. The kernel then needs no address shuffling or transposes for it. Its obligation is that the host permutation and the kernel's read map are inverse."

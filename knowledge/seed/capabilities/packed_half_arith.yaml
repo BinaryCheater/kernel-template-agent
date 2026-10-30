@@ -1,0 +1,7 @@
+name: packed_half_arith
+description: Two-way packed fp16 or bf16 fused multiply-add per instruction.
+unit: fma
+params: []
+realised_by:
+- fma_f16x2
+- fma_bf16x2

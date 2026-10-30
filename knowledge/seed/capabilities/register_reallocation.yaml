@@ -1,0 +1,7 @@
+name: register_reallocation
+description: Changing the register budget of a warpgroup at run time so producer warps give registers
+  to consumer warps (setmaxnreg).
+unit: issue
+params: []
+realised_by:
+- setmaxnreg

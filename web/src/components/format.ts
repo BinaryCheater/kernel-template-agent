@@ -46,4 +46,9 @@ export function stateTone(m: MachineDef | undefined, state: string): Tone {
 
 export const wordTone = (w: string | null | undefined): Tone => (w ? WORD_TONE[w] ?? "idle" : "idle");
 
-export const LEVEL_NAMES = ["computation graph", "operator transform", "tensor execution mapping", "instruction schedule", "system architecture", "microarchitecture"];
+/** Refinement levels 1-7 of the research frontend (D441); records stored with the paper's 0-5
+ *  are upcast by the API before they reach the page. */
+export const LEVELS = [1, 2, 3, 4, 5, 6, 7];
+export const LEVEL_NAMES: Record<number, string> = {
+  1: "workload", 2: "graph", 3: "operators", 4: "tensor map", 5: "instructions", 6: "architecture", 7: "microarchitecture",
+};

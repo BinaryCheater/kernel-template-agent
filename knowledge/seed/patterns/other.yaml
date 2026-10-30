@@ -1,5 +1,5 @@
 name: other
-level: 0
+level: 2
 category: other
 params:
   - {name: note, type: str, meaning: "what the transaction does, in words"}

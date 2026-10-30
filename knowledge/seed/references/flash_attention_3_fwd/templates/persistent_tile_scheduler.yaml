@@ -1,7 +1,7 @@
 name: persistent_tile_scheduler
 version: 1
-level_from: 2
-level_to: 2
+level_from: 4
+level_to: 4
 change: vertical
 refines: work_assign
 produces: [work_assign, sync]
@@ -19,7 +19,6 @@ preconditions:
   - {id: pre_indep, expr: "p.independent_outputs", meaning: "tiles are independent, so any assignment order is valid", cls: semantic}
 program:
   description: "Initial tile = blockIdx.x; next tile = tile + gridDim.x (static) or atomicAdd(counter, 1) + gridDim.x (dynamic), fetched by the producer and broadcast through smem with two named barriers; tile index decoded with L2 sections and reversed m_block order (hopper/tile_scheduler.hpp:141-215, 220-366)."
-  fragments: {}
 backward_map: "Unroll each CTA's loop into one CTA per tile: the non-persistent grid over the same tiles."
 obligations:
   - {name: exactly_once, statement: "Every tile index in [0, total) is processed by exactly one CTA iteration; indices >= total end the loop.", method: exhaustive}
@@ -33,7 +32,8 @@ effects:
 scope:
   predicate: "True"
   text: "Grids of independent tiles, especially with unequal tile costs (causal attention) or when the epilogue of one tile should overlap the prologue of the next."
-requires_hw: []
+requires: []
+probed_on: []
 relations:
   - {type: requires, target: output_tiling}
   - {type: alternative_of, target: block_rasterization, note: "a launch-order swizzle is the non-persistent counterpart"}
@@ -44,6 +44,4 @@ signature:
   boundary: "last tiles; counter reset"
   resources: [launch, l2]
 numeric_risk: null
-expected_sass:
-  - {when: "fetch == 'atomic_counter'", must_contain: [ATOMG.E.ADD], must_not_contain: []}
 summary: "Launches about one CTA per SM slot and lets each CTA loop over tiles, fetched by a static stride or a global atomic counter in a chosen order. Balances unequal tiles and lets one tile's epilogue overlap the next tile's loads. The obligation is exactly-once processing and a correct counter reset."

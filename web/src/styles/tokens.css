@@ -40,13 +40,14 @@
   --k-human: #6250d6;
   --k-other: #a3a29b;
 
-  /* refinement levels 0-5 (sequential blue, ordinal) */
-  --lv0: #b7d3f6;
-  --lv1: #86b6ef;
-  --lv2: #5598e7;
-  --lv3: #2a78d6;
-  --lv4: #1c5cab;
-  --lv5: #104281;
+  /* refinement levels 1-7 (sequential blue, ordinal; D441) */
+  --lv1: #c9def8;
+  --lv2: #a3c6f3;
+  --lv3: #79abec;
+  --lv4: #4f8fe3;
+  --lv5: #2a74d0;
+  --lv6: #1c5aa8;
+  --lv7: #104281;
 
   /* type */
   --font: system-ui, -apple-system, "Segoe UI", sans-serif;

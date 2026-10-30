@@ -1,7 +1,7 @@
 name: operator_fusion
 version: 1
-level_from: 0
-level_to: 1
+level_from: 2
+level_to: 3
 change: vertical
 refines: map
 produces: [map]
@@ -17,7 +17,6 @@ preconditions:
   - {id: pre_tile_local, expr: "consumer_kind == 'elementwise' or p.consumer_needs_full_row == False or p.consumer_reduce_rescalable", meaning: "the consumer can be evaluated tile by tile: elementwise, or its reduction is local to the tile or rescalable (online)", cls: semantic}
 program:
   description: "The producer's tile loop ends by applying the consumer to the on-chip tile instead of writing the intermediate to global memory (CUTLASS: Epilogue applies OutputOp = LinearCombination to accumulator fragments)."
-  fragments: {}
 backward_map: "Materialize the intermediate tile and run the consumer on it: the fused program equals producer followed by consumer."
 obligations:
   - {name: same_values, statement: "The consumer reads exactly the producer's values for its tile (no partial or stale values).", method: test}
@@ -31,7 +30,8 @@ effects:
 scope:
   predicate: "True"
   text: "Producer-consumer pairs where the consumer can be applied tile-locally; for row reductions over the tiled dimension the reduction must be rescalable."
-requires_hw: []
+requires: []
+probed_on: []
 relations: []
 signature:
   algorithm: "producer-consumer fusion with on-chip intermediate"
@@ -40,5 +40,4 @@ signature:
   boundary: null
   resources: [dram]
 numeric_risk: null
-expected_sass: []
 summary: "Removes the global-memory round trip of an intermediate by applying the consumer operator to each on-chip tile of the producer. Covers elementwise epilogues and, with a rescalable reduction, attention-style chains. Its DRAM cost omits the intermediate's write and read."

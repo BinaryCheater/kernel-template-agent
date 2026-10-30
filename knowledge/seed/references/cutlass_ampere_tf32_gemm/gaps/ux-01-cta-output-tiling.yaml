@@ -2,6 +2,6 @@ missing: template
 description: >-
   [ux-01] No seed Template refines the independent-output map into executor tiles (tile shape, executor
   level, index map; obligation: every output point covered exactly once). Proposed: output_tiling@1.
-level: 2
+level: 4
 pattern_guess: map
 attribution: space

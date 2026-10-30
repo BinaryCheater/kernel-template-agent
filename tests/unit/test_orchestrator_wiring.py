@@ -170,15 +170,12 @@ def test_sass_when_is_evaluated_over_item_bindings(svc: Services) -> None:
     item = fp.chain.items[0]
     t = templates[item.template]
     v = t.variables[0].name
-    marked = dict(templates)
-    marked[item.template] = t.model_copy(
-        update={"expected_sass": [SassExpect(when=f"{v} == 7", must_contain=["HMMA"])]}
-    )
+    marked = {item.template: [SassExpect(when=f"{v} == 7", must_contain=["HMMA"])]}
 
     def kept(binding: Any, assignment: dict[str, Any]) -> bool:
         one = item.model_copy(update={"bindings": {**item.bindings, v: binding}})
         chain = fp.chain.model_copy(update={"items": [one]})
-        got = sass_for(replace(fp, chain=chain), marked, assignment)
+        got = sass_for(replace(fp, chain=chain), templates, assignment, marked)
         return any(e.must_contain == ["HMMA"] and e.when == "True" for e in got)
 
     assert kept(7, {})  # constant binding

@@ -1,0 +1,10 @@
+name: managed_scratchpad
+description: A software-managed on-chip scratchpad shared by the threads of one CTA (shared memory, local
+  memory on an NPU core).
+unit: smem
+params:
+- name: bytes_per_cta
+  type: int
+  meaning: largest scratchpad one CTA may allocate
+realised_by:
+- ld_st_shared

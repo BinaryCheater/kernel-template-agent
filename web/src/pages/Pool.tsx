@@ -16,7 +16,7 @@ const TABS: { id: Tab; label: string; hint: string }[] = [
   { id: "gaps", label: "Gaps", hint: "what the pool could not describe, with attribution" },
   { id: "references", label: "References", hint: "reference implementations and how much of each is reconstructed" },
 ];
-const LV_COLORS = ["var(--lv0)", "var(--lv1)", "var(--lv2)", "var(--lv3)", "var(--lv4)", "var(--lv5)"];
+const LV_COLORS: Record<number, string> = Object.fromEntries([1, 2, 3, 4, 5, 6, 7].map((l) => [l, `var(--lv${l})`]));
 
 export function Pool() {
   const { snapshot, snapshots } = useSnapshot();
@@ -29,7 +29,8 @@ export function Pool() {
       <div className="row small ink2">
         <span>Showing {all || !snapshot ? <b>every record in the store</b> : <>members of snapshot <b>{label}</b></>}.</span>
         <label className="row" style={{ gap: 4 }}><input type="checkbox" checked={all} onChange={(e) => setAll(e.target.checked)} />include records outside the snapshot</label>
-        <Link to="/families" style={{ marginLeft: "auto" }}>Families and their chains →</Link>
+        <Link to="/pool/diff" style={{ marginLeft: "auto" }}>Compare two snapshots →</Link>
+        <Link to="/families">Families and their chains →</Link>
       </div>
       {!p.data ? <Loading error={p.error} /> : <PoolBody p={p.data} />}
     </div>
@@ -76,7 +77,7 @@ function Templates({ p }: { p: PoolView }) {
           <td style={{ whiteSpace: "nowrap" }}><Lv n={t.level_from} /> → <Lv n={t.level_to} /><div className="small muted">{t.change}</div></td>
           <td className="small mono">{t.refines} → {t.produces.join(", ") || "—"}</td>
           <td className="small num">{t.variables} vars · {t.constraints} constraints · {t.obligations} obligations</td>
-          <td className="small">{t.requires_hw.join(", ") || <span className="muted">—</span>}</td>
+          <td className="small">{t.requires.join(", ") || <span className="muted">—</span>}{t.requires.length > 0 && <div className="muted">probed on {t.probed_on.join(", ") || "nothing yet"}</div>}</td>
           <td><Status s={t.status} a={t.assurance} /></td>
           <td><RecordActions id={t.id} kind="Template" name={`${t.name}@${t.version}`} small /></td>
         </tr>

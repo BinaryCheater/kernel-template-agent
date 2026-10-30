@@ -1,7 +1,7 @@
 name: staged_relayout
 version: 1
-level_from: 2
-level_to: 3
+level_from: 4
+level_to: 5
 change: vertical
 refines: transfer
 produces: [transfer, sync, transfer]
@@ -18,7 +18,6 @@ preconditions:
   - {id: pre_free, expr: "p.staging_buffer_free", meaning: "the buffer is not holding live values of an earlier step (it may alias mainloop buffers only after their last read)", cls: semantic}
 program:
   description: "Per slice: barrier, every thread stores its fragment into smem in fragment order, barrier (or async-proxy fence + barrier when the reader is TMA), readers load in store order and write to global memory."
-  fragments: {}
 backward_map: "Composing the smem write and read is the identity on tile values; the transfer is the coarse register -> global store."
 obligations:
   - {name: write_before_read, statement: "Every smem element is written before it is read in the same slice (barrier between the two phases).", method: test}
@@ -34,7 +33,8 @@ effects:
 scope:
   predicate: "True"
   text: "Register tiles whose fragment layout is not coalesced for the destination, typically GEMM and attention epilogues."
-requires_hw: []
+requires: []
+probed_on: []
 relations:
   - {type: enables, target: vectorized_access, note: "the relayout makes the global side contiguous so it can be read and written with vector accesses; a TMA store serves the same purpose, so it does not require vectorized_access (D110)"}
 signature:
@@ -44,6 +44,4 @@ signature:
   boundary: null
   resources: [smem]
 numeric_risk: null
-expected_sass:
-  - {when: "write_instruction == 'stmatrix'", must_contain: [STSM], must_not_contain: []}
 summary: "Writes a register tile to a shared-memory staging buffer in fragment order and reads it back in a coalesced (or bulk-copy) order. Needs barriers between the two phases and between slices. Typically reuses mainloop shared memory."

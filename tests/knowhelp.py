@@ -38,7 +38,11 @@ def template_body(name: str) -> dict[str, Any]:
 
 
 def template(seed_name: str, **changes: Any) -> Template:
+    """A seed Template with ``changes``; ``requires_hw`` (pre-D442 name, used by the locked
+    WP4 acceptance test) is taken as ``requires``."""
     body = template_body(seed_name)
+    if "requires_hw" in changes:
+        changes["requires"] = changes.pop("requires_hw")
     if "cost" in changes:
         body.pop("effects", None)  # a schema-1 cost override replaces the seed's effects
     body.update(changes)

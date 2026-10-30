@@ -3,8 +3,8 @@
 # with the reference decomposition; refs.previous is not set because the seed is imported first.
 name: output_tiling
 version: 2
-level_from: 1
-level_to: 2
+level_from: 3
+level_to: 4
 change: vertical
 refines: map
 produces: [map]
@@ -25,7 +25,6 @@ program:
     Executor index -> tile origin; each executor loops only over the inputs its tile needs. In
     CUTLASS the CTA tile is ThreadblockShape and the warp tile WarpShape; in TileLang it is the
     T.Kernel grid with block_M x block_N. The grid is the number of tiles.
-  fragments: {}
 backward_map: "The union of all tiles' outputs, placed at their tile origins, is the output of the coarse map; the executor index is erased."
 obligations:
   - {name: coverage_exact_once, statement: "Every output point lies in exactly one tile; points of residue tiles beyond the problem bounds are not written.", method: exhaustive}
@@ -44,7 +43,8 @@ effects:
 scope:
   predicate: "True"
   text: "Any operator whose outputs are independent given the inputs (GEMM outputs, attention rows, normalization rows)."
-requires_hw: []
+requires: []
+probed_on: []
 relations:
   - {type: enables, target: output_tiling, note: "applied again one executor level down (CTA tile -> warp tile)"}
 signature:
@@ -54,7 +54,6 @@ signature:
   boundary: "residue tiles at M and N edges"
   resources: [cta]
 numeric_risk: null
-expected_sass: []
 summary: >-
   Splits the independent outputs of an operator into tiles and gives each tile to one executor.
   Costs: one launch slot per tile, the inputs each tile reads (L2 traffic), and the compulsory

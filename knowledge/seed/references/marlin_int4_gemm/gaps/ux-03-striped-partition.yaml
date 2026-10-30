@@ -2,6 +2,6 @@ missing: template
 description: >-
   [ux-03] persistent_tile_scheduler hands out whole tiles; nothing in the pool partitions the linearized
   (tile, k) space so that a CTA can stop inside a tile's K loop. Proposed: linearized_work_partition@1.
-level: 2
+level: 4
 pattern_guess: work_assign
 attribution: space

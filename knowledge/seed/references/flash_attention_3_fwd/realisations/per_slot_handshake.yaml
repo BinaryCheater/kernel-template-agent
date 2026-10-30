@@ -1,0 +1,17 @@
+template: per_slot_handshake@1
+backend: any
+isa:
+  family: sm
+  min: '90'
+requires:
+- mbarrier
+fragments: {}
+expected_sass:
+- when: full_signal == 'tma_tx_count'
+  must_contain:
+  - SYNCS.ARRIVE.TRANS64
+  - UTMALDG
+  must_not_contain: []
+probed_on: []
+summary: Migrated by WP14 from the Template's v1 fields requires_hw, expected_sass and program.fragments
+  (D443); backend-independent.

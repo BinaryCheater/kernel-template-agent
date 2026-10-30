@@ -1,7 +1,7 @@
 name: output_tiling
 version: 1
-level_from: 1
-level_to: 2
+level_from: 3
+level_to: 4
 change: vertical
 refines: map
 produces: [map]
@@ -19,7 +19,6 @@ preconditions:
   - {id: pre_indep, expr: "p.independent_outputs", meaning: "output points of the refined map do not depend on each other", cls: semantic}
 program:
   description: "Executor index -> tile origin; each executor loops only over the inputs its tile needs. In CUTLASS the CTA tile is the template argument ThreadblockShape and the warp tile is WarpShape; the grid is the number of tiles."
-  fragments: {}
 backward_map: "The union of all tiles' outputs, placed at their tile origins, is the output of the coarse map; the executor index is erased."
 obligations:
   - {name: coverage_exact_once, statement: "Every output point lies in exactly one tile; points of residue tiles beyond the problem bounds are not written.", method: exhaustive}
@@ -33,7 +32,8 @@ effects:
 scope:
   predicate: "True"
   text: "Any operator whose outputs are independent given the inputs (GEMM outputs, attention rows, normalization rows)."
-requires_hw: []
+requires: []
+probed_on: []
 relations:
   - {type: enables, target: output_tiling, note: "applied again one executor level down (CTA tile -> warp tile)"}
 signature:
@@ -43,5 +43,4 @@ signature:
   boundary: "residue tiles at M and N edges"
   resources: [cta]
 numeric_risk: null
-expected_sass: []
 summary: "Splits the independent outputs of an operator into tiles and gives each tile to one executor. Applied once per executor level (grid of CTAs, warps inside a CTA). Tile sizes become variables bounded later by storage and instruction shape."

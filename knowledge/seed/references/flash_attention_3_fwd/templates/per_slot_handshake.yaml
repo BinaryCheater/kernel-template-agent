@@ -1,7 +1,7 @@
 name: per_slot_handshake
 version: 1
-level_from: 3
-level_to: 3
+level_from: 5
+level_to: 5
 change: vertical
 refines: sync
 produces: [sync]
@@ -18,7 +18,6 @@ preconditions:
   - {id: pre_ring, expr: "p.ring_slots_known", meaning: "the slot ring (S, P) is fixed by multi_buffer_rotation", cls: semantic}
 program:
   description: "producer_acquire(slot) waits on empty[slot] with the current phase; the TMA copy is issued with full[slot] as its completion barrier; consumer_wait(slot) waits on full[slot]; consumer_release(slot) arrives on empty[slot]; phase flips when the ring wraps (cutlass PipelineTmaAsync used at hopper/mainloop_fwd_sm90_tma_gmma_ws.hpp:283-289, 750-768, 1140-1143, 1185-1188)."
-  fragments: {}
 backward_map: "Replace each pair by one CTA-wide barrier at the same program points: the single-barrier rotation of multi_buffer_rotation."
 obligations:
   - {name: generation, statement: "A consumer that waits on full[slot] with phase p reads the generation written in round p, never an older or newer one.", method: exhaustive}
@@ -32,7 +31,8 @@ effects:
 scope:
   predicate: "True"
   text: "Buffer rings shared by different warps (warp specialization) or filled by an asynchronous copy engine."
-requires_hw: [mbarrier]
+requires: [async_transaction_barrier]
+probed_on: []
 relations:
   - {type: refines, target: multi_buffer_rotation, note: "realizes the rotation's trailing barrier as per-slot barriers"}
   - {type: alternative_of, target: multi_buffer_rotation, note: "alternative to a CTA-wide __syncthreads per iteration"}
@@ -43,6 +43,4 @@ signature:
   boundary: "pipeline tail and empty tiles"
   resources: [issue]
 numeric_risk: null
-expected_sass:
-  - {when: "full_signal == 'tma_tx_count'", must_contain: [SYNCS.ARRIVE.TRANS64, UTMALDG], must_not_contain: []}
 summary: "Replaces the CTA-wide barrier that protects a buffer ring with a full/empty barrier pair per slot and phase parity. Lets different warps or a copy engine produce and consume independently. Its obligations are generation correctness, exact arrival counts and progress."

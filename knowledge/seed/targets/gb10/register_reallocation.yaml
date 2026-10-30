@@ -1,0 +1,7 @@
+target: gb10
+capability: register_reallocation
+status: unknown
+params: {}
+basis: documented
+note: PTX ISA target requirements list setmaxnreg for sm_90a and later arch-specific targets; support
+  on sm_121 is not confirmed. To probe.
