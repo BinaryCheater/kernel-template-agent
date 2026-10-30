@@ -13,8 +13,12 @@
 | 文档 | 回答什么 | 阅读时间 |
 | --- | --- | --- |
 | [00 总览](docs/design/00-overview.md) | 系统要证明什么、和谁比、做哪几件事、怎样变好 | 10 分钟 |
+| [01 思维模型](docs/design/01-thinking-model.md) | 人读的整体思考：要证明什么、怎样看问题、在意什么、必须存在什么、已定与待定的决策、要做的实验、范围 | 15 分钟 |
+| [02 设计笔记](docs/design/02-design-notes.md) | 讨论产生的细节，按待合并的目标文档组织：推导、知识层次、Template 效应、硬件性能模型、稳态投影与 formulation、循环与桥接、验证、学习流程；完整决策台账与待定决策 | 40 分钟 |
+| [变更日志](docs/changelog.md) | 每轮设计讨论改了什么、提出了哪些设计要求及其状态、施工接下来该做什么 | 5 分钟 |
 | [10 Agent 系统](docs/design/10-agent-system.md) | 编排器与任务；agent 的角色、会话、上下文和实例数；工具、skills 与池知识的区分；失败处理 | 25 分钟 |
 | [11 进程、资源与并发](docs/design/11-processes-resources-concurrency.md) | 几个独立进程怎样分工；时间和资源边界；并行、锁与崩溃恢复 | 15 分钟 |
+| [12 Agent 控制项](docs/design/12-agent-controls.md) | 预算、失败轮数、会话与上下文、防钻牛角尖／偷懒／hack 检查、升级与可靠性：每个旋钮的默认值、它防止什么失败、在哪里设置（含拟开放的前端设置） | 10 分钟 |
 | [20 存储与检索](docs/design/20-storage-retrieval.md) | 存什么、放哪里、怎样版本化、怎样查 | 15 分钟 |
 | [21 知识准入与覆盖](docs/design/21-knowledge-admission-coverage.md) | 知识怎样被记录和分级使用；不知道全集时怎样估计覆盖；结构自身的覆盖 | 15 分钟 |
 | [22 细化 Template、组合链与可执行族](docs/design/22-template-format-retrieval-composition.md) | 知识单元的定义（沿用论文）；组合链；可执行族；formulation 的拼装；增量复用；检索；保证等级 | 20 分钟 |

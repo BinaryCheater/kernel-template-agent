@@ -67,3 +67,7 @@ How to read "where": **profile** = AgentProfile, versioned, hash recorded per ru
 ## 5. Maintenance
 
 A knob is added with the failure it prevents and removed when it has prevented nothing for a milestone while costing effort (60 §7). Changing a value is a profile or configuration version, recorded with every run it affected. When a frontend settings page exists, it edits these same versioned values and nothing else.
+
+## 6. How values get set
+
+No value in this table is fixed by discussion alone. A value marked *default* stands until the experiment that sets it has run (02 §11): X1 model per task type → §1 budgets and the AgentProfile model; X2 effort level → AgentProfile; X3 resume vs fresh → §2 resume scope; X4 access discipline → §2 discipline version; X5 retries → §1; X6 noise band → §3 improvement band; X7 reproduction ε → §4; X8 measured points and exploration share → §1, §3; X9 task budgets → §1. When a value is set by an experiment, its status column names the experiment and the run.
