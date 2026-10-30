@@ -124,8 +124,32 @@ Needed for the full gate (`KTA_DATA=~/kta-data scripts/gate WP7`), in order, wit
 
 ## Gate output
 
-Run: `KTA_DATA=~/kta-data scripts/gate --stage code WP7` on the control host at the commit adding this note (code `290d6fd`).
+Run: `KTA_DATA=~/kta-data scripts/gate --stage code WP7` on the control host at the commit adding this note (code `290d6fd`); the next commit adds only this output. The WARN is the record check, which needs the real runs above.
 
 ```text
-(pasted below after the run)
+gate WP7 --stage code: PASSED (23 pass, 1 warn, 0 fail)
+  PASS ruff format
+  PASS ruff check
+  PASS import layers
+  PASS residue
+  PASS test doubles
+  PASS error handling
+  PASS print
+  PASS subprocess outside Executor
+  PASS secrets
+  PASS acceptance lock — 7 locked files unchanged
+  PASS pyright
+  PASS unit tests — 312 passed
+  PASS contract tests — 2 passed
+  PASS fake coverage — 1 fake(s) covered
+  PASS registry (kta doctor, dev)
+  PASS delivery note
+  PASS fixture declarations — 1 declared
+  PASS decision log — 209 decisions
+  PASS skipped tests — none
+  PASS evidence — 1 claim(s)
+  PASS WP7 unit tests — 7 named tests
+  PASS WP7 family — knowledge/seed/families/gemm_fp16_tilelang
+  PASS WP7 case — knowledge/seed/cases/gemm_fp16.yaml
+  WARN WP7 records — pending real run (code stage): solve loop, faults, replay, baseline
 ```
