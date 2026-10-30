@@ -68,8 +68,9 @@ def test_budget_command(kta: Any) -> None:
     assert b["limit"] == {"agent_min": 60.0} and b["remaining"] == {"agent_min": 60.0}
 
 
-def test_agent_build_commands_are_not_supported_yet(kta: Any) -> None:
-    assert kta("build", "x")[0] == EXIT_NOT_SUPPORTED
+def test_agent_run_and_src_are_not_supported_yet(kta: Any) -> None:
+    assert kta("run", "x")[0] == EXIT_NOT_SUPPORTED
+    assert kta("src", "x")[0] == EXIT_NOT_SUPPORTED
 
 
 def test_unimplemented_process_exits_not_supported(kta: Any) -> None:
@@ -88,3 +89,42 @@ def test_human_task_create_submit_check(kta: Any, tmp_path: Path) -> None:
     assert failed == {"delivery_note", "validate_template"}
     _, shown = kta("task", "show", created["task"])
     assert shown["attempts"] == 1 and shown["state"] == "queued"
+
+
+def test_client_mode_refuses_local_store_commands(
+    kta: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("KTA_TASK_TOKEN", "kta1.test")
+    assert kta("show", "a" * 64)[0] == EXIT_NOT_SUPPORTED
+    monkeypatch.delenv("KTA_API", raising=False)
+    assert kta("note", "hello", "--task", "T")[0] == 2  # usage: KTA_API is not set
+
+
+def test_agents_runner_profile_unit_commands_exist() -> None:
+    from kta.cli.main import build_parser
+
+    p = build_parser()
+    for argv in (
+        ["agents", "env", "verify", "b"],
+        ["runner", "start", "--ticks", "1"],
+        ["profile", "approve", "p", "--reason", "r"],
+        ["unit", "close", "w"],
+    ):
+        assert callable(p.parse_args(argv).func)
+
+
+def test_seed_case_with_a_baseline_needs_a_target(kta: Any) -> None:
+    code, _ = kta("case", "add", "gemm_fp16")  # knowledge/seed/cases/gemm_fp16.yaml
+    assert code == EXIT_NOT_SUPPORTED  # the baseline needs the worker image of a Target
+
+
+def test_runner_skips_tasks_without_an_approved_profile(kta: Any) -> None:
+    from kta.cli.agent_runner import next_task
+    from kta.cli.main import context_from_environ
+    from kta.orchestrator.pipeline import Services
+    from kta.orchestrator.tasks import TaskQueue
+
+    kta("task", "create", "T3", "--goal", "g")
+    svc = Services.open(context_from_environ("test"))
+    q = TaskQueue(svc.ctx, svc.store, svc.ops, svc)
+    assert next_task(q) is None  # card profile is "unassigned"

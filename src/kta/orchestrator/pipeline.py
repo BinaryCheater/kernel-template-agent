@@ -19,12 +19,13 @@ from kta.backends.base import Backend, BuiltModule, GeneratedKernel, LaunchSpec
 from kta.checks.base import Checker
 from kta.core.context import Context
 from kta.core.errors import NotSupported, SchemaError
+from kta.core.expr import Expr
 from kta.core.ids import record_id
 from kta.core.registry import resolve
 from kta.core.schemas import Actor
 from kta.core.schemas.evaluation import Build, Case, Contract, Problem
 from kta.core.schemas.hardware import HwModel, Target
-from kta.core.schemas.knowledge import Template
+from kta.core.schemas.knowledge import SassExpect, Template
 from kta.execution import JobExecutor
 from kta.knowledge import FamilyPackage, load_family, seed_dir
 from kta.knowledge.pool import find_template
@@ -203,6 +204,45 @@ def builder(
         return gk, build(svc, gk)[1]
 
     return build_for
+
+
+def sass_for(
+    fp: FamilyPackage, templates: Mapping[str, Template], assignment: Mapping[str, Any]
+) -> list[SassExpect]:
+    """The chain's SASS expectations whose ``when`` holds (D361).
+
+    ``when`` names Template variables, so it is evaluated per chain item over that item's
+    bindings: a binding naming a family variable takes the assignment's value, a constant
+    binding stays. The kept expectations are passed on with ``when = "True"``.
+    """
+    out: list[SassExpect] = []
+    for item in fp.chain.items:
+        t = templates[item.template]
+        env: dict[str, Any] = {
+            v.name: assignment.get(str(item.bindings[v.name]), item.bindings[v.name])
+            for v in t.variables
+            if v.name in item.bindings
+        }
+        for e in t.expected_sass:
+            if Expr.parse(e.when, set(env)).eval(env) is True:
+                out.append(
+                    SassExpect(
+                        when="True",
+                        must_contain=e.must_contain,
+                        must_not_contain=e.must_not_contain,
+                    )
+                )
+    return out
+
+
+def sanitizer_shape(cv: CaseView) -> dict[str, Any] | None:
+    """The small shape compute-sanitizer runs on (D285, D360): the Contract's first edge
+    shape with every dimension above 1 (usually the non-tile-multiple one); None keeps
+    the checked shape."""
+    for shape in cv.contract.edge_shapes:
+        if shape and all(isinstance(v, int) and v > 1 for v in shape.values()):
+            return dict(shape)
+    return None
 
 
 def bucket_shape(bucket: Mapping[str, Any]) -> dict[str, Any]:

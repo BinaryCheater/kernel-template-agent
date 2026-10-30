@@ -15,7 +15,7 @@ from kta.core.errors import ExecutionError, KtaError
 from kta.core.ids import UlidFactory
 from kta.core.schemas import Actor, Record
 from kta.core.trace import SpanStart
-from kta.orchestrator import budget, expand_work, solve_work
+from kta.orchestrator import budget, control, expand_work, solve_work
 from kta.orchestrator.inbox import inbox
 from kta.orchestrator.machines import machine
 from kta.orchestrator.pipeline import Services
@@ -117,6 +117,9 @@ class Runner:
             loop = loop_of(self.svc.ops.get_loop(loop_id))
             if machine(loop.kind).terminal(loop.state) or loop.data.get("blocked"):
                 return None
+            scopes = [f"loop:{loop_id}", f"process:{PROCESS_OF[loop.kind]}", "global"]
+            if control.paused_scope(self.svc.ops, scopes) is not None:
+                return None  # D364: a paused scope stops new steps; the state is kept
             facts = self._work(loop)
             if facts is None:
                 return None

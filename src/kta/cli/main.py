@@ -8,8 +8,12 @@ import argparse
 import os
 import sys
 from collections.abc import Sequence
+from typing import Any
 
+from kta.agents.commands import register as register_agent_commands
+from kta.cli import client
 from kta.cli.agent_cmds import add_agent_commands
+from kta.cli.agent_runner import add_agent_runner_commands
 from kta.cli.exec_cmds import add_exec_commands
 from kta.cli.init_cmd import add_init_command
 from kta.cli.loop_cmds import add_loop_commands
@@ -86,14 +90,30 @@ def build_parser() -> argparse.ArgumentParser:
     add_loop_commands(sub, context_from_environ)
     add_task_commands(sub, context_from_environ)
     add_agent_commands(sub, context_from_environ)
+    add_agent_runner_commands(sub, context_from_environ)
+    register_agent_commands(sub, context_from_environ, _emit)  # kta agents ... (WP8, D319)
     return parser
+
+
+def _emit(args: argparse.Namespace, data: dict[str, Any], text: str) -> None:
+    if getattr(args, "json", False):
+        emit_json(data)
+    else:
+        emit_text(text)
+
+
+def _run(args: argparse.Namespace) -> int:
+    if client.client_mode() and args.command != "doctor":
+        _emit(args, client.dispatch(args), "ok")  # D370: no local store inside a workspace
+        return EXIT_OK
+    return int(args.func(args))
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     try:
-        return int(args.func(args))
+        return _run(args)
     except ConfigError as exc:
         emit_error(f"config error: {exc}")
         return EXIT_USAGE

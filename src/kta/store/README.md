@@ -10,7 +10,7 @@ Append-only evidence records, content-addressed blobs, operations tables (tasks,
 
 - `resolve("store", ctx)` / `resolve("ops", ctx)` (registered as `sqlite`), or `open_store(ctx)` / `open_ops(ctx)`; database `<data_dir>/kta.db`, blobs `<data_dir>/objects/`
 - `Store` (`SqliteStore`): put, put_many, get, get_json, exists, kind_of, count, query (filter syntax D147), search (FTS5, D151), neighbors, lineage, status, put_blob, blob_path, blob_media
-- `Ops` (`SqliteOps`): enqueue, lease, renew, finish, task, update_task / list_tasks / list_loops (added by WP6, D265), acquire, release, get_pointer, set_pointer (CAS), set_budget, reserve, settle, budget, heartbeat, put_loop, get_loop, events, start_span, end_span, spans, prune_spans
+- `Ops` (`SqliteOps`): enqueue, lease, renew, finish, task, update_task / set_task_priority / list_tasks / list_loops (added by WP6, D265, D367), acquire, release, get_pointer, set_pointer (CAS), set_budget, reserve, settle, budget, heartbeat, put_loop, get_loop, events, start_span, end_span, spans, prune_spans
 - `status.check_change`, `status.fold`; `stale.propagate(store, id, reason, now)`, `stale.reject(...)`; `snapshot.snapshot(store, ops, members, parent, note, actor, now)`
 - `transfer.export_bundle` / `import_bundle` (verified record bundles, D153); `bench.run` (store benchmark, D156)
 
