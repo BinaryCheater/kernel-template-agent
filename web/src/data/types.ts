@@ -364,6 +364,15 @@ export interface CoverageReport {
   gap_explained: { case: string; explained: number; unexplained: number }[];
   backlog: { item: string; why: string; priority: number }[];
   structure: { other_patterns: number; unmatched_by_kind: Record<string, number>; assurance: Record<string, number> };
+  /** Quantities that need real runs, by name -> what they need (WP10b D386). */
+  pending?: Record<string, string>;
+  /** The full CoverageReport of kta.knowledge.coverage (WP10b D387). */
+  report?: {
+    direct_test?: { references: number; all_steps_matched: number; nothing_unexplained: number };
+    gaps_by_missing?: Record<string, number>;
+    gaps_by_attribution?: Record<string, number>;
+    templates_missing?: unknown[];
+  };
 }
 
 export interface InboxItem {
@@ -559,6 +568,8 @@ export interface ExperimentProtocol extends PoolEnv {
   description: string;
   params: Record<string, unknown>;
   approved: { id: string; at: string; by: string; reason: string }[];
+  /** The experiment process's state (WP11 D403), null fields before it starts. */
+  progress: { status: string | null; started: number; finished: number; report: string | null; error: string | null };
   arms: { name: string; runs: number; planned: number | null }[];
   runs: (PoolEnv & { name: string; condition: string; seed: number | null; params: Record<string, unknown>; note: string })[];
   results: (PoolEnv & { summary: string; data: Record<string, unknown> })[];
@@ -575,7 +586,8 @@ export interface ImprovementsView {
   attribution: Record<string, number>;
   missing: Record<string, number>;
   attribution_by_day: ({ day: string } & Record<string, number | string>)[];
-  reports: (PoolEnv & { summary: string; batch: string | null; attribution: Record<string, number>; items: ImprovementItem[]; approved: { id: string; at: string; by: string; reason: string }[] })[];
+  reports: (PoolEnv & { summary: string; batch: string | null; attribution: Record<string, number>; items: ImprovementItem[]; approved: { id: string; at: string; by: string; reason: string }[];
+    rejected: { id: string; at: string; by: string; reason: string }[]; system_items: number })[];
 }
 
 // ---- GET /model/residuals ----
@@ -587,4 +599,11 @@ export interface Residual {
   predicted_us: number;
   measured_us: number;
   rel_error: number;
+}
+
+/** GET /quotas: process shares of the global budget (WP11 D401). */
+export interface Quotas {
+  configured: Record<string, number>;
+  in_force: Record<string, number>;
+  experiments: string[];
 }

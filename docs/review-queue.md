@@ -446,7 +446,7 @@ Decisions made without the user that need review. Newest last. Each entry: quest
 ## D343 — Flagging a record sets the status `suspect`
 
 - **Question:** design/30 §3 says "flag as suspect: triggers re-verification, does not change the status", while the schema has a human-only status `suspect`.
-- **Choice:** write a StatusChange to `suspect` and ask the orchestrator for a re-verification task (reported as not created until WP6 provides it).
+- **Choice:** write a StatusChange to `suspect`; for a Solution or a Measurement, Check or Bound a Solution rests on, ask WP6 to re-verify it (a new solve loop per Case, WP6 D368). Other kinds are flagged only. (Revised in WP9b round 3.)
 - **Rationale:** the status is visible everywhere the record appears; without it nothing would ever set `suspect`.
 - **Cost of changing later:** low: drop the StatusChange in `kta.api.operate.flag`; existing suspect statuses can be reset by a human StatusChange.
 

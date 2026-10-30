@@ -145,7 +145,7 @@ function ActionDialog(p: ActionProps & { cap?: Capability; close: () => void }) 
 function ActionResult({ result }: { result: Record<string, unknown> }) {
   const action = typeof result.action === "string" ? result.action : null;
   const stale = Array.isArray(result.stale) ? (result.stale as string[]) : [];
-  const followups = Array.isArray(result.followups) ? (result.followups as { what: string; state: string; needs?: string }[]) : [];
+  const followups = Array.isArray(result.followups) ? (result.followups as { what: string; state: string; needs?: string; loops?: string[] }[]) : [];
   const problems = Array.isArray(result.problems) ? (result.problems as string[]) : [];
   const task = typeof result.task === "string" ? result.task : null;
   const failed = result.state === "failed";
@@ -157,7 +157,8 @@ function ActionResult({ result }: { result: Record<string, unknown> }) {
       {problems.slice(0, 8).map((p) => <div key={p} className="small mono">{p}</div>)}
       {stale.length > 0 && <div className="small">{stale.length} dependent record(s) marked stale and needing re-verification.</div>}
       {followups.map((f) => (
-        <div key={f.what} className="small">{f.what}: {f.state === "not_supported" ? <span className="warn-text">not created — needs {f.needs}</span> : f.state}</div>
+        <div key={f.what} className="small">{f.what}: {f.state === "not_supported" ? <span className="warn-text">not done — {f.needs}</span>
+          : <>{f.state}{f.loops?.length ? ` (${f.loops.length} new solve loop${f.loops.length > 1 ? "s" : ""})` : ""}</>}</div>
       ))}
     </div>
   );
@@ -198,9 +199,10 @@ export function RecordActions({ id, kind, name, small }: { id: string; kind: str
 }
 
 /** Task controls (running page, task page, inbox). */
-export function TaskActions({ task, label, small, retry = true }: { task: string; label: string; small?: boolean; retry?: boolean }) {
+export function TaskActions({ task, label, small, retry = true, priority }: { task: string; label: string; small?: boolean; retry?: boolean; priority?: number }) {
   return (
     <div className="row wrap" style={{ gap: 6 }}>
+      {priority !== undefined && <PriorityButton task={task} label={label} small={small} current={priority} />}
       {retry && (
         <ActionButton op="retry" label="Retry with note" small={small} title={`Retry ${label}`} reasonLabel="Note for the next attempt"
           submit={(r) => act.retry(task, r)} />
@@ -208,5 +210,17 @@ export function TaskActions({ task, label, small, retry = true }: { task: string
       <ActionButton op="cancel" label="Cancel task" tone="danger" small={small} title={`Cancel ${label}`}
         explain="Marks the task cancelled and releases its budget reservation." submit={(r) => act.cancel(task, r)} />
     </div>
+  );
+}
+
+function PriorityButton({ task, label, small, current }: { task: string; label: string; small?: boolean; current: number }) {
+  const [value, setValue] = useState(String(current));
+  const n = Number(value);
+  return (
+    <ActionButton op="priority" label="Priority" small={small} title={`Priority of ${label}`}
+      explain="Higher runs first among queued tasks of the same process (you start tasks at 100)."
+      fields={<label className="field"><span>New priority; now {current}</span>
+        <input type="number" value={value} onChange={(e) => setValue(e.target.value)} /></label>}
+      valid={Number.isInteger(n)} submit={(r) => act.priority(task, n, r)} />
   );
 }

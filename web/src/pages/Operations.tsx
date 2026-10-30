@@ -17,6 +17,7 @@ export function Operations() {
         <div className="stack">
           <PausePanel a={a.data} />
           <BudgetPanel a={a.data} />
+          <QuotaPanel />
         </div>
       </div>
       <div className="grid" style={{ gridTemplateColumns: "minmax(0, 1.25fr) minmax(0, 1fr)", alignItems: "start" }}>
@@ -168,6 +169,28 @@ function CapabilityTable() {
             <td>{c.wired ? <Chip tone="ok">wired</Chip> : <Chip tone="idle">not wired</Chip>}</td>
           </tr>
         ))}</tbody>
+      </table>
+    </Panel>
+  );
+}
+
+/** Process shares of the global budget (WP11 D401); while no experiment runs, its share is
+ *  given to the other processes. */
+function QuotaPanel() {
+  const q = useApi(api.quotas, []);
+  if (!q.data) return q.error ? <Panel title="Process quotas"><Loading error={q.error} /></Panel> : null;
+  const rows = Object.entries(q.data.configured).sort((x, y) => y[1] - x[1]);
+  return (
+    <Panel title="Process quotas" sub={q.data.experiments.length ? `${q.data.experiments.length} experiment(s) running` : "no experiment running: its share is lent to the others"}>
+      <table className="t compact">
+        <thead><tr><th>process</th><th className="r">configured</th><th className="r">in force</th><th style={{ width: "40%" }} /></tr></thead>
+        <tbody>{rows.map(([k, v]) => {
+          const now = q.data?.in_force[k] ?? 0;
+          return (
+            <tr key={k}><td>{k}</td><td className="r num">{(v * 100).toFixed(0)}%</td><td className="r num">{(now * 100).toFixed(0)}%</td>
+              <td><div className="bar"><span className="used" style={{ width: `${now * 100}%` }} /></div></td></tr>
+          );
+        })}</tbody>
       </table>
     </Panel>
   );

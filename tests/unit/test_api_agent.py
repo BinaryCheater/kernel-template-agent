@@ -143,7 +143,7 @@ def test_experiment_state_and_quotas(api: Api) -> None:
     state = {"status": "running", "slots": {"a/c1/0": {"loop": "L1", "run": "R1"}, "b/c1/0": {}}}
     api.ops.set_pointer(f"experiment:{proto}", None, json.dumps(state))
     [p] = [x for x in studies.experiments(api)["protocols"] if x["id"] == proto]
-    assert p["status"] == {"status": "running", "started": 2, "finished": 1, "report": None,
+    assert p["progress"] == {"status": "running", "started": 2, "finished": 1, "report": None,
                            "error": None}  # fmt: skip
     assert p["arms"][0]["planned"] == 4  # runs_per_arm x cases (WP11 D403)
     status, q = request(create_app(api), "GET", "/quotas")

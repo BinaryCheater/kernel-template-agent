@@ -171,7 +171,7 @@ def experiments(api: Api) -> dict[str, Any]:
                 **{k: b.get(k) for k in ("name", "version", "description")},
                 "params": params,
                 "approved": approvals.get(pid, []),
-                "status": _experiment_state(api, pid),
+                "progress": _experiment_state(api, pid),
                 "arms": [{"name": a, "runs": count.get(a, 0), "planned": per_arm} for a in arms],
                 "runs": [{**_env(api, rid, r), **r["body"], "refs": r["refs"]} for rid, r in mine],
                 "results": [
