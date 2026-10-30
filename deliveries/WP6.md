@@ -277,7 +277,7 @@ After `integration` @ `0475dea` (WP6 wiring, WP9b, WP10b and WP11 merged) was me
 
 ## Gate output
 
-Code stage (D320), after the integration wiring at `integration` @ `528caab`: `KTA_DATA=~/kta-data scripts/gate --stage code WP6` on the control host.
+Code stage (D320), round 3, after `integration` @ `0475dea`: `KTA_DATA=~/kta-data scripts/gate --stage code WP6` on the control host.
 
 ```text
 gate WP6 --stage code: PASSED (22 pass, 0 warn, 0 fail)
@@ -292,17 +292,21 @@ gate WP6 --stage code: PASSED (22 pass, 0 warn, 0 fail)
   PASS secrets
   PASS acceptance lock — 7 locked files unchanged
   PASS pyright
-  PASS unit tests — 487 passed
-  PASS contract tests — 5 passed
-  PASS fake coverage — 1 fake(s) covered
+  PASS unit tests — 538 passed
+  PASS contract tests — 8 passed
+  PASS fake coverage — 2 fake(s) covered
   PASS registry (kta doctor, dev)
   PASS delivery note
   PASS fixture declarations — 1 declared
-  PASS decision log — 292 decisions
+  PASS decision log — 326 decisions
   PASS skipped tests — none
   PASS evidence — 5 claim(s)
   PASS WP6 transition tests — 4 tests passed
   PASS judging rules tested — rules [1, 2, 3, 4] each tested
 ```
 
-Earlier runs: the code stage after merging `integration` @ `868885b` (22 pass, 377 unit tests); the full gate at `77ca05c` before any merge (22 pass, 347 unit tests).
+Earlier runs:
+
+- the code stage after the integration wiring (22 pass, 487 unit tests);
+- the code stage after `868885b` (22 pass, 377 unit tests);
+- the full gate at `77ca05c` (22 pass, 347 unit tests).
