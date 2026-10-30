@@ -470,3 +470,31 @@ Decisions made without the user that need review. Newest last. Each entry: quest
 - **Choice:** sidebar Watch / Understand (adds Pool, Model) / Intervene (Inbox, Operations, Experiments, Improvement, Agents); controls appear next to their subject (record drawer, Running, Task, Result), and the Operations page collects start-task, pause, budgets, the action log and the capability table.
 - **Rationale:** D93 (readable, one focus per page); every control says what it writes, and unwired ones say what they need.
 - **Cost of changing later:** low: `web/src/components/Shell.tsx` and the page files.
+
+## D360 — Which small shape compute-sanitizer runs on in the solve loop
+
+- **Question:** WP7 (D285) passes a fixed 200×136×72 for GEMM; the loop needs a rule for any Problem.
+- **Choice:** the Contract's first edge shape with every dimension above 1 (129×193×65 for the seed GEMM cases).
+- **Rationale:** edge shapes already exist per Contract, include a non-tile-multiple one, and are small.
+- **Cost of changing later:** low: `pipeline.sanitizer_shape`.
+
+## D364 — Pause semantics
+
+- **Question:** WP9b's pause/resume of global, process, loop and task scopes needed a meaning.
+- **Choice:** a paused scope stops new work below it (process ticks, loop steps, task leases); running work finishes, as for an exhausted quota (11 §3.4).
+- **Rationale:** no work is cut off mid-job, and resuming is just clearing the mark.
+- **Cost of changing later:** low: `kta.orchestrator.control` and three call sites.
+
+## D368 — How a suspect record is re-verified
+
+- **Question:** the inbox says "re-verify" for suspicious results, but nothing defined what runs.
+- **Choice:** a fresh solve-loop instance for the Case of the suspect Solution (or of the Solution resting on a suspect Measurement/Check/Bound). The maintain process starts it once per suspect record. Other kinds are marked unsupported.
+- **Rationale:** the loop already rebuilds, rechecks and remeasures with new records; no second verification path.
+- **Cost of changing later:** medium: a narrower re-check (only the suspect Check or Measurement) needs a per-kind job.
+
+## D370 — CLI client mode inside an agent workspace
+
+- **Question:** D301 says the agent's `kta` talks to the API with its token, but the API has only `POST /write/record`.
+- **Choice:** with `KTA_TASK_TOKEN` set, only `kta note` works (through that endpoint). Every other command refuses with NotSupported naming the endpoint it needs, and no command opens a local store.
+- **Rationale:** an agent must not fall back to direct store access; missing endpoints are visible.
+- **Cost of changing later:** low on the CLI side (`kta.cli.client.dispatch`). The API (WP9b) needs read, query, validate, build and submit endpoints for agents to work.

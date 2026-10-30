@@ -20,6 +20,9 @@ Deterministic loops (solve, expand, learn, calibrate, maintain, experiment, summ
 - `budget.py` (reserve/settle over `loop:` > `process:` > `global`, D268); `inbox.py` (D270).
 - `pipeline.py`: `Services` (one JobExecutor per process), family packages (D272), generate and build.
 - `space.py`: verify_space items (structural paths and 4 samples) and reruns of failed checks.
+- `control.py`: pausing `global`/`process:`/`loop:`/`task:` scopes (D364); `operations.py`: `Operations`
+  (human task control, priorities, pause/resume, re-verification) in the API's `Orchestration` shape
+  and `reverify_suspects` for the maintain process (D365, D368).
 - `processes.py`: `run(svc, name)`, `solve_tick`, `maintain_tick`, `request_stop` (D273).
 
 ## Dependencies

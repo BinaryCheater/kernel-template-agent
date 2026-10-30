@@ -17,7 +17,9 @@ from datetime import datetime, timedelta
 
 from kta.core.errors import ConfigError, NotSupported
 from kta.core.ids import UlidFactory
+from kta.orchestrator import control
 from kta.orchestrator.budget import configure_scopes
+from kta.orchestrator.operations import reverify_suspects
 from kta.orchestrator.pipeline import Services
 from kta.orchestrator.runner import Runner
 
@@ -33,6 +35,7 @@ class TickReport:
     checked: list[str] = field(default_factory=lambda: list[str]())
     expired: list[str] = field(default_factory=lambda: list[str]())
     pruned_spans: int = 0
+    reverified: list[str] = field(default_factory=lambda: list[str]())
 
 
 def solve_tick(runner: Runner) -> TickReport:
@@ -53,6 +56,7 @@ def solve_tick(runner: Runner) -> TickReport:
 def maintain_tick(runner: Runner) -> TickReport:
     """Return lost leases to the queue, expire silent running tasks, prune old spans."""
     rep = TickReport(expired=runner.queue.expire())
+    rep.reverified = reverify_suspects(runner)
     rep.pruned_spans = runner.svc.ops.prune_spans(runner.ctx.clock.now() - SPAN_RETENTION)
     return rep
 
@@ -100,7 +104,10 @@ def run(
             if stop_requested(svc, name, started):
                 break
             svc.ops.acquire(lock, holder, lease)
-            rep = TICKS[name](runner)
+            if control.paused_scope(svc.ops, [f"process:{name}", "global"]) is None:
+                rep = TICKS[name](runner)
+            else:
+                rep = TickReport()  # paused (D364): skip the tick, keep the lock
             ticks += 1
             log.info("%s tick %d: %s", name, ticks, rep)
             pause.wait(interval_s if interval_s is not None else 10.0)

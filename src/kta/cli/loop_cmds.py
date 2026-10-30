@@ -10,9 +10,12 @@ from typing import Any, cast
 import yaml
 
 from kta.cli.exec_cmds import ContextFactory, _out, command
-from kta.core.errors import ConfigError
+from kta.core.errors import ConfigError, NotSupported
+from kta.core.registry import resolve
 from kta.core.schemas import Actor, Record, RefValue
-from kta.knowledge import coverage_report, render_text_knowledge
+from kta.core.schemas.hardware import Target
+from kta.knowledge import coverage_report, render_text_knowledge, seed_dir
+from kta.measure.baseline import ensure_baseline
 from kta.orchestrator import budget, processes
 from kta.orchestrator.inbox import inbox
 from kta.orchestrator.machines import machine
@@ -29,20 +32,53 @@ def _yaml(path: str) -> dict[str, Any]:
     return cast(dict[str, Any], data)
 
 
+def _target(ctx: Any) -> Target | None:
+    """The newest Target record (``kta target probe``), or None before any probe."""
+    try:
+        plugin = resolve("target", ctx)
+        return Target.model_validate(resolve("store", ctx).get(plugin.latest_target_id()).body)
+    except NotSupported:
+        return None
+
+
+def case_file(arg: str, ctx: Any) -> Path:
+    """A path, or the name of a seed case (``knowledge/seed/cases/<name>.yaml``)."""
+    path = Path(arg)
+    if path.is_file():
+        return path
+    seed_case = seed_dir(ctx) / "cases" / f"{arg}.yaml"
+    if seed_case.is_file():
+        return seed_case
+    raise ConfigError(f"{arg} is neither a file nor a seed case under {seed_case.parent}")
+
+
 def cmd_case_add(args: argparse.Namespace, make_ctx: ContextFactory) -> int:
-    """YAML keys: ``problem``, ``contract``, ``case`` (bodies; ``case.problem`` is filled
-    in), optional ``baseline`` (a Source body naming the baseline implementation)."""
-    doc = _yaml(args.file)
+    """The seed case format (D363): ``problem``, ``contract``, ``case`` bodies and an
+    optional ``baseline`` {library, call}. ``Case.target`` is the Target name (D287),
+    the newest Target's unless the file names one; the baseline Report needs that Target's
+    worker image. ``Case.problem`` is filled in."""
     with command(make_ctx, "case-add", f"kta case add {args.file}") as ctx:
+        doc = _yaml(str(case_file(args.file, ctx)))
         svc = Services.open(ctx)
         now = ctx.clock.now()
         put = svc.store.put
+        target = _target(ctx)
         problem = put(Record.new("Problem", doc["problem"], HUMAN, now))
-        contract = put(Record.new("Contract", doc["contract"], HUMAN, now))
+        contract = put(
+            Record.new("Contract", doc["contract"], HUMAN, now, refs={"problem": problem})
+        )
         refs: dict[str, RefValue] = {"contract": contract, "problem": problem}
         if doc.get("baseline"):
-            refs["baseline"] = put(Record.new("Source", doc["baseline"], HUMAN, now))
-        body = {**doc["case"], "problem": problem}
+            if target is None:
+                raise NotSupported("a baseline needs the worker image: run `kta target probe`")
+            b = doc["baseline"]
+            refs["baseline"] = ensure_baseline(
+                svc.store, ctx.clock, problem, str(b["call"]), str(b["library"]), target.image
+            )
+        name = doc["case"].get("target") or (target.name if target else None)
+        if not name:
+            raise ConfigError("the case names no target and no Target record exists")
+        body = {**doc["case"], "problem": problem, "target": name}
         case = put(Record.new("Case", body, HUMAN, now, refs=refs))
     data = {"case": case, "problem": problem, "contract": contract, **refs}
     _out(args, data, f"case {case}\nproblem {problem}\ncontract {contract}")

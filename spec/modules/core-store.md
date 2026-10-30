@@ -99,6 +99,7 @@ class Ops:
     def update_task(self, task_id: str, expected: Collection[str], state: str,
                     owner: str | None = None, lease_s: int | None = None,
                     count_attempt: bool = False) -> bool
+    def set_task_priority(self, task_id: str, priority: int) -> bool   # D367, also on Ops
     def list_tasks(self, work_unit: str | None = None,
                    states: Collection[str] | None = None) -> list[Task]
     def list_loops(self, kind: str | None = None) -> list[dict]

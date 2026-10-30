@@ -1,9 +1,9 @@
 """Agent-facing commands (docs/design/10 §5). No task-token authentication yet (WP8).
 
 The task comes from ``KTA_TASK`` (set by the runner) or ``--task``. Output is short by
-default; ``--full`` prints whole records. Commands that compile or run kernels for an
-agent (instantiate, build, sass, run, src) raise NotSupported until WP8 defines the
-agent workspace; the loops compile, check and measure candidates themselves (D274).
+default; ``--full`` prints whole records. ``instantiate``, ``build`` and ``sass`` work on a
+Family record on the control plane (D371); ``run`` and ``src`` raise NotSupported. Inside
+an agent workspace (``KTA_TASK_TOKEN`` set) the CLI is an API client (client.py).
 """
 
 from __future__ import annotations
@@ -16,6 +16,7 @@ from typing import Any
 
 import yaml
 
+from kta.checks.sass import sass_check
 from kta.cli.exec_cmds import ContextFactory, _out, command
 from kta.cli.task_cmds import NOTE_FILE, _queue
 from kta.core.errors import ConfigError, NotSupported
@@ -31,7 +32,15 @@ from kta.knowledge import (
     validate_family,
     validate_template,
 )
-from kta.orchestrator.pipeline import Services, files_of
+from kta.orchestrator.pipeline import (
+    Services,
+    build,
+    family_package,
+    files_of,
+    generate,
+    sass_for,
+    templates_of,
+)
 
 SHORT_BODY = 1200
 
@@ -162,8 +171,68 @@ def _issues(args: argparse.Namespace, issues: list[Any]) -> int:
     return 1 if errors else 0
 
 
+def _generated(args: argparse.Namespace, svc: Services) -> tuple[Any, Any, dict[str, Any]]:
+    fp = family_package(svc, args.family)
+    assignment = json.loads(args.assignment)
+    return fp, generate(fp, assignment, json.loads(args.shape)), assignment
+
+
+def cmd_instantiate(args: argparse.Namespace, make_ctx: ContextFactory) -> int:
+    """Generate a family's source for one assignment and shape (no compilation)."""
+    with command(make_ctx, "instantiate", f"kta instantiate {args.family}") as ctx:
+        _, gk, _ = _generated(args, Services.open(ctx))
+    out = Path(args.out)
+    out.mkdir(parents=True, exist_ok=True)
+    for name, text in gk.files.items():
+        (out / name).write_text(text, encoding="utf-8")
+    (out / "launch.json").write_text(json.dumps(gk.launch.to_dict(), indent=1), "utf-8")
+    data = {"dir": str(out), "files": sorted(gk.files), "entry": gk.entry, "markers": gk.markers}
+    _out(args, data, f"wrote {', '.join(sorted(gk.files))} and launch.json to {out}")
+    return 0
+
+
+def cmd_build(args: argparse.Namespace, make_ctx: ContextFactory) -> int:
+    """Generate and compile through the Executor; prints the Build feedback."""
+    with command(make_ctx, "build", f"kta build {args.family}") as ctx:
+        svc = Services.open(ctx)
+        _, gk, _ = _generated(args, svc)
+        b, module = build(svc, gk)
+    data = {"build": module.build_id, **b.model_dump()}
+    _out(
+        args,
+        data,
+        f"build {module.build_id} ok={b.ok} regs={b.regs} spills={b.spills} "
+        f"smem={b.smem}\n{b.log_summary[:600]}",
+    )
+    return 0 if b.ok else 1
+
+
+def cmd_sass(args: argparse.Namespace, make_ctx: ContextFactory) -> int:
+    """Build, then compare the SASS with the chain's expectations (D361)."""
+    with command(make_ctx, "sass", f"kta sass {args.family}") as ctx:
+        svc = Services.open(ctx)
+        fp, gk, assignment = _generated(args, svc)
+        b, module = build(svc, gk)
+        if not b.ok or not module.sass_blob:
+            raise ConfigError(f"build {module.build_id[:12]} failed or has no SASS")
+        expect = sass_for(fp, templates_of(svc.store, fp), assignment)
+        checked = sass_check(svc.checker(), module, expect, assignment)
+    data = {"check": checked.id, "passed": checked.passed, "failures": checked.body.failures}
+    _out(
+        args,
+        data,
+        f"sass check {checked.id[:12]} passed={checked.passed}\n"
+        + "\n".join(str(f) for f in checked.body.failures),
+    )
+    return 0 if checked.passed else 1
+
+
 def cmd_not_yet(args: argparse.Namespace, make_ctx: ContextFactory) -> int:
-    raise NotSupported(f"kta {args.command} for agents arrives with the agent workspace (WP8)")
+    why = {
+        "run": "a quick run needs input buffers per Problem; use the loop's checks (kta check)",
+        "src": "indexed source search of references arrives with WP10b",
+    }
+    raise NotSupported(f"kta {args.command}: {why.get(args.command, 'not provided')}")
 
 
 def add_agent_commands(
@@ -195,6 +264,17 @@ def add_agent_commands(
     )
     parser("validate-template", cmd_validate_template, "check a Template file").add_argument("file")
     parser("validate-family", cmd_validate_family, "check a family directory").add_argument("dir")
-    for name in ("instantiate", "build", "sass", "run", "src"):
-        p = parser(name, cmd_not_yet, f"(agents, WP8) {name}")
+    for name, fn, h in (
+        ("instantiate", cmd_instantiate, "generate a family's source for one assignment"),
+        ("build", cmd_build, "generate and compile; print the compile feedback"),
+        ("sass", cmd_sass, "build and check the SASS against the chain's expectations"),
+    ):
+        p = parser(name, fn, h)
+        p.add_argument("family", help="Family record ID")
+        p.add_argument("--assignment", required=True, help="JSON object of family variables")
+        p.add_argument("--shape", required=True, help='JSON object, e.g. {"M": 256}')
+        if name == "instantiate":
+            p.add_argument("--out", default="kernel")
+    for name in ("run", "src"):
+        p = parser(name, cmd_not_yet, f"{name} (not provided yet)")
         p.add_argument("args", nargs="*")

@@ -171,6 +171,18 @@ class SqliteOps:
             self._log(con, "tasks", task_id, change)
             return True
 
+    def set_task_priority(self, task_id: str, priority: int) -> bool:
+        """Change a task's priority (added by WP6, D367); False when there is no such task."""
+        with self.db.write() as con:
+            cur = con.execute(
+                "UPDATE tasks SET priority = ?, updated_at = ? WHERE id = ?",
+                (priority, ts(self._now()), task_id),
+            )
+            if cur.rowcount != 1:
+                return False
+            self._log(con, "tasks", task_id, {"priority": priority})
+            return True
+
     def list_tasks(
         self, work_unit: str | None = None, states: Collection[str] | None = None
     ) -> list[Task]:

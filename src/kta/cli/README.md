@@ -21,7 +21,10 @@ The `kta` command: a thin layer that parses arguments, calls lower layers and fo
   `kta coverage [--snapshot]`, `kta export SNAPSHOT DIR`
 - WP6 agent-facing (no task-token auth yet): `kta show`, `kta query pool|tmpl|chain`, `kta why`,
   `kta card`, `kta note`, `kta submit [--dir out]`, `kta validate-template`, `kta validate-family`;
-  `instantiate`, `build`, `sass`, `run`, `src` raise NotSupported until WP8
+  `instantiate`, `build`, `sass` on a Family record (D371); `run`, `src` raise NotSupported
+- WP6 follow-up: `kta runner start|stop` (agent runner, D369), `kta profile approve`, `kta unit close`,
+  `kta agents ...` (registered from `kta.agents.commands`, D319); `kta case add` reads the seed case
+  format (D363); client mode when `KTA_TASK_TOKEN` is set (`client.py`, D370)
 
 ## Dependencies
 

@@ -21,6 +21,7 @@ from kta.core.schemas.evaluation import Bound, Build, Measurement, Prediction
 from kta.core.schemas.evaluation import Candidate as CandidateBody
 from kta.formulation import assemble
 from kta.knowledge import nearest_chains, retrieve_families, retrieve_templates, reuse_plan
+from kta.measure.baseline import measure_baseline
 from kta.models import bound, min_work
 from kta.orchestrator import pipeline
 from kta.orchestrator.pipeline import Services, bucket_shape, case_view
@@ -136,7 +137,7 @@ def _bucket(loop: Loop, name: str) -> Mapping[str, Any]:
 
 
 def _sass(svc: Services, loop: Loop, fp: Any, module: Any, assignment: dict[str, Any]) -> None:
-    expect = [e for t in pipeline.templates_of(svc.store, fp).values() for e in t.expected_sass]
+    expect = pipeline.sass_for(fp, pipeline.templates_of(svc.store, fp), assignment)
     if expect and module.sass_blob:
         sass_check(svc.checker(), module, expect, assignment)
 
@@ -181,6 +182,7 @@ def _each_top(svc: Services, loop: Loop, fn: Callable[..., str]) -> dict[str, st
 
 def work_checking(svc: Services, loop: Loop) -> Facts:
     checker = svc.checker()
+    small = pipeline.sanitizer_shape(case_view(svc.store, loop.subject))
 
     def check(cv: Any, fp: Any, gk: Any, module: Any, shape: Any, a: Any) -> str:
         return run_full(
@@ -193,7 +195,9 @@ def work_checking(svc: Services, loop: Loop) -> Facts:
             case_id=cv.id,
             shape=shape,
             build_for=pipeline.builder(svc, fp, a),
+            sass=pipeline.sass_for(fp, pipeline.templates_of(svc.store, fp), a),
             assignment=a,
+            sanitizer_shape=small,
         ).id
 
     checks = _each_top(svc, loop, check)
@@ -211,7 +215,16 @@ def work_measuring(svc: Services, loop: Loop) -> Facts:
 
     top = {k: [c for c in v if c in passed] for k, v in loop.data["top"].items()}
     loop_passed = Loop(loop.id, loop.kind, loop.subject, loop.state, {**loop.data, "top": top})
-    return {"measurements": _each_top(svc, loop_passed, meas), "protocol": protocol_id}
+    measured = _each_top(svc, loop_passed, meas)
+    # The baseline is timed under the same protocol per bucket (D284, D362); judging reads
+    # the newest Measurement with refs.case and refs.baseline.
+    cv = case_view(svc.store, loop.subject)
+    baselines: dict[str, str] = {}
+    if cv.baseline is not None:
+        for b in loop.data["buckets"]:
+            got = measure_baseline(m, cv.baseline, cv.case, bucket_shape(b), protocol_id, cv.id)
+            baselines[str(b["name"])] = got.id
+    return {"measurements": measured, "protocol": protocol_id, "baseline_measurements": baselines}
 
 
 def _baseline_us(svc: Services, case_id: str, baseline: str | None) -> float | None:

@@ -151,6 +151,8 @@ Branch `wp/WP6`, cut from `integration` @ `90aa678` (WP0–WP5, WP10a, WP13 merg
 
 D260, D261 (needs user review), D262 (needs user review), D263 (needs user review), D264, D265 (needs user review), D266 (needs user review), D267 (needs user review), D268, D269, D270, D271, D272, D273, D274 (needs user review), D275 (needs user review), D276, D277, D278.
 
+Follow-up (integration wiring): D360 (needs user review), D361, D362, D363, D364 (needs user review), D365, D366, D367, D368 (needs user review), D369, D370 (needs user review), D371.
+
 ## Needed changes
 
 - **store (WP1 owner), additive, already made:** `SqliteOps.update_task` (compare-and-set of the lifecycle state), `list_tasks` and `list_loops`. These are recorded in `spec/modules/core-store.md` and the store README (D265). The `Ops` Protocol is unchanged.
@@ -177,13 +179,68 @@ D260, D261 (needs user review), D262 (needs user review), D263 (needs user revie
 
 WP6 is not record-backed (D84); its real-run acceptance is part of WP7 (spec/modules/orchestrator-cli.md "验收"). Still owed, paused by D320:
 
-- **The real solve loop run (WP7).** `kta solve` on the GEMM case from `new` to `accepted` or to a recorded judgement. It needs an HwModel record with measured gb10 peaks, a family whose generator returns `entry` and `launch`, and a baseline Measurement. This is the first real run of the `solving`, `building`, `checking`, `measuring` and `judging` work (`solve_work.py`) and of `verify_space` / `failing_cases_pass` (T1/T6 done-checks) on spark.
-- **Restart in the middle of the run (WP7).** Kill the solve process mid-run, restart it, and check that it continues from the stored state. This is tested only on a local test store so far.
-- **Rerun of the WP6 dev evidence after the merge.** The runs in `deliveries/WP6.evidence.json` were made at `3a5fece`, before `integration` @ `868885b` was merged. They were not repeated (D320: no remote or real runs now). All of them were local; none used spark.
+- **The real solve loop run (WP7).** `kta case add gemm_fp16` (after `kta target probe`, for the baseline image), the measured HwModel, the GEMM family record, then `kta solve` to `accepted` or to a recorded judgement on spark. This is the first real run of these:
+  - the `solving`, `building`, `checking`, `measuring` and `judging` work, including the small sanitizer shape (D360), SASS expectations per item (D361) and the baseline measurement (D362);
+  - `verify_space` and `failing_cases_pass` (T1/T6 done-checks).
+- **Restart in the middle of the run (WP7).** Kill the solve process mid-run, restart it, and check that it continues from the stored state.
+- **One agent step through `kta runner start` (WP8).** It needs an approved profile (`kta profile approve`), a built batch, credentials and the agent host. From lease through `run_step` to check or abandon, then a retry with a note (D365, D369).
+- **Re-verification of a real suspect Solution (WP9b, D368)** and a pause/resume from the frontend (D364).
+- **Rerun of the WP6 dev evidence after the merges.** The runs in `deliveries/WP6.evidence.json` were made at `3a5fece`, before `integration` @ `868885b` and @ `528caab` were merged. They were not repeated (D320). All of them were local; none used spark.
+
+## Follow-up: integration wiring
+
+Second round, after `integration` @ `528caab` (WP6, WP7, WP8 and WP9b merged) was merged into `wp/WP6`. Code only (D320); nothing below has run on real data. Decisions D360–D371.
+
+**Wired.**
+
+- **From WP7:**
+  - `work_checking` passes `sanitizer_shape`: the Contract's first non-trivial edge shape (D360).
+  - SASS expectations are filtered by their `when`, evaluated per chain item over its bindings (`pipeline.sass_for`, D361). This is used in building and in the full check.
+  - `work_measuring` times the Case's baseline Report per bucket with `measure_baseline` (D362).
+  - `Case.target` is the Target name (D287, D363).
+  - `kta case add` reads the seed case format, by path or seed name, e.g. `kta case add gemm_fp16` (D363).
+- **From WP8:**
+  - `kta agents ...` is registered from `kta.agents.commands` (D319).
+  - The agent runner process `kta runner start|stop` (D369) leases as `agent:<slot>`. It calls `run_step` with the last rejection's `RetryNote` and the human note, then checks a submitted task or abandons one left running (`TaskQueue.abandon`).
+  - New commands: `kta profile approve` (`approve_profile`) and `kta unit close` (`close_work_unit`).
+  - New cards name the approved `current_profile` (D366).
+  - `kta instantiate|build|sass` work on a Family record (D371).
+  - CLI client mode when `KTA_TASK_TOKEN` is set (D370).
+- **From WP9b:**
+  - `TaskQueue.create/cancel/retry/recheck/set_priority` take the human Actor and write one HumanAction as that actor (D365).
+  - Human-created tasks get the work unit `human:<id>`.
+  - A retry note is handed to the next agent step.
+  - Priority updates use the additive `Ops.set_task_priority` (D367).
+  - Pause/resume of `global`, `process:`, `loop:` and `task:` is honoured by process ticks, loop steps and leases (D364).
+  - A suspect Solution, or a record a Solution rests on, is re-verified by a fresh solve loop. The maintain process does this for suspect StatusChanges, and `request_reverify` on request (D368).
+  - `kta.orchestrator.operations.Operations` implements the API's `Orchestration` calls; WP9b can replace `Unwired` with it.
+  - `inbox(svc)` is in `kta.orchestrator.inbox`.
+- **Tests:**
+  - `tests/unit/test_orchestrator_wiring.py` (8): human operations, profile on cards, pause, retry note, abandon, re-verification, SASS `when`, sanitizer shape;
+  - 4 more in `test_cli_orchestrator.py`: client mode, the registered commands, seed case add, runner selection.
+  - Full unit suite: 487 passed.
+
+**Still NotSupported or open.**
+
+- **Stopping an agent on cancel.** A cancel during an agent step marks the task cancelled, but the agent job runs to its end: the Executor (WP2) has no job cancellation. The runner then leaves the task cancelled. This needs `JobExecutor.cancel(job_id)` (WP2) and a watcher in `kta runner`.
+- **Client mode** works only for `kta note`. Show, query, validate, build and submit need token endpoints in the API (WP9b, D370).
+- **API-side calls.** `Operations.approve_profile`, `verify_batch` and `verify_task_token` raise NotSupported naming the `kta.agents` function: the orchestrator (layer 7) may not import agents (layer 8), so the API calls `kta.agents` directly.
+- **`kta run` and `kta src`** remain NotSupported (D371).
+- **Re-verification** of kinds that no Solution rests on is marked unsupported (WP11).
+- **The agent runner** runs one step at a time per process. Several slots mean several `kta runner` processes, but the lock name is one per host; adding per-slot locks is a small change.
+- `expand_loop.py` and `expand_work.py` were left to WP10b, unchanged.
+
+**New decisions:** D360 (needs user review), D361, D362, D363, D364 (needs user review), D365, D366, D367, D368 (needs user review), D369, D370 (needs user review), D371.
+
+**Needed changes (follow-up).**
+
+- **WP2:** cancel a running Executor job.
+- **WP9b:** replace `Unwired` with `Operations`, plus the three `kta.agents` calls. Add token endpoints for the agent-facing commands (D370).
+- **Additive changes made in this follow-up:** WP1's `Ops` Protocol and `SqliteOps` gained `set_task_priority`, recorded in `spec/modules/core-store.md` and the store README.
 
 ## Gate output
 
-Code stage (D320), after merging `integration` @ `868885b`: `KTA_DATA=~/kta-data scripts/gate --stage code WP6` on the control host.
+Code stage (D320), after the integration wiring at `integration` @ `528caab`: `KTA_DATA=~/kta-data scripts/gate --stage code WP6` on the control host.
 
 ```text
 gate WP6 --stage code: PASSED (22 pass, 0 warn, 0 fail)
@@ -198,17 +255,17 @@ gate WP6 --stage code: PASSED (22 pass, 0 warn, 0 fail)
   PASS secrets
   PASS acceptance lock — 7 locked files unchanged
   PASS pyright
-  PASS unit tests — 377 passed
-  PASS contract tests — 2 passed
+  PASS unit tests — 487 passed
+  PASS contract tests — 5 passed
   PASS fake coverage — 1 fake(s) covered
   PASS registry (kta doctor, dev)
   PASS delivery note
   PASS fixture declarations — 1 declared
-  PASS decision log — 235 decisions
+  PASS decision log — 292 decisions
   PASS skipped tests — none
   PASS evidence — 5 claim(s)
   PASS WP6 transition tests — 4 tests passed
   PASS judging rules tested — rules [1, 2, 3, 4] each tested
 ```
 
-Earlier full-gate run at `77ca05c`, before the merge: `gate WP6: PASSED (22 pass, 0 warn, 0 fail)`, with the same checks and 347 unit tests.
+Earlier runs: the code stage after merging `integration` @ `868885b` (22 pass, 377 unit tests); the full gate at `77ca05c` before any merge (22 pass, 347 unit tests).

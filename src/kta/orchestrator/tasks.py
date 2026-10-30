@@ -15,12 +15,12 @@ from pathlib import Path
 from typing import Any
 
 from kta.core.context import Context
-from kta.core.errors import ConfigError, KtaError, SchemaError
+from kta.core.errors import ConfigError, KtaError, PermissionDenied, SchemaError
 from kta.core.ids import UlidFactory
 from kta.core.schemas import Actor, Record, RefValue
 from kta.core.schemas.process import Submission, TaskCard
 from kta.core.trace import SpanStart
-from kta.orchestrator import budget
+from kta.orchestrator import budget, control
 from kta.orchestrator.done_checks import DONE_CHECKS, CheckInput, Outcome, run_check
 from kta.orchestrator.machines import Machine, machine
 from kta.orchestrator.outputs import write_outputs
@@ -29,7 +29,9 @@ from kta.orchestrator.transition import Settings, TaskRequest
 from kta.store.base import Store, Task
 from kta.store.sqlite_ops import SqliteOps
 
-UNASSIGNED_PROFILE = "unassigned"  # TaskCard.profile until WP8 writes AgentProfiles (D271)
+UNASSIGNED_PROFILE = "unassigned"  # when no profile is approved yet (D271, D366)
+# The ops pointer kta.agents.profile.approve_profile moves (orchestrator may not import agents).
+CURRENT_PROFILE = "current_profile"
 LIVE = ("queued", "leased", "running", "submitted", "checking", "rejected", "expired")
 # run_check turns bad submission data (ValueError, SchemaError) into failed outcomes, so any
 # KtaError left is the checker or its infrastructure failing: the task is suspended.
@@ -87,9 +89,23 @@ class TaskQueue:
 
     # ---- creation -------------------------------------------------------------
 
-    def create(self, req: TaskRequest, loop_id: str, process: str, priority: int = 0) -> str:
-        """Write the card (created) and enqueue it (queued)."""
+    def create(
+        self,
+        req: TaskRequest,
+        loop_id: str | None,
+        process: str,
+        priority: int = 0,
+        human: Actor | None = None,
+        reason: str = "",
+    ) -> str:
+        """Write the card (created) and enqueue it (queued).
+
+        Without a loop the task is its own work unit ``human:<id>`` (D278, D365). The card
+        names the approved profile (pointer ``current_profile``), else ``unassigned``.
+        """
         s = self.settings
+        loop_id = loop_id or f"human:{self.ids.new()}"
+        profile = self.ops.get_pointer(CURRENT_PROFILE) or UNASSIGNED_PROFILE
         body = TaskCard.model_validate(
             {
                 "type": req.type,
@@ -97,12 +113,12 @@ class TaskQueue:
                 "inputs": list(req.inputs),
                 "done_checks": list(DONE_CHECKS[req.type]),
                 "budget": {"wall_s": s.task_wall_s, "gpu_s": s.task_gpu_s, "steps": s.task_steps},
-                "profile": UNASSIGNED_PROFILE,
+                "profile": profile,
                 "work_unit": loop_id,
             }
         )
         refs: dict[str, RefValue] = {"inputs": sorted(set(req.inputs))} if req.inputs else {}
-        actor = Actor(type="system", name=f"kta.orchestrator ({process})")
+        actor = human or Actor(type="system", name=f"kta.orchestrator ({process})")
         card_id = self.store.put(Record.new("TaskCard", body, actor, self.ctx.clock.now(), refs))
         task_id = self.ops.enqueue(card_id, priority, loop_id)
         span_id = self.ids.new()
@@ -119,6 +135,8 @@ class TaskQueue:
             )
         )
         self._set_info(task_id, span=span_id, process=process)
+        if human is not None:
+            self._human(self.get(task_id), "create", reason or req.goal, human)
         return task_id
 
     # ---- lease, start, submit -------------------------------------------------
@@ -128,6 +146,10 @@ class TaskQueue:
         task = self.get(task_id)
         amount = budget.scope_amounts(self.card(task).budget)
         info = self.info(task_id)
+        process = str(info.get("process", "solve"))
+        stop = control.paused_scope(self.ops, control.task_scopes(task.id, task.work_unit, process))
+        if stop is not None:
+            raise control.Paused(f"task {task_id}: {stop} is paused")
         scopes = budget.reserve_chain(
             self.ops, budget.ancestors(str(info.get("process", "solve")), task.work_unit), amount
         )
@@ -257,37 +279,77 @@ class TaskQueue:
         self._move(task, "queued", kind="retry")
         return "queued"
 
-    def recheck(self, task_id: str, reason: str) -> Verdict:
+    def recheck(self, task_id: str, reason: str, human: Actor | None = None) -> Verdict:
         """suspended -> checking after a checker was fixed (human)."""
         task = self.get(task_id)
-        self._human(task, "recheck", reason)
+        self._human(task, "recheck", reason, human)
         self._move(task, "checking", kind="human")
         return self.check(task_id)
 
     # ---- human actions and expiry ---------------------------------------------
 
-    def _human(self, task: Task, action: str, reason: str) -> None:
+    def _human(self, task: Task, action: str, reason: str, human: Actor | None = None) -> str:
+        """The HumanAction naming the operator (the API passes its Actor, D365)."""
         body = {"action": f"task {action} {task.id}", "reason": reason}
-        actor = Actor(type="human", name=f"kta task {action}", task=task.id)
-        self.store.put(
+        who = human or Actor(type="human", name=f"kta task {action}")
+        if who.type != "human":
+            raise PermissionDenied(f"task {action} needs a human actor, not {who.type}")
+        actor = who.model_copy(update={"task": task.id})
+        return self.store.put(
             Record.new(
                 "HumanAction", body, actor, self.ctx.clock.now(), refs={"card": task.card_id}
             )
         )
 
-    def retry(self, task_id: str, reason: str) -> None:
+    def retry(
+        self, task_id: str, reason: str, human: Actor | None = None, note: str | None = None
+    ) -> str:
+        """escalated -> queued; ``note`` reaches the next TASK.md verbatim (D365)."""
         task = self.get(task_id)
-        self._human(task, "retry", reason)
+        action = self._human(task, "retry", reason, human)
         self._move(task, "queued", kind="human")
+        if note:
+            self._set_info(task_id, human_note=note)
+        return action
 
-    def cancel(self, task_id: str, reason: str) -> None:
+    def set_priority(
+        self, task_id: str, priority: int, reason: str, human: Actor | None = None
+    ) -> str:
+        """Change the priority of a task that is not finished (D367)."""
         task = self.get(task_id)
         if self.machine.terminal(task.state):
             raise ConfigError(f"task {task_id} is already {task.state}")
-        self._human(task, "cancel", reason)
+        action = self._human(task, f"priority {priority}", reason, human)
+        if not self.ops.set_task_priority(task_id, priority):
+            raise ConfigError(f"no task {task_id}")
+        return action
+
+    def retry_context(self, task_id: str) -> tuple[list[tuple[str, str]], str | None]:
+        """For the next agent step: the failures of the last rejection (done check, text)
+        and a human note, if any. The note is handed over once."""
+        info = self.info(task_id)
+        failures: list[tuple[str, str]] = []
+        last = info.get("last_rejection")
+        if last:
+            for c in self.store.get(str(last)).body["data"].get("checks", []):
+                if not c["passed"]:
+                    failures += [(str(c["name"]), str(f)) for f in c["failures"]] or [
+                        (str(c["name"]), "failed")
+                    ]
+        note = info.get("human_note")
+        if note:
+            self._set_info(task_id, human_note=None)
+        return failures, str(note) if note else None
+
+    def cancel(self, task_id: str, reason: str, human: Actor | None = None) -> str:
+        task = self.get(task_id)
+        if self.machine.terminal(task.state):
+            raise ConfigError(f"task {task_id} is already {task.state}")
+        action = self._human(task, "cancel", reason, human)
         self._move(task, "cancelled", kind="any")
         self._settle(task_id)
         self._finish(task_id, "cancelled")
+        return action
 
     def expire(self, now_tasks: Collection[Task] | None = None) -> list[str]:
         """Lease lost: leased -> queued; running or submitted-but-unchecked stays (11 §6).
@@ -312,6 +374,15 @@ class TaskQueue:
                 self._after_rejection(t.id)
             moved.append(t.id)
         return moved
+
+    def abandon(self, task_id: str, reason: str) -> str:
+        """An agent step ended without submitting: running -> expired -> rejected, then
+        retry or escalation as for any rejection (docs/design/10 §9, D369)."""
+        task = self.get(task_id)
+        self._move(task, "expired")
+        self._move(self.get(task_id), "rejected")
+        self._set_info(task_id, last_abandon=reason)
+        return self._after_rejection(task_id)
 
     def _settle(self, task_id: str) -> None:
         info = self.info(task_id)
