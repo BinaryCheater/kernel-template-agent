@@ -17,7 +17,14 @@ from kta.knowledge.retrieve import (
     retrieve_templates,
 )
 from kta.knowledge.scope import reuse_plan, scope_holds
-from kta.knowledge.seed import ImportResult, SeedError, import_references, import_seed, seed_dir
+from kta.knowledge.seed import (
+    ImportResult,
+    SeedError,
+    import_hw_catalog,
+    import_references,
+    import_seed,
+    seed_dir,
+)
 from kta.knowledge.templates import propose_template, validate_template
 from kta.knowledge.types import (
     Card,
@@ -47,6 +54,7 @@ __all__ = [
     "diff_templates",
     "errors_of",
     "family_overview",
+    "import_hw_catalog",
     "import_references",
     "import_seed",
     "load_family",

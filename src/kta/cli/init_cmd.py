@@ -9,7 +9,15 @@ from typing import Any
 from kta.cli.output import emit_json, emit_text
 from kta.core.context import Context
 from kta.core.registry import resolve
-from kta.knowledge import ImportResult, SeedError, import_references, import_seed, seed_dir
+from kta.knowledge import (
+    ImportResult,
+    SeedError,
+    import_hw_catalog,
+    import_references,
+    import_seed,
+    seed_dir,
+)
+from kta.targets.gb10 import catalog
 
 ContextFactory = Callable[[str], Context]
 
@@ -32,6 +40,7 @@ def cmd_init(args: argparse.Namespace, make_ctx: ContextFactory) -> int:
     out: dict[str, Any] = {"data_dir": str(ctx.data_dir), "seed_dir": str(root), "batches": []}
     code = 0
     try:
+        out["batches"].append(_summary(import_hw_catalog(ctx, store, catalog())))
         out["batches"].append(_summary(import_seed(ctx, store, root)))
         if args.references:
             out["batches"].append(_summary(import_references(ctx, store, root / "references")))

@@ -347,7 +347,13 @@ def _seed_check(seed: Path, data: Path) -> tuple[CheckResult, CheckResult | None
     from kta.core.config import config_from_mapping
     from kta.core.context import Context
     from kta.core.registry import Registry
-    from kta.knowledge import SeedError, errors_of, import_references, import_seed
+    from kta.knowledge import (
+        SeedError,
+        errors_of,
+        import_hw_catalog,
+        import_references,
+        import_seed,
+    )
     from kta.knowledge.pool import find_template, names
     from kta.knowledge.templates import validate_template
     from kta.store import CodeState, open_store
@@ -355,6 +361,10 @@ def _seed_check(seed: Path, data: Path) -> tuple[CheckResult, CheckResult | None
     ctx = Context(env="test", config=config_from_mapping({}), data_dir=data, registry=Registry())
     code = CodeState("0" * 40, False)
     store = open_store(ctx, code)
+    # Same order as `kta init`: the declared GB10 feature catalogue first (D98).
+    from kta.targets.gb10 import catalog
+
+    import_hw_catalog(ctx, store, catalog(), code)
     try:
         result = import_seed(ctx, store, seed, code)
     except SeedError as exc:

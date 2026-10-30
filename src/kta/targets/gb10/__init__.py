@@ -73,17 +73,7 @@ class Gb10Target:
             for rec in self.store.query("HwFeature", {"refs.target": target_id}, limit=1000):
                 feature = HwFeature.model_validate(rec.body)
                 probed[feature.name] = feature
-        return [
-            probed.get(s.name)
-            or HwFeature(
-                name=s.name,
-                unit=s.unit,
-                instructions=s.instructions,
-                description=s.description,
-                support={NAME: "unknown"},
-            )
-            for s in load_features()
-        ]
+        return [probed.get(f.name) or f for f in catalog()]
 
     def compile_flags(self, backend: str) -> list[str]:
         if backend not in COMPILE_FLAGS:
@@ -91,4 +81,22 @@ class Gb10Target:
         return list(COMPILE_FLAGS[backend])
 
 
-__all__ = ["ARCH_FLAG", "NAME", "SM", "Gb10Target"]
+def catalog() -> list[HwFeature]:
+    """The declared feature list from features.yaml, support unknown until a probe runs.
+
+    `kta init` writes it so Templates can name hardware features before any probe; probe
+    results are separate HwFeature records that reference their Target.
+    """
+    return [
+        HwFeature(
+            name=s.name,
+            unit=s.unit,
+            instructions=s.instructions,
+            description=s.description,
+            support={NAME: "unknown"},
+        )
+        for s in load_features()
+    ]
+
+
+__all__ = ["ARCH_FLAG", "NAME", "SM", "Gb10Target", "catalog"]

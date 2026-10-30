@@ -30,9 +30,11 @@ from kta.core.context import Context
 from kta.core.errors import ConfigError, SchemaError
 from kta.core.ids import record_id
 from kta.core.schemas import Actor, InvalidBody, Record, RefValue
+from kta.core.schemas.hardware import HwFeature
 from kta.core.schemas.knowledge import Chain, Template
 from kta.knowledge.chains import validate_chain
 from kta.knowledge.pending import PendingView
+from kta.knowledge.pool import names as pool_names
 from kta.knowledge.templates import validate_template
 from kta.knowledge.types import Issue, errors_of
 from kta.store import CodeState, code_state
@@ -206,6 +208,28 @@ def _chain_refs(batch: _Batch, path: Path) -> dict[str, RefValue]:
         if found:
             ids.append(record_id(found[-1]))
     return {"templates": sorted(set(ids))} if ids else {}
+
+
+def import_hw_catalog(
+    ctx: Context, store: Store, features: list[HwFeature], code: CodeState | None = None
+) -> ImportResult:
+    """Write declared HwFeature records for names the store does not know yet.
+
+    Templates' ``requires_hw`` must name existing HwFeatures. Any HwFeature with the same
+    name (declared earlier or probed) already satisfies that, so those names are skipped.
+    """
+    actor = _actor(code or code_state())
+    result = ImportResult("hw_catalog")
+    known = pool_names(store, "HwFeature")
+    records = [
+        Record.new("HwFeature", f.model_dump(), actor, ctx.clock.now())
+        for f in features
+        if f.name not in known
+    ]
+    if records:
+        result.counts["HwFeature"] = len(records)
+    result.written = store.put_many(records) if records else []
+    return result
 
 
 def import_references(
