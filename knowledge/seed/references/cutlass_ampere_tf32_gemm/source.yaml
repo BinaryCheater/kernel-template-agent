@@ -1,0 +1,25 @@
+repo: https://github.com/NVIDIA/cutlass
+commit: e13f5cd4142c43efc37c2f6339923eb4a57afb99
+commit_date: "2026-10-28T13:27:06-07:00"
+license: BSD-3-Clause
+paths:
+  - examples/14_ampere_tf32_tensorop_gemm/ampere_tf32_tensorop_gemm.cu
+  - include/cutlass/gemm/device/gemm.h
+  - include/cutlass/gemm/device/default_gemm_configuration.h
+  - include/cutlass/gemm/kernel/gemm.h
+  - include/cutlass/gemm/threadblock/threadblock_swizzle.h
+  - include/cutlass/gemm/threadblock/default_mma_core_sm80.h
+  - include/cutlass/gemm/threadblock/mma_base.h
+  - include/cutlass/gemm/threadblock/mma_multistage.h
+  - include/cutlass/gemm/warp/default_mma_tensor_op_sm80.h
+  - include/cutlass/gemm/warp/mma_tensor_op.h
+  - include/cutlass/gemm/warp/mma_tensor_op_tile_iterator.h
+  - include/cutlass/arch/mma_sm80.h
+  - include/cutlass/arch/memory_sm75.h
+  - include/cutlass/arch/memory_sm80.h
+  - include/cutlass/layout/tensor_op_multiplicand_sm75.h
+  - include/cutlass/numeric_conversion.h
+  - include/cutlass/epilogue/threadblock/epilogue.h
+  - include/cutlass/epilogue/thread/linear_combination.h
+retrieved_at: "2026-10-30T00:00:00Z"
+note: Shallow clone of the default branch at the commit above, cached outside git. Configuration analysed is the one instantiated by example 14 (TF32 tensor-op GEMM, 128x128x16 CTA tile, 64x64x16 warp tile, 16x8x8 MMA, 4 stages).

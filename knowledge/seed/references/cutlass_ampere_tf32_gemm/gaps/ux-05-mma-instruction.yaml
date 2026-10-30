@@ -1,0 +1,7 @@
+missing: template
+description: >-
+  [ux-05] No seed Template lowers a contraction to compute instructions (instruction shape, operand source,
+  accumulator type, fragment layout). Proposed: compute_instruction_selection@1.
+level: 3
+pattern_guess: contract
+attribution: space

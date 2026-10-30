@@ -1,0 +1,42 @@
+name: boundary_predication
+version: 1
+level_from: 2
+level_to: 3
+change: vertical
+refines: transfer
+produces: [transfer, map]
+object:
+  type: transfer_guard
+  description: "Per-access predicates that disable out-of-bounds (or misaligned) accesses of a tile transfer, plus the fill value written instead."
+variables:
+  - {name: boundary_kind, kind: structure, binding: compile, role: software, domain: [tile_residue, alignment_prefix, runtime_length, token_mask], meaning: "which boundary the guard handles"}
+  - {name: fill, kind: structure, binding: compile, role: software, domain: [zero, neg_inf, none], meaning: "value stored for disabled accesses (none = destination untouched)"}
+  - {name: specialize_even, kind: structure, binding: compile, role: software, domain: [false, true], meaning: "whether a guard-free variant is compiled for shapes known to be tile-aligned"}
+constraints:
+  - {id: c_fill, expr: "fill != 'none' or boundary_kind != 'tile_residue' or p.consumer_masks_scores", meaning: "untouched destinations are allowed only if the consumer masks them", cls: semantic}
+preconditions:
+  - {id: pre_neutral, expr: "fill == 'none' or p.fill_is_neutral", meaning: "the fill value is neutral for the consuming reduction (0 for a sum, -inf for a max)", cls: semantic}
+program:
+  description: "Precompute a predicate per access from the tile origin and problem extents; issue the access only if true, otherwise write the fill (cp.async zfill / src-size 0, masked stores)."
+  fragments: {}
+backward_map: "Restricted to in-bounds elements the guarded transfer equals the unguarded one; out-of-bounds elements carry the neutral fill."
+obligations:
+  - {name: no_oob_access, statement: "No access touches memory outside the operand's allocation.", method: test}
+  - {name: neutral_fill, statement: "Filled elements do not change the downstream result (neutral for the reduction or masked later).", method: test}
+cost:
+  - {unit: issue, work: "p.tile_accesses", overlap: overlappable}
+scope:
+  predicate: "True"
+  text: "Tile transfers whose tiles can straddle problem bounds or whose base pointers can be misaligned."
+requires_hw: []
+relations:
+  - {type: requires, target: vectorized_access, note: "predicates are per vector access"}
+signature:
+  algorithm: "predicated tile transfer with neutral fill"
+  reuse: null
+  storage: null
+  boundary: "residue tiles, alignment prefix, runtime lengths"
+  resources: [issue]
+numeric_risk: null
+expected_sass: []
+summary: "Guards each access of a tile transfer against out-of-bounds or misaligned addresses and writes a neutral fill instead. Optionally compiles a guard-free fast path for aligned shapes. Its obligation is that filled values never change the result."

@@ -1,0 +1,6 @@
+missing: template
+description: >-
+  [ux-12] Same missing Template as ux-07 on the store side (fill = none). Resolved by boundary_predication@1.
+level: 3
+pattern_guess: transfer
+attribution: space

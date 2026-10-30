@@ -1,0 +1,43 @@
+name: operand_precision_conversion
+version: 1
+level_from: 1
+level_to: 1
+change: vertical
+refines: contract
+produces: [map, contract]
+object:
+  type: operand_conversion
+  description: "An elementwise conversion of contraction operands to a lower (or different) precision, inserted before the contraction; the accumulator type is unchanged."
+variables:
+  - {name: from_dtype, kind: structure, binding: compile, role: software, domain: [f32, f16, bf16], meaning: "operand dtype before conversion"}
+  - {name: to_dtype, kind: structure, binding: compile, role: software, domain: [tf32, f16, bf16, fp8_e4m3], meaning: "operand dtype seen by the contraction"}
+  - {name: rounding, kind: structure, binding: compile, role: software, domain: [round_to_nearest, round_half_ulp_truncate, truncate], meaning: "rounding mode of the conversion"}
+  - {name: site, kind: structure, binding: compile, role: software, domain: [registers_before_mma, on_load, producer_kernel], meaning: "where the conversion is executed"}
+constraints:
+  - {id: c_narrow, expr: "from_dtype != to_dtype", meaning: "the step changes the operand type", cls: semantic}
+preconditions:
+  - {id: pre_tol, expr: "case.tolerance_allows_operand_rounding", meaning: "the workload contract admits the rounding error of to_dtype operands", cls: semantic}
+program:
+  description: "Convert each operand fragment after it is loaded and before it is fed to the compute instruction (CUTLASS: MmaTensorOp::transform with PreferredRoundingMode)."
+  fragments: {}
+backward_map: "Read the converted operand as the exact operand; the step is an approximation, so the backward map holds only up to the declared error bound."
+obligations:
+  - {name: error_bound, statement: "|D - D_exact| stays within the contract tolerance for the admitted input distributions, given K and the rounding of to_dtype.", method: test}
+  - {name: convert_once, statement: "Each operand element is converted exactly once per use and with the declared rounding mode.", method: test}
+cost:
+  - {unit: fma, work: "p.M * p.K + p.K * p.N", overlap: overlappable}
+scope:
+  predicate: "True"
+  text: "Contractions whose contract tolerates lower-precision operands (TF32 GEMM, FP16 P in attention, FP8 inputs)."
+requires_hw: []
+relations:
+  - {type: enables, target: compute_instruction_selection, note: "lower-precision operands unlock faster tensor-core instructions"}
+signature:
+  algorithm: "operand rounding before contraction"
+  reuse: null
+  storage: null
+  boundary: null
+  resources: [fma]
+numeric_risk: "Changes results: operands lose mantissa bits. Check with inputs of large dynamic range and long K (input distribution names: wide_range, long_k)."
+expected_sass: []
+summary: "Inserts an elementwise conversion of contraction operands to a lower precision with a chosen rounding mode. Changes numerics, so its obligation is an error bound rather than equivalence. Enables lower-precision compute instructions."

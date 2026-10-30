@@ -1,0 +1,44 @@
+name: collective_fragment_load
+version: 1
+level_from: 2
+level_to: 3
+change: vertical
+refines: transfer
+produces: [transfer]
+object:
+  type: collective_fragment_load
+  description: "A warp-collective shared-memory -> register load whose result is distributed across lanes in the register layout a compute instruction expects (ldmatrix and its transposing form)."
+variables:
+  - {name: instruction, kind: structure, binding: compile, role: boundary, domain: [ldmatrix_x1, ldmatrix_x2, ldmatrix_x4, lds32, lds128], meaning: "load instruction"}
+  - {name: transpose, kind: structure, binding: compile, role: software, domain: [false, true], meaning: "whether the load transposes 8x8 b16 matrices (ldmatrix .trans)"}
+constraints:
+  - {id: c_trans, expr: "not transpose or instruction != 'lds32'", meaning: "only ldmatrix variants transpose", cls: implementation}
+preconditions:
+  - {id: pre_layout, expr: "p.consumer_fragment_layout_known", meaning: "the consumer instruction's fragment layout is fixed by an earlier step", cls: semantic}
+program:
+  description: "Each lane supplies one row address; the warp receives the 8x8 sub-matrices permuted into mma fragment order (CUTLASS MmaTensorOpMultiplicandTileIterator -> arch::ldsm)."
+  fragments: {}
+backward_map: "Gathering the fragments of all lanes yields the shared-memory tile; the lane distribution is erased."
+obligations:
+  - {name: lane_mapping, statement: "Lane l receives exactly the elements the consumer instruction assigns to lane l.", method: exhaustive}
+  - {name: source_ready, statement: "The shared-memory tile is complete (its producing transfer finished and is visible) before the load.", method: test}
+cost:
+  - {unit: smem, work: "p.tile_bytes", overlap: overlappable}
+  - {unit: issue, work: "p.tile_bytes / 512", overlap: overlappable}
+scope:
+  predicate: "True"
+  text: "Register fragments for warp-level tensor-core instructions fed from shared memory."
+requires_hw: [ldmatrix]
+relations:
+  - {type: requires, target: compute_instruction_selection, note: "fragment layout comes from the chosen instruction"}
+signature:
+  algorithm: "warp-collective smem->register load in fragment layout"
+  reuse: null
+  storage: "registers"
+  boundary: null
+  resources: [smem, issue]
+numeric_risk: null
+expected_sass:
+  - {when: "instruction == 'ldmatrix_x4' and not transpose", must_contain: [LDSM.16.M88.4], must_not_contain: []}
+  - {when: "transpose", must_contain: [LDSM.16.MT88], must_not_contain: []}
+summary: "Loads a shared-memory tile into registers with a warp-collective instruction that already places elements in the consumer instruction's fragment layout. Optionally transposes. Removes per-lane address arithmetic and bank-unfriendly scalar loads."
