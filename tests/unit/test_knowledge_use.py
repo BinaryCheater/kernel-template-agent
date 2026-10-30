@@ -135,12 +135,13 @@ def test_retrieve_templates_filters_and_ranks(pool: Store) -> None:
     names = [c.name for c in retrieve_templates(pool, pattern="store")]
     assert sorted(names) == ["multi_buffer_rotation@1", "physical_storage@1"]
     by_unit = [c.name for c in retrieve_templates(pool, unit="dram")]  # cost or resources
-    assert sorted(by_unit) == ["async_transfer@1", "multi_buffer_rotation@1"]
+    assert sorted(by_unit) == ["async_transfer@1", "multi_buffer_rotation@1", "output_tiling@2"]
     assert [c.name for c in retrieve_templates(pool, text="slots rotate")] == [
         "multi_buffer_rotation@1"
     ]
     cards = retrieve_templates(pool, case=case({"M": 64}), hw={})
-    assert cards[-1].name == "shared_resource_binding@1" and cards[-1].scope_unknown
+    unknown = [c.name for c in cards if c.scope_unknown]
+    assert "shared_resource_binding@1" in unknown and cards[-1].scope_unknown
     assert all(len(c.lines) <= 5 for c in cards)
     rid = find_template(pool, "physical_storage@1")
     assert rid is not None
@@ -237,7 +238,7 @@ def test_coverage_report(pool: Store) -> None:
     assert rep.chao1 == 4.0 and rep.good_turing == pytest.approx(1 - 2 / 5)
     assert len(rep.discovery_mean) == 3 and rep.discovery_mean[-1] == 3
     assert rep.unmatched_by_level == {"2": 3} and rep.unmatched_by_pattern == {"map": 3}
-    assert rep.assurance == {"declared": 5} and rep.other_patterns == 0
+    assert rep.assurance == {"declared": 7} and rep.other_patterns == 0
     assert rep.hw_pattern_grid["none"]["reduce"] == {"declared": 1}
     assert rep.families_per_template == {"reduction_partition": 1, "physical_storage": 1}
     again = coverage_report(pool, None, random.Random(1))

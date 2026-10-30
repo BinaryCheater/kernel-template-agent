@@ -30,8 +30,19 @@ def _dominant_tail(d: tuple[int, ...], dtype: str, g: np.random.Generator) -> np
     return x
 
 
+def _large_dynamic_range(
+    d: tuple[int, ...], dtype: str, g: np.random.Generator
+) -> np.ndarray[Any, Any]:
+    """Magnitudes spread over 9 binades (2^-6 .. 2^3) with random signs: summation order
+    matters (reduction_partition's numeric risk). The range keeps FP16 sums of a few
+    thousand products finite."""
+    sign = np.where(g.random(d) < 0.5, -1.0, 1.0)
+    return sign * np.exp2(g.uniform(-6.0, 3.0, d))
+
+
 TABLE: dict[str, Generator] = {
     **BASE,
     "cancellation": _cancellation,
     "dominant_tail": _dominant_tail,
+    "large_dynamic_range": _large_dynamic_range,
 }

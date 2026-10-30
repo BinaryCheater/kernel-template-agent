@@ -53,7 +53,7 @@ class Comparison:
 
 
 @dataclass(frozen=True)
-class _Timed:
+class Timed:
     result: JobResult
     timing: dict[str, Any]
     params_blob: str
@@ -76,7 +76,7 @@ class Measurer:
 
     def _time(
         self, modules: list[BuiltModule], case: Case, shape: dict[str, Any], protocol_id: str
-    ) -> _Timed:
+    ) -> Timed:
         params = load_params(self.store, protocol_id)
         problem = jobs.problem_of(self.store, case)
         tag = f"{canonical_json(shape).decode()}:{','.join(m.build_id for m in modules)}"
@@ -121,6 +121,7 @@ class Measurer:
             )
         timing = json.loads(self.ex.read_blob(result.outputs["timing.json"]))
         meta = {
+            "job_id": result.job_id,  # names the bootstrap streams, so a replay can recompute CIs
             "spec": bench.spec_blob,
             "shape": shape,
             "ctx_seed": self.seed,
@@ -129,18 +130,31 @@ class Measurer:
             "input_sets": params.min_input_sets,
         }
         blob = self.ex.put_blob(json.dumps(meta, sort_keys=True).encode(), "application/json")
-        return _Timed(result, timing, blob, params)
+        return Timed(result, timing, blob, params)
 
     def _record(
         self,
-        t: _Timed,
+        t: Timed,
         index: int,
         module: BuiltModule,
         case: Case,
         protocol_id: str,
     ) -> Measured:
+        body, times_us = self.measurement_body(t, index, module.build_id, protocol_id)
+        refs: dict[str, str | list[str]] = {
+            "env": t.result.env_manifest,
+            "worker": t.result.worker,
+            "build": module.build_id,
+            "protocol": protocol_id,
+        }
+        return self.write_measurement(t, body, times_us, refs, case)
+
+    def measurement_body(
+        self, t: Timed, index: int, subject: str, protocol_id: str
+    ) -> tuple[Measurement, list[float]]:
+        """Median, bootstrap CI and GPU state of the ``index``-th timed module of ``t``."""
         times_us = [ms * 1000 for ms in t.timing["times_ms"][index]]
-        boot = self.rng(f"measure.bootstrap:{module.build_id}:{t.result.job_id}:{index}")
+        boot = self.rng(f"measure.bootstrap:{subject}:{t.result.job_id}:{index}")
         med, lo, hi = stats.bootstrap_median(
             times_us, t.params.bootstrap_resamples, t.params.ci_level, boot
         )
@@ -171,12 +185,16 @@ class Measurer:
             },
             protocol=protocol_id,
         )
-        refs: dict[str, str | list[str]] = {
-            "env": t.result.env_manifest,
-            "worker": t.result.worker,
-            "build": module.build_id,
-            "protocol": protocol_id,
-        }
+        return body, times_us
+
+    def write_measurement(
+        self,
+        t: Timed,
+        body: Measurement,
+        times_us: list[float],
+        refs: dict[str, str | list[str]],
+        case: Case,
+    ) -> Measured:
         if self.store.exists(case.problem):
             refs["problem"] = case.problem
         blobs = {
@@ -187,7 +205,14 @@ class Measurer:
         }
         rec = Record.new("Measurement", body, ACTOR, self.clock.now(), refs=refs, blobs=blobs)
         mid = self.store.put(rec)
-        log.info("measurement %s: median %.3f us [%.3f, %.3f] n=%d", mid[:12], med, lo, hi, body.n)
+        log.info(
+            "measurement %s: median %.3f us [%.3f, %.3f] n=%d",
+            mid[:12],
+            body.median_us,
+            body.ci_low_us,
+            body.ci_high_us,
+            body.n,
+        )
         return Measured(mid, body, times_us)
 
     def measure(

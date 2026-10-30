@@ -1,0 +1,108 @@
+workload: "fp16 GEMM C[M,N] = A[M,K] @ B[K,N], row-major, FP32 accumulation, FP16 output"
+items:
+  - key: tiles
+    template: output_tiling@2
+    applies_to: "the M x N output, one BM x BN tile per CTA (T.Kernel grid)"
+    bindings:
+      tile_m: BM
+      tile_n: BN
+      executor: cta
+      index_map: identity
+      p.M: "case.M"
+      p.N: "case.N"
+      p.independent_outputs: true
+      p.input_bytes_per_tile: "(BM + BN) * KT * BK * 2"
+      p.compulsory_bytes: "(case.M * case.K + case.K * case.N + case.M * case.N) * 2"
+    after: []
+    code_markers: [tiles, tiles_store]
+  - key: k_split
+    template: reduction_partition@1
+    applies_to: "sum over K of each CTA output tile, k-tile by k-tile into one accumulator"
+    bindings:
+      num_groups: KT
+      group_size: BK
+      assignment: contiguous_sequential
+      p.length: "case.K"
+      p.outputs: "BM * BN"
+      p.assoc: true
+      p.comm: true
+      p.instances: "ceil_div(case.M, BM) * ceil_div(case.N, BN)"
+    after: [tiles]
+    code_markers: [k_split]
+  - key: ab_smem
+    template: physical_storage@1
+    applies_to: "A (BM x BK) and B (BK x BN) k-tiles of a CTA in shared memory"
+    bindings:
+      level: smem
+      buffer: dedicated
+      share_order: none
+      p.size_bytes: "(BM + BN) * BK * 2"
+      p.copies: S
+      p.capacity_bytes: "hw.smem_per_cta"
+      p.last_read: 0
+      p.delta: 0
+      p.next_write: 1
+    after: [k_split]
+    code_markers: [ab_smem]
+  - key: ab_async
+    template: async_transfer@1
+    applies_to: "global -> shared copy of one A/B k-tile pair (cp.async, 16-byte pieces)"
+    bindings:
+      mechanism: instruction
+      issue_point: compiler_pipelined
+      complete_point: compiler_pipelined
+      granularity_bytes: 16
+      p.align_bytes: "16 if case.K % 8 == 0 and case.N % 8 == 0 else 2"
+      p.size_bytes: "(BM + BN) * BK * 2"
+      p.instances: "KT * ceil_div(case.M, BM) * ceil_div(case.N, BN)"
+    after: [ab_smem]
+    code_markers: [ab_async]
+  - key: ab_stages
+    template: multi_buffer_rotation@1
+    applies_to: "k-tiles of A and B rotating through S shared-memory stages"
+    bindings:
+      S: S
+      P: P
+      beta: 1
+      p.size_bytes: "(BM + BN) * BK * 2"
+      p.capacity_bytes: "hw.smem_per_cta"
+      p.iterations: KT
+      p.instances: "ceil_div(case.M, BM) * ceil_div(case.N, BN)"
+    after: [ab_async]
+    code_markers: [ab_stages]
+  - key: ab_swizzle
+    template: shared_resource_binding@1
+    applies_to: "16-byte shared-memory accesses of a warp to the A/B tiles (cp.async writes, ldmatrix reads)"
+    bindings:
+      binding: xor_swizzle
+      queue_depth: 1
+      p.width_bytes: 16
+      p.requesters: 32
+      p.wavefronts: "ceil_div(16 * 32, hw.smem_banks * hw.smem_bank_bytes)"
+      p.accesses: "ceil_div(case.M, BM) * ceil_div(case.N, BN) * KT * (BM + BN) * BK * 2 * (1 + threads // 64) // 512"
+    after: [ab_smem]
+    code_markers: [ab_swizzle]
+  - key: mma
+    template: compute_instruction_selection@2
+    applies_to: "the BM x BN x (KT*BK) contraction of a CTA, lowered by T.gemm to mma.sync m16n8k16"
+    bindings:
+      instruction: mma_sync_m16n8k16_f16
+      operand_source: rr
+      accum_dtype: f32
+      macs_per_instruction: 2048
+      p.M: BM
+      p.N: BN
+      p.K: "ceil_div(KT, split) * BK"
+      p.operand_dtype_supported: true
+      p.instr_operand_bits: 16
+      p.instr_exp_bits: 5
+      # CTA slots occupied, including the idle slots of the last wave (wave quantization):
+      # ceil(CTAs / slots) * slots with slots = SMs x CTAs resident per SM (smem and threads).
+      p.instances: >-
+        ceil_div(ceil_div(case.M, BM) * ceil_div(case.N, BN) * split,
+        hw.sm_count * min(hw.max_ctas_per_sm, hw.max_threads_per_sm // threads,
+        hw.smem_per_sm // (S * (BM + BN) * BK * 2 + hw.smem_reserved_per_cta)))
+        * hw.sm_count * min(hw.max_ctas_per_sm, hw.max_threads_per_sm // threads,
+        hw.smem_per_sm // (S * (BM + BN) * BK * 2 + hw.smem_reserved_per_cta))
+    after: [ab_stages, ab_swizzle]
+    code_markers: [mma]

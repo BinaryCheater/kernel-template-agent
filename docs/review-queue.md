@@ -346,3 +346,45 @@ Decisions made without the user that need review. Newest last. Each entry: quest
 - **Choice**: one AgentProfile id plus a code commit determine the batch. Skills are deterministic tar blobs and templates are blobs. `kta agents env build <batch>` writes `$KTA_DATA/<env>/batches/<batch>/` with `env.lock.json`; `verify` regenerates and compares before every run; a batch is never overwritten; credentials are linked per work unit and are never stored.
 - **Why**: the profile is already the single record of agent behaviour (agents.md "Controlled configuration"). Storing content instead of paths survives source changes, and regenerating plus comparing makes isolation checkable instead of assumed.
 - **Cost of changing later**: low until WP12. The layout and command names live in the agents module and the CLI only. Batches already built keep their lock files.
+
+## D280 — The GEMM contraction and operand traffic are costed by two seed Templates (WP7)
+
+- **Question:** WP5 found that the seed GEMM chain costs neither the contraction nor the operand DRAM/L2 traffic, so the top candidates tie. Fix it with Templates or with a family-level cost term?
+- **Choice:** Templates. WP10a's proposed `output_tiling@1` and `compute_instruction_selection@1` enter the seed as version 2 with cost blocks: launch slots, L2 bytes per tile and compulsory DRAM bytes; tensor FLOPs and instruction issue per executor tile. Γ of the compute step compares the operand type with the instruction's through numeric `p.*` params, so `reuse_plan` flags a BF16 case. The `contract` and `map` Patterns gain the matching params.
+- **Rationale:** a family-level cost needs a schema change (Family has no cost field), and the costs belong to steps every GEMM-like chain has (24 §3.1 lists both steps).
+- **Cost of changing later:** medium: the seed has seven Templates now; WP4/WP5 unit tests count them; WP10a's references keep version 1, and stores created before this change hold the old `contract`/`map` bodies (re-import conflicts there).
+
+## D283 — Per-unit peaks from six microbenchmarks; `issue` from the FMA run; `smem_queue_depth = 1` (WP7)
+
+- **Question:** the solve needs an HwModel with measured peaks; nothing wrote one, and the Templates' units mix counts (thread-level copy operations, warp-level instructions, barriers).
+- **Choice:** one CUDA microbenchmark per unit under the measurement Protocol; issue = warp instructions/s of the FFMA run; model assumptions `smem_queue_depth = 1`, 32 banks of 4 bytes.
+- **Rationale:** real numbers with the same timing path as candidates; the assumptions are the values the seed's `shared_resource_binding@1` needs and no device query gives.
+- **Cost of changing later:** low: a new HwModel version; predictions name the HwModel they used. The issue unit's mixed counting (async_transfer counts thread-level copies) is a seed-modeling question for the method discussion.
+
+## D284 — torch.matmul baseline: protocol replica in the worker image (WP7)
+
+- **Question:** WP3's bench job loads cubins and host libraries only; torch.matmul cannot run there.
+- **Choice:** a self-contained script in the PyTorch worker image that repeats the bench loop step for step; the baseline is a Report fixed before measuring and named by the Case.
+- **Rationale:** same inputs, flush, NaN fill, event timing and stopping rule as candidates, with the library the spec names.
+- **Cost of changing later:** low: `kta.measure.baseline`; a cuBLAS-only baseline (`.so` calling cublasGemmEx) would use the existing bench job but is not what the spec asks for.
+
+## D285 — compute-sanitizer runs on a small shape (WP7)
+
+- **Question:** `full_check` runs memcheck and racecheck at the module's own shape; racecheck on a 4096³ GEMM takes far too long, and docs/design/50 §3 says sanitizers run on small shapes.
+- **Choice:** optional `sanitizer_shape`; WP7 passes 200×136×72 (not a tile multiple, so residue tiles are exercised).
+- **Rationale:** follows the design text; the default keeps WP3's behaviour.
+- **Cost of changing later:** low; WP6's `work_checking` should pass it too.
+
+## D287 — Case.target is the Target name (WP7)
+
+- **Question:** WP3's selftest Cases use the Target record ID; HwModel.target and the unit-model Reports use the name, and WP6 looks HwModel up by `Case.target`.
+- **Choice:** WP7 Cases use the name `gb10`.
+- **Rationale:** matches HwModel and model lookups without a join; `target_sm` accepts both.
+- **Cost of changing later:** low, but WP6 and every Case writer must agree.
+
+## D288 — What the WP7 gate checks (WP7)
+
+- **Question:** spec/gate.md asks for a complete solve-loop record, three failed fault-injection Checks and a consistent replay.
+- **Choice:** static checks (unit tests, family, Case file) plus listed, real, clean records: judgement or Solution, `wp7_faults` with all three caught (failed Checks from a GPU worker), replay Report consistent, HwModel, baseline Measurement, `wp7_reuse` as expected. Code stage: WARN.
+- **Rationale:** each acceptance item of WP7 maps to a record the gate can find.
+- **Cost of changing later:** low: `tools/kta_gate/specific_wp7.py`; the judgement/replay record shapes follow WP6 and may need adjusting after it merges.

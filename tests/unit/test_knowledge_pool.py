@@ -34,11 +34,11 @@ from storehelp import T0
 
 def test_seed_import_is_idempotent(ctx: Context, store: Store) -> None:
     first = seed(ctx, store)
-    assert first.counts == {"Source": 1, "Pattern": 8, "Structure": 9, "Template": 5}
+    assert first.counts == {"Source": 1, "Pattern": 8, "Structure": 9, "Template": 7}
     assert first.warnings == []
     again = seed(ctx, store)
     assert again.written == [] and len(again.reused) == len(first.written)
-    assert len(records(store, "Template")) == 5
+    assert len(records(store, "Template")) == 7
 
 
 def test_seed_templates_cite_the_seed_source(ctx: Context, store: Store) -> None:

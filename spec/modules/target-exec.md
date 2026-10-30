@@ -132,3 +132,7 @@ Changes and additions to the interfaces above, made in WP2 and recorded in docs/
 - `BuiltModule` adds `entry` (the symbol to launch; TileLang appends `_kernel`) and `build_id` (the Build record); Build refs add `target`. Cache key: D189. `LaunchSpec(grid, block, smem_bytes, params: list[Param(name, type)])`. Harness: `backends/harness` (`run_job`, `collect`; worker side `harness/run.py`), D186.
 - Backends are registered as interfaces `backend.cuda` and `backend.tilelang`; TileLang builds run in the worker image (`docker/`), D187.
 - CLI: `kta worker register|list|serve`, `kta target probe`, `kta backend smoke|selftest` (D193).
+
+## WP7 implementation notes (D281)
+
+- TileLang `kernel.py` may define `PASS_CONFIGS` (dict); the codegen applies them in `PassContext(opt_level=3)` and reports `pass_configs`, `dynamic_smem` and `grid` in `gen.json`. The Build fails when the LaunchSpec gives less dynamic shared memory or another grid. `Build.smem` is static plus dynamic shared memory (`common.write_build(..., dynamic_smem=0)`).

@@ -115,10 +115,17 @@ def write_build(
     entry: str,
     extra_blobs: dict[str, str],
     failure: str | None = None,
+    dynamic_smem: int = 0,
 ) -> tuple[Build, BuiltModule]:
-    """The Build record for a finished compile job (``failure`` overrides success)."""
+    """The Build record for a finished compile job (``failure`` overrides success).
+
+    ``smem`` is ptxas's static shared memory plus ``dynamic_smem``, the dynamic shared
+    memory the kernel declares (TileLang), so occupancy sees the whole per-CTA amount.
+    """
     log = store.blob_path(result.stderr_blob).read_text(encoding="utf-8", errors="replace")
     feedback = parse_ptxas(log, entry)
+    if dynamic_smem:
+        feedback["smem"] = int(feedback.get("smem") or 0) + dynamic_smem
     cubin = result.outputs.get("module.cubin")
     ok = result.ok and cubin is not None and failure is None
     summary = failure or (log[-LOG_SUMMARY_CHARS:] if log else f"exit {result.exit_code}")

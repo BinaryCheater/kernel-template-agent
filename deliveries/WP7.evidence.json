@@ -1,0 +1,17 @@
+[
+  {
+    "claim": "Code stage (D320): the WP7 unit tests pass on the control host. They show that the gemm_fp16_tilelang family validates with a marker region for every chain item, generates TileLang kernels with the right launch spec (2D grid, 3D for split-K, dynamic smem), assembles into an 18-constraint, 10-cost formulation, solves exhaustively with untied predictions (contraction, L2/DRAM traffic, wave quantization costed), and that the injected wrong glue admits split-K. They also check reuse_plan on BF16 (only the mma step invalid), the peak-kernel work counts, the TileLang launch checks, the large_dynamic_range inputs, replay of a Measurement from its blobs, and the WP7 gate checks. Unit runs only, with illustrative peaks; no GPU job and no store record (real runs paused, D320)",
+    "command": "uv run --frozen pytest -v tests/unit/test_wp7_family.py tests/unit/test_wp7_measure.py tests/unit/test_gate_wp7.py tests/unit/test_knowledge_pool.py tests/unit/test_knowledge_use.py",
+    "git_commit": "290d6fdd9d85cb7fb5a6263374c848d7eb2db074",
+    "dirty": false,
+    "env": "dev",
+    "control_host": "Mac.lan",
+    "workers": [],
+    "record_ids": [],
+    "blob_ids": [],
+    "env_manifests": [],
+    "started_at": "2026-10-30T18:08:48Z",
+    "requires_gpu": false,
+    "output": "Mac.lan:~/kta-data/dev/WP7/evidence/pytest-290d6fd.txt"
+  }
+]

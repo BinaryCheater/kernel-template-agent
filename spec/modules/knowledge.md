@@ -95,3 +95,8 @@ def import_references(ctx, store, references: Path, code: CodeState | None = Non
 
 - 单元测试：各校验函数对正确输入无 Issue，对每类错误各有一个反例；表达式自由变量检查；查重。
 - 真实运行：WP7 的 GEMM 族通过 `validate_family`；对它的链做 `reuse_plan`，换一个 dtype 或形状时，Γ 不成立的步骤被正确标出。
+
+## WP7 implementation notes (D280, D286)
+
+- `reuse_plan(store, chain_id, case, hw, params=None, assignment=None)`: with an assignment of the family variables, `p.*` expression bindings are evaluated per shape before Γ (`scope_holds(t, case, hw, params, bound=None, assignment=None)`). `problem_params` accepts a Problem record ID.
+- The seed holds seven Templates: the paper's five GEMM steps plus `output_tiling@2` and `compute_instruction_selection@2` (D280); `knowledge/seed/families/gemm_fp16_tilelang/` is the first family and `knowledge/seed/cases/` holds its Case files (Problem, Contract, Case, baseline).

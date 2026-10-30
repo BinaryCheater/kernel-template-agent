@@ -8,7 +8,7 @@ Independent checkers: numeric correctness, sanitizer, anti-cheat, SASS expectati
 
 ## Public interface
 
-- `check_numeric`, `check_sanitizer`, `check_anticheat`, `check_sass` (keyword `ctx`, D229), `full_check` (keywords `case_id`, `shape`, `build_for`, D227)
+- `check_numeric`, `check_sanitizer`, `check_anticheat`, `check_sass` (keyword `ctx`, D229), `full_check` (keywords `case_id`, `shape`, `build_for`, D227; `sanitizer_shape`, D285)
 - `verify_space`, `SpaceItem`, `SpaceReport`
 - `Checker` (explicit store, executor, clock, rng, private directory); every check returns `Checked(id, body)` (D224).
 
@@ -23,7 +23,7 @@ Independent checkers: numeric correctness, sanitizer, anti-cheat, SASS expectati
 | `sass.py` | SASS opcode statistics and `SassExpect` checks; Gap on violation |
 | `hidden.py` | hidden shapes from a private seed |
 | `full.py` | `full_check`, `verify_space` |
-| `inputs.py` | adversarial input distributions |
+| `inputs.py` | adversarial input distributions (incl. `large_dynamic_range`, D289) |
 | `selftest.py` | correct GEMM and three faulty variants (acceptance) |
 
 ## Dependencies
