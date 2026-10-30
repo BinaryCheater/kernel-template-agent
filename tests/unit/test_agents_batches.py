@@ -123,3 +123,26 @@ def test_skill_bundles_cover_every_skill_reference(store: SqliteStore) -> None:
     assert all(ref.endswith("@" + sha) for ref, sha in body.skill_bundles.items())
     rec = Record.new("AgentProfile", body, Actor(type="system", name="t"), datetime.now(UTC))
     assert rec.body["skill_bundles"]
+
+
+def test_codex_v2_has_bundles_and_builds_a_verified_batch(
+    store: SqliteStore, tmp_path: Path
+) -> None:
+    from kta.agents.profile import CODEX_V2
+
+    v1 = write_profile(store, datetime.now(UTC))
+    v2 = write_profile(store, datetime.now(UTC), CODEX_V2)
+    b1, b2 = store.get(v1).body, store.get(v2).body
+    names = {ref.partition("@")[0] for ref in b2["skill_bundles"]}
+    assert {"diagnose-model", "write-microbench"} <= names
+    assert {r for v in b2["skills"].values() for r in v} == set(b2["skill_bundles"])
+    differ = {k for k in b1 if b1[k] != b2[k]}
+    assert differ == {"name", "version", "skills", "skill_bundles"}
+    assert {t for t in b1["skills"] if b1["skills"][t] != b2["skills"][t]} == {"T4", "T5"}
+    for pid, name in ((v1, "v1"), (v2, "v2")):
+        root = batches.build(store, tmp_path, name, pid, TEST_COMMIT)
+        assert batches.verify(store, root).ok
+    assert any(
+        f.startswith("skills/diagnose-model@")
+        for f in batches.read_lock(tmp_path / "batches" / "v2")["files"]
+    )

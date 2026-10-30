@@ -454,3 +454,42 @@ def test_prefix_is_byte_identical_and_task_md_is_bounded() -> None:
             retry=None,
             policy={"step_header_max_chars": 100},
         )
+
+
+def test_arm_of_task_info() -> None:
+    from kta.agents.arms import NO_ARM, arm_of
+
+    assert arm_of({}) == NO_ARM
+    wp6 = {
+        "arm": {"name": "t", "condition": {"knowledge": "text"}, "snapshot": "s1", "protocol": "p1"}
+    }
+    a = arm_of(wp6)
+    assert (a.name, a.knowledge, a.snapshot, a.protocol) == ("t", "text", "s1", "p1")
+    assert a.to_dict()["condition"] == {"knowledge": "text"}
+    final = {
+        "name": "z",
+        "knowledge": "zero",
+        "snapshot": None,
+        "condition": {"knowledge": "from_zero", "seed": 1},
+        "protocol": "p2",
+    }
+    f = arm_of({"arm": final, "batch": "b"})
+    assert (f.knowledge, f.protocol, f.condition) == (
+        "zero",
+        "p2",
+        {"knowledge": "from_zero", "seed": 1},
+    )
+    other = arm_of({"arm": {"name": "weak-model", "condition": {"model": "m"}, "snapshot": None}})
+    assert other.knowledge == "pool" and other.condition == {"model": "m"}
+    z = arm_of({"arm": {"name": "z", "knowledge": "from_zero"}, "snapshot": "s9"})
+    assert (z.knowledge, z.snapshot) == ("zero", "s9")
+    b = arm_of({"arm": "t", "arm_condition": {"knowledge": "text_knowledge", "snapshot": "s2"}})
+    assert (b.name, b.knowledge, b.snapshot) == ("t", "text", "s2")
+    for bad in (
+        {"arm": {"condition": {"knowledge": "books"}}},
+        {"arm": {"condition": {"knowledge": "text"}}},
+        {"arm": {"condition": "pool"}},
+        {"arm": 3},
+    ):
+        with pytest.raises(ConfigError):
+            arm_of(bad)

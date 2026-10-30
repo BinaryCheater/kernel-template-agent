@@ -48,6 +48,8 @@ class AgentRun(Body):
     exit: str
     context_manifest: str  # blob
     violations: list[dict[str, Any]] = Field(default_factory=lambda: list[dict[str, Any]]())
+    # experiment arm: name, knowledge condition (zero | text | pool), snapshot (D430)
+    arm: dict[str, Any] = Field(default_factory=lambda: dict[str, Any]())
 
 
 class AgentProfile(Body):

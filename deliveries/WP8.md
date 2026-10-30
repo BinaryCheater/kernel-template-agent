@@ -82,6 +82,21 @@ Three kinds of claims below, labelled as such: code that exists and is tested wi
   - `tests/unit/test_agents_batches.py`: the same profile and commit give byte-identical batch roots on two stores; existing and malformed names are refused; tampered, added and missing files fail verification; credentials are refused from templates; export writes every blob.
   - `test_runs_only_from_a_verified_batch`: with the source prompts and skills directories made unreachable and a marked `~/.codex/AGENTS.md` in the worker's HOME, a step still runs and the marker appears in no archive, workspace or manifest; a tampered skill file in the batch refuses the next start.
 
+### Round 2 (merged `integration` @ `0475dea`: WP6 wiring, WP9b, WP10b, WP11)
+
+All of this is code tested with the stand-in CLI; there were no real runs (D320).
+
+- **Experiment arms (D430).** `kta.agents.arms` reads the arm from the task bookkeeping (`info["arm"]` in the ops pointer `task:<id>`, which the WP6 session is adding; the shape WP8 reads was sent to that session).
+  - `zero`: input records of pool kinds, `find-knowledge` and `kta query` are left out.
+  - `text`: the same, and the pinned snapshot rendered by `knowledge.render_text_knowledge` goes under `inputs/knowledge/`.
+  - `pool`: unchanged.
+  - Task-subject records are inputs in every arm.
+  - The condition is recorded in the context manifest (`arm`), the new `AgentRun.arm` field (additive) and `refs.snapshot`.
+  - `test_each_arm_shapes_workspace_manifest_and_agent_run` runs one step per arm through the real launcher and checks how the manifests differ: Template input, the find-knowledge skill and the text book are present exactly where specified; the fixed prefix is equal for `zero` and `text` and differs for `pool`. `test_arm_of_task_info` covers the bookkeeping forms and refusals.
+- **Arm bookkeeping as WP6 writes it (D433, round 3).** The WP6 session confirmed its shape (D373, `wp/WP6` @ `b4c3b23`): `info["arm"] = {"name", "condition": {"knowledge": ...}, "snapshot", "protocol"}`, and `info["batch"]`. `arm_of` reads `condition.knowledge`; a condition without `knowledge` is a pool arm. It records the whole condition and the protocol. The step's batch defaults to `info["batch"]`. Final form (D434, wp/WP6 @ 15d114a, change 8a9331d): WP6 also writes the normalised `knowledge` at the top level, which takes precedence over `condition.knowledge`. The arm test writes the bookkeeping in exactly that final shape. WP6 also confirmed that retrieval already honours the condition (text and zero arms get no pool objects; pool arms see only snapshot members), which settles the round-2 "Needed changes" item for WP6.
+- **decompose-kernel (D431)** now states WP10b's D381: `patterns/` are written on acceptance; `templates/` drafts start T3 tasks and are never written directly.
+- **codex-v2 (D432).** I checked WP11's `codex-v2` against D321/D322. Its skill references equal its `skill_bundles`; it differs from `codex-v1` only in name, version, T4/T5 skills and bundles; both build and verify a batch (`test_codex_v2_has_bundles_and_builds_a_verified_batch`). The WP8 gate's skill check now includes `diagnose-model` and `write-microbench`.
+
 ## Fixtures and simplifications
 
 - `tests/fakes/fake_codex.py` replaces the Codex CLI (the LLM boundary) in tests. It is never used from `src/`. It has no classes, so the "fake coverage" gate does not see it; `tests/contract/test_codex_cli_contract.py` checks it against the real CLI's options.
@@ -107,7 +122,7 @@ Three kinds of claims below, labelled as such: code that exists and is tested wi
 
 ## New decisions
 
-D300, D301, D302, D303, D304, D305, D306, D307, D308, D309, D310, D311, D312, D313, D314, D315, D316, D317, D318, D319 (D318 implements the coordinator's D322). Needing your review: D300, D301, D305, D307, D308, D310, D312, D317 (in `docs/review-queue.md`).
+D300, D301, D302, D303, D304, D305, D306, D307, D308, D309, D310, D311, D312, D313, D314, D315, D316, D317, D318, D319 (D318 implements the coordinator's D322); round 2: D430, D431, D432; round 3: D433, D434. Needing your review: D300, D301, D305, D307, D308, D310, D312, D317, D430 (in `docs/review-queue.md`).
 
 ## Needed changes
 
@@ -117,7 +132,8 @@ D300, D301, D302, D303, D304, D305, D306, D307, D308, D309, D310, D311, D312, D3
   - The orchestrator calls `kta.agents.runner.run_step(ctx, task, retry=RetryNote(...), note=...)` from a process at layer 9, binding a tracer, and moves task states after it returns.
   - A command for `profile.approve_profile` (human) and `units.close_work_unit`.
 - **WP9 (api):** verify agent requests with `kta.agents.guard.verify_task_token(key, token, now, ops)`, with the key from `[agents] token_key_file` (D305).
-- **Lower modules:** `kta.core.schemas.process.AgentProfile` gained `skill_bundles: dict[str, str]` (default empty), as spec/schemas.md §4.9 now specifies (additive). Otherwise none. `config/kta.toml` gained an `[agents]` section, which now also holds WP9a's `slots = 2` (one table, the merge had declared it twice), and `agent = 2` in spark's pools (additive). The `Ops` Protocol has no `task()` (SqliteOps has it, D152); `guard` uses its own small Protocol for it instead of changing `kta.store.base`.
+- **Lower modules:** `kta.core.schemas.process.AgentProfile` gained `skill_bundles: dict[str, str]` (default empty), as spec/schemas.md §4.9 now specifies, and `AgentRun` gained `arm: dict` (default empty, D430; spec/schemas.md §4.9 updated). Both are additive. Otherwise none.
+- **WP6 (round 2/3):** settled by WP6's D373: the bookkeeping shape is read as written, and retrieval applies the arm condition. Whether `kta query`, run by the agent inside a task, applies the same pinning is WP6's to confirm. `config/kta.toml` gained an `[agents]` section, which now also holds WP9a's `slots = 2` (one table, the merge had declared it twice), and `agent = 2` in spark's pools (additive). The `Ops` Protocol has no `task()` (SqliteOps has it, D152); `guard` uses its own small Protocol for it instead of changing `kta.store.base`.
 - **spec/modules/agents.md:** an English addendum records D300–D304 (where the CLI runs, `run_step`, the extra adapter methods, event kind `other`).
 
 ## Pending real runs
@@ -134,7 +150,7 @@ What the full gate (`KTA_DATA=~/kta-data scripts/gate WP8`) still requires. Step
 
 ## Gate output
 
-`KTA_DATA=~/kta-data scripts/gate --stage code WP8` on `wp/WP8` @ 764d544 (the commit before this note's gate paste):
+`KTA_DATA=~/kta-data scripts/gate --stage code WP8` on `wp/WP8` @ 0943d7f (round 3, the commit before this note's gate paste):
 
 ```
 gate WP8 --stage code: PASSED (22 pass, 2 warn, 0 fail)
@@ -149,17 +165,17 @@ gate WP8 --stage code: PASSED (22 pass, 2 warn, 0 fail)
   PASS secrets
   PASS acceptance lock — 7 locked files unchanged
   PASS pyright
-  PASS unit tests — 358 passed
+  PASS unit tests — 530 passed
   PASS contract tests — 5 passed
   PASS fake coverage — 1 fake(s) covered
   PASS registry (kta doctor, dev)
   PASS delivery note
   PASS fixture declarations — 1 declared
-  PASS decision log — 236 decisions
+  PASS decision log — 324 decisions
   PASS skipped tests — none
   WARN evidence — evidence list is empty
-  PASS WP8 tests — 12 named tests passed
-  PASS runtime skills — 5 skills
+  PASS WP8 tests — 14 named tests passed
+  PASS runtime skills — 7 skills
   PASS non-persistent session options — none in src/
   WARN WP8 agent runs — pending real run (code stage): real T1, resume, induced write
 ```

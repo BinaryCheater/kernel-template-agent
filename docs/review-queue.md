@@ -587,3 +587,9 @@ Decisions made without the user that need review. Newest last. Each entry: quest
 - **Choice:** the snapshot limits retrieval to its members. `condition.knowledge` = `pool` | `text` | `zero`; text and zero arms get no pool objects from retrieval, so the loop creates a T1 from the Case alone. Tasks carry `info["arm"]` and `info["batch"]`; the agent side (WP8) puts text knowledge or nothing into the context.
 - **Rationale:** the three arms of docs/design/50 §1 differ only in what knowledge the agent and the solver see. Keeping the solver blind in text/zero arms makes the agent's work the measured variable.
 - **Cost of changing later:** low: `solve_work.pinned` / `allowed_cards`; the key names are shared with WP8.
+## D430 — How an experiment arm shapes an agent step
+
+- **Question:** WP11 records each run's knowledge condition (from zero, text knowledge, Template pool) but nothing enforced it, so arms differed only in their label.
+- **Choice:** the agents module reads `info["arm"]` from the task bookkeeping. `zero`: no input records of pool kinds, no `find-knowledge` skill, `kta query` not allowed. `text`: the same, plus the pinned snapshot rendered as Markdown in `inputs/knowledge/`. `pool`: unchanged. The condition is recorded in the context manifest and `AgentRun.arm`.
+- **Rationale:** follows docs/design/20 §5 (same knowledge, different form) and the coordinator's brief. It departs from docs/design/10 §6 "skills are equal across arms" for `find-knowledge`, a skill about using the pool, in the arms that have no pool.
+- **Cost of changing later:** low: `kta.agents.arms`. Retrieval inside `kta query` and in the solve loop (WP6/knowledge) must also honour the pinned snapshot; the agents module cannot enforce that alone.

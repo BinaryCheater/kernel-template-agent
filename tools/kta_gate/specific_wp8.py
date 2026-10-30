@@ -30,9 +30,19 @@ WP8_TESTS = (
     "test_verify_reports_tampered_added_and_missing_files",
     "test_runs_only_from_a_verified_batch",
     "test_credentials_never_enter_a_template",
+    "test_each_arm_shapes_workspace_manifest_and_agent_run",
+    "test_codex_v2_has_bundles_and_builds_a_verified_batch",
 )
-PLANNED_SKILLS = ("diagnose-model", "write-microbench")
-RUNTIME_SKILLS = ("use-kta", "find-knowledge", "write-family", "write-template", "decompose-kernel")
+PLANNED_SKILLS: tuple[str, ...] = ()  # catalogued before they are written
+RUNTIME_SKILLS = (
+    "use-kta",
+    "find-knowledge",
+    "write-family",
+    "write-template",
+    "decompose-kernel",
+    "diagnose-model",  # WP11
+    "write-microbench",  # WP11
+)
 # Options that disable session persistence (conventions §7.1); only the capability table
 # that defines the refusal may spell them.
 FORBIDDEN_OPTIONS = ("--ephemeral", "--no-session", "--no-session-persistence")
