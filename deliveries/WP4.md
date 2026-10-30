@@ -1,6 +1,6 @@
 # WP4 delivery: knowledge
 
-Branch `wp/WP4`, cut from `integration` @ `6762cc0` (WP0, WP1, WP13 merged). Code commit of the evidence runs: `f0cb2d01c9c816733dba01439c8788752936950c` (clean). Dev store: `~/kta-data/dev/WP4/kta.db` on the control host.
+Branch `wp/WP4`, cut from `integration` @ `6762cc0` (WP0, WP1, WP13 merged); `integration` @ `422e660` (WP10a) merged afterwards. Code commit of the evidence runs: `f0cb2d01c9c816733dba01439c8788752936950c` (clean). Dev store: `~/kta-data/dev/WP4/kta.db` on the control host.
 
 ## What was done
 
@@ -23,7 +23,8 @@ The knowledge module (`src/kta/knowledge/`), covered by unit and acceptance test
   - `hw.*` names against a given hardware contract (warning);
   - domains, unique names and IDs, `same_as` target and verbatim equality (K1), level order;
   - that refines/produces Patterns, `requires_hw` HwFeatures and relation targets exist;
-  - duplicates, reported as a `possible_duplicate` warning (D201).
+  - duplicates, reported as a `possible_duplicate` warning (D201);
+  - `p.<name>` that is not a parameter of the refined/produced Patterns, reported as an `undeclared_pattern_param` warning (D217).
 
   `propose_template` writes a Template only when valid. It refuses a changed body under an existing `name@version` and links `previous` (D202, D203).
 - **Chains** (`chains.py`): `validate_chain` checks:
@@ -73,23 +74,27 @@ The knowledge module (`src/kta/knowledge/`), covered by unit and acceptance test
 - **`p.*` needs WP5 (D205).** How a family binds `p.size_bytes`, `p.capacity_bytes` and the other `p.*` parameters to expressions over family variables is left to WP5's formulation assembly. Chains may bind them to constants today.
 - **No knowledge-relation edges.** Relations (refines, requires, alternative_of) are resolved by name through `Store.query`, not stored as graph edges. Retrieval scans the pool, which is fine at thousands of records (docs/design/23).
 - **`validate_family` runs `gen.py` in-process (D213).** It is not yet exercised on a real family: WP7 builds the first one.
-- **WP10a's reference decompositions do not import yet.** WP10a is not yet merged into this branch. I validated its current tree read-only from its worktree, and the batch is refused; details under "Needed changes". The WP4 gate reports this as WARN (D215).
+- **WP10a's reference decompositions do not import yet.** After merging WP10a (`422e660`), `kta init --references` loads and parses all 7 references (every body validates against the WP1 models) but the batch is refused with 32 errors: 16 `bad_expression`, 11 `unknown_hw_feature`, 4 `missing_required`, 1 `conflict`. Details under "Needed changes". The WP4 gate reports this as WARN (D215). If those errors were fixed, the batch would also carry 79 warnings:
+  - 76 `undeclared_pattern_param`, over 45 distinct `p.*` names (WP10a critique point 7);
+  - 3 `constraint_false` on `multi_buffer_rotation`: FA-2 (S=1, P=1, β=1), and the CUTLASS and Marlin register double buffers (S=2, P=1, β=0). These are exactly the partial matches of critique point 3.
+- **`multi_buffer_rotation@1` is too coarse for register buffers and per-slot barriers** (WP10a critique 3). Its Γ text restricts it to CTA-wide barriers, and the validator flags the three misuses. The fix is a modeling change: a `multi_buffer_rotation@2` with a parameter for the writer/ordering model, or a separate register-buffer Template. It is left for the method discussion after the current batch (see "Needed changes").
 - `match_pattern` is a heuristic for ranking candidates, not a classifier.
 
 ## New decisions
 
-D200, D201, D202, D203, D204, D205 (needs user review), D206 (needs user review), D207, D208, D209, D210, D211, D212, D213 (needs user review), D214, D215 (needs user review), D216 (needs user review).
+D200, D201, D202, D203, D204, D205 (needs user review), D206 (needs user review), D207, D208, D209, D210, D211, D212, D213 (needs user review), D214, D215 (needs user review), D216 (needs user review), D217.
 
 ## Needed changes
 
 - **core (WP1 owner, locked for WP4): string literals in expressions (D216).** Allow string literals in `==`/`!=` (and optionally `in` over a literal list) in `kta.core.expr`, treated as non-linear. 13 expressions in WP10a's Templates use them.
-- **WP10a: its reference tree, validated read-only (worktree `wp-wp10a-679ff2` @ `a307bd0`).** All files parse and every body validates against the WP1 models. The batch is refused for these reasons:
-  1. String literals in C/Pre/`expected_sass.when`: boundary_predication, collective_fragment_load, compute_instruction_selection, operator_fusion, staged_relayout, accumulator_operand_reuse, approximate_math_rewrite, per_slot_handshake, persistent_tile_scheduler, fused_dequantization and split_combine_kernel. Fixed by the core change above, or by numeric encodings.
+- **WP10a: the merged reference tree (`integration` @ `422e660`).** All files parse and every body validates against the WP1 models. `kta init --references` refuses the batch for these reasons:
+  1. String literals in C/Pre/`expected_sass.when` (16 expressions): boundary_predication, collective_fragment_load, compute_instruction_selection, operator_fusion, staged_relayout, accumulator_operand_reuse, approximate_math_rewrite, per_slot_handshake, persistent_tile_scheduler, fused_dequantization and split_combine_kernel. Fixed by the core change above, or by numeric encodings.
   2. `requires_hw` names with no HwFeature record: ldmatrix, shfl_sync, l2_cache_hint, tma, cluster_multicast, wgmma, mbarrier, named_barrier, setmaxnreg, lop3. These must come from WP2's `targets/gb10/features.yaml` with exactly these names, or the Templates must use WP2's names.
   3. Problem `attention_fwd_f16_d128` is defined twice with different bodies (flash_attention_2_fwd and flash_attention_3_fwd). Give one of them another name, or make the two bodies identical.
   4. `requires` relations unmet in a chain: in flash_attention_3_fwd, boundary_predication and staged_relayout require vectorized_access; in vllm_fused_moe, boundary_predication and indexed_gather require vectorized_access, which the chain does not contain. Either the relation is `enables`, or the chain lacks a step.
 
-  WP10a's chains bind the five seed Templates with the variable names they assumed (D103). No renaming is needed. Expected warning once importable: the register double buffer in cutlass_ampere_tf32_gemm (`frag_stages`: S=2, P=1, beta=0) violates `P <= S - 2 + beta`. WP10a already marks this as a partial match (gap ux-09).
+  WP10a's chains bind the five seed Templates with the names of D103, which the seed adopted, so no renaming is needed. The undeclared `p.*` names (critique 7) should become Pattern params or workload parameters. The validator now lists them as warnings (D217).
+- **Seed modeling (for the method discussion after the current batch):** WP10a critique 3 asks to split or scope `multi_buffer_rotation`, critique 4–5 to let a Template refine several Patterns, and critique 6 to add `schedule`/`scan` categories (schema change, spec/schemas.md §4.1). WP4 has not changed the seed for these: each is a model change that alters WP10a's match counts and needs a decision.
 - **WP2:** HwFeature names as listed above. `validate_template` errors on `requires_hw` names that are not HwFeature records.
 - **WP5:** the meaning of `p.*` bindings in families (D205).
 - **Spec edits made in this WP:** spec/modules/knowledge.md signatures take the store explicitly (D200), plus the seed functions and files.

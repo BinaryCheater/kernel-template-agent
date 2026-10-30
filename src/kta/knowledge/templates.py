@@ -143,6 +143,49 @@ def _normal(src: str) -> str:
     return "".join(src.split())
 
 
+def _all_exprs(t: Template) -> list[tuple[str, str, set[str]]]:
+    """(where, source, declared names) of every expression in ``t``."""
+    xs = {v.name for v in t.variables}
+    out = [(f"variables.{v.name}.when", v.when, xs) for v in t.variables if v.when]
+    out += [(f"constraints.{c.id}", c.expr, xs) for c in t.constraints]
+    out += [(f"preconditions.{c.id}", c.expr, xs) for c in t.preconditions]
+    out += [(f"cost[{i}].work", c.work, xs) for i, c in enumerate(t.cost)]
+    out += [("scope.predicate", t.scope.predicate, set())]
+    out += [(f"expected_sass[{i}].when", s.when, xs) for i, s in enumerate(t.expected_sass)]
+    return out
+
+
+def _pattern_params(t: Template, store: Store) -> list[Issue]:
+    """``p.<name>`` must be a parameter of the refined or produced Patterns (warning, D217).
+
+    Unparsable expressions are reported by ``_expressions``; unknown Patterns by
+    ``_references``.
+    """
+    declared: set[str] = set()
+    for name in {t.refines, *t.produces}:
+        hit = pool.find_by_name(store, "Pattern", name)
+        if hit is None:
+            return []
+        declared |= {str(p["name"]) for p in hit[1].body.get("params", [])}
+    issues: list[Issue] = []
+    for where, src, names in _all_exprs(t):
+        try:
+            refs = Expr.parse(src, names).attr_refs
+        except ExprError:
+            continue
+        issues += [
+            Issue(
+                "undeclared_pattern_param",
+                f"{r} is not a parameter of {sorted({t.refines, *t.produces})}",
+                where,
+                "warning",
+            )
+            for r in sorted(refs)
+            if r.startswith("p.") and r[2:] not in declared
+        ]
+    return issues
+
+
 def _references(t: Template, store: Store) -> list[Issue]:
     patterns = pool.names(store, "Pattern")
     issues = [
@@ -210,6 +253,7 @@ def validate_template(
     issues += _expressions(t, hw)
     issues += _same_as(t)
     issues += _references(t, store)
+    issues += _pattern_params(t, store)
     issues += duplicates(t, store)
     return issues
 

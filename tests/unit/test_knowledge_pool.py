@@ -195,3 +195,12 @@ def test_chain_may_bind_pattern_parameters(ctx: Context, store: Store) -> None:
     seed(ctx, store)
     bound = _chain(S=4, P=3, beta=1, **{"p.size_bytes": 16384, "p.capacity_bytes": 32768})
     assert [i.kind for i in validate_chain(bound, store)] == ["constraint_false"]  # 4*16K > 32K
+
+
+def test_undeclared_pattern_parameter_is_a_warning(ctx: Context, store: Store) -> None:
+    seed(ctx, store)
+    t = template("multi_buffer_rotation", scope={"predicate": "p.iteratons >= 1", "text": "t"})
+    issues = validate_template(t, store)
+    typo = [i for i in issues if i.kind == "undeclared_pattern_param"]
+    assert [(i.where, i.severity) for i in typo] == [("scope.predicate", "warning")]
+    assert errors_of(issues) == []
