@@ -19,7 +19,7 @@ from __future__ import annotations
 import json
 import tempfile
 from collections.abc import Mapping
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -40,6 +40,8 @@ class Arm:
     name: str | None
     knowledge: str
     snapshot: str | None
+    protocol: str | None = None  # experiment Protocol the run belongs to
+    condition: dict[str, Any] = field(default_factory=lambda: dict[str, Any]())  # as given
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -60,24 +62,32 @@ def _knowledge(value: Any) -> str:
 
 
 def arm_of(info: Mapping[str, Any]) -> Arm:
-    """The arm from task bookkeeping; no ``arm`` key means a normal (pool) run."""
+    """The arm from task bookkeeping (WP6 D373); no ``arm`` key means a normal pool run.
+
+    WP6 writes ``{"name", "condition": {"knowledge": ...}, "snapshot", "protocol"}``. A
+    condition without ``knowledge`` (an arm that varies something else, e.g. the model)
+    is a pool arm. Also read: ``knowledge`` at the top level of the arm, and a plain arm
+    name with its condition in ``info["arm_condition"]``.
+    """
     raw = info.get("arm")
     if raw is None:
         return NO_ARM
     if isinstance(raw, str):
-        cond = info.get("arm_condition") or {}
-        if not isinstance(cond, Mapping):
-            raise ConfigError("task info arm_condition must be a mapping")
-        name, knowledge, snapshot = raw, cond.get("knowledge"), cond.get("snapshot")
-    elif isinstance(raw, Mapping):
-        name, knowledge, snapshot = raw.get("name"), raw.get("knowledge"), raw.get("snapshot")
-    else:
+        raw = {"name": raw, "condition": info.get("arm_condition") or {}}
+    if not isinstance(raw, Mapping):
         raise ConfigError(f"task info arm must be a name or a mapping, got {type(raw).__name__}")
-    if knowledge is None:
-        raise ConfigError(f"arm {name!r} names no knowledge condition (zero, text, pool)")
-    snapshot = snapshot or info.get("snapshot")
+    cond = raw.get("condition") or {}
+    if not isinstance(cond, Mapping):
+        raise ConfigError("task info arm condition must be a mapping")
+    knowledge = cond.get("knowledge", raw.get("knowledge", "pool"))
+    snapshot = raw.get("snapshot") or cond.get("snapshot") or info.get("snapshot")
+    name, protocol = raw.get("name"), raw.get("protocol")
     arm = Arm(
-        str(name) if name else None, _knowledge(knowledge), str(snapshot) if snapshot else None
+        str(name) if name else None,
+        _knowledge(knowledge),
+        str(snapshot) if snapshot else None,
+        str(protocol) if protocol else None,
+        dict(cond),  # pyright: ignore[reportUnknownArgumentType]
     )
     if arm.knowledge == "text" and arm.snapshot is None:
         raise ConfigError(f"arm {arm.name!r}: text knowledge needs a pinned snapshot")

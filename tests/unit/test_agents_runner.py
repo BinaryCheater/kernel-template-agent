@@ -257,8 +257,14 @@ def test_each_arm_shapes_workspace_manifest_and_agent_run(actx: Context, parts) 
         ops.enqueue(card_id, 1, f"wu-{knowledge}")
         task = ops.lease("runner-test", ["T1"], 600)
         assert task is not None
-        arm = {"name": f"arm-{knowledge}", "knowledge": knowledge, "snapshot": snap}
-        assert ops.set_pointer(f"task:{task.id}", None, json.dumps({"arm": arm}))
+        # The bookkeeping exactly as WP6 writes it (D373), batch included.
+        arm = {
+            "name": f"arm-{knowledge}",
+            "condition": {"knowledge": knowledge},
+            "snapshot": snap,
+            "protocol": None,
+        }
+        assert ops.set_pointer(f"task:{task.id}", None, json.dumps({"arm": arm, "batch": "b1"}))
         with tracing(tracer):
             result = run_step(actx, task, deps=deps)
         assert result.launch.exit == "ok", result.launch.report
@@ -279,7 +285,13 @@ def test_each_arm_shapes_workspace_manifest_and_agent_run(actx: Context, parts) 
     assert "inputs/knowledge/index.md" in files("text")
     assert not any(f.startswith("inputs/knowledge/") for f in files("zero") | files("pool"))
     for k in manifests:
-        assert manifests[k]["arm"] == {"name": f"arm-{k}", "knowledge": k, "snapshot": snap}
+        assert manifests[k]["arm"] == {
+            "name": f"arm-{k}",
+            "knowledge": k,
+            "snapshot": snap,
+            "protocol": None,
+            "condition": {"knowledge": k},
+        }
         assert runs[k]["arm"] == manifests[k]["arm"] and runs[k]["refs"]["snapshot"] == snap
     # The fixed prefix differs only between conditions (skills listed), not within one.
     prefix = {k: manifests[k]["workspace"]["files"]["AGENTS.md"] for k in manifests}

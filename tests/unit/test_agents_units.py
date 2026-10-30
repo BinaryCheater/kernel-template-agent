@@ -460,14 +460,22 @@ def test_arm_of_task_info() -> None:
     from kta.agents.arms import NO_ARM, arm_of
 
     assert arm_of({}) == NO_ARM
-    a = arm_of({"arm": {"name": "z", "knowledge": "from_zero"}, "snapshot": "s1"})
-    assert (a.name, a.knowledge, a.snapshot) == ("z", "zero", "s1")
+    wp6 = {
+        "arm": {"name": "t", "condition": {"knowledge": "text"}, "snapshot": "s1", "protocol": "p1"}
+    }
+    a = arm_of(wp6)
+    assert (a.name, a.knowledge, a.snapshot, a.protocol) == ("t", "text", "s1", "p1")
+    assert a.to_dict()["condition"] == {"knowledge": "text"}
+    other = arm_of({"arm": {"name": "weak-model", "condition": {"model": "m"}, "snapshot": None}})
+    assert other.knowledge == "pool" and other.condition == {"model": "m"}
+    z = arm_of({"arm": {"name": "z", "knowledge": "from_zero"}, "snapshot": "s9"})
+    assert (z.knowledge, z.snapshot) == ("zero", "s9")
     b = arm_of({"arm": "t", "arm_condition": {"knowledge": "text_knowledge", "snapshot": "s2"}})
     assert (b.name, b.knowledge, b.snapshot) == ("t", "text", "s2")
     for bad in (
-        {"arm": {"name": "x"}},
-        {"arm": {"knowledge": "books"}},
-        {"arm": {"knowledge": "text"}},
+        {"arm": {"condition": {"knowledge": "books"}}},
+        {"arm": {"condition": {"knowledge": "text"}}},
+        {"arm": {"condition": "pool"}},
         {"arm": 3},
     ):
         with pytest.raises(ConfigError):

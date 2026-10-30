@@ -294,8 +294,9 @@ def run_step(
     """Run one step of ``task``, write its AgentRun, return it with its record ID (D302).
 
     ``retry`` carries the rejection of the previous attempt (from the orchestrator);
-    ``note`` is a human's message, passed verbatim. ``batch`` (default ``[agents] batch``)
-    names the batch root; a batch that fails verification refuses the start (D322).
+    ``note`` is a human's message, passed verbatim. ``batch`` (default: the task's
+    ``info["batch"]``, then ``[agents] batch``) names the batch root; a batch that fails
+    verification refuses the start (D322).
     """
     deps = deps or deps_from(ctx)
     card = TaskCard.model_validate(deps.store.get(task.card_id).body)
@@ -306,8 +307,9 @@ def run_step(
         raise ConfigError(
             f"work unit {card.work_unit} lives on {state.worker}, not {deps.config.worker}"
         )
-    root = open_batch(ctx, deps, card, state, batch)
-    arm = arms.arm_of(arms.task_info(deps.ops, task.id))
+    info = arms.task_info(deps.ops, task.id)
+    root = open_batch(ctx, deps, card, state, batch or info.get("batch"))
+    arm = arms.arm_of(info)
     plan, limits = _plan(ctx, deps, task, card, profile, run, retry, root, arm)
     adapter = adapter_for(profile, deps, plan)
     decision = sessions.decide(

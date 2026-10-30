@@ -93,6 +93,7 @@ All of this is code tested with the stand-in CLI; there were no real runs (D320)
   - Task-subject records are inputs in every arm.
   - The condition is recorded in the context manifest (`arm`), the new `AgentRun.arm` field (additive) and `refs.snapshot`.
   - `test_each_arm_shapes_workspace_manifest_and_agent_run` runs one step per arm through the real launcher and checks how the manifests differ: Template input, the find-knowledge skill and the text book are present exactly where specified; the fixed prefix is equal for `zero` and `text` and differs for `pool`. `test_arm_of_task_info` covers the bookkeeping forms and refusals.
+- **Arm bookkeeping as WP6 writes it (D433, round 3).** The WP6 session confirmed its shape (D373, `wp/WP6` @ `b4c3b23`): `info["arm"] = {"name", "condition": {"knowledge": ...}, "snapshot", "protocol"}`, and `info["batch"]`. `arm_of` reads `condition.knowledge`; a condition without `knowledge` is a pool arm. It records the whole condition and the protocol. The step's batch defaults to `info["batch"]`. The arm test now writes the bookkeeping in exactly that shape. WP6 also confirmed that retrieval already honours the condition (text and zero arms get no pool objects; pool arms see only snapshot members), which settles the round-2 "Needed changes" item for WP6.
 - **decompose-kernel (D431)** now states WP10b's D381: `patterns/` are written on acceptance; `templates/` drafts start T3 tasks and are never written directly.
 - **codex-v2 (D432).** I checked WP11's `codex-v2` against D321/D322. Its skill references equal its `skill_bundles`; it differs from `codex-v1` only in name, version, T4/T5 skills and bundles; both build and verify a batch (`test_codex_v2_has_bundles_and_builds_a_verified_batch`). The WP8 gate's skill check now includes `diagnose-model` and `write-microbench`.
 
@@ -121,7 +122,7 @@ All of this is code tested with the stand-in CLI; there were no real runs (D320)
 
 ## New decisions
 
-D300, D301, D302, D303, D304, D305, D306, D307, D308, D309, D310, D311, D312, D313, D314, D315, D316, D317, D318, D319 (D318 implements the coordinator's D322); round 2: D430, D431, D432. Needing your review: D300, D301, D305, D307, D308, D310, D312, D317, D430 (in `docs/review-queue.md`).
+D300, D301, D302, D303, D304, D305, D306, D307, D308, D309, D310, D311, D312, D313, D314, D315, D316, D317, D318, D319 (D318 implements the coordinator's D322); round 2: D430, D431, D432; round 3: D433. Needing your review: D300, D301, D305, D307, D308, D310, D312, D317, D430 (in `docs/review-queue.md`).
 
 ## Needed changes
 
@@ -132,7 +133,7 @@ D300, D301, D302, D303, D304, D305, D306, D307, D308, D309, D310, D311, D312, D3
   - A command for `profile.approve_profile` (human) and `units.close_work_unit`.
 - **WP9 (api):** verify agent requests with `kta.agents.guard.verify_task_token(key, token, now, ops)`, with the key from `[agents] token_key_file` (D305).
 - **Lower modules:** `kta.core.schemas.process.AgentProfile` gained `skill_bundles: dict[str, str]` (default empty), as spec/schemas.md §4.9 now specifies, and `AgentRun` gained `arm: dict` (default empty, D430; spec/schemas.md §4.9 updated). Both are additive. Otherwise none.
-- **WP6 (round 2):** write `info["arm"] = {"name", "knowledge": "zero"|"text"|"pool", "snapshot"}` into the task bookkeeping of experiment tasks (a plain name plus `info["arm_condition"]` also works). `kta query` and the solve loop's retrieval must honour the pinned snapshot; the agents module only shapes what it puts into the workspace. `config/kta.toml` gained an `[agents]` section, which now also holds WP9a's `slots = 2` (one table, the merge had declared it twice), and `agent = 2` in spark's pools (additive). The `Ops` Protocol has no `task()` (SqliteOps has it, D152); `guard` uses its own small Protocol for it instead of changing `kta.store.base`.
+- **WP6 (round 2/3):** settled by WP6's D373: the bookkeeping shape is read as written, and retrieval applies the arm condition. Whether `kta query`, run by the agent inside a task, applies the same pinning is WP6's to confirm. `config/kta.toml` gained an `[agents]` section, which now also holds WP9a's `slots = 2` (one table, the merge had declared it twice), and `agent = 2` in spark's pools (additive). The `Ops` Protocol has no `task()` (SqliteOps has it, D152); `guard` uses its own small Protocol for it instead of changing `kta.store.base`.
 - **spec/modules/agents.md:** an English addendum records D300–D304 (where the CLI runs, `run_step`, the extra adapter methods, event kind `other`).
 
 ## Pending real runs
