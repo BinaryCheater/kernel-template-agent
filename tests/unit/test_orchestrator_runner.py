@@ -134,8 +134,8 @@ def test_maintain_tick_expires_leases(svc: Services, clock: ManualClock) -> None
     assert svc.ops.task(task).state == "queued"
 
 
-def test_unimplemented_processes_say_so(svc: Services) -> None:
-    from kta.core.errors import NotSupported
+def test_unknown_processes_say_so(svc: Services) -> None:
+    from kta.core.errors import ConfigError
 
-    with pytest.raises(NotSupported, match="learn"):
-        processes.run(svc, "learn", max_ticks=1)
+    with pytest.raises(ConfigError, match="unknown process"):
+        processes.run(svc, "teach", max_ticks=1)

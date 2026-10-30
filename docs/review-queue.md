@@ -525,3 +525,51 @@ Decisions made without the user that need review. Newest last. Each entry: quest
 - **Choice:** the expand loop snapshots all knowledge records when it reaches `covered`, moves `current_pool` by compare-and-set, and writes the coverage Report in the page's shape.
 - **Rationale:** makes the coverage page show real data now (workplan WP10b), with no API change.
 - **Cost of changing later:** medium: if WP11 owns snapshotting, `expand_work.write_coverage` should call its function; the record shapes stay.
+## D400 — Pool snapshots and the learning backlog
+
+- **Question:** what a PoolSnapshot contains and when the learn process writes one.
+- **Choice:** all usable knowledge records (Pattern, Structure, Template, Chain, Family, Reference) after any accepted task with outputs; backlog = ops pointer filled by `kta learn add`.
+- **Rationale:** snapshots then equal what retrieval sees; no separate admission rule exists yet.
+- **Cost of changing later:** low: `members()` and `needs_snapshot()` in `src/kta/orchestrator/proc_learn.py`; old snapshots stay.
+
+## D401 — Process quotas in force
+
+- **Question:** how the experiment share is handed out when no experiment runs, and how the agent pool picks among processes.
+- **Choice:** proportional redistribution; limits rewritten at process start and when the running set changes; order human → least-loaded process by used/share → priority → age.
+- **Rationale:** 11 §3.1 and §4.2 say this but leave the mechanism open.
+- **Cost of changing later:** low: `src/kta/orchestrator/quotas.py`; WP6's agent step must call `order_queued`.
+
+## D403 — Experiment protocols, batches and runs
+
+- **Question:** what an experiment Protocol must contain and how runs are executed and recorded.
+- **Choice:** params arms/runs_per_arm/cases/snapshot/profile/budget_per_run(+conditions, batch, max_concurrent); approval freezes; batch built and verified via `batch_envs`; one distinct solve loop per arm × case × rep; ExperimentRun per finished run; result Report with every run.
+- **Rationale:** uses D345's record conventions; nothing is selected or dropped (50 §1.5).
+- **Cost of changing later:** medium: the arm condition, pinned snapshot and batch are recorded but not yet read by retrieval or the agent step (WP6/WP8/knowledge change needed before WP12 results mean anything).
+
+## D405 — Calibrate process triggers
+
+- **Question:** when calibration refits the model, raises a T4, or re-measures hardware.
+- **Choice:** refit after 50 new pairs, adopted only if hold-out error improves; T4 when |median signed error| > 15 % over ≥ 10 of the last 50 pairs of a family; T5 per hw_fact Gap; peaks when the HwModel is missing or older than the Target record.
+- **Rationale:** 11 §1 lists the triggers without numbers; WP13 B1 found pre-feedback median error ~17 % and wide tails.
+- **Cost of changing later:** low: `[calibrate]` config values.
+
+## D406 — Improvement batches and attribution
+
+- **Question:** when a batch closes and how judgements are attributed.
+- **Choice:** experiment result, manual request or daily; rule 1 → verification, 2 → model, 4 → space; T3 per missing Template/Pattern Gap; system items wait for approval in the inbox.
+- **Rationale:** 10 §2.3 gives the classes but no mapping from judgement rules.
+- **Cost of changing later:** low: `src/kta/orchestrator/improve.py`.
+
+## D407 — GB10 microbenchmarks v1 and profile codex-v2
+
+- **Question:** which hardware parameters the first microbenchmark set measures and how, and how the new skills reach workers.
+- **Choice:** L2 working-set sweep with an effective-capacity rule, dependent-load DRAM latency, single-CTA launch latency; codex-v2 adds diagnose-model and write-microbench.
+- **Rationale:** WP13 B5 relates model error to the L2 boundary; WP7 already measures per-unit peaks.
+- **Cost of changing later:** low: new benchmarks are additive; capacity rule is one function.
+
+## D408 — WP11 gate check
+
+- **Question:** how the workplan's "ordinary afternoon happens for real and is visible in the frontend" becomes a gate check.
+- **Choice:** listed real records (microbench HwFact, ExperimentRun, calibrate T4, improvement Report), spans of four process lanes in one 4-hour window, and a screenshot.
+- **Rationale:** the afternoon is defined by concurrent process activity; the frontend proof is a screenshot as in WP9.
+- **Cost of changing later:** low: `tools/kta_gate/specific_wp11.py`.

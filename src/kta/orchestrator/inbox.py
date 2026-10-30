@@ -13,6 +13,7 @@ from dataclasses import asdict, dataclass
 from typing import Any
 
 from kta.orchestrator import budget
+from kta.orchestrator.improve import pending_items
 from kta.orchestrator.pipeline import Services
 from kta.orchestrator.transition import Settings
 
@@ -151,6 +152,19 @@ def _budgets(svc: Services) -> list[Item]:
     return out
 
 
+def _improvements(svc: Services) -> list[Item]:
+    return [
+        Item(
+            f"improvement:{rid}:{item['key']}",
+            "improvement_pending",
+            str(item["key"]),
+            f"approve or reject: {item['description']}",
+            rid,
+        )
+        for rid, item in pending_items(svc)
+    ]
+
+
 def inbox(svc: Services) -> list[Item]:
     return [
         *_tasks(svc),
@@ -158,6 +172,7 @@ def inbox(svc: Services) -> list[Item]:
         *_repeated_failures(svc),
         *_model_error(svc),
         *_budgets(svc),
+        *_improvements(svc),
     ]
 
 

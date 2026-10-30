@@ -19,6 +19,7 @@ from kta.cli.init_cmd import add_init_command
 from kta.cli.loop_cmds import add_loop_commands
 from kta.cli.measure_cmds import add_measure_commands
 from kta.cli.output import emit_error, emit_json, emit_text
+from kta.cli.process_cmds import add_process_commands
 from kta.cli.store_cmds import add_store_commands
 from kta.cli.task_cmds import add_task_commands
 from kta.core.config import default_config_path, load_config
@@ -92,6 +93,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_agent_commands(sub, context_from_environ)
     add_agent_runner_commands(sub, context_from_environ)
     register_agent_commands(sub, context_from_environ, _emit)  # kta agents ... (WP8, D319)
+    add_process_commands(sub, context_from_environ)
     return parser
 
 

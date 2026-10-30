@@ -14,6 +14,7 @@ rejecting it (docs/design/10 §7). Submission layouts are fixed per type:
 - T3: ``template.yaml`` with ``template`` (Template body), ``sources`` (Source IDs) and
   optional ``patterns`` (Pattern bodies the Template refines that the pool lacks, D383)
 - T4: ``model.json``, a UnitModel in ``UnitModel.to_dict`` form
+- T5: ``microbench.yaml`` and its CUDA source (``kta.orchestrator.microbench_check``)
 - every type: the delivery note is the Submission's ``note``
 """
 
@@ -28,7 +29,7 @@ from typing import Any, cast
 import yaml
 
 from kta.core.context import Context
-from kta.core.errors import NotSupported, SchemaError
+from kta.core.errors import SchemaError
 from kta.core.schemas import Record
 from kta.core.schemas.evaluation import Measurement, Prediction
 from kta.core.schemas.knowledge import Chain, Gap, Pattern, Reconstruction, Template
@@ -355,7 +356,9 @@ def model_improves(inp: CheckInput) -> Outcome:
 
 
 def microbench_repeats(inp: CheckInput) -> Outcome:
-    raise NotSupported("T5 microbenchmark repeat check: the benchmark format arrives with WP11")
+    from kta.orchestrator.microbench_check import microbench_repeats as check  # WP11; cycle
+
+    return check(inp)
 
 
 CHECKS: Mapping[str, Callable[[CheckInput], Outcome]] = {

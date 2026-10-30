@@ -89,7 +89,10 @@ def test_skill_catalogue_comes_from_the_agents_readme(api: Api) -> None:
         "write-family",
         "decompose-kernel",
         "write-template",
+        "diagnose-model",
+        "write-microbench",
     } <= names
-    assert {r["skill"].strip("`") for r in out["planned"]} == {"diagnose-model", "write-microbench"}
+    # WP11 wrote the two skills that were planned when this test was added.
+    assert all(r["skill"].strip("`") not in names for r in out["planned"])
     use = next(s for s in out["skills"] if s["name"] == "use-kta")
     assert use["catalogue"] and use["catalogue"]["status"] == "written"

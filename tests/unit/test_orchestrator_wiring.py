@@ -108,7 +108,12 @@ def test_retry_note_and_last_rejection_reach_the_next_step(svc: Services) -> Non
     assert q.get(task).state == "escalated"
     Operations(svc).retry_task(task, "look at the delivery note headings", ALICE)
     failures, note = q.retry_context(task)
-    assert {name for name, _ in failures} == {"delivery_note", "validate_template"}
+    # T3 checks since WP10b: delivery_note, validate_template, template_fills_chain.
+    assert {name for name, _ in failures} == {
+        "delivery_note",
+        "validate_template",
+        "template_fills_chain",
+    }
     assert note == "look at the delivery note headings"
     assert q.retry_context(task)[1] is None  # the note is handed over once
 

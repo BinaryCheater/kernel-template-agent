@@ -26,6 +26,9 @@ The `kta` command: a thin layer that parses arguments, calls lower layers and fo
   `kta agents ...` (registered from `kta.agents.commands`, D319); `kta case add` reads the seed case
   format (D363); client mode when `KTA_TASK_TOKEN` is set (`client.py`, D370)
 
+- WP11 (`process_cmds.py`): `kta learn add|backlog`, `kta improve run`, `kta experiment status`,
+  `kta calibrate hw`, `kta quotas`, `kta profile write`.
+
 ## Dependencies
 
 - May import: `core`, `store`, `targets`, `execution`, `backends`, `knowledge`, `models`, `measure`, `formulation`, `checks`, `solve`, `orchestrator`, `agents`.
