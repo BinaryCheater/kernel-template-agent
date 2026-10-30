@@ -20,6 +20,7 @@ REQUIREMENTS: tuple[str, ...] = (
     "reads_workspace_agents_md",
     "disable_web_and_mcp",
     "model_and_api_base",
+    "sandbox",  # not an admission requirement; recorded because isolation depends on it
 )
 # Without these an adapter cannot be admitted at all.
 MANDATORY: frozenset[str] = frozenset(
@@ -76,6 +77,12 @@ CODEX = AdapterCapabilities(
             "not yet confirmed by the marker run",
         ),
         "auth": Capability("yes", "subscription: auth.json linked into CODEX_HOME (D76)"),
+        "sandbox": Capability(
+            "partial",
+            "spark: bubblewrap refused (AppArmor userns restriction); Landlock "
+            "(features.use_legacy_landlock) denies writes outside the workspace and network by "
+            "default, but not reads (D317); probed with `codex sandbox linux`, no model call",
+        ),
         "reads_workspace_agents_md": Capability(
             "yes", "AGENTS.md from the git root down to cwd; the workspace is its own git root"
         ),
@@ -125,6 +132,7 @@ PI = AdapterCapabilities(
             "--provider/--model; a custom API base needs a provider definition in the config "
             "directory (format not inspected)",
         ),
+        "sandbox": Capability("unknown", "no sandbox option listed; would rely on kta-agent"),
     },
 )
 DEEPSEEK_HARNESS = AdapterCapabilities(

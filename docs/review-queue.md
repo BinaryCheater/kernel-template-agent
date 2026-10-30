@@ -305,3 +305,10 @@ Decisions made without the user that need review. Newest last. Each entry: quest
 - **Choice:** `scripts/kta-agent-setup` (dry run by default, `--apply` changes the system): group `kta-agents`, system user `kta-agent` without login, setgid group directories for workspaces and CLI homes, traverse-only ACLs, `/etc/sudoers.d/kta-agent`; GPU device modes are reported and left unchanged — if they are world-accessible, the launcher's GPU guard (detect and terminate) enforces "GPU only via kta".
 - **Rationale:** smallest change that separates the agent from the store and the user's files; device modes are system-wide driver settings.
 - **Cost of changing later:** medium: removing the user and ACLs is a second system change.
+
+## D317 — Codex's sandbox on spark
+
+- **Question:** Codex 0.117's default Linux sandbox (bubblewrap) fails on spark because Ubuntu 24.04 restricts unprivileged user namespaces (`kernel.apparmor_restrict_unprivileged_userns = 1`); every sandboxed command would fail.
+- **Choice:** codex-v1 enables `features.use_legacy_landlock`. Probed with `codex sandbox linux` (no model call): writes inside the workspace succeed, writes outside are denied, network is blocked by default; reads are not restricted.
+- **Rationale:** needs no system change; the read restriction comes from the kta-agent user (D312) in either case.
+- **Cost of changing later:** low (one config line, new profile version). The alternative — an AppArmor profile or sysctl allowing bwrap's user namespaces — is a system setting you would have to approve.

@@ -22,6 +22,9 @@ ignore_default_excludes = true
 persistence = "save-all"
 
 [features]
+# Spark (Ubuntu 24.04, kernel.apparmor_restrict_unprivileged_userns = 1) refuses the
+# bubblewrap sandbox; the Landlock sandbox works there (D317).
+use_legacy_landlock = true
 apps = false
 plugins = false
 multi_agent = false
