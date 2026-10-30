@@ -27,5 +27,5 @@ ssh = "slai"
 # The root filesystem on slai is full: uv, its cache and interpreters stay under /storage.
 root = "/storage/kta-work"
 path = ["/storage/kta-work/.uv/bin"]
-env = { UV_CACHE_DIR = "/storage/kta-work/.uv/cache", UV_PYTHON_INSTALL_DIR = "/storage/kta-work/.uv/python" }
+env = { UV_CACHE_DIR = "/storage/kta-work/.uv/cache", UV_PYTHON_INSTALL_DIR = "/storage/kta-work/.uv/python", TMPDIR = "/storage/kta-work/tmp" }
 pools = { cpu = 16 }

@@ -65,6 +65,9 @@ def main(argv: list[str]) -> int:
         f"{k}={shlex.quote(v.replace('~', '$HOME', 1))}" for k, v in w.get("env", {}).items()
     )
 
+    dirs = [v for v in w.get("env", {}).values() if v.startswith(w["root"])]
+    if dirs and ssh(host, f"{_prelude(host)} && mkdir -p {' '.join(map(shlex.quote, dirs))}") != 0:
+        return 1
     step("checking uv")
     if ssh(host, f"{_prelude(host)} && uv --version") != 0:
         step(f"uv missing: installing uv {UV_VERSION} into {w['root']}/.uv/bin")
