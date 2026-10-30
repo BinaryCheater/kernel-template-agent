@@ -87,8 +87,12 @@ Every Template has all §4.2 fields; obligations are listed with a planned metho
 
 ### How the YAML was checked
 
-`kta.core.schemas` does not exist yet (WP1), so the files were checked with a scratch validator
-kept outside the repository (not part of this delivery): pydantic models transcribed from
+After merging WP1 (`integration` @ 6762cc0) all 123 YAML files (7 each of Source, Problem,
+Reference, Chain, Reconstruction; 55 Gaps; 30 Templates; 3 Patterns) validate with
+`kta.core.schemas.validate_body`; the gate validates the Reference, Chain, Reconstruction, Gap,
+Template and Pattern documents itself. Before WP1 existed, the files were checked with a scratch
+validator kept outside the repository (not part of this delivery), which also covers the checks
+the models do not make: pydantic models transcribed from
 spec/schemas.md §4.1–§4.5, §4.7 Gap and §4.8 Problem with `extra="forbid"`; expression free
 variables (only declared variables, `hw.*`, `p.*`, `case.*`, allowed functions); chain bindings
 cover exactly the Template's variables; `after` forms a DAG; pool order; `matched` recomputed;
@@ -154,19 +158,21 @@ writing, not exhaustively.
 
 ## Fixtures and simplifications
 
-- No code under `src/`; no `# kta:fixture` markers.
+- WP10a adds no code under `src/` and no `# kta:fixture` marker. The gate lists every marker in
+  `src/`; the only one is inherited from WP1 via the `integration` merge:
+  `src/kta/store/bench.py` (`# kta:fixture` on `_body`, synthetic bodies for the store benchmark,
+  origin `fixture`, D156; declared in deliveries/WP1.md). WP10a does not use it.
 - No reference was built, run, measured or reproduced on GB10 (spec/workplan.md allows this);
   `reproduction_error` is null everywhere; `runnable_on` is ISA eligibility (D104).
 - Decomposed configurations are single configurations per reference (listed in each
   `decomposition.md`); compiled-out variants (dropout, FP8, paged/varlen paths, split-K serial,
   etc.) are excluded and named there.
 - The five seed Templates are assumed, not read from WP4 output (D103).
-- Validation used a scratch transcription of spec/schemas.md, not `kta.core.schemas`.
 
 ## Known issues
 
-- The gate's "reference schemas" check is a WARN: YAML is parsed only until WP1 provides
-  `kta.core.schemas`; the coordinator will ask for a re-merge and rerun after WP1.
+- The Source body (D143) has no fields for the analysed file list, commit date or retrieval time;
+  they are kept as text in `source.yaml` `note` (D107).
 - Upstream sources are shallow clones in a session scratch directory; `source.yaml` has the URL
   and commit to re-fetch them.
 - Line citations were verified to be in range, not semantically re-read one by one.
@@ -176,16 +182,18 @@ writing, not exhaustively.
 ## New decisions
 
 - D100 seed reference file format (needs user review)
-- D101 Source record fields (needs user review)
+- D101 Source record fields (needs user review; replaced by D107 after WP1 defined Source in D143)
 - D102 reconstruction counting rules (needs user review)
 - D103 assumed seed Template variables (needs user review)
 - D104 meaning of `runnable_on` in WP10a
 - D105 three proposed Patterns (needs user review)
 - D106 compiler-decided transactions recorded per CUDA reference
+- D107 seed `source.yaml` uses the WP1 Source body (replaces D101)
 
 ## Needed changes
 
-- **spec/schemas.md:** add a Source kind (fields in D101); give `UnmatchedTx` an id or give `Gap` a
+- **spec/schemas.md:** consider optional `paths` (analysed files) and `retrieved_at` fields on Source
+  (D143 has neither; D107 keeps them in `note`); give `UnmatchedTx` an id or give `Gap` a
   ref to the transaction it records (today the one-to-one link is by file name and order, D102);
   consider `schedule` and `scan` in the Pattern category enum (D105); consider allowing a Template
   to refine several Patterns.
@@ -203,10 +211,10 @@ writing, not exhaustively.
 
 ## Gate output
 
-`KTA_DATA=~/kta-data scripts/gate WP10a` on `wp/WP10a` after merging `integration` @ 8819762:
+`KTA_DATA=~/kta-data scripts/gate WP10a` on `wp/WP10a` after merging `integration` @ 6762cc0 (WP1):
 
 ```
-gate WP10a: PASSED (21 pass, 1 warn, 0 fail)
+gate WP10a: PASSED (21 pass, 0 warn, 0 fail)
   PASS ruff format
   PASS ruff check
   PASS import layers
@@ -216,17 +224,16 @@ gate WP10a: PASSED (21 pass, 1 warn, 0 fail)
   PASS print
   PASS subprocess outside Executor
   PASS secrets
-  PASS acceptance lock — 1 locked files unchanged
+  PASS acceptance lock — 2 locked files unchanged
   PASS pyright
-  PASS unit tests — 41 passed
+  PASS unit tests — 158 passed
   PASS contract tests — 2 passed
   PASS fake coverage — 1 fake(s) covered
   PASS registry (kta doctor, dev)
   PASS delivery note
-  PASS fixture declarations — no # kta:fixture markers
-  PASS decision log — 105 decisions
+  PASS fixture declarations — 1 declared
+  PASS decision log — 124 decisions
   PASS skipped tests — none
   PASS evidence — 8 claim(s)
   PASS references — 7 references
-  WARN reference schemas — kta.core.schemas not available yet; YAML parsed only
 ```
