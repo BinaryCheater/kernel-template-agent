@@ -16,7 +16,7 @@ The `kta` command: a thin layer that parses arguments, calls lower layers and fo
 - `kta measure ...`, `kta check selftest` (WP3, D234); `kta init` (WP4, D212)
 - WP6 management (D274): `kta case add YAML`, `kta reference add YAML`, `kta solve CASE [--steps N]`,
   `kta expand REFERENCE [--steps N]`, `kta loop list|show|step`, `kta process start|stop NAME`
-  (`solve`, `maintain`; D273), `kta task list|show|submit|check|recheck|cancel|retry` (human/CLI
+  (`solve`, `maintain`; D273), `kta task list|show|create|submit|check|recheck|cancel|retry` (D278) (human/CLI
   submission path, D269), `kta inbox`, `kta budget [SCOPE] [--set key=limit]`,
   `kta coverage [--snapshot]`, `kta export SNAPSHOT DIR`
 - WP6 agent-facing (no task-token auth yet): `kta show`, `kta query pool|tmpl|chain`, `kta why`,

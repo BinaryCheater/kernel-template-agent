@@ -14,9 +14,11 @@ from kta.core.errors import ConfigError
 from kta.core.schemas import Actor
 from kta.orchestrator.pipeline import Services, files_of
 from kta.orchestrator.tasks import TaskQueue, Verdict
+from kta.orchestrator.transition import TaskRequest
 from kta.store.base import Task
 
 NOTE_FILE = "DELIVERY.md"
+HUMAN_PRIORITY = 100  # tasks you start come first (docs/design/11 §4.2)
 
 
 def _queue(ctx: Context) -> TaskQueue:
@@ -100,6 +102,17 @@ def cmd_submit(args: argparse.Namespace, make_ctx: ContextFactory) -> int:
         return _verdict(args, q.check(t.id))
 
 
+def cmd_create(args: argparse.Namespace, make_ctx: ContextFactory) -> int:
+    """A task you start yourself (11 §4.2): its work unit is ``human:<id>``, top priority."""
+    with command(make_ctx, "task-create", f"kta task create {args.type}") as ctx:
+        q = _queue(ctx)
+        unit = args.loop or f"human:{q.ids.new()}"
+        req = TaskRequest(args.type, args.goal, list(args.input or []))
+        task = q.create(req, unit, "human", priority=HUMAN_PRIORITY)
+    _out(args, {"task": task, "work_unit": unit}, f"task {task} ({args.type}) queued")
+    return 0
+
+
 def cmd_check(args: argparse.Namespace, make_ctx: ContextFactory) -> int:
     with command(make_ctx, "task-check", f"kta task check {args.id}") as ctx:
         return _verdict(args, _queue(ctx).check(args.id))
@@ -144,6 +157,13 @@ def add_task_commands(
     ls.add_argument("--loop", help="only tasks of this loop instance")
     ls.add_argument("--state", help="comma-separated lifecycle states")
     add("show", cmd_show, "one task with its card")
+    c = tc.add_parser("create", help="start a task yourself (T1-T6)")
+    c.add_argument("type", choices=["T1", "T2", "T3", "T4", "T5", "T6"])
+    c.add_argument("--goal", required=True)
+    c.add_argument("--input", action="append", help="input record ID (repeatable)")
+    c.add_argument("--loop", help="attach to this loop instance instead of a human work unit")
+    c.add_argument("--json", action="store_true")
+    c.set_defaults(func=lambda a: cmd_create(a, make_ctx))
     s = add("submit", cmd_submit, "submit a directory for a task (human/CLI path)")
     s.add_argument("--dir", required=True, help="the delivered files")
     s.add_argument("--note", help=f"delivery note (default <dir>/{NOTE_FILE})")
