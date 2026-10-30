@@ -13,6 +13,8 @@ from kta.api import agentsview, opsread, studies, taskview
 from kta.api.app import create_app
 from kta.api.common import Api
 from kta.core.errors import NotSupported
+from kta_devseed.knowledge import Seeder
+from kta_devseed.supervision import seed_supervision
 
 
 @pytest.fixture(scope="module")
@@ -21,7 +23,7 @@ def api(tmp_path_factory: pytest.TempPathFactory) -> Api:
 
 
 def test_task_detail_of_a_running_task(api: Api) -> None:
-    t = next(t for t in opsread.tasks(api.ops) if t.card_type == "T1" and t.state == "leased")
+    t = next(t for t in opsread.tasks(api.ops) if t.card_type == "T1" and t.state == "running")
     d = taskview.task_detail(api, t.id)
     assert d["task"]["state"] == "running" and d["card"]["type"] == "T1"
     assert d["loop"] is not None and d["loop"]["id"] == t.work_unit
@@ -31,10 +33,11 @@ def test_task_detail_of_a_running_task(api: Api) -> None:
 
 
 def test_task_detail_lists_rejections(api: Api) -> None:
-    t = next(t for t in opsread.tasks(api.ops) if t.state == "failed")
+    t = next(t for t in opsread.tasks(api.ops) if t.state == "escalated")
     d = taskview.task_detail(api, t.id)
-    assert d["task"]["state"] == "escalated"
-    assert d["rejections"] and all(not c["body"]["passed"] for c in d["rejections"])
+    assert len(d["rejections"]) == 3 and all(not c["passed"] for c in d["rejections"])
+    assert d["rejections"][0]["reason"] == "validate_template: variable 'swz' has no domain"
+    assert d["task"]["last_rejection"] == d["rejections"][-1]["reason"]
 
 
 def test_unknown_task_is_404(api: Api) -> None:
@@ -69,9 +72,9 @@ def test_agents_lists_runtime_skills_profiles_and_batches(api: Api) -> None:
     [b] = out["batches"]
     assert b["batch"] == "b1" and b["files"] == 2 and b["work_units"] == ["wu1"]
     assert b["lock"] == {"batch": "b1", "profile": "p", "commit": "c"}
-    assert b["verify"]["state"] == "not_supported"
+    assert b["verify"]["state"] == "unknown"  # verified on demand (POST .../verify)
     status, _ = request(create_app(api), "POST", "/agents/batches/b1/verify")
-    assert status == 501
+    assert status == 404  # this hand-written lock names a profile record that does not exist
     status, _ = request(create_app(api), "POST", "/agents/batches/nope/verify")
     assert status == 404
 
@@ -124,3 +127,16 @@ def test_improvements_count_gap_attribution(api: Api) -> None:
     out = studies.improvements(api)
     assert out["attribution"] == {"space": 1} and out["missing"] == {"template": 1}
     assert out["attribution_by_day"][0]["space"] == 1
+
+
+def test_supervision_fixture_seeds_on_the_world(tmp_path: Path) -> None:
+    """scripts/seed-dev's WP9b add-on (D349) runs on the fixture world and stays fixture-only."""
+    fresh = seeded_api(tmp_path)
+    seeder = Seeder(fresh.store, fresh.store.clock)
+    with fresh.store.db.read() as con:
+        env = con.execute("SELECT id FROM records WHERE kind = 'EnvManifest' LIMIT 1").fetchone()
+    seeder.ids["env:spark"] = env[0]  # the world's seeder named it; this one starts empty
+    seed_supervision(seeder, fresh.ops, tmp_path)
+    assert set(opsread.origin_counts(fresh.store)) == {"fixture"}
+    assert agentsview.agents(fresh)["current"] is not None
+    assert [b["batch"] for b in agentsview.batches(fresh)] == ["fixture-batch-0"]

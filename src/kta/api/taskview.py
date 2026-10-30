@@ -1,7 +1,8 @@
 """GET /tasks/{id} (design/30 task detail) and GET /blobs/{sha256}.
 
 A task is the ops row plus its card; what the agent did is read from the records written
-in the task (``records.task``: AgentRun, Submission, Check, Report, knowledge objects),
+in the task (``records.task``: AgentRun, Submission, the ``done_checks`` Reports (D276),
+knowledge objects),
 the spans tagged with ``task_id`` and their descendants (session, model and tool segments,
 ``kta`` calls, jobs), and the HumanActions on its card. Nothing is inferred from logs.
 """
@@ -11,7 +12,7 @@ from __future__ import annotations
 from typing import Any
 
 from kta.api import opsread, runs
-from kta.api.common import Api, body, iso
+from kta.api.common import Api, body, done_check_reports, iso
 from kta.core.errors import NotSupported
 from kta.store.base import SpanRow
 from kta.store.sqlite import RecordNotFound
@@ -113,7 +114,7 @@ def task_detail(api: Api, task_id: str) -> dict[str, Any]:
     loop = next((lp for lp in opsread.loops(api.ops) if lp.id == row.work_unit), None)
     records = _records_of_task(api, task_id)
     agent_runs = [r for r in records if r["kind"] == "AgentRun"]
-    checks = [r for r in records if r["kind"] == "Check"]
+    checks = done_check_reports(api, task_id)
     return {
         "task": view,
         "card": {"id": row.card_id, **body(api, row.card_id)},
@@ -124,7 +125,7 @@ def task_detail(api: Api, task_id: str) -> dict[str, Any]:
         "agent_runs": agent_runs,
         "submissions": [r for r in records if r["kind"] == "Submission"],
         "checks": checks,
-        "rejections": [c for c in checks if not c["body"].get("passed", True)],
+        "rejections": [c for c in checks if not c["passed"]],
         "time": _time_split(spans, agent_runs),
         "human_actions": _human_actions(api, task_id, row.card_id),
     }

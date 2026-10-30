@@ -187,7 +187,11 @@ def create_task(api: Api, spec: TaskSpec, reason: str) -> dict[str, Any]:
     for rid in spec.inputs:
         if not api.store.exists(rid):
             raise RecordNotFound(f"input record {rid} does not exist")
-    return api.orchestration.create_task(spec, reason, operator(api))
+    out = api.orchestration.create_task(spec, reason, operator(api))
+    # TaskQueue.create writes the card as the orchestrator; this records that you asked.
+    params = {"type": spec.type, "task": out["task"], "work_unit": out.get("work_unit")}
+    action = write_action(api, "create_task", reason, {"card": out["card"]}, params)
+    return {**out, "action": action}
 
 
 def pause(api: Api, scope: str, reason: str, resume: bool) -> dict[str, Any]:
@@ -202,10 +206,12 @@ def pause(api: Api, scope: str, reason: str, resume: bool) -> dict[str, Any]:
 def parse_action(text: str) -> dict[str, Any]:
     """Split a HumanAction ``action`` into its verb and parameters (inverse of action_text).
 
-    Actions written by other modules (``task cancel <id>``, ``approve_profile``) have no
-    JSON part; their remaining words are returned as ``args``.
+    Actions written by other modules have no JSON part: WP6's ``task cancel <id>`` gives verb
+    ``cancel`` and args ``<id>``; WP8's ``approve_profile`` gives that verb alone.
     """
     verb, _, rest = text.partition(" ")
+    if verb == "task" and rest:  # WP6's TaskQueue writes ``task <verb> <task id>``
+        verb, _, rest = rest.partition(" ")
     if rest.startswith("{"):
         try:
             return {"verb": verb, "params": json.loads(rest), "args": ""}

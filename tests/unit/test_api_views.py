@@ -5,43 +5,23 @@ The world comes from tools/kta_devseed (origin fixture).
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 from itertools import pairwise
 from pathlib import Path
 
 import pytest
 
+from apihelp import END, seeded_api
 from kta.api import cases, opsread, pool, runs, trace
 from kta.api.app import create_app, status_for
 from kta.api.common import Api, envelope, machines
-from kta.core.config import config_from_mapping
-from kta.core.context import Context
 from kta.core.errors import ConfigError, NotSupported, PermissionDenied
-from kta.core.registry import Registry
-from kta.store import CodeState, open_ops, open_store
 from kta.store.sqlite import RecordNotFound
-from kta_devseed.knowledge import Seeder, seed_knowledge
-from kta_devseed.world import WINDOW_MIN, SeedClock, seed_world
-
-END = datetime(2026, 10, 30, 14, 30, tzinfo=UTC)
 
 
 @pytest.fixture(scope="module")
 def api(tmp_path_factory: pytest.TempPathFactory) -> Api:
-    clock = SeedClock(END - timedelta(minutes=WINDOW_MIN + 60))
-    ctx = Context(
-        env="test",
-        config=config_from_mapping({"agents": {"slots": 2}}),
-        data_dir=Path(tmp_path_factory.mktemp("api")),
-        registry=Registry(),
-        clock=clock,
-    )
-    store = open_store(ctx, CodeState("0" * 40, False))
-    ops = open_ops(ctx)
-    seeder = Seeder(store, clock)
-    seed_knowledge(seeder)
-    seed_world(seeder, ops, END)
-    return Api(store=store, ops=ops, config=ctx.config, env="test")
+    return seeded_api(Path(tmp_path_factory.mktemp("api")))
 
 
 def test_seed_writes_only_fixture_records(api: Api) -> None:
@@ -72,9 +52,21 @@ def test_active_jobs_leases_and_workers(api: Api) -> None:
     assert "pools" not in spark["labels"]
 
 
-def test_inbox_lists_the_escalated_task(api: Api) -> None:
+def test_inbox_comes_from_the_orchestrator(api: Api) -> None:
+    """WP6's inbox generator (D270) on the fixture world, with the task and its controls."""
     items = runs.inbox(api)
-    assert [i["trigger"] for i in items] == ["Task over retry limit"]
+    assert [i["trigger"] for i in items] == [
+        "Task over retry limit",
+        "Same done-check failing repeatedly",
+        "Budget at 80%",
+    ]
+    task = items[0]
+    assert task["task"] and task["actions"] == ["retry", "cancel"]
+    assert (
+        task["detail"]
+        == "validate_template: precondition references undeclared name hw.ldmatrix_x4"
+    )
+    assert all(i["task"] is None for i in items[1:])
 
 
 def test_budget_trees_are_per_resource(api: Api) -> None:
@@ -218,7 +210,7 @@ def test_case_index_rows_carry_round_progress(api: Api) -> None:
     ]
     assert by_name["vadd_f32"]["rounds"][0]["rule"] == 3
     assert by_name["vadd_f32"]["rounds"][0]["pct_of_bound"] == pytest.approx(41.9 / 43.6)
-    assert by_name["gemm_bf16_256"]["active_task"] == {"type": "T1", "state": "leased"}
+    assert by_name["gemm_bf16_256"]["active_task"] == {"type": "T1", "state": "running"}
 
 
 def test_family_index_rows_carry_step_levels(api: Api) -> None:

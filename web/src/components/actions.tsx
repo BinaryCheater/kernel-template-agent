@@ -1,4 +1,5 @@
-import { createContext, useContext, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { Link, useLocation } from "react-router";
 import { ApiError, act, api } from "../data/source";
 import { useLive } from "../data/live";
 import type { Capability } from "../data/types";
@@ -9,12 +10,41 @@ import { RecordLink } from "./ui";
 // HumanAction. Which operations are wired comes from GET /actions/capabilities: operations that
 // wait for WP6/WP8 are drawn disabled with what they need, never faked (web/DESIGN.md §6).
 
-const CapContext = createContext<{ caps: Record<string, Capability>; loaded: boolean }>({ caps: {}, loaded: false });
+interface Outcome {
+  title: string;
+  result: Record<string, unknown>;
+}
+interface CapCtx {
+  caps: Record<string, Capability>;
+  loaded: boolean;
+  /** Show an operation's result at the top level: its subject may vanish from the page once
+   *  the data refreshes (an inbox item that was handled, a cancelled task in a list). */
+  announce: (o: Outcome) => void;
+}
+const CapContext = createContext<CapCtx>({ caps: {}, loaded: false, announce: () => {} });
 
 export function CapabilitiesProvider({ children }: { children: ReactNode }) {
   const c = useApi(api.capabilities, []);
+  const [outcome, setOutcome] = useState<Outcome | null>(null);
+  const { pathname } = useLocation();
+  useEffect(() => setOutcome(null), [pathname]); // following a link in the result closes it
   const caps = Object.fromEntries((c.data ?? []).map((x) => [x.name, x]));
-  return <CapContext.Provider value={{ caps, loaded: !!c.data }}>{children}</CapContext.Provider>;
+  return (
+    <CapContext.Provider value={{ caps, loaded: !!c.data, announce: setOutcome }}>
+      {children}
+      {outcome && (
+        <>
+          <div className="modal-scrim" onClick={() => setOutcome(null)} />
+          <div className="modal" role="dialog" aria-label={outcome.title}>
+            <header><h2>{outcome.title}</h2><button className="close" onClick={() => setOutcome(null)} aria-label="Close">×</button></header>
+            <div className="mbody"><ActionResult result={outcome.result} /></div>
+            <footer><span className="small muted">The page now shows the new state.</span>
+              <button className="op primary" onClick={() => setOutcome(null)}>Done</button></footer>
+          </div>
+        </>
+      )}
+    </CapContext.Provider>
+  );
 }
 
 export const useCaps = () => useContext(CapContext);
@@ -62,22 +92,23 @@ export function ActionButton(p: ActionProps) {
 
 function ActionDialog(p: ActionProps & { cap?: Capability; close: () => void }) {
   const { refresh } = useLive();
+  const { announce } = useCaps();
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
-  const [result, setResult] = useState<Record<string, unknown> | null>(null);
   const [error, setError] = useState<{ status: number; text: string } | null>(null);
   const required = REASON_REQUIRED.has(p.op);
-  const canSubmit = !busy && !result && (!required || reason.trim().length > 0) && p.valid !== false;
+  const canSubmit = !busy && (!required || reason.trim().length > 0) && p.valid !== false;
   const go = async () => {
     setBusy(true);
     setError(null);
     try {
-      setResult(await p.submit(reason.trim()));
+      const result = await p.submit(reason.trim());
+      announce({ title: p.title, result });
+      p.close();
       refresh();
     } catch (e) {
       const status = e instanceof ApiError ? e.status : 0;
       setError({ status, text: e instanceof ApiError ? e.detail : String(e) });
-    } finally {
       setBusy(false);
     }
   };
@@ -92,7 +123,7 @@ function ActionDialog(p: ActionProps & { cap?: Capability; close: () => void }) 
           {p.fields}
           <label className="field">
             <span>{p.reasonLabel ?? "Reason"}{required ? <b className="req"> required</b> : <span className="muted"> optional</span>}</span>
-            <textarea rows={3} value={reason} onChange={(e) => setReason(e.target.value)} disabled={!!result}
+            <textarea rows={3} value={reason} onChange={(e) => setReason(e.target.value)}
               placeholder={required ? "Stored in the HumanAction record; the API refuses an empty one" : "Stored in the HumanAction record"} />
           </label>
           {error && (
@@ -100,16 +131,11 @@ function ActionDialog(p: ActionProps & { cap?: Capability; close: () => void }) 
               {error.status === 501 ? <><b>Not available yet.</b> {error.text}. Nothing was written.</> : <><b>{error.status || "Error"}.</b> {error.text}</>}
             </div>
           )}
-          {result && <ActionResult result={result} />}
         </div>
         <footer>
           <span className="small muted">Acting as the single operator ([api] operator in config).</span>
-          {result ? <button className="op primary" onClick={p.close}>Done</button> : (
-            <>
-              <button className="op plain" onClick={p.close}>Cancel</button>
-              <button className={`op ${p.tone ?? "primary"}`} disabled={!canSubmit} onClick={go}>{busy ? "Writing…" : p.label}</button>
-            </>
-          )}
+          <button className="op plain" onClick={p.close}>Cancel</button>
+          <button className={`op ${p.tone ?? "primary"}`} disabled={!canSubmit} onClick={go}>{busy ? "Writing…" : p.label}</button>
         </footer>
       </div>
     </>
@@ -120,9 +146,15 @@ function ActionResult({ result }: { result: Record<string, unknown> }) {
   const action = typeof result.action === "string" ? result.action : null;
   const stale = Array.isArray(result.stale) ? (result.stale as string[]) : [];
   const followups = Array.isArray(result.followups) ? (result.followups as { what: string; state: string; needs?: string }[]) : [];
+  const problems = Array.isArray(result.problems) ? (result.problems as string[]) : [];
+  const task = typeof result.task === "string" ? result.task : null;
+  const failed = result.state === "failed";
   return (
-    <div className="notice ok">
-      <b>Done.</b> {action ? <>HumanAction <RecordLink id={action} /> written.</> : "The operation was carried out."}
+    <div className={`notice ${failed ? "fail" : "ok"}`}>
+      <b>{failed ? "Check failed." : "Done."}</b> {action ? <>HumanAction <RecordLink id={action} /> written.</> : "The operation was carried out."}
+      {typeof result.state === "string" && <div className="small">state: <b>{result.state}</b>{task && <> · <Link to={`/tasks/${task}`}>open task {task.slice(-8)}</Link></>}</div>}
+      {typeof result.current === "string" && <div className="small">current_profile → <RecordLink id={result.current} /></div>}
+      {problems.slice(0, 8).map((p) => <div key={p} className="small mono">{p}</div>)}
       {stale.length > 0 && <div className="small">{stale.length} dependent record(s) marked stale and needing re-verification.</div>}
       {followups.map((f) => (
         <div key={f.what} className="small">{f.what}: {f.state === "not_supported" ? <span className="warn-text">not created — needs {f.needs}</span> : f.state}</div>
@@ -170,11 +202,11 @@ export function TaskActions({ task, label, small, retry = true }: { task: string
   return (
     <div className="row wrap" style={{ gap: 6 }}>
       {retry && (
-        <ActionButton op="retry" label="Retry with note" small={small} title={`Retry ${label}`} reasonLabel="Note for the next attempt (written into TASK.md)"
+        <ActionButton op="retry" label="Retry with note" small={small} title={`Retry ${label}`} reasonLabel="Note for the next attempt"
           submit={(r) => act.retry(task, r)} />
       )}
       <ActionButton op="cancel" label="Cancel task" tone="danger" small={small} title={`Cancel ${label}`}
-        explain="Stops the agent process at once and marks the task cancelled." submit={(r) => act.cancel(task, r)} />
+        explain="Marks the task cancelled and releases its budget reservation." submit={(r) => act.cancel(task, r)} />
     </div>
   );
 }

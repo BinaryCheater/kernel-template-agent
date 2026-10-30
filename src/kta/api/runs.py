@@ -6,54 +6,52 @@ conventions read here are listed in spec/modules/api-web.md ("Record conventions
 
 from __future__ import annotations
 
+import json
 from datetime import datetime, timedelta
 from typing import Any
 
 from kta.api import opsread
-from kta.api.common import Api, body, config_int, iso, machine_limit
+from kta.api.common import Api, body, config_int, done_check_reports, iso, machine_limit
 from kta.store.base import SpanRow
 
 RECENT = timedelta(hours=2)
 JOB_KINDS = {"compile", "check", "measure", "profile", "solve", "job_run", "job_queue"}
-# Ops task states (WP1) mapped onto the task lifecycle in machines.yaml. "leased" becomes
-# "running" while the task's agent session span is open.
-TASK_STATE = {
-    "queued": "queued",
-    "leased": "leased",
-    "done": "accepted",
-    "failed": "rejected",
-    "cancelled": "cancelled",
-}
+# Task states shown as finished in "just finished"; ops rows hold lifecycle names (D265).
+FINISHED = ("accepted", "escalated", "suspended", "cancelled")
+TERMINAL_TASK = ("accepted", "cancelled")
+
+
+def _last_rejection(api: Api, task_id: str) -> str | None:
+    raw = api.ops.get_pointer(f"task:{task_id}")
+    rid = json.loads(raw).get("last_rejection") if raw else None
+    if not rid:
+        return None
+    return next((r["reason"] for r in done_check_reports(api, task_id) if r["id"] == rid), None)
 
 
 def task_view(api: Api, t: opsread.TaskRow, sessions: dict[str, SpanRow]) -> dict[str, Any]:
+    """An ops task row; its state is the lifecycle state the orchestrator stored (D265)."""
     card = body(api, t.card_id)
-    max_retries = machine_limit("task", "max_retries", 2)
     sess = sessions.get(t.id)
     now = api.now()
-    state = TASK_STATE.get(t.state, t.state)
-    if state == "leased" and sess is not None:
-        state = "running"
-    if state == "rejected" and t.attempts > max_retries:
-        state = "escalated"
-    started = sess.start_ts if sess else None
+    started = sess.start_ts if sess else (t.updated_at if t.state == "running" else None)
     return {
         "id": t.id,
         "card": t.card_id,
         "type": t.card_type,
         "goal": card.get("goal", ""),
-        "state": state,
-        "ops_state": t.state,
-        "slot": t.lease_owner if t.state == "leased" else None,
+        "state": t.state,
+        "slot": t.lease_owner if t.state in ("leased", "running") else None,
         "loop_id": t.work_unit,
         "created_at": iso(t.created_at),
         "state_since": iso(t.updated_at),
         "retries": max(0, t.attempts - 1),
-        "max_retries": max_retries,
+        "max_retries": machine_limit("task", "max_retries", 2),
         "budget_wall_s": float(card.get("budget", {}).get("wall_s", 0)),
         "used_wall_s": (now - started).total_seconds() if started else 0.0,
         "queue_s": ((started or now) - t.created_at).total_seconds(),
         "priority": t.priority,
+        "last_rejection": _last_rejection(api, t.id) if t.state != "accepted" else None,
     }
 
 
@@ -214,46 +212,27 @@ def budgets(api: Api) -> list[dict[str, Any]]:
     return trees
 
 
-def inbox(api: Api, tasks: list[dict[str, Any]] | None = None) -> list[dict[str, Any]]:
-    """Items derivable from stored state until orchestrator/inbox.py exists (WP6).
+# Inbox trigger -> the operations offered next to it (names of /actions/capabilities).
+INBOX_ACTIONS = {"Task over retry limit": ["retry", "cancel"], "Checker crashed": ["cancel"]}
 
-    Covered triggers (docs/design/30 §2): a task over its retry limit, a loop instance
-    escalated after its round limit. The other triggers need WP6's inbox generator.
-    """
-    if tasks is None:
-        sessions = _sessions(opsread.open_spans(api.ops))
-        tasks = [task_view(api, t, sessions) for t in opsread.tasks(api.ops)]
-    items = [
-        {
-            "id": t["id"],
-            "trigger": "Task over retry limit",
-            "subject": f"{t['type']} {t['goal']}",
-            "suggestion": "Retry with a note, modify the task, or drop it",
-            "record": t["card"],
-            "at": t["state_since"],
-            "task": t["id"],
-            "detail": t.get("last_rejection"),
-            "actions": ["retry", "cancel"],
-        }
-        for t in tasks
-        if t["state"] == "escalated"
-    ]
-    for row in opsread.loops(api.ops):
-        if row.data.get("escalated"):
-            items.append(
-                {
-                    "id": row.id,
-                    "trigger": "Loop over its round limit",
-                    "subject": str(row.data.get("name", row.subject)),
-                    "suggestion": "Look at the Gaps of this case",
-                    "record": row.subject,
-                    "at": iso(row.updated_at),
-                    "task": None,
-                    "detail": None,
-                    "actions": ["flag"],
-                }
-            )
-    return items
+
+def inbox(api: Api) -> list[dict[str, Any]]:
+    """WP6's pending items (kta.orchestrator.inbox, D270), with the task and controls."""
+    rows = {t.id: t for t in opsread.tasks(api.ops)}
+    out: list[dict[str, Any]] = []
+    for item in api.orchestration.inbox():
+        kind, _, key = str(item["id"]).partition(":")
+        task = rows.get(key) if kind == "task" else None
+        out.append(
+            {
+                **item,
+                "task": task.id if task else None,
+                "at": iso(task.updated_at) if task else None,
+                "detail": _last_rejection(api, task.id) if task else None,
+                "actions": INBOX_ACTIONS.get(str(item["trigger"]), []),
+            }
+        )
+    return out
 
 
 def active(api: Api) -> dict[str, Any]:
@@ -261,7 +240,7 @@ def active(api: Api) -> dict[str, Any]:
     spans = opsread.open_spans(api.ops)
     sessions = _sessions(spans)
     tasks = [task_view(api, t, sessions) for t in opsread.tasks(api.ops)]
-    live = [t for t in tasks if t["state"] not in ("accepted", "rejected", "cancelled")]
+    live = [t for t in tasks if t["state"] not in TERMINAL_TASK]
     jobs = [
         job_view(s)
         for s in spans
@@ -278,7 +257,7 @@ def active(api: Api) -> dict[str, Any]:
         "leases": _leases(api, spans),
         "workers": _workers(api, jobs),
         "budgets": budgets(api),
-        "inbox_count": len(inbox(api, tasks)),
+        "inbox_count": len(api.orchestration.inbox()),
         "recently_finished": finished,
     }
 
@@ -295,7 +274,7 @@ def _finished(
             "link": "/pipeline",
         }
         for t in tasks
-        if t["state"] in ("accepted", "rejected", "escalated", "cancelled")
+        if t["state"] in FINISHED
     ]
     terminal = {"accepted", "covered"}
     out += [

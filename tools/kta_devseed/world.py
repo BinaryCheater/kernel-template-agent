@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import json
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -329,7 +330,7 @@ TASKS = [
         -29,
         -28,
         1,
-        "failed",
+        "escalated",
         "agent:2",
         2,
         20,
@@ -355,7 +356,7 @@ TASKS = [
         5,
         6,
         32,
-        "done",
+        "accepted",
         "agent:1",
         1,
         45,
@@ -445,30 +446,55 @@ def _tasks(w: World) -> dict[str, str]:
             continue
         w.go(leased)
         if key == "t3-swizzle":
-            for i in range(3):  # three attempts: two retries after rejections, then over the limit
-                o.lease(slot, [ttype], -1 if i < 2 else 600)
+            # Three attempts, each rejected by the done checks (a Report, D276): two retries,
+            # then over the limit -> escalated. Ops rows hold lifecycle states (D265).
+            for i in range(3):
+                o.lease(slot, [ttype], 600)
+                o.update_task(tid, ["leased"], "running", slot, 600)
                 w.go(leased + 8 * (i + 1))
-                s.put(
+                error = [
+                    "variable 'swz' has no domain",
+                    "precondition references undeclared name hw.ldmatrix_x4",
+                    "precondition references undeclared name hw.ldmatrix_x4",
+                ][i]
+                report = s.put(
                     f"reject:{key}:{i}",
-                    "Check",
+                    "Report",
                     {
-                        "passed": False,
-                        "failures": [
-                            {
-                                "check": "validate_template",
-                                "error": [
-                                    "variable 'swz' has no domain",
-                                    "precondition references undeclared name hw.ldmatrix_x4",
-                                    "precondition references undeclared name hw.ldmatrix_x4",
-                                ][i],
-                            }
-                        ],
+                        "title": "done_checks",
+                        "subject": card,
+                        "summary": "failed",
+                        "data": {
+                            "task": tid,
+                            "passed": False,
+                            "checks": [
+                                {
+                                    "name": "validate_template",
+                                    "passed": False,
+                                    "failures": [error],
+                                    "data": {},
+                                },
+                                {
+                                    "name": "delivery_note_complete",
+                                    "passed": True,
+                                    "failures": [],
+                                    "data": {},
+                                },
+                            ],
+                        },
                     },
-                    refs={"env": s.ids["env:spark"], "worker": s.ids["worker:spark"]},
-                    actor=Actor(type="checker", name="validate_template@1", task=tid),
+                    refs={"card": card},
+                    actor=Actor(type="checker", name="kta.orchestrator.done_checks", task=tid),
+                )
+                o.update_task(tid, ["running"], "queued" if i < 2 else "escalated")
+                o.set_pointer(
+                    f"task:{tid}",
+                    o.get_pointer(f"task:{tid}"),
+                    json.dumps({"last_rejection": report}),
                 )
         else:
             o.lease(slot, [ttype], 3600)
+            o.update_task(tid, ["leased"], "running", slot, 3600)
             sess = w.span(
                 slot,
                 "agent_session",
@@ -481,9 +507,9 @@ def _tasks(w: World) -> dict[str, str]:
             _session_children(
                 w, slot, sess, leased, ended - 0.5 if ended else None, w.loop_ids[loop], tid
             )
-        if ended is not None and final is not None:
+        if ended is not None and final == "accepted":
             w.go(ended)
-            o.finish(tid, final)
+            o.update_task(tid, ["running"], "accepted")
     return ids
 
 

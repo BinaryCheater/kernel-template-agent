@@ -12,8 +12,9 @@ HTTP API (read and operation endpoints) for the web frontend; holds the single s
 - `app.py`: `create_app(api)`, `open_api(ctx)`; `python -m kta.api` serves it (`scripts/api`)
 - record conventions the views read: spec/modules/api-web.md "Record conventions" (D169)
 - operation endpoints (WP9b): `actions.py` (routes, `GET /actions/capabilities`, `/actions/log`),
-  `operate.py` (what each operation writes), `wiring.py` (the `Orchestration` port to WP6/WP8;
-  `Unwired` raises NotSupported until they are merged, D341), `auth.py` (`POST /write/record`)
+  `operate.py` (what each operation writes), `wiring.py` (the `Orchestration` port: `Wired`
+  calls WP6's task queue and inbox and WP8's profile pointer, batch verify and task tokens,
+  D355; what WP6 does not offer yet raises NotSupported), `auth.py` (`POST /write/record`)
 - WP9b read views: `views.py` routes to `taskview.py`, `agentsview.py`, `studies.py`
 
 ## Dependencies

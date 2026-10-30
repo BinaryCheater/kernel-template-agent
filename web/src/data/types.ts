@@ -95,7 +95,6 @@ export interface TaskInstance {
   goal: string;
   state: string;
   slot?: string | null; // "agent:1"
-  ops_state?: string;
   loop_id: string;
   created_at: string;
   state_since: string;
@@ -372,8 +371,8 @@ export interface InboxItem {
   trigger: string;
   subject: string;
   suggestion: string;
-  record: string;
-  at: string;
+  record: string | null;
+  at: string | null; // when the task entered its state; null for items not about a task
   task?: string | null; // ops task id when the item is about a task
   detail?: string | null;
   actions?: string[]; // operation names from GET /actions/capabilities
@@ -433,6 +432,17 @@ export interface TaskRecord {
   refs: Record<string, string | string[]>;
 }
 
+/** A Report titled done_checks: the orchestrator's verdict on one submission (D276). */
+export interface DoneCheckReport {
+  id: string;
+  created_at: string;
+  actor: string;
+  passed: boolean;
+  summary: string;
+  checks: { name: string; passed: boolean; failures: string[]; data: Record<string, unknown> }[];
+  reason: string;
+}
+
 export interface TaskDetail {
   task: TaskInstance;
   card: { id: string; type: TaskType; goal: string; inputs: string[]; done_checks: string[]; budget: Record<string, number>; profile: string; work_unit: string };
@@ -442,8 +452,8 @@ export interface TaskDetail {
   records: TaskRecord[];
   agent_runs: TaskRecord[];
   submissions: TaskRecord[];
-  checks: TaskRecord[];
-  rejections: TaskRecord[];
+  checks: DoneCheckReport[];
+  rejections: DoneCheckReport[];
   time: { wall_s: number; tool_s: number; queue_s: number; source: "AgentRun" | "spans" };
   human_actions: { id: string; at: string; by: string; action: string; reason: string }[];
 }

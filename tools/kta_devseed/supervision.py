@@ -102,7 +102,7 @@ def _profile(s: Seeder, version: int, model: str) -> str:
 
 
 def _agent_run(s: Seeder, ops: SqliteOps, profile: str) -> None:
-    task = next(t for t in _tasks(ops) if t[1] == "T1" and t[2] == "leased")
+    task = next(t for t in _tasks(ops) if t[1] == "T1" and t[2] == "running")
     prompt = _blob(
         s,
         "# TASK\n\nType: T1 (fixture)\n\nGoal: extend gemm_tiled to bf16 inputs.\n\n"

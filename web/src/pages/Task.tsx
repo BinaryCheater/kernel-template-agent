@@ -37,6 +37,7 @@ function TaskBody({ d, m }: { d: TaskDetail; m: Machines }) {
           <div className="row small ink2" style={{ marginTop: 4 }}>
             <Chip tone={stateTone(def, t.state)}>{t.state}</Chip>
             {t.slot && <span className="mono">{t.slot}</span>}
+            {t.last_rejection && <span style={{ color: "#9b1f1f" }}>last rejection: {t.last_rejection}</span>}
             <span>retries {t.retries}/{t.max_retries}</span>
             <span>priority {t.priority}</span>
             <span>card <RecordLink id={d.card.id} /></span>
@@ -131,17 +132,18 @@ function TaskTimeline({ spans, now }: { spans: TaskSpan[]; now: number }) {
 function Rejections({ d }: { d: TaskDetail }) {
   if (d.checks.length === 0) return null;
   return (
-    <Panel title="Done checks" sub="written by checkers, never by the agent">
-      {d.checks.map((c) => {
-        const failures = (c.body.failures as { check?: string; name?: string; reason?: string; message?: string }[] | undefined) ?? [];
-        return (
-          <div key={c.id} style={{ marginBottom: 6 }}>
-            <div className="row small"><Chip tone={c.body.passed ? "ok" : "fail"}>{c.body.passed ? "passed" : "failed"}</Chip>
-              <span className="muted">{c.actor}</span><span className="num">{hhmm(c.created_at)}</span><RecordLink id={c.id} /></div>
-            {failures.slice(0, 4).map((f, i) => <div key={i} className="small" style={{ color: "#9b1f1f", paddingLeft: 12 }}>{f.check ?? f.name}: {f.reason ?? f.message ?? JSON.stringify(f)}</div>)}
-          </div>
-        );
-      })}
+    <Panel title="Done checks" sub="one verdict per submission, written by the orchestrator's checkers, never by the agent">
+      {d.checks.map((c, n) => (
+        <div key={c.id} style={{ marginBottom: 8 }}>
+          <div className="row small"><b>#{n + 1}</b><Chip tone={c.passed ? "ok" : "fail"}>{c.passed ? "passed" : "rejected"}</Chip>
+            <span className="num">{hhmm(c.created_at)}</span><RecordLink id={c.id} /></div>
+          {c.checks.map((x) => (
+            <div key={x.name} className="small" style={{ paddingLeft: 12, color: x.passed ? undefined : "#9b1f1f" }}>
+              {x.passed ? "✓" : "✕"} <span className="mono">{x.name}</span>{x.failures.length ? `: ${x.failures.slice(0, 2).join("; ")}` : ""}
+            </div>
+          ))}
+        </div>
+      ))}
     </Panel>
   );
 }

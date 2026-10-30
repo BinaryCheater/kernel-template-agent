@@ -13,24 +13,34 @@ import yaml
 
 from kta.api.wiring import Orchestration, Unwired
 from kta.core.config import Config
+from kta.core.context import Context
 from kta.core.errors import ConfigError
 from kta.store import SqliteOps, SqliteStore
 
 
 @dataclass(frozen=True)
 class Api:
-    """What every view needs: the store, the ops tables, the config and the clock.
-
-    ``data_dir`` is the environment's data directory (batch environments live under it);
-    ``orchestration`` carries the operations delegated to WP6/WP8 (wiring.py).
+    """What every view needs: the context (config, environment, data directory), the store
+    and the ops tables. ``orchestration`` carries the operations delegated to WP6/WP8
+    (wiring.py); ``open_api`` wires it, ``Unwired`` is only the default for bare tests.
     """
 
+    ctx: Context
     store: SqliteStore
     ops: SqliteOps
-    config: Config
-    env: str
-    data_dir: Path | None = None
     orchestration: Orchestration = field(default_factory=Unwired)
+
+    @property
+    def config(self) -> Config:
+        return self.ctx.config
+
+    @property
+    def env(self) -> str:
+        return self.ctx.env
+
+    @property
+    def data_dir(self) -> Path:
+        return self.ctx.data_dir
 
     def now(self) -> datetime:
         return self.store.clock.now()
@@ -97,3 +107,36 @@ def config_int(api: Api, section: str, key: str) -> int:
     if not isinstance(value, int):
         raise ConfigError(f"config [{section}] {key} must be an integer")
     return value
+
+
+def done_check_reports(api: Api, task_id: str) -> list[dict[str, Any]]:
+    """The task's done-check verdicts: Reports titled ``done_checks`` written by the
+    orchestrator in the task (D276), oldest first, with the failed checks summarised."""
+    with api.store.db.read() as con:
+        rows = con.execute(
+            "SELECT id FROM records WHERE task = ? AND kind = 'Report' ORDER BY created_at, rowid",
+            (task_id,),
+        ).fetchall()
+    out: list[dict[str, Any]] = []
+    for (rid,) in rows:
+        rec = api.store.get_json(rid)
+        b = rec["body"]
+        if b["title"] != "done_checks":
+            continue
+        checks = b["data"].get("checks", [])
+        failed = [c for c in checks if not c.get("passed")]
+        out.append(
+            {
+                "id": rid,
+                "created_at": rec["created_at"],
+                "actor": rec["actor"]["name"],
+                "passed": bool(b["data"].get("passed")),
+                "summary": b["summary"],
+                "checks": checks,
+                "reason": "; ".join(
+                    f"{c['name']}: {(c.get('failures') or ['failed'])[0]}" for c in failed
+                )
+                or b["summary"],
+            }
+        )
+    return out
