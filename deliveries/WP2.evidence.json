@@ -6,19 +6,20 @@
       "spark"
     ],
     "record_ids": [
-      "ebf954128f7fbd8ee2df0bb2a074b5f639ba7a1d67bf5ada4ad75f1565b84c41",
-      "26ffec31209025e39e62952153001284e12fd6b8cd72ec058e6a203bdb9629dc"
+      "8426a3b7a9e3471b1d6c1575695f866eb73db2f73532cb85192d266733454d60",
+      "27e6395fae377a0310125fd1aa8794cee70d51138da5a68b26460bc3ddba0e7d"
     ],
     "blob_ids": [],
     "env_manifests": [
-      "26ffec31209025e39e62952153001284e12fd6b8cd72ec058e6a203bdb9629dc"
+      "27e6395fae377a0310125fd1aa8794cee70d51138da5a68b26460bc3ddba0e7d"
     ],
     "requires_gpu": true,
-    "git_commit": "4fdc3e46b6df1d89d6dcce26cc62e9b92907a4e5",
+    "git_commit": "6f5796469d10e9e7d82091cdbe37d043513d721c",
     "dirty": false,
     "env": "dev",
     "control_host": "dingyideMacBook-Pro.local",
-    "started_at": "2026-10-30T05:50:17Z"
+    "started_at": "2026-10-30T05:55:27Z",
+    "output": "~/kta-data/dev/WP2/evidence/6f5796469d10e9e7d82091cdbe37d043513d721c/worker-setup.spark.txt"
   },
   {
     "claim": "kta target probe runs device-attribute and feature-probe jobs through the Executor on spark and writes a Target, 21 HwFacts (documented hw.* limits) and 52 HwFeatures with support yes/no/unknown and the raw compiler/run output as blobs",
@@ -27,103 +28,104 @@
       "spark"
     ],
     "record_ids": [
-      "5916e5eea9af04d50dcf7a58326fc8c619e045e4f7f1b79022b54c4d057a1738",
-      "c89bee6e313b226d6e3806f67d700a0f100fbd1df887eea9736391bdc702953c",
-      "2aa00c43e1e06d4e313ddded4cefd9644fae0f094dbabbca4eaa474c0adaa402",
-      "ec71efd6331fa2f228be4d51e06ff1f8361bacd73c602cf8765ed01ff4ab8b3b",
-      "9e3e0432ac873532f4726ff5abad8be85dbb60b47e98255cfa9cb80ec8733bf5",
-      "e68f6135ece1822103d157b9b77cb1ebd730f51035e5dddd532e5314838290fe",
-      "94820c050478336b931fbff3abf0359f96ae5b1724119fc6956e03d7b49ed68f",
-      "f26480c1ed8241dd16bb86069690c4bae36ff37754be9107022634533eff52c4",
-      "1b9049e4f60ade74cb45312a6822ae8a6310d6fbeca9629a7210be8b689916dd",
-      "b9222a2bd370fc154bed893c6eada6c989b003376ef52d3e8490059e080cce44",
-      "33106d83f52792439ea12f10b96fc4bd3a6c52e739646a4d8fa1d437517fa82c",
-      "254b35f12ce2832575af0832ab9828dee886635077c0c2dbcc4d77fffb13e487",
-      "aa2e2a22f68ff386ddddb931dd9aecd9eebfa622c477fed8d0ffd4e47c9afcb6",
-      "d59e0e50f6e808bd5f47ff3948a6766a1e8d33551bbbfa5ec7049e07ce2a4d4e",
-      "4f9ac4583826c51f050e3dee17423e7f851218a2f876d736a50fb648eb268d14",
-      "836d647d25b17a3b4f5ee047f2fa61211868f5e7faeafa792220e564728dff73",
-      "4734dca07115cc0a7492a767daef1831b41c6c530c78d975f0abc12d49e1dd4c",
-      "97ad5414f052d7d9c0119b93f707ad500dfc9554a68c96b7dcf863f4472c42f1",
-      "0b9a49da2effbf3f2a124289b502c08e70c4b71700e04ee266d432c5c7321fb5",
-      "4630f96815709ced238fe6b533f2261212776ffc36ef1eb64a2e49883155ae3f",
-      "7908755aa534e3d869aca9401881ca7dcd86276098e63c5aa3d79ac4a7403332",
-      "ed478bc115e7804bea34ff4c0f3a38d166f2a9a1c15a9a247be96d2f4dc642a1",
-      "2431438a2372dc4e4cff219bfb8a38b63083ce11f87b566e924b2864d2ea9141",
-      "ea1b0aaddd5052027a41bf0116d8ea46c3d908b1baf3c72ce1e41df6e732d329",
-      "6018405f771ed9f62a3d69c3dcef515c25ba4b49493250c820c0e271e8fd936b",
-      "4b028bc3f6eb49694399d650399812728857bbbebb7367a84d3c0e1b51e18afb",
-      "8bd85f236307c049113ec7372e65d3afb8fe7aa3d90b8041333d0cd241baeeba",
-      "4e090afb2cd75a67f2378f835ce08eb9cf9bd9e6ef911ae957f49a16bab2ab1e",
-      "b79a6824784141f15f82143fe5bd1e23306ba55d8d241230b3c9584f358819f7",
-      "bc52c6e11de5a0cc1acc4f24e8dcb25bed59456d0e1a18c1abfe0f9ed00b1f12",
-      "6e6ba5564ca62e68c9a6954f5b7c399b3f4cb8fe99ca9bf4925235375fc30d33",
-      "dfa7c93aa98aeb6d4fde020e63c6f94b1a520af541425d25c7ac0ac4c7802cfd",
-      "760515a7416491f84878d69e637a887bb65e4f8a7927972efb6884631f7b187d",
-      "e2a08393bc438a1b72d916329d675a84dfcbd40790d0d06e8fa4fd24c526a7af",
-      "8f83dee909d05be04a5e70974de832548be4df46feab9324bf2bf43cbcf78935",
-      "3ced3ba86d3a82e8c6961a843dea173bbed697b697907f8a2451611eb72c7183",
-      "3531004be8bffeee2dde1d0eaabbc0cd59c523f1aac79486b982dfdb693b4ebf",
-      "72a42da7d016a8dbc114ad3ab1c9658b2e48c06a61de1d33542cc53259dbe839",
-      "4ad105fb148919f8b103b08d0322c1f87380d5e44ab1e826db47dbccfbebf6d2",
-      "c77e74f502ac0d130708798542bf78c458af622a0d0a99c8a42573a5cde11ee4",
-      "c70a04beb28588552d73082b939ff9858384ca9b2df669580c21352ebd7475b4",
-      "e384162b9e2b10f0f380b03689dfad9cf241fb97dc7a8e6e94511f9f22b1bb25",
-      "d4ee9e33a30de3fbd761d024b88746c8ddd5f68d4b306e4ab7e430a0771890b2",
-      "6f30fd73da62281f837af15747adaa40b687aab06d9220a7b59c50c803cb965c",
-      "54e456add1d2dc89d9ac4d0aed53727b5893e1a97c58605398bb1c99a7650578",
-      "5d894316ddf9d96112216f59cf842bb55bf821108807df3a3ca4d66e0dc9308a",
-      "1583f99ae16216b306f1a8b14a84e64a5988e5fc55b3d6bb76f1ba55518b89ad",
-      "475dc4d0675af00a2e512a4c7bd762a5258b21773afc1164031deb3c66885ea3",
-      "053ed1ad0850271e1676ed375eaa112202553f3515406d52a6130cbf63d91fce",
-      "2bcf774f5c569afa8ba93353bce3a9c69a02c216d9b9781b5228b32e4e10b5a8",
-      "793b83c0319ccc88c8c19d4e4d9380e540160f658db3399b5575e622cfbbedb1",
-      "21f7381c9f137ec57629f61fcbedcae188b206b0dceb4500664976b6ac0cbf29",
-      "147a7feb9c130f37597b1b68d0ca4ed71c07e006aa117a177e0516200ef100b9",
-      "adae57e3e84f036860237ec1cbb177d1d410dee938def8896a0843630633ccb3",
-      "315c2ef1a51e8ed4a2df89d47c532586ea7bd2fe5fb3b96c23763df28788282c",
-      "bc9bbdf798ab215f306c56c6f63f49260961a68b82358e4357ee869b0139d37d",
-      "59bc0a972c8ae02ea33b91e88ba5db843291363ab776be5694904b77ea6a2860",
-      "ae660da96ec6d443dde9b2c19296d2806a00cae87a0ccaf4199be60c4ae53668",
-      "f024b27e7cb9b88b28a6f80761c50a58b37888feaa4eda76c0678883ade691c7",
-      "d299cda95720c5a7bada4d6880cdcb24d3d1f775343a69f7039ca7aec8032456",
-      "5d8d92aac3d1fd0c3da7c65400905cd04285e89fa9972b42db3104cad70a3d99",
-      "79c4252e7c112b719d469dd27c8631118795aae24685c8525fb230c445c3958d",
-      "249a6dadb350e663409668043c42b02050bb724e073f98854892e71140f8ad76",
-      "b548e15f0d18b2159ec59fd003da4d337ae16505c3ee58f767e3999c094c46dc",
-      "9f546a674176d2ff035111dde5d9beb6a13ef8568708bdd131bf051adf4aa185",
-      "0f51d1a7505e7bb7e6e084f3f6879ddb17f63fceb52bf5d6f891f509f131ad51",
-      "ada1ad97c1befccf59377b75567062a2ecdc87fa027c9922b7fb4e4b576272ea",
-      "48a811f6f611a24f7a85c24720cbd55f3b93dccfd8c14714e5755a92f086b486",
-      "f3db6761ba347cfd34d2a18b5d7876a6357cd127acea4241a7d99799d188e670",
-      "36973f6fa8473fa4c743dc6b9e9f00f8d9a1975cbd288f6de13a24cf76c2f692",
-      "f7c32092fbc56a3155dbef2656645b53d89c9637e9332dc948d7d630d7e29941",
-      "3e6a502182887b34ba43800ac6e4e438a5d4462d59853098f3832f8654280dfa",
-      "dfd7ed8b4d24cdd8ad52a1ce5c0ca6b2d8c8461575fbc6c38b4bf4042c29c3e7",
-      "8f6871550c3422beabce310239eb40057630ef4d24c105964085d331a8e227d7"
+      "9a47aca8384476cb06bf5d46abacbc23bbf2ef000e2f621df599dc56f8d329b7",
+      "6e41d8ab3c5c1c1bf66b5473ada0b58add2b4f1451b7a35376e7c5a6d00e3ee1",
+      "daddc01bfa49198f85525bd3b785486ba32d0c1e5413eace1c239bc416af19b3",
+      "8d9f28aa3ec67a3e01cfe04b6fda579381d3f5eef9a7632c8d81f4d4f40056a7",
+      "93dd7326bf06d296b17c30985f13010e45af8e39c7fe3b2d02f5b2c0d174ae8f",
+      "1cedc75f76ba47cb5aab065b5fa14e4b0f44c5a7737c4145a616abf2dc7dad4e",
+      "a0b8530d91d030544c93dc39a3675dbb38cddbc2286013bc47bbcc697cb92cf3",
+      "44baf218bb0a0d81f790a06028508a10ea7579e1af659fc0d875ad91b60fff07",
+      "f32b4652567207064fb54e43a7e7077d79fd4cdc9dac8289fed55e9555b5d711",
+      "75b8b8dfa8502b89f99930d35c1295dba9662b53e9bd58fc858b90dfa111c1ad",
+      "f01da4447bc34957e3795ea22523bf921cc529fe6f8f0d19e20b26d5f311a0c2",
+      "c4f5e6c9a3dd3c95f09f4d4f486aaf618055a8f0c9c90679ceaadf0dfa73fd8c",
+      "8d3063db95278f1c9d79574891659fb1ffcf50203b08cce9abcd6666aea5f9f5",
+      "e80dc6e0106e602c987ccf452ff1452e0890fe39b9c743bdf4ecb814eccfa85c",
+      "2d636a0cbab2feaf4640efc586074636f7ff1e24dc9429a4521383454d6427ce",
+      "597cd378de999150bca6369fe89ace4bee0b789b735a9e207ca6d4031a9f6017",
+      "86751af01b42520069231d7b25b2577d18f52128901de6c53ce50554cfda6dc3",
+      "e827e9874c333225579ceef6050ae3e2d7997c50e84c428ab08afe30a8bacba1",
+      "678a6700240740abd347323f54729b278e40bd11c3668d03096f3aca36fd53e5",
+      "8d2be390c6ca24643770192178056fc3c471a994b575d3f87c30d9d9ae91a3ab",
+      "e29c3e8ed340eaff1b37fbfa1d691a3361e61df55f69a06ba8ea948d3d59383f",
+      "6a4b62058efda2cab0f7f91e07d4b63bbab4e7d03ff4232fe2803b450ed43fb7",
+      "578d8fc8659d0cb26205f355223e74af41453032cbbb3dea396af4b47cd07ec7",
+      "d7a926fcc5cbe9f8d3d2556609c7803dc95c20bbcd84431a805b53d0633e4612",
+      "977d4ad04e926875f0f3bf6eb3b574c47a5fc9f405855d8819e41e75dbb1c41e",
+      "6220a285dc2cf2e356d3c809c4585f7fa470211f8fee47ab8430c8ba7177171a",
+      "56749915a6c1d7d7c33386f4781f869da5e27477ecce66d92d5a2bce71b1cd3b",
+      "880abf74714d9fdf8c57ccc1861c92afa2cc57a24e32c2d630811739131090e9",
+      "bb33e2ed3fc7a1b47dd8b18e33ab65c0a9ad8345432af318f35dc813466288ae",
+      "55572ab03fcbb047743227b4ab773dc68acdf28b7af3bc120415c9c11683bed0",
+      "0aa11ec8892fb89a1673abb1081d60c76374654de20f798711211b28734b2aa9",
+      "936d704f7ddf70847d2ed6dcda6f4f2ec8af95688760efa7f16739b0a09363ac",
+      "1021be2a80e926876e2f26a5d2da76223f33cca314c5adf2c90259008bb49552",
+      "0384fb7976a5a651a3f0b9b7941b152beb532898a092e967375f18d392d1fc3b",
+      "4c08f55c3a5ee6a7f4e7aa51445af2cc754a0ce6648800c1d3bc4716a6539634",
+      "f7091f88a83a3e1ee7d0e8a216ca16380cfc3b66c2ecf6038ff5bf6f8dea1b0f",
+      "1757d335920a0de5dad2cfefde3a3ef5f7783d204c220a3260ba3eae0425ad40",
+      "3d9e3eb5359ab878eeab9ab217dd3e6f1c81d87d1f30eae0d9d5e0c34d7fe086",
+      "631318fd809520db07fb78a6605bb45f90cf507e4183e6c4f0e0b9f45c1da577",
+      "a6c22ba24a5c833c1af5838c349096df7949659293c7308d21091412d67616bf",
+      "fc20d91c08769b595984a251c61ee48ae8854c8b23319e0ea3939d8ed50e2931",
+      "f95cfd663544df6b14bbec81ebd1c501a8f1260d1a34e204cef94ee86f9d1161",
+      "98459b249fb29b8422f3c5c36ebfb1041fc4a3b739c0f506bf220dc0ebb8e7d2",
+      "5f7d3cb968a6abd2f8330539929cc43450a434b8c6d5598c9b47d190ed9eeb6d",
+      "34e29e6f15730516a0eef60a511d3cb8f9ac25ddde34927c128135bc30411a43",
+      "4a7233d630db40ff1c662541bf02ae2640b89601e6d3fdd10d046b6781bba7bf",
+      "3e1240a9abe415cba0109ad4a1bc7ab555bd948825840be5131d984eb77fef49",
+      "d3fd41d3e421c6b4a7a0531c038628377dd8683df8d173c7814cc7db8270692a",
+      "4c2dd83f960fd3d7045c5c7fe6fbb7a4308cca7771c95a66f5a613e18db80d87",
+      "8bfa4c8716f88749498652c42f39c7ba2ce74ba355a74c46052ceee6d569015f",
+      "1f958a1516e82877d8b96135a9a09d08275f81f3517bf5dfe9fd66ffe75b99d7",
+      "dc1fba0b7076e4b56d311700635e7c7f2a16a6c5e7f3d2d0d1f165711d5f3f71",
+      "e14319939d5906940e7cf990b96fe9079eff1dd60cab8127cbd37b7c2bded81b",
+      "f2311b7f41e61561bf07994376259a3e3c023ef784c513ec735dc7ef0e26f701",
+      "4525a19cde23d0186899c9bf7959fe53e1ccf26db94a5fe9ee453ebb21ad6674",
+      "e681c0ee43298d63eff44d1de066719cfaa09c52a2f5b5fdd11d7bc377f068f0",
+      "69570e22715144d3afdcfa6894c8b2371426a8c062e6a4c26284b3bf35d0bb5c",
+      "b1989c09295a5a9e0e1b01b731e18325b64f8e10c5d7ea806b70d73a4180d150",
+      "06840faa7ca8e9f652595fa2caaf304e447e9ba4cdcac68237bd5b66ed1188bf",
+      "f18f8d3043e1b5a16433075cd9ec7cce5c401067bcedab843a371519ac3d9488",
+      "1216603cdcc31b85944edde2709efe9e2f8bfa589c8c0483124e33d1545df51c",
+      "2b1cd9c6889686b6e650f6584ec54c9ad4e95c493fed6937628d62138a4b2292",
+      "a012c262fc3ddd361f21382fc3fd3ce139c1e1c24050ad33dc6581e4fa06ea88",
+      "9545a1201ea2a5a2fb3fb51b7e6d9b268c775379f91609f85852730febdbe57f",
+      "00c8fff1fdbab7f0f2c584fcff0147439147e950629f2e56197b9951138283d4",
+      "a2cf23701bd6aa1c58ff311fb445f177a25dc62400aa34adb218fe97886caaa6",
+      "280788c7b36ae602f141bbc57d88c3cd34bf3984a7f06ea13e942d04aa4da774",
+      "4eb984089fd6433a441a8abfe23ab9bfcfaf64a2d21b292d66604d8393a1dc48",
+      "f85d8c1fe946153c34c702edadba81d8db54f105cdde21a238e58750906ce00d",
+      "72f0f92f8debda986cae6ddc258f9091a2d13d44b9a3612851a12e4995af227c",
+      "47c5f99d3e81ce0c326edf8a3dece6bf54374134c1924b80cd8f86037207f59f",
+      "f720ec110284cbbed1716735e3914282bd4097b432548be6d8a66f6c2a6297a1",
+      "667220ffa49cb35ea58e7e57eb8819db1b1fbc6bfb113767b173a4221d9c3dce",
+      "99d4e242dfe263b9efc12fa1682340499b041939da2c2d8ced72a5490ae5417e"
     ],
     "blob_ids": [
       "8871d2cbe375658e4e91c6b4405a1618ea26110edfb0a354388490c05cc16ebc"
     ],
     "env_manifests": [
-      "26ffec31209025e39e62952153001284e12fd6b8cd72ec058e6a203bdb9629dc"
+      "27e6395fae377a0310125fd1aa8794cee70d51138da5a68b26460bc3ddba0e7d"
     ],
     "requires_gpu": true,
-    "git_commit": "4fdc3e46b6df1d89d6dcce26cc62e9b92907a4e5",
+    "git_commit": "6f5796469d10e9e7d82091cdbe37d043513d721c",
     "dirty": false,
     "env": "dev",
     "control_host": "dingyideMacBook-Pro.local",
-    "started_at": "2026-10-30T05:50:17Z"
+    "started_at": "2026-10-30T05:55:27Z",
+    "output": "~/kta-data/dev/WP2/evidence/6f5796469d10e9e7d82091cdbe37d043513d721c/target-probe.json"
   },
   {
-    "claim": "Both backends' vector-add modules (CUDA C++ and TileLang, N=2^20 fp32) run on the GB10 through the harness; the output equals A+B exactly (Check passed, 0 mismatches). The Builds come from the input-hash cache (next claim)",
+    "claim": "Both backends' vector-add modules (CUDA C++ and TileLang, N=2^20 fp32) run on the GB10 through the harness; the output equals A+B exactly (Check passed, 0 mismatches). The Builds come from the input-hash cache (last claim)",
     "command": "KTA_ENV=dev KTA_WP=WP2 KTA_DATA=~/kta-data uv run kta backend smoke --json",
     "workers": [
       "spark"
     ],
     "record_ids": [
-      "559a2d32a611f1e1d314eadfa8e525703838c13d7bb564b92541b3ae43d94f04",
-      "725fcc1eb65a3506e2c55cc41a9a1c5833e3b8d6d7322c1bc6f1f2663edf38b9"
+      "c0e8801fc3971f9de5a0771406088760336118905aea6edd11abc130dc9d5af7",
+      "e7b6da247633d16d6041e98567e34051eebf3bc2dbcf32a7b565d8eab565dee7"
     ],
     "blob_ids": [
       "173c168b365bad325aa7fc0bdd3cffa80faa7def27d71652b4a963ee6dff75f0",
@@ -131,34 +133,36 @@
       "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     ],
     "env_manifests": [
-      "26ffec31209025e39e62952153001284e12fd6b8cd72ec058e6a203bdb9629dc"
+      "27e6395fae377a0310125fd1aa8794cee70d51138da5a68b26460bc3ddba0e7d"
     ],
     "requires_gpu": true,
-    "git_commit": "4fdc3e46b6df1d89d6dcce26cc62e9b92907a4e5",
+    "git_commit": "6f5796469d10e9e7d82091cdbe37d043513d721c",
     "dirty": false,
     "env": "dev",
     "control_host": "dingyideMacBook-Pro.local",
-    "started_at": "2026-10-30T05:50:17Z"
+    "started_at": "2026-10-30T05:55:27Z",
+    "output": "~/kta-data/dev/WP2/evidence/6f5796469d10e9e7d82091cdbe37d043513d721c/backend-smoke.json"
   },
   {
-    "claim": "While a gpu-exclusive measure job holds the GPU lease on spark, a gpu-shared run job and a cpu job submitted during it are deferred (logged) and start only after it ends (span timestamps in the Report)",
+    "claim": "While a gpu-exclusive measure job holds the GPU lease on spark, a gpu-shared run job and a cpu job for the same worker submitted during it are deferred (logged) and start only after it ends (span timestamps in the Report)",
     "command": "KTA_ENV=dev KTA_WP=WP2 KTA_DATA=~/kta-data uv run kta backend selftest lease --json",
     "workers": [
       "spark"
     ],
     "record_ids": [
-      "093eda3a71f59264bdf2f01df84bc74dfeec709f4ffee7f9a676a84b0c3a1437"
+      "d7a60b2a5a3eb20509d32e0aa94fed728a124c89ebf0d7d66482975bc134fdfb"
     ],
     "blob_ids": [],
     "env_manifests": [
-      "26ffec31209025e39e62952153001284e12fd6b8cd72ec058e6a203bdb9629dc"
+      "27e6395fae377a0310125fd1aa8794cee70d51138da5a68b26460bc3ddba0e7d"
     ],
     "requires_gpu": true,
-    "git_commit": "4fdc3e46b6df1d89d6dcce26cc62e9b92907a4e5",
+    "git_commit": "6f5796469d10e9e7d82091cdbe37d043513d721c",
     "dirty": false,
     "env": "dev",
     "control_host": "dingyideMacBook-Pro.local",
-    "started_at": "2026-10-30T05:50:17Z"
+    "started_at": "2026-10-30T05:55:27Z",
+    "output": "~/kta-data/dev/WP2/evidence/6f5796469d10e9e7d82091cdbe37d043513d721c/backend-selftest-lease.json (log: ~/kta-data/dev/WP2/logs/backend-selftest/2026-10-30.jsonl)"
   },
   {
     "claim": "A kernel that never terminates is killed at its 10 s job timeout (process-group SIGKILL, error_kind timeout); the GPU stays healthy and a vector add run right after passes",
@@ -167,19 +171,20 @@
       "spark"
     ],
     "record_ids": [
-      "81eecbc9415dcd828c673acd089913cc4c1ce21d8794ed015fa7aaa8d4cc3967",
-      "57511c2aa2500130866605105bb4c3d03733c9a360ad9b2152c06b7cea64bcc4"
+      "ad1bfb82058addc9688758ccbe9a49230f0a29786b8a80f2fdad82fd326fb2e9",
+      "0acabcdc9f15652375a10be29abe226b4a8753cb636f90a086028285d5630fdc"
     ],
     "blob_ids": [],
     "env_manifests": [
-      "26ffec31209025e39e62952153001284e12fd6b8cd72ec058e6a203bdb9629dc"
+      "27e6395fae377a0310125fd1aa8794cee70d51138da5a68b26460bc3ddba0e7d"
     ],
     "requires_gpu": true,
-    "git_commit": "4fdc3e46b6df1d89d6dcce26cc62e9b92907a4e5",
+    "git_commit": "6f5796469d10e9e7d82091cdbe37d043513d721c",
     "dirty": false,
     "env": "dev",
     "control_host": "dingyideMacBook-Pro.local",
-    "started_at": "2026-10-30T05:50:17Z"
+    "started_at": "2026-10-30T05:55:27Z",
+    "output": "~/kta-data/dev/WP2/evidence/6f5796469d10e9e7d82091cdbe37d043513d721c/backend-selftest-timeout.json"
   },
   {
     "claim": "slai is registered as a CPU worker (project-local uv, no GPU labels) and runs a compile job chosen by the label arch=x86_64; its EnvManifest has the same uv.lock sha256 as spark's. In a git checkout on slai, scripts/bootstrap sets up a control plane (kta doctor OK) and the unit tests pass (190 passed; evidence file slai-bootstrap-unit-tests.txt)",
@@ -188,9 +193,9 @@
       "slai"
     ],
     "record_ids": [
-      "2388498aa05c0f3a2675e89d16375c45da3ebba812b7d4c59e2f9f4235ec1759",
-      "6a87fcbf24b3fb16726b37a469dfe085750934fe229e8f3010913fedc2682502",
-      "efe3f39838a15e0d040dd308794a8ada92567054531156183ea8064d85cfe40c"
+      "4bb85de8f7c84458fd8dd3b1d266feba970cd4a88cc273061568641289b8fbb1",
+      "6751bdc76be95e09fb6ee057c4e9313c83b971179b49389a4ae1b8ace9c1468c",
+      "fb011367d187c86c9b8703be2ab7e05a5e141d9b052b21a9739204ac9f783ef3"
     ],
     "blob_ids": [
       "3cced9685fc1d8ae0863604ea4635ed6617b67b0b9a2c198cfd0fac37e11e8ef",
@@ -199,15 +204,16 @@
       "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     ],
     "env_manifests": [
-      "6a87fcbf24b3fb16726b37a469dfe085750934fe229e8f3010913fedc2682502",
-      "26ffec31209025e39e62952153001284e12fd6b8cd72ec058e6a203bdb9629dc"
+      "6751bdc76be95e09fb6ee057c4e9313c83b971179b49389a4ae1b8ace9c1468c",
+      "27e6395fae377a0310125fd1aa8794cee70d51138da5a68b26460bc3ddba0e7d"
     ],
     "requires_gpu": false,
-    "git_commit": "4fdc3e46b6df1d89d6dcce26cc62e9b92907a4e5",
+    "git_commit": "6f5796469d10e9e7d82091cdbe37d043513d721c",
     "dirty": false,
     "env": "dev",
     "control_host": "dingyideMacBook-Pro.local",
-    "started_at": "2026-10-30T05:50:17Z"
+    "started_at": "2026-10-30T05:55:27Z",
+    "output": "~/kta-data/dev/WP2/evidence/6f5796469d10e9e7d82091cdbe37d043513d721c/worker-setup.slai.txt, backend-selftest-cpu-compile.json, slai-bootstrap-unit-tests.txt"
   },
   {
     "claim": "Builds of the CUDA and TileLang vector-add kernels and of the spin kernel, compiled on spark at an earlier clean commit of this branch (TileLang: codegen in the worker image, host nvcc 13.0 with TileLang headers); the runs of the claims above found them by build_key (same sources, flags, Target and image) instead of recompiling",
@@ -250,6 +256,7 @@
     "dirty": false,
     "env": "dev",
     "control_host": "dingyideMacBook-Pro.local",
-    "started_at": "2026-10-30T05:37:57.553995Z"
+    "started_at": "2026-10-30T05:37:57.553995Z",
+    "output": "~/kta-data/dev/WP2/evidence/6f5796469d10e9e7d82091cdbe37d043513d721c/backend-smoke.json and backend-selftest-timeout.json of the runs above (the Build IDs they returned)"
   }
 ]
