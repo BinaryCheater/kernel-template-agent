@@ -10,6 +10,7 @@ from collections.abc import Sequence
 
 from kta.cli.exec_cmds import add_exec_commands
 from kta.cli.init_cmd import add_init_command
+from kta.cli.measure_cmds import add_measure_commands
 from kta.cli.output import emit_error, emit_json, emit_text
 from kta.cli.store_cmds import add_store_commands
 from kta.core.config import default_config_path, load_config
@@ -77,6 +78,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_store_commands(sub, context_from_environ)
     add_init_command(sub, context_from_environ)
     add_exec_commands(sub, context_from_environ)
+    add_measure_commands(sub, context_from_environ)
     return parser
 
 
