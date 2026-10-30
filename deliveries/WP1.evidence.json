@@ -1,0 +1,38 @@
+[
+  {
+    "claim": "Store benchmark on spark's data directory (KTA_ENV=dev, ~/kta-work/data/dev/WP1/kta.db): 100000 synthetic records (origin fixture) written in 9.7 s; p95 latency below 50 ms for every query and full-text search type over 500 calls each (max p95 37.3 ms, search_kinds). Result stored as a Report (origin real) referencing spark's worker EnvManifest, with all raw latencies as a blob",
+    "command": "scripts/remote-run bg spark wp1-store-bench -- sh -c 'cd src/2e8373176cab32d5f211bed8a09a215eb29a8084 && export KTA_ENV=dev KTA_WP=WP1 KTA_DATA=$HOME/kta-work/data && uv run --frozen kta doctor --role worker && uv run --frozen kta store bench --records 100000 --queries 500 --seed 1 --role worker --bundle $HOME/kta-work/data/dev/WP1/bundles/store-bench-2e83731.jsonl --json'",
+    "git_commit": "2e8373176cab32d5f211bed8a09a215eb29a8084",
+    "dirty": false,
+    "env": "dev",
+    "control_host": "dingyideMacBook-Pro.local",
+    "workers": ["spark"],
+    "record_ids": [
+      "2effebf38d1c1176b348f2b6b36b2d409e8fb6e792dc05f3d9625bdf81dbf967",
+      "c676a7fd5fbb962813f135771904d6b454fcbbc44d2c7f5c5993da85287c9e06"
+    ],
+    "blob_ids": ["f830c862f3d2e9e23da2317ca2da9c58360661cebc2eb66c75a82b21d625c64f"],
+    "env_manifests": ["c676a7fd5fbb962813f135771904d6b454fcbbc44d2c7f5c5993da85287c9e06"],
+    "started_at": "2026-10-30T04:43:08+00:00",
+    "requires_gpu": false,
+    "output": "/Users/dingyi/kta-data/dev/WP1/evidence/2e8373176cab32d5f211bed8a09a215eb29a8084/store-bench.spark.txt"
+  },
+  {
+    "claim": "Records produced on spark reach the control-plane dev store as a verified bundle: the bundle (sha256 a5732b54...0a53bce on both hosts) was imported (from a clean tree at this commit; kta doctor in dev selects the sqlite store and ops, no fixtures) with kta store import into ~/kta-data/dev/WP1/kta.db; every record ID and the blob sha256 were recomputed before writing, and the records keep spark's actor commit and dirty flag",
+    "command": "scripts/remote-run exec spark -- cat data/dev/WP1/bundles/store-bench-2e83731.jsonl > ~/kta-data/dev/WP1/bundles/store-bench-2e83731.jsonl && KTA_ENV=dev KTA_WP=WP1 KTA_DATA=~/kta-data uv run --frozen kta store import ~/kta-data/dev/WP1/bundles/store-bench-2e83731.jsonl",
+    "git_commit": "2e8373176cab32d5f211bed8a09a215eb29a8084",
+    "dirty": false,
+    "env": "dev",
+    "control_host": "dingyideMacBook-Pro.local",
+    "workers": ["spark"],
+    "record_ids": [
+      "c676a7fd5fbb962813f135771904d6b454fcbbc44d2c7f5c5993da85287c9e06",
+      "2effebf38d1c1176b348f2b6b36b2d409e8fb6e792dc05f3d9625bdf81dbf967"
+    ],
+    "blob_ids": ["f830c862f3d2e9e23da2317ca2da9c58360661cebc2eb66c75a82b21d625c64f"],
+    "env_manifests": ["c676a7fd5fbb962813f135771904d6b454fcbbc44d2c7f5c5993da85287c9e06"],
+    "started_at": "2026-10-30T04:44:40+00:00",
+    "requires_gpu": false,
+    "output": "/Users/dingyi/kta-data/dev/WP1/evidence/2e8373176cab32d5f211bed8a09a215eb29a8084/store-import.control.json"
+  }
+]
