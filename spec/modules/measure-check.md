@@ -101,3 +101,13 @@ Changes and additions to the interfaces above, made in WP3 and recorded in docs/
 - `Problem.reference_impl` is a torch statement run in the worker image in FP64 (D223). Distributions: `normal`, `zeros`, `uniform`, `extreme` (measure), plus `cancellation`, `dominant_tail` (checks).
 - Kernel tracing uses nsys (D221); modules may be `cubin` or `so` (D222); `profile` raises NotSupported where performance counters are admin-only (D228).
 - Protocol records `measure-v1` and `measure-v2` (D226); the measured noise floor is in deliveries/WP3.md.
+
+## WP7 implementation notes (D283–D285)
+
+Additive; existing signatures unchanged.
+
+- `kta.measure.peaks.measure_peaks(m, backend, target, target_id, limits, protocol_id, sm_count) -> PeakResult`: per-unit microbenchmarks (`kta.measure.peak_kernels`) under a Protocol; writes one HwFact `peak_<unit>` (method `measured`) per unit and an HwModel (D283).
+- `kta.measure.baseline.ensure_baseline(store, clock, problem_id, call, library, image) -> str` (a Report, subject `baseline`) and `measure_baseline(m, baseline_id, case, shape, protocol_id, case_id=None) -> Measured`: the library call timed by `scripts/torch_bench.py` in the worker image with the bench job's loop; the Measurement has `refs.baseline` (D284).
+- `Measurer.measurement_body(t, index, subject, protocol_id)` and `Measurer.write_measurement(t, body, times_us, refs, case)` split out of `_record` (same values as before).
+- `full_check(..., extra_dists=None, sanitizer_shape=None)` / `run_full(..., sanitizer_shape=None)`: sanitizers on a module built for `sanitizer_shape` (D285).
+- The checkers' input table adds `large_dynamic_range` (D289).

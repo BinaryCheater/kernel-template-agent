@@ -11,7 +11,7 @@ Patterns, refined Templates, Chains and Families: loading, validation, Γ evalua
 - Patterns: `load_patterns`, `match_pattern`
 - Templates: `validate_template`, `propose_template`
 - Chains/Families: `validate_chain`, `load_family`, `validate_family`
-- Scope and reuse: `scope_holds`, `reuse_plan`
+- Scope and reuse: `scope_holds`, `reuse_plan` (optional `assignment` evaluates `p.*` expression bindings, D286)
 - Retrieval: `retrieve_families`, `retrieve_templates`, `nearest_chains`, `diff_templates`, `card`
 - Rendering/coverage: `family_overview`, `render_text_knowledge`, `coverage_report`
 - Seed: `import_seed`, `import_references`, `seed_dir` (used by `kta init`)

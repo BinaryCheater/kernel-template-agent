@@ -9,7 +9,7 @@ Compile generated kernels (TileLang, CUDA C++) into cubins through the Executor,
 ## Public interface
 
 - `GeneratedKernel`, `LaunchSpec`, `Param`, `BuiltModule`, `Backend` protocol
-- `CudaBackend` (`resolve("backend.cuda", ctx)`), `TileLangBackend` (`resolve("backend.tilelang", ctx)`): supports, build
+- `CudaBackend` (`resolve("backend.cuda", ctx)`), `TileLangBackend` (`resolve("backend.tilelang", ctx)`): supports, build; TileLang `PASS_CONFIGS` and dynamic shared memory (D281)
 - `harness.run_job(...)`, `harness.collect(...)`, `harness.Buffer`; worker side `python -m kta.backends.harness.run`
 - `smoke.Smoke`: vector add per backend, lease deferral and timeout recovery self-tests (`kta backend smoke|selftest`)
 

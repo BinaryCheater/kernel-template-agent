@@ -26,6 +26,8 @@ Measurement harness and versioned measurement protocols; comparisons and profile
 | `nvml.py` | clock, temperature, power samples (worker side) |
 | `inputs.py` | input generators shared with checks |
 | `selftest.py` | simple real kernels used by WP3's runs (D94) |
+| `peak_kernels.py`, `peaks.py` | per-unit peak microbenchmarks, measured HwFacts and the HwModel (D283) |
+| `baseline.py`, `scripts/torch_bench.py` | library baselines (torch.matmul) under the same Protocol, in the worker image (D284) |
 
 ## Dependencies
 
