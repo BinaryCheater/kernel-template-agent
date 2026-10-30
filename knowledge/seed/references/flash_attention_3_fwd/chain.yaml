@@ -116,7 +116,7 @@ items:
     code_markers: []
   - key: kv_stages
     template: multi_buffer_rotation@1
-    applies_to: "2-slot ring for K and for V (PipelineState<kStages>), producer one tile ahead, slot freed by the consumer release (hopper/mainloop_fwd_sm90_tma_gmma_ws.hpp:36, 283-289; flash_fwd_launch_template.h:47)"
+    applies_to: "2-slot ring for K and for V (PipelineState<kStages>), producer one tile ahead, slot freed by the consumer release (hopper/mainloop_fwd_sm90_tma_gmma_ws.hpp:36, 283-289; hopper/flash_fwd_launch_template.h:47)"
     bindings: {S: 2, P: 1, beta: 1}
     after: [kv_tma]
     code_markers: []

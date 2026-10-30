@@ -1,0 +1,13 @@
+name: rms_norm_f16
+reference_impl: "out[t, :] = x[t, :] / sqrt(mean(x[t, :]^2) + eps) * w, computed in float32 (tests/kernels/core/test_layernorm.py, RMSNorm.forward_native)"
+inputs:
+  - {name: x, shape: [T, D], dtype: f16, layout: "row_major, row stride may exceed D"}
+  - {name: w, shape: [D], dtype: f16, layout: contiguous}
+outputs:
+  - {name: out, shape: [T, D], dtype: f16, layout: row_major}
+params:
+  eps: "f32, runtime"
+  T: "tokens, runtime"
+  D: "hidden size, runtime"
+  rank_variants: "3-D (q/k norm per head) and 4-D inputs use the same program with a different row index map"
+  tolerance: "f16 output against an f32 reference"

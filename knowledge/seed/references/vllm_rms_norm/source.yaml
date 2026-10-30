@@ -1,0 +1,9 @@
+repo: https://github.com/vllm-project/vllm
+commit: 2eae56c4ba0cf12087fec035514eedede83c257d
+commit_date: "2026-10-29T22:27:49-05:00"
+license: Apache-2.0
+paths:
+  - csrc/layernorm_kernels.cu
+  - csrc/quantization/vectorization_utils.cuh
+retrieved_at: "2026-10-30T00:00:00Z"
+note: rms_norm_kernel (standalone RMSNorm). The fused_add_rms_norm kernels in the same file are a different workload and are not analysed.

@@ -1,0 +1,56 @@
+workload: "RMSNorm out[t] = x[t] * rsqrt(mean(x[t]^2) + eps) * w, f16, one row per token (vLLM rms_norm_kernel)"
+items:
+  - key: fuse
+    template: operator_fusion@1
+    applies_to: "sum of squares, rsqrt and the weighted scaling in one kernel; the per-row scale stays on chip (csrc/layernorm_kernels.cu:14-101)"
+    bindings: {consumer_kind: row_reduce_then_map, intermediate_site: smem, fused_ops: norm_scale}
+    after: []
+    code_markers: []
+  - key: out_cta
+    template: output_tiling@1
+    applies_to: "one CTA per row; for 3-D / 4-D inputs blockIdx is decoded into (batch, seq, head) (csrc/layernorm_kernels.cu:31-51, 257)"
+    bindings: {tile_m: 1, tile_n: D, executor: cta, index_map: batched}
+    after: [fuse]
+    code_markers: []
+  - key: row_part
+    template: reduction_partition@1
+    applies_to: "the row's sum of squares split across the CTA's threads, thread i taking vectors i, i + blockDim, ... (csrc/layernorm_kernels.cu:53-66; csrc/quantization/vectorization_utils.cuh:132-180)"
+    bindings: {num_groups: block_size, group_size: "ceil_div(D, VEC_SIZE * block_size)", assignment: strided_threads}
+    after: [out_cta]
+    code_markers: []
+  - key: xlane
+    template: cross_lane_reduction@1
+    applies_to: "cub::BlockReduce first reduces each warp's 32 partials with shuffles (csrc/layernorm_kernels.cu:68-70)"
+    bindings: {lanes: 32, result_to: lane0, combine_op: add}
+    after: [row_part]
+    code_markers: []
+  - key: smem_combine
+    template: smem_partial_combine@1
+    applies_to: "cub::BlockReduce combines the warp results through shared memory; thread 0 computes the scale and broadcasts it through the s_variance slot after __syncthreads (csrc/layernorm_kernels.cu:68-76)"
+    bindings: {topology: library_block_reduce, combine_op: add, result_to: all_threads, participants: block_size_div_32}
+    after: [xlane]
+    code_markers: []
+  - key: rsqrt
+    template: approximate_math_rewrite@1
+    applies_to: "1 / sqrt(variance / D + eps) computed with rsqrtf (csrc/layernorm_kernels.cu:72-74)"
+    bindings: {rewrite: rsqrt_approx, fused_fma: false}
+    after: [smem_combine]
+    code_markers: []
+  - key: row_reread
+    template: physical_storage@1
+    applies_to: "the input row is not kept on chip between the two passes: pass 2 reads it again from global memory (served by L1/L2) (csrc/layernorm_kernels.cu:65-66, 78-83)"
+    bindings: {level: gmem, buffer: input_row, share_order: read_twice}
+    after: [out_cta]
+    code_markers: []
+  - key: vec
+    template: vectorized_access@1
+    applies_to: "VEC_SIZE = gcd(16 / sizeof(T), D) elements per access (16 bytes for f16 when D % 8 == 0) for x, w and out (csrc/layernorm_kernels.cu:78-100, 267-272)"
+    bindings: {vector_bytes: 16, thread_arrangement: strided_loop, threads: block_size}
+    after: [row_part]
+    code_markers: []
+  - key: align_prefix
+    template: boundary_predication@1
+    applies_to: "pass 1 handles a misaligned row start with a scalar prefix before switching to vector reads (csrc/quantization/vectorization_utils.cuh:139-180)"
+    bindings: {boundary_kind: alignment_prefix, fill: none, specialize_even: true}
+    after: [vec]
+    code_markers: []

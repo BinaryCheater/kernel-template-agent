@@ -1,9 +1,9 @@
 # FlashAttention-2 forward — decomposition
 
 Source: Dao-AILab/flash-attention @ `a3a9dfa9bf10b52e55e8507b16ab0fe0dc1f38a0`, directory
-`csrc/flash_attn/src/` (paths below are relative to it). Program: `compute_attn_1rowblock`
-(`flash_fwd_kernel.h:54-501`), launched by `run_mha_fwd_hdim128`
-(`flash_fwd_launch_template.h:246-266`). Configuration decomposed: f16, head_dim 128, no dropout,
+`csrc/flash_attn/src/` (paths below are relative to the repository root). Program: `compute_attn_1rowblock`
+(`csrc/flash_attn/src/flash_fwd_kernel.h:54-501`), launched by `run_mha_fwd_hdim128`
+(`csrc/flash_attn/src/flash_fwd_launch_template.h:246-266`). Configuration decomposed: f16, head_dim 128, no dropout,
 the non-sm8x branch `Flash_fwd_kernel_traits<128, 128, 64, 4, false, false>` (kBlockM = 128,
 kBlockN = 64, 4 warps, Q not in registers, Q and K not sharing smem). GB10 reports compute
 capability 12.1, so it would take this branch.
@@ -23,38 +23,38 @@ Runtime: scale, causal flag (selects a compiled variant), Sq, Sk, B, H, Hk.
 
 | # | Class | Transaction | Where | Explained by |
 | --- | --- | --- | --- | --- |
-| T01 | schedule | grid (ceil(Sq/128), B, H); one CTA per 128-row Q tile per head | `flash_fwd_launch_template.h:64`, `flash_fwd_kernel.h:1083-1098` | out_cta |
-| T02 | schedule | K/V head index = h / h_h_k_ratio (GQA) | `flash_fwd_kernel.h:155-161` | out_cta (index_map) |
-| T03 | schedule | tile config chosen by device and causal flag | `flash_fwd_launch_template.h:246-266` | none (ux-07) |
-| T04 | executor | 4 warps along M, each owning full rows of S and O | `kernel_traits.h:74-77` | out_warp |
-| T05 | compute | S = Q K^T per key block, mma.sync m16n8k16 | `flash_fwd_kernel.h:326-329, 393-396`, `utils.h:139-160` | mma |
-| T06 | compute | online softmax: row max, exp2, row sum, rescale acc_o | `softmax.h:128-167` | online, exp2 |
-| T07 | compute | quad (4-lane) allreduce of row max / sum | `softmax.h:38-52`, `utils.h:112-130` | row_xlane |
-| T08 | numeric | exp folded into exp2 with scale_log2 FFMA; __logf for LSE | `softmax.h:66-90, 180` | exp2 |
-| T09 | numeric | P converted f32 -> f16 | `flash_fwd_kernel.h:354, 416` | p_convert |
-| T10 | transfer | P accumulator reinterpreted as A operand | `flash_fwd_kernel.h:372-374, 434-435`, `utils.h:200-226` | p_reuse |
-| T11 | compute | O += P V, mma.sync with A from registers | `flash_fwd_kernel.h:374, 435`, `utils.h:166-185` | mma, fuse |
-| T12 | compute | final O / l and LSE | `softmax.h:169-185`, `flash_fwd_kernel.h:440` | online (finalize) |
-| T13 | reduce | key blocks traversed from n_block_max - 1 down to n_block_min | `flash_fwd_kernel.h:274, 309, 385` | kv_part, online (traversal) |
-| T14 | reduce | causal n_block_max at the diagonal; early exit for empty rows | `flash_fwd_kernel.h:90-134` | causal_prune |
-| T15 | reduce | peeled masking iterations, then mask-free iterations | `flash_fwd_kernel.h:297-382, 385-412`, `mask.h:129-200` | causal_prune |
-| T16 | storage | acc_o, acc_s, row_max, row_sum in registers | `flash_fwd_kernel.h:290-292, 310` | acc_store |
-| T17 | storage | sQ; sO aliases sQ | `flash_fwd_kernel.h:167, 444` | q_smem |
-| T18 | storage | one sK and one sV buffer | `flash_fwd_kernel.h:170-173` | kv_smem |
-| T19 | transfer | Q/K/V gmem -> smem cp.async.cg 16 B | `kernel_traits.h:124-133`, `flash_fwd_kernel.h:257, 276, 317, 342, 390, 404` | kv_async, vec |
-| T20 | sync | wait_group 0 + __syncthreads twice per iteration; fences inside the if to avoid races | `flash_fwd_kernel.h:312-313, 339-346, 388-389, 401-408` | kv_async, kv_rotation (partial) |
-| T21 | storage | K slot refilled mid-iteration (one tile lookahead with one slot) | `flash_fwd_kernel.h:339-346, 401-408` | kv_rotation (partial) |
-| T22 | transfer | K residue not cleared (scores masked), V residue zero-filled, Even_MN/K variants | `flash_fwd_kernel.h:275-277, 316-323` | k_guard, v_guard |
-| T23 | access | Swizzle<3,3,3> smem layouts | `kernel_traits.h:70-72, 79-100` | swizzle |
-| T24 | transfer | ldmatrix.x4 for Q, K; ldmatrix.x4.trans for V | `kernel_traits.h:40-41`, `flash_fwd_kernel.h:212` | qk_frag, v_frag |
-| T25 | storage | k-slice i+1 fragment loaded before MMA i | `utils.h:149-158, 174-182` | frag_prefetch |
-| T26 | transfer + sync | O -> f16 -> sO -> barrier -> 128-bit gmem stores; LSE stores | `flash_fwd_kernel.h:443-500` | epi_stage, o_guard |
-| T27 | other | register allocation / unrolling by nvcc | `flash_fwd_kernel.h:308`, `utils.h:152-153` | none (ux-08) |
+| T01 | schedule | grid (ceil(Sq/128), B, H); one CTA per 128-row Q tile per head | `csrc/flash_attn/src/flash_fwd_launch_template.h:64`, `csrc/flash_attn/src/flash_fwd_kernel.h:1083-1098` | out_cta |
+| T02 | schedule | K/V head index = h / h_h_k_ratio (GQA) | `csrc/flash_attn/src/flash_fwd_kernel.h:155-161` | out_cta (index_map) |
+| T03 | schedule | tile config chosen by device and causal flag | `csrc/flash_attn/src/flash_fwd_launch_template.h:246-266` | none (ux-07) |
+| T04 | executor | 4 warps along M, each owning full rows of S and O | `csrc/flash_attn/src/kernel_traits.h:74-77` | out_warp |
+| T05 | compute | S = Q K^T per key block, mma.sync m16n8k16 | `csrc/flash_attn/src/flash_fwd_kernel.h:326-329, 393-396`, `csrc/flash_attn/src/utils.h:139-160` | mma |
+| T06 | compute | online softmax: row max, exp2, row sum, rescale acc_o | `csrc/flash_attn/src/softmax.h:128-167` | online, exp2 |
+| T07 | compute | quad (4-lane) allreduce of row max / sum | `csrc/flash_attn/src/softmax.h:38-52`, `csrc/flash_attn/src/utils.h:112-130` | row_xlane |
+| T08 | numeric | exp folded into exp2 with scale_log2 FFMA; __logf for LSE | `csrc/flash_attn/src/softmax.h:66-90, 180` | exp2 |
+| T09 | numeric | P converted f32 -> f16 | `csrc/flash_attn/src/flash_fwd_kernel.h:354, 416` | p_convert |
+| T10 | transfer | P accumulator reinterpreted as A operand | `csrc/flash_attn/src/flash_fwd_kernel.h:372-374, 434-435`, `csrc/flash_attn/src/utils.h:200-226` | p_reuse |
+| T11 | compute | O += P V, mma.sync with A from registers | `csrc/flash_attn/src/flash_fwd_kernel.h:374, 435`, `csrc/flash_attn/src/utils.h:166-185` | mma, fuse |
+| T12 | compute | final O / l and LSE | `csrc/flash_attn/src/softmax.h:169-185`, `csrc/flash_attn/src/flash_fwd_kernel.h:440` | online (finalize) |
+| T13 | reduce | key blocks traversed from n_block_max - 1 down to n_block_min | `csrc/flash_attn/src/flash_fwd_kernel.h:274, 309, 385` | kv_part, online (traversal) |
+| T14 | reduce | causal n_block_max at the diagonal; early exit for empty rows | `csrc/flash_attn/src/flash_fwd_kernel.h:90-134` | causal_prune |
+| T15 | reduce | peeled masking iterations, then mask-free iterations | `csrc/flash_attn/src/flash_fwd_kernel.h:297-382, 385-412`, `csrc/flash_attn/src/mask.h:129-200` | causal_prune |
+| T16 | storage | acc_o, acc_s, row_max, row_sum in registers | `csrc/flash_attn/src/flash_fwd_kernel.h:290-292, 310` | acc_store |
+| T17 | storage | sQ; sO aliases sQ | `csrc/flash_attn/src/flash_fwd_kernel.h:167, 444` | q_smem |
+| T18 | storage | one sK and one sV buffer | `csrc/flash_attn/src/flash_fwd_kernel.h:170-173` | kv_smem |
+| T19 | transfer | Q/K/V gmem -> smem cp.async.cg 16 B | `csrc/flash_attn/src/kernel_traits.h:124-133`, `csrc/flash_attn/src/flash_fwd_kernel.h:257, 276, 317, 342, 390, 404` | kv_async, vec |
+| T20 | sync | wait_group 0 + __syncthreads twice per iteration; fences inside the if to avoid races | `csrc/flash_attn/src/flash_fwd_kernel.h:312-313, 339-346, 388-389, 401-408` | kv_async, kv_rotation (partial) |
+| T21 | storage | K slot refilled mid-iteration (one tile lookahead with one slot) | `csrc/flash_attn/src/flash_fwd_kernel.h:339-346, 401-408` | kv_rotation (partial) |
+| T22 | transfer | K residue not cleared (scores masked), V residue zero-filled, Even_MN/K variants | `csrc/flash_attn/src/flash_fwd_kernel.h:275-277, 316-323` | k_guard, v_guard |
+| T23 | access | Swizzle<3,3,3> smem layouts | `csrc/flash_attn/src/kernel_traits.h:70-72, 79-100` | swizzle |
+| T24 | transfer | ldmatrix.x4 for Q, K; ldmatrix.x4.trans for V | `csrc/flash_attn/src/kernel_traits.h:40-41`, `csrc/flash_attn/src/flash_fwd_kernel.h:212` | qk_frag, v_frag |
+| T25 | storage | k-slice i+1 fragment loaded before MMA i | `csrc/flash_attn/src/utils.h:149-158, 174-182` | frag_prefetch |
+| T26 | transfer + sync | O -> f16 -> sO -> barrier -> 128-bit gmem stores; LSE stores | `csrc/flash_attn/src/flash_fwd_kernel.h:443-500` | epi_stage, o_guard |
+| T27 | other | register allocation / unrolling by nvcc | `csrc/flash_attn/src/flash_fwd_kernel.h:308`, `csrc/flash_attn/src/utils.h:152-153` | none (ux-08) |
 
 Excluded variants (compiled out for this workload): dropout and Return_softmax
-(`flash_fwd_kernel.h:357-368`), softcap (`331-333`), alibi and local window (`mask.h`), Q in
-registers / shared Q-K smem (`flash_fwd_kernel.h:259-288`), split-KV and paged KV
-(`compute_attn_1rowblock_splitkv`, `flash_fwd_kernel.h:505-`).
+(`csrc/flash_attn/src/flash_fwd_kernel.h:357-368`), softcap (`331-333`), alibi and local window (`mask.h`), Q in
+registers / shared Q-K smem (`csrc/flash_attn/src/flash_fwd_kernel.h:259-288`), split-KV and paged KV
+(`compute_attn_1rowblock_splitkv`, `csrc/flash_attn/src/flash_fwd_kernel.h:505-`).
 
 ## 3. Refinement chain
 

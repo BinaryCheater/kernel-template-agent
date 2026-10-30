@@ -95,6 +95,6 @@ notes: >-
   Pool at decomposition time: assumed seed only (5 Templates, 8 Patterns); this is the first reference.
   18 chain steps, 6 matched by seed Templates (k_part, acc_store, ab_smem, ab_async, ab_stages, ab_swizzle).
   11 steps use the 9 Templates proposed here and 1 step (frag_stages) is a partial match. One transaction
-  (compiler register allocation and unrolling) is explained by no step. The serial split-K path (kernel/gemm.h:299-370)
+  (compiler register allocation and unrolling) is explained by no step. The serial split-K path (include/cutlass/gemm/kernel/gemm.h:299-370)
   is compiled out in this configuration (SplitKSerial defaults to false) and is not part of the decomposed
   program. Not built or run; no reproduction.
