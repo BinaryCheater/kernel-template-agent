@@ -151,6 +151,8 @@ Branch `wp/WP6`, cut from `integration` @ `90aa678` (WP0–WP5, WP10a, WP13 merg
 
 D260, D261 (needs user review), D262 (needs user review), D263 (needs user review), D264, D265 (needs user review), D266 (needs user review), D267 (needs user review), D268, D269, D270, D271, D272, D273, D274 (needs user review), D275 (needs user review), D276, D277, D278.
 
+Round 3: D372, D373 (needs user review), D374, D375, D376, D377, D378, D379.
+
 Follow-up (integration wiring): D360 (needs user review), D361, D362, D363, D364 (needs user review), D365, D366, D367, D368 (needs user review), D369, D370 (needs user review), D371.
 
 ## Needed changes
@@ -185,6 +187,7 @@ WP6 is not record-backed (D84); its real-run acceptance is part of WP7 (spec/mod
 - **Restart in the middle of the run (WP7).** Kill the solve process mid-run, restart it, and check that it continues from the stored state.
 - **One agent step through `kta runner start` (WP8).** It needs an approved profile (`kta profile approve`), a built batch, credentials and the agent host. From lease through `run_step` to check or abandon, then a retry with a note (D365, D369).
 - **Re-verification of a real suspect Solution (WP9b, D368)** and a pause/resume from the frontend (D364).
+- **An experiment batch (WP11)** with a pinned snapshot and the three knowledge arms through `kta runner` (D372, D373); a cancel during a real agent step once WP2's `cancel` is merged (D374).
 - **Rerun of the WP6 dev evidence after the merges.** The runs in `deliveries/WP6.evidence.json` were made at `3a5fece`, before `integration` @ `868885b` and @ `528caab` were merged. They were not repeated (D320). All of them were local; none used spark.
 
 ## Follow-up: integration wiring
@@ -223,11 +226,11 @@ Second round, after `integration` @ `528caab` (WP6, WP7, WP8 and WP9b merged) wa
 **Still NotSupported or open.**
 
 - **Stopping an agent on cancel.** A cancel during an agent step marks the task cancelled, but the agent job runs to its end: the Executor (WP2) has no job cancellation. The runner then leaves the task cancelled. This needs `JobExecutor.cancel(job_id)` (WP2) and a watcher in `kta runner`.
-- **Client mode** works only for `kta note`. Show, query, validate, build and submit need token endpoints in the API (WP9b, D370).
+- **Client mode** (updated in round 3, D379): every agent-facing command but `run` and `src` goes through the API's token endpoints.
 - **API-side calls.** `Operations.approve_profile`, `verify_batch` and `verify_task_token` raise NotSupported naming the `kta.agents` function: the orchestrator (layer 7) may not import agents (layer 8), so the API calls `kta.agents` directly.
 - **`kta run` and `kta src`** remain NotSupported (D371).
 - **Re-verification** of kinds that no Solution rests on is marked unsupported (WP11).
-- **The agent runner** runs one step at a time per process. Several slots mean several `kta runner` processes, but the lock name is one per host; adding per-slot locks is a small change.
+- **The agent runner** runs one step at a time per process. Several slots mean several `kta runner` processes, one per slot (per-slot locks since round 3, D375).
 - `expand_loop.py` and `expand_work.py` were left to WP10b, unchanged.
 
 **New decisions:** D360 (needs user review), D361, D362, D363, D364 (needs user review), D365, D366, D367, D368 (needs user review), D369, D370 (needs user review), D371.
@@ -238,9 +241,50 @@ Second round, after `integration` @ `528caab` (WP6, WP7, WP8 and WP9b merged) wa
 - **WP9b:** replace `Unwired` with `Operations`, plus the three `kta.agents` calls. Add token endpoints for the agent-facing commands (D370).
 - **Additive changes made in this follow-up:** WP1's `Ops` Protocol and `SqliteOps` gained `set_task_priority`, recorded in `spec/modules/core-store.md` and the store README.
 
+## Round 3
+
+After `integration` @ `0475dea` (WP6 wiring, WP9b, WP10b and WP11 merged) was merged into `wp/WP6`. Code only (D320); nothing below has run on real data. Decisions D372–D378. The arm key's shape was agreed with the WP8 session.
+
+**Wired.**
+
+- **Agent queue order (WP11, D372).** `kta runner` picks the next queued task with an approved profile in `quotas.order_queued` order.
+- **Task batch (D372).** A task runs in the batch from its bookkeeping (`info["batch"]`), else `--batch`, else `[agents] batch`.
+- **Experiment pinning (WP11, D373).**
+  - Solve-loop retrieval honours `loop.data.experiment.snapshot`: only snapshot members reach the solver.
+  - It also honours `experiment.condition.knowledge` (`pool` / `text` / `zero`). Text and zero arms get no pool objects, and their T1 is created from the Case alone.
+  - Tasks of experiment loops carry `info["arm"]` = {name, knowledge, condition, snapshot, protocol} and `info["batch"]` when they are created. This is the shape WP8 reads, agreed with the WP8 session.
+  - The aliases `from_zero`, `text_knowledge` and `template_pool` are accepted.
+  - The text arm without a snapshot blocks the loop, as WP8 refuses that step.
+  - An unknown condition, or a snapshot that is not a PoolSnapshot, blocks the loop.
+- **Per-slot runner locks (D375).** `kta runner start --slot N` holds `process:agent:<N>`, so one host can run several slots. `kta runner stop` stops them all.
+- **Cancel stops the agent (D374).** The agent step's Executor calls go through a `TrackingRunner`. A watcher thread cancels the step's jobs with `cancel(job_id)` when the task is cancelled.
+  - This is coded against WP2's planned `JobExecutor.cancel(job_id) -> None`, which is not merged yet (`wp/WP2-cancel` has no commits).
+  - Until then the watcher logs, and the step output says `cancel_unsupported`.
+  - It is tested with the stand-in `tests/fakes/executor.py` (`RecordingExecutor`). Its contract test compares its methods with `JobExecutor` and `JobRunner`, and compares `cancel` with the real one once it exists.
+- **WP10b, references (D376).** `kta reference add` accepts a `problem` body, writes it and links it.
+- **WP10b, coverage (D377).** `kta coverage` prints one line per report key.
+- **Re-verification (D378).** A suspect Bound that no Solution rests on is recomputed and compared, and the result is written as a Report. Other kinds without a Solution stay marked unsupported. `request_reverify` now refuses before it writes a HumanAction (reported by WP9b).
+- **Client mode over the agent API (D379).**
+  - With `KTA_TASK_TOKEN` set, these commands go through WP9b's token endpoints: `show`, `card`, `why`, `query`, `validate-template`, `validate-family`, `instantiate`, `build`, `sass`, `submit` and `note`.
+  - Each call sends the bearer token and `X-KTA-Trace-Parent`. Files are sent base64 by relative path.
+  - `run` and `src` refuse. The endpoints are on `wp/WP9b` @ c890af8, not yet in integration.
+  - Tested against a local HTTP stand-in in `tests/unit/test_cli_orchestrator.py`.
+- **Tests.** `tests/unit/test_orchestrator_round3.py` (8 tests) and `tests/contract/test_executor_contract.py` (3). Full unit suite: 538 passed.
+
+**Still NotSupported or open.**
+
+- **Agent cancel** works only once WP2's `JobExecutor.cancel` lands. The watcher polls every 5 s.
+- **The text-knowledge arm** reaches the solver as "no pool objects". Rendering text knowledge into the agent context is WP8's part.
+- **Re-verification** of Templates, Families, Checks and Measurements that no Solution rests on remains unsupported.
+- **WP11's `PINNING_NOTE`** in `proc_experiment.py` still says that retrieval does not read the pins. It is now outdated, but the file is WP11's.
+
+**Fixture added:** `tests/fakes/executor.py` (`RecordingExecutor`, test double for the Executor boundary). `src/` is unchanged in this respect: no `# kta:fixture`.
+
+**New decisions:** D372, D373 (needs user review), D374, D375, D376, D377, D378, D379.
+
 ## Gate output
 
-Code stage (D320), after the integration wiring at `integration` @ `528caab`: `KTA_DATA=~/kta-data scripts/gate --stage code WP6` on the control host.
+Code stage (D320), round 3, after `integration` @ `0475dea`: `KTA_DATA=~/kta-data scripts/gate --stage code WP6` on the control host.
 
 ```text
 gate WP6 --stage code: PASSED (22 pass, 0 warn, 0 fail)
@@ -255,17 +299,21 @@ gate WP6 --stage code: PASSED (22 pass, 0 warn, 0 fail)
   PASS secrets
   PASS acceptance lock — 7 locked files unchanged
   PASS pyright
-  PASS unit tests — 487 passed
-  PASS contract tests — 5 passed
-  PASS fake coverage — 1 fake(s) covered
+  PASS unit tests — 540 passed
+  PASS contract tests — 8 passed
+  PASS fake coverage — 2 fake(s) covered
   PASS registry (kta doctor, dev)
   PASS delivery note
   PASS fixture declarations — 1 declared
-  PASS decision log — 292 decisions
+  PASS decision log — 327 decisions
   PASS skipped tests — none
   PASS evidence — 5 claim(s)
   PASS WP6 transition tests — 4 tests passed
   PASS judging rules tested — rules [1, 2, 3, 4] each tested
 ```
 
-Earlier runs: the code stage after merging `integration` @ `868885b` (22 pass, 377 unit tests); the full gate at `77ca05c` before any merge (22 pass, 347 unit tests).
+Earlier runs:
+
+- the code stage after the integration wiring (22 pass, 487 unit tests);
+- the code stage after `868885b` (22 pass, 377 unit tests);
+- the full gate at `77ca05c` (22 pass, 347 unit tests).

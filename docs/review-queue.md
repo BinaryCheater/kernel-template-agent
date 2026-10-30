@@ -498,6 +498,7 @@ Decisions made without the user that need review. Newest last. Each entry: quest
 - **Choice:** with `KTA_TASK_TOKEN` set, only `kta note` works (through that endpoint). Every other command refuses with NotSupported naming the endpoint it needs, and no command opens a local store.
 - **Rationale:** an agent must not fall back to direct store access; missing endpoints are visible.
 - **Cost of changing later:** low on the CLI side (`kta.cli.client.dispatch`). The API (WP9b) needs read, query, validate, build and submit endpoints for agents to work.
+- **Update (D379):** WP9b added those endpoints (`wp/WP9b` @ c890af8); client mode now uses all of them, and only `run` and `src` refuse.
 ## D382 — Expand-loop tasks follow the chain, not the Gaps
 
 - **Question:** spec/modules/orchestrator-cli.md says each Gap of a T2 creates one T3. WP10a's 55 Gaps map to 30 Templates (several Gaps per proposed Template), and 18 Gaps (compiler-decided allocation, family-level dispatch, a missing check kind) have no Template to extract.
@@ -580,3 +581,9 @@ Decisions made without the user that need review. Newest last. Each entry: quest
 - **Choice:** add `cancelled` to both literals (two additive lines in core) and to the spec's error-kind lists.
 - **Rationale:** a distinct kind lets callers (WP6's runner watcher) tell a requested stop from an `infra` failure or a `timeout`; reusing `infra` would hide it in failure statistics.
 - **Cost of changing later:** low; code that switches on error kinds should treat `cancelled` as terminal and not retry it.
+## D373 — How an experiment arm's knowledge condition reaches the solve loop
+
+- **Question:** WP11 pins a snapshot and a free-form condition per arm; nothing read them.
+- **Choice:** the snapshot limits retrieval to its members. `condition.knowledge` = `pool` | `text` | `zero`; text and zero arms get no pool objects from retrieval, so the loop creates a T1 from the Case alone. Tasks carry `info["arm"]` and `info["batch"]`; the agent side (WP8) puts text knowledge or nothing into the context.
+- **Rationale:** the three arms of docs/design/50 §1 differ only in what knowledge the agent and the solver see. Keeping the solver blind in text/zero arms makes the agent's work the measured variable.
+- **Cost of changing later:** low: `solve_work.pinned` / `allowed_cards`; the key names are shared with WP8.

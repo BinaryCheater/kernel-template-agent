@@ -5,6 +5,7 @@ inbox, budgets and the agent-facing commands."""
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import sys
 from collections.abc import Sequence
@@ -106,8 +107,10 @@ def _emit(args: argparse.Namespace, data: dict[str, Any], text: str) -> None:
 
 def _run(args: argparse.Namespace) -> int:
     if client.client_mode() and args.command != "doctor":
-        _emit(args, client.dispatch(args), "ok")  # D370: no local store inside a workspace
-        return EXIT_OK
+        data = client.dispatch(args)  # D370: no local store inside a workspace
+        _emit(args, data, json.dumps(data, indent=1, default=str)[:4000])
+        failed = data.get("ok") is False or data.get("passed") is False
+        return EXIT_FAIL if failed else EXIT_OK
     return int(args.func(args))
 
 

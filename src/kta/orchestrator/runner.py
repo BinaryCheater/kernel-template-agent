@@ -19,6 +19,7 @@ from kta.orchestrator import budget, control, expand_work, solve_work
 from kta.orchestrator.inbox import inbox
 from kta.orchestrator.machines import machine
 from kta.orchestrator.pipeline import Services
+from kta.orchestrator.solve_work import knowledge_of
 from kta.orchestrator.step import step
 from kta.orchestrator.tasks import TaskQueue
 from kta.orchestrator.transition import Draft, Loop, Settings, Transition
@@ -191,6 +192,20 @@ class Runner:
         if t.tasks:
             process = str(loop.data.get("process") or PROCESS_OF[loop.kind])
             ids = [self.queue.create(r, loop.id, process) for r in t.tasks]
+            exp: Mapping[str, Any] = loop.data.get("experiment") or {}
+            for task_id in ids if exp else []:
+                # The agent side reads these to pick the batch and apply the arm (D372, D373).
+                self.queue.annotate(
+                    task_id,
+                    batch=exp.get("batch"),
+                    arm={  # the shape WP8 reads (D373)
+                        "name": exp.get("arm"),
+                        "knowledge": knowledge_of(exp.get("condition")),
+                        "condition": exp.get("condition") or {},
+                        "snapshot": exp.get("snapshot"),
+                        "protocol": exp.get("protocol"),
+                    },
+                )
             data.update(waiting_on=ids[0], waiting_tasks=ids, waiting_type=t.tasks[0].type)
         now = self.ctx.clock.now()
         if loop.data.get("state_span"):

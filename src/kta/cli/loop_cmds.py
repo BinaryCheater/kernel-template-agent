@@ -4,6 +4,7 @@ coverage and export (spec/modules/orchestrator-cli.md "cli")."""
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 from typing import Any, cast
 
@@ -86,7 +87,10 @@ def cmd_case_add(args: argparse.Namespace, make_ctx: ContextFactory) -> int:
 
 
 def cmd_reference_add(args: argparse.Namespace, make_ctx: ContextFactory) -> int:
-    """YAML keys: ``source`` (Source body) and ``reference`` (Reference body)."""
+    """YAML keys: ``source`` (Source body), ``reference`` (Reference body) and optional
+    ``problem`` (a Problem body): written and linked as ``refs.problem``, with
+    ``reference.problem`` set to its ID (D376). Otherwise ``reference.problem`` may name an
+    existing Problem record."""
     doc = _yaml(args.file)
     with command(make_ctx, "reference-add", f"kta reference add {args.file}") as ctx:
         svc = Services.open(ctx)
@@ -94,11 +98,15 @@ def cmd_reference_add(args: argparse.Namespace, make_ctx: ContextFactory) -> int
         actor = HUMAN.model_copy(update={"name": "kta reference add"})
         src = svc.store.put(Record.new("Source", doc["source"], actor, now))
         refs: dict[str, RefValue] = {"source": src}
-        problem = doc["reference"].get("problem")
+        body = dict(doc["reference"])
+        if doc.get("problem"):
+            body["problem"] = svc.store.put(Record.new("Problem", doc["problem"], actor, now))
+        problem = body.get("problem")
         if isinstance(problem, str) and svc.store.exists(problem):
             refs["problem"] = problem
-        ref = svc.store.put(Record.new("Reference", doc["reference"], actor, now, refs=refs))
-    _out(args, {"reference": ref, "source": src}, f"reference {ref}\nsource {src}")
+        ref = svc.store.put(Record.new("Reference", body, actor, now, refs=refs))
+    data = {"reference": ref, "source": src, "problem": refs.get("problem")}
+    _out(args, data, f"reference {ref}\nsource {src}\nproblem {refs.get('problem') or '-'}")
     return 0
 
 
@@ -237,9 +245,17 @@ def cmd_coverage(args: argparse.Namespace, make_ctx: ContextFactory) -> int:
     ctx = make_ctx("coverage")
     rep = coverage_report(Services.open(ctx).store, args.snapshot, ctx.rng("coverage"))
     data = rep.to_dict()
-    keys = ("snapshot_id", "reconstructions", "assurance")
-    _out(args, data, "\n".join(f"{k}: {data.get(k)}" for k in keys if k in data))
+    _out(args, data, "\n".join(f"{k}: {_short(v)}" for k, v in data.items()))
     return 0
+
+
+def _short(value: Any, limit: int = 160) -> str:
+    """One line per report key (D377): scalars as is, containers by size and a prefix."""
+    if isinstance(value, dict | list) and value:
+        text = json.dumps(value, default=str, sort_keys=True)
+        size = f"{len(cast(Any, value))} {'keys' if isinstance(value, dict) else 'items'}"
+        return f"[{size}] {text[:limit]}{'...' if len(text) > limit else ''}"
+    return str(value)
 
 
 def cmd_export(args: argparse.Namespace, make_ctx: ContextFactory) -> int:

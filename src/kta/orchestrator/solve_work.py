@@ -70,13 +70,63 @@ def work_bounded(svc: Services, loop: Loop) -> Facts:
     return {"bounds": bounds, "buckets": buckets, "hw_model": hw_id}
 
 
+KNOWLEDGE_CONDITIONS = ("pool", "text", "zero")  # docs/design/50 §1: the experiment arms
+# Aliases WP8 also accepts for the same three arms (agreed with WP8, D373).
+KNOWLEDGE_ALIASES = {"from_zero": "zero", "text_knowledge": "text", "template_pool": "pool"}
+
+
+def knowledge_of(condition: Mapping[str, Any] | None) -> str:
+    raw = str(dict(condition or {}).get("knowledge", "pool"))
+    knowledge = KNOWLEDGE_ALIASES.get(raw, raw)
+    if knowledge not in KNOWLEDGE_CONDITIONS:
+        raise SchemaError(
+            f"experiment condition knowledge={raw!r}; one of {KNOWLEDGE_CONDITIONS} "
+            f"or {sorted(KNOWLEDGE_ALIASES)}"
+        )
+    return knowledge
+
+
+def pinned(svc: Services, loop: Loop) -> tuple[set[str] | None, str]:
+    """(snapshot members or None, knowledge condition) of an experiment run (D373).
+
+    ``loop.data.experiment`` is pinned by the experiment process (WP11): ``snapshot`` (a
+    PoolSnapshot ID) limits retrieval to its members; ``condition.knowledge`` is one of
+    ``pool`` (default), ``text`` or ``zero`` (or WP8's aliases). The ``text`` arm needs a
+    snapshot (the text is rendered from it, WP8). Outside experiments: the whole pool.
+    """
+    exp: Mapping[str, Any] = loop.data.get("experiment") or {}
+    knowledge = knowledge_of(exp.get("condition"))
+    snap = exp.get("snapshot")
+    if knowledge == "text" and not snap:
+        raise SchemaError("the text-knowledge arm needs a pinned snapshot")
+    if not snap:
+        return None, knowledge
+    rec = svc.store.get(str(snap))
+    if rec.kind != "PoolSnapshot":
+        raise SchemaError(f"experiment snapshot {str(snap)[:12]} is a {rec.kind}")
+    return set(rec.body["members"]), knowledge
+
+
+def allowed_cards(cards: list[Any], members: set[str] | None, knowledge: str) -> list[Any]:
+    """Retrieved cards an experiment arm may see (D373): none for the ``text`` and
+    ``zero`` arms (the solver gets no pool objects); snapshot members for ``pool``."""
+    if knowledge != "pool":
+        return []
+    return [c for c in cards if members is None or c.id in members]
+
+
 def work_retrieving(svc: Services, loop: Loop) -> Facts:
     cv = case_view(svc.store, loop.subject)
     _, hw = svc.hw_model(cv.case.target)
-    fams = retrieve_families(svc.store, cv.case, k=5, hw=hw.limits)
+    members, knowledge = pinned(svc, loop)
+
+    def allowed(cards: list[Any]) -> list[Any]:
+        return allowed_cards(cards, members, knowledge)
+
+    fams = allowed(retrieve_families(svc.store, cv.case, k=20, hw=hw.limits))[:5]
     if fams:
         return {"families": [c.id for c in fams]}
-    chains = nearest_chains(svc.store, cv.case, k=3)
+    chains = allowed(nearest_chains(svc.store, cv.case, k=10))[:3]
     data: dict[str, Any] = {"nearest_chains": [asdict(c) for c in chains]}
     inputs = [cv.id]
     if chains:
@@ -86,10 +136,17 @@ def work_retrieving(svc: Services, loop: Loop) -> Facts:
         bad = [s.key for s in plan.steps if s.verdict != "keep"]
         goal = f"Build a family from chain {chains[0].name}; replace steps {', '.join(bad)}"
     else:
-        cards = retrieve_templates(svc.store, case=cv.case, k=5, hw=hw.limits)
+        cards = allowed(retrieve_templates(svc.store, case=cv.case, k=20, hw=hw.limits))[:5]
         data["templates"] = [asdict(c) for c in cards]
         inputs += [c.id for c in cards]
-        goal = "Build a family for this case from the retrieved Templates"
+        goal = (
+            "Build a family for this case from the retrieved Templates"
+            if cards
+            else f"Build a family for this case (knowledge condition: {knowledge})"
+        )
+    data["knowledge"] = knowledge
+    if members is not None:
+        data["snapshot"] = len(members)
     rid = _report(svc, "retrieval", cv.id, goal, data, {"case": cv.id})
     return {"families": [], "t1_goal": goal, "t1_inputs": [*inputs, rid]}
 

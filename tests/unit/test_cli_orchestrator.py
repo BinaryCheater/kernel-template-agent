@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import base64
 import json
+import threading
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 import pytest
 import yaml
@@ -91,13 +94,63 @@ def test_human_task_create_submit_check(kta: Any, tmp_path: Path) -> None:
     assert shown["attempts"] == 1 and shown["state"] == "queued"
 
 
-def test_client_mode_refuses_local_store_commands(
-    kta: Any, monkeypatch: pytest.MonkeyPatch
+class _Api(BaseHTTPRequestHandler):
+    """Records requests to the API's agent endpoints and answers like WP9b's agentapi."""
+
+    seen: ClassVar[list[dict[str, Any]]] = []
+
+    def _answer(self) -> None:
+        n = int(self.headers.get("Content-Length") or 0)
+        body = json.loads(self.rfile.read(n)) if n else None
+        self.seen.append(
+            {
+                "method": self.command,
+                "path": self.path,
+                "body": body,
+                "auth": self.headers.get("Authorization"),
+                "parent": self.headers.get("X-KTA-Trace-Parent"),
+            }
+        )
+        code, out = (501, {"detail": "no"}) if "/build" in self.path else (200, {"ok": True})
+        data = json.dumps(out).encode()
+        self.send_response(code)
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+    do_GET = do_POST = _answer
+
+    def log_message(self, format: str, *args: Any) -> None:  # quiet server
+        return None
+
+
+def test_client_mode_talks_to_the_agent_api(
+    kta: Any, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    monkeypatch.setenv("KTA_TASK_TOKEN", "kta1.test")
-    assert kta("show", "a" * 64)[0] == EXIT_NOT_SUPPORTED
-    monkeypatch.delenv("KTA_API", raising=False)
-    assert kta("note", "hello", "--task", "T")[0] == 2  # usage: KTA_API is not set
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _Api)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        monkeypatch.setenv("KTA_TASK_TOKEN", "kta1.test")
+        monkeypatch.setenv("KTA_TRACE_PARENT", "trace:span")
+        monkeypatch.setenv("KTA_API", f"http://127.0.0.1:{server.server_port}")
+        assert kta("show", "a" * 64)[0] == EXIT_OK
+        out = tmp_path / "out"
+        out.mkdir()
+        (out / "DELIVERY.md").write_text("# What was done\n", encoding="utf-8")
+        (out / "family.yaml").write_text("name: f\n", encoding="utf-8")
+        assert kta("submit", "--dir", str(out))[0] == EXIT_OK
+        args = ["fam", "--assignment", "{}", "--shape", "{}"]
+        assert kta("build", *args)[0] == EXIT_NOT_SUPPORTED  # the API answered 501
+        assert kta("run", "x")[0] == EXIT_NOT_SUPPORTED  # no endpoint at all
+    finally:
+        server.shutdown()
+    show, submit, build = _Api.seen[:3]
+    assert (show["method"], show["path"]) == ("GET", "/agent/records/" + "a" * 64)
+    assert show["auth"] == "Bearer kta1.test" and show["parent"] == "trace:span"
+    assert submit["path"] == "/agent/submit" and list(submit["body"]["files"]) == ["family.yaml"]
+    assert base64.b64decode(submit["body"]["files"]["family.yaml"]) == b"name: f\n"
+    assert submit["body"]["note"].startswith("# What was done")
+    assert build["body"] == {"family": "fam", "assignment": {}, "shape": {}}
 
 
 def test_agents_runner_profile_unit_commands_exist() -> None:
