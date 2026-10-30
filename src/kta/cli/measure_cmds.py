@@ -5,6 +5,8 @@ from __future__ import annotations
 import argparse
 from typing import Any
 
+from kta.checks import selftest as check_selftest
+from kta.checks.base import Checker
 from kta.cli.exec_cmds import ContextFactory, _out, command
 from kta.core.context import Context
 from kta.core.errors import ConfigError
@@ -108,6 +110,32 @@ def cmd_profile(args: argparse.Namespace, make_ctx: ContextFactory) -> int:
     return 0
 
 
+def cmd_check_selftest(args: argparse.Namespace, make_ctx: ContextFactory) -> int:
+    with command(make_ctx, "check-selftest", "kta check selftest") as ctx:
+        m, cuda, target, target_id = _setup(ctx)
+        c = Checker(m.store, m.ex, ctx.clock, ctx.rng, ctx.data_dir / "checker", ctx.seed)
+        variants = tuple(args.variant) if args.variant else check_selftest.VARIANTS
+        flags = resolve("target", ctx).compile_flags("cuda")
+        rid, results = check_selftest.run_all(c, cuda, target, target_id, flags, variants)
+    rows = [
+        {
+            "variant": r.variant,
+            "check": r.check.id,
+            "passed": r.check.passed,
+            "failed_checks": sorted(r.failed_checks),
+            "as_expected": r.as_expected,
+        }
+        for r in results
+    ]
+    text = "\n".join(
+        f"{r['variant']:12} passed={r['passed']!s:5} as_expected={r['as_expected']!s:5} "
+        f"{','.join(r['failed_checks'])} check {r['check'][:12]}"
+        for r in rows
+    )
+    _out(args, {"report": rid, "variants": rows}, f"report {rid}\n{text}")
+    return 0 if all(r["as_expected"] for r in rows) else 1
+
+
 def add_measure_commands(
     sub: argparse._SubParsersAction[argparse.ArgumentParser], make_ctx: ContextFactory
 ) -> None:
@@ -130,3 +158,9 @@ def add_measure_commands(
     pr = mc.add_parser("profile", help="Nsight Compute profile of the selftest GEMM")
     pr.add_argument("--json", action="store_true")
     pr.set_defaults(func=lambda a: cmd_profile(a, make_ctx))
+    chk = sub.add_parser("check", help="checker selftests on the GPU worker")
+    cc = chk.add_subparsers(dest="check_command", required=True)
+    st = cc.add_parser("selftest", help="full_check of a correct GEMM and three faulty variants")
+    st.add_argument("--variant", action="append", choices=list(check_selftest.VARIANTS))
+    st.add_argument("--json", action="store_true")
+    st.set_defaults(func=lambda a: cmd_check_selftest(a, make_ctx))
