@@ -1,0 +1,17 @@
+[
+  {
+    "claim": "Code stage (D320): the WP11 unit tests pass on the control host. They show the quota redistribution while no experiment runs and its reversal while one runs, the periodic global budget roll-over with its Report, quota-weighted ordering of queued tasks, the learn process writing one PoolSnapshot and starting expand loops from the backlog, the calibrate process recording missing hardware as blocked (no Target plugin, no fake numbers) and raising one T4 per family for a 40% model error and one T5 per hw_fact Gap, the T5 benchmark format, an approved experiment protocol building and verifying its batch environment, running one distinct solve loop per arm and writing ExperimentRuns and the result Report, the summarize process counting attribution, creating T3s and holding system items in the inbox until approved, a tick of every process, profile codex-v2 with the two new skills, and the WP11 gate checks. Unit runs only; no GPU job and no store record (real runs paused, D320)",
+    "command": "uv run --frozen pytest -v tests/unit/test_wp11_processes.py tests/unit/test_gate_wp11.py tests/unit/test_orchestrator_tasks.py tests/unit/test_orchestrator_runner.py tests/unit/test_cli_orchestrator.py",
+    "git_commit": "8bc2ae7aae61d2e47d269c9288930b0373bcc6ad",
+    "dirty": false,
+    "env": "dev",
+    "control_host": "Mac.lan",
+    "workers": [],
+    "record_ids": [],
+    "blob_ids": [],
+    "env_manifests": [],
+    "started_at": "2026-10-30T18:59:30Z",
+    "requires_gpu": false,
+    "output": "Mac.lan:~/kta-data/dev/WP11/evidence/pytest-8bc2ae7.txt"
+  }
+]
