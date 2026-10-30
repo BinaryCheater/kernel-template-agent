@@ -7,12 +7,15 @@ WP that owns them adds them, so no check is silently skipped.
 from __future__ import annotations
 
 import importlib
+import io
 import json
 import math
 import os
 import re
 import sqlite3
 import subprocess
+import tarfile
+import tempfile
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from pathlib import Path
@@ -591,27 +594,57 @@ WP9A_TESTS = (
 WEB_FIXTURE = re.compile(r"kta:fixture|SAMPLE DATA")
 
 
+def web_build(root: Path) -> CheckResult:
+    """Build ``web/`` as committed at HEAD, in a fresh directory.
+
+    Untracked or git-ignored sources and a cached ``tsconfig.tsbuildinfo`` exist only in
+    the working tree, so building the archive of HEAD (with the lockfile-installed
+    ``node_modules`` linked in) fails exactly when a clean checkout would.
+    """
+    web = root / "web"
+    if not (web / "node_modules").is_dir():
+        return CheckResult("web build", "FAIL", "web/node_modules missing: run `npm ci` in web/")
+    dirty = subprocess.run(
+        ["git", "-C", str(root), "status", "--porcelain", "--untracked-files=all", "--", "web"],
+        capture_output=True,
+        text=True,
+        check=False,
+    ).stdout.splitlines()
+    if dirty:
+        return CheckResult(
+            "web build", "FAIL", "web/ differs from HEAD; commit it first", dirty[:10]
+        )
+    archive = subprocess.run(
+        ["git", "-C", str(root), "archive", "--format=tar", "HEAD", "web"],
+        capture_output=True,
+        check=False,
+    )
+    if archive.returncode != 0:
+        return CheckResult("web build", "FAIL", archive.stderr.decode(errors="replace").strip())
+    with tempfile.TemporaryDirectory(prefix="kta-gate-web-") as tmp:
+        with tarfile.open(fileobj=io.BytesIO(archive.stdout)) as tar:
+            tar.extractall(tmp, filter="data")
+        clean = Path(tmp) / "web"
+        (clean / "node_modules").symlink_to(web / "node_modules", target_is_directory=True)
+        proc = subprocess.run(
+            ["npm", "run", "--silent", "build"],
+            cwd=clean,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    tail = (proc.stdout + proc.stderr).strip().splitlines()[-10:]
+    if proc.returncode != 0:
+        return CheckResult("web build", "FAIL", "\n".join(tail))
+    return CheckResult("web build", "PASS", "tsc + vite build of HEAD in a clean directory")
+
+
 def wp9a(root: Path, passed: set[str]) -> list[CheckResult]:
     """API tests pass, the web build (type check + bundle) passes, no sample data in web/."""
     names = {t.split("::")[-1] for t in passed}
     absent = [f"{t} did not pass" for t in WP9A_TESTS if t not in names]
     web = root / "web"
-    if not (web / "node_modules").is_dir():
-        build = CheckResult("web build", "FAIL", "web/node_modules missing: run `npm ci` in web/")
-    else:
-        proc = subprocess.run(
-            ["npm", "run", "--silent", "build"],
-            cwd=web,
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        tail = (proc.stdout + proc.stderr).strip().splitlines()[-10:]
-        build = (
-            CheckResult("web build", "PASS", "tsc + vite build")
-            if proc.returncode == 0
-            else CheckResult("web build", "FAIL", "\n".join(tail))
-        )
+    build = web_build(root)
     sample = [
         f"{p.relative_to(root)} contains sample-data markers"
         for p in sorted((web / "src").rglob("*"))
