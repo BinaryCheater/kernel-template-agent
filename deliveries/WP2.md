@@ -140,4 +140,31 @@ D180, D181 (needs user review), D182, D183, D184 (needs user review), D185, D186
 
 ## Gate output
 
-GATE_OUTPUT_PLACEHOLDER
+Run: `KTA_DATA=~/kta-data scripts/gate WP2` on the control host at `9833c04` (spark and slai deployed at that commit); this commit adds only this section.
+
+```text
+gate WP2: PASSED (23 pass, 0 warn, 0 fail)
+  PASS ruff format
+  PASS ruff check
+  PASS import layers
+  PASS residue
+  PASS test doubles
+  PASS error handling
+  PASS print
+  PASS subprocess outside Executor
+  PASS secrets
+  PASS acceptance lock — 2 locked files unchanged
+  PASS pyright
+  PASS unit tests — 190 passed
+  PASS contract tests — 2 passed
+  PASS fake coverage — 1 fake(s) covered
+  PASS registry (kta doctor, dev)
+  PASS delivery note
+  PASS fixture declarations — 1 declared
+  PASS decision log — 136 decisions
+  PASS skipped tests — none
+  PASS evidence — 7 claim(s)
+  PASS WP2 GPU acceptance run — 6 passed
+  PASS WP2 acceptance tests — 6 tests passed
+  PASS WP2 records — Target, Build, Worker, EnvManifest, Check listed and real
+```
