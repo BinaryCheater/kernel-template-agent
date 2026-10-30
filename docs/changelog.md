@@ -84,7 +84,7 @@ Branch `wp/WP14`; delivery note `deliveries/WP14.md`; decisions D440–D454.
 ### Also changed
 
 - Schema versioning by upcast on read (D440): Pattern, Template, Gap, Reconstruction are schema 2; old records read back unchanged in storage.
-- Seed migrated by `scripts/migrations/WP14_knowledge_v2.py` (ledger `knowledge/seed/migrations.yaml`); 16 Capabilities and 16 GB10 declarations added; 21 Realisations extracted from Template bodies.
+- Seed migrated by `scripts/migrations/WP14_knowledge_v2.py` (ledger `knowledge/seed/migrations.yaml`); 16 Capabilities and 16 GB10 declarations added; 18 Realisations extracted from Template bodies (1 seed, 17 in references).
 - Worker skills `decompose-kernel`, `write-template`, `find-knowledge` use `requires` (Capabilities), levels 1–7 and Realisations.
 
 ### Not done here
