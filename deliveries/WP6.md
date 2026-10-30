@@ -299,13 +299,13 @@ gate WP6 --stage code: PASSED (22 pass, 0 warn, 0 fail)
   PASS secrets
   PASS acceptance lock — 7 locked files unchanged
   PASS pyright
-  PASS unit tests — 538 passed
+  PASS unit tests — 540 passed
   PASS contract tests — 8 passed
   PASS fake coverage — 2 fake(s) covered
   PASS registry (kta doctor, dev)
   PASS delivery note
   PASS fixture declarations — 1 declared
-  PASS decision log — 326 decisions
+  PASS decision log — 327 decisions
   PASS skipped tests — none
   PASS evidence — 5 claim(s)
   PASS WP6 transition tests — 4 tests passed
