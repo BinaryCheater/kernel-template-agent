@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-ExecutionKind = Literal["timeout", "oom", "gpu_hang", "infra", "nonzero"]
+ExecutionKind = Literal["timeout", "oom", "gpu_hang", "infra", "nonzero", "cancelled"]
 
 
 class KtaError(Exception):

@@ -10,17 +10,24 @@ write JSON (or a blob stream) on stdout:
   put                   stdin: blob stream -> stores verified blobs in the cache
   get   <sha>...        stdout: blob stream of cached blobs
   run                   stdin: {"job_id", "job", "spec", "device"} -> JobResult fields
+  cancel <job_id>       stop that job's process group (and container) -> {"stopped": bool}
   serve                 the ``kta worker`` pull daemon (not implemented: NotSupported)
 
 The GPU-exclusive lease is enforced by the Executor that dispatches to this worker
 (``kta.execution.executor``); the worker enforces timeouts, process groups and the
-GPU health check after a timeout.
+GPU health check after a timeout or cancel.
+
+Cancel (decision D421): ``cancel`` first writes a marker ``<root>/cancel/<job_id>``,
+then kills the process group named in the job directory's ``.pgid`` file. ``run``
+writes ``.pgid`` right after starting the job and only then looks for the marker, so a
+cancel that arrives before the job started, or while it starts, is never lost.
 """
 
 from __future__ import annotations
 
 import json
 import os
+import re
 import resource
 import shutil
 import signal
@@ -44,6 +51,7 @@ KILL_GRACE_S = 10.0
 # Environment variables passed from the worker process to host jobs; everything else
 # comes from Job.env, so a job's environment is reproducible from its record.
 PASS_ENV = ("PATH", "HOME", "LANG", "LC_ALL", "USER", "TMPDIR")
+JOB_ID = re.compile(r"[0-9A-Za-z]{1,64}")
 
 
 @dataclass(frozen=True)
@@ -55,7 +63,16 @@ class WorkerDirs:
         return WorkerCache(self.root / "cache")
 
     def job_dir(self, job_id: str) -> Path:
-        return self.root / "jobs" / job_id
+        return self.root / "jobs" / _job_id(job_id)
+
+    def cancel_marker(self, job_id: str) -> Path:
+        return self.root / "cancel" / _job_id(job_id)
+
+
+def _job_id(job_id: str) -> str:
+    if not JOB_ID.fullmatch(job_id):
+        raise ExecutionError("infra", f"job id {job_id!r} is not alphanumeric")
+    return job_id
 
 
 def worker_dirs(environ: Mapping[str, str] | None = None) -> WorkerDirs:
@@ -106,6 +123,34 @@ def _kill_group(proc: subprocess.Popen[bytes]) -> None:
     except ProcessLookupError:
         return
     proc.wait(timeout=KILL_GRACE_S)
+
+
+def _kill_container(job_id: str) -> None:
+    if docker := shutil.which("docker"):
+        subprocess.run(sandbox.kill_argv(docker, job_id), capture_output=True, check=False)
+
+
+def cancel_job(job_id: str, dirs: WorkerDirs) -> bool:
+    """Stop a job started by ``run`` on this worker; True when a process was killed.
+
+    The marker makes a ``run`` that has not started its process yet end as cancelled.
+    """
+    marker = dirs.cancel_marker(job_id)
+    marker.parent.mkdir(parents=True, exist_ok=True)
+    marker.touch()
+    try:
+        started = json.loads((dirs.job_dir(job_id) / ".pgid").read_text())
+    except (FileNotFoundError, json.JSONDecodeError):
+        return False  # not started (the marker stops it) or already finished
+    if started["container"]:
+        _kill_container(job_id)
+    try:
+        # .pgid is removed as soon as the job is reaped, so the group is still the job's
+        # except in that short window (pgid reuse right then is not guarded against).
+        os.killpg(int(started["pgid"]), signal.SIGKILL)
+    except ProcessLookupError:
+        return False
+    return True
 
 
 def _classify(returncode: int, timed_out: bool, stderr_tail: bytes) -> ErrorKind:
@@ -165,11 +210,18 @@ def _command(
     return argv, env
 
 
+def _write_pgid(job_dir: Path, proc: subprocess.Popen[bytes], container: bool) -> None:
+    tmp = job_dir / ".pgid.tmp"
+    tmp.write_text(json.dumps({"pgid": proc.pid, "container": container}))
+    tmp.replace(job_dir / ".pgid")  # atomic: cancel never reads a partial file
+
+
 def run_job(
     job: Job, job_id: str, spec: WorkerSpec, device: str | None, dirs: WorkerDirs
 ) -> dict[str, Any]:
     cache = dirs.cache
     job_dir = dirs.job_dir(job_id)
+    marker = dirs.cancel_marker(job_id)
     job_dir.mkdir(parents=True, exist_ok=False)
     try:
         _prepare(job, job_dir, cache)
@@ -177,6 +229,19 @@ def run_job(
         stdout_path, stderr_path = job_dir / ".stdout", job_dir / ".stderr"
         mem = job.mem_limit_mb if job.container is None else None
         start = time.monotonic()
+        if marker.exists():
+            stdout_path.write_bytes(b"")
+            stderr_path.write_bytes(b"cancelled before start\n")
+            return {
+                "ok": False,
+                "exit_code": -1,
+                "wall_s": 0.0,
+                "error_kind": "cancelled",
+                "stdout_blob": cache.add(stdout_path),
+                "stderr_blob": cache.add(stderr_path),
+                "outputs": {},
+                "device": device,
+            }
         with stdout_path.open("wb") as out, stderr_path.open("wb") as err:
             proc = subprocess.Popen(
                 argv,
@@ -188,18 +253,29 @@ def run_job(
                 start_new_session=True,  # its own process group, killed as a whole
                 preexec_fn=(lambda: _limit_memory(mem)) if mem is not None else None,
             )
+            _write_pgid(job_dir, proc, job.container is not None)
+            stop = marker.exists()  # cancel came while the job started
             timed_out = False
-            try:
-                proc.wait(timeout=job.timeout_s)
-            except subprocess.TimeoutExpired:
-                timed_out = True
-                if job.container is not None and (docker := shutil.which("docker")):
-                    subprocess.run(sandbox.kill_argv(docker, job_id), capture_output=True)
+            if not stop:
+                try:
+                    proc.wait(timeout=job.timeout_s)
+                except subprocess.TimeoutExpired:
+                    timed_out = stop = True
+            if stop:
+                if job.container is not None:
+                    _kill_container(job_id)
                 _kill_group(proc)
+            (job_dir / ".pgid").unlink()
         wall_s = time.monotonic() - start
         stderr_tail = stderr_path.read_bytes()[-4096:]
         kind = _classify(proc.returncode, timed_out, stderr_tail)
-        if kind in ("timeout", "oom") and job.uses_gpu and not gpu_healthy(device, spec.nvidia_smi):
+        if marker.exists():
+            kind = "cancelled"
+        if (
+            kind in ("timeout", "oom", "cancelled")
+            and job.uses_gpu
+            and not gpu_healthy(device, spec.nvidia_smi)
+        ):
             kind = "gpu_hang"
         outputs = {
             str(p.relative_to(job_dir / "out")): cache.add(p)
@@ -219,6 +295,7 @@ def run_job(
     finally:
         # The job directory is scratch: inputs and outputs live on in the cache (D194).
         shutil.rmtree(job_dir, ignore_errors=True)
+        marker.unlink(missing_ok=True)
 
 
 def _emit(data: Any) -> None:
@@ -236,7 +313,7 @@ def _fail(message: str, code: int) -> int:
 def main(argv: list[str] | None = None) -> int:
     args = sys.argv[1:] if argv is None else argv
     if not args:
-        return _fail("usage: python -m kta.execution.worker info|has|put|get|run|serve", 2)
+        return _fail("usage: python -m kta.execution.worker info|has|put|get|run|cancel|serve", 2)
     cmd, rest = args[0], args[1:]
     try:
         if cmd == "serve":
@@ -259,6 +336,8 @@ def main(argv: list[str] | None = None) -> int:
             job = Job.from_dict(req["job"])
             spec = WorkerSpec.from_dict(req["spec"])
             _emit(run_job(job, req["job_id"], spec, req.get("device"), dirs))
+        elif cmd == "cancel":
+            _emit({"stopped": cancel_job(rest[0], dirs)})
         else:
             return _fail(f"unknown worker command {cmd!r}", 2)
     except NotSupported as exc:

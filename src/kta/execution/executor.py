@@ -11,6 +11,10 @@ deferred, and the deferral is logged); the lease is taken once running shared an
 jobs drain. It is also held in the ops ``locks`` table, so two control-plane processes
 never measure on one GPU at once. A lease older than ``max_s`` is force-released and
 the release is written to ``ops_events``.
+
+``cancel`` (decision D420) takes a queued job out of the queue and stops a running one
+on its worker through the ``cancel`` worker command (process group, container); either
+way ``wait`` then raises ``ExecutionError("cancelled")``.
 """
 
 from __future__ import annotations
@@ -101,6 +105,8 @@ class _Pending:
     error: BaseException | None = None
     deferred_by: str | None = None
     warned_unmatched: bool = False
+    cancelled: bool = False
+    slot: _Slot | None = None  # set once the job left the queue
 
 
 class JobExecutor:
@@ -158,6 +164,37 @@ class JobExecutor:
 
     def run(self, job: Job) -> JobResult:
         return self.wait(self.submit(job))
+
+    def cancel(self, job_id: str) -> None:
+        """Stop a job; ``wait`` then raises ExecutionError("cancelled").
+
+        A queued job leaves the queue; a running one is killed on its worker. A finished
+        job is left as it is, and cancelling twice is harmless.
+        """
+        with self.cond:
+            p = self.jobs.get(job_id)
+            if p is None:
+                raise ConfigError(f"unknown job {job_id}")
+            if p.done.is_set():
+                return
+            p.cancelled = True
+            slot = p.slot
+            self.cond.notify_all()
+        if slot is None:
+            log.info("job %s cancelled while queued", job_id)
+            return
+        try:
+            stopped = slot.worker.client.cancel(job_id)
+        except (ExecutionError, NotSupported) as exc:
+            # The job still ends as cancelled; its slot frees when the worker returns.
+            log.warning("job %s: cancel did not reach %s: %s", job_id, slot.worker.name, exc)
+            return
+        log.info(
+            "job %s cancelled on %s (%s)",
+            job_id,
+            slot.worker.name,
+            "process killed" if stopped else "process not started or already ended",
+        )
 
     def pending(self) -> list[dict[str, Any]]:
         """Jobs still waiting for a worker, with the reason (for the pending view)."""
@@ -309,9 +346,12 @@ class JobExecutor:
                         w.waiting_exclusive[d] = w.waiting_exclusive.get(d, 0) + 1
             try:
                 while True:
+                    if p.cancelled:
+                        raise ExecutionError("cancelled", f"job {p.job_id} cancelled while queued")
                     slot = self._place(p)
                     if slot is not None:
                         slot.worker.running[slot.pool] = slot.worker.running.get(slot.pool, 0) + 1
+                        p.slot = slot
                         return slot
                     if p.deferred_by and p.deferred_by != logged:
                         log.info(
@@ -373,7 +413,14 @@ class JobExecutor:
         except BaseException as exc:  # noqa: BLE001 - handed to wait(), which re-raises it
             p.error = exc
         finally:
-            p.done.set()
+            with self.cond:
+                # A cancel decides the outcome even when the job ended some other way first.
+                if p.cancelled and not (
+                    isinstance(p.error, ExecutionError) and p.error.kind == "cancelled"
+                ):
+                    p.error = ExecutionError("cancelled", f"job {p.job_id} cancelled")
+                p.done.set()
+                self.cond.notify_all()
 
     def _queue_span(self, p: _Pending, slot: _Slot, queued_at: datetime) -> None:
         """The job_queue span, written once the worker (and so its lane) is known."""
@@ -412,6 +459,8 @@ class JobExecutor:
         w, job = slot.worker, p.job
         if slot.lease_owner is not None:
             job = replace(job, timeout_s=min(job.timeout_s, LEASE_MAX_S))
+        if p.cancelled:
+            raise ExecutionError("cancelled", f"job {p.job_id} cancelled before it started")
         log.info("job %s start on %s pool %s device %s", p.job_id, w.name, slot.pool, slot.device)
         try:
             self._upload(w.client, job)

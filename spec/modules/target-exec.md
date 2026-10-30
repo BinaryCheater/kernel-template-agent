@@ -136,3 +136,8 @@ Changes and additions to the interfaces above, made in WP2 and recorded in docs/
 ## WP7 implementation notes (D281)
 
 - TileLang `kernel.py` may define `PASS_CONFIGS` (dict); the codegen applies them in `PassContext(opt_level=3)` and reports `pass_configs`, `dynamic_smem` and `grid` in `gen.json`. The Build fails when the LaunchSpec gives less dynamic shared memory or another grid. `Build.smem` is static plus dynamic shared memory (`common.write_build(..., dynamic_smem=0)`).
+
+## WP2 follow-up: job cancel (D420–D422)
+
+- `Executor.cancel(job_id: str) -> None` (added to the `Executor` protocol; `JobRunner` unchanged). A queued job leaves the queue; a running job is stopped on its worker (process group; container jobs are `docker kill`ed) by the worker command `cancel <job_id>`, over both `local` and `ssh`. `wait(job_id)` then raises `ExecutionError("cancelled")`. Cancelling a finished job does nothing; an unknown id raises `ConfigError` (D420, worker protocol D421).
+- Error kinds gain `cancelled`: `ExecutionError.kind` and `JobResult.error_kind` ∈ `timeout | oom | gpu_hang | infra | nonzero | cancelled` (plus `none` for `error_kind`), D422. A cancelled GPU job gets the post-kill GPU health check; an unanswering GPU still yields `gpu_hang` on the worker's result.
