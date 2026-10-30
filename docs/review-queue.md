@@ -498,6 +498,7 @@ Decisions made without the user that need review. Newest last. Each entry: quest
 - **Choice:** with `KTA_TASK_TOKEN` set, only `kta note` works (through that endpoint). Every other command refuses with NotSupported naming the endpoint it needs, and no command opens a local store.
 - **Rationale:** an agent must not fall back to direct store access; missing endpoints are visible.
 - **Cost of changing later:** low on the CLI side (`kta.cli.client.dispatch`). The API (WP9b) needs read, query, validate, build and submit endpoints for agents to work.
+- **Update (D379):** WP9b added those endpoints (`wp/WP9b` @ c890af8); client mode now uses all of them, and only `run` and `src` refuse.
 ## D382 — Expand-loop tasks follow the chain, not the Gaps
 
 - **Question:** spec/modules/orchestrator-cli.md says each Gap of a T2 creates one T3. WP10a's 55 Gaps map to 30 Templates (several Gaps per proposed Template), and 18 Gaps (compiler-decided allocation, family-level dispatch, a missing check kind) have no Template to extract.

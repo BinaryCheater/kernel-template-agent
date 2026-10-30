@@ -93,6 +93,13 @@ def reverify_bound(svc: Services, record: str) -> str:
     raise NotSupported(f"Bound {record[:12]} was not written by a solve loop on this store")
 
 
+def reverifiable(svc: Services, record: str) -> None:
+    """NotSupported unless ``reverify`` can act on ``record`` (D368, D378)."""
+    if not _solutions_of(svc, record) and svc.store.get(record).kind != "Bound":
+        kind = svc.store.get(record).kind
+        raise NotSupported(f"re-verifying a {kind} that no Solution rests on (WP11)")
+
+
 def reverify(svc: Services, record: str, holder: str) -> list[str]:
     """Re-verify a suspect record (D368, D378); returns the loops started or the Report.
 
@@ -182,6 +189,7 @@ class Operations:
         return self._pause(scope, False, reason, human)
 
     def request_reverify(self, record: str, reason: str, human: Actor) -> dict[str, Any]:
+        reverifiable(self.svc, record)  # refuse before writing the HumanAction
         action = _action(self.svc, human, f"reverify {record}", reason, {"subject": record})
         loops = reverify(self.svc, record, f"human:{human.name}")
         return {"record": record, "loops": loops, "action": action}

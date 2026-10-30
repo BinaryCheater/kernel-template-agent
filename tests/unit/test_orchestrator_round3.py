@@ -69,6 +69,7 @@ def test_zero_arm_gets_no_pool_objects_and_tasks_carry_batch_and_arm(svc: Servic
     assert info["batch"] == "exp-b" and info["process"] == "experiment"
     assert info["arm"] == {
         "name": "a",
+        "knowledge": "zero",
         "condition": {"knowledge": "zero"},
         "snapshot": None,
         "protocol": w["case"],
@@ -90,6 +91,27 @@ def test_snapshot_limits_retrieval_to_its_members(svc: Services) -> None:
     card = svc.store.get(svc.ops.task(row["data"]["waiting_on"]).card_id)
     retrieval = svc.store.get(card.body["inputs"][-1])
     assert retrieval.body["data"]["snapshot"] == 0 and retrieval.body["data"]["templates"] == []
+
+
+def test_knowledge_aliases_and_text_needs_a_snapshot(svc: Services) -> None:
+    from kta.orchestrator.solve_work import knowledge_of
+
+    assert knowledge_of({"knowledge": "from_zero"}) == "zero"
+    assert knowledge_of({"knowledge": "template_pool"}) == "pool"
+    assert knowledge_of(None) == "pool"
+    w = world(svc)
+    row = _advance(svc, _experiment_loop(svc, w["case"], condition={"knowledge": "text"}), 3)
+    assert "needs a pinned snapshot" in row["data"]["blocked"]["message"]
+
+
+def test_reverify_request_for_an_unsupported_kind_writes_nothing(svc: Services) -> None:
+    from kta.core.errors import NotSupported
+    from kta.orchestrator.operations import Operations
+
+    w = world(svc)
+    with pytest.raises(NotSupported):
+        Operations(svc).request_reverify(w["contract"], "x", HUMAN)
+    assert svc.store.query("HumanAction", limit=5) == []
 
 
 def test_bad_condition_or_snapshot_blocks(svc: Services) -> None:

@@ -19,6 +19,7 @@ from kta.orchestrator import budget, control, expand_work, solve_work
 from kta.orchestrator.inbox import inbox
 from kta.orchestrator.machines import machine
 from kta.orchestrator.pipeline import Services
+from kta.orchestrator.solve_work import knowledge_of
 from kta.orchestrator.step import step
 from kta.orchestrator.tasks import TaskQueue
 from kta.orchestrator.transition import Draft, Loop, Settings, Transition
@@ -197,8 +198,9 @@ class Runner:
                 self.queue.annotate(
                     task_id,
                     batch=exp.get("batch"),
-                    arm={
+                    arm={  # the shape WP8 reads (D373)
                         "name": exp.get("arm"),
+                        "knowledge": knowledge_of(exp.get("condition")),
                         "condition": exp.get("condition") or {},
                         "snapshot": exp.get("snapshot"),
                         "protocol": exp.get("protocol"),

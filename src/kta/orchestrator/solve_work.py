@@ -71,6 +71,19 @@ def work_bounded(svc: Services, loop: Loop) -> Facts:
 
 
 KNOWLEDGE_CONDITIONS = ("pool", "text", "zero")  # docs/design/50 §1: the experiment arms
+# Aliases WP8 also accepts for the same three arms (agreed with WP8, D373).
+KNOWLEDGE_ALIASES = {"from_zero": "zero", "text_knowledge": "text", "template_pool": "pool"}
+
+
+def knowledge_of(condition: Mapping[str, Any] | None) -> str:
+    raw = str(dict(condition or {}).get("knowledge", "pool"))
+    knowledge = KNOWLEDGE_ALIASES.get(raw, raw)
+    if knowledge not in KNOWLEDGE_CONDITIONS:
+        raise SchemaError(
+            f"experiment condition knowledge={raw!r}; one of {KNOWLEDGE_CONDITIONS} "
+            f"or {sorted(KNOWLEDGE_ALIASES)}"
+        )
+    return knowledge
 
 
 def pinned(svc: Services, loop: Loop) -> tuple[set[str] | None, str]:
@@ -78,15 +91,14 @@ def pinned(svc: Services, loop: Loop) -> tuple[set[str] | None, str]:
 
     ``loop.data.experiment`` is pinned by the experiment process (WP11): ``snapshot`` (a
     PoolSnapshot ID) limits retrieval to its members; ``condition.knowledge`` is one of
-    ``pool`` (default), ``text`` or ``zero``. Outside experiments: the whole pool.
+    ``pool`` (default), ``text`` or ``zero`` (or WP8's aliases). The ``text`` arm needs a
+    snapshot (the text is rendered from it, WP8). Outside experiments: the whole pool.
     """
     exp: Mapping[str, Any] = loop.data.get("experiment") or {}
-    knowledge = str(dict(exp.get("condition") or {}).get("knowledge", "pool"))
-    if knowledge not in KNOWLEDGE_CONDITIONS:
-        raise SchemaError(
-            f"experiment condition knowledge={knowledge!r}; one of {KNOWLEDGE_CONDITIONS}"
-        )
+    knowledge = knowledge_of(exp.get("condition"))
     snap = exp.get("snapshot")
+    if knowledge == "text" and not snap:
+        raise SchemaError("the text-knowledge arm needs a pinned snapshot")
     if not snap:
         return None, knowledge
     rec = svc.store.get(str(snap))
