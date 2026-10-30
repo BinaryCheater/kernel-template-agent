@@ -11,6 +11,8 @@ class Actor:
     type: Literal["tool", "checker", "agent", "human", "system", "import"]
     name: str                 # 例如 "kta measure"、"numeric_checker@3"、"worker"
     task: str?                # 产生它的任务 ID（agent 或工具在任务中调用时）
+    commit: str?              # git commit of the code that wrote the record (D84, D140)
+    dirty: bool?              # uncommitted changes in that code; set together with commit
 
 class Record:
     kind: str                 # 见 §3、§4 的 kind 名
@@ -23,6 +25,7 @@ class Record:
     origin: Literal["real", "fixture", "simulated", "historical"] = "real"
 ```
 
+- (D141) In Python the field `schema` is `Record.schema_` (JSON alias `schema`); the stored JSON uses `schema`. (D144) The body is stored normalized (every default filled in) and `created_at` in UTC before hashing. (D140) `Store.put` fills `actor.commit`/`actor.dirty` from its code state when absent and keeps them when present.
 - **ID** = `sha256(canonical_json(record))` 的十六进制。`canonical_json`：键排序、无多余空白、UTF-8、datetime 用 ISO 8601、浮点用 `repr`。
 - `origin` 必填。只有 `real` 的记录能进入正式结论。
 - `refs` 中的每个 ID 必须已存在于存储中，否则写入失败。
@@ -262,6 +265,20 @@ class HumanAction:  action: str; reason: str
 class PoolSnapshot: members: list[str]; note: str
 ```
 
+### 4.10 Kinds listed in docs/design/20 §2.3 without fields above (D143, needs user review)
+
+```python
+class Source:        name: str; type: Literal["git", "archive", "paper", "doc", "other"]
+                     locator: str            # URL or path it was obtained from
+                     revision: str           # commit, archive sha256, DOI or edition
+                     license: str?; note: str?
+class Protocol:      name: str; version: int; type: Literal["measurement", "experiment", "other"]
+                     description: str; params: dict
+class ExperimentRun: name: str; condition: str; seed: int?; params: dict; note: str
+class Report:        title: str; subject: str; summary: str; data: dict
+```
+refs: Report may have `env` (EnvManifest). Template's `backward_map_fn: str?` (python function path) is a field of its own.
+
 推进规则（`kta.store.status`）：
 
 | 变更 | 允许的 actor |
@@ -273,3 +290,5 @@ class PoolSnapshot: members: list[str]; note: str
 | 保证等级 declared → tested / bounded / proved | checker |
 
 不满足规则的 StatusChange 写入时被拒绝。
+
+Interpretation used by the implementation (D149, needs user review): checkers may also promote from `stale` and forward between promotion levels; `-> proposed` is allowed for any actor only while the object is proposed, for a human from any status; assurance only moves up.

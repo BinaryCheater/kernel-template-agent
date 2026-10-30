@@ -7,7 +7,12 @@ WP that owns them adds them, so no check is silently skipped.
 from __future__ import annotations
 
 import importlib
+import json
+import math
+import os
 import re
+import sqlite3
+import subprocess
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any, cast
@@ -62,6 +67,123 @@ def wp0(root: Path, passed: set[str]) -> list[CheckResult]:
             "gate violation samples", absent, f"{len(WP0_VIOLATION_TESTS)} samples blocked"
         ),
     ]
+
+
+WP1_ACCEPTANCE = (
+    "test_main_env_rejects_fixture_and_simulated_records",
+    "test_main_env_rejects_dirty_writes",
+    "test_registry_rejects_fixture_store_in_dev",
+    "test_record_id_is_stable_across_processes",
+    "test_update_and_delete_are_refused_by_triggers",
+    "test_put_fails_when_refs_are_missing",
+    "test_status_promotion_rules",
+    "test_stale_propagation_on_five_level_graph",
+    "test_concurrent_cas_pointer_update_has_one_winner",
+)
+BENCH_SUBJECT = "store-benchmark"
+BENCH_MIN_RECORDS = 100_000
+BENCH_P95_MS = 50.0
+STORE_SOURCE = "src/kta/store/sqlite.py"
+
+
+def _p95(values: list[float]) -> float:
+    """Same rule as kta.store.bench: nearest rank on the sorted samples."""
+    ordered = sorted(values)
+    return ordered[min(len(ordered) - 1, round(0.95 * (len(ordered) - 1)))]
+
+
+def _git_ok(root: Path, *args: str) -> bool:
+    proc = subprocess.run(["git", "-C", str(root), *args], capture_output=True, check=False)
+    return proc.returncode == 0
+
+
+def _bench_problems(
+    root: Path, data: Path, rid: str, record: dict[str, Any], con: Any
+) -> list[str]:
+    """Why a store-benchmark Report does not count as WP1 evidence (empty when it does)."""
+    problems: list[str] = []
+    actor, body = record.get("actor", {}), record.get("body", {})
+    commit = str(actor.get("commit"))
+    if actor.get("dirty") is not False:
+        problems.append("written by dirty code")
+    # "Created during WP1": the code that ran contains the store and is in this branch.
+    if not (
+        _git_ok(root, "merge-base", "--is-ancestor", commit, "HEAD")
+        and _git_ok(root, "cat-file", "-e", f"{commit}:{STORE_SOURCE}")
+    ):
+        problems.append(f"commit {commit[:12]} is not a WP1 commit in this branch")
+    env_row = con.execute(
+        "SELECT json FROM records WHERE id = ? AND kind = 'EnvManifest'",
+        (record.get("refs", {}).get("env"),),
+    ).fetchone()
+    if env_row is None or json.loads(env_row[0])["body"].get("role") != "worker":
+        problems.append("refs.env is not a worker EnvManifest (the run belongs on spark)")
+    if body.get("data", {}).get("records_in_store", 0) < BENCH_MIN_RECORDS:
+        problems.append(f"fewer than {BENCH_MIN_RECORDS} records in the benchmarked store")
+    sha = str(record.get("blobs", {}).get("latencies_ms", ""))
+    blob = data / "objects" / sha[:2] / sha[2:]
+    if not sha or not blob.exists():
+        return [*problems, "raw latencies blob is missing"]
+    samples: dict[str, list[float]] = json.loads(blob.read_text(encoding="utf-8"))
+    for name, values in sorted(samples.items()):
+        p95 = _p95(values) if values else math.inf
+        if not p95 < BENCH_P95_MS:
+            problems.append(f"{name}: p95 {p95:.3f} ms >= {BENCH_P95_MS} ms")
+    if not any(n.startswith("query") for n in samples) or not any(
+        n.startswith("search") for n in samples
+    ):
+        problems.append("samples lack query or search timings")
+    return [f"Report {rid[:12]}: {p}" for p in problems]
+
+
+def wp1(
+    root: Path, passed: set[str], data_root: Path | None = None, git_root: Path | None = None
+) -> list[CheckResult]:
+    """Acceptance tests passed; a real store-benchmark Report from spark is in the dev store.
+
+    WP1 has no GPU work, so "pytest -m gpu tests/acceptance/WP1" is the acceptance run
+    inside the unit tests plus this record check (decision D154).
+    """
+    names = {t.split("::")[-1].split("[")[0] for t in passed if "acceptance.WP1" in t}
+    absent = [f"{t} did not pass" for t in WP1_ACCEPTANCE if t not in names]
+    results = [from_findings("WP1 acceptance tests", absent, f"{len(names)} tests passed")]
+    if data_root is None and not os.environ.get("KTA_DATA"):
+        return [*results, CheckResult("store benchmark record", "FAIL", "set KTA_DATA")]
+    data = (data_root or Path(os.environ["KTA_DATA"])) / "dev" / "WP1"
+    db = data / "kta.db"
+    if not db.exists():
+        return [*results, CheckResult("store benchmark record", "FAIL", f"{db} not found")]
+    evidence_path = root / "deliveries" / "WP1.evidence.json"
+    listed: set[str] = set()
+    if evidence_path.exists():
+        for claim in json.loads(evidence_path.read_text(encoding="utf-8")):
+            listed |= set(claim.get("record_ids", []))
+    con = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
+    try:
+        rows = con.execute(
+            "SELECT id, json FROM records WHERE kind = 'Report' AND origin = 'real' "
+            "AND json_extract(json, '$.body.subject') = ?",
+            (BENCH_SUBJECT,),
+        ).fetchall()
+        findings = {
+            rid: _bench_problems(git_root or root, data, rid, json.loads(js), con)
+            for rid, js in rows
+        }
+    finally:
+        con.close()
+    good = sorted(rid for rid, p in findings.items() if not p and rid in listed)
+    if good:
+        detail = f"Report {good[0][:12]} (listed in the evidence manifest)"
+        return [*results, CheckResult("store benchmark record", "PASS", detail)]
+    problems = [p for ps in findings.values() for p in ps] or [
+        f"no real {BENCH_SUBJECT} Report in {db}"
+    ]
+    problems += [
+        f"Report {r[:12]} passes but is not in WP1.evidence.json"
+        for r, p in findings.items()
+        if not p and r not in listed
+    ]
+    return [*results, CheckResult("store benchmark record", "FAIL", "no valid record", problems)]
 
 
 def _yaml_docs(path: Path) -> list[dict[str, Any]]:
@@ -164,6 +286,7 @@ def wp13(root: Path, passed: set[str]) -> list[CheckResult]:
 
 SPECIFIC: dict[str, Callable[[Path, set[str]], list[CheckResult]]] = {
     "WP0": wp0,
+    "WP1": wp1,
     "WP10a": wp10a,
     "WP13": wp13,
 }

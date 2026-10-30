@@ -13,7 +13,11 @@ Schemas (pydantic models per record kind), content-hash IDs, the expression lang
 - `errors`: `KtaError` and subclasses (conventions §3.3)
 - `logging.setup(ctx)`, `logging.bind(**ids)`
 - `doctor.run_doctor(ctx)`, `envmanifest.collect_manifest(role, root, cuda_home)`
-- WP1: `canonical_json`, `record_id`, `Expr`, `load_config`, `schemas/`, `trace.span`
+- `ids`: `canonical_json`, `record_id`, `UlidFactory` (WP1)
+- `schemas`: one pydantic model per kind (`KINDS`), `Record`, `Actor` (with `commit`/`dirty`), `validate_body(kind, body)` raising `InvalidBody` (a `ValueError`) (WP1)
+- `expr.Expr.parse(src, declared)` -> `free_vars`, `attr_refs`, `is_linear`, `eval(env, hw, p, case)`; `ExprError` (WP1)
+- `trace`: `span(kind, name, lane, **attrs)`, `tracing(tracer)`, `new_tracer(sink, clock, ids, environ)`, `current_span_id()`, `child_environ()` (`KTA_TRACE_PARENT`) (WP1)
+- `load_config(path)` (WP0)
 
 ## Dependencies
 

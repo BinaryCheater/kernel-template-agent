@@ -1,4 +1,4 @@
-"""``kta`` command entry point. WP0 provides ``doctor``; WP6 adds the rest."""
+"""``kta`` command entry point. WP0 provides ``doctor``, WP1 ``store``; WP6 adds the rest."""
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ import sys
 from collections.abc import Sequence
 
 from kta.cli.output import emit_error, emit_json, emit_text
+from kta.cli.store_cmds import add_store_commands
 from kta.core.config import default_config_path, load_config
 from kta.core.context import Context, data_dir_for, parse_env
 from kta.core.doctor import DoctorReport, run_doctor
@@ -70,6 +71,7 @@ def build_parser() -> argparse.ArgumentParser:
     doctor.add_argument("--json", action="store_true")
     doctor.add_argument("--role", choices=["control", "worker"], default="control")
     doctor.set_defaults(func=cmd_doctor)
+    add_store_commands(sub, context_from_environ)
     return parser
 
 
