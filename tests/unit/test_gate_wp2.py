@@ -11,7 +11,7 @@ from kta.core.config import repo_root
 from kta.core.context import Context
 from kta.core.schemas import Actor, Record
 from kta.store import CodeState, open_store
-from kta_gate.specific import WP2_ACCEPTANCE, wp2
+from kta_gate.specific import WP2_ACCEPTANCE, stage, wp2
 from storehelp import T0
 
 HEAD = subprocess.run(
@@ -124,3 +124,13 @@ def test_wp2_gate_needs_every_gpu_acceptance_test(ctx: Context, tmp_path: Path) 
     _setup(ctx, tmp_path)
     (_, status, findings), _ = _run(tmp_path, set(list(GPU_PASSED)[:-1]))
     assert status == "FAIL" and len(findings) == 1
+
+
+def test_wp2_code_stage_reports_the_gpu_run_as_pending(ctx: Context, tmp_path: Path) -> None:
+    _setup(ctx, tmp_path)
+    with stage("code"):
+        results = wp2(tmp_path, set(), data_root=tmp_path / "data", git_root=repo_root())
+    assert [(r.name, r.status) for r in results] == [
+        ("WP2 acceptance tests", "WARN"),
+        ("WP2 records", "PASS"),
+    ]

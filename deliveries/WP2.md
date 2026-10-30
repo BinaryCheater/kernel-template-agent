@@ -168,3 +168,36 @@ gate WP2: PASSED (23 pass, 0 warn, 0 fail)
   PASS WP2 acceptance tests — 6 tests passed
   PASS WP2 records — Target, Build, Worker, EnvManifest, Check listed and real
 ```
+
+## Follow-up: job cancel
+
+Requested by the coordinator after the first WP2 version, code stage only (real runs paused, D320). Branch `wp/WP2-cancel`, cut from `integration` @ `0475dea`.
+
+- **What it does.** `JobExecutor.cancel(job_id) -> None`, also on the `Executor` protocol (D420):
+  - a queued job leaves the queue, including a gpu-exclusive job waiting for a lease;
+  - a running job is stopped on its worker by the new worker command `cancel <job_id>`, which works the same over `local` and `ssh`. It kills the job's process group, and `docker kill`s the container for container jobs (D421);
+  - `wait(job_id)` then raises `ExecutionError("cancelled")`. The slot and any GPU lease are freed when the worker's `run` returns;
+  - cancelling a finished job does nothing, cancelling twice is harmless, and an unknown id raises `ConfigError`.
+- **Start races.** The worker writes a cancel marker before it kills, and `run` checks for the marker both before and after starting the job (writing `.pgid` first). A cancel that reaches the worker before the job starts, or while it starts, is therefore not lost.
+- **ssh.** `cancel` is exempt from the per-worker cap of 8 concurrent ssh calls (D196), because the calls holding the cap may be the `run` calls it has to stop.
+- **Error kind.** `cancelled` was added to `ExecutionKind` (`kta.core.errors`) and to `ErrorKind`/`ERROR_KINDS` (`kta.core.jobs`) (D422, needs user review). These two additive lines are outside `src/kta/execution`.
+- **Gate check.** WP2's gate check (`tools/kta_gate/specific.py:wp2`) now reports the spark GPU acceptance run as a pending real run in the code stage, like other WPs under D320. The records check is unchanged.
+- **Tests.** All tests use the local transport with real subprocesses:
+  - in `tests/unit/test_execution_local.py`: a queued cancel; a running cancel that kills a grandchild process and frees the slot; cancel of a finished job; a cancelled exclusive job releasing the lease to a waiting job; and the worker-side cancel-before-start race;
+  - in `tests/unit/test_target_exec_units.py`: the ssh cancel bypassing a full cap;
+  - in `tests/unit/test_gate_wp2.py`: the code-stage gate behaviour.
+- **Not run for real.** Neither the ssh path against spark/slai nor the container (`docker kill`) path has run; see Pending real runs.
+- **Known issues.**
+  - If the kill fails to reach the worker (ssh down), the job still ends as cancelled, but its process keeps running and holds its slot until it ends or times out.
+  - A cancel that the Executor catches before `run` is sent leaves an empty marker file in `<worker root>/cancel/`.
+  - Between the job being reaped and `.pgid` being removed, a reused process-group id could be signalled. This window is not guarded.
+- **New decisions:** D420, D421, D422 (needs user review).
+
+## Pending real runs
+
+- Cancel over `ssh` on spark: a running host job (process tree killed) and a running TileLang container job (`docker kill`), followed by a vector add on the same GPU.
+- Re-run the 6 WP2 GPU acceptance tests at this commit after deploying it (`scripts/worker-setup spark`, `scripts/worker-setup slai`).
+
+### Follow-up gate output (code stage)
+
+(pending)
