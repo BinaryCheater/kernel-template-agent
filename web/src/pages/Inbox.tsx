@@ -4,6 +4,7 @@ import type { InboxItem } from "../data/types";
 import { useApi } from "../data/useApi";
 import { useNow } from "../data/live";
 import { ActionButton, TaskActions, useCaps } from "../components/actions";
+import { ImprovementDecision } from "./Studies";
 import { Loading, Panel, RecordLink } from "../components/ui";
 import { dur, since } from "../components/format";
 
@@ -17,7 +18,7 @@ const TRIGGERS: { trigger: string; why: string }[] = [
   { trigger: "Checker crash, GPU or worker down", why: "infrastructure" },
   { trigger: "Budget at 80%", why: "extend or stop" },
   { trigger: "Experiment protocol waiting for approval", why: "frozen once approved" },
-  { trigger: "System-code improvement item", why: "a coding agent must change code" },
+  { trigger: "System-code improvement item (improvement_pending)", why: "a coding agent must change code" },
   { trigger: "New Template or pattern affecting several families", why: "wide impact" },
 ];
 
@@ -49,7 +50,8 @@ function InboxBody({ items }: { items: InboxItem[] }) {
                   </div>
                 </div>
                 <div className="acts">
-                  {it.task ? <TaskActions task={it.task} label={it.subject} small retry={(it.actions ?? []).includes("retry")} /> : it.record ? (
+                  {it.trigger === "improvement_pending" && it.record ? <ImprovementDecision id={it.record} label={`improvement ${it.subject}`} small />
+                  : it.task ? <TaskActions task={it.task} label={it.subject} small retry={(it.actions ?? []).includes("retry")} /> : it.record ? (
                     <ActionButton op="flag" label="Flag subject" small title={`Flag ${it.subject}`}
                       explain="Marks the subject suspect and asks for re-verification." submit={(r) => act.flag(it.record ?? "", r)} />
                   ) : null}

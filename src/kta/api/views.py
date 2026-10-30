@@ -6,7 +6,7 @@ from typing import Any
 
 from fastapi import APIRouter
 
-from kta.api import agentsview, studies, taskview
+from kta.api import agentsview, runs, studies, taskview
 from kta.api.common import Api
 from kta.store.sqlite import RecordNotFound
 
@@ -31,6 +31,10 @@ def router(api: Api) -> APIRouter:
         if batch not in {b["batch"] for b in agentsview.batches(api)}:
             raise RecordNotFound(f"no batch environment {batch!r}")
         return api.orchestration.verify_batch(batch)
+
+    @r.get("/quotas")
+    def get_quotas() -> dict[str, Any]:  # pyright: ignore[reportUnusedFunction]
+        return runs.quota_view(api)
 
     @r.get("/pool")
     def pool(snapshot: str | None = None) -> dict[str, Any]:  # pyright: ignore[reportUnusedFunction]

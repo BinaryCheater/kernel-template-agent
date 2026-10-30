@@ -22,7 +22,7 @@ from typing import Any
 from kta.api import opsread
 from kta.api.common import Api, envelope
 from kta.api.wiring import TaskSpec
-from kta.core.errors import ConfigError
+from kta.core.errors import ConfigError, NotSupported
 from kta.core.schemas import Actor, Record, RefValue
 from kta.core.schemas.process import HumanAction, StatusChange
 from kta.store import stale
@@ -94,20 +94,31 @@ def deprecate(api: Api, record: str, reason: str) -> dict[str, Any]:
 
 
 def flag(api: Api, record: str, reason: str) -> dict[str, Any]:
-    """Status -> suspect, then ask the orchestrator for a re-verification (D343)."""
+    """Status -> suspect, then ask the orchestrator to re-verify it (D343): WP6 starts a new
+    solve loop for each Case whose Solution rests on the record (D368)."""
     kind = _judged(api, record)
     change = _status_change(api, record, "suspect", reason)
     action = write_action(api, "flag", reason, {"subject": record}, {"kind": kind})
     api.store.put(Record.new("StatusChange", change, operator(api), api.now()))
     gap = api.orchestration.missing().get("reverify")
-    if gap is None:
-        reverify = api.orchestration.request_reverify(record, reason, operator(api))
-        followups = [{"what": "re-verification task", "state": "created", **reverify}]
+    if gap is not None:
+        followups = [{"what": "re-verification", "state": "not_supported", "needs": gap}]
+    elif kind not in REVERIFIABLE:
+        why = f"WP6 re-verifies a Solution or a {'/'.join(REVERIFIABLE[1:])} (D368), not a {kind}"
+        followups = [{"what": "re-verification", "state": "not_supported", "needs": why}]
     else:
-        followups = [{"what": "re-verification task", "state": "not_supported", "needs": gap}]
+        try:
+            done = api.orchestration.request_reverify(record, reason, operator(api))
+            followups = [{"what": "re-verification", "state": "started", **done}]
+        except NotSupported as exc:
+            # The flag stands; WP6 re-verifies only what a Solution rests on (D368).
+            followups = [{"what": "re-verification", "state": "not_supported", "needs": str(exc)}]
     return {"action": action, "subject": envelope(api, record), "followups": followups}
 
 
+# What WP6 can re-verify: a Solution, or a record a Solution rests on (D368). Other kinds
+# are flagged only, so no re-verification request is written for them.
+REVERIFIABLE = ("Solution", "Measurement", "Check", "Bound")
 APPROVABLE = {"protocol": ("Protocol",), "improvement": ("Report",)}
 CONFIRMABLE = {"pattern": ("Pattern",), "structure": ("Structure",)}
 
@@ -123,10 +134,21 @@ def approve(api: Api, what: str, record: str, reason: str) -> dict[str, Any]:
     if what == "profile":
         _expect_kind(api, record, ("AgentProfile",), "AgentProfile")
         return api.orchestration.approve_profile(record, reason, operator(api))
+    if what == "improvement":
+        return decide_improvement(api, record, reason, approve=True)
     _expect_kind(api, record, APPROVABLE[what], what)
-    if what == "improvement" and api.store.get_json(record)["body"]["title"] != "improvement":
-        raise ConfigError(f"Report {record[:12]} is not an improvement report")
     action = write_action(api, f"approve_{what}", reason, {what: record})
+    return {"action": action, "subject": envelope(api, record)}
+
+
+def decide_improvement(api: Api, record: str, reason: str, approve: bool) -> dict[str, Any]:
+    """Approve or reject the system items of an improvement Report (WP11 D406): the
+    summarize process reads ``approve_improvement``/``reject_improvement`` with refs.improvement."""
+    _expect_kind(api, record, APPROVABLE["improvement"], "improvement")
+    if api.store.get_json(record)["body"]["title"] != "improvement":
+        raise ConfigError(f"Report {record[:12]} is not an improvement report")
+    verb = "approve_improvement" if approve else "reject_improvement"
+    action = write_action(api, verb, reason, {"improvement": record})
     return {"action": action, "subject": envelope(api, record)}
 
 
@@ -187,11 +209,8 @@ def create_task(api: Api, spec: TaskSpec, reason: str) -> dict[str, Any]:
     for rid in spec.inputs:
         if not api.store.exists(rid):
             raise RecordNotFound(f"input record {rid} does not exist")
-    out = api.orchestration.create_task(spec, reason, operator(api))
-    # TaskQueue.create writes the card as the orchestrator; this records that you asked.
-    params = {"type": spec.type, "task": out["task"], "work_unit": out.get("work_unit")}
-    action = write_action(api, "create_task", reason, {"card": out["card"]}, params)
-    return {**out, "action": action}
+    # TaskQueue.create writes the card and your HumanAction (WP6 D365, D358).
+    return api.orchestration.create_task(spec, reason, operator(api))
 
 
 def pause(api: Api, scope: str, reason: str, resume: bool) -> dict[str, Any]:

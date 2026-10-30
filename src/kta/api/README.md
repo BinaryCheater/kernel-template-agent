@@ -13,8 +13,9 @@ HTTP API (read and operation endpoints) for the web frontend; holds the single s
 - record conventions the views read: spec/modules/api-web.md "Record conventions" (D169)
 - operation endpoints (WP9b): `actions.py` (routes, `GET /actions/capabilities`, `/actions/log`),
   `operate.py` (what each operation writes), `wiring.py` (the `Orchestration` port: `Wired`
-  calls WP6's task queue and inbox and WP8's profile pointer, batch verify and task tokens,
-  D355; what WP6 does not offer yet raises NotSupported), `auth.py` (`POST /write/record`)
+  delegates to WP6's `Operations` and inbox and calls `kta.agents` for the profile pointer,
+  batch verify and task tokens, D355), `auth.py` (`POST /write/record`), `agentapi.py` (the
+  token endpoints `/agent/*` for the agent commands in client mode, D352)
 - WP9b read views: `views.py` routes to `taskview.py`, `agentsview.py`, `studies.py`
 
 ## Dependencies

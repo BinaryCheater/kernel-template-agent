@@ -45,7 +45,7 @@ function TaskBody({ d, m }: { d: TaskDetail; m: Machines }) {
             <span className="mono muted">{t.id}</span>
           </div>
         </div>
-        {live || t.state === "escalated" ? <TaskActions task={t.id} label={`${t.type} ${d.card.goal}`} retry={t.state === "escalated" || t.state === "rejected"} /> : null}
+        {live || t.state === "escalated" ? <TaskActions task={t.id} label={`${t.type} ${d.card.goal}`} retry={t.state === "escalated" || t.state === "rejected"} priority={t.priority} /> : null}
       </div>
 
       <div className="stats">

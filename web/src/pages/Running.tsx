@@ -102,7 +102,7 @@ function RunningBody({ a, m }: { a: ActiveRuns; m: Machines }) {
                 <td className="num">{t.retries}/{t.max_retries}</td>
                 <td className="r num">{dur(t.queue_s)}</td>
                 <td><RecordLink id={t.card} /></td>
-                <td><TaskActions task={t.id} label={`${t.type} ${t.goal}`} small retry={t.state === "escalated"} /></td>
+                <td><TaskActions task={t.id} label={`${t.type} ${t.goal}`} small retry={t.state === "escalated"} priority={t.priority} /></td>
               </tr>
             ))}</tbody>
           </table>

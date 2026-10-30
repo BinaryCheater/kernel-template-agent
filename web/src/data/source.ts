@@ -4,7 +4,7 @@
 import type {
   ActionLogEntry, ActiveRuns, AgentsView, BlobText, Capability, CaseDetail, CaseIndexRow, CoverageReport,
   FamilyDetail, FamilySummary, ImprovementsView, InboxItem, Machines, Meta, PoolView, RecordEnvelope,
-  Residual, ResultDetail, Snapshot, Span, TaskDetail, TraceInfo, ExperimentProtocol,
+  Quotas, Residual, ResultDetail, Snapshot, Span, TaskDetail, TraceInfo, ExperimentProtocol,
 } from "./types";
 
 const BASE = "/api";
@@ -72,6 +72,7 @@ export const api = {
   experiments: async () => (await get<{ protocols: ExperimentProtocol[] }>("/experiments")).protocols,
   improvements: () => get<ImprovementsView>("/improvements"),
   residuals: (model?: string) => get<Residual[]>("/model/residuals", { model }),
+  quotas: () => get<Quotas>("/quotas"),
   verifyBatch: (batch: string) => post<Record<string, unknown>>(`/agents/batches/${enc(batch)}/verify`),
 };
 
@@ -84,6 +85,8 @@ export const act = {
     post<Record<string, unknown>>("/actions/approve", { [what]: record, reason }),
   confirm: (what: "pattern" | "structure", record: string, reason: string) =>
     post<Record<string, unknown>>("/actions/confirm", { [what]: record, reason }),
+  rejectImprovement: (improvement: string, reason: string) =>
+    post<Record<string, unknown>>("/actions/reject-improvement", { improvement, reason }),
   budget: (scope: string, limit: Record<string, number>, reason: string) => post<Record<string, unknown>>("/actions/budget", { scope, limit, reason }),
   cancel: (task: string, reason: string) => post<Record<string, unknown>>("/actions/cancel", { task, reason }),
   retry: (task: string, note: string) => post<Record<string, unknown>>("/actions/retry", { task, note }),

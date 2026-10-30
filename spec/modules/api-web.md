@@ -71,15 +71,18 @@ Additions made in WP9b (D340–D354):
 - A HumanAction written by the API has `action = "<verb>"` or `"<verb> <compact JSON>"`, the
   subject in refs and an actor `human` named by `[api] operator` (D342).
 - `POST /write/record` needs `Authorization: Bearer <task token>` (D352).
-- Wiring (D355–D358): cancel, retry and create-task go through WP6's `TaskQueue`, `/inbox` is
-  WP6's `kta.orchestrator.inbox.inbox`, approve-profile is WP8's `approve_profile`, batch verify
-  is `kta.agents.batches.verify`, task tokens are checked with `kta.agents.guard.verify_task_token`
-  and the key from `[agents] token_key_file` (never created by the API). Priority, pause, resume
-  and the re-verification of a flagged record still answer 501 until WP6 provides them.
-- Reads: `GET /tasks/{id}` (task detail), `GET /blobs/{sha256}` (text blobs), `GET /agents`
-  (runtime skills, AgentProfile versions, `current_profile` history, batch environments),
-  `POST /agents/batches/{batch}/verify` (delegated to WP8), `GET /pool?snapshot=`,
-  `GET /experiments`, `GET /improvements` (D354, conventions D345 below).
+- Wiring (D355, D358): cancel, retry, create-task, priority, pause/resume and re-verification
+  go through WP6's `kta.orchestrator.operations.Operations` (which writes the HumanAction as the
+  operator); `/inbox` is WP6's `kta.orchestrator.inbox.inbox`; approve-profile, batch verify and
+  task tokens call `kta.agents` directly (`[agents] token_key_file`, never created by the API).
+  `POST /actions/reject-improvement {improvement, reason}` rejects the system items of an
+  improvement Report (WP11 D406). `GET /quotas` shows the process shares (WP11 D401).
+- Agent token endpoints for client mode (D352, WP6 D370), all with `Authorization: Bearer
+  <task token>` and optional `X-KTA-Trace-Parent`: `GET /agent/records/{id}`,
+  `/agent/cards/{id}`, `/agent/why/{id}?depth=`; `POST /agent/query {what, term?, case?, k}`,
+  `/agent/validate-template {template}`, `/agent/validate-family {files}`,
+  `/agent/instantiate|build|sass {family, assignment, shape}`, `/agent/submit {files, note}`;
+  files are `{relative path: base64}`.
 
 ### Record conventions read by the API (D169, default — needs user review)
 

@@ -35,6 +35,7 @@ function ProtocolCard({ p }: { p: ExperimentProtocol }) {
       </span>}>
       <div className="grid" style={{ gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", alignItems: "start" }}>
         <div className="stack" style={{ gap: 8 }}>
+          <ExperimentState p={p} />
           <div className="caption">Arms {planned ? `· ${done}/${planned} runs` : `· ${done} runs`}</div>
           {p.arms.map((a) => (
             <div key={a.name} className="arm-bar">
@@ -118,9 +119,10 @@ function ImprovementBody({ v }: { v: ImprovementsView }) {
           <div key={r.id} style={{ borderBottom: "1px solid #efeee9", padding: "10px 0" }}>
             <div className="row wrap" style={{ gap: 8 }}>
               <b>{r.batch ?? "batch ?"}</b><span className="small ink2">{r.summary}</span><RecordLink id={r.id} />
-              <span style={{ marginLeft: "auto" }}>{r.approved.length ? <Chip tone="ok">approved by {r.approved[0].by}</Chip> : (
-                <ActionButton op="approve-improvement" label="Approve" tone="primary" title={`Approve improvement report ${r.batch ?? ""}`}
-                  explain="Hands the system-code items of this report to a coding agent." submit={(x) => act.approve("improvement", r.id, x)} />)}</span>
+              <span style={{ marginLeft: "auto" }}>{r.approved.length ? <Chip tone="ok">approved by {r.approved[0].by}</Chip>
+                : r.rejected.length ? <Chip tone="idle">rejected by {r.rejected[0].by}</Chip>
+                : r.system_items === 0 ? <span className="small muted">no system item to decide</span> : (
+                <ImprovementDecision id={r.id} label={`improvement report ${r.batch ?? ""}`} />)}</span>
             </div>
             <ul className="small" style={{ margin: "6px 0 0", paddingLeft: 18 }}>
               {r.items.map((it, i) => <li key={it.key ?? i}><span className="tag">{it.kind}</span> <b>{it.title}</b>{it.description ? ` — ${it.description}` : ""}</li>)}
@@ -146,4 +148,30 @@ function AttributionChart({ v }: { v: ImprovementsView }) {
     })),
   }) as EOption, [v]);
   return <EChart option={option} height={260} />;
+}
+
+/** Approve or reject the system items of an improvement Report (WP11 D406; inbox item
+ *  ``improvement_pending`` until one of the two HumanActions exists). */
+export function ImprovementDecision({ id, label, small }: { id: string; label: string; small?: boolean }) {
+  return (
+    <span className="row" style={{ gap: 6, display: "inline-flex" }}>
+      <ActionButton op="approve-improvement" label="Approve" tone="primary" small={small} title={`Approve ${label}`}
+        explain="Hands the system-code items of this report to a coding agent." submit={(x) => act.approve("improvement", id, x)} />
+      <ActionButton op="reject-improvement" label="Reject" tone="danger" small={small} title={`Reject ${label}`}
+        explain="The system items of this report are not pursued; the inbox item closes." submit={(x) => act.rejectImprovement(id, x)} />
+    </span>
+  );
+}
+
+function ExperimentState({ p }: { p: ExperimentProtocol }) {
+  const st = p.progress;
+  if (!st.status && !st.started) return p.approved.length ? <div className="small muted">Approved; the experiment process has not started it yet.</div> : null;
+  return (
+    <div className="row wrap small" style={{ gap: 10 }}>
+      <Chip tone={st.status === "done" ? "ok" : st.error ? "fail" : "running"}>{st.status ?? "approved"}</Chip>
+      <span>{st.started} run(s) started · {st.finished} finished</span>
+      {st.report && <span>result <RecordLink id={st.report} /></span>}
+      {st.error && <span style={{ color: "#9b1f1f" }}>last error: {st.error}</span>}
+    </div>
+  );
 }

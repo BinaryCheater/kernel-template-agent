@@ -12,6 +12,7 @@ from typing import Any
 
 from kta.api import opsread
 from kta.api.common import Api, body, config_int, done_check_reports, iso, machine_limit
+from kta.orchestrator import quotas
 from kta.store.base import SpanRow
 
 RECENT = timedelta(hours=2)
@@ -213,7 +214,11 @@ def budgets(api: Api) -> list[dict[str, Any]]:
 
 
 # Inbox trigger -> the operations offered next to it (names of /actions/capabilities).
-INBOX_ACTIONS = {"Task over retry limit": ["retry", "cancel"], "Checker crashed": ["cancel"]}
+INBOX_ACTIONS = {
+    "Task over retry limit": ["retry", "cancel"],
+    "Checker crashed": ["cancel"],
+    "improvement_pending": ["approve-improvement", "reject-improvement"],
+}
 
 
 def inbox(api: Api) -> list[dict[str, Any]]:
@@ -294,3 +299,14 @@ def _finished(
         key=lambda x: x["ended_at"],
         reverse=True,
     )
+
+
+def quota_view(api: Api) -> dict[str, Any]:
+    """GET /quotas: process shares configured and in force (WP11 D401, as ``kta quotas``)."""
+    base = quotas.shares(api.config)
+    active = quotas.active_experiments(api.ops)
+    return {
+        "configured": base,
+        "in_force": quotas.effective(base, bool(active)),
+        "experiments": active,
+    }

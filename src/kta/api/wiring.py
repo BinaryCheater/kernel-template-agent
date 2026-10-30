@@ -5,9 +5,8 @@ The API writes records and ops rows itself only where the store alone defines th
 control, pausing, priorities, re-verification, the inbox, the profile pointer, batch
 environments and task tokens belong to WP6 and WP8. ``Orchestration`` names each such call.
 
-- ``Wired`` calls the merged WP6/WP8 functions (decision D355). The calls WP6 does not offer
-  yet (priority, pause, resume, re-verification) still raise NotSupported and are listed by
-  ``missing``; ``partial`` names what a wired call does not do yet.
+- ``Wired`` calls WP6's ``Operations`` and inbox and WP8's ``kta.agents`` functions (D355);
+  ``partial`` names what a wired call does not do yet.
 - ``Unwired`` raises NotSupported for everything (D341); it is the default of a bare ``Api``
   in tests. An endpoint never reports an effect that did not happen.
 """
@@ -26,9 +25,8 @@ from kta.core.context import Context
 from kta.core.errors import NotSupported, PermissionDenied
 from kta.core.schemas import Actor
 from kta.orchestrator.inbox import inbox
+from kta.orchestrator.operations import Operations
 from kta.orchestrator.pipeline import Services
-from kta.orchestrator.tasks import TaskQueue
-from kta.orchestrator.transition import TaskRequest
 from kta.store import SqliteOps, SqliteStore
 
 
@@ -81,14 +79,10 @@ NEEDS: dict[str, str] = {
     "write-record": "WP8 task tokens (kta.agents.guard.verify_task_token, D305)",
     "inbox": "WP6 kta.orchestrator.inbox.inbox",
 }
-# Still raising NotSupported after the WP6/WP8 code-stage merge (528caab); the WP6 session is
-# adding them (human actors, priority, pause/resume, re-verification, agent stop).
-NOT_YET = ("priority", "pause", "resume", "reverify")
+# What a wired operation does not do yet (GET /actions/capabilities ``partial``).
 PARTIAL: dict[str, str] = {
-    "cancel": "the running agent process is not stopped yet, and WP6 names the HumanAction "
-    "actor 'kta task cancel' instead of the operator (WP6 follow-up)",
-    "retry": "the note is stored in the HumanAction but not yet passed to the next TASK.md, "
-    "and WP6 names the actor 'kta task retry' (WP6 follow-up)",
+    "cancel": "a running agent step is not stopped: the Executor has no job cancellation "
+    "(WP2 JobExecutor.cancel); the runner leaves the task cancelled when the step ends",
 }
 HUMAN_PRIORITY = 100  # tasks you start come first (docs/design/11 §4.2; as `kta task create`)
 DEFAULT_TOKEN_KEY = AgentsConfig.__dataclass_fields__["token_key_file"].default
@@ -144,37 +138,48 @@ class Unwired:
 
 
 class Wired(Unwired):
-    """WP6's task queue and inbox, WP8's profile pointer, batch verify and task tokens."""
+    """WP6's human operations (``kta.orchestrator.operations.Operations``, D365) and inbox;
+    WP8's profile pointer, batch verify and task tokens, called directly (the orchestrator
+    may not import the agents module, WP6 D370 note)."""
 
     def __init__(self, ctx: Context, store: SqliteStore, ops: SqliteOps) -> None:
         self.ctx, self.store, self.ops = ctx, store, ops
         self.svc = Services(ctx, store, ops)
-        self.queue = TaskQueue(ctx, store, ops, self.svc)
+        self.operations = Operations(self.svc)
 
     def missing(self) -> dict[str, str]:
-        return {k: NEEDS[k] for k in NOT_YET}
+        return {}
 
     def partial(self) -> dict[str, str]:
         return dict(PARTIAL)
 
-    def _task(self, task_id: str) -> dict[str, Any]:
-        t = self.queue.get(task_id)
-        return {"task": t.id, "state": t.state, "card": t.card_id}
+    def _card(self, out: dict[str, Any]) -> dict[str, Any]:
+        return {**out, "card": self.ops.task(str(out["task"])).card_id}
 
     def cancel_task(self, task_id: str, reason: str, human: Actor) -> dict[str, Any]:
-        self.queue.cancel(task_id, reason)
-        return self._task(task_id)
+        return self._card(self.operations.cancel_task(task_id, reason, human))
 
     def retry_task(self, task_id: str, note: str, human: Actor) -> dict[str, Any]:
-        self.queue.retry(task_id, note)
-        return self._task(task_id)
+        return self._card(self.operations.retry_task(task_id, note, human))
 
     def create_task(self, spec: TaskSpec, reason: str, human: Actor) -> dict[str, Any]:
-        # A task you start has its own work unit (as `kta task create` without --loop).
-        unit = f"human:{self.queue.ids.new()}"
-        req = TaskRequest(spec.type, spec.goal, list(spec.inputs))
-        task_id = self.queue.create(req, unit, "human", priority=spec.priority)
-        return {**self._task(task_id), "work_unit": unit}
+        # TaskQueue.create writes the card and the human's HumanAction (D365); a task you
+        # start gets its own ``human:<id>`` work unit.
+        return self._card(self.operations.create_task(spec, reason, human))
+
+    def set_priority(
+        self, task_id: str, priority: int, reason: str, human: Actor
+    ) -> dict[str, Any]:
+        return self._card(self.operations.set_priority(task_id, priority, reason, human))
+
+    def pause(self, scope: str, reason: str, human: Actor) -> dict[str, Any]:
+        return self.operations.pause(scope, reason, human)
+
+    def resume(self, scope: str, reason: str, human: Actor) -> dict[str, Any]:
+        return self.operations.resume(scope, reason, human)
+
+    def request_reverify(self, record: str, reason: str, human: Actor) -> dict[str, Any]:
+        return self.operations.request_reverify(record, reason, human)
 
     def approve_profile(self, profile: str, reason: str, human: Actor) -> dict[str, Any]:
         action = approve_profile(

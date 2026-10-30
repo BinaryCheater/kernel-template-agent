@@ -23,6 +23,7 @@ from typing import Any
 from kta.api import operate
 from kta.api.common import Api, body, latest
 from kta.core.ids import record_id
+from kta.orchestrator.proc_common import get_state
 
 POOL_KINDS = ("Pattern", "Template", "Structure", "Reference", "Reconstruction")
 
@@ -160,16 +161,18 @@ def experiments(api: Api) -> dict[str, Any]:
         params = b.get("params", {})
         arms = list(params.get("arms", [])) or sorted({r["body"]["condition"] for _, r in mine})
         count = Counter(r["body"]["condition"] for _, r in mine)
+        cases = params.get("cases")
+        per_arm = params.get("runs_per_arm")
+        if isinstance(per_arm, int) and isinstance(cases, list):
+            per_arm *= max(1, len(cases))  # WP11 D403: one run per arm x case x repetition
         protocols.append(
             {
                 **_env(api, pid, d),
                 **{k: b.get(k) for k in ("name", "version", "description")},
                 "params": params,
                 "approved": approvals.get(pid, []),
-                "arms": [
-                    {"name": a, "runs": count.get(a, 0), "planned": params.get("runs_per_arm")}
-                    for a in arms
-                ],
+                "progress": _experiment_state(api, pid),
+                "arms": [{"name": a, "runs": count.get(a, 0), "planned": per_arm} for a in arms],
                 "runs": [{**_env(api, rid, r), **r["body"], "refs": r["refs"]} for rid, r in mine],
                 "results": [
                     {
@@ -185,8 +188,23 @@ def experiments(api: Api) -> dict[str, Any]:
     return {"protocols": protocols}
 
 
+def _experiment_state(api: Api, pid: str) -> dict[str, Any]:
+    """The experiment process's state of an approved protocol (WP11 D403; as
+    ``kta experiment status``): status, runs started, runs finished, last error."""
+    st = get_state(api.ops, f"experiment:{pid}")
+    slots: dict[str, Any] = st.get("slots", {})
+    return {
+        "status": st.get("status"),
+        "started": len(slots),
+        "finished": sum(1 for s in slots.values() if s.get("run")),
+        "report": st.get("report"),
+        "error": get_state(api.ops, f"experiment:{pid}:error").get("error"),
+    }
+
+
 def improvements(api: Api) -> dict[str, Any]:
     approvals = _actions_on(api, "approve_improvement", "improvement")
+    rejections = _actions_on(api, "reject_improvement", "improvement")
     gaps = [d["body"] for _, d in _rows(api, "Gap")]
     by_day: dict[str, Counter[str]] = {}
     for _, d in _rows(api, "Gap"):
@@ -205,6 +223,8 @@ def improvements(api: Api) -> dict[str, Any]:
                 "attribution": data.get("attribution", {}),
                 "items": data.get("items", []),
                 "approved": approvals.get(rid, []),
+                "rejected": rejections.get(rid, []),
+                "system_items": sum(1 for i in data.get("items", []) if i.get("kind") == "system"),
             }
         )
     return {

@@ -32,6 +32,7 @@ function CoverageBody({ c, m, label }: { c: CoverageReport; m: Machines; label: 
           {Object.entries(c.scope.by_category).map(([k, v]) => `${k} ${v}`).join(", ")}.</div>
         <div className="small ink2">All estimates below hold only for this population of sources. Snapshot <b>{label}</b> · <RecordLink id={c.record} label="coverage report record" /></div>
       </div>
+      <DirectTest c={c} />
 
       <div className="grid" style={{ gridTemplateColumns: "minmax(0, 1.5fr) minmax(0, 1fr)", alignItems: "start" }}>
         <Panel primary title="Discovery curve" sub="sources decomposed vs distinct Templates found; flattening toward the Chao1 estimate means saturation for this kind of source">
@@ -87,6 +88,7 @@ function CoverageBody({ c, m, label }: { c: CoverageReport; m: Machines; label: 
         </Panel>
       </div>
 
+      <GapsByMissing c={c} />
       <Panel title="The structure itself" sub="docs/design/21 §2.4 — where the knowledge model fails to describe what it sees">
         <div className="row wrap" style={{ gap: 32 }}>
           <div><div className="caption">Patterns filed as "other"</div><div className="hero num">{c.structure.other_patterns}</div></div>
@@ -157,5 +159,55 @@ function HwGrid({ c }: { c: CoverageReport }) {
         </tr>
       ))}</tbody>
     </table>
+  );
+}
+
+/** The direct test (WP10b D386): references whose every step a pool Template matches, and
+ *  of those, how many leave nothing unexplained; beside it, what still needs real runs. */
+function DirectTest({ c }: { c: CoverageReport }) {
+  const d = c.report?.direct_test;
+  const pending = Object.entries(c.pending ?? {});
+  if (!d && pending.length === 0) return null;
+  return (
+    <div className="grid" style={{ gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1.4fr)", alignItems: "start" }}>
+      {d && (
+        <Panel title="Direct test" sub="can the pool express each decomposed reference without extension?">
+          <div className="row wrap" style={{ gap: 28 }}>
+            <div><div className="caption">References</div><div className="hero num">{d.references}</div></div>
+            <div><div className="caption">All steps matched</div><div className="hero num">{d.all_steps_matched}</div>
+              <div className="small muted">{pct(d.references ? d.all_steps_matched / d.references : null)}</div></div>
+            <div><div className="caption">Nothing unexplained</div><div className="hero num">{d.nothing_unexplained}</div>
+              <div className="small muted">{pct(d.references ? d.nothing_unexplained / d.references : null)}</div></div>
+          </div>
+        </Panel>
+      )}
+      {pending.length > 0 && (
+        <Panel title="Not measured yet" sub="these parts of the page stay empty until real runs exist (D320)">
+          <table className="t compact"><tbody>{pending.map(([k, why]) => (
+            <tr key={k}><td style={{ whiteSpace: "nowrap" }}><Chip tone="waiting">{k.replaceAll("_", " ")}</Chip></td><td className="small ink2">{why}</td></tr>
+          ))}</tbody></table>
+        </Panel>
+      )}
+    </div>
+  );
+}
+
+function GapsByMissing({ c }: { c: CoverageReport }) {
+  const missing = Object.entries(c.report?.gaps_by_missing ?? {});
+  const attribution = Object.entries(c.report?.gaps_by_attribution ?? {});
+  if (missing.length === 0) return null;
+  const max = Math.max(1, ...missing.map(([, n]) => n));
+  return (
+    <Panel title="Open Gaps by what is missing" sub="from the coverage report; a Gap names the kind of knowledge the pool lacks">
+      <div className="grid" style={{ gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 24 }}>
+        <div className="stack" style={{ gap: 4 }}>{missing.sort((a, b) => b[1] - a[1]).map(([k, n]) => (
+          <div key={k} className="arm-bar"><span className="small">{k}</span>
+            <div className="bar" style={{ height: 10 }}><span className="used" style={{ width: `${(n / max) * 100}%` }} /></div>
+            <span className="num small">{n}</span></div>
+        ))}</div>
+        {attribution.length > 0 && <div><div className="caption">by attribution</div>
+          <div className="row wrap" style={{ marginTop: 6 }}>{attribution.filter(([, n]) => n).map(([k, n]) => <span key={k} className="tag">{k} {n}</span>)}</div></div>}
+      </div>
+    </Panel>
   );
 }
