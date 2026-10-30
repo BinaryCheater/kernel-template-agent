@@ -89,6 +89,7 @@
 | D89 | Remote project roots | spark `~/kta-work`, slai `/storage/kta-work` (slai's root disk is full); set in `config/remote.toml` | WP0 |
 | D90 | Pinned toolchain | Python 3.12.13 (`.python-version`); uv 0.11.x; `scripts/bootstrap` installs a missing interpreter into the project's `.uv/python`, never the user-level uv directory; uv's download cache stays at its default location | WP0 |
 | D91 | Config hash | sha256 of the parsed TOML serialized as sorted, compact JSON (formatting and comments do not change it); WP1 may switch to `canonical_json` with the same meaning | WP0 |
+| D92 | Control-plane data root during construction | `KTA_DATA=~/kta-data` on this machine (outside both git repos); spark workers use `~/kta-work/data` | WP0 |
 
 ## 已确认
 
