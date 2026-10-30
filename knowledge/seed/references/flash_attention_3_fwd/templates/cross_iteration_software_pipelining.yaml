@@ -1,0 +1,43 @@
+name: cross_iteration_software_pipelining
+version: 1
+level_from: 3
+level_to: 3
+change: vertical
+refines: issue_order
+produces: [issue_order, sync]
+object:
+  type: stage_skew
+  description: "A skew between the stages of consecutive loop iterations inside one executor: stage A of iteration n+1 is issued before stage C of iteration n completes, with explicit waits on asynchronous compute (warpgroup_wait<k>)."
+variables:
+  - {name: skew, kind: numeric, binding: compile, role: software, domain: [1, 2], meaning: "iterations by which the skewed stage runs ahead"}
+  - {name: overlapped_stage, kind: structure, binding: compile, role: software, domain: [softmax_with_pv, softmax_with_qk], meaning: "which non-tensor-core stage hides behind which asynchronous MMA"}
+  - {name: async_wait_depth, kind: numeric, binding: compile, role: boundary, domain: [0, 1, 2], meaning: "outstanding async MMA batches allowed at the wait (warpgroup_wait<N>)"}
+constraints:
+  - {id: c_wait, expr: "async_wait_depth <= skew", meaning: "cannot leave more batches in flight than the skew creates", cls: semantic}
+preconditions:
+  - {id: pre_async_mma, expr: "p.mma_is_async", meaning: "the compute instruction is asynchronous (wgmma) so a later stage can run while it is in flight", cls: semantic}
+program:
+  description: "Prologue computes QK^T and softmax of the first block; steady state issues QK^T(n), then PV(n+1) with the previous P, waits for QK^T only (warpgroup_wait<1>), runs softmax(n) while PV is in flight, then waits for PV and releases V; epilogue drains the last PV (hopper/mainloop_fwd_sm90_tma_gmma_ws.hpp:1138-1250)."
+  fragments: {}
+backward_map: "Remove the skew: run each iteration's stages to completion in order; the skewed program computes the same values because each stage still waits for its inputs."
+obligations:
+  - {name: dependencies_kept, statement: "Every stage reads registers only after the asynchronous instruction that writes them has been waited for, and registers being read by an in-flight instruction are not overwritten.", method: test}
+  - {name: prologue_epilogue, statement: "The first and last iterations are handled so every iteration's stages run exactly once.", method: exhaustive}
+cost:
+  - {unit: sfu, work: "p.softmax_work", overlap: overlappable}
+scope:
+  predicate: "True"
+  text: "Loops whose body has an asynchronous tensor-core stage and a CUDA-core / SFU stage that can be skewed by one iteration."
+requires_hw: [wgmma]
+relations:
+  - {type: requires, target: compute_instruction_selection, note: "needs an asynchronous MMA"}
+signature:
+  algorithm: "software pipelining across loop iterations inside one warpgroup"
+  reuse: null
+  storage: "two sets of score/probability registers"
+  boundary: "prologue and epilogue iterations"
+  resources: [tensor, sfu]
+numeric_risk: null
+expected_sass:
+  - {when: "True", must_contain: [WARPGROUP.DEPBAR.LE], must_not_contain: []}
+summary: "Skews the stages of consecutive iterations so a CUDA-core stage of iteration n runs while an asynchronous tensor-core stage of iteration n+1 is in flight. Requires asynchronous MMA and explicit waits. The obligation is that no register is read before its producer has been waited for."

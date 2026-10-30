@@ -1,0 +1,40 @@
+name: block_rasterization
+version: 1
+level_from: 2
+level_to: 2
+change: vertical
+refines: work_assign
+produces: [work_assign]
+object:
+  type: launch_order
+  description: "The map from launch index to tile coordinates, chosen so that tiles running concurrently share operands in L2."
+variables:
+  - {name: order, kind: structure, binding: compile, role: software, domain: [row_major, column_major, grouped_m, interleaved_n], meaning: "traversal of the tile grid"}
+  - {name: group, kind: numeric, binding: runtime, role: software, domain: {lo: 1, hi: 64}, meaning: "group width of the interleave (CUTLASS 2^log_tile, Triton GROUP_SIZE_M); 1 = no grouping"}
+constraints:
+  - {id: c_group, expr: "group >= 1", meaning: "group width is positive", cls: semantic}
+preconditions:
+  - {id: pre_indep, expr: "p.independent_outputs", meaning: "tiles are independent; any order is semantically valid", cls: semantic}
+program:
+  description: "Decode (m_tile, n_tile) from the launch index with the chosen interleave (CUTLASS GemmIdentityThreadblockSwizzle::get_tile_offset; Triton pid -> (pid_m, pid_n) with GROUP_SIZE_M)."
+  fragments: {}
+backward_map: "Any permutation of independent tiles computes the same outputs; the order is erased."
+obligations:
+  - {name: permutation, statement: "The launch index -> tile map is a bijection onto valid tiles (extra launch indices exit).", method: exhaustive}
+cost:
+  - {unit: l2, work: "p.operand_bytes * p.tiles / group", overlap: overlappable}
+scope:
+  predicate: "True"
+  text: "Grids of independent tiles that reuse operands across tiles."
+requires_hw: []
+relations:
+  - {type: requires, target: output_tiling}
+signature:
+  algorithm: "launch-order swizzle for L2 locality"
+  reuse: "operand panels shared by concurrently running tiles"
+  storage: "l2"
+  boundary: "partial groups at the grid edge"
+  resources: [l2]
+numeric_risk: null
+expected_sass: []
+summary: "Chooses the order in which tiles are launched so concurrently running tiles share operands in L2. Pure permutation of independent work, so its obligation is only bijectivity. The group width is the main variable."

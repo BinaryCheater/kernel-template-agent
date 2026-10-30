@@ -1,0 +1,74 @@
+workload: "Grouped expert GEMM C[t, j] = A[t] @ W[topk_ids[t, j]]^T (x topk_weights[t, j]) with uneven, data-dependent groups (vLLM moe_align_block_size + Triton fused_moe_kernel, unquantized f16 path)"
+items:
+  - key: align
+    template: runtime_work_descriptors@1
+    applies_to: "a device kernel counts (token, slot) pairs per expert, pads each count to BLOCK_SIZE_M, prefix-sums the padded counts and scatters pair ids into sorted_token_ids; expert_ids gives each M-block its expert, num_tokens_post_padded the valid length; the GEMM grid uses the upper bound EM and blocks past num_tokens_post_padded exit (csrc/moe/moe_align_sum_kernels.cu:134-229, 340-368; vllm/model_executor/layers/fused_moe/fused_moe.py:404-406, 423-439, 845-850)"
+    bindings: {planner_site: device_kernel, balance: pad_to_block, grid_sizing: padded_upper_bound, unit_rows: BLOCK_SIZE_M}
+    after: []
+    code_markers: []
+  - key: gather
+    template: indexed_gather@1
+    applies_to: "A rows loaded through sorted_token_ids // top_k; the ids of the block are loaded once into registers and reused for every K step (vllm/model_executor/layers/fused_moe/fused_moe.py:407-421, 473-475)"
+    bindings: {granularity: row, index_prefetch: registers, index_reuse: "ceil_div(K, BLOCK_SIZE_K)"}
+    after: [align]
+    code_markers: []
+  - key: out_cta
+    template: output_tiling@1
+    applies_to: "the padded, expert-sorted (token, slot) x N output split into BLOCK_SIZE_M x BLOCK_SIZE_N program tiles; every M-block belongs to one expert (vllm/model_executor/layers/fused_moe/fused_moe.py:388-396, 441, 618-619)"
+    bindings: {tile_m: BLOCK_SIZE_M, tile_n: BLOCK_SIZE_N, executor: cta, index_map: custom}
+    after: [align]
+    code_markers: []
+  - key: raster
+    template: block_rasterization@1
+    applies_to: "program id -> (pid_m, pid_n) grouped by GROUP_SIZE_M so consecutive programs reuse the same weight tiles in L2 (vllm/model_executor/layers/fused_moe/fused_moe.py:388-396, 1429-1433)"
+    bindings: {order: grouped_m, group: GROUP_SIZE_M}
+    after: [out_cta]
+    code_markers: []
+  - key: k_part
+    template: reduction_partition@1
+    applies_to: "K reduction in BLOCK_SIZE_K steps accumulated in place (vllm/model_executor/layers/fused_moe/fused_moe.py:515-578)"
+    bindings: {num_groups: "ceil_div(K, BLOCK_SIZE_K)", group_size: BLOCK_SIZE_K, assignment: contiguous_sequential}
+    after: [out_cta]
+    code_markers: []
+  - key: mma
+    template: compute_instruction_selection@1
+    applies_to: "tl.dot on f16 tiles with f32 accumulator; the Triton compiler lowers it to tensor-core MMA for the target (vllm/model_executor/layers/fused_moe/fused_moe.py:574). Instruction not visible in source; bound to the sm_80-class choice."
+    bindings: {instruction: mma_sync_m16n8k16_f16, operand_source: rr, accum_dtype: f32, macs_per_instruction: 2048}
+    after: [k_part]
+    code_markers: []
+  - key: acc_store
+    template: physical_storage@1
+    applies_to: "f32 accumulator tile in registers across the K loop (vllm/model_executor/layers/fused_moe/fused_moe.py:517-520)"
+    bindings: {level: reg, buffer: accumulator, share_order: none}
+    after: [mma]
+    code_markers: []
+  - key: ab_async
+    template: async_transfer@1
+    applies_to: "A and B tile loads in the K loop; with num_stages > 1 the Triton pipeliner turns them into asynchronous copies into shared memory (vllm/model_executor/layers/fused_moe/fused_moe.py:533-542; num_stages from 1442-1453). Realized by the compiler, not visible in source."
+    bindings: {mechanism: instruction, issue_point: compiler_pipelined, complete_point: compiler_pipelined, granularity_bytes: 16}
+    after: [k_part, gather]
+    code_markers: []
+  - key: ab_stages
+    template: multi_buffer_rotation@1
+    applies_to: "num_stages (3 or 4 in the default config) shared-memory stages created by the Triton pipeliner; P and beta chosen by the compiler (vllm/model_executor/layers/fused_moe/fused_moe.py:1437-1453)"
+    bindings: {S: num_stages, P: "num_stages - 1", beta: 1}
+    after: [ab_async]
+    code_markers: []
+  - key: a_guard
+    template: boundary_predication@1
+    applies_to: "A loads masked by token_mask (padding slots hold id numel) and the K residue, filled with 0 (vllm/model_executor/layers/fused_moe/fused_moe.py:419-421, 534-542)"
+    bindings: {boundary_kind: token_mask, fill: zero, specialize_even: false}
+    after: [gather]
+    code_markers: []
+  - key: out_guard
+    template: boundary_predication@1
+    applies_to: "C stores scattered to row offs_token, masked by token_mask and N (vllm/model_executor/layers/fused_moe/fused_moe.py:618-621)"
+    bindings: {boundary_kind: token_mask, fill: none, specialize_even: false}
+    after: [out_cta]
+    code_markers: []
+  - key: epi
+    template: operator_fusion@1
+    applies_to: "routed weight multiplied in f32 and cast to the output dtype before the store (vllm/model_executor/layers/fused_moe/fused_moe.py:604-614)"
+    bindings: {consumer_kind: elementwise, intermediate_site: registers, fused_ops: routed_weight}
+    after: [acc_store]
+    code_markers: []

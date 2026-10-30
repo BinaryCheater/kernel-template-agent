@@ -1,0 +1,45 @@
+name: ordered_global_combine
+version: 1
+level_from: 2
+level_to: 3
+change: vertical
+refines: reduce
+produces: [transfer, sync, reduce]
+object:
+  type: lock_ordered_accumulation
+  description: "Combining partial results of one output tile produced by different CTAs by accumulating into the output buffer in global memory, one CTA at a time in a fixed order enforced by a per-tile lock (semaphore)."
+variables:
+  - {name: order, kind: structure, binding: compile, role: software, domain: [by_k_partition_index, arrival], meaning: "order in which partials are added (fixed order makes the result deterministic)"}
+  - {name: partial_dtype, kind: structure, binding: compile, role: software, domain: [f16, f32], meaning: "precision of the partial stored between CTAs"}
+  - {name: lock_reset, kind: structure, binding: compile, role: software, domain: [last_resets, host_resets], meaning: "who restores the lock for the next launch"}
+constraints: []
+preconditions:
+  - {id: pre_assoc, expr: "p.reduce_assoc", meaning: "the reduction is associative (partials can be added in any grouping)", cls: semantic}
+program:
+  description: "barrier_acquire spins with ld.acquire.gpu until the lock equals slice_idx; the CTA reads the current partial from C (unless first), adds its own in f32, writes back in f16 (unless last, which writes the final result); barrier_release does fence.acq_rel.gpu and red.add on the lock, or resets it (marlin/marlin_cuda_kernel.cu:162-188, 514-571, 674-678)."
+  fragments: {}
+backward_map: "Sum the partials of all CTAs of the tile in the lock order: the single-CTA reduction over the whole K range."
+obligations:
+  - {name: exactly_once, statement: "Each CTA's partial is added exactly once, in the declared order.", method: exhaustive}
+  - {name: visibility, statement: "A CTA observes the previous CTA's writes (release / acquire on the lock at gpu scope).", method: test}
+  - {name: no_deadlock, statement: "Every CTA whose turn is awaited is guaranteed to be running or to have run (all CTAs of the grid are co-resident or earlier CTAs never wait on later ones).", method: exhaustive}
+  - {name: lock_reset, statement: "The lock returns to its initial value for the next launch.", method: test}
+cost:
+  - {unit: l2, work: "2 * p.tile_bytes * p.partials_per_tile", overlap: serial}
+scope:
+  predicate: "True"
+  text: "Partials of an output tile spread over CTAs when the grid is co-resident (one CTA per SM) and determinism is wanted."
+requires_hw: []
+relations:
+  - {type: requires, target: reduction_partition}
+  - {type: alternative_of, target: smem_partial_combine, note: "smem combine is the intra-CTA counterpart"}
+signature:
+  algorithm: "lock-ordered accumulation of cross-CTA partials in global memory"
+  reuse: "accumulation stays in L2"
+  storage: "output buffer in gmem as accumulator"
+  boundary: "first and last CTA of a slice"
+  resources: [l2]
+numeric_risk: "With partial_dtype = f16 every intermediate sum is rounded to fp16; error grows with the number of partials. Check with long K split across many CTAs (input distribution: long_k_many_splits)."
+expected_sass:
+  - {when: "True", must_contain: [RED.E.ADD, MEMBAR], must_not_contain: []}
+summary: "Combines partial sums of one tile from different CTAs by adding them into the output buffer one CTA at a time, ordered by a per-tile lock. Deterministic, stays in L2, but needs co-residency to avoid deadlock. Storing partials in fp16 is a numeric risk."

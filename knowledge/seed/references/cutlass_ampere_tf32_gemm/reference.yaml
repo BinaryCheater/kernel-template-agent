@@ -1,0 +1,4 @@
+name: cutlass_ampere_tf32_gemm
+problem: gemm_f32_tf32_rowcol
+build: "nvcc -std=c++17 -arch=sm_80 -I include -I tools/util/include examples/14_ampere_tf32_tensorop_gemm/ampere_tf32_tensorop_gemm.cu  (not executed in WP10a; for GB10 the arch flag would be sm_121)"
+runnable_on: [gb10]

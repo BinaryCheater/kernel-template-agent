@@ -1,0 +1,6 @@
+missing: template
+description: >-
+  [ux-10] No seed Template fuses a consumer operator into the producer's tile loop. Proposed: operator_fusion@1.
+level: 1
+pattern_guess: map
+attribution: space

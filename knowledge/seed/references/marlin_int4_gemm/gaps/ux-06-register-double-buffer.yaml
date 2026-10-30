@@ -1,0 +1,8 @@
+missing: template
+description: >-
+  [ux-06] Recurrence of cutlass_ampere_tf32_gemm ux-09: the seed rotation obligation is too strong for
+  thread-private register buffers. Still unresolved; a register variant or a scope restriction of multi_buffer_rotation
+  is needed.
+level: 3
+pattern_guess: store
+attribution: granularity

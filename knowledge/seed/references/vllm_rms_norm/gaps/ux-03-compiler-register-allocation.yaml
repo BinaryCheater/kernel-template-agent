@@ -1,0 +1,7 @@
+missing: other
+description: >-
+  [ux-03] Same as cutlass_ampere_tf32_gemm ux-13; recorded for every CUDA reference so the counts are
+  comparable.
+level: 3
+pattern_guess: other
+attribution: intent_sass

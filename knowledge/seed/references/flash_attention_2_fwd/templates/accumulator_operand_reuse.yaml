@@ -1,0 +1,42 @@
+name: accumulator_operand_reuse
+version: 1
+level_from: 2
+level_to: 3
+change: vertical
+refines: transfer
+produces: [map]
+object:
+  type: register_layout_reinterpretation
+  description: "Reading the accumulator fragment of one compute instruction directly as the A-operand fragment of the next, after an in-register dtype conversion, instead of moving it through shared memory."
+variables:
+  - {name: producer_instruction, kind: structure, binding: compile, role: boundary, domain: [mma_sync_m16n8k16_f16, wgmma_m64nNk16_f16], meaning: "instruction whose accumulator is reused"}
+  - {name: consumer_operand, kind: structure, binding: compile, role: boundary, domain: [mma_a_regs, wgmma_a_regs], meaning: "register operand slot that receives it"}
+constraints:
+  - {id: c_pair, expr: "(producer_instruction == 'mma_sync_m16n8k16_f16' and consumer_operand == 'mma_a_regs') or (producer_instruction == 'wgmma_m64nNk16_f16' and consumer_operand == 'wgmma_a_regs')", meaning: "only instruction pairs whose accumulator and A-fragment layouts coincide per lane", cls: implementation}
+preconditions:
+  - {id: pre_same_rows, expr: "p.consumer_m_tile == p.producer_m_tile", meaning: "the consumer's M tile is the producer's M tile, so every lane already owns the rows it needs", cls: semantic}
+program:
+  description: "Convert the f32 accumulator to f16 in registers and reinterpret the register tensor with the A-operand layout ((4,2), MMA_M, MMA_N/2) (FlashAttention-2 convert_layout_acc_Aregs)."
+  fragments: {}
+backward_map: "Store the accumulator tile to memory and reload it as an operand: the reinterpretation is that round trip with the memory erased."
+obligations:
+  - {name: lane_layout_match, statement: "For every lane, the accumulator elements it holds are exactly the A-operand elements it must supply, in the order the consumer expects.", method: exhaustive}
+cost:
+  - {unit: smem, work: "0", overlap: overlappable}
+scope:
+  predicate: "True"
+  text: "Back-to-back contractions where the first's output tile is the second's left operand tile (attention P @ V, chained MLP GEMMs)."
+requires_hw: []
+relations:
+  - {type: requires, target: compute_instruction_selection, note: "both instructions fixed"}
+  - {type: requires, target: operator_fusion, note: "only meaningful when the intermediate is kept on chip"}
+signature:
+  algorithm: "accumulator -> operand register forwarding"
+  reuse: "intermediate tile never leaves registers"
+  storage: "registers"
+  boundary: null
+  resources: []
+numeric_risk: "The f32 -> f16 conversion of the forwarded tile is a precision change (bound with operand_precision_conversion)."
+expected_sass:
+  - {when: "True", must_contain: [F2FP], must_not_contain: []}
+summary: "Feeds the accumulator fragment of one tensor-core instruction straight into the A-operand registers of the next. Valid only for instruction pairs whose per-lane layouts coincide. Removes a shared-memory round trip of the intermediate."

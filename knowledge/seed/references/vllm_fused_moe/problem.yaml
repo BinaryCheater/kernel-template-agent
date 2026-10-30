@@ -1,0 +1,17 @@
+name: moe_grouped_gemm_f16
+reference_impl: "for each token t and routing slot j < top_k with expert e = topk_ids[t, j]: C[t, j, :] = A[t, :] @ W[e]^T, optionally times topk_weights[t, j]; float32 torch reference (tests/kernels/moe/test_moe.py torch_moe)"
+inputs:
+  - {name: A, shape: [T, K], dtype: f16, layout: row_major}
+  - {name: W, shape: [E, N, K], dtype: f16, layout: "row_major per expert (N x K)"}
+  - {name: topk_ids, shape: [T, top_k], dtype: i32, layout: row_major}
+  - {name: topk_weights, shape: [T, top_k], dtype: f32, layout: row_major}
+outputs:
+  - {name: C, shape: [T, top_k, N], dtype: f16, layout: row_major}
+params:
+  E: "number of experts, runtime"
+  top_k: "routing slots per token, runtime"
+  T: "tokens, runtime"
+  group_sizes: "tokens per expert are data dependent and uneven"
+  mul_routed_weight: "bool, compile-time (true for the second GEMM of the layer)"
+  excluded_features: "fp8 / int8 / int4 quantized paths, block-wise scales, bias, SWAP_AB, TMA descriptors (USE_TD, USE_TMA_B), naive_block_assignment, expert-parallel expert_map"
+  tolerance: "f16 output, f32 accumulation"

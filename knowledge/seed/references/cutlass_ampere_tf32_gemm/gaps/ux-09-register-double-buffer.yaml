@@ -1,0 +1,10 @@
+missing: template
+description: >-
+  [ux-09] multi_buffer_rotation's obligation assumes slots written asynchronously by another agent and
+  protected by a trailing barrier. For thread-private register buffers, in-order issue and register dependencies
+  already prevent overwrite before read, so the obligation is too strong and the Template rejects a correct
+  design. Needs either a register variant (obligation: program order) or a scope predicate that excludes
+  registers. Not resolved by a proposed Template here.
+level: 3
+pattern_guess: store
+attribution: granularity

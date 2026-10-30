@@ -1,0 +1,4 @@
+name: vllm_fused_moe
+problem: moe_grouped_gemm_f16
+build: "pip install vllm (Triton JIT-compiles fused_moe_kernel per config on first call; moe_align_block_size is in the vllm._C extension; not executed in WP10a)"
+runnable_on: [gb10]

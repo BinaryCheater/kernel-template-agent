@@ -1,0 +1,43 @@
+name: output_tiling
+version: 1
+level_from: 1
+level_to: 2
+change: vertical
+refines: map
+produces: [map]
+object:
+  type: output_tile
+  description: "A rectangular block of independent output points computed by one executor (CTA, warpgroup, warp or thread)."
+variables:
+  - {name: tile_m, kind: numeric, binding: compile, role: software, domain: {lo: 1, hi: 512}, meaning: "tile extent along the first output dimension (rows)"}
+  - {name: tile_n, kind: numeric, binding: compile, role: software, domain: {lo: 1, hi: 512}, meaning: "tile extent along the second output dimension (columns); 1 for row-wise operators"}
+  - {name: executor, kind: structure, binding: compile, role: software, domain: [cta, warpgroup, warp, thread], meaning: "executor level that owns one tile"}
+  - {name: index_map, kind: structure, binding: compile, role: software, domain: [identity, batched, grouped_heads, custom], meaning: "how the executor index maps to output coordinates (extra batch / head dimensions)"}
+constraints:
+  - {id: c_pos, expr: "tile_m >= 1 and tile_n >= 1", meaning: "non-empty tile", cls: semantic}
+preconditions:
+  - {id: pre_indep, expr: "p.independent_outputs", meaning: "output points of the refined map do not depend on each other", cls: semantic}
+program:
+  description: "Executor index -> tile origin; each executor loops only over the inputs its tile needs. In CUTLASS the CTA tile is the template argument ThreadblockShape and the warp tile is WarpShape; the grid is the number of tiles."
+  fragments: {}
+backward_map: "The union of all tiles' outputs, placed at their tile origins, is the output of the coarse map; the executor index is erased."
+obligations:
+  - {name: coverage_exact_once, statement: "Every output point lies in exactly one tile; points of residue tiles beyond the problem bounds are not written.", method: exhaustive}
+  - {name: index_map_bijective, statement: "The executor index -> tile origin map is injective on valid tiles and hits every tile.", method: exhaustive}
+cost:
+  - {unit: launch, work: "ceil_div(p.M, tile_m) * ceil_div(p.N, tile_n)", overlap: serial}
+scope:
+  predicate: "True"
+  text: "Any operator whose outputs are independent given the inputs (GEMM outputs, attention rows, normalization rows)."
+requires_hw: []
+relations:
+  - {type: enables, target: output_tiling, note: "applied again one executor level down (CTA tile -> warp tile)"}
+signature:
+  algorithm: "partition the output index space into rectangular tiles"
+  reuse: "operands are reused inside a tile: inputs shared by the tile's rows or columns are loaded once per tile"
+  storage: null
+  boundary: "residue tiles at M and N edges"
+  resources: [cta]
+numeric_risk: null
+expected_sass: []
+summary: "Splits the independent outputs of an operator into tiles and gives each tile to one executor. Applied once per executor level (grid of CTAs, warps inside a CTA). Tile sizes become variables bounded later by storage and instruction shape."

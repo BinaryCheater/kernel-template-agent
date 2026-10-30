@@ -1,0 +1,176 @@
+workload: "O = softmax(scale * Q K^T [+ causal mask]) V and LSE, f16, head_dim 128, GQA, sm_90 (FlashAttention-3 CollectiveMainloopFwdSm90 with kBlockM = 128, kBlockN = 176 non-causal / 128 causal, 2 stages, MmaPV_is_RS, IntraWGOverlap)"
+items:
+  - key: online
+    template: online_rescaled_reduction@1
+    applies_to: "running row max / sum with rescale of acc_o, deferred normalization and LSE (hopper/softmax.h:97-160)"
+    bindings: {state: max_sum_acc, rescale_point: after_mma, finalize: deferred_divide, traversal: descending, inf_guard: true}
+    after: []
+    code_markers: []
+  - key: fuse
+    template: operator_fusion@1
+    applies_to: "QK^T, softmax and PV in one kernel; S and P stay in registers (hopper/mainloop_fwd_sm90_tma_gmma_ws.hpp:954-1350)"
+    bindings: {consumer_kind: row_reduce_then_map, intermediate_site: registers, fused_ops: softmax_then_matmul}
+    after: [online]
+    code_markers: []
+  - key: out_cta
+    template: output_tiling@1
+    applies_to: "128-row Q tiles per (batch, head); tile shape from tile_size_fwd_sm90 (hopper/tile_size.h:31-33; hopper/mainloop_fwd_sm90_tma_gmma_ws.hpp:604-607)"
+    bindings: {tile_m: 128, tile_n: 128, executor: cta, index_map: grouped_heads}
+    after: [fuse]
+    code_markers: []
+  - key: sched
+    template: persistent_tile_scheduler@1
+    applies_to: "persistent CTAs: static stride for non-causal, atomic counter with L2 head sections and longest-first m_block order for causal; producer fetches and broadcasts the tile index through smem (hopper/flash_fwd_launch_template.h:61-76; hopper/tile_scheduler.hpp:141-215, 220-366; hopper/flash_fwd_kernel_sm90.h:328-330, 376-378, 436)"
+    bindings: {fetch: atomic_counter, order: l2_sectioned_longest_first, grid: num_sm_times_ctas_per_sm, broadcast: smem_named_barrier}
+    after: [out_cta]
+    code_markers: []
+  - key: kv_part
+    template: reduction_partition@1
+    applies_to: "reduction over Sk split into kBlockN-key blocks (176 non-causal, 128 causal) consumed in descending order (hopper/tile_size.h:31-33; hopper/mainloop_fwd_sm90_tma_gmma_ws.hpp:608-611, 793)"
+    bindings: {num_groups: "ceil_div(Sk, kBlockN)", group_size: kBlockN, assignment: contiguous_sequential}
+    after: [out_cta]
+    code_markers: []
+  - key: causal_prune
+    template: masked_tile_pruning@1
+    applies_to: "n_block range from the mask; the first iteration masks the seqlen residue, the next n_block_min_causal_local_mask iterations apply the causal mask, the rest run without (hopper/mainloop_fwd_sm90_tma_gmma_ws.hpp:608-620, 1206-1236)"
+    bindings: {mask_kind: causal, masked_steps: "ceil_div(128, kBlockN) + 1", masked_first: true}
+    after: [kv_part, online]
+    code_markers: []
+  - key: ws
+    template: warp_specialization@1
+    applies_to: "warpgroup 0 is the producer (one warp issues the TMA loads), warpgroups 1-2 are consumers doing MMA, softmax and epilogue (hopper/flash_fwd_kernel_sm90.h:75-78, 208, 308-446; hopper/mainloop_fwd_sm90_tma_gmma_ws.hpp:121)"
+    bindings: {producer_warps: 4, issuing_threads: 32, consumer_groups: 2, epilogue_role: consumers}
+    after: [sched]
+    code_markers: []
+  - key: regs
+    template: register_rebalancing@1
+    applies_to: "producer deallocates to 24 registers, consumers allocate 240 (hopper/flash_fwd_kernel_sm90.h:82-83, 309, 361)"
+    bindings: {producer_regs: 24, consumer_regs: 240, consumer_groups: 2}
+    after: [ws]
+    code_markers: []
+  - key: out_wg
+    template: output_tiling@1
+    applies_to: "each consumer warpgroup owns 64 of the 128 Q rows (AtomLayoutQK = kBlockM/64 x 1 x 1) (hopper/mainloop_fwd_sm90_tma_gmma_ws.hpp:89-96)"
+    bindings: {tile_m: 64, tile_n: 128, executor: warpgroup, index_map: identity}
+    after: [ws]
+    code_markers: []
+  - key: mma_qk
+    template: compute_instruction_selection@1
+    applies_to: "S = Q K^T with wgmma, both operands from shared memory (SS) (hopper/mainloop_fwd_sm90_tma_gmma_ws.hpp:90-96, 1141, 1177)"
+    bindings: {instruction: wgmma_m64nNk16_f16, operand_source: ss, accum_dtype: f32, macs_per_instruction: 180224}
+    after: [out_wg]
+    code_markers: []
+  - key: mma_pv
+    template: compute_instruction_selection@1
+    applies_to: "O += P V with wgmma, P from registers (RS) (hopper/mainloop_fwd_sm90_tma_gmma_ws.hpp:102-110, 1182)"
+    bindings: {instruction: wgmma_m64nNk16_f16, operand_source: rs, accum_dtype: f32, macs_per_instruction: 131072}
+    after: [out_wg]
+    code_markers: []
+  - key: p_convert
+    template: operand_precision_conversion@1
+    applies_to: "P converted f32 -> f16 before the PV wgmma (hopper/mainloop_fwd_sm90_tma_gmma_ws.hpp:1158-1159, 1202)"
+    bindings: {from_dtype: f32, to_dtype: f16, rounding: round_to_nearest, site: registers_before_mma}
+    after: [mma_pv]
+    code_markers: []
+  - key: p_reuse
+    template: accumulator_operand_reuse@1
+    applies_to: "the QK^T accumulator, converted, is the register A operand of the PV wgmma (hopper/mainloop_fwd_sm90_tma_gmma_ws.hpp:1202, 1182)"
+    bindings: {producer_instruction: wgmma_m64nNk16_f16, consumer_operand: wgmma_a_regs}
+    after: [p_convert, fuse]
+    code_markers: []
+  - key: exp2
+    template: approximate_math_rewrite@1
+    applies_to: "exp2f(x * scale_log2 - max_scaled) with the scale folded; __logf for LSE (hopper/softmax.h:67-90, 151)"
+    bindings: {rewrite: exp_to_exp2_folded_scale, fused_fma: true}
+    after: [online]
+    code_markers: []
+  - key: row_xlane
+    template: cross_lane_reduction@1
+    applies_to: "row max / sum over the 4 lanes sharing a row in the wgmma accumulator layout (hopper/softmax.h:36-60, 139)"
+    bindings: {lanes: 4, result_to: all_lanes, combine_op: max}
+    after: [online, out_wg]
+    code_markers: []
+  - key: acc_store
+    template: physical_storage@1
+    applies_to: "tOrO, tSrS, row_max, row_sum in consumer registers for the whole tile (hopper/flash_fwd_kernel_sm90.h:361-446)"
+    bindings: {level: reg, buffer: tOrO_tSrS, share_order: none}
+    after: [mma_qk, mma_pv, regs]
+    code_markers: []
+  - key: q_smem
+    template: physical_storage@1
+    applies_to: "Q tile in smem, reloaded for each persistent tile after consumers signal QueryEmpty (hopper/mainloop_fwd_sm90_tma_gmma_ws.hpp:812-830, 936-939)"
+    bindings: {level: smem, buffer: sQ, share_order: per_tile_reload}
+    after: [out_cta]
+    code_markers: []
+  - key: kv_smem
+    template: physical_storage@1
+    applies_to: "sK and sV with kStages = 2 slots each; the epilogue's smem_o aliases smem_v (hopper/mainloop_fwd_sm90_tma_gmma_ws.hpp:131-141; hopper/flash_fwd_kernel_sm90.h:90-101)"
+    bindings: {level: smem, buffer: sK_sV, share_order: V_then_O}
+    after: [kv_part]
+    code_markers: []
+  - key: kv_tma
+    template: async_transfer@1
+    applies_to: "Q, K, V tiles global -> shared by TMA issued from one producer thread; completion through the mbarrier transaction count (hopper/mainloop_fwd_sm90_tma_gmma_ws.hpp:749-768, 812-824)"
+    bindings: {mechanism: controller, issue_point: producer_ahead_by_free_slots, complete_point: consumer_wait_full_barrier, granularity_bytes: tile}
+    after: [kv_smem, ws]
+    code_markers: []
+  - key: kv_stages
+    template: multi_buffer_rotation@1
+    applies_to: "2-slot ring for K and for V (PipelineState<kStages>), producer one tile ahead, slot freed by the consumer release (hopper/mainloop_fwd_sm90_tma_gmma_ws.hpp:36, 283-289; hopper/flash_fwd_launch_template.h:47)"
+    bindings: {S: 2, P: 1, beta: 1}
+    after: [kv_tma]
+    code_markers: []
+  - key: kv_handshake
+    template: per_slot_handshake@1
+    applies_to: "full/empty mbarrier pair per slot: producer_acquire / TMA-completed full / consumer_wait / consumer_release; Q uses a single transaction barrier plus the QueryEmpty named barrier (hopper/mainloop_fwd_sm90_tma_gmma_ws.hpp:750-768, 815-829, 1140-1143, 1175, 1185-1188; hopper/flash_fwd_kernel_sm90.h:218-264)"
+    bindings: {full_signal: tma_tx_count, empty_arrivals: NumMmaThreads, stages: 2}
+    after: [kv_stages]
+    code_markers: []
+  - key: multicast
+    template: cluster_multicast@1
+    applies_to: "non-causal, even number of Q tiles: cluster of 2 CTAs along M; K/V TMA loads multicast with mcast_mask_kv (hopper/flash_fwd_launch_template.h:210-219; hopper/mainloop_fwd_sm90_tma_gmma_ws.hpp:740-768)"
+    bindings: {cluster_size: ClusterM, shared_operand: kv}
+    after: [kv_tma, kv_handshake]
+    code_markers: []
+  - key: cache_hint
+    template: cache_eviction_hint@1
+    applies_to: "K/V loads EVICT_LAST (reread by other heads' tiles), Q loads EVICT_FIRST (hopper/mainloop_fwd_sm90_tma_gmma_ws.hpp:753, 767, 820)"
+    bindings: {policy: evict_last, operand_role: reused_across_ctas}
+    after: [kv_tma]
+    code_markers: []
+  - key: swizzle
+    template: shared_resource_binding@1
+    applies_to: "Q/K/V smem layouts chosen by ss_smem_selector (GMMA 128-byte swizzle atoms) so TMA writes and wgmma descriptor reads are conflict-free (hopper/mainloop_fwd_sm90_tma_gmma_ws.hpp:127-150)"
+    bindings: {binding: gmma_swizzle_128b, queue_depth: hw_fixed}
+    after: [q_smem, kv_smem]
+    code_markers: []
+  - key: intra_overlap
+    template: cross_iteration_software_pipelining@1
+    applies_to: "QK^T(n) issued, then PV with P of the previous block; warpgroup_wait<1> waits only for QK^T; softmax(n) runs while PV is in flight; prologue and drain handled outside the loop (hopper/mainloop_fwd_sm90_tma_gmma_ws.hpp:1138-1250)"
+    bindings: {skew: 1, overlapped_stage: softmax_with_pv, async_wait_depth: 1}
+    after: [mma_qk, mma_pv, online]
+    code_markers: []
+  - key: pingpong
+    template: pingpong_schedule@1
+    applies_to: "the two consumer warpgroups alternate their GEMMs through WarpSchedulerWG1/WG2 named barriers (hopper/mainloop_fwd_sm90_tma_gmma_ws.hpp:352-355, 915-950, 1176, 1183; hopper/named_barrier.hpp:50-59)"
+    bindings: {groups: 2, turn_unit: qk_and_pv_gemms}
+    after: [ws, intra_overlap]
+    code_markers: []
+  - key: epi_stage
+    template: staged_relayout@1
+    applies_to: "O converted to f16, written to smem_o with stmatrix, fence_view_async_shared, named barrier, one thread issues the TMA store (hopper/epilogue_fwd.hpp:241-265, 312-324). Partial match, see gap ux-09."
+    bindings: {chunks: 1, reader: tma, write_instruction: stmatrix}
+    after: [acc_store, kv_smem]
+    code_markers: []
+  - key: kv_guard
+    template: boundary_predication@1
+    applies_to: "TMA zero-fills K/V rows beyond Sk in hardware; the first iteration masks those scores (hopper/mainloop_fwd_sm90_tma_gmma_ws.hpp:1150, 1307)"
+    bindings: {boundary_kind: runtime_length, fill: zero, specialize_even: false}
+    after: [kv_tma]
+    code_markers: []
+  - key: o_guard
+    template: boundary_predication@1
+    applies_to: "TMA store clips rows beyond Sq; LSE stores predicated per row (hopper/epilogue_fwd.hpp:298-330)"
+    bindings: {boundary_kind: runtime_length, fill: none, specialize_even: false}
+    after: [epi_stage]
+    code_markers: []

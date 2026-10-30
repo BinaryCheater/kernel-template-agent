@@ -1,0 +1,9 @@
+missing: other
+description: >-
+  [ux-03] For compiler-level DSLs the source states intent only; the level 2-3 transactions that the CUDA
+  references expose (and that the chain's ab_async, ab_stages and mma steps assume) exist only in TTGIR
+  / SASS. A Reconstruction needs a way to attach compiler output (IR or SASS) as the evidence for such
+  steps, otherwise they are unverifiable bindings.
+level: 3
+pattern_guess: other
+attribution: intent_sass
