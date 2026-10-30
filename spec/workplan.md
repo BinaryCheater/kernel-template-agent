@@ -174,3 +174,119 @@ WP0 ─┬─ WP1 ─┬─ WP2 ─ WP3 ─┐
   2. GB10 已有模型的预测误差统计。
 - **产出**：`deliveries/WP13.md`，附统计脚本（放在 `scripts/analysis/`）。
 - **验收**：每个数字都能追溯到原始记录文件。
+
+---
+
+## Round 4: design v2 (thinking model and template design, D324)
+
+The 2026-10-30/31 design conversations (`docs/design/01-thinking-model.md`, `docs/design/02-design-notes.md`, `docs/design/12-agent-controls.md`, `docs/changelog.md`) turned into engineering gaps E1–E15 and requirements R1–R21. The user asked (2026-10-31) to update the code accordingly, still at code stage (D320): no real runs, no experiments. Round-4 WPs therefore deliver with `scripts/gate --stage code <WP>` and list every real run they owe under "Pending real runs".
+
+Rules for every round-4 WP:
+
+- 02 is the design source; where it is silent, decide, record a row in `docs/decisions.md`, and flag cross-cutting choices `default — needs user review` with a `docs/review-queue.md` entry. The D-open questions are answered by the defaults of D325 until the user says otherwise.
+- Change `spec/` (schemas, module specs, gate) in the same branch as the code, in English. Run the `design-interrogation` skill (full pass) on every spec interface change and keep its artefacts in the delivery note.
+- Records are immutable. Old record bodies stay readable: bump the schema version and upcast on read; never rewrite stored records, run IDs or hashes.
+- Seed knowledge (`knowledge/seed/`) may be migrated in place, with each migration recorded; worker deliverables never go to `knowledge/seed/` (D325).
+- Every new mechanism comes with an observable (record, metric or view), a failure fixture under `tests/`, and its knob in the controls registry once WP21 has merged.
+- Add a `docs/changelog.md` entry ("merged work package") listing which R/E items the WP closes and which 02 sections it implemented.
+
+```
+Phase 1 (parallel):  WP14 knowledge model v2 · WP15 template effects + declarative hardware model · WP21 controls registry + staged release
+Phase 2 (parallel):  WP16 transaction-level simulator (after WP15) · WP18 gap decomposition + routing (after WP15, WP21)
+                     WP19 FormulationPlan + chain enumerator + access discipline (after WP14, WP15) · WP20 learning-loop runner (after WP14)
+Phase 3:             WP17 steady-state projection compiler + MIP↔simulator check (after WP15, WP16, WP19)
+```
+
+## WP14 Knowledge model v2
+
+- **Depends**: WP4, WP10b. **Reads**: 02 §2, §8.2; 23; 21 §1; 22 §6; 01 §2 "Levels and transfer".
+- **Closes**: R13 (except the HwModel split, which is WP15), R14, E5, E7, E15; D-T7, D-T8, D-T9, D-T27; D-open-1, D-open-3 (relation part).
+- **Produces**:
+  - `Capability` replaces `HwFeature` (declared per Target with parameters); `Template.requires_hw` becomes `requires` (capabilities); migration of seed, patterns and existing records by upcast.
+  - `Realisation` split from Template: template × backend × ISA range, carrying program fragments, ISA constraints and expected SASS; Template keeps the abstract program.
+  - `Finding` unifies Regime and Negative: claim, kind, scope, evidence, status, `explained_by`.
+  - One status ladder for empirical knowledge (findings, model terms, chain performance) with evidence rules per step; templates keep assurance (D325).
+  - `probed_on` on templates and realisations; retrieval filters by the target's capabilities; coverage counts "known, unavailable here".
+  - `coupled_with` as a first-class relation with evidence and scope; consumers (formulation, hardware model) can read it.
+  - Level numbering 1–7 (workload, graph, operators, tensor map, instructions, architecture, microarchitecture) with a versioned mapping from the old 0–5 values used by stored records.
+  - Promotion and demotion engine (02 §2 "Promotion and demotion") on top of the existing invalidation propagation; a pool-diff view (API + web page) between two snapshots.
+- **Acceptance (code stage)**: seed loads and validates under the new schema; old-format records read back; unprobed template filtered on GB10 and counted; promotion/demotion and invalidation covered by failure fixtures; pool diff page renders on seed data.
+
+## WP15 Template effects and the declarative hardware model
+
+- **Depends**: WP5, WP11. **Reads**: 02 §3, §4, §5.1; 22 §2; 50 §7; `knowledge/templates/`; `src/kta/models/`.
+- **Closes**: R2, R3 (data and L1), R5 (schema and interference microbenchmark definitions), E1, E2; D-T2, D-T3, D-T10, D-T14, D-T15; D-open-5 (D325).
+- **Produces**:
+  - Template `cost` → `effects` (transactions, storage, overlap) in schema, loader, validators and every seed template; the WP5 known issue (missing contraction/operand traffic) resolved by declaring whole-kernel transactions once.
+  - `HwModel` split into architecture class and chip instance, as declarative data: resources (kind, scope, peak, latency, max in-flight, ncu counter names), walls (with their cliff), operation classes (reservation tables per transaction pattern, optionally per SASS instruction class), efficiency (few-feature discount with fitting data and hold-out error), interactions (`applies_when`, evidence), composition rules. Restricted expression language plus table terms; every value points to its HwFact or source.
+  - L1 pricing: the analytic steady-state evaluation of a chain's effects against a HwModel (per-unit busy, SOL per unit, predicted total); `models/bound.py` and the unit model rewritten on top of it.
+  - A GB10 class + instance seeded from existing peaks and documented values, every unmeasured value marked `documented` or `default`.
+  - Pairwise interference microbenchmark definitions (A alone, B alone, A+B) as jobs and the interference-matrix artefact schema; no runs.
+  - Model versioning: parameter table + simulator commit + regression results, immutable; regression-set record schema (several configurations per kernel).
+- **Acceptance (code stage)**: seed templates validate with `effects`; GEMM seed chain priced by L1 with per-unit SOL; changing one wall or peak changes the prediction without code changes; old `cost` records upcast; failure fixtures for unpriced operation classes (counted, not silently zero-cost: unmodelled resources default to infinite capacity and are reported).
+
+## WP16 Transaction-level simulator, what-if and regression scoreboard
+
+- **Depends**: WP15. **Reads**: 02 §4 (L2, L3, "Sustained saturation and walls", "Maintenance"), 02 §5.1.
+- **Closes**: R3 (L2), R5, E9, E10 (adapter only), E11, E14 (scoreboard part).
+- **Produces**:
+  - L2: per-CTA transaction graph on HwModel resources; outputs total cycles, per-unit busy time, occupancy timeline, stall reasons and idle attribution (waiting for another unit, for data, for sync, prologue/epilogue/tail, blocked by a wall), metrics named as ncu names them; deterministic and versioned.
+  - What-if runs: move a wall or a peak, re-simulate, report the shadow price (idle time removed).
+  - L3 adapter interface for the external SASS-level simulator (research repo, read-only, not imported): run through the Executor as an external tool; `NotSupported` until it has been run for real (pending real run).
+  - Regression set and scoreboard: every measured kernel becomes a regression case; rank correlation and error per resource per model version; API + web views (scoreboard, per-kernel predicted-vs-measured timeline).
+- **Acceptance (code stage)**: GEMM seed family simulated at L2 with a timeline; L1 equals the steady-state limit of L2 on a loop-dominated fixture; what-if shows a non-zero shadow price on a walled fixture; scoreboard renders on fixture data marked FIXTURE.
+
+## WP17 Steady-state projection compiler and MIP↔simulator check
+
+- **Depends**: WP15, WP16, WP19. **Reads**: 02 §5.1, §5.2; 22 §3.3; 10 §4.4; `src/kta/formulation/`, `src/kta/solve/`.
+- **Closes**: R1, R4, E8; D-T1, D-T4.
+- **Produces**:
+  - The projection compiler: from FormulationPlan + chain effects + HwModel to a MIP with ResMII, RecMII, one-hot menus, epigraph max, integer ceil, menu products, table terms; non-linearisable effects moved to outer enumeration. The agent writes none of it.
+  - The MIP↔L2 consistency check without a GPU: sample the subspace, evaluate MIP and L2, require rank correlation above a threshold and MIP ≤ simulator on nearly all points; failure names the effect with the largest deviation. Thresholds in the controls registry.
+  - An agent-written-formulation arm kept for comparison (D-T1): the existing hand-formulation path stays callable and is labelled as the comparison arm.
+- **Acceptance (code stage)**: GEMM seed formulation compiled and solved; consistency check passes on the GEMM family and fails, naming the effect, on a fixture with a deliberately wrong reservation table.
+
+## WP18 Gap decomposition, routing and loop disciplines
+
+- **Depends**: WP15, WP21. **Reads**: 02 §1 (P7), §6.1, §9; 12 §3, §4; `src/kta/orchestrator/`.
+- **Closes**: R6, E3, E4, E6; D-T6, D-T11, D-T12, D-T13, D-T17 (canaries).
+- **Produces**:
+  - Gap decomposition `T_meas − T_SOL = ε + δ + Δpre + L_rep + irreducible` as a record per round, attribution order correctness → ε → δ → Δpre → L_rep → irreducible, SOL as the bound on `L_rep`.
+  - A data-driven routing table (gap class → next action / task type / escalation), versioned.
+  - Loop disciplines: improvement band and mechanism attribution, null-round limit, one mechanism per round (coupled groups excepted), hold-out verification with rollback, exploration share, duplicate-proposal rejection by hash, accept and escalate rules of 12 §4.
+  - Selection controls on every solve (model top-k vs copied assignment vs random k), recorded.
+  - Canaries: planted-fault kinds, one per batch rotating, missed canary escalates to the user.
+- **Acceptance (code stage)**: fault-injection fixtures (degraded model, deleted template, capped solver) route to the right class (O5 harness, deterministic); every threshold read from the controls registry.
+
+## WP19 FormulationPlan, chain enumerator and access discipline
+
+- **Depends**: WP14, WP15. **Reads**: 02 §5.3–5.5; 10 §4; 22 §5; `src/kta/agents/skills/`.
+- **Closes**: R7, R8, E12; D-T18, D-T19, D-T20.
+- **Produces**:
+  - `FormulationPlan` schema (F1–F7: chain, bindings, variable status with the structure it invokes and the evidence it cites, menus, table terms, glue/dispatch, generator) and the deterministic default plan as the same object; plan diff and score against the default.
+  - A bounded chain enumerator over the template grammar: legal chains, Γ and capability filter, SOL bound under minimal work, pruning against the incumbent; it is the default for F1 and yields coverage counts. Composition statistics as a derived view over reconstructed chains.
+  - The one-screen task header and the versioned access-discipline table in the worker skill (`use-kta`/`find-knowledge`), pull log records (`kta` pulls outside the table allowed and logged), and a pull-log view.
+- **Acceptance (code stage)**: default plan produced for the GEMM seed case; enumerator finds the seed chain within its bound; an agent-plan fixture is diffed and scored; header fits one screen; pull log written for a fake-adapter task.
+
+## WP20 Learning-loop runner
+
+- **Depends**: WP14 (and WP10b). **Reads**: 02 §8; 21; 24; 01 §7; `deliveries/WP10a.md`, `deliveries/WP10b.md`.
+- **Closes**: R15 (coverage part), R16, R17, R18 (mechanics; values in the controls registry), E13, E14 (pool-growth part); D-T29 (expressibility coverage); D-open-2, D-open-4, D-open-6, D-open-7 (definitions only).
+- **Produces**:
+  - Pipeline per reference: intake (deterministic job definitions: clone at commit, license, hash, container build, run + SASS + profile) → decompose (T2, reference directory = the worker's deliverable) → admit (deterministic; errors back to the same session, ≤ 2 retries; warnings must be explained) → reproduce → ablate → cover (snapshot, waiting cases resume).
+  - The "inexpressible" category: expression-language gaps counted and admitted at `proposed`, not refused; the seven WP10a decompositions imported through this path into the store (not into `knowledge/seed/`).
+  - Cost tiers L0–L4 as data with admission rules; performance-core definition for reproduction; ablation job generator on our own families (coupled pairs only, fractional factorial when large) producing `coupled_with` evidence.
+  - SOTA coverage in four levels and system-level features counted separately; per-backend expressibility coverage and intent fidelity; source-class and priority fields on references.
+  - Blind-reconstruction (O12) protocol definition as the learning loop's acceptance experiment (not run).
+- **Acceptance (code stage)**: the seven decompositions go through admit with counted language gaps; a fake-adapter T2 session receives rejection errors and retries; coverage page shows the four levels and the system-feature count from store data; intake/reproduce/ablate jobs defined and dry-run planned, real runs pending.
+
+## WP21 Controls registry and staged release
+
+- **Depends**: WP6, WP11. **Reads**: 12 (all); 02 §6.3, §11; 01 §3, §6; 30.
+- **Closes**: R9 (staged release), R11, R12; D-T22, D-T23, D-T25, D-T28; D-open-6 (values).
+- **Produces**:
+  - One versioned controls registry holding every row of 12: value, failure prevented, where (profile / orch / protocol / UI), status (spec / default / set by X-n run), `set_by` experiment. Code reads knobs only from it; scattered constants removed. Changing a value creates a new version recorded with every run it affects.
+  - A settings page (API + web) that edits only these versioned values; reading is open, writing needs the operator token; every write is a new version with an author and reason.
+  - Staged release S0–S4 as orchestrator configuration: which processes and task types may run, whether agent calls are gated (S1: one call at a time, held until the user releases it after reading card, pull log and plan), exit criteria shown in the UI.
+  - X1–X9 experiment protocol definitions (arms, metrics, which knob each sets); none are run.
+- **Acceptance (code stage)**: every 12 row present with `set_by`; a value change is versioned and visible in a run record; S1 gate holds a fake-adapter task until released; settings page renders and writes a new version.

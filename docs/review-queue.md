@@ -593,3 +593,10 @@ Decisions made without the user that need review. Newest last. Each entry: quest
 - **Choice:** the agents module reads `info["arm"]` from the task bookkeeping. `zero`: no input records of pool kinds, no `find-knowledge` skill, `kta query` not allowed. `text`: the same, plus the pinned snapshot rendered as Markdown in `inputs/knowledge/`. `pool`: unchanged. The condition is recorded in the context manifest and `AgentRun.arm`.
 - **Rationale:** follows docs/design/20 §5 (same knowledge, different form) and the coordinator's brief. It departs from docs/design/10 §6 "skills are equal across arms" for `find-knowledge`, a skill about using the pool, in the arms that have no pool.
 - **Cost of changing later:** low: `kta.agents.arms`. Retrieval inside `kta query` and in the solve loop (WP6/knowledge) must also honour the pinned snapshot; the agents module cannot enforce that alone.
+
+## D325 Working answers to the open design questions (D-open-1 … 7)
+
+- **Question**: 02 §12 lists seven open decisions; round 4 cannot wait for all of them.
+- **Choice**: follow 02's own proposals as defaults (see D325 in `docs/decisions.md`); the largest is (5): template `effects` and the declarative hardware model are built now, before the GEMM golden path has run.
+- **Why**: code stage (D320); no real records exist that a schema change would strand; building the golden path on the old `cost` schema would mean doing it twice.
+- **Cost to change**: (5) reverting means keeping both `cost` and `effects` readers (upcast exists either way); (1)–(4), (6), (7) are data or protocol definitions, cheap to change.
