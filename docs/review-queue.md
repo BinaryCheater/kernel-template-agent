@@ -573,3 +573,10 @@ Decisions made without the user that need review. Newest last. Each entry: quest
 - **Choice:** listed real records (microbench HwFact, ExperimentRun, calibrate T4, improvement Report), spans of four process lanes in one 4-hour window, and a screenshot.
 - **Rationale:** the afternoon is defined by concurrent process activity; the frontend proof is a screenshot as in WP9.
 - **Cost of changing later:** low: `tools/kta_gate/specific_wp11.py`.
+
+## D373 — How an experiment arm's knowledge condition reaches the solve loop
+
+- **Question:** WP11 pins a snapshot and a free-form condition per arm; nothing read them.
+- **Choice:** the snapshot limits retrieval to its members. `condition.knowledge` = `pool` | `text` | `zero`; text and zero arms get no pool objects from retrieval, so the loop creates a T1 from the Case alone. Tasks carry `info["arm"]` and `info["batch"]`; the agent side (WP8) puts text knowledge or nothing into the context.
+- **Rationale:** the three arms of docs/design/50 §1 differ only in what knowledge the agent and the solver see. Keeping the solver blind in text/zero arms makes the agent's work the measured variable.
+- **Cost of changing later:** low: `solve_work.pinned` / `allowed_cards`; the key names are shared with WP8.

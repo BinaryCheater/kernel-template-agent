@@ -191,6 +191,19 @@ class Runner:
         if t.tasks:
             process = str(loop.data.get("process") or PROCESS_OF[loop.kind])
             ids = [self.queue.create(r, loop.id, process) for r in t.tasks]
+            exp: Mapping[str, Any] = loop.data.get("experiment") or {}
+            for task_id in ids if exp else []:
+                # The agent side reads these to pick the batch and apply the arm (D372, D373).
+                self.queue.annotate(
+                    task_id,
+                    batch=exp.get("batch"),
+                    arm={
+                        "name": exp.get("arm"),
+                        "condition": exp.get("condition") or {},
+                        "snapshot": exp.get("snapshot"),
+                        "protocol": exp.get("protocol"),
+                    },
+                )
             data.update(waiting_on=ids[0], waiting_tasks=ids, waiting_type=t.tasks[0].type)
         now = self.ctx.clock.now()
         if loop.data.get("state_span"):

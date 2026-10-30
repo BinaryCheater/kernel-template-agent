@@ -15,12 +15,14 @@ from typing import Any
 from kta.core.errors import ConfigError, NotSupported
 from kta.core.ids import record_id
 from kta.core.schemas import Actor, Record
+from kta.models import bound, min_work
 from kta.orchestrator import control
-from kta.orchestrator.pipeline import Services
+from kta.orchestrator.pipeline import Services, bucket_shape, case_view
 from kta.orchestrator.runner import Runner
 from kta.orchestrator.tasks import TaskQueue
 from kta.orchestrator.transition import TaskRequest
 
+ACTOR = Actor(type="system", name="kta.orchestrator.reverify")
 AGENTS_SIDE = {
     "approve-profile": "kta.agents.profile.approve_profile (agents, layer 8)",
     "env-verify": "kta.agents.batches.verify (agents, layer 8)",
@@ -47,12 +49,65 @@ def _solutions_of(svc: Services, record: str) -> list[str]:
     return found
 
 
+def reverify_bound(svc: Services, record: str) -> str:
+    """Recompute a Bound with the newest HwModel and write the comparison (D378).
+
+    The shape comes from the solve loop that wrote it (``data.bounds`` / ``data.buckets``).
+    Returns the ``reverification`` Report ID; ``data.agrees`` says whether it reproduced.
+    """
+    old = svc.store.get(record)
+    for row in svc.ops.list_loops("solve"):
+        names = [k for k, v in dict(row["data"].get("bounds") or {}).items() if v == record]
+        if not names:
+            continue
+        bucket = next(b for b in row["data"]["buckets"] if str(b["name"]) == names[0])
+        cv = case_view(svc.store, str(row["subject"]))
+        hw_id, hw = svc.hw_model(cv.case.target)
+        shape = bucket_shape(bucket)
+        new = bound(cv.case, shape, hw, min_work(cv.problem, shape))
+        new_id = svc.store.put(
+            Record.new(
+                "Bound", new, ACTOR, svc.ctx.clock.now(), refs={"case": cv.id, "hw_model": hw_id}
+            )
+        )
+        was = float(old.body["bound_us"])
+        agrees = abs(new.bound_us - was) <= 1e-9 * max(1.0, abs(was))
+        body = {
+            "title": "reverification",
+            "subject": record,
+            "summary": f"Bound {'reproduced' if agrees else 'differs'}: "
+            f"{was:.4g} us then, {new.bound_us:.4g} us now",
+            "data": {
+                "kind": "Bound",
+                "old_us": was,
+                "new_us": new.bound_us,
+                "agrees": agrees,
+                "bucket": names[0],
+            },
+        }
+        return svc.store.put(
+            Record.new(
+                "Report", body, ACTOR, svc.ctx.clock.now(), refs={"subject": record, "new": new_id}
+            )
+        )
+    raise NotSupported(f"Bound {record[:12]} was not written by a solve loop on this store")
+
+
 def reverify(svc: Services, record: str, holder: str) -> list[str]:
-    """Re-verify a suspect result by solving its Case again (D368): a fresh solve-loop
-    instance rebuilds, rechecks and remeasures. Returns the loop IDs started."""
+    """Re-verify a suspect record (D368, D378); returns the loops started or the Report.
+
+    A Solution, or a Measurement/Check/Bound a Solution rests on: a fresh solve-loop
+    instance for its Case rebuilds, rechecks and remeasures. A Bound no Solution rests on
+    is recomputed. Other kinds raise NotSupported.
+    """
     solutions = _solutions_of(svc, record)
     if not solutions:
         kind = svc.store.get(record).kind
+        if kind == "Bound":
+            out = [reverify_bound(svc, record)]
+            key = f"reverify:{record}"
+            svc.ops.set_pointer(key, svc.ops.get_pointer(key), json.dumps({"reports": out}))
+            return out
         raise NotSupported(f"re-verifying a {kind} that no Solution rests on (WP11)")
     runner = Runner(svc, holder)
     loops: list[str] = []

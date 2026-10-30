@@ -81,6 +81,10 @@ class TaskQueue:
         if not self.ops.update_task(task.id, [task.state], to, owner, lease_s, count_attempt):
             raise ConfigError(f"task {task.id} is no longer {task.state}")
 
+    def annotate(self, task_id: str, **changes: Any) -> None:
+        """Add bookkeeping the agent side reads: ``batch`` and ``arm`` (D372, D373)."""
+        self._set_info(task_id, **changes)
+
     def get(self, task_id: str) -> Task:
         return self.ops.task(task_id)
 
