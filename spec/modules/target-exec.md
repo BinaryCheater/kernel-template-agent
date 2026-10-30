@@ -119,3 +119,16 @@ class Backend(Protocol):
 - 真实运行：本机控制面经 `ssh` 传输把 spark 注册为 GPU worker（`scripts/worker-setup spark`），完成 `probe`，写出 Worker、EnvManifest、Target 记录和 features 的支持情况；用两个后端各编译并运行一个向量加法 kernel，输出正确；`gpu-exclusive` 作业期间，并发提交的 gpu-shared 作业被推迟（日志可见）；故意构造一个死循环 kernel，验证超时后 GPU 恢复可用。
 - 重新部署：在第二台机器（slai）上用 `scripts/bootstrap` 建立控制面，或用 `scripts/worker-setup slai` 注册 CPU worker，跑通单元测试和一个编译作业；两台机器的 EnvManifest 中锁文件 hash 一致。
 - 交付说明写明：各机器 `KTA_DATA` 的取值、CUDA 与驱动版本、TileLang 版本、哪些 features 为 yes/no、slai 能否为 sm_121 交叉编译。
+
+## WP2 implementation notes (D180–D199)
+
+Changes and additions to the interfaces above, made in WP2 and recorded in docs/decisions.md:
+
+- `Job`, `JobResult` live in `kta/core/jobs.py` and are re-exported by `execution/base.py`; `JobResult` adds `job_id` and `worker_name`. Targets and backends take a `JobRunner` (structural: `submit`, `wait`, `run`, `read_blob`, `put_blob`), which the Executor satisfies (D180). `Job.argv` placeholders `{python}`, `{cuda_home}`, `{job}` (D185).
+- `Executor` adds `read_blob(sha256)` and `put_blob(data, media)` (blobs live in the control-plane store; workers receive and return them by hash). The implementation is `execution/executor.py` `JobExecutor`, registered as interface `executor` (D184).
+- Workers are configured in `config/kta.toml` `[workers.<name>]` (transport, ssh, root, path, env, cuda_home, image, pools, nvidia_smi). `register_worker(ctx, name, host, transport)` returns the Worker body; `execution.registry.register(...)` returns the record IDs too. Labels and matching: D182; pools: D183; deployment and commit match: D181, D197. Worker side: `execution/worker.py` (`python -m kta.execution.worker info|has|put|get|run|serve`), `execution/workerprobe.py`.
+- Also: `execution/transport/pull.md` (protocol; `pull` and `kta worker serve` raise NotSupported); `execution/sandbox.py` (D187); memory limits D190; GPU hang D191.
+- `targets/gb10/`: `probe.py` (Target, HwFact, HwFeature records; D188, D199), `devinfo.py`, `featrun.py` (worker-side jobs), `targets/cudadrv.py` (ctypes CUDA driver API, used by worker-side jobs only). `TargetPlugin.probe` writes the records through the plugin's store; `Gb10Target.last_probe` holds the record IDs.
+- `BuiltModule` adds `entry` (the symbol to launch; TileLang appends `_kernel`) and `build_id` (the Build record); Build refs add `target`. Cache key: D189. `LaunchSpec(grid, block, smem_bytes, params: list[Param(name, type)])`. Harness: `backends/harness` (`run_job`, `collect`; worker side `harness/run.py`), D186.
+- Backends are registered as interfaces `backend.cuda` and `backend.tilelang`; TileLang builds run in the worker image (`docker/`), D187.
+- CLI: `kta worker register|list|serve`, `kta target probe`, `kta backend smoke|selftest` (D193).

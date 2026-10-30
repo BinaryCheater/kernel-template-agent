@@ -141,3 +141,32 @@ def test_wp13_numbers_need_sources(tmp_path: Path) -> None:
     cited = FULL_NOTE.replace("x\n", "Reading took 41.5% of time [S1].\n")
     _note(tmp_path, "WP13", cited + f"\n## Sources\n- [S1] {src}\n")
     assert wp13(tmp_path, set())[0].status == "PASS"
+
+
+def test_code_stage_requires_pending_section(tmp_path: Path) -> None:
+    body = "\n".join(f"## {names[0]}\nx\n" for names in delivery.SECTIONS.values())
+    (tmp_path / "deliveries").mkdir()
+    note = tmp_path / "deliveries" / "WPx.md"
+    note.write_text(body, encoding="utf-8")
+    assert delivery.check_delivery_sections(tmp_path, "WPx").status == "PASS"
+    assert delivery.check_delivery_sections(tmp_path, "WPx", code_stage=True).status == "FAIL"
+    note.write_text(body + "## Pending real runs\n- the solve run\n", encoding="utf-8")
+    assert delivery.check_delivery_sections(tmp_path, "WPx", code_stage=True).status == "PASS"
+
+
+def test_code_stage_evidence_needs_no_records(tmp_path: Path) -> None:
+    evidence = tmp_path / "e.json"
+    evidence.write_text("[]", encoding="utf-8")
+    assert delivery.check_evidence(repo_root(), "WP7", None, path=evidence).status == "FAIL"
+    result = delivery.check_evidence(repo_root(), "WP7", None, path=evidence, code_stage=True)
+    assert result.status == "WARN"
+
+
+def test_stage_context() -> None:
+    from kta_gate import specific
+
+    assert not specific.code_stage()
+    with specific.stage("code"):
+        assert specific.code_stage()
+        assert specific.pending_real("x", "y").status == "WARN"
+    assert not specific.code_stage()

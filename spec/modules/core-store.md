@@ -103,7 +103,7 @@ class Ops:
     def events(self, since: int) -> list[OpsEvent]
 ```
 
-Additions made in WP1 (D146, D152): `Store.put_many(records)` (one transaction), `exists`, `get_json`, `kind_of`, `count`, `blob_media`; `Ops.get_pointer`, `set_budget`, `budget`, `task`, `heartbeat`, `put_loop`/`get_loop`, `start_span`/`end_span` (the `kta.core.trace.SpanSink`), `spans`, `prune_spans`. `query(where=...)` syntax: D147. `stale.propagate(store, id, reason, now)`, `stale.reject(...)`, `snapshot(store, ops, members, parent, note, actor, now)` take the store explicitly.
+Additions made in WP1 (D146, D152): `Store.put_many(records)` (one transaction), `exists`, `get_json`, `kind_of`, `count`, `blob_media`; `Ops.get_pointer`, `set_budget`, `budget`, `task`, `heartbeat`, `put_loop`/`get_loop`, `start_span`/`end_span` (the `kta.core.trace.SpanSink`), `spans`, `prune_spans`. `query(where=...)` syntax: D147. Additions made in WP2 (D192): `Ops.worker_health(name)`, `Ops.record_event(table, row_id, change)`; `heartbeat` is part of the Ops protocol; `kta.core.trace.current_tracer()`; `kta.core.jobs` holds `Job`, `JobResult`, `JobRunner` (D180). `stale.propagate(store, id, reason, now)`, `stale.reject(...)`, `snapshot(store, ops, members, parent, note, actor, now)` take the store explicitly.
 
 ### 行为
 

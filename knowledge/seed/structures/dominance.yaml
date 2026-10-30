@@ -1,0 +1,8 @@
+name: dominance
+effect: enumeration
+description: >-
+  Most designs are dominated on every metric, so the Pareto front is thin and dominated designs can
+  be skipped without evaluation.
+evidence_needed: >-
+  A dominance argument stated with its scope (which metrics, which region); a purely heuristic
+  restriction is labelled as such and proves nothing.

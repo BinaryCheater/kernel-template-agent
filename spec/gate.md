@@ -51,3 +51,7 @@
 ## 强制运行
 
 AGENTS.md 规定最后一步必须运行 gate 并把输出贴进交付说明。合入前再由合并者运行一次。如果某种 agent 工具支持"结束前钩子"，可以把 `scripts/gate --quick <当前 WP>` 配进去作为加强，但不依赖它。
+
+## Code stage (D320)
+
+`scripts/gate --stage code <WP>` is the code-complete gate used while the user has paused real data and measurements (2026-10-31). It runs every check except the ones that need real runs: evidence claims need no store records, and WP-specific checks that need a GPU run, a measurement or real records return WARN through `specific.pending_real(...)` when `specific.code_stage()` is true. The delivery note must add a non-empty section `## Pending real runs` listing what the full gate will still require. A WP that passed only the code stage may be merged into `integration` as code-complete; it is not accepted until `scripts/gate <WP>` (full) passes.

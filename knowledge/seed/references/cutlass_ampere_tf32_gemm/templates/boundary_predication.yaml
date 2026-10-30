@@ -30,7 +30,7 @@ scope:
   text: "Tile transfers whose tiles can straddle problem bounds or whose base pointers can be misaligned."
 requires_hw: []
 relations:
-  - {type: requires, target: vectorized_access, note: "predicates are per vector access"}
+  - {type: enables, target: vectorized_access, note: "per-vector predicates keep residue tiles vectorized; predication also applies to scalar, TMA (hardware clipping) and compiler-vectorized accesses, so it does not require vectorized_access (D110)"}
 signature:
   algorithm: "predicated tile transfer with neutral fill"
   reuse: null

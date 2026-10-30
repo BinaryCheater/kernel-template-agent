@@ -1,0 +1,18 @@
+name: reduce
+level: 1
+category: reduce
+params:
+  - {name: axis, type: str, meaning: "the reduced dimension (e.g. K of a GEMM, the row of a softmax)"}
+  - {name: length, type: int, meaning: "number of reduced elements per output"}
+  - {name: outputs, type: int, meaning: "number of independent reductions (outputs)"}
+  - {name: assoc, type: bool, meaning: "the combine operator is associative (in exact arithmetic)"}
+  - {name: comm, type: bool, meaning: "the combine operator is commutative"}
+  - {name: rescalable, type: bool, meaning: "partial results can be corrected by a rescaling factor when the combine changes (online softmax, Welford)"}
+description: >-
+  Many values combined into one result per output by an operator such as sum, max or a rescaled
+  sum. The coarse transaction is "combine all of them"; refinements split it into partial results
+  and a combine.
+examples:
+  - "GEMM: Y[i,j] = sum over k of A[i,k] * B[k,j]"
+  - "softmax denominator: sum over the row of exp(x - max)"
+  - "RMSNorm: sum of squares over the hidden dimension"

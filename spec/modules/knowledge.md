@@ -5,6 +5,10 @@
 ## 文件
 
 ```
+knowledge/types.py         Issue、Card、ScopeResult、ReusePlan、CoverageReport 等结果类型
+knowledge/pool.py          经 Store 读取知识对象（按名字、状态）
+knowledge/pending.py       Store＋待写入记录的只读视图（批量校验用）
+knowledge/seed.py          seed 导入（kta init）
 knowledge/patterns.py      Pattern 表的加载、新增、匹配
 knowledge/templates.py     Template 的加载、校验、查重、版本
 knowledge/chains.py        Chain 的校验；链项之间的关系检查
@@ -24,40 +28,46 @@ def load_patterns(store) -> dict[str, Pattern]
 def match_pattern(tx: TxDescription, patterns) -> list[tuple[str, float]]   # 候选模式及匹配度；无匹配返回 [("other", 0)]
 
 # Template
-def validate_template(t: Template, store, hw: dict) -> list[Issue]
+def validate_template(t: Template, store, hw: dict | None) -> list[Issue]   # Issue: kind, message, where, severity error|warning (D201)
     # 字段完整；表达式可解析、自由变量已声明；preconditions 的 same_as 指向存在的约束；
     # relations 的 target 存在；refines 和 produces 的 Pattern 存在；requires_hw 的 HwFeature 存在；
     # 查重：同一 refines、同类 object.type、变量名集合与成本单元集合相同 → Issue(kind="possible_duplicate")
-def propose_template(ctx, t: Template, sources: list[str]) -> str     # 校验通过后写入，状态 proposed，保证等级 declared
+def propose_template(ctx, store, t: Template, sources: list[str]) -> str     # 校验通过后写入，状态 proposed，保证等级 declared（D202、D203）
 
 # Chain 与 Family
 def validate_chain(ch: Chain, store) -> list[Issue]
     # 每个 item 的 template 存在；bindings 覆盖该 Template 的全部变量；after 构成 DAG；
     # 链中 Template 的 requires/excludes 关系满足
 def load_family(path: Path) -> FamilyPackage
-def validate_family(fp: FamilyPackage, store, hw: dict) -> list[Issue]
+def validate_family(fp: FamilyPackage, store, hw: dict | None) -> list[Issue]
     # validate_chain；每个 item 的 code_markers 都在 gen.py 生成的源码中出现（对一组默认取值生成后检查）；
     # 族变量 = 各 item 绑定到的变量 ∪ glue 中的变量，没有多余也没有缺失；
     # glue_constraints 每条有 meaning；generate() 对边界形状能正常返回
 
 # 适用范围与增量复用
 def scope_holds(t: Template, case: Case, hw: dict, params: dict) -> ScopeResult    # holds: bool | None（无法求值）、reason
-def reuse_plan(chain_id: str, case: Case, hw: dict) -> ReusePlan
+def reuse_plan(store, chain_id: str, case: Case, hw: dict, params: dict | None = None) -> ReusePlan
     # 对链中每一步求值 Γ；返回 keep / invalid / unknown 三类及原因；
     # 对 invalid 的步骤，给出 alternative_of 的候选
 
 # 检索
-def retrieve_families(case: Case, k: int = 5) -> list[Card]
-def retrieve_templates(pattern: str | None, unit: str | None, text: str | None, case: Case | None, k: int = 10) -> list[Card]
-def nearest_chains(case: Case, k: int = 3) -> list[Card]
-def diff_templates(reference_chain: str, current_chain: str) -> list[Card]     # 差集检索
-def card(record_id: str) -> Card          # 五行以内：名称、作用、强弱项（来自证据）、状态、保证等级
+def retrieve_families(store, case: Case, k: int = 5, hw: dict | None = None) -> list[Card]
+def retrieve_templates(store, pattern: str | None, unit: str | None, text: str | None, case: Case | None, k: int = 10, hw: dict | None = None, params: dict | None = None) -> list[Card]
+def nearest_chains(store, case: Case, k: int = 3) -> list[Card]
+def diff_templates(store, reference_chain: str, current_chain: str) -> list[Card]     # 差集检索
+def card(store, record_id: str) -> Card          # 五行以内：名称、作用、强弱项（来自证据）、状态、保证等级
 
 # 渲染与覆盖
-def family_overview(pattern_or_problem: str) -> str     # Markdown，一页
-def render_text_knowledge(snapshot_id: str, out_dir: Path) -> None
-def coverage_report(snapshot_id: str) -> CoverageReport   # 21 §2 的全部量
+def family_overview(store, pattern_or_problem: str) -> str     # Markdown，一页
+def render_text_knowledge(store, snapshot_id: str | None, out_dir: Path) -> None
+def coverage_report(store, snapshot_id: str | None, rng: Random) -> CoverageReport   # 21 §2 的全部量
+
+# Seed (kta init)
+def import_seed(ctx, store, root: Path, code: CodeState | None = None) -> ImportResult
+def import_references(ctx, store, references: Path, code: CodeState | None = None) -> ImportResult
 ```
+
+(D200) Functions that read the pool take the `Store` explicitly (no global state, conventions §3.1); `snapshot_id=None` means the whole store; `rng` is `ctx.rng("coverage")`. The package registers no interface implementation. Seed layout and atomic import: D204; `p.*` in Template expressions and chain bindings: D205.
 
 ## 行为
 

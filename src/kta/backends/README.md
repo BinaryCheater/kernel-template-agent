@@ -4,12 +4,14 @@ Layer 4. Specification: [spec/modules/target-exec.md](../../../spec/modules/targ
 
 ## Responsibility
 
-Compile generated kernels (TileLang, CUDA C++) into uniform built modules through the Executor.
+Compile generated kernels (TileLang, CUDA C++) into cubins through the Executor, with an input-hash build cache and Build records; load and launch every cubin the same way (harness).
 
 ## Public interface
 
-- `GeneratedKernel`, `BuiltModule`
-- `Backend`: supports, build
+- `GeneratedKernel`, `LaunchSpec`, `Param`, `BuiltModule`, `Backend` protocol
+- `CudaBackend` (`resolve("backend.cuda", ctx)`), `TileLangBackend` (`resolve("backend.tilelang", ctx)`): supports, build
+- `harness.run_job(...)`, `harness.collect(...)`, `harness.Buffer`; worker side `python -m kta.backends.harness.run`
+- `smoke.Smoke`: vector add per backend, lease deferral and timeout recovery self-tests (`kta backend smoke|selftest`)
 
 ## Dependencies
 

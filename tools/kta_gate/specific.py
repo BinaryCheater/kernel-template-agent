@@ -13,7 +13,8 @@ import os
 import re
 import sqlite3
 import subprocess
-from collections.abc import Callable
+from collections.abc import Callable, Generator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, cast
 
@@ -21,6 +22,7 @@ import yaml
 
 from kta_gate.delivery import split_sections
 from kta_gate.result import CheckResult, from_findings
+from kta_gate.specific_wp3 import wp3
 
 MODULES = (
     "core",
@@ -186,6 +188,109 @@ def wp1(
     return [*results, CheckResult("store benchmark record", "FAIL", "no valid record", problems)]
 
 
+WP2_ACCEPTANCE = (
+    "test_spark_registers_as_gpu_worker_over_ssh",
+    "test_probe_writes_target_facts_and_feature_support",
+    "test_vector_add_on_both_backends_is_correct",
+    "test_exclusive_job_defers_concurrent_shared_jobs",
+    "test_gpu_is_usable_after_a_timed_out_kernel",
+    "test_slai_cpu_worker_compiles_with_the_same_lock",
+)
+WP2_CODE = "src/kta/execution/executor.py"
+WP2_KINDS = ("Target", "Build", "Worker", "EnvManifest", "Check")
+
+
+def _listed(root: Path, wp: str) -> set[str]:
+    path = root / "deliveries" / f"{wp}.evidence.json"
+    if not path.exists():
+        return set()
+    return {
+        r for c in json.loads(path.read_text(encoding="utf-8")) for r in c.get("record_ids", [])
+    }
+
+
+def _record(con: sqlite3.Connection, rid: object) -> dict[str, Any] | None:
+    row = con.execute("SELECT origin, json FROM records WHERE id = ?", (str(rid),)).fetchone()
+    if row is None:
+        return None
+    return {**json.loads(row[1]), "_origin": row[0]}
+
+
+def _wp2_records(git_root: Path, con: sqlite3.Connection, listed: set[str]) -> list[str]:
+    """Real, clean WP2 records of every required kind, listed in the evidence manifest.
+
+    Every record must come from a clean commit of this branch that contains the
+    Executor. The Target and a Worker must come from / be a GPU-labelled worker, and
+    both backends need an ok Build whose vector-add Check passed on a GPU worker.
+    """
+
+    def clean(rec: dict[str, Any]) -> bool:
+        commit = str(rec["actor"].get("commit"))
+        return (
+            rec["_origin"] == "real"
+            and rec["actor"].get("dirty") is False
+            and _git_ok(git_root, "merge-base", "--is-ancestor", commit, "HEAD")
+            and _git_ok(git_root, "cat-file", "-e", f"{commit}:{WP2_CODE}")
+        )
+
+    def on_gpu(rec: dict[str, Any]) -> bool:
+        worker = rec if rec["kind"] == "Worker" else _record(con, rec["refs"].get("worker"))
+        return worker is not None and "gpu" in worker["body"].get("labels", {})
+
+    good = [r for r in (_record(con, rid) for rid in sorted(listed)) if r and clean(r)]
+    findings = [
+        f"no listed, real, clean WP2 {kind} record"
+        for kind in WP2_KINDS
+        if not any(r["kind"] == kind for r in good)
+    ]
+    for kind in ("Target", "Worker"):
+        if not any(r["kind"] == kind and on_gpu(r) for r in good):
+            findings.append(f"no listed {kind} from a GPU-labelled worker")
+    backends: set[str] = set()
+    for check in (r for r in good if r["kind"] == "Check" and on_gpu(r)):
+        build = _record(con, check["refs"].get("build"))
+        if check["body"].get("passed") is True and build and build["body"].get("ok") is True:
+            backends.add("tilelang" if "codegen" in build["blobs"] else "cuda")
+    findings += [
+        f"no passed vector-add Check for a {b} Build"
+        for b in ("cuda", "tilelang")
+        if b not in backends
+    ]
+    return findings
+
+
+def wp2(
+    root: Path,
+    passed: set[str],
+    data_root: Path | None = None,
+    git_root: Path | None = None,
+    gpu_passed: set[str] | None = None,
+) -> list[CheckResult]:
+    """GPU acceptance tests run through the Executor on spark; real WP2 records exist."""
+    results: list[CheckResult] = []
+    if gpu_passed is None:
+        from kta_gate.runners import run_pytest
+
+        run = run_pytest(root, "WP2 GPU acceptance run", ["-m", "gpu", "tests/acceptance/WP2"])
+        results.append(run.result)
+        gpu_passed = run.passed
+    names = {t.split("::")[-1].split("[")[0] for t in gpu_passed if "acceptance.WP2" in t}
+    absent = [f"{t} did not pass" for t in WP2_ACCEPTANCE if t not in names]
+    results.append(from_findings("WP2 acceptance tests", absent, f"{len(names)} tests passed"))
+    if data_root is None and not os.environ.get("KTA_DATA"):
+        return [*results, CheckResult("WP2 records", "FAIL", "set KTA_DATA")]
+    db = (data_root or Path(os.environ["KTA_DATA"])) / "dev" / "WP2" / "kta.db"
+    if not db.exists():
+        return [*results, CheckResult("WP2 records", "FAIL", f"{db} not found")]
+    con = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
+    try:
+        findings = _wp2_records(git_root or root, con, _listed(root, "WP2"))
+    finally:
+        con.close()
+    kinds = ", ".join(WP2_KINDS)
+    return [*results, from_findings("WP2 records", findings, f"{kinds} listed and real")]
+
+
 def _yaml_docs(path: Path) -> list[dict[str, Any]]:
     docs = [d for d in yaml.safe_load_all(path.read_text(encoding="utf-8")) if d is not None]
     return [d for d in docs if isinstance(d, dict)]
@@ -212,6 +317,194 @@ def _model_validator() -> Callable[[str, dict[str, Any]], None] | None:
     if not callable(validate):
         return None
     return cast(Callable[[str, dict[str, Any]], None], validate)
+
+
+WP4_ACCEPTANCE = (
+    "test_seed_templates_pass_validate_template",
+    "test_seed_pattern_table_has_the_eight_categories",
+    "test_validate_template_error_classes",
+    "test_expression_free_variables_are_checked",
+    "test_duplicate_is_reported_as_a_hint",
+    "test_validate_chain_good_and_error_classes",
+    "test_validate_family_good_and_error_classes",
+)
+WP4_SEED_TEMPLATES = (
+    "reduction_partition",
+    "physical_storage",
+    "async_transfer",
+    "multi_buffer_rotation",
+    "shared_resource_binding",
+)
+WP4_PATTERNS = ("reduce", "contract", "map", "store", "transfer", "sync", "access", "other")
+WP4_STRUCTURES = 9
+
+
+def _seed_check(seed: Path, data: Path) -> tuple[CheckResult, CheckResult | None]:
+    """Import the seed into a scratch test store; every Template must validate.
+
+    Reference decompositions under seed/references belong to WP10a: they are imported in
+    the same scratch store and reported, as WARN when they fail (decision D215).
+    """
+    # Imported here so the gate of a branch without kta.knowledge still loads.
+    from kta.core.config import config_from_mapping
+    from kta.core.context import Context
+    from kta.core.registry import Registry
+    from kta.knowledge import (
+        SeedError,
+        errors_of,
+        import_hw_catalog,
+        import_references,
+        import_seed,
+    )
+    from kta.knowledge.pool import find_template, names
+    from kta.knowledge.templates import validate_template
+    from kta.store import CodeState, open_store
+
+    ctx = Context(env="test", config=config_from_mapping({}), data_dir=data, registry=Registry())
+    code = CodeState("0" * 40, False)
+    store = open_store(ctx, code)
+    # Same order as `kta init`: the declared GB10 feature catalogue first (D98).
+    from kta.targets.gb10 import catalog
+
+    import_hw_catalog(ctx, store, catalog(), code)
+    try:
+        result = import_seed(ctx, store, seed, code)
+    except SeedError as exc:
+        return CheckResult(
+            "seed validates", "FAIL", "seed import refused", [str(i) for i in exc.issues]
+        ), None
+    findings: list[str] = []
+    for name in WP4_SEED_TEMPLATES:
+        hit = find_template(store, f"{name}@1")
+        if hit is None:
+            findings.append(f"Template {name}@1 missing")
+            continue
+        findings += [f"{name}: {i}" for i in errors_of(validate_template(hit[1], store, None))]
+    findings += [f"Pattern {p} missing" for p in WP4_PATTERNS if p not in names(store, "Pattern")]
+    if len(names(store, "Structure")) < WP4_STRUCTURES:
+        findings.append(f"fewer than {WP4_STRUCTURES} Structures")
+    detail = ", ".join(f"{n} {k}" for k, n in sorted(result.counts.items()))
+    seed_result = from_findings("seed validates", findings, detail)
+    refs = seed / "references"
+    if not refs.is_dir():
+        return seed_result, None
+    try:
+        rr = import_references(ctx, store, refs, code)
+    except SeedError as exc:
+        kinds: dict[str, int] = {}
+        for i in exc.issues:
+            kinds[i.kind] = kinds.get(i.kind, 0) + 1
+        summary = ", ".join(f"{k} {n}" for k, n in sorted(kinds.items()))
+        return seed_result, CheckResult(
+            "reference decompositions",
+            "WARN",
+            f"not importable: {summary}",
+            [str(i) for i in exc.issues[:40]],
+        )
+    detail = ", ".join(f"{n} {k}" for k, n in sorted(rr.counts.items()))
+    return seed_result, CheckResult("reference decompositions", "PASS", detail)
+
+
+def wp4(root: Path, passed: set[str]) -> list[CheckResult]:
+    """The seed imports and validates; the WP4 acceptance tests passed by name."""
+    import tempfile
+
+    names_ = {t.split("::")[-1].split("[")[0] for t in passed if "acceptance.WP4" in t}
+    absent = [f"{t} did not pass" for t in WP4_ACCEPTANCE if t not in names_]
+    results = [from_findings("WP4 acceptance tests", absent, f"{len(names_)} tests passed")]
+    with tempfile.TemporaryDirectory(prefix="kta-gate-wp4-") as tmp:
+        seed_result, ref_result = _seed_check(root / "knowledge" / "seed", Path(tmp))
+    results.append(seed_result)
+    if ref_result is not None:
+        results.append(ref_result)
+    return results
+
+
+WP5_ACCEPTANCE = (
+    "test_constraint_sources_after_assembly",
+    "test_constant_binding_removes_variable",
+    "test_enumeration_and_mip_agree_on_small_linear_problem",
+)
+WP5_TEST_FAMILY = Path("tests") / "acceptance" / "WP5" / "gemm_family"
+
+
+def _wp5_families(root: Path) -> list[Path]:
+    seed = root / "knowledge" / "seed" / "families"
+    found = sorted(p for p in seed.iterdir() if p.is_dir()) if seed.is_dir() else []
+    test_family = root / WP5_TEST_FAMILY
+    return [*found, test_family] if test_family.is_dir() else found
+
+
+def _assemble_check(root: Path, data: Path) -> CheckResult:
+    """Every family (seed families and the WP5 GEMM test family) validates and assembles
+    over the seed Templates in a scratch store; together they use all seed Templates
+    (decision D252)."""
+    from kta.core.config import config_from_mapping
+    from kta.core.context import Context
+    from kta.core.errors import SchemaError
+    from kta.core.registry import Registry
+    from kta.core.schemas.evaluation import Case
+    from kta.formulation import assemble
+    from kta.knowledge import SeedError, errors_of, import_seed, load_family, validate_family
+    from kta.knowledge.pool import find_template
+    from kta.store import CodeState, open_store
+
+    ctx = Context(env="test", config=config_from_mapping({}), data_dir=data, registry=Registry())
+    code = CodeState("0" * 40, False)
+    store = open_store(ctx, code)
+    try:
+        import_seed(ctx, store, root / "knowledge" / "seed", code)
+    except SeedError as exc:
+        return CheckResult("seed formulations assemble", "FAIL", f"seed import refused: {exc}")
+    families = _wp5_families(root)
+    if not families:
+        return CheckResult("seed formulations assemble", "FAIL", "no family to assemble")
+    case = Case(problem="gate", shape_dist=[], objective="weighted_latency", target="gate")
+    findings: list[str] = []
+    used: set[str] = set()
+    sizes: list[str] = []
+    for path in families:
+        name = path.relative_to(root)
+        try:
+            fp = load_family(path)
+        except SchemaError as exc:
+            findings.append(f"{name}: {exc}")
+            continue
+        findings += [f"{name}: {i}" for i in errors_of(validate_family(fp, store, None))]
+        templates = {}
+        for item in fp.chain.items:
+            hit = find_template(store, item.template)
+            if hit is not None:
+                templates[item.template] = hit[1]
+        try:
+            f = assemble(fp, fp.chain, templates, case, {})
+        except SchemaError as exc:
+            findings.append(f"{name}: {exc}")
+            continue
+        used |= {t.split("@")[0] for t in templates}
+        sizes.append(
+            f"{fp.family.name}: {len(f.constraints)} constraints, {len(f.cost_terms)} costs"
+        )
+    findings += [
+        f"seed Template {t} is not used by any assembled family"
+        for t in WP4_SEED_TEMPLATES
+        if t not in used
+    ]
+    return from_findings("seed formulations assemble", findings, "; ".join(sizes))
+
+
+def wp5(root: Path, passed: set[str]) -> list[CheckResult]:
+    """WP5 acceptance tests passed; the seed validates; seed formulations assemble."""
+    import tempfile
+
+    names_ = {t.split("::")[-1].split("[")[0] for t in passed if "acceptance.WP5" in t}
+    absent = [f"{t} did not pass" for t in WP5_ACCEPTANCE if t not in names_]
+    results = [from_findings("WP5 acceptance tests", absent, f"{len(names_)} tests passed")]
+    with tempfile.TemporaryDirectory(prefix="kta-gate-wp5-") as tmp:
+        seed_result, _ = _seed_check(root / "knowledge" / "seed", Path(tmp) / "seed")
+        results.append(seed_result)
+        results.append(_assemble_check(root, Path(tmp) / "assemble"))
+    return results
 
 
 def wp10a(root: Path, passed: set[str]) -> list[CheckResult]:
@@ -337,9 +630,35 @@ SPECIFIC: dict[str, Callable[[Path, set[str]], list[CheckResult]]] = {
     "WP9a": wp9a,
     "WP0": wp0,
     "WP1": wp1,
+    "WP4": wp4,
+    "WP5": wp5,
+    "WP2": wp2,
+    "WP3": wp3,
     "WP10a": wp10a,
     "WP13": wp13,
 }
+
+
+_STAGE: list[str] = ["full"]
+
+
+@contextmanager
+def stage(name: str) -> Generator[None]:
+    """Set the gate stage that WP-specific checks see (D320)."""
+    _STAGE.append(name)
+    try:
+        yield
+    finally:
+        _STAGE.pop()
+
+
+def code_stage() -> bool:
+    return _STAGE[-1] == "code"
+
+
+def pending_real(name: str, what: str) -> CheckResult:
+    """Use in place of a check that needs a real run or measurement, in the code stage only."""
+    return CheckResult(name, "WARN", f"pending real run (code stage): {what}")
 
 
 def run_specific(wp: str, root: Path, passed: set[str]) -> list[CheckResult]:

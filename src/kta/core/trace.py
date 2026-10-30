@@ -108,6 +108,11 @@ def tracing(tracer: Tracer) -> Generator[Tracer]:
         _tracer.reset(token)
 
 
+def current_tracer() -> Tracer | None:
+    """The bound tracer, so work handed to another thread can keep the caller's trace."""
+    return _tracer.get()
+
+
 def current_span_id() -> str | None:
     handle = _current.get()
     return handle.span_id if handle else None

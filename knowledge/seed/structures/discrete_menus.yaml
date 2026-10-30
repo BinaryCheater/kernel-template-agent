@@ -1,0 +1,8 @@
+name: discrete_menus
+effect: enumeration
+description: >-
+  Domains are small and enumerable: powers of two, a handful of tile shapes, a few instruction
+  shapes. Crossing a capacity wall is then a cliff, and enumeration is cheap.
+evidence_needed: >-
+  The menu itself (from the Template's domains and the hardware's instruction shapes); algebraic,
+  checked once.

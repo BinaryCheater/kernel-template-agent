@@ -52,6 +52,7 @@ Unit           = str      # 硬件单元名，取自 Target 的单元表，例�
 
 - 允许：数字和布尔字面量；变量名；`+ - * / // % **`；比较；`and or not`；`if ... else ...`；函数 `min max abs ceil floor ceil_div log2 is_pow2`；属性访问 `hw.<名>`（Target 的硬件契约）、`p.<名>`（模式或 workload 参数）、`case.<名>`。
 - 不允许：其他函数调用、下标、lambda、推导式、import。
+- String literals (added by D97): only as operands of `==` / `!=`, and as elements of a non-empty literal list on the right of `in` / `not in` (e.g. `mechanism == "cp.async"`, `level in ["smem", "reg"]`). Ordering comparisons and arithmetic on strings are not allowed; any comparison with a string literal is non-linear.
 - 解析时检查：所有自由变量都在声明的变量、`hw`、`p`、`case` 之中。
 - **线性子集**：只含加减、常数乘、比较、`and` 的表达式被标记为线性，可以导出到 MIP；其余由枚举求解器处理。
 

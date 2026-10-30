@@ -1,0 +1,56 @@
+name: physical_storage
+version: 1
+level_from: 1
+level_to: 2
+change: vertical
+refines: store
+produces: [store, transfer]
+object:
+  type: buffer_occupancy
+  description: >-
+    The occupancy of a reusable physical buffer by a logical value (an operand tile or a partial
+    result) from its first write to its last read.
+variables:
+  - {name: level, kind: structure, binding: compile, role: software, domain: [reg, smem, tmem, l2, gmem], meaning: "storage level that holds the value"}
+  - {name: buffer, kind: structure, binding: compile, role: software, domain: [dedicated, shared], meaning: "whether the value has a buffer of its own or shares one with other values (reconstruction chains may name the buffer instead)"}
+  - {name: share_order, kind: structure, binding: compile, role: software, domain: [none, this_first, other_first], meaning: "order z of the values that share one buffer (none for a dedicated buffer)"}
+constraints:
+  - {id: c_fits, expr: "p.size_bytes * p.copies <= p.capacity_bytes", meaning: "the copies held at the same time fit the capacity budget of the chosen level", cls: resource}
+preconditions:
+  - {id: pre_lifetime, expr: "p.last_read + p.delta <= p.next_write", meaning: "lifetime: the next destructive write into the buffer comes after the value's last required read (the paper's order inequality with the order already chosen)", cls: semantic}
+program:
+  description: >-
+    Allocate the buffer at the chosen level (register fragment, shared-memory array, tensor memory,
+    or global scratch); write the value into it; read it from there until its last use. Values that
+    share a buffer are written in share_order.
+  fragments: {}
+backward_map: >-
+  Read every value from its buffer occupancy: while the occupancy lasts the buffer holds exactly the
+  logical value, so forgetting buffers and order gives the logical dataflow.
+obligations:
+  - {name: lifetime, statement: "A value survives until its last read: no other value sharing the buffer is written between its first write and its last read.", method: test}
+  - {name: capacity, statement: "At every time, the values resident in a level fit its capacity.", method: exhaustive}
+cost: []
+scope:
+  predicate: "p.size_bytes >= 1"
+  text: >-
+    Any logical value with a known size; the level menu is limited by what the Target has (tmem
+    only on chips with tensor memory).
+requires_hw: []
+relations:
+  - {type: enables, target: async_transfer, note: "a value in a buffer is filled by a transfer"}
+  - {type: enables, target: multi_buffer_rotation, note: "a buffer can be split into rotating slots"}
+  - {type: enables, target: shared_resource_binding, note: "a buffer in banked memory gets a bank binding"}
+signature:
+  algorithm: "give a logical value a physical buffer at one storage level"
+  reuse: "a buffer is reused by values whose lifetimes do not overlap"
+  storage: "chosen per value: reg, smem, tmem, l2 or gmem"
+  boundary: null
+  resources: [smem, reg]
+numeric_risk: null
+expected_sass: []
+summary: >-
+  Paper GEMM step 2: a logical operand or partial result becomes an occupancy of a reusable buffer.
+  Decisions are the level, the buffer sharing and the order of values that share it; the obligation
+  is lifetime.
+example_code: null

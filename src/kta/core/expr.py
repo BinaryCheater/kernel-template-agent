@@ -5,6 +5,10 @@ A subset of Python expressions, parsed with ``ast`` and interpreted here; Python
 ``p.<name>`` and ``case.<name>`` read the hardware contract, pattern/workload
 parameters and the case.
 
+String literals may appear only as operands of ``==``/``!=`` and as elements of the
+literal list on the right of ``in``/``not in`` (for named mechanisms, levels and
+instructions); any comparison involving them is non-linear.
+
 Linear subset (exportable to MIP): additions, subtractions, multiplication where one
 side is constant, comparisons other than ``!=``, and ``and``. A subexpression is
 constant when it uses no declared variable (literals and hw/p/case attributes are
@@ -76,6 +80,8 @@ _CMPOPS: dict[type[ast.cmpop], Callable[[Any, Any], bool]] = {
     ast.NotEq: operator.ne,
 }
 _LINEAR_CMP = (ast.Lt, ast.LtE, ast.Gt, ast.GtE, ast.Eq)
+_EQUALITY = (ast.Eq, ast.NotEq)
+_MEMBERSHIP = (ast.In, ast.NotIn)
 
 
 def _attr_ref(node: ast.Attribute) -> str:
@@ -92,11 +98,16 @@ class _Checker:
         self.vars: set[str] = set()
         self.attrs: set[str] = set()
 
-    def visit(self, node: ast.expr) -> None:
+    def visit(self, node: ast.expr, allow_str: bool = False) -> None:
         match node:
             case ast.Constant(value=value):
+                if isinstance(value, str) and allow_str:
+                    return
                 if not isinstance(value, (bool, int, float)):
-                    raise ExprError(f"literal {value!r} is not a number or boolean")
+                    raise ExprError(
+                        f"literal {value!r} is not a number or boolean "
+                        "(strings only in ==, != and `in [...]`)"
+                    )
             case ast.Name(id=name):
                 if name in FUNCTIONS or name in ROOTS:
                     raise ExprError(f"{name!r} cannot be used as a value")
@@ -118,11 +129,7 @@ class _Checker:
                 for v in values:
                     self.visit(v)
             case ast.Compare(left=left, ops=ops, comparators=comparators):
-                if any(type(o) not in _CMPOPS for o in ops):
-                    raise ExprError("only < <= > >= == != comparisons are allowed")
-                self.visit(left)
-                for c in comparators:
-                    self.visit(c)
+                self._compare(left, ops, comparators)
             case ast.IfExp(test=test, body=body, orelse=orelse):
                 self.visit(test)
                 self.visit(body)
@@ -139,6 +146,25 @@ class _Checker:
             case _:
                 raise ExprError(f"{type(node).__name__} is not allowed in expressions")
 
+    def _compare(self, left: ast.expr, ops: list[ast.cmpop], comparators: list[ast.expr]) -> None:
+        if any(isinstance(o, _MEMBERSHIP) for o in ops):
+            if len(ops) != 1:
+                raise ExprError("`in` / `not in` cannot be chained")
+            target = comparators[0]
+            if not isinstance(target, ast.List | ast.Tuple) or not target.elts:
+                raise ExprError("`in` needs a non-empty literal list, e.g. x in ['a', 'b']")
+            self.visit(left, allow_str=True)
+            for elt in target.elts:
+                if not isinstance(elt, ast.Constant):
+                    raise ExprError("`in` lists may only contain literals")
+                self.visit(elt, allow_str=True)
+            return
+        if any(type(o) not in _CMPOPS for o in ops):
+            raise ExprError("only < <= > >= == != in comparisons are allowed")
+        equality_only = all(isinstance(o, _EQUALITY) for o in ops)
+        for operand in [left, *comparators]:
+            self.visit(operand, allow_str=equality_only)
+
 
 def _is_const(node: ast.expr) -> bool:
     """True when no declared variable occurs (function names and hw/p/case roots are not)."""
@@ -151,6 +177,10 @@ def _is_const(node: ast.expr) -> bool:
             return all(_is_const(a) for a in args)
         case _:
             return all(_is_const(c) for c in ast.iter_child_nodes(node) if isinstance(c, ast.expr))
+
+
+def _has_str(node: ast.expr) -> bool:
+    return any(isinstance(n, ast.Constant) and isinstance(n.value, str) for n in ast.walk(node))
 
 
 def _linear(node: ast.expr) -> bool:
@@ -166,6 +196,8 @@ def _linear(node: ast.expr) -> bool:
         case ast.UnaryOp(op=ast.USub() | ast.UAdd(), operand=operand):
             return _linear(operand)
         case ast.Compare(left=left, ops=ops, comparators=comparators):
+            if any(_has_str(x) for x in [left, *comparators]):
+                return False
             return all(isinstance(o, _LINEAR_CMP) for o in ops) and all(
                 _linear(x) for x in [left, *comparators]
             )
@@ -268,6 +300,12 @@ class _Evaluator:
 
     def _compare(self, left: ast.expr, ops: list[ast.cmpop], comparators: list[ast.expr]) -> bool:
         current = self.run(left)
+        if isinstance(ops[0], _MEMBERSHIP):
+            target = comparators[0]
+            if not isinstance(target, ast.List | ast.Tuple):
+                raise ExprError("`in` needs a literal list")
+            found = current in [self.run(e) for e in target.elts]
+            return found if isinstance(ops[0], ast.In) else not found
         for op, nxt in zip(ops, comparators, strict=True):
             value = self.run(nxt)
             if not _CMPOPS[type(op)](current, value):

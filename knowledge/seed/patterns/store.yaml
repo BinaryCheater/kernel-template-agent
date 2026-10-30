@@ -1,0 +1,19 @@
+name: store
+level: 2
+category: store
+params:
+  - {name: size_bytes, type: int, meaning: "bytes of one value (or one generation of a tile)"}
+  - {name: copies, type: int, meaning: "number of copies kept at the same time"}
+  - {name: capacity_bytes, type: int, meaning: "capacity budget of the storage level that holds it"}
+  - {name: iterations, type: int, meaning: "number of generations stored over the kernel (e.g. k-tiles)"}
+  - {name: first_write, type: int, meaning: "event time of the first destructive write"}
+  - {name: last_read, type: int, meaning: "event time of the last required read"}
+  - {name: next_write, type: int, meaning: "event time of the next destructive write into the same buffer"}
+  - {name: delta, type: int, meaning: "declared minimum separation between events"}
+description: >-
+  A logical value that must exist between its write and its last read. Refinements give it a
+  physical buffer at some level, decide which values share a buffer and in what order, and rotate
+  generations through slots.
+examples:
+  - "a 128x32 tile of A staged in shared memory for one k-step"
+  - "a 64x64 accumulator tile held in registers for the whole K loop"

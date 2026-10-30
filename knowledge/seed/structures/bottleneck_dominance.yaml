@@ -1,0 +1,10 @@
+name: bottleneck_dominance
+effect: objective
+description: >-
+  One resource (for example DRAM bandwidth) costs far more than the others in a regime. There its
+  utilization nearly determines performance, so the objective can be replaced by one tight bound and
+  branch-and-bound gains optimal substructure.
+evidence_needed: >-
+  Regime evidence: a bound showing that the resource stays dominant over the whole feasible region
+  of the subproblem it is relied on in (expensive, may need a sub-solve); otherwise only an observed
+  trend from the cost model and measurements.

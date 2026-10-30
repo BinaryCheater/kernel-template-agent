@@ -1,0 +1,10 @@
+#!/bin/sh
+# Print the pip-freeze difference that installing TileLang makes in the base image;
+# paste it into docker/worker/requirements.lock when upgrading TileLang.
+#   docker/lock [tilelang-version]
+set -eu
+version=${1:-0.1.15}
+base=$(sed -n 's/^FROM //p' "$(dirname "$0")/worker/Dockerfile")
+docker run --rm --network bridge --entrypoint sh "$base" -c \
+  "pip freeze 2>/dev/null | sort > /tmp/a; pip install -q tilelang==$version 2>/dev/null; \
+   pip freeze 2>/dev/null | sort > /tmp/b; comm -13 /tmp/a /tmp/b"

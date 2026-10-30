@@ -1,0 +1,14 @@
+name: map
+level: 1
+category: map
+params:
+  - {name: function, type: str, meaning: "the element-wise or per-point function"}
+  - {name: independent_outputs, type: bool, meaning: "output points do not depend on each other given the inputs"}
+  - {name: outputs, type: int, meaning: "number of output points"}
+description: >-
+  Independent computation of output points from inputs: element-wise functions, and the output
+  index space of operators whose outputs are independent. Refinements tile it, fuse it with a
+  neighbour or vectorize it.
+examples:
+  - "bias add followed by GELU on a GEMM output"
+  - "the (M, N) output space of a GEMM, each point computed independently"

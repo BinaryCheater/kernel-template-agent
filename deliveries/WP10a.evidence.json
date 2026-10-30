@@ -107,7 +107,7 @@
   {
     "claim": "All seven reference directories satisfy the WP10a layout: each has Reference, Chain and Reconstruction YAML, and the Gap count equals len(unmatched_transactions); totals 135 chain steps, 99 matched, 55 unmatched transactions = 55 Gaps, 30 proposed Templates, 3 proposed Patterns; all 123 YAML files validate with kta.core.schemas.validate_body",
     "command": "KTA_DATA=~/kta-data scripts/gate WP10a",
-    "git_commit": "a307bd084db002e77a38f41d95175ba0b5fb34fb",
+    "git_commit": "0dd4f9262015c983687e8e5474ebc899c02c6c33",
     "dirty": false,
     "env": "dev",
     "control_host": "dingyideMacBook-Pro.local",
@@ -115,8 +115,8 @@
     "record_ids": [],
     "blob_ids": [],
     "env_manifests": [],
-    "started_at": "2026-10-30T05:12:14Z",
+    "started_at": "2026-10-30T06:19:47Z",
     "output": "deliveries/WP10a.md (Gate output section)",
-    "notes": "The gate validates Reference, Chain, Reconstruction, Gap, Template and Pattern documents with kta.core.schemas (WP1); Source and Problem files were validated with validate_body directly."
+    "notes": "The gate validates Reference, Chain, Reconstruction, Gap, Template and Pattern documents with kta.core.schemas (WP1); Source and Problem files were validated with validate_body directly. Rerun after merging integration @ c4081bb (WP2, WP4) with the import fixes D108-D110; counts unchanged."
   }
 ]

@@ -1,0 +1,262 @@
+[
+  {
+    "claim": "scripts/worker-setup registers spark over the ssh transport as a GPU worker: deploys this commit, runs uv sync --frozen, builds the TileLang worker image, and writes an EnvManifest and a Worker whose labels were probed on spark (gpu=sm_121, cuda=13.0, backend.cuda, backend.tilelang, pools) (the gpu label is on the Worker record itself; the WP2 gate checks it)",
+    "command": "KTA_ENV=dev KTA_WP=WP2 KTA_DATA=~/kta-data scripts/worker-setup spark",
+    "workers": [
+      "spark"
+    ],
+    "record_ids": [
+      "8426a3b7a9e3471b1d6c1575695f866eb73db2f73532cb85192d266733454d60",
+      "27e6395fae377a0310125fd1aa8794cee70d51138da5a68b26460bc3ddba0e7d"
+    ],
+    "blob_ids": [],
+    "env_manifests": [
+      "27e6395fae377a0310125fd1aa8794cee70d51138da5a68b26460bc3ddba0e7d"
+    ],
+    "requires_gpu": false,
+    "git_commit": "6f5796469d10e9e7d82091cdbe37d043513d721c",
+    "dirty": false,
+    "env": "dev",
+    "control_host": "dingyideMacBook-Pro.local",
+    "started_at": "2026-10-30T05:55:27Z",
+    "output": "~/kta-data/dev/WP2/evidence/6f5796469d10e9e7d82091cdbe37d043513d721c/worker-setup.spark.txt"
+  },
+  {
+    "claim": "kta target probe runs device-attribute and feature-probe jobs through the Executor on spark and writes a Target, 21 HwFacts (documented hw.* limits) and 52 HwFeatures with support yes/no/unknown and the raw compiler/run output as blobs",
+    "command": "KTA_ENV=dev KTA_WP=WP2 KTA_DATA=~/kta-data uv run kta target probe --json",
+    "workers": [
+      "spark"
+    ],
+    "record_ids": [
+      "9a47aca8384476cb06bf5d46abacbc23bbf2ef000e2f621df599dc56f8d329b7",
+      "6e41d8ab3c5c1c1bf66b5473ada0b58add2b4f1451b7a35376e7c5a6d00e3ee1",
+      "daddc01bfa49198f85525bd3b785486ba32d0c1e5413eace1c239bc416af19b3",
+      "8d9f28aa3ec67a3e01cfe04b6fda579381d3f5eef9a7632c8d81f4d4f40056a7",
+      "93dd7326bf06d296b17c30985f13010e45af8e39c7fe3b2d02f5b2c0d174ae8f",
+      "1cedc75f76ba47cb5aab065b5fa14e4b0f44c5a7737c4145a616abf2dc7dad4e",
+      "a0b8530d91d030544c93dc39a3675dbb38cddbc2286013bc47bbcc697cb92cf3",
+      "44baf218bb0a0d81f790a06028508a10ea7579e1af659fc0d875ad91b60fff07",
+      "f32b4652567207064fb54e43a7e7077d79fd4cdc9dac8289fed55e9555b5d711",
+      "75b8b8dfa8502b89f99930d35c1295dba9662b53e9bd58fc858b90dfa111c1ad",
+      "f01da4447bc34957e3795ea22523bf921cc529fe6f8f0d19e20b26d5f311a0c2",
+      "c4f5e6c9a3dd3c95f09f4d4f486aaf618055a8f0c9c90679ceaadf0dfa73fd8c",
+      "8d3063db95278f1c9d79574891659fb1ffcf50203b08cce9abcd6666aea5f9f5",
+      "e80dc6e0106e602c987ccf452ff1452e0890fe39b9c743bdf4ecb814eccfa85c",
+      "2d636a0cbab2feaf4640efc586074636f7ff1e24dc9429a4521383454d6427ce",
+      "597cd378de999150bca6369fe89ace4bee0b789b735a9e207ca6d4031a9f6017",
+      "86751af01b42520069231d7b25b2577d18f52128901de6c53ce50554cfda6dc3",
+      "e827e9874c333225579ceef6050ae3e2d7997c50e84c428ab08afe30a8bacba1",
+      "678a6700240740abd347323f54729b278e40bd11c3668d03096f3aca36fd53e5",
+      "8d2be390c6ca24643770192178056fc3c471a994b575d3f87c30d9d9ae91a3ab",
+      "e29c3e8ed340eaff1b37fbfa1d691a3361e61df55f69a06ba8ea948d3d59383f",
+      "6a4b62058efda2cab0f7f91e07d4b63bbab4e7d03ff4232fe2803b450ed43fb7",
+      "578d8fc8659d0cb26205f355223e74af41453032cbbb3dea396af4b47cd07ec7",
+      "d7a926fcc5cbe9f8d3d2556609c7803dc95c20bbcd84431a805b53d0633e4612",
+      "977d4ad04e926875f0f3bf6eb3b574c47a5fc9f405855d8819e41e75dbb1c41e",
+      "6220a285dc2cf2e356d3c809c4585f7fa470211f8fee47ab8430c8ba7177171a",
+      "56749915a6c1d7d7c33386f4781f869da5e27477ecce66d92d5a2bce71b1cd3b",
+      "880abf74714d9fdf8c57ccc1861c92afa2cc57a24e32c2d630811739131090e9",
+      "bb33e2ed3fc7a1b47dd8b18e33ab65c0a9ad8345432af318f35dc813466288ae",
+      "55572ab03fcbb047743227b4ab773dc68acdf28b7af3bc120415c9c11683bed0",
+      "0aa11ec8892fb89a1673abb1081d60c76374654de20f798711211b28734b2aa9",
+      "936d704f7ddf70847d2ed6dcda6f4f2ec8af95688760efa7f16739b0a09363ac",
+      "1021be2a80e926876e2f26a5d2da76223f33cca314c5adf2c90259008bb49552",
+      "0384fb7976a5a651a3f0b9b7941b152beb532898a092e967375f18d392d1fc3b",
+      "4c08f55c3a5ee6a7f4e7aa51445af2cc754a0ce6648800c1d3bc4716a6539634",
+      "f7091f88a83a3e1ee7d0e8a216ca16380cfc3b66c2ecf6038ff5bf6f8dea1b0f",
+      "1757d335920a0de5dad2cfefde3a3ef5f7783d204c220a3260ba3eae0425ad40",
+      "3d9e3eb5359ab878eeab9ab217dd3e6f1c81d87d1f30eae0d9d5e0c34d7fe086",
+      "631318fd809520db07fb78a6605bb45f90cf507e4183e6c4f0e0b9f45c1da577",
+      "a6c22ba24a5c833c1af5838c349096df7949659293c7308d21091412d67616bf",
+      "fc20d91c08769b595984a251c61ee48ae8854c8b23319e0ea3939d8ed50e2931",
+      "f95cfd663544df6b14bbec81ebd1c501a8f1260d1a34e204cef94ee86f9d1161",
+      "98459b249fb29b8422f3c5c36ebfb1041fc4a3b739c0f506bf220dc0ebb8e7d2",
+      "5f7d3cb968a6abd2f8330539929cc43450a434b8c6d5598c9b47d190ed9eeb6d",
+      "34e29e6f15730516a0eef60a511d3cb8f9ac25ddde34927c128135bc30411a43",
+      "4a7233d630db40ff1c662541bf02ae2640b89601e6d3fdd10d046b6781bba7bf",
+      "3e1240a9abe415cba0109ad4a1bc7ab555bd948825840be5131d984eb77fef49",
+      "d3fd41d3e421c6b4a7a0531c038628377dd8683df8d173c7814cc7db8270692a",
+      "4c2dd83f960fd3d7045c5c7fe6fbb7a4308cca7771c95a66f5a613e18db80d87",
+      "8bfa4c8716f88749498652c42f39c7ba2ce74ba355a74c46052ceee6d569015f",
+      "1f958a1516e82877d8b96135a9a09d08275f81f3517bf5dfe9fd66ffe75b99d7",
+      "dc1fba0b7076e4b56d311700635e7c7f2a16a6c5e7f3d2d0d1f165711d5f3f71",
+      "e14319939d5906940e7cf990b96fe9079eff1dd60cab8127cbd37b7c2bded81b",
+      "f2311b7f41e61561bf07994376259a3e3c023ef784c513ec735dc7ef0e26f701",
+      "4525a19cde23d0186899c9bf7959fe53e1ccf26db94a5fe9ee453ebb21ad6674",
+      "e681c0ee43298d63eff44d1de066719cfaa09c52a2f5b5fdd11d7bc377f068f0",
+      "69570e22715144d3afdcfa6894c8b2371426a8c062e6a4c26284b3bf35d0bb5c",
+      "b1989c09295a5a9e0e1b01b731e18325b64f8e10c5d7ea806b70d73a4180d150",
+      "06840faa7ca8e9f652595fa2caaf304e447e9ba4cdcac68237bd5b66ed1188bf",
+      "f18f8d3043e1b5a16433075cd9ec7cce5c401067bcedab843a371519ac3d9488",
+      "1216603cdcc31b85944edde2709efe9e2f8bfa589c8c0483124e33d1545df51c",
+      "2b1cd9c6889686b6e650f6584ec54c9ad4e95c493fed6937628d62138a4b2292",
+      "a012c262fc3ddd361f21382fc3fd3ce139c1e1c24050ad33dc6581e4fa06ea88",
+      "9545a1201ea2a5a2fb3fb51b7e6d9b268c775379f91609f85852730febdbe57f",
+      "00c8fff1fdbab7f0f2c584fcff0147439147e950629f2e56197b9951138283d4",
+      "a2cf23701bd6aa1c58ff311fb445f177a25dc62400aa34adb218fe97886caaa6",
+      "280788c7b36ae602f141bbc57d88c3cd34bf3984a7f06ea13e942d04aa4da774",
+      "4eb984089fd6433a441a8abfe23ab9bfcfaf64a2d21b292d66604d8393a1dc48",
+      "f85d8c1fe946153c34c702edadba81d8db54f105cdde21a238e58750906ce00d",
+      "72f0f92f8debda986cae6ddc258f9091a2d13d44b9a3612851a12e4995af227c",
+      "47c5f99d3e81ce0c326edf8a3dece6bf54374134c1924b80cd8f86037207f59f",
+      "f720ec110284cbbed1716735e3914282bd4097b432548be6d8a66f6c2a6297a1",
+      "667220ffa49cb35ea58e7e57eb8819db1b1fbc6bfb113767b173a4221d9c3dce",
+      "99d4e242dfe263b9efc12fa1682340499b041939da2c2d8ced72a5490ae5417e"
+    ],
+    "blob_ids": [
+      "8871d2cbe375658e4e91c6b4405a1618ea26110edfb0a354388490c05cc16ebc"
+    ],
+    "env_manifests": [
+      "27e6395fae377a0310125fd1aa8794cee70d51138da5a68b26460bc3ddba0e7d"
+    ],
+    "requires_gpu": true,
+    "git_commit": "6f5796469d10e9e7d82091cdbe37d043513d721c",
+    "dirty": false,
+    "env": "dev",
+    "control_host": "dingyideMacBook-Pro.local",
+    "started_at": "2026-10-30T05:55:27Z",
+    "output": "~/kta-data/dev/WP2/evidence/6f5796469d10e9e7d82091cdbe37d043513d721c/target-probe.json"
+  },
+  {
+    "claim": "Both backends' vector-add modules (CUDA C++ and TileLang, N=2^20 fp32) run on the GB10 through the harness; the output equals A+B exactly (Check passed, 0 mismatches). The Builds come from the input-hash cache (last claim)",
+    "command": "KTA_ENV=dev KTA_WP=WP2 KTA_DATA=~/kta-data uv run kta backend smoke --json",
+    "workers": [
+      "spark"
+    ],
+    "record_ids": [
+      "c0e8801fc3971f9de5a0771406088760336118905aea6edd11abc130dc9d5af7",
+      "e7b6da247633d16d6041e98567e34051eebf3bc2dbcf32a7b565d8eab565dee7"
+    ],
+    "blob_ids": [
+      "173c168b365bad325aa7fc0bdd3cffa80faa7def27d71652b4a963ee6dff75f0",
+      "c73dd47c13fa5bfc4b078dfbbe882afcae7ded62f50504f59fb21e9c2722ffc5",
+      "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    ],
+    "env_manifests": [
+      "27e6395fae377a0310125fd1aa8794cee70d51138da5a68b26460bc3ddba0e7d"
+    ],
+    "requires_gpu": true,
+    "git_commit": "6f5796469d10e9e7d82091cdbe37d043513d721c",
+    "dirty": false,
+    "env": "dev",
+    "control_host": "dingyideMacBook-Pro.local",
+    "started_at": "2026-10-30T05:55:27Z",
+    "output": "~/kta-data/dev/WP2/evidence/6f5796469d10e9e7d82091cdbe37d043513d721c/backend-smoke.json"
+  },
+  {
+    "claim": "While a gpu-exclusive measure job holds the GPU lease on spark, a gpu-shared run job and a cpu job for the same worker submitted during it are deferred (logged) and start only after it ends (span timestamps in the Report)",
+    "command": "KTA_ENV=dev KTA_WP=WP2 KTA_DATA=~/kta-data uv run kta backend selftest lease --json",
+    "workers": [
+      "spark"
+    ],
+    "record_ids": [
+      "d7a60b2a5a3eb20509d32e0aa94fed728a124c89ebf0d7d66482975bc134fdfb"
+    ],
+    "blob_ids": [],
+    "env_manifests": [
+      "27e6395fae377a0310125fd1aa8794cee70d51138da5a68b26460bc3ddba0e7d"
+    ],
+    "requires_gpu": true,
+    "git_commit": "6f5796469d10e9e7d82091cdbe37d043513d721c",
+    "dirty": false,
+    "env": "dev",
+    "control_host": "dingyideMacBook-Pro.local",
+    "started_at": "2026-10-30T05:55:27Z",
+    "output": "~/kta-data/dev/WP2/evidence/6f5796469d10e9e7d82091cdbe37d043513d721c/backend-selftest-lease.json (log: ~/kta-data/dev/WP2/logs/backend-selftest/2026-10-30.jsonl)"
+  },
+  {
+    "claim": "A kernel that never terminates is killed at its 10 s job timeout (process-group SIGKILL, error_kind timeout); the GPU stays healthy and a vector add run right after passes",
+    "command": "KTA_ENV=dev KTA_WP=WP2 KTA_DATA=~/kta-data uv run kta backend selftest timeout --json",
+    "workers": [
+      "spark"
+    ],
+    "record_ids": [
+      "ad1bfb82058addc9688758ccbe9a49230f0a29786b8a80f2fdad82fd326fb2e9",
+      "0acabcdc9f15652375a10be29abe226b4a8753cb636f90a086028285d5630fdc"
+    ],
+    "blob_ids": [],
+    "env_manifests": [
+      "27e6395fae377a0310125fd1aa8794cee70d51138da5a68b26460bc3ddba0e7d"
+    ],
+    "requires_gpu": true,
+    "git_commit": "6f5796469d10e9e7d82091cdbe37d043513d721c",
+    "dirty": false,
+    "env": "dev",
+    "control_host": "dingyideMacBook-Pro.local",
+    "started_at": "2026-10-30T05:55:27Z",
+    "output": "~/kta-data/dev/WP2/evidence/6f5796469d10e9e7d82091cdbe37d043513d721c/backend-selftest-timeout.json"
+  },
+  {
+    "claim": "slai is registered as a CPU worker (project-local uv, no GPU labels) and runs a compile job chosen by the label arch=x86_64; its EnvManifest has the same uv.lock sha256 as spark's. In a git checkout on slai, scripts/bootstrap sets up a control plane (kta doctor OK) and the unit tests pass (190 passed; evidence file slai-bootstrap-unit-tests.txt)",
+    "command": "KTA_ENV=dev KTA_WP=WP2 KTA_DATA=~/kta-data scripts/worker-setup slai && uv run kta backend selftest cpu-compile --json; on slai: scripts/bootstrap && uv run pytest -m 'not gpu'",
+    "workers": [
+      "slai"
+    ],
+    "record_ids": [
+      "4bb85de8f7c84458fd8dd3b1d266feba970cd4a88cc273061568641289b8fbb1",
+      "6751bdc76be95e09fb6ee057c4e9313c83b971179b49389a4ae1b8ace9c1468c",
+      "fb011367d187c86c9b8703be2ab7e05a5e141d9b052b21a9739204ac9f783ef3"
+    ],
+    "blob_ids": [
+      "3cced9685fc1d8ae0863604ea4635ed6617b67b0b9a2c198cfd0fac37e11e8ef",
+      "89256233afa2b98a570a7b0554d76ea69aed12c70aa0798c4fe7c088d4eff34e",
+      "cd00cba2069afd1ce8b5440dd0e489e9931d6533d37bec32ca15ac39a374c77f",
+      "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    ],
+    "env_manifests": [
+      "6751bdc76be95e09fb6ee057c4e9313c83b971179b49389a4ae1b8ace9c1468c",
+      "27e6395fae377a0310125fd1aa8794cee70d51138da5a68b26460bc3ddba0e7d"
+    ],
+    "requires_gpu": false,
+    "git_commit": "6f5796469d10e9e7d82091cdbe37d043513d721c",
+    "dirty": false,
+    "env": "dev",
+    "control_host": "dingyideMacBook-Pro.local",
+    "started_at": "2026-10-30T05:55:27Z",
+    "output": "~/kta-data/dev/WP2/evidence/6f5796469d10e9e7d82091cdbe37d043513d721c/worker-setup.slai.txt, backend-selftest-cpu-compile.json, slai-bootstrap-unit-tests.txt"
+  },
+  {
+    "claim": "Builds of the CUDA and TileLang vector-add kernels and of the spin kernel, compiled on spark at an earlier clean commit of this branch (TileLang: codegen in the worker image, host nvcc 13.0 with TileLang headers); the runs of the claims above found them by build_key (same sources, flags, Target and image) instead of recompiling",
+    "command": "KTA_ENV=dev KTA_WP=WP2 KTA_DATA=~/kta-data uv run kta backend smoke --json; uv run kta backend selftest timeout --json (at 302bc15306aa)",
+    "workers": [
+      "spark"
+    ],
+    "record_ids": [
+      "e7a0416d06af772b9b15cf72e1786b01c4da31d55a0c863b9ef38ad46e8a62e3",
+      "102d7d1a434ead6323b05d51ed90356caa09991125daef25b75ba52da542c844",
+      "22b4b56c7b9aca3a6dba0cf856756fba4757e6daaf676f7bfe91260d91adad1d"
+    ],
+    "blob_ids": [
+      "1d9ff3b5136dfa3d3e16569ae46c3c1bfbe30e4fc2ef623875524d760fbc3627",
+      "24410deefc7703ccb9ca6525b2ca88696ca7a072adbd921e627fd7b35c649b40",
+      "349ad61c8797b11d8b10a13a0ee98ba1cdbaf8b103ba9338870886f1b7308dd6",
+      "3cecfc6ac5278168c581bc4ca0176b051a021193bd7174089f3d009cee8b9221",
+      "41f3466183b7763c5b12b921b768d38cc11345fd70c6e43ee2a945e3beb3202c",
+      "5299e726952f1cbc7c10b4b006369961ba496a7d26b3bfab474f014f6a419e0c",
+      "53caf993283c86d8755c1aebfa36fb94180eb5b19309c28f6a9349ead0ff225e",
+      "5e019de37f1b7901ef1cd59161027b04219e327ad0db1cbdc84c22ba2d33a870",
+      "6cc7bc07604bac5c9f19378ef990b641a53fa9373743da73a5757049a4c6c967",
+      "8a073857e9aed1d607f67410444cb8e1c47adaad58ad9b12127b46ed38352dee",
+      "9279b871fae591823de91fa27ffb18cd9b44e332415f44f7adc2ec00451530db",
+      "956c87ac42d1c3b8a2c7bf318bc3107b642ad0e569263ea3b02fd0b886e8eb91",
+      "9b54bcb19191b8d8facd598eb0fc5ad72fc274e69206f161a9646db60a7676a7",
+      "a1b643e900756b7c4450ca008a9b71d14f2c5162bdb334e4a6b482363732e98e",
+      "a1fbf0850b4edaac6c98555973ffcae23ae0f2f443439f6c9a94fc2f6269e705",
+      "a5a2729ffa0eeacc15323a9168807c72d18d1cb375dbde899c44d6803dad2b19",
+      "c30fc9ad24a1b64848471ae52f4faffb7bf13253879654514470544f9995545e",
+      "ce7dba3279af3823da827c66f30898bd8477461079b6fd2ec26dea95a1439472",
+      "fdece9a58fcbd5bf35358416580071a297a26a17314f85aee9d3819c45cfff97",
+      "ff68a11ab92402f11a1558da2f7a29af83110508ebefa1924b0e071adbd187d4"
+    ],
+    "env_manifests": [
+      "5cb2b74899058066f2fc701c2bc7a533348a9d5c044f6e7fe6e784ea0069e49e"
+    ],
+    "requires_gpu": true,
+    "git_commit": "302bc15306aa2ee6f23ce6c47e6ec75692461061",
+    "dirty": false,
+    "env": "dev",
+    "control_host": "dingyideMacBook-Pro.local",
+    "started_at": "2026-10-30T05:37:57.553995Z",
+    "output": "~/kta-data/dev/WP2/evidence/6f5796469d10e9e7d82091cdbe37d043513d721c/backend-smoke.json and backend-selftest-timeout.json of the runs above (the Build IDs they returned)"
+  }
+]

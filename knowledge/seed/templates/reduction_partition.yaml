@@ -1,0 +1,59 @@
+name: reduction_partition
+version: 1
+level_from: 0
+level_to: 1
+change: vertical
+refines: reduce
+produces: [reduce]
+object:
+  type: reduction_group
+  description: >-
+    A group of reduction indices whose products are summed into one partial result; the partial
+    results are then combined.
+variables:
+  - {name: num_groups, kind: numeric, binding: runtime, role: software, domain: {lo: 1, hi: 1048576}, meaning: "number of groups (partial results) per output"}
+  - {name: group_size, kind: numeric, binding: compile, role: software, domain: {lo: 1, hi: 65536}, meaning: "reduction indices per group (e.g. the k-tile size)"}
+  - {name: assignment, kind: structure, binding: compile, role: software, domain: [contiguous_sequential, contiguous_parallel, contiguous_ranges, strided_threads, strided_warps, runtime_balanced], meaning: "which indices go to which group, and whether groups are summed one after another into one accumulator (sequential) or by different executors (parallel)"}
+constraints:
+  - {id: c_cover, expr: "num_groups * group_size >= p.length", meaning: "the groups cover every reduction index", cls: semantic}
+  - {id: c_no_empty, expr: "(num_groups - 1) * group_size < p.length", meaning: "no group is empty", cls: implementation}
+preconditions:
+  - {id: pre_cover, expr: "num_groups * group_size >= p.length", meaning: "every product is assigned to a group (exact-once also needs the assignment to be a partition, obligation exact_once)", cls: semantic, same_as: c_cover}
+program:
+  description: >-
+    for each output: for r in groups: partial[r] = sum of the products whose index is assigned to r;
+    result = combine(partial[0..num_groups-1]). With contiguous_sequential the partials are summed in
+    place into one accumulator (the k-loop of a tiled GEMM); with contiguous_parallel each group is
+    a separate executor (split-K) and the combine is a separate reduction.
+  fragments: {}
+backward_map: >-
+  Combining the group partial results gives the sum over all reduction indices, because the groups
+  partition the index set; forget the groups.
+obligations:
+  - {name: exact_once, statement: "Every reduction index k is assigned to exactly one group (the assignment is a partition of 0..length-1).", method: exhaustive}
+  - {name: combine_complete, statement: "The combine reads every group's partial result exactly once and none before it is final.", method: test}
+cost:
+  - {unit: fma, work: "(num_groups - 1) * p.outputs", overlap: overlappable}
+scope:
+  predicate: "p.assoc and p.comm"
+  text: >-
+    Reductions whose combine operator is associative and commutative in exact arithmetic (sum, max,
+    min). Floating-point sums qualify only up to rounding; see numeric_risk.
+requires_hw: []
+relations:
+  - {type: enables, target: physical_storage, note: "partial results become values that need storage"}
+signature:
+  algorithm: "split one reduction into groups of partial sums followed by a combine"
+  reuse: null
+  storage: null
+  boundary: "the last group is partial when group_size does not divide length"
+  resources: []
+numeric_risk: >-
+  Changes the summation order, so floating-point results differ from a sequential sum within
+  rounding. Checks must include the input distribution "large_dynamic_range" (values spanning many
+  binades with cancellation).
+expected_sass: []
+summary: >-
+  Paper GEMM step 1: one sum of K products becomes partial sums over groups followed by a combine.
+  The decision is the assignment of reduction indices to groups; the obligation is exact-once.
+example_code: null

@@ -1,0 +1,8 @@
+name: concavity
+effect: objective
+description: >-
+  Performance saturates in every resource (the roofline knee). Optima lie on constraint boundaries
+  or at a few knees, so the search visits knees instead of the continuum.
+evidence_needed: >-
+  Measurements or a model argument that performance is saturating in the resource over the range
+  searched; the knee positions themselves come from hardware facts.
