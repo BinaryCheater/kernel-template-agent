@@ -1,0 +1,10 @@
+#!/bin/sh
+# Build the KTA worker image on this machine (run on a worker, e.g. through
+# scripts/worker-setup). Re-runnable: Docker reuses cached layers.
+#   docker/build [tag]      default tag: kta-worker:tilelang-0.1.15
+# Prints the image ID (sha256:...), which is what jobs and Target records pin.
+set -eu
+here=$(cd "$(dirname "$0")" && pwd)
+tag=${1:-kta-worker:tilelang-0.1.15}
+docker build --quiet -t "$tag" "$here/worker" >/dev/null
+docker image inspect "$tag" --format '{{.Id}}'

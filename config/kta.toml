@@ -9,3 +9,27 @@ cuda_home = "/usr/local/cuda"
 [knowledge]
 # Seed knowledge imported by `kta init` (relative to the source tree root).
 seed_dir = "knowledge/seed"
+
+[executor]
+# A job no registered worker can take fails as `infra` after this long (decision D184).
+queue_timeout_s = 3600
+
+# Compute workers (spec/conventions.md §6). Labels are probed at registration
+# (`kta worker register`, `scripts/worker-setup`); `pools` sets each pool's concurrency.
+[workers.spark]
+transport = "ssh"
+ssh = "spark"
+root = "~/kta-work"
+path = ["~/.local/bin", "/usr/local/cuda/bin"]
+cuda_home = "/usr/local/cuda"
+image = "kta-worker:tilelang-0.1.15"
+pools = { cpu = 18, "gpu-shared" = 2, "gpu-exclusive" = 1 }
+
+[workers.slai]
+transport = "ssh"
+ssh = "slai"
+# The root filesystem on slai is full: uv, its cache and interpreters stay under /storage.
+root = "/storage/kta-work"
+path = ["/storage/kta-work/.uv/bin"]
+env = { UV_CACHE_DIR = "/storage/kta-work/.uv/cache", UV_PYTHON_INSTALL_DIR = "/storage/kta-work/.uv/python", TMPDIR = "/storage/kta-work/tmp" }
+pools = { cpu = 16 }

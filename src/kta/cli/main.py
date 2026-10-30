@@ -1,5 +1,5 @@
-"""``kta`` command entry point. WP0 provides ``doctor``, WP1 ``store``, WP4 ``init``; WP6 adds
-the rest."""
+"""``kta`` command entry point. WP0: ``doctor``; WP1: ``store``; WP2: ``worker``, ``target``,
+``backend``; WP4: ``init``; WP6 adds the rest."""
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ import os
 import sys
 from collections.abc import Sequence
 
+from kta.cli.exec_cmds import add_exec_commands
 from kta.cli.init_cmd import add_init_command
 from kta.cli.output import emit_error, emit_json, emit_text
 from kta.cli.store_cmds import add_store_commands
@@ -75,6 +76,7 @@ def build_parser() -> argparse.ArgumentParser:
     doctor.set_defaults(func=cmd_doctor)
     add_store_commands(sub, context_from_environ)
     add_init_command(sub, context_from_environ)
+    add_exec_commands(sub, context_from_environ)
     return parser
 
 

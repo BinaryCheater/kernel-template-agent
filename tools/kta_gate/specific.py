@@ -186,6 +186,109 @@ def wp1(
     return [*results, CheckResult("store benchmark record", "FAIL", "no valid record", problems)]
 
 
+WP2_ACCEPTANCE = (
+    "test_spark_registers_as_gpu_worker_over_ssh",
+    "test_probe_writes_target_facts_and_feature_support",
+    "test_vector_add_on_both_backends_is_correct",
+    "test_exclusive_job_defers_concurrent_shared_jobs",
+    "test_gpu_is_usable_after_a_timed_out_kernel",
+    "test_slai_cpu_worker_compiles_with_the_same_lock",
+)
+WP2_CODE = "src/kta/execution/executor.py"
+WP2_KINDS = ("Target", "Build", "Worker", "EnvManifest", "Check")
+
+
+def _listed(root: Path, wp: str) -> set[str]:
+    path = root / "deliveries" / f"{wp}.evidence.json"
+    if not path.exists():
+        return set()
+    return {
+        r for c in json.loads(path.read_text(encoding="utf-8")) for r in c.get("record_ids", [])
+    }
+
+
+def _record(con: sqlite3.Connection, rid: object) -> dict[str, Any] | None:
+    row = con.execute("SELECT origin, json FROM records WHERE id = ?", (str(rid),)).fetchone()
+    if row is None:
+        return None
+    return {**json.loads(row[1]), "_origin": row[0]}
+
+
+def _wp2_records(git_root: Path, con: sqlite3.Connection, listed: set[str]) -> list[str]:
+    """Real, clean WP2 records of every required kind, listed in the evidence manifest.
+
+    Every record must come from a clean commit of this branch that contains the
+    Executor. The Target and a Worker must come from / be a GPU-labelled worker, and
+    both backends need an ok Build whose vector-add Check passed on a GPU worker.
+    """
+
+    def clean(rec: dict[str, Any]) -> bool:
+        commit = str(rec["actor"].get("commit"))
+        return (
+            rec["_origin"] == "real"
+            and rec["actor"].get("dirty") is False
+            and _git_ok(git_root, "merge-base", "--is-ancestor", commit, "HEAD")
+            and _git_ok(git_root, "cat-file", "-e", f"{commit}:{WP2_CODE}")
+        )
+
+    def on_gpu(rec: dict[str, Any]) -> bool:
+        worker = rec if rec["kind"] == "Worker" else _record(con, rec["refs"].get("worker"))
+        return worker is not None and "gpu" in worker["body"].get("labels", {})
+
+    good = [r for r in (_record(con, rid) for rid in sorted(listed)) if r and clean(r)]
+    findings = [
+        f"no listed, real, clean WP2 {kind} record"
+        for kind in WP2_KINDS
+        if not any(r["kind"] == kind for r in good)
+    ]
+    for kind in ("Target", "Worker"):
+        if not any(r["kind"] == kind and on_gpu(r) for r in good):
+            findings.append(f"no listed {kind} from a GPU-labelled worker")
+    backends: set[str] = set()
+    for check in (r for r in good if r["kind"] == "Check" and on_gpu(r)):
+        build = _record(con, check["refs"].get("build"))
+        if check["body"].get("passed") is True and build and build["body"].get("ok") is True:
+            backends.add("tilelang" if "codegen" in build["blobs"] else "cuda")
+    findings += [
+        f"no passed vector-add Check for a {b} Build"
+        for b in ("cuda", "tilelang")
+        if b not in backends
+    ]
+    return findings
+
+
+def wp2(
+    root: Path,
+    passed: set[str],
+    data_root: Path | None = None,
+    git_root: Path | None = None,
+    gpu_passed: set[str] | None = None,
+) -> list[CheckResult]:
+    """GPU acceptance tests run through the Executor on spark; real WP2 records exist."""
+    results: list[CheckResult] = []
+    if gpu_passed is None:
+        from kta_gate.runners import run_pytest
+
+        run = run_pytest(root, "WP2 GPU acceptance run", ["-m", "gpu", "tests/acceptance/WP2"])
+        results.append(run.result)
+        gpu_passed = run.passed
+    names = {t.split("::")[-1].split("[")[0] for t in gpu_passed if "acceptance.WP2" in t}
+    absent = [f"{t} did not pass" for t in WP2_ACCEPTANCE if t not in names]
+    results.append(from_findings("WP2 acceptance tests", absent, f"{len(names)} tests passed"))
+    if data_root is None and not os.environ.get("KTA_DATA"):
+        return [*results, CheckResult("WP2 records", "FAIL", "set KTA_DATA")]
+    db = (data_root or Path(os.environ["KTA_DATA"])) / "dev" / "WP2" / "kta.db"
+    if not db.exists():
+        return [*results, CheckResult("WP2 records", "FAIL", f"{db} not found")]
+    con = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
+    try:
+        findings = _wp2_records(git_root or root, con, _listed(root, "WP2"))
+    finally:
+        con.close()
+    kinds = ", ".join(WP2_KINDS)
+    return [*results, from_findings("WP2 records", findings, f"{kinds} listed and real")]
+
+
 def _yaml_docs(path: Path) -> list[dict[str, Any]]:
     docs = [d for d in yaml.safe_load_all(path.read_text(encoding="utf-8")) if d is not None]
     return [d for d in docs if isinstance(d, dict)]
@@ -379,6 +482,7 @@ SPECIFIC: dict[str, Callable[[Path, set[str]], list[CheckResult]]] = {
     "WP0": wp0,
     "WP1": wp1,
     "WP4": wp4,
+    "WP2": wp2,
     "WP10a": wp10a,
     "WP13": wp13,
 }

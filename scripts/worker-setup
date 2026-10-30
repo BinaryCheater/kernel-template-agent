@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Deploy the current commit to a worker, set up its environment, build its image and
+# register it: scripts/worker-setup <worker>   (spec/conventions.md §7). Safe to re-run.
+# Needs KTA_DATA (and KTA_WP in dev) for the registration records.
+set -euo pipefail
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+export PYTHONPATH="$root/tools${PYTHONPATH:+:$PYTHONPATH}"
+exec uv run --project "$root" --frozen --quiet python -m kta_remote.worker_setup "$@"

@@ -1,0 +1,633 @@
+# GB10 (sm_121) hardware feature list: an open table, grouped by PTX ISA instruction family.
+#
+# Each entry becomes a HwFeature record (name, unit, instructions, description); `support`
+# starts as unknown and is set by `kta target probe` (decision D188):
+#   compile fails with nvcc -arch=sm_121a          -> no
+#   compiles, and the probe kernel runs cleanly    -> yes
+#   compiles but cannot be exercised (mode: compile, e.g. needs a host-built descriptor)
+#   or the run fails                                -> unknown
+# `body` is the body of `extern "C" __global__ void kta_probe(unsigned* out)`, launched
+# with one block of 128 threads; `out` holds 1024 zeroed words (16-byte aligned).
+# `since` is the PTX ISA's first target for the instruction (documentation, not a check).
+# Add entries freely; a feature that fits no unit uses unit `other`.
+
+features:
+  - name: ld_st_global
+    unit: lsu
+    instructions: [ld.global, st.global]
+    since: sm_10
+    description: Scalar global loads and stores.
+    body: |
+      unsigned v;
+      asm volatile("ld.global.u32 %0, [%1];" : "=r"(v) : "l"(out + threadIdx.x));
+      asm volatile("st.global.u32 [%0], %1;" :: "l"(out + threadIdx.x), "r"(v + threadIdx.x));
+
+  - name: ld_global_nc
+    unit: lsu
+    instructions: [ld.global.nc]
+    since: sm_35
+    description: Global loads through the read-only (non-coherent) data path.
+    body: |
+      unsigned v;
+      asm volatile("ld.global.nc.u32 %0, [%1];" : "=r"(v) : "l"(out + threadIdx.x));
+      out[256 + threadIdx.x] = v + 1;
+
+  - name: ld_global_v4
+    unit: lsu
+    instructions: [ld.global.v4]
+    since: sm_10
+    description: 128-bit vectorized global loads.
+    body: |
+      unsigned a, b, c, d;
+      asm volatile("ld.global.v4.u32 {%0,%1,%2,%3}, [%4];"
+                   : "=r"(a), "=r"(b), "=r"(c), "=r"(d) : "l"(out + 4 * threadIdx.x));
+      out[512 + threadIdx.x] = a + b + c + d + 1;
+
+  - name: ld_global_v8
+    unit: lsu
+    instructions: [ld.global.v8.b32]
+    since: sm_100
+    description: 256-bit vectorized global loads (PTX 8.8).
+    body: |
+      unsigned r[8];
+      asm volatile("ld.global.v8.b32 {%0,%1,%2,%3,%4,%5,%6,%7}, [%8];"
+                   : "=r"(r[0]), "=r"(r[1]), "=r"(r[2]), "=r"(r[3]),
+                     "=r"(r[4]), "=r"(r[5]), "=r"(r[6]), "=r"(r[7])
+                   : "l"(out + 8 * (threadIdx.x % 64)));
+      out[512 + threadIdx.x] = r[0] + r[7] + 1;
+
+  - name: ld_st_shared
+    unit: smem
+    instructions: [ld.shared, st.shared]
+    since: sm_10
+    description: Shared-memory loads and stores.
+    body: |
+      __shared__ unsigned s[128];
+      unsigned a = (unsigned)__cvta_generic_to_shared(&s[threadIdx.x]);
+      asm volatile("st.shared.u32 [%0], %1;" :: "r"(a), "r"(threadIdx.x));
+      __syncthreads();
+      unsigned v;
+      asm volatile("ld.shared.u32 %0, [%1];" : "=r"(v) : "r"(a));
+      out[threadIdx.x] = v;
+
+  - name: ld_acquire
+    unit: lsu
+    instructions: [ld.acquire.gpu, fence.acq_rel.gpu]
+    since: sm_70
+    description: Memory-model loads with acquire semantics and acq_rel fences.
+    body: |
+      unsigned v;
+      asm volatile("fence.acq_rel.gpu;");
+      asm volatile("ld.acquire.gpu.global.u32 %0, [%1];" : "=r"(v) : "l"(out + threadIdx.x));
+      out[256 + threadIdx.x] = v + 1;
+
+  - name: prefetch_l2
+    unit: l2
+    instructions: [prefetch.global.L2]
+    since: sm_20
+    description: Prefetch a global line into L2.
+    body: |
+      asm volatile("prefetch.global.L2 [%0];" :: "l"(out + threadIdx.x));
+      out[threadIdx.x] = 1;
+
+  - name: atom_global_add
+    unit: l2
+    instructions: [atom.global.add.u32]
+    since: sm_11
+    description: Integer atomics on global memory.
+    body: |
+      unsigned old;
+      asm volatile("atom.global.add.u32 %0, [%1], 1;" : "=r"(old) : "l"(out));
+      out[256 + threadIdx.x] = old;
+
+  - name: atom_global_add_f32
+    unit: l2
+    instructions: [atom.global.add.f32]
+    since: sm_20
+    description: Float atomics on global memory.
+    body: |
+      float old;
+      asm volatile("atom.global.add.f32 %0, [%1], %2;" : "=f"(old) : "l"(out + 1), "f"(1.0f));
+      out[256 + threadIdx.x] = (unsigned)old;
+
+  - name: red_global_add_f16x2
+    unit: l2
+    instructions: [red.global.add.noftz.f16x2]
+    since: sm_60
+    description: Packed half-precision reductions on global memory.
+    body: |
+      asm volatile("red.global.add.noftz.f16x2 [%0], %1;" :: "l"(out + 2), "r"(0x3c003c00u));
+      out[256 + threadIdx.x] = 1;
+
+  - name: atom_cas_b64
+    unit: l2
+    instructions: [atom.global.cas.b64]
+    since: sm_12
+    description: 64-bit compare-and-swap on global memory.
+    body: |
+      unsigned long long old;
+      asm volatile("atom.global.cas.b64 %0, [%1], %2, %3;"
+                   : "=l"(old) : "l"(out + 4), "l"(0ull), "l"(1ull));
+      out[256 + threadIdx.x] = (unsigned)old;
+
+  - name: atom_shared_add
+    unit: smem
+    instructions: [atom.shared.add.u32]
+    since: sm_12
+    description: Integer atomics on shared memory.
+    body: |
+      __shared__ unsigned s;
+      if (threadIdx.x == 0) s = 0;
+      __syncthreads();
+      unsigned a = (unsigned)__cvta_generic_to_shared(&s), old;
+      asm volatile("atom.shared.add.u32 %0, [%1], 1;" : "=r"(old) : "r"(a));
+      __syncthreads();
+      out[threadIdx.x] = s;
+
+  - name: shfl_sync
+    unit: issue
+    instructions: [shfl.sync]
+    since: sm_30
+    description: Warp shuffles.
+    body: |
+      unsigned v;
+      asm volatile("shfl.sync.bfly.b32 %0, %1, 1, 0x1f, 0xffffffff;" : "=r"(v) : "r"(threadIdx.x));
+      out[threadIdx.x] = v;
+
+  - name: vote_sync
+    unit: issue
+    instructions: [vote.sync.ballot]
+    since: sm_30
+    description: Warp votes.
+    body: |
+      unsigned v;
+      asm volatile("{ .reg .pred p; setp.ne.u32 p, %1, 0; vote.sync.ballot.b32 %0, p, 0xffffffff; }"
+                   : "=r"(v) : "r"(threadIdx.x & 1));
+      out[threadIdx.x] = v;
+
+  - name: match_sync
+    unit: issue
+    instructions: [match.any.sync]
+    since: sm_70
+    description: Warp match (group lanes with equal values).
+    body: |
+      unsigned v;
+      asm volatile("match.any.sync.b32 %0, %1, 0xffffffff;" : "=r"(v) : "r"(threadIdx.x & 3));
+      out[threadIdx.x] = v;
+
+  - name: redux_sync
+    unit: issue
+    instructions: [redux.sync]
+    since: sm_80
+    description: Warp-wide integer reductions in one instruction.
+    body: |
+      unsigned v;
+      asm volatile("redux.sync.add.u32 %0, %1, 0xffffffff;" : "=r"(v) : "r"(threadIdx.x));
+      out[threadIdx.x] = v;
+
+  - name: elect_sync
+    unit: issue
+    instructions: [elect.sync]
+    since: sm_90
+    description: Elect one leader lane of a warp.
+    body: |
+      unsigned v;
+      asm volatile("{ .reg .pred p; .reg .b32 r; elect.sync r|p, 0xffffffff; selp.u32 %0, 1, 0, p; }"
+                   : "=r"(v));
+      out[threadIdx.x] = v;
+
+  - name: named_barrier
+    unit: issue
+    instructions: [bar.sync]
+    since: sm_20
+    description: Named CTA barriers with a thread count.
+    body: |
+      asm volatile("bar.sync 1, 128;");
+      out[threadIdx.x] = 1;
+
+  - name: nanosleep
+    unit: issue
+    instructions: [nanosleep]
+    since: sm_70
+    description: Suspend a thread for a bounded time.
+    body: |
+      asm volatile("nanosleep.u32 100;");
+      out[threadIdx.x] = 1;
+
+  - name: globaltimer
+    unit: other
+    instructions: ["mov %globaltimer"]
+    since: sm_30
+    description: Global nanosecond timer register.
+    body: |
+      unsigned long long t;
+      asm volatile("mov.u64 %0, %%globaltimer;" : "=l"(t));
+      out[threadIdx.x] = (unsigned)(t != 0);
+
+  - name: cp_async
+    unit: smem
+    instructions: [cp.async.ca, cp.async.commit_group, cp.async.wait_group]
+    since: sm_80
+    description: Asynchronous global-to-shared copies (LDGSTS).
+    body: |
+      __shared__ __align__(16) unsigned s[512];
+      unsigned a = (unsigned)__cvta_generic_to_shared(&s[4 * threadIdx.x]);
+      asm volatile("cp.async.ca.shared.global [%0], [%1], 16;" :: "r"(a), "l"(out + 4 * threadIdx.x));
+      asm volatile("cp.async.commit_group;");
+      asm volatile("cp.async.wait_group 0;");
+      __syncthreads();
+      out[512 + threadIdx.x] = s[4 * threadIdx.x] + 1;
+
+  - name: mbarrier
+    unit: smem
+    instructions: [mbarrier.init, mbarrier.arrive, mbarrier.try_wait]
+    since: sm_90
+    description: Shared-memory transaction barriers (arrive / try_wait).
+    body: |
+      __shared__ __align__(8) unsigned long long bar;
+      unsigned a = (unsigned)__cvta_generic_to_shared(&bar);
+      if (threadIdx.x == 0) asm volatile("mbarrier.init.shared::cta.b64 [%0], %1;" :: "r"(a), "r"(blockDim.x));
+      __syncthreads();
+      unsigned long long st;
+      asm volatile("mbarrier.arrive.shared::cta.b64 %0, [%1];" : "=l"(st) : "r"(a));
+      asm volatile("{ .reg .pred p; WAIT: mbarrier.try_wait.shared::cta.b64 p, [%0], %1; @!p bra WAIT; }"
+                   :: "r"(a), "l"(st));
+      out[threadIdx.x] = 1;
+
+  - name: cp_async_bulk
+    unit: tma
+    instructions: [cp.async.bulk.shared::cluster.global, mbarrier.arrive.expect_tx]
+    since: sm_90
+    description: Bulk (TMA, non-tensor) global-to-shared copies completing on an mbarrier.
+    body: |
+      __shared__ __align__(128) unsigned s[256];
+      __shared__ __align__(8) unsigned long long bar;
+      unsigned sa = (unsigned)__cvta_generic_to_shared(s);
+      unsigned ba = (unsigned)__cvta_generic_to_shared(&bar);
+      if (threadIdx.x == 0) {
+        asm volatile("mbarrier.init.shared::cta.b64 [%0], 1;" :: "r"(ba));
+        asm volatile("fence.mbarrier_init.release.cluster;");
+        asm volatile("mbarrier.arrive.expect_tx.shared::cta.b64 _, [%0], 1024;" :: "r"(ba));
+        asm volatile("cp.async.bulk.shared::cluster.global.mbarrier::complete_tx::bytes [%0], [%1], 1024, [%2];"
+                     :: "r"(sa), "l"(out), "r"(ba) : "memory");
+        asm volatile("{ .reg .pred p; WAIT: mbarrier.try_wait.parity.shared::cta.b64 p, [%0], 0; @!p bra WAIT; }"
+                     :: "r"(ba) : "memory");
+        out[600] = s[3] + 1;
+      }
+
+  - name: cp_async_bulk_prefetch
+    unit: tma
+    instructions: [cp.async.bulk.prefetch.L2.global]
+    since: sm_90
+    description: Bulk prefetch of global memory into L2.
+    body: |
+      if (threadIdx.x == 0) asm volatile("cp.async.bulk.prefetch.L2.global [%0], 1024;" :: "l"(out));
+      out[256 + threadIdx.x] = 1;
+
+  - name: cp_reduce_async_bulk
+    unit: tma
+    instructions: [cp.reduce.async.bulk.global.shared::cta, cp.async.bulk.commit_group]
+    since: sm_90
+    description: Bulk asynchronous reductions from shared to global memory.
+    body: |
+      __shared__ __align__(128) unsigned s[32];
+      if (threadIdx.x < 32) s[threadIdx.x] = 1;
+      asm volatile("fence.proxy.async.shared::cta;");
+      __syncthreads();
+      if (threadIdx.x == 0) {
+        unsigned sa = (unsigned)__cvta_generic_to_shared(s);
+        asm volatile("cp.reduce.async.bulk.global.shared::cta.bulk_group.add.u32 [%0], [%1], 128;"
+                     :: "l"(out + 64), "r"(sa) : "memory");
+        asm volatile("cp.async.bulk.commit_group;");
+        asm volatile("cp.async.bulk.wait_group 0;");
+      }
+
+  - name: cp_async_bulk_tensor
+    unit: tma
+    instructions: [cp.async.bulk.tensor]
+    since: sm_90
+    mode: compile
+    description: Tensor-map (TMA) copies; running one needs a host-encoded CUtensorMap.
+    body: |
+      if (out == nullptr) {
+        asm volatile("cp.async.bulk.tensor.1d.shared::cluster.global.mbarrier::complete_tx::bytes [%0], [%1, {%2}], [%3];"
+                     :: "r"(0u), "l"(out), "r"(0), "r"(0u) : "memory");
+      }
+      out[threadIdx.x] = 1;
+
+  - name: fence_proxy_async
+    unit: smem
+    instructions: [fence.proxy.async]
+    since: sm_90
+    description: Order generic-proxy and async-proxy accesses to shared memory.
+    body: |
+      asm volatile("fence.proxy.async.shared::cta;");
+      out[threadIdx.x] = 1;
+
+  - name: barrier_cluster
+    unit: issue
+    instructions: [barrier.cluster.arrive, barrier.cluster.wait]
+    since: sm_90
+    description: Thread-block cluster barriers (implicit cluster of one CTA).
+    body: |
+      asm volatile("barrier.cluster.arrive;");
+      asm volatile("barrier.cluster.wait;");
+      out[threadIdx.x] = 1;
+
+  - name: distributed_shared_memory
+    unit: smem
+    instructions: [mapa.shared::cluster, ld.shared::cluster]
+    since: sm_90
+    description: Map and load shared memory of a CTA in the cluster (own CTA here).
+    body: |
+      __shared__ unsigned s[128];
+      s[threadIdx.x] = threadIdx.x;
+      __syncthreads();
+      unsigned a = (unsigned)__cvta_generic_to_shared(&s[threadIdx.x]), r, v;
+      asm volatile("mapa.shared::cluster.u32 %0, %1, 0;" : "=r"(r) : "r"(a));
+      asm volatile("ld.shared::cluster.u32 %0, [%1];" : "=r"(v) : "r"(r));
+      out[threadIdx.x] = v;
+
+  - name: griddepcontrol
+    unit: launch
+    instructions: [griddepcontrol.launch_dependents, griddepcontrol.wait]
+    since: sm_90
+    description: Programmatic dependent launch control.
+    body: |
+      asm volatile("griddepcontrol.wait;" ::: "memory");
+      asm volatile("griddepcontrol.launch_dependents;");
+      out[threadIdx.x] = 1;
+
+  - name: ldmatrix
+    unit: smem
+    instructions: [ldmatrix.sync.aligned.m8n8.x4]
+    since: sm_75
+    description: Warp-cooperative 8x8 matrix loads from shared memory.
+    body: |
+      __shared__ __align__(16) unsigned short s[1024];
+      for (int i = threadIdx.x; i < 1024; i += blockDim.x) s[i] = (unsigned short)i;
+      __syncthreads();
+      if (threadIdx.x < 32) {
+        unsigned a = (unsigned)__cvta_generic_to_shared(&s[threadIdx.x * 8]), r0, r1, r2, r3;
+        asm volatile("ldmatrix.sync.aligned.m8n8.x4.shared.b16 {%0,%1,%2,%3}, [%4];"
+                     : "=r"(r0), "=r"(r1), "=r"(r2), "=r"(r3) : "r"(a));
+        out[threadIdx.x] = r0 ^ r1 ^ r2 ^ r3;
+      }
+
+  - name: stmatrix
+    unit: smem
+    instructions: [stmatrix.sync.aligned.m8n8.x4]
+    since: sm_90
+    description: Warp-cooperative 8x8 matrix stores to shared memory.
+    body: |
+      __shared__ __align__(16) unsigned short s[1024];
+      if (threadIdx.x < 32) {
+        unsigned a = (unsigned)__cvta_generic_to_shared(&s[threadIdx.x * 8]);
+        asm volatile("stmatrix.sync.aligned.m8n8.x4.shared.b16 [%0], {%1,%2,%3,%4};"
+                     :: "r"(a), "r"(1u), "r"(2u), "r"(3u), "r"(4u));
+      }
+      __syncthreads();
+      out[threadIdx.x] = s[threadIdx.x];
+
+  - name: movmatrix
+    unit: issue
+    instructions: [movmatrix.sync.aligned.m8n8.trans]
+    since: sm_75
+    description: Transpose an 8x8 b16 matrix held in registers across a warp.
+    body: |
+      unsigned v;
+      asm volatile("movmatrix.sync.aligned.m8n8.trans.b16 %0, %1;" : "=r"(v) : "r"(threadIdx.x));
+      out[threadIdx.x] = v;
+
+  - name: mma_f16_f32acc
+    unit: tensor
+    instructions: [mma.sync.aligned.m16n8k16.row.col.f32.f16.f16.f32]
+    since: sm_80
+    description: Warp-level MMA, FP16 inputs, FP32 accumulation.
+    body: |
+      if (threadIdx.x < 32) {
+        unsigned a = 0x3c003c00u; float d0, d1, d2, d3;
+        asm volatile("mma.sync.aligned.m16n8k16.row.col.f32.f16.f16.f32 {%0,%1,%2,%3}, {%4,%5,%6,%7}, {%8,%9}, {%10,%11,%12,%13};"
+                     : "=f"(d0), "=f"(d1), "=f"(d2), "=f"(d3)
+                     : "r"(a), "r"(a), "r"(a), "r"(a), "r"(a), "r"(a),
+                       "f"(0.f), "f"(0.f), "f"(0.f), "f"(0.f));
+        out[threadIdx.x] = (unsigned)(d0 + d1 + d2 + d3);
+      }
+
+  - name: mma_f16_f16acc
+    unit: tensor
+    instructions: [mma.sync.aligned.m16n8k16.row.col.f16.f16.f16.f16]
+    since: sm_80
+    description: Warp-level MMA, FP16 inputs and accumulation.
+    body: |
+      if (threadIdx.x < 32) {
+        unsigned a = 0x3c003c00u, d0, d1;
+        asm volatile("mma.sync.aligned.m16n8k16.row.col.f16.f16.f16.f16 {%0,%1}, {%2,%3,%4,%5}, {%6,%7}, {%8,%9};"
+                     : "=r"(d0), "=r"(d1) : "r"(a), "r"(a), "r"(a), "r"(a), "r"(a), "r"(a), "r"(0u), "r"(0u));
+        out[threadIdx.x] = d0 ^ d1;
+      }
+
+  - name: mma_bf16
+    unit: tensor
+    instructions: [mma.sync.aligned.m16n8k16.row.col.f32.bf16.bf16.f32]
+    since: sm_80
+    description: Warp-level MMA, BF16 inputs, FP32 accumulation.
+    body: |
+      if (threadIdx.x < 32) {
+        unsigned a = 0x3f803f80u; float d0, d1, d2, d3;
+        asm volatile("mma.sync.aligned.m16n8k16.row.col.f32.bf16.bf16.f32 {%0,%1,%2,%3}, {%4,%5,%6,%7}, {%8,%9}, {%10,%11,%12,%13};"
+                     : "=f"(d0), "=f"(d1), "=f"(d2), "=f"(d3)
+                     : "r"(a), "r"(a), "r"(a), "r"(a), "r"(a), "r"(a),
+                       "f"(0.f), "f"(0.f), "f"(0.f), "f"(0.f));
+        out[threadIdx.x] = (unsigned)(d0 + d1 + d2 + d3);
+      }
+
+  - name: mma_tf32
+    unit: tensor
+    instructions: [mma.sync.aligned.m16n8k8.row.col.f32.tf32.tf32.f32]
+    since: sm_80
+    description: Warp-level MMA, TF32 inputs.
+    body: |
+      if (threadIdx.x < 32) {
+        unsigned a = 0x3f800000u; float d0, d1, d2, d3;
+        asm volatile("mma.sync.aligned.m16n8k8.row.col.f32.tf32.tf32.f32 {%0,%1,%2,%3}, {%4,%5,%6,%7}, {%8,%9}, {%10,%11,%12,%13};"
+                     : "=f"(d0), "=f"(d1), "=f"(d2), "=f"(d3)
+                     : "r"(a), "r"(a), "r"(a), "r"(a), "r"(a), "r"(a),
+                       "f"(0.f), "f"(0.f), "f"(0.f), "f"(0.f));
+        out[threadIdx.x] = (unsigned)(d0 + d1 + d2 + d3);
+      }
+
+  - name: mma_s8
+    unit: tensor
+    instructions: [mma.sync.aligned.m16n8k32.row.col.s32.s8.s8.s32]
+    since: sm_80
+    description: Warp-level MMA, INT8 inputs, INT32 accumulation.
+    body: |
+      if (threadIdx.x < 32) {
+        unsigned a = 0x01010101u, d0, d1, d2, d3;
+        asm volatile("mma.sync.aligned.m16n8k32.row.col.s32.s8.s8.s32 {%0,%1,%2,%3}, {%4,%5,%6,%7}, {%8,%9}, {%10,%11,%12,%13};"
+                     : "=r"(d0), "=r"(d1), "=r"(d2), "=r"(d3)
+                     : "r"(a), "r"(a), "r"(a), "r"(a), "r"(a), "r"(a),
+                       "r"(0u), "r"(0u), "r"(0u), "r"(0u));
+        out[threadIdx.x] = d0 + d1 + d2 + d3;
+      }
+
+  - name: mma_e4m3
+    unit: tensor
+    instructions: [mma.sync.aligned.m16n8k32.row.col.f32.e4m3.e4m3.f32]
+    since: sm_89
+    description: Warp-level MMA, FP8 (E4M3) inputs, FP32 accumulation.
+    body: |
+      if (threadIdx.x < 32) {
+        unsigned a = 0x38383838u; float d0, d1, d2, d3;
+        asm volatile("mma.sync.aligned.m16n8k32.row.col.f32.e4m3.e4m3.f32 {%0,%1,%2,%3}, {%4,%5,%6,%7}, {%8,%9}, {%10,%11,%12,%13};"
+                     : "=f"(d0), "=f"(d1), "=f"(d2), "=f"(d3)
+                     : "r"(a), "r"(a), "r"(a), "r"(a), "r"(a), "r"(a),
+                       "f"(0.f), "f"(0.f), "f"(0.f), "f"(0.f));
+        out[threadIdx.x] = (unsigned)(d0 + d1 + d2 + d3);
+      }
+
+  - name: mma_f8f6f4
+    unit: tensor
+    instructions: [mma.sync.aligned.kind::f8f6f4.m16n8k32]
+    since: sm_120a
+    description: Warp-level MMA with mixed FP8/FP6/FP4 inputs (here E2M1 x E2M1).
+    body: |
+      if (threadIdx.x < 32) {
+        unsigned a = 0x02020202u; float d0, d1, d2, d3;
+        asm volatile("mma.sync.aligned.kind::f8f6f4.m16n8k32.row.col.f32.e2m1.e2m1.f32 {%0,%1,%2,%3}, {%4,%5,%6,%7}, {%8,%9}, {%10,%11,%12,%13};"
+                     : "=f"(d0), "=f"(d1), "=f"(d2), "=f"(d3)
+                     : "r"(a), "r"(a), "r"(a), "r"(a), "r"(a), "r"(a),
+                       "f"(0.f), "f"(0.f), "f"(0.f), "f"(0.f));
+        out[threadIdx.x] = (unsigned)(d0 + d1 + d2 + d3);
+      }
+
+  - name: mma_mxf8f6f4_block_scale
+    unit: tensor
+    instructions: [mma.sync.aligned.kind::mxf8f6f4.block_scale]
+    since: sm_120a
+    description: Warp-level MMA with per-block UE8M0 scale factors (MX formats).
+    body: |
+      if (threadIdx.x < 32) {
+        unsigned a = 0x38383838u, sc = 0x7f7f7f7fu; float d0, d1, d2, d3;
+        asm volatile("mma.sync.aligned.kind::mxf8f6f4.block_scale.scale_vec::1X.m16n8k32.row.col.f32.e4m3.e4m3.f32.ue8m0 "
+                     "{%0,%1,%2,%3}, {%4,%5,%6,%7}, {%8,%9}, {%10,%11,%12,%13}, %14, {0, 0}, %15, {0, 0};"
+                     : "=f"(d0), "=f"(d1), "=f"(d2), "=f"(d3)
+                     : "r"(a), "r"(a), "r"(a), "r"(a), "r"(a), "r"(a),
+                       "f"(0.f), "f"(0.f), "f"(0.f), "f"(0.f), "r"(sc), "r"(sc));
+        out[threadIdx.x] = (unsigned)(d0 + d1 + d2 + d3);
+      }
+
+  - name: wgmma
+    unit: tensor
+    instructions: [wgmma.fence, wgmma.commit_group, wgmma.wait_group]
+    since: sm_90a
+    description: Warpgroup-level asynchronous MMA (Hopper).
+    body: |
+      asm volatile("wgmma.fence.sync.aligned;");
+      asm volatile("wgmma.commit_group.sync.aligned;");
+      asm volatile("wgmma.wait_group.sync.aligned 0;");
+      out[threadIdx.x] = 1;
+
+  - name: tcgen05
+    unit: tensor
+    instructions: [tcgen05.fence, tcgen05.alloc, tcgen05.mma]
+    since: sm_100a
+    description: Fifth-generation tensor core instructions with tensor memory (Blackwell datacenter).
+    body: |
+      asm volatile("tcgen05.fence::before_thread_sync;");
+      out[threadIdx.x] = 1;
+
+  - name: setmaxnreg
+    unit: issue
+    instructions: [setmaxnreg]
+    since: sm_90a
+    description: Re-balance registers between warpgroups.
+    body: |
+      asm volatile("setmaxnreg.inc.sync.aligned.u32 232;");
+      out[threadIdx.x] = 1;
+
+  - name: multimem
+    unit: l2
+    instructions: [multimem.ld_reduce]
+    since: sm_90
+    mode: compile
+    description: Multimem (NVLink multicast) loads with reduction; needs a multicast object.
+    body: |
+      if (out == nullptr) {
+        unsigned v;
+        asm volatile("multimem.ld_reduce.relaxed.sys.global.add.u32 %0, [%1];" : "=r"(v) : "l"(out));
+        out[0] = v;
+      }
+      out[threadIdx.x] = 1;
+
+  - name: fma_f16x2
+    unit: fma
+    instructions: [fma.rn.f16x2]
+    since: sm_53
+    description: Packed half-precision FMA.
+    body: |
+      unsigned v;
+      asm volatile("fma.rn.f16x2 %0, %1, %2, %3;" : "=r"(v) : "r"(0x3c003c00u), "r"(0x3c003c00u), "r"(0u));
+      out[threadIdx.x] = v;
+
+  - name: fma_bf16x2
+    unit: fma
+    instructions: [fma.rn.bf16x2]
+    since: sm_80
+    description: Packed bfloat16 FMA.
+    body: |
+      unsigned v;
+      asm volatile("fma.rn.bf16x2 %0, %1, %2, %3;" : "=r"(v) : "r"(0x3f803f80u), "r"(0x3f803f80u), "r"(0u));
+      out[threadIdx.x] = v;
+
+  - name: dp4a
+    unit: fma
+    instructions: [dp4a]
+    since: sm_61
+    description: Four-way byte dot product with accumulate.
+    body: |
+      unsigned v;
+      asm volatile("dp4a.u32.u32 %0, %1, %2, %3;" : "=r"(v) : "r"(0x01010101u), "r"(0x01010101u), "r"(0u));
+      out[threadIdx.x] = v;
+
+  - name: ex2_f16x2
+    unit: sfu
+    instructions: [ex2.approx.f16x2]
+    since: sm_75
+    description: Packed half-precision base-2 exponential.
+    body: |
+      unsigned v;
+      asm volatile("ex2.approx.f16x2 %0, %1;" : "=r"(v) : "r"(0x3c003c00u));
+      out[threadIdx.x] = v;
+
+  - name: tanh_approx
+    unit: sfu
+    instructions: [tanh.approx.f32]
+    since: sm_75
+    description: Hardware tanh approximation.
+    body: |
+      float v;
+      asm volatile("tanh.approx.f32 %0, %1;" : "=f"(v) : "f"(0.5f));
+      out[threadIdx.x] = (unsigned)(v * 1000.f);
+
+  - name: cvt_e4m3x2
+    unit: other
+    instructions: [cvt.rn.satfinite.e4m3x2.f32]
+    since: sm_89
+    description: Convert two FP32 values to packed FP8 (E4M3).
+    body: |
+      unsigned short v;
+      asm volatile("cvt.rn.satfinite.e4m3x2.f32 %0, %1, %2;" : "=h"(v) : "f"(1.0f), "f"(2.0f));
+      out[threadIdx.x] = v;
+
+  - name: cvt_e2m1x2
+    unit: other
+    instructions: [cvt.rn.satfinite.e2m1x2.f32]
+    since: sm_100a
+    description: Convert two FP32 values to packed FP4 (E2M1).
+    body: |
+      unsigned short v;
+      asm volatile("{ .reg .b8 t; cvt.rn.satfinite.e2m1x2.f32 t, %1, %2; mov.b16 %0, {t, t}; }"
+                   : "=h"(v) : "f"(1.0f), "f"(2.0f));
+      out[threadIdx.x] = v;

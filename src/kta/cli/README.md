@@ -1,6 +1,6 @@
 # kta.cli
 
-Layer 9. Specification: [spec/modules/orchestrator-cli.md](../../../spec/modules/orchestrator-cli.md). Built by: WP0 (`doctor`); WP1 (`store`); WP6.
+Layer 9. Specification: [spec/modules/orchestrator-cli.md](../../../spec/modules/orchestrator-cli.md). Built by: WP0 (`doctor`); WP1 (`store`); WP2 (`worker`, `target`, `backend`); WP6.
 
 ## Responsibility
 
@@ -10,6 +10,9 @@ The `kta` command: a thin layer that parses arguments, calls lower layers and fo
 
 - `kta doctor [--json] [--role control|worker]` (WP0)
 - `kta store bench [--records N] [--queries N] [--seed N] [--role] [--bundle PATH] [--json]`, `kta store export IDS --out PATH`, `kta store import BUNDLE` (WP1, D157)
+- `kta worker register NAME`, `kta worker list`, `kta worker serve` (pull daemon: NotSupported) (WP2, D197)
+- `kta target probe` (WP2, D188, D199)
+- `kta backend smoke [--backend cuda|tilelang|all] [--seed N]`, `kta backend selftest lease|timeout|cpu-compile` (WP2, D193)
 - remaining subcommands (WP6)
 
 ## Dependencies

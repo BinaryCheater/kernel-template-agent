@@ -18,6 +18,7 @@ Schemas (pydantic models per record kind), content-hash IDs, the expression lang
 - `expr.Expr.parse(src, declared)` -> `free_vars`, `attr_refs`, `is_linear`, `eval(env, hw, p, case)`; `ExprError` (WP1)
 - `trace`: `span(kind, name, lane, **attrs)`, `tracing(tracer)`, `new_tracer(sink, clock, ids, environ)`, `current_span_id()`, `child_environ()` (`KTA_TRACE_PARENT`) (WP1)
 - `load_config(path)` (WP0)
+- `jobs`: `Job`, `JobResult`, `JobRunner` (structural submit/wait/run/read_blob/put_blob), `DEFAULT_POOL` (WP2, D180, D183); `trace.current_tracer()` (WP2, D192)
 
 ## Dependencies
 
