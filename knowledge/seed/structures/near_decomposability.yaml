@@ -1,0 +1,9 @@
+name: near_decomposability
+effect: variables
+description: >-
+  Interactions across the stack are mostly local, so the coupling between decisions is block-banded.
+  Strongly coupled clusters are solved jointly and only the weak coupling between clusters is paid
+  for; an intermediate memory level splits a three-way search into two pairwise ones.
+evidence_needed: >-
+  Regime evidence that the neglected coupling is weak where the decomposition is used (a bound on
+  the cross term, or measurements over the region); expensive to establish.

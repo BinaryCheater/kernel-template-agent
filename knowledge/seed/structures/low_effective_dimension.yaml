@@ -1,0 +1,8 @@
+name: low_effective_dimension
+effect: variables
+description: >-
+  Only the decisions that touch the bottleneck move the objective. The rest can be frozen or
+  coarsened, so twenty coupled decisions become the three or four that move bytes.
+evidence_needed: >-
+  Sensitivity evidence in the regime: measurements or a model bound showing that the frozen
+  decisions change the objective by less than a stated amount.

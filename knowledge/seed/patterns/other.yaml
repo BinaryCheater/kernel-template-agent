@@ -1,0 +1,12 @@
+name: other
+level: 0
+category: other
+params:
+  - {name: note, type: str, meaning: "what the transaction does, in words"}
+description: >-
+  Holding place for transactions that no Pattern describes yet. Its level is not meaningful (0).
+  Repeated occurrences of the same kind of "other" transaction are the signal to add a Pattern
+  (docs/design/22 §2.2); the coverage report counts them.
+examples:
+  - "warp specialization that changes several transactions at once (docs/design/24 §5)"
+  - "a split decided at run time from routing metadata (MoE), before a Pattern for it exists"

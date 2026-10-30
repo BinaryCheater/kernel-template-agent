@@ -14,6 +14,9 @@ Patterns, refined Templates, Chains and Families: loading, validation, Γ evalua
 - Scope and reuse: `scope_holds`, `reuse_plan`
 - Retrieval: `retrieve_families`, `retrieve_templates`, `nearest_chains`, `diff_templates`, `card`
 - Rendering/coverage: `family_overview`, `render_text_knowledge`, `coverage_report`
+- Seed: `import_seed`, `import_references`, `seed_dir` (used by `kta init`)
+
+Functions that read the pool take the `Store` as a parameter (D200). Validators return `Issue`s with severity `error` or `warning` (D201). The seed lives in the repo-root `knowledge/seed/` (D204).
 
 ## Dependencies
 

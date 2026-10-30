@@ -1,0 +1,15 @@
+name: contract
+level: 1
+category: contract
+params:
+  - {name: contracted_dims, type: str, meaning: "dimensions summed over (e.g. K)"}
+  - {name: operands, type: int, meaning: "number of tensors taking part in the contraction"}
+  - {name: dtype_in, type: str, meaning: "element type of the operands"}
+  - {name: dtype_acc, type: str, meaning: "element type of the accumulation"}
+description: >-
+  A tensor contraction: products of operand elements summed over shared dimensions. It is a map
+  (the products) followed by a reduce; instruction-level refinements (tensor-core MMA) act on the
+  contraction as a whole.
+examples:
+  - "GEMM C = A @ B contracted over K"
+  - "attention scores S = Q @ K^T contracted over the head dimension"

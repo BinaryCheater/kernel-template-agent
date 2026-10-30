@@ -1,0 +1,9 @@
+name: scenario_decomposition
+effect: variables
+description: >-
+  Workload scenarios (for example prefill and decode) share hardware but want different software.
+  Once the shared (complicating) variables are fixed, each scenario is an independent subproblem,
+  which is the Benders structure.
+evidence_needed: >-
+  A proof that the scenarios couple only through the shared variables (algebraic), plus the per
+  scenario solutions as evidence of the decomposition's bound.

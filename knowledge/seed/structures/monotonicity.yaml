@@ -1,0 +1,8 @@
+name: monotonicity
+effect: objective
+description: >-
+  At fixed area or budget, more of a resource never hurts. This gives valid one-sided bounds, which
+  exact pruning needs.
+evidence_needed: >-
+  An algebraic argument over the model, proved once per Template and reused; measurement only
+  confirms that the model's monotone direction matches the hardware.

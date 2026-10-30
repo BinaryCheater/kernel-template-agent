@@ -5,3 +5,7 @@
 
 [toolchain]
 cuda_home = "/usr/local/cuda"
+
+[knowledge]
+# Seed knowledge imported by `kta init` (relative to the source tree root).
+seed_dir = "knowledge/seed"
