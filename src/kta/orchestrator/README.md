@@ -29,6 +29,11 @@ Deterministic loops (solve, expand, learn, calibrate, maintain, experiment, summ
   `proc_common.py`); budget hierarchy and quotas (`quotas.py`); T5 check (`microbench_check.py`).
   See spec/modules/orchestrator-cli.md "WP11 implementation notes".
 
+## Controls and staged release (WP21)
+
+- `Settings.of(controls)` replaces `Settings.from_config`; the runner and the task queue read the controls in force at each step (`kta.store.controls.ensure`) and record the version (loop data `controls`, TaskCard `refs.controls`).
+- `stages.yaml` + `release.py`: S0–S4; processes outside the stage skip ticks; the agent pool starts only admitted tasks; in S1 each attempt waits for a release.
+
 ## Dependencies
 
 - May import: `core`, `store`, `targets`, `execution`, `backends`, `knowledge`, `models`, `measure`, `formulation`, `checks`, `solve`.

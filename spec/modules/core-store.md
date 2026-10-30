@@ -126,3 +126,59 @@ Additions made in WP1 (D146, D152): `Store.put_many(records)` (one transaction),
 
 - 单元测试：`main` 环境拒绝 fixture 记录和 dirty 写入；注册表在 dev 环境拒绝 fixture 实现；ID 稳定性；UPDATE/DELETE 被触发器拒绝；refs 缺失时 put 失败；状态推进规则逐条测试；失效传播在一个五层依赖图上正确；CAS 指针并发更新只有一个成功。
 - 真实运行：在 spark 的数据目录上建库，写入 10 万条合成记录（标 origin="fixture"），查询和全文检索 p95 < 50 ms，记录耗时写入交付说明。
+
+## Controls registry (WP21, D480, D481)
+
+Every knob of docs/design/12-agent-controls.md lives in one versioned registry. Code reads knob values only through it; no module keeps its own default for a knob.
+
+### Files
+
+```
+core/controls.yaml     knob definitions: id, row (the "Knob" cell of 12), section, controls, type,
+                       value (initial), prevents, where, status, source, set_by, editable,
+                       accessor, consumer, unit, choices / fields / min / max / sum_max
+core/experiments.yaml  X1–X9 (02 §11): question, design, arms, metrics, sets (knob ids),
+                       profile_fields, depends_on, status (defined | approved | running | done)
+core/controls.py       definitions(), coerce(), Controls (snapshot), baseline(), upgrade()
+core/knobs.py          Knobs: one typed property per knob (mixed into Controls)
+store/controls.py      ControlsVersion records and the pointer controls:current
+```
+
+### Interface
+
+```python
+# kta.core.controls (layer 0: every module may read it)
+definitions() -> Definitions          # knobs, experiments, task_types, hash; validated on load
+class Controls(Knobs):                # frozen snapshot
+    values: Mapping[str, Any]; version: int; version_id: str | None; definitions_hash: str
+    def value(knob_id) -> Any                          # a copy
+    def with_changes(changes, allow_locked=False) -> Controls   # validated proposal, version_id None
+    def diff(other) -> list[Change]
+    <accessor>: typed property per knob (e.g. rounds_per_case_loop -> int, task_wall_s -> dict)
+baseline() -> Controls                # the definitions' initial values, not stored
+upgrade(stored_values) -> (values, added, dropped)
+
+Context.controls: Controls            # snapshot read by pure code; default baseline()
+
+# kta.store.controls (layer 1)
+current(store, ops) -> Controls       # read only; version_id None when nothing (or not all) stored
+ensure(store, ops, at) -> Controls    # writes version 1, or a system upgrade when knobs were added/dropped
+propose(store, ops, changes, author, reason, at, expected) -> Controls
+history(store, limit) -> list[(id, Record)]
+```
+
+### Rules
+
+- A value change is a new ControlsVersion (spec/schemas.md §4.10) written by a named human with a reason; `expected` must be the version the author read (None = the values in force were not stored yet), else ConfigError. Invariant knobs (`editable: false`) are refused (PermissionDenied). Invalid values are ConfigError.
+- `value` in `controls.yaml` only seeds version 1 and knobs added later; editing it does not change a stored value.
+- Runs record the version they used: `refs.controls` on TaskCard, AgentRun (one version) and ExperimentRun (the list the loop ran under); loop data `controls` (last step) and `controls_seen`.
+- Entry points that hold a store call `ensure` (Services.open, the runner per step, the task queue, the agent runner per step, each process tick); GET endpoints call `current` and write nothing.
+
+### Adding a knob (WP18, WP19 and later)
+
+1. Add a row to `core/controls.yaml` (with the failure it prevents, `where`, `status`, `set_by`; `consumer` names the code that reads it).
+2. Add one typed property with the row's `accessor` name to `core/knobs.py`.
+3. Add the row to docs/design/12-agent-controls.md (with its `set_by` cell); if an X experiment sets it, list the knob in that experiment's `sets`.
+4. Read it through `ctx.controls.<accessor>` (pure code) or `kta.store.controls.ensure(...)`.<accessor>.
+
+`test_registry_holds_every_row_of_12_with_set_by` and `test_every_knob_has_one_typed_accessor` fail until the three places agree. On the first run after the change, `ensure` writes a system version that adds the knob with its initial value and keeps every stored value.

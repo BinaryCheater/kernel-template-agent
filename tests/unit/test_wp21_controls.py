@@ -324,9 +324,11 @@ def test_settings_api_reads_open_and_writes_a_version_with_the_token(api: Api) -
     body = {"expected": None, "changes": {"budget.retries_per_task": 3}, "reason": "X5 pilot"}
     assert _call(api, "POST", "/controls", body)[0] == 403  # no token
     assert _call(api, "POST", "/controls", body, "wrong")[0] == 403
-    v1 = controls_store.ensure(api.store, api.ops, api.now()).version_id
-    status, out = _call(api, "POST", "/controls", {**body, "expected": v1}, "secret-operator-token")
+    # Nothing stored yet: the author read the unstored values (expected null); version 1
+    # stores them and version 2 carries the change.
+    status, out = _call(api, "POST", "/controls", body, "secret-operator-token")
     assert status == 200 and out["version"] == 2, out
+    v1 = api.store.get(out["id"]).refs["previous"]
     rec = api.store.get(out["id"])
     assert rec.actor.type == "human" and rec.body["reason"] == "X5 pilot"
     action = api.store.get(out["action"])

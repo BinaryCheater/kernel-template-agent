@@ -30,6 +30,10 @@ The `kta` command: a thin layer that parses arguments, calls lower layers and fo
 - WP11 (`process_cmds.py`): `kta learn add|backlog`, `kta improve run`, `kta experiment status`,
   `kta calibrate hw`, `kta quotas`, `kta profile write`.
 
+## Controls (WP21)
+
+- `controls_cmds.py`: `kta controls show | history | token`.
+
 ## Dependencies
 
 - May import: `core`, `store`, `targets`, `execution`, `backends`, `knowledge`, `models`, `measure`, `formulation`, `checks`, `solve`, `orchestrator`, `agents`.

@@ -607,3 +607,95 @@ export interface Quotas {
   in_force: Record<string, number>;
   experiments: string[];
 }
+
+// ---- WP21: controls registry and staged release ----
+
+/** One knob of the controls registry (docs/design/12) with the value in force. */
+export interface Knob {
+  id: string;
+  row: string;
+  section: string;
+  controls: string;
+  type: "int" | "float" | "bool" | "str" | "enum" | "per_task_type" | "mapping" | "list_str";
+  value: unknown;
+  initial: unknown;
+  prevents: string;
+  where: string[];
+  status: "spec" | "default" | "set";
+  source: string;
+  set_by: string[];
+  editable: boolean;
+  accessor: string;
+  consumer: string;
+  unit: string;
+  choices: string[];
+  fields: Record<string, string>;
+  min: number | null;
+  max: number | null;
+}
+
+export interface SystemExperiment {
+  id: string;
+  question: string;
+  design: string;
+  arms: string[];
+  metrics: string[];
+  sets: string[];
+  profile_fields: string[];
+  depends_on: string[];
+  status: string;
+}
+
+/** GET /controls */
+export interface ControlsView {
+  version: { id: string | null; version: number; stored: boolean; definitions_hash: string; stored_under_hash: string };
+  knobs: Knob[];
+  experiments: SystemExperiment[];
+  write: { header: string; token_configured: boolean };
+}
+
+/** GET /controls/versions */
+export interface ControlsVersionRow {
+  id: string;
+  version: number;
+  at: string;
+  author: string;
+  author_type: string;
+  reason: string;
+  changes: { knob: string; old: unknown; new: unknown }[];
+  previous: string | null;
+}
+
+export interface ReleaseStage {
+  id: string;
+  name: string;
+  runs: string;
+  processes: string[];
+  task_types: string[];
+  agent_calls: "none" | "gated" | "automatic";
+  exit: string[];
+}
+
+export interface HeldCall {
+  task: string;
+  card: string;
+  type: string;
+  work_unit: string;
+  attempt: number;
+  released_attempt: number | null;
+  held: string | null;
+  card_body: { type: string; goal: string; inputs: string[]; done_checks: string[]; budget: Record<string, number>; profile: string; work_unit: string };
+  pull_log: unknown;
+  pull_log_note: string;
+  plan: unknown;
+  plan_note: string;
+}
+
+/** GET /release */
+export interface ReleaseView {
+  stage: ReleaseStage;
+  stages: ReleaseStage[];
+  controls: string | null;
+  in_flight: string[];
+  held: HeldCall[];
+}

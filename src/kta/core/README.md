@@ -20,6 +20,12 @@ Schemas (pydantic models per record kind), content-hash IDs, the expression lang
 - `load_config(path)` (WP0)
 - `jobs`: `Job`, `JobResult`, `JobRunner` (structural submit/wait/run/read_blob/put_blob), `DEFAULT_POOL` (WP2, D180, D183); `trace.current_tracer()` (WP2, D192)
 
+## Controls registry (WP21)
+
+- `controls.yaml`, `experiments.yaml`: the knobs of docs/design/12 and X1–X9 (definitions, initial values).
+- `controls.py`: `definitions()`, `Controls` snapshot (`with_changes`, `diff`), `baseline()`, `upgrade()`; `knobs.py`: one typed accessor per knob.
+- `Context.controls`: the snapshot pure code reads. How to add a knob: spec/modules/core-store.md "Controls registry".
+
 ## Dependencies
 
 - May import: none (bottom layer).

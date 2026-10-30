@@ -9,6 +9,7 @@ import { Loading, Panel, RecordLink } from "../components/ui";
 import { dur, since } from "../components/format";
 
 // docs/design/30 §2: what reaches the inbox, why it needs you, and the default suggestion.
+// The thresholds are controls knobs (inbox.*, budget.user_attention_cap): see Settings.
 const TRIGGERS: { trigger: string; why: string }[] = [
   { trigger: "Task over retry limit", why: "the agent cannot go on" },
   { trigger: "Loop over its round limit", why: "may need a human judgement" },

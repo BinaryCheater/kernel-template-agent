@@ -104,8 +104,9 @@ def propose(
 ) -> Controls:
     """Write a new version with ``changes`` (knob id -> value) by a human ``author``.
 
-    ``expected`` is the version the author read; a different current version is refused,
-    so nobody overwrites a change they have not seen. Invariant knobs are refused
+    ``expected`` is the version the author read (None: the values in force were not stored
+    yet); a different current version is refused, so nobody overwrites a change they have
+    not seen. Invariant knobs are refused
     (PermissionDenied), invalid values and no-op proposals are ConfigError.
     """
     if author.type != "human" or not author.name.strip():
@@ -114,12 +115,13 @@ def propose(
         raise ConfigError("a controls version needs a reason")
     if not changes:
         raise ConfigError("no changes given")
-    base = ensure(store, ops, at)
-    if expected != base.version_id:
+    read = current(store, ops)  # None: the author saw values not stored yet (baseline/upgrade)
+    if expected != read.version_id:
         raise ConfigError(
-            f"the current controls version is {base.version_id} (v{base.version}), "
+            f"the current controls version is {read.version_id} (v{read.version}), "
             f"not {expected}: reload and propose again"
         )
+    base = ensure(store, ops, at)  # stores what the author saw first, so the diff is exact
     new = base.with_changes(changes)
     if not base.diff(new):
         raise ConfigError("the proposed values equal the current ones")

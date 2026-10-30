@@ -181,3 +181,10 @@ $KTA_DATA/<env>/batches/<batch>/
 - `kta.agents.register_implementations` registers interface `batch_envs`
   (`kta.agents.batch_port.BatchEnvs.ensure(batch, profile) -> lock summary`: build if absent,
   verify, refuse a lock made from another profile) for the experiment process.
+
+## Additions by WP21 (D483)
+
+- The runner reads session and context knobs from the controls version in force at the start of each step (`kta.store.controls.ensure`) through `kta.agents.policy` (`context_policy`, `loop_policy`) and records it in `AgentRun.refs.controls`. AgentProfile `context_policy` / `loop_policy` stay in the records as written (codex-v1, codex-v2) and no longer drive a run.
+- Wall limit: the card's `budget.wall_s`, else `budget.task_wall_s[type]`; idle cut-off `budget.no_response_timeout_s`; Executor timeout and task-token lifetime `budget.hard_cap_factor × wall`; lease `budget.lease_s`, renewed every `lease_s / 6`.
+- `sessions.decide(state, supports_resume, loop_policy, failure)`: `resume_scope = never` always starts a fresh session; the same-failure rule starts one when the same check failed `same_failure_rule` times in a row.
+- `workspace.build(..., policy=...)` takes the context policy explicitly; `cards.task_md` has no defaults of its own.

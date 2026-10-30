@@ -47,8 +47,7 @@ def cmd_history(args: argparse.Namespace, make_ctx: ContextFactory) -> int:
             }
         )
     text = "\n".join(
-        f"v{v['version']} {v['id'][:12]} {v['author']}: {v['reason']} "
-        f"({len(v['changes'])} changes)"
+        f"v{v['version']} {v['id'][:12]} {v['author']}: {v['reason']} ({len(v['changes'])} changes)"
         for v in out
     )
     _out(args, {"versions": out}, text or "(none)")

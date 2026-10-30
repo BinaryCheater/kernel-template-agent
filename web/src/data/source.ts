@@ -5,6 +5,7 @@ import type {
   ActionLogEntry, ActiveRuns, AgentsView, BlobText, Capability, CaseDetail, CaseIndexRow, CoverageReport,
   FamilyDetail, FamilySummary, ImprovementsView, InboxItem, Machines, Meta, PoolView, RecordEnvelope,
   Quotas, Residual, ResultDetail, Snapshot, Span, TaskDetail, TraceInfo, ExperimentProtocol,
+  ControlsView, ControlsVersionRow, ReleaseView,
 } from "./types";
 
 const BASE = "/api";
@@ -23,9 +24,17 @@ async function get<T>(path: string, params: Record<string, string | undefined> =
 
 /** POST a JSON body (operations). Errors keep their HTTP status: 400 bad request, 404 unknown
  *  record or task, 501 not wired yet (the detail names what is missing). */
-async function post<T>(path: string, body: unknown = {}): Promise<T> {
-  return read<T>(await fetch(`${BASE}${path}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }));
+async function post<T>(path: string, body: unknown = {}, headers: Record<string, string> = {}): Promise<T> {
+  return read<T>(await fetch(`${BASE}${path}`, { method: "POST", headers: { "content-type": "application/json", ...headers }, body: JSON.stringify(body) }));
 }
+
+/** The operator token the settings writes need (WP21). Kept for this browser tab only. */
+const TOKEN_KEY = "kta-operator-token";
+export const operatorToken = {
+  get: (): string => sessionStorage.getItem(TOKEN_KEY) ?? "",
+  set: (v: string) => (v ? sessionStorage.setItem(TOKEN_KEY, v) : sessionStorage.removeItem(TOKEN_KEY)),
+};
+const operator = () => ({ "X-KTA-Operator-Token": operatorToken.get() });
 
 async function read<T>(res: Response): Promise<T> {
   if (!res.ok) {
@@ -74,6 +83,14 @@ export const api = {
   residuals: (model?: string) => get<Residual[]>("/model/residuals", { model }),
   quotas: () => get<Quotas>("/quotas"),
   verifyBatch: (batch: string) => post<Record<string, unknown>>(`/agents/batches/${enc(batch)}/verify`),
+  // WP21
+  controls: () => get<ControlsView>("/controls"),
+  controlsVersions: (limit = 50) => get<ControlsVersionRow[]>("/controls/versions", { limit: String(limit) }),
+  release: () => get<ReleaseView>("/release"),
+  setControls: (expected: string | null, changes: Record<string, unknown>, reason: string) =>
+    post<{ id: string; version: number; action: string }>("/controls", { expected, changes, reason }, operator()),
+  releaseCall: (task: string, reason: string) =>
+    post<{ task: string; attempt: number; action: string }>("/release", { task, reason }, operator()),
 };
 
 /** Operation name (GET /actions/capabilities) -> endpoint call. Bodies follow spec/modules/api-web.md. */

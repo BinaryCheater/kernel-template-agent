@@ -42,6 +42,7 @@
 | WP10a | `knowledge/seed/references/` 下每个参考实现都有 Reference、Chain、Reconstruction；YAML 能被模型解析；未匹配事务与 Gap 一一对应 |
 | WP10b | Named WP10b tests pass (expand machine, WP10a replay frozen → covered via Python and CLI, cancelled extraction, inflated `matched`); expand transitions create only T1–T3 and reach `covered`; T2/T3 done-checks exist. Full stage: ≥ 10 reference directories and a listed clean coverage Report in `dev/WP10b` with a covered reference (D388) |
 | WP13 | 交付说明中的每个数字都有来源文件路径 |
+| WP21 | See "WP21" below |
 
 ## 验收测试的锁定
 
@@ -56,3 +57,18 @@ AGENTS.md 规定最后一步必须运行 gate 并把输出贴进交付说明。�
 ## Code stage (D320)
 
 `scripts/gate --stage code <WP>` is the code-complete gate used while the user has paused real data and measurements (2026-10-31). It runs every check except the ones that need real runs: evidence claims need no store records, and WP-specific checks that need a GPU run, a measurement or real records return WARN through `specific.pending_real(...)` when `specific.code_stage()` is true. The delivery note must add a non-empty section `## Pending real runs` listing what the full gate will still require. A WP that passed only the code stage may be merged into `integration` as code-complete; it is not accepted until `scripts/gate <WP>` (full) passes.
+
+## WP21
+
+`specific_wp21` (`tools/kta_gate/specific_wp21.py`, D489):
+
+| Check | Fails when |
+| --- | --- |
+| WP21 tests | a named WP21 test did not pass (registry vs 12, accessors, X1–X9, D325 values, Settings view, invalid values and invariants, moved config keys, versions, definition upgrade, card and loop record the version, S0, S1 gate with a fake-adapter task, one call at a time, stage change, settings API, release API, operator token, AgentRun names the version) |
+| WP21 registry | a row of docs/design/12 has no knob or a knob has no row; a row's `set_by` cell differs from the registry; the experiments are not X1–X9 |
+| WP21 no scattered knob constants | a replaced constant (`LEASE_S`, `RENEW_EVERY_S`, `DEFAULT_RESET_RATIO`, `BUDGET_WARN`, `REPEAT_FAILURES`, `QUOTAS`, `STEP_HEADER_MAX_CHARS`, `Settings.from_config`, numeric `max_rounds`/`max_retries` in machines.yaml) is back in `src/` |
+| WP21 stages | stages are not S0–S4; S0–S3 lack exit criteria; S0 does not run without agent calls or S1 does not gate |
+| WP21 pages | `/settings` or `/release` is not routed or its page file is missing |
+| web build | the web app at HEAD does not build |
+| WP21 hand-stepped S1 run | full stage: no real S1 run is recorded yet (FAIL); code stage: WARN (pending real run) |
+

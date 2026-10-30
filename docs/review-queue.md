@@ -600,3 +600,31 @@ Decisions made without the user that need review. Newest last. Each entry: quest
 - **Choice**: follow 02's own proposals as defaults (see D325 in `docs/decisions.md`); the largest is (5): template `effects` and the declarative hardware model are built now, before the GEMM golden path has run.
 - **Why**: code stage (D320); no real records exist that a schema change would strand; building the golden path on the old `cost` schema would mean doing it twice.
 - **Cost to change**: (5) reverting means keeping both `cost` and `effects` readers (upcast exists either way); (1)–(4), (6), (7) are data or protocol definitions, cheap to change.
+
+## D480/D481 — Controls registry and its versions (WP21)
+
+- **Question:** where the knobs of docs/design/12 live, how a value change is versioned, and how runs record it.
+- **Choice:** definitions as package data in `kta.core` (layer 0) with typed accessors; values in force as ControlsVersion records + pointer `controls:current`; `refs.controls` on TaskCard, AgentRun, ExperimentRun; system versions when knobs are added.
+- **Rationale:** one place for every knob that every layer can read; versions are evidence (immutable, with author and reason), so "which values did this run use" is a record lookup.
+- **Cost of changing later:** medium: a different store for values touches `kta.store.controls` and the API; records already written keep their `refs.controls`.
+
+## D482/D483 — Code reads knobs only from the registry (WP21)
+
+- **Question:** the code had its own defaults (orchestrator `Settings`, AgentProfile policies, inbox constants, `[budget.quotas]`, `[agents] slots`), some differing from 12 (T4–T6 wall budgets).
+- **Choice:** all read from the registry; 12's values win (T4 45 min, T5/T6 30 min); config keys that held knobs are refused with a pointer; thresholds that were not rows of 12 became rows (12 §7, a new section in the user's design document).
+- **Rationale:** the user asked for "one tunable table"; two sources would let them disagree silently.
+- **Cost of changing later:** low for values (a controls version); medium to move a knob back to configuration.
+
+## D485 — Staged release defaults to S0 (WP21)
+
+- **Question:** which stage a fresh store starts in, and where the gate sits.
+- **Choice:** S0 (no agent calls) until the user writes a controls version changing `release.stage`; the gate is in the agent pool; manual `kta task lease` is not gated.
+- **Rationale:** 01 §3 "no stage opens until we understand and have debugged the previous one"; a merged code base must not start spending agent time on its own.
+- **Cost of changing later:** low: the knob's initial value, or `stages.yaml`. Note for merge: after this lands, `kta runner start` takes no task until the stage is S1 or later.
+
+## D486 — Operator token only for settings writes (WP21)
+
+- **Question:** the workplan asks for an operator token on settings writes, while design/30 §4 says one user and no login, and `/actions/*` have no token.
+- **Choice:** the token guards `POST /controls` and `POST /release` only; `/actions/*` are unchanged.
+- **Rationale:** follow the workplan without widening the change; the inconsistency is visible here.
+- **Cost of changing later:** low: `check_operator` can guard the other write endpoints; the web page already sends the header.

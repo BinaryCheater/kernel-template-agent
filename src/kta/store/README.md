@@ -14,6 +14,10 @@ Append-only evidence records, content-addressed blobs, operations tables (tasks,
 - `status.check_change`, `status.fold`; `stale.propagate(store, id, reason, now)`, `stale.reject(...)`; `snapshot.snapshot(store, ops, members, parent, note, actor, now)`
 - `transfer.export_bundle` / `import_bundle` (verified record bundles, D153); `bench.run` (store benchmark, D156)
 
+## Controls versions (WP21)
+
+- `controls.py`: `current` (read only), `ensure` (writes version 1 or a definitions upgrade), `propose` (a human's version with a reason and the version read), `history`. Pointer `controls:current`; records of kind ControlsVersion.
+
 ## Dependencies
 
 - May import: `core`.
