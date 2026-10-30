@@ -1,0 +1,99 @@
+[
+  {
+    "claim": "WP6 unit tests pass: step produces exactly the machines.yaml transitions (solve, expand) and only creates listed task types; one test per judging rule 1-4 (plus rule order, thresholds from config, resume targets, round limit, stuck tasks); the task lifecycle uses every listed edge (accept, reject-retry-escalate, suspend-recheck, cancel, lease lost, expiry); a refused budget reservation keeps the task queued and releases the upper scopes; runner spans/blocking/restart/attention limit; CLI; gate check. Unit runs only: WP6 is not record-backed (D84); the real end-to-end solve is WP7's",
+    "command": "uv run --frozen pytest -v tests/unit/test_orchestrator_step.py tests/unit/test_orchestrator_tasks.py tests/unit/test_orchestrator_runner.py tests/unit/test_cli_orchestrator.py tests/unit/test_gate_wp6.py",
+    "git_commit": "3a5fece8ffc342cc5a60b45af5ff3272549de2d8",
+    "dirty": false,
+    "env": "dev",
+    "control_host": "Mac.lan",
+    "workers": [],
+    "record_ids": [],
+    "blob_ids": [],
+    "env_manifests": [],
+    "started_at": "2026-10-30T18:07:00Z",
+    "requires_gpu": false,
+    "output": "Mac.lan:~/kta-data/dev/WP6/evidence/pytest-3a5fece.txt"
+  },
+  {
+    "claim": "A real solve loop on a small FP16 GEMM case (1024^3, target gb10) in the dev store: `kta case add` writes Problem, Contract and Case; `kta solve` moves new -> bounded and then blocks in bounded with NotSupported because no HwModel record (measured peaks) exists for gb10 in any store; the inbox shows the blocked loop. This is the D264 path, not a solve result",
+    "command": "KTA_ENV=dev KTA_WP=WP6 kta init; kta case add gemm-small.yaml; kta solve <case> --steps 5; kta inbox",
+    "git_commit": "3a5fece8ffc342cc5a60b45af5ff3272549de2d8",
+    "dirty": false,
+    "env": "dev",
+    "control_host": "Mac.lan",
+    "workers": [],
+    "record_ids": [
+      "95efa8d10045f0337c3eaad863c3e3d6c43d7e26a183ce3afe14693f1fde1db7",
+      "c28403eb7f1ade74ef38fef20bf6cc77b2135835b603fd559e0ef6aa37498aed",
+      "ff082b3071c434d8c55bc089d3722bcc6b3f19fc807c51e99399b8de0f415ede"
+    ],
+    "blob_ids": [],
+    "env_manifests": [],
+    "started_at": "2026-10-30T18:04:40Z",
+    "requires_gpu": false,
+    "output": "Mac.lan:~/kta-data/dev/WP6/evidence/solve-3a5fece.txt",
+    "notes": "loop 01M66ZRSEW8BC41TG6SWZ56ZPP; loop rows and spans are ops tables, not records"
+  },
+  {
+    "claim": "Human/CLI task path, acceptance: `kta task create T3` writes a TaskCard and queues it; `kta task submit --check` leases with a budget reservation in scope global (agent_min 600), starts, submits (Submission with the file as blob), runs the T3 done-checks (delivery_note, validate_template: PASS), writes the Template into the pool (actor.task = the task), a task_result Report and a done_checks Report, and settles the reservation (reserved back to 0)",
+    "command": "kta budget global --set agent_min=600; kta task create T3 ...; kta task submit <id> --dir t3-good --check; kta budget global",
+    "git_commit": "3a5fece8ffc342cc5a60b45af5ff3272549de2d8",
+    "dirty": false,
+    "env": "dev",
+    "control_host": "Mac.lan",
+    "workers": [],
+    "record_ids": [
+      "53df3e1aea2bde07da600870e939ecf26820fdaf4f8ce5c2dcdaf1f3339dfe98",
+      "aa1984524b98110071c87acce078968a0d681b88c9f2cd57de1e1571cc9c5d0e",
+      "8b08e1a2f09244156d8af9207f33ab461907ff7b1f6a2763a5e3202f689b01d8",
+      "4ff42c69c6ac2392fd3efe9af57110c7c47672f3f604b8a3b46043414e661652",
+      "92109caa06dc30cddddfc0404c5f4509d6628bfa249e6c0413bd4cca34557f1d"
+    ],
+    "blob_ids": [],
+    "env_manifests": [],
+    "started_at": "2026-10-30T18:05:08Z",
+    "requires_gpu": false,
+    "output": "Mac.lan:~/kta-data/dev/WP6/evidence/t3-good-3a5fece.txt",
+    "notes": "The submitted Template is a renamed copy of seed async_transfer, used only to exercise the path; it is not new knowledge"
+  },
+  {
+    "claim": "Human/CLI task path, rejection: two submissions of a broken Template are rejected by validate_template (first a schema error, then bad_expression in constraint c_aligned), each time back to queued with attempts counted; `kta task cancel` records a HumanAction and cancels the task",
+    "command": "kta task create T3 ...; kta task submit <id> --dir t3-bad --check (twice); kta task cancel <id> --reason ...",
+    "git_commit": "3a5fece8ffc342cc5a60b45af5ff3272549de2d8",
+    "dirty": false,
+    "env": "dev",
+    "control_host": "Mac.lan",
+    "workers": [],
+    "record_ids": [
+      "5330fab69a59317a0e8d32853b5bef7de13a9bd0e312bd8b4deaa54844cb5712",
+      "e66aa2a00c27e2c7e049579e13358d33337ebcf3df19d4b87a22b043b54cd1a9",
+      "a4240e7f38e26f3f0f232991e61c993f8712396c4ab35498b52e339367270177",
+      "8c0610391e01d123e3c58ee51e580083bf692f5281bd39665ed2675ec863d4b2",
+      "f984265d064501fd53529b29f13878c3596a4814c7593cf80962a3efbb801d85",
+      "78794f32c973d49e3bfd43c59dad625f9e1d95e5e1a03b12a63125153f050a46"
+    ],
+    "blob_ids": [],
+    "env_manifests": [],
+    "started_at": "2026-10-30T18:05:09Z",
+    "requires_gpu": false,
+    "output": "Mac.lan:~/kta-data/dev/WP6/evidence/t3-bad2-3a5fece.txt"
+  },
+  {
+    "claim": "An expand loop on a Reference (CUTLASS at a fixed revision): the freeze check passes and the instance blocks in frozen with NotSupported (building references in containers is WP11); the solve and maintain processes each run in the foreground for the requested ticks and leave both loops blocked, visible in `kta loop list` and the inbox",
+    "command": "kta reference add ref.yaml; kta expand <ref> --steps 2; kta process start solve --ticks 2; kta process start maintain --ticks 1; kta loop list; kta inbox",
+    "git_commit": "3a5fece8ffc342cc5a60b45af5ff3272549de2d8",
+    "dirty": false,
+    "env": "dev",
+    "control_host": "Mac.lan",
+    "workers": [],
+    "record_ids": [
+      "b4aaff0ca00cfad604dc68d536a8e8969915a55ad664d7f28cf087d5072e8cf9",
+      "1abc80d0deb17d95cd3e77dae8a32a56fb49700dab0074c1bf3ab5b6abb86ebb"
+    ],
+    "blob_ids": [],
+    "env_manifests": [],
+    "started_at": "2026-10-30T18:05:29Z",
+    "requires_gpu": false,
+    "output": "Mac.lan:~/kta-data/dev/WP6/evidence/loops-3a5fece.txt"
+  }
+]

@@ -284,6 +284,62 @@ Decisions made without the user that need review. Newest last. Each entry: quest
 - **Rationale:** checks that the seed's Templates compose into a formulation, not only that each validates.
 - **Cost of changing later:** low: one function in `tools/kta_gate/specific.py`.
 
+## D261 — Where a waiting solve loop resumes
+
+- **Question:** docs/design/10 §2.1 says a waiting loop "returns to the state that created the task". For tasks created in `judging` (T6, T4, T1/T2) that would judge the same measurements again.
+- **Choice:** T1, T2 and T6 resume at `retrieving` (the pool changed); T4 resumes at `solving` (only the model changed). Each resume is a new round; at the round limit the loop stays in `waiting`, escalated. `machines.yaml` drops `waiting -> judging` and gains `waiting -> solving`.
+- **Rationale:** every round then rebuilds, rechecks and remeasures with the new knowledge or model.
+- **Cost of changing later:** low: `RESUME_AT` in `src/kta/orchestrator/solve_loop.py` and two YAML edges.
+
+## D262 — Solve loop edges for empty results
+
+- **Question:** the design has no path for "no feasible candidate" or "nothing built".
+- **Choice:** `solving -> waiting` creating T1 (extend the family) and `building -> waiting` creating T6 (fix the family).
+- **Rationale:** both mean the family, not the model, is wrong; going on to judging would have nothing to judge.
+- **Cost of changing later:** low (two edges and two branches).
+
+## D263 — Judging rules, concretely
+
+- **Question:** rules 2 and 3 of docs/design/10 §2.1 have no numbers ("severely out of order", "gap explained").
+- **Choice:** rule 2: Spearman rho < 0.5 with at least 3 measured, or median relative error > 0.3. Rule 3: not slower than the strongest baseline beyond 3 x the protocol noise floor, or the model explains >= 80% of the gap to the bound. Rule 4: T2 when a Reference of the Problem exists, else T1. One family per loop instance (the best retrieved). All thresholds are config `[orchestrator]`.
+- **Rationale:** first-fill values, recorded in every judgement Report, so later tuning can be traced.
+- **Cost of changing later:** low for the numbers (config); medium for the definitions (one function, `judge`).
+
+## D265 — Task lifecycle storage in the ops table
+
+- **Question:** WP1's ops `tasks` table knows `queued`, `leased`, `done`, `failed`, `cancelled`; the lifecycle (10 §3.2) has eleven states.
+- **Choice:** the column now holds the lifecycle names directly, changed by compare-and-set (`SqliteOps.update_task`, additive). The orchestrator never writes `done`/`failed`. WP9a's `TASK_STATE` map passes unknown names through, so its pages show the real states; its `escalated` heuristic becomes unnecessary.
+- **Rationale:** one source of truth for the lifecycle the frontend draws.
+- **Cost of changing later:** low; WP9a may drop its mapping.
+
+## D266 — Task lifecycle additions
+
+- **Question:** 10 §7 says a crashed checker suspends the task without counting a retry, and 11 §6 says lost leases return to the queue; neither is in the lifecycle diagram.
+- **Choice:** new state `suspended` (`checking -> suspended`, `suspended -> checking` by you) and edge `leased -> queued`.
+- **Rationale:** both paths exist in the design text; now they are visible in the diagram.
+- **Cost of changing later:** low.
+
+## D267 — Expand loop open paths
+
+- **Question:** 10 §2.2 does not say what happens when reproduction misses epsilon.
+- **Choice:** write a Gap (missing family) and create T1; its acceptance resumes at `reconstructed`. After extraction tasks a fresh T2 re-matches the chain.
+- **Rationale:** a missed reproduction means the family lacks a step the reference has.
+- **Cost of changing later:** low; nothing exercises the path until WP11 builds references.
+
+## D274 — CLI command set
+
+- **Question:** docs/design/10 §5 names `kta solve <template> <case>` (agent) and spec lists `kta solve <case>` (start the loop); WP3 already owns `kta measure` / `kta check` groups.
+- **Choice:** `kta solve <case>` starts the loop. Agent compile/run commands (`instantiate`, `build`, `sass`, `run`, `src`) raise NotSupported until WP8; `bound` is absent. Notes are Reports titled `note`.
+- **Rationale:** agents do not exist yet and the loops compile, check and measure candidates themselves.
+- **Cost of changing later:** medium for WP8, which defines the agent workspace and the remaining commands.
+
+## D275 — What the WP6 gate checks
+
+- **Question:** spec/gate.md asks that "every decision rule of the transition function has a test".
+- **Choice:** named tests (step produces exactly the YAML edges; created task types are on the edge; every lifecycle edge occurs; refused reservation keeps the task queued) plus one passing `test_judging_rule_<n>_*` per rule number found in machines.yaml.
+- **Rationale:** a new rule or edge in the YAML fails the gate until it is tested.
+- **Cost of changing later:** low: one function in `tools/kta_gate/specific.py`.
+
 ## D322 — How batch agent environments are generated
 
 - **Question**: what makes a batch's agent workspace "completely generable", and where does it live?

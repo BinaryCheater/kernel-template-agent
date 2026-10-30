@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from collections.abc import Mapping
+from collections.abc import Collection, Mapping
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -139,6 +139,52 @@ class SqliteOps:
         if found is None:
             raise ConfigError(f"no task {task_id}")
         return _task(found)
+
+    def update_task(
+        self,
+        task_id: str,
+        expected: Collection[str],
+        state: str,
+        owner: str | None = None,
+        lease_s: int | None = None,
+        count_attempt: bool = False,
+    ) -> bool:
+        """Compare-and-set a task's lifecycle state (added by WP6, decision D265).
+
+        Succeeds only while the task is in one of ``expected``. ``owner``/``lease_s`` set a
+        lease; a state without a lease clears it. ``count_attempt`` adds one attempt.
+        """
+        now = self._now()
+        until = ts(now + timedelta(seconds=lease_s)) if lease_s is not None else None
+        marks = ", ".join("?" * len(expected))
+        with self.db.write() as con:
+            cur = con.execute(
+                "UPDATE tasks SET state = ?, lease_owner = ?, lease_until = ?, "
+                f"attempts = attempts + ?, updated_at = ? WHERE id = ? AND state IN ({marks})",
+                (state, owner, until, int(count_attempt), ts(now), task_id, *expected),
+            )
+            if cur.rowcount != 1:
+                return False
+            change: dict[str, Any] = {"state": state}
+            if owner is not None:
+                change.update(owner=owner, until=until)
+            self._log(con, "tasks", task_id, change)
+            return True
+
+    def list_tasks(
+        self, work_unit: str | None = None, states: Collection[str] | None = None
+    ) -> list[Task]:
+        """Tasks, oldest first (added by WP6)."""
+        sql, args = f"SELECT {TASK_COLUMNS} FROM tasks WHERE 1 = 1", list[Any]()
+        if work_unit is not None:
+            sql += " AND work_unit = ?"
+            args.append(work_unit)
+        if states is not None:
+            sql += f" AND state IN ({', '.join('?' * len(states))})"
+            args += list(states)
+        with self.db.read() as con:
+            rows = con.execute(sql + " ORDER BY created_at, id", args).fetchall()
+        return [_task(r) for r in rows]
 
     # ---- locks and pointers -----------------------------------------------------
 
@@ -302,6 +348,13 @@ class SqliteOps:
             "data": json.loads(row[3]),
             "updated_at": parse_ts(row[4]),
         }
+
+    def list_loops(self, kind: str | None = None) -> list[dict[str, Any]]:
+        """Loop rows in ``get_loop`` form, by ID (added by WP6)."""
+        sql = "SELECT id FROM loops" + (" WHERE kind = ?" if kind else "") + " ORDER BY id"
+        with self.db.read() as con:
+            ids = [r[0] for r in con.execute(sql, (kind,) if kind else ()).fetchall()]
+        return [self.get_loop(i) for i in ids]
 
     # ---- events -----------------------------------------------------------------
 
