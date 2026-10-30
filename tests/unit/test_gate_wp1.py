@@ -40,7 +40,7 @@ def _setup(
     data_dir = tmp / "data" / "dev" / "WP1"
     store = open_store(dataclasses.replace(ctx, data_dir=data_dir), CodeState(HEAD, dirty))
     env = store.put(Record.new("EnvManifest", {**MANIFEST, "role": role}, ACTOR, T0))
-    samples = {"query_name_eq": [1.0] * 19 + [p95_ms], "search_1word": [2.0] * 20}
+    samples = {"query_name_eq": [1.0] * 15 + [p95_ms] * 5, "search_1word": [2.0] * 20}
     blob = store.put_blob(json.dumps(samples).encode(), "application/json")
     body = {
         "title": "store benchmark",
