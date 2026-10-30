@@ -1,5 +1,7 @@
+# Shared by flash_attention_2_fwd and flash_attention_3_fwd: both files hold the same body, so
+# the two References point at one Problem record (D109). Keep the two copies identical.
 name: attention_fwd_f16_d128
-reference_impl: "O = softmax(scale * Q K^T + mask) V per (batch, head), LSE = logsumexp of each score row; computed in float32 by a naive reference (tests/test_flash_attn.py attention_ref)"
+reference_impl: "O = softmax(scale * Q K^T + mask) V per (batch, head), LSE = logsumexp of each score row; computed in float32 by a naive reference (attention_ref in tests/test_flash_attn.py and hopper/test_flash_attn.py of Dao-AILab/flash-attention)"
 inputs:
   - {name: Q, shape: [B, Sq, H, "128"], dtype: f16, layout: "row_major, last dim contiguous"}
   - {name: K, shape: [B, Sk, Hk, "128"], dtype: f16, layout: "row_major, last dim contiguous"}
@@ -9,10 +11,10 @@ outputs:
   - {name: LSE, shape: [B, H, Sq], dtype: f32, layout: row_major}
 params:
   scale: "f32, runtime (softmax_scale)"
-  causal: "bool, runtime switch compiled into two kernels"
-  H_over_Hk: "int, GQA ratio, runtime (h_h_k_ratio)"
+  causal: "bool, runtime switch compiled into separate kernels"
+  H_over_Hk: "int, GQA ratio, runtime"
   Sq: "int, runtime"
   Sk: "int, runtime"
   dtype_variants: "bf16 is the same program with a different MMA atom"
-  excluded_features: "dropout, alibi, softcap, local window, paged KV, split-KV: compiled-out variants not decomposed"
+  excluded_features: "dropout, alibi, softcap, local window, varlen, paged KV, split-KV, FP8 and other compiled-out variants are not part of this Problem; each Reference's decomposition.md lists what its source compiles out"
   tolerance: "f16 output; compared against an f32 reference with the tolerance used by the upstream tests"

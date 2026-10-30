@@ -31,7 +31,7 @@ scope:
   text: "Register tiles whose fragment layout is not coalesced for the destination, typically GEMM and attention epilogues."
 requires_hw: []
 relations:
-  - {type: requires, target: vectorized_access, note: "the read side is a vectorized transfer"}
+  - {type: enables, target: vectorized_access, note: "the relayout makes the global side contiguous so it can be read and written with vector accesses; a TMA store serves the same purpose, so it does not require vectorized_access (D110)"}
 signature:
   algorithm: "register -> smem -> global re-layout"
   reuse: null
