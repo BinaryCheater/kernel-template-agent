@@ -64,7 +64,8 @@ def _knowledge(value: Any) -> str:
 def arm_of(info: Mapping[str, Any]) -> Arm:
     """The arm from task bookkeeping (WP6 D373); no ``arm`` key means a normal pool run.
 
-    WP6 writes ``{"name", "condition": {"knowledge": ...}, "snapshot", "protocol"}``. A
+    WP6 writes ``{"name", "knowledge", "snapshot", "condition", "protocol"}`` (wp/WP6 @
+    8d0c2ba). A
     condition without ``knowledge`` (an arm that varies something else, e.g. the model)
     is a pool arm. Also read: ``knowledge`` at the top level of the arm, and a plain arm
     name with its condition in ``info["arm_condition"]``.
@@ -79,7 +80,9 @@ def arm_of(info: Mapping[str, Any]) -> Arm:
     cond = raw.get("condition") or {}
     if not isinstance(cond, Mapping):
         raise ConfigError("task info arm condition must be a mapping")
-    knowledge = cond.get("knowledge", raw.get("knowledge", "pool"))
+    # WP6 writes the normalised value at the top level and the raw protocol dict as
+    # ``condition``; the top level wins, the condition is the fallback (D434).
+    knowledge = raw.get("knowledge") or cond.get("knowledge") or "pool"
     snapshot = raw.get("snapshot") or cond.get("snapshot") or info.get("snapshot")
     name, protocol = raw.get("name"), raw.get("protocol")
     arm = Arm(

@@ -466,6 +466,19 @@ def test_arm_of_task_info() -> None:
     a = arm_of(wp6)
     assert (a.name, a.knowledge, a.snapshot, a.protocol) == ("t", "text", "s1", "p1")
     assert a.to_dict()["condition"] == {"knowledge": "text"}
+    final = {
+        "name": "z",
+        "knowledge": "zero",
+        "snapshot": None,
+        "condition": {"knowledge": "from_zero", "seed": 1},
+        "protocol": "p2",
+    }
+    f = arm_of({"arm": final, "batch": "b"})
+    assert (f.knowledge, f.protocol, f.condition) == (
+        "zero",
+        "p2",
+        {"knowledge": "from_zero", "seed": 1},
+    )
     other = arm_of({"arm": {"name": "weak-model", "condition": {"model": "m"}, "snapshot": None}})
     assert other.knowledge == "pool" and other.condition == {"model": "m"}
     z = arm_of({"arm": {"name": "z", "knowledge": "from_zero"}, "snapshot": "s9"})

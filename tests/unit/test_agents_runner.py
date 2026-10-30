@@ -257,9 +257,10 @@ def test_each_arm_shapes_workspace_manifest_and_agent_run(actx: Context, parts) 
         ops.enqueue(card_id, 1, f"wu-{knowledge}")
         task = ops.lease("runner-test", ["T1"], 600)
         assert task is not None
-        # The bookkeeping exactly as WP6 writes it (D373), batch included.
+        # The bookkeeping exactly as WP6 writes it (wp/WP6 @ 8d0c2ba), batch included.
         arm = {
             "name": f"arm-{knowledge}",
+            "knowledge": knowledge,
             "condition": {"knowledge": knowledge},
             "snapshot": snap,
             "protocol": None,
