@@ -7,7 +7,9 @@ a GPU), which is enough to test the scheduling rules of the lease.
 
 from __future__ import annotations
 
+import os
 import threading
+import time
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -16,13 +18,15 @@ import pytest
 
 from kta.core.config import config_from_mapping
 from kta.core.context import Context
-from kta.core.errors import ExecutionError
+from kta.core.errors import ConfigError, ExecutionError
 from kta.core.jobs import Job
 from kta.core.registry import Registry
 from kta.core.schemas import Actor, Record
 from kta.core.schemas.hardware import Worker
 from kta.execution.executor import JobExecutor
 from kta.execution.registry import Registration, register, worker_configs
+from kta.execution.worker import WorkerDirs, cancel_job, run_job
+from kta.execution.workerprobe import WorkerSpec
 from kta.store import CodeState, SqliteOps, SqliteStore, code_state, open_ops, open_store
 
 WAIT_S = 20.0
@@ -214,3 +218,103 @@ def test_gpu_timeout_without_answering_gpu_marks_worker_unhealthy(lctx, lstore, 
     with pytest.raises(ExecutionError, match="queued too long"):
         ex.run(Job(kind="run", argv=["true"]))
     assert ex.run(Job(kind="shell", argv=["true"])).ok  # cpu jobs still run
+
+
+def gone(pid: int) -> bool:
+    """Whether ``pid`` has exited (polls up to WAIT_S; an orphan is reaped by init)."""
+    deadline = time.monotonic() + WAIT_S
+    while time.monotonic() < deadline:
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            return True
+        threading.Event().wait(0.05)
+    return False
+
+
+def cancelled(ex: JobExecutor, job_id: str) -> ExecutionError:
+    with pytest.raises(ExecutionError) as info:
+        ex.wait(job_id)
+    assert info.value.kind == "cancelled"
+    return info.value
+
+
+def test_cancel_takes_a_queued_job_out_of_the_queue(lctx, lstore, lops) -> None:
+    registered(lctx, lstore, lops)
+    ex = JobExecutor(lctx, lstore, lops, code_state().commit)
+    job_id = ex.submit(Job(kind="shell", argv=["true"], requires={"gpu": "sm_999"}))
+    wait_until(ex, lambda: ex.jobs[job_id].warned_unmatched)
+    ex.cancel(job_id)
+    assert "queued" in str(cancelled(ex, job_id))
+    assert ex.pending() == [] and ex.jobs[job_id].slot is None
+
+
+def test_cancel_kills_the_running_process_tree_and_frees_the_slot(
+    lctx, lstore, lops, tmp_path
+) -> None:
+    registered(lctx, lstore, lops)
+    ex = JobExecutor(lctx, lstore, lops, code_state().commit)
+    pidfile = tmp_path / "child.pid"
+    job = Job(
+        kind="shell",
+        argv=[
+            "sh",
+            "-c",
+            'sleep 300 & echo $! > "$PIDFILE.tmp"; mv "$PIDFILE.tmp" "$PIDFILE"; wait',
+        ],
+        env={"PIDFILE": str(pidfile)},
+        timeout_s=300,
+    )
+    job_id = ex.submit(job)
+    wait_until(ex, pidfile.exists)
+    child = int(pidfile.read_text())
+    started = time.monotonic()
+    ex.cancel(job_id)
+    cancelled(ex, job_id)
+    assert time.monotonic() - started < WAIT_S
+    assert gone(child)  # the grandchild in the job's process group died too
+    result = ex.jobs[job_id].result
+    assert result is not None and result.error_kind == "cancelled"
+    assert ex.workers[0].running["cpu"] == 0
+    assert ex.run(Job(kind="shell", argv=["true"])).ok
+    ex.cancel(job_id)  # finished: nothing happens
+    cancelled(ex, job_id)
+
+
+def test_cancel_of_a_finished_job_keeps_its_result(lctx, lstore, lops) -> None:
+    registered(lctx, lstore, lops)
+    ex = JobExecutor(lctx, lstore, lops, code_state().commit)
+    job_id = ex.submit(Job(kind="shell", argv=["true"]))
+    first = ex.wait(job_id)
+    ex.cancel(job_id)
+    ex.cancel(job_id)
+    assert ex.wait(job_id) == first and first.ok
+    with pytest.raises(ConfigError, match="unknown job"):
+        ex.cancel("01NOSUCHJOB")
+
+
+def test_cancelled_exclusive_job_releases_the_gpu_lease(lctx, lstore, lops) -> None:
+    gpu_worker(lstore, registered(lctx, lstore, lops))
+    ex = JobExecutor(lctx, lstore, lops, code_state().commit)
+    job_id = ex.submit(Job(kind="measure", argv=["sh", "-c", "sleep 300"], timeout_s=300))
+    wait_until(ex, lambda: ex.workers[0].leases != {})
+    waiting = ex.submit(Job(kind="shell", argv=["true"]))
+    ex.cancel(job_id)
+    cancelled(ex, job_id)
+    assert not ex.lease_held("local")
+    assert ex.wait(waiting).ok
+
+
+def test_worker_cancel_before_start_skips_the_job(tmp_path) -> None:
+    # The race the marker covers: cancel reaches the worker before ``run`` starts the job.
+    dirs = WorkerDirs(tmp_path / "w")
+    assert cancel_job("01RACE", dirs) is False
+    flag = tmp_path / "ran"
+    job = Job(kind="shell", argv=["touch", str(flag)])
+    raw = run_job(job, "01RACE", WorkerSpec("local", {"cpu": 1}), None, dirs)
+    assert raw["error_kind"] == "cancelled" and not raw["ok"] and not flag.exists()
+    assert not dirs.cancel_marker("01RACE").exists()  # cleaned up with the job
+    again = run_job(job, "01OTHER", WorkerSpec("local", {"cpu": 1}), None, dirs)
+    assert again["ok"] and flag.exists()
+    with pytest.raises(ExecutionError, match="alphanumeric"):
+        cancel_job("../x", dirs)

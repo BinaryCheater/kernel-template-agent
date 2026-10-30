@@ -573,3 +573,10 @@ Decisions made without the user that need review. Newest last. Each entry: quest
 - **Choice:** listed real records (microbench HwFact, ExperimentRun, calibrate T4, improvement Report), spans of four process lanes in one 4-hour window, and a screenshot.
 - **Rationale:** the afternoon is defined by concurrent process activity; the frontend proof is a screenshot as in WP9.
 - **Cost of changing later:** low: `tools/kta_gate/specific_wp11.py`.
+
+## D422 — Error kind `cancelled` in core
+
+- **Question:** the job-cancel follow-up asked for an ExecutionError kind such as `cancelled` and limited WP2's edits to `src/kta/execution`, but the error-kind literals live in `kta.core.errors` (`ExecutionKind`) and `kta.core.jobs` (`ErrorKind`, `ERROR_KINDS`).
+- **Choice:** add `cancelled` to both literals (two additive lines in core) and to the spec's error-kind lists.
+- **Rationale:** a distinct kind lets callers (WP6's runner watcher) tell a requested stop from an `infra` failure or a `timeout`; reusing `infra` would hide it in failure statistics.
+- **Cost of changing later:** low; code that switches on error kinds should treat `cancelled` as terminal and not retry it.

@@ -12,6 +12,7 @@ import shlex
 import subprocess
 import threading
 import time
+from contextlib import nullcontext
 from pathlib import Path
 from typing import Literal
 
@@ -24,7 +25,10 @@ SSH_EXIT_FAILED = 255
 MAX_SOCKET_DIR = 60
 # sshd refuses bursts of unauthenticated connections (MaxStartups, default 10); calls per
 # worker are capped, and connections refused before the command started are retried.
+# ``cancel`` skips the cap: the calls holding it may be the long ``run`` calls it stops
+# (one extra session stays under sshd's MaxSessions of 10 per multiplexed connection).
 MAX_CONCURRENT = 8
+UNCAPPED = frozenset({"cancel"})
 CONNECT_RETRIES = 4
 NOT_CONNECTED = (
     "kex_exchange_identification",
@@ -92,8 +96,9 @@ class SshTransport:
     def _once(
         self, args: list[str], stdin: bytes, timeout_s: float
     ) -> subprocess.CompletedProcess[bytes]:
+        slot = nullcontext() if args[:1] and args[0] in UNCAPPED else self.slots
         try:
-            with self.slots:
+            with slot:
                 return subprocess.run(
                     self.argv(args),
                     input=stdin,

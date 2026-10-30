@@ -274,17 +274,23 @@ def wp2(
     git_root: Path | None = None,
     gpu_passed: set[str] | None = None,
 ) -> list[CheckResult]:
-    """GPU acceptance tests run through the Executor on spark; real WP2 records exist."""
+    """GPU acceptance tests run through the Executor on spark; real WP2 records exist.
+
+    In the code stage (D320) the spark run is reported as pending; the records check stays.
+    """
     results: list[CheckResult] = []
-    if gpu_passed is None:
+    if gpu_passed is None and code_stage():
+        results.append(pending_real("WP2 acceptance tests", "GPU acceptance run on spark/slai"))
+    elif gpu_passed is None:
         from kta_gate.runners import run_pytest
 
         run = run_pytest(root, "WP2 GPU acceptance run", ["-m", "gpu", "tests/acceptance/WP2"])
         results.append(run.result)
         gpu_passed = run.passed
-    names = {t.split("::")[-1].split("[")[0] for t in gpu_passed if "acceptance.WP2" in t}
-    absent = [f"{t} did not pass" for t in WP2_ACCEPTANCE if t not in names]
-    results.append(from_findings("WP2 acceptance tests", absent, f"{len(names)} tests passed"))
+    if gpu_passed is not None:
+        names = {t.split("::")[-1].split("[")[0] for t in gpu_passed if "acceptance.WP2" in t}
+        absent = [f"{t} did not pass" for t in WP2_ACCEPTANCE if t not in names]
+        results.append(from_findings("WP2 acceptance tests", absent, f"{len(names)} tests passed"))
     if data_root is None and not os.environ.get("KTA_DATA"):
         return [*results, CheckResult("WP2 records", "FAIL", "set KTA_DATA")]
     db = (data_root or Path(os.environ["KTA_DATA"])) / "dev" / "WP2" / "kta.db"

@@ -16,6 +16,7 @@ TransportName = Literal["local", "ssh", "pull"]
 TRANSPORTS: tuple[TransportName, ...] = ("local", "ssh", "pull")
 DEFAULT_CALL_TIMEOUT_S = 300.0
 RUN_MARGIN_S = 120.0  # the worker kills a job at its timeout; this covers the epilogue
+CANCEL_TIMEOUT_S = 60.0
 
 
 class Executor(Protocol):
@@ -24,6 +25,8 @@ class Executor(Protocol):
     def wait(self, job_id: str) -> JobResult: ...
 
     def run(self, job: Job) -> JobResult: ...
+
+    def cancel(self, job_id: str) -> None: ...
 
     def quiet_lease(
         self, worker: str, device: str, holder: str, max_s: int = 600
@@ -121,6 +124,10 @@ class WorkerClient:
             "device": device,
         }
         return self._json(["run"], payload, job.timeout_s + RUN_MARGIN_S)
+
+    def cancel(self, job_id: str) -> bool:
+        """Stop a job this worker is running (or about to run); True if a process died."""
+        return bool(self._json(["cancel", job_id], timeout_s=CANCEL_TIMEOUT_S)["stopped"])
 
 
 __all__ = [

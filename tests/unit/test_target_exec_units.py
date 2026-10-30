@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import io
 import signal
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -22,7 +23,7 @@ from kta.execution.registry import label_matches
 from kta.execution.sandbox import docker_argv
 from kta.execution.transport import make_transport
 from kta.execution.transport.pull import PullTransport
-from kta.execution.transport.ssh import SshTransport, remote_path
+from kta.execution.transport.ssh import MAX_CONCURRENT, SshTransport, remote_path
 from kta.execution.worker import _classify, _safe_name, _substitute
 from kta.targets.gb10 import COMPILE_FLAGS, Gb10Target
 from kta.targets.gb10.probe import load_features
@@ -91,6 +92,23 @@ def test_ssh_script_runs_the_matching_deployment(tmp_path: Path) -> None:
     argv = t.argv(["has"])
     assert argv[0] == "ssh" and "BatchMode=yes" in argv and argv[-2] == "spark"
     assert remote_path("~") == '"$HOME"' and remote_path("/a b") == "'/a b'"
+
+
+def test_ssh_cancel_is_not_held_behind_running_calls(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    cfg = WorkerConfig.from_mapping("spark", {"transport": "ssh", "ssh": "spark", "root": "~/k"})
+    t = SshTransport(cfg, "dev", None, "abc123", tmp_path / "ssh")
+    assert "kta.execution.worker cancel 01JOB" in t.script(["cancel", "01JOB"])
+
+    def fake_run(argv: list[str], **_: object) -> subprocess.CompletedProcess[bytes]:
+        return subprocess.CompletedProcess(argv, 0, b'{"stopped": true}', b"")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    for _ in range(MAX_CONCURRENT):  # every slot held, as by long ``run`` calls
+        t.slots.acquire()
+    assert t.call(["cancel", "01JOB"], b"", 1) == b'{"stopped": true}'
+    assert not t.slots.acquire(blocking=False)  # other commands still wait for a slot
 
 
 def test_pull_transport_is_not_supported(tmp_path: Path) -> None:

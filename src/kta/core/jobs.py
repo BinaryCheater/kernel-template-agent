@@ -11,7 +11,7 @@ from dataclasses import asdict, dataclass, field
 from typing import Any, Literal, Protocol
 
 JobKind = Literal["compile", "run", "measure", "profile", "check", "microbench", "shell"]
-ErrorKind = Literal["none", "timeout", "oom", "gpu_hang", "infra", "nonzero"]
+ErrorKind = Literal["none", "timeout", "oom", "gpu_hang", "infra", "nonzero", "cancelled"]
 JOB_KINDS: tuple[JobKind, ...] = (
     "compile",
     "run",
@@ -21,7 +21,15 @@ JOB_KINDS: tuple[JobKind, ...] = (
     "microbench",
     "shell",
 )
-ERROR_KINDS: tuple[ErrorKind, ...] = ("none", "timeout", "oom", "gpu_hang", "infra", "nonzero")
+ERROR_KINDS: tuple[ErrorKind, ...] = (
+    "none",
+    "timeout",
+    "oom",
+    "gpu_hang",
+    "infra",
+    "nonzero",
+    "cancelled",
+)
 
 # Pool a job runs in when ``requires`` names none (docs/design/11 §4.1, decision D183).
 DEFAULT_POOL: dict[str, str] = {
