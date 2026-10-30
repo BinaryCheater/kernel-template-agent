@@ -90,3 +90,14 @@ def verify_space(ctx, items: Iterable[SpaceItem], subjects: list[str]) -> SpaceR
 - 真实运行：对一个手写的正确 kernel 和三个故意出错的变体（越界写、漏写一行输出、偷调 cuBLAS），检查器分别给出通过和三种对应的失败。
 - 噪声测量：同一 kernel 连续测量 30 组，报告中位数的变异系数，作为噪声底写入交付说明，并据此修订 `measure-v1` 的数值（出 `measure-v2`）。
 - 交错比较：两个已知性能相差约 5% 的 kernel，`compare` 判定显著；两个相同 kernel 判定不显著。
+
+## WP3 implementation notes (D220–D234)
+
+Changes and additions to the interfaces above, made in WP3 and recorded in docs/decisions.md:
+
+- Return values carry the record ID: `measure` → `Measured(id, body, times_us)`, `compare` → `Comparison(a, b, rel_diff, ci_low, ci_high, significant, verdict, report_id)` (the comparison is a Report record), every check → `Checked(id, body)`. A checker error is a failure item with `error_kind: "checker_error"` (D224).
+- `full_check(ctx, module, gk, problem, contract, case, *, case_id, shape, build_for, sass=None, assignment=None)`; `build_for(shape) -> (GeneratedKernel, BuiltModule)` compiles edge and hidden shapes (D227). `SpaceItem` adds `case`, `case_id`, `shape`, `build_for`, `sass`. `check_sass(module, expectations, assignment, *, ctx)` (D229).
+- `Measurer` and `Checker` hold explicit store, executor, clock and rng for callers with their own instances; the spec functions resolve them from the Context.
+- `Problem.reference_impl` is a torch statement run in the worker image in FP64 (D223). Distributions: `normal`, `zeros`, `uniform`, `extreme` (measure), plus `cancellation`, `dominant_tail` (checks).
+- Kernel tracing uses nsys (D221); modules may be `cubin` or `so` (D222); `profile` raises NotSupported where performance counters are admin-only (D228).
+- Protocol records `measure-v1` and `measure-v2` (D226); the measured noise floor is in deliveries/WP3.md.

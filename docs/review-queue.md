@@ -172,3 +172,45 @@ Decisions made without the user that need review. Newest last. Each entry: quest
 - **Choice:** the gate runs that suite (it reaches spark and slai over ssh, so it needs this commit deployed on both) and checks listed, real, clean Target, Build, Worker, EnvManifest and Check records in `$KTA_DATA/dev/WP2/kta.db`, including a passed vector-add Check per backend.
 - **Rationale:** the acceptance run proves the behaviour now; the record check proves the delivered evidence.
 - **Cost of changing later:** low: one function in `tools/kta_gate/specific.py`.
+
+## D223 — Format of `Problem.reference_impl`
+
+- **Question:** the numeric check needs an FP64 reference computed on the GPU; the schema only says `reference_impl: str`.
+- **Choice:** a Python statement over torch tensors named like the Problem's tensors, with the shape variables in scope (`C = A @ B`), executed in the worker image (PyTorch, no network) on the GPU in FP64 from the exact kernel input bytes. `none: <reason>` marks a timing-only problem.
+- **Rationale:** works for any operator torch can express, needs no per-problem reference kernel, and runs where the GPU is; the image already exists for TileLang.
+- **Cost of changing later:** low: `kta/checks/reference.py` and its script; Problems written with this format would need rewriting.
+
+## D224 — measure and checks return the record ID with the body
+
+- **Question:** the spec signatures return `Measurement` / `Check` bodies, but callers (orchestrator, reports) need the record IDs, and `Check` has no `error_kind` field for checker errors.
+- **Choice:** `Measured(id, body, times_us)`, `Comparison(..., report_id)`, `Checked(id, body)`; a checker error is a failure item with `error_kind: "checker_error"`, exposed as `Checked.checker_error`.
+- **Rationale:** content-hash IDs cannot be recovered from a body without the envelope; adding a schema field would touch WP1's schemas.
+- **Cost of changing later:** low until WP6 consumes these types.
+
+## D226 — Measurement protocol versions and who writes them
+
+- **Question:** what `measure-v1` and `measure-v2` contain, and who "approves" a Protocol (the schema says human-approved).
+- **Choice:** v1 = the spec table (+ a 100000-iteration cap per phase, no clock locking since it needs root, noise floor 1.1% provisional from WP13 finding 6); v2 = v1 with the noise floor measured by the WP3 noise probe (largest CV of 30 group medians across the probed kernels, rounded up to 0.1%). Both are written by the tool actor; this review is the human approval.
+- **Rationale:** follows the spec's "revise after measuring noise, new version" rule; everything else is unchanged so v1 and v2 results differ only in the significance threshold.
+- **Cost of changing later:** low: a new version (`measure-v3`) and its records; existing Measurements keep naming their version.
+
+## D227 — full_check needs `build_for` and `case_id`
+
+- **Question:** a module is compiled for one shape (fixed launch grid), but full_check must also run edge and hidden shapes, and check the Contract identity against the Case record; checks may not import knowledge.
+- **Choice:** keyword-only `case_id`, `shape` and `build_for(shape) -> (GeneratedKernel, BuiltModule)`; without `build_for` full_check raises NotSupported. `SpaceItem` gains the same fields.
+- **Rationale:** generation and compilation stay with the orchestrator (as spec'd for verify_space); the checker stays independent of knowledge.
+- **Cost of changing later:** moderate once WP6 calls it; a shape-generic launch (grid as an expression) would make `build_for` optional.
+
+## D228 — No Nsight Compute counters on spark
+
+- **Question:** `profile` needs GPU performance counters; spark's NVIDIA driver has `RmProfilingAdminOnly=1`, so ncu fails with ERR_NVGPUCTRPERM for the worker user.
+- **Choice:** `profile` is implemented (ncu job, CSV parse, Profile record) and raises NotSupported when ncu reports missing permission. Nothing on spark was changed.
+- **Rationale:** enabling counters means changing a driver parameter on spark (system configuration) or running privileged containers; both are the user's call per AGENTS.md.
+- **Cost of changing later:** none in code: once counters are allowed, `profile` writes Profile records.
+
+## D232 — What the WP3 gate checks
+
+- **Question:** spec/gate.md asks for `pytest -m gpu tests/acceptance/WP3/` via the Executor on spark and real Measurement, Check and Protocol records.
+- **Choice:** the gate runs that suite (four named tests; needs this commit deployed on spark) and checks listed, real, clean records in `$KTA_DATA/dev/WP3/kta.db`: Measurement and Check from a GPU worker, measure-v1 and v2, v2's noise reports (≥ 30 groups), the checker-selftest Report with all four variants as expected, and a significant and a non-significant compare under v2.
+- **Rationale:** the acceptance run proves the behaviour now; the record check proves the delivered evidence.
+- **Cost of changing later:** low: `tools/kta_gate/specific_wp3.py`.
