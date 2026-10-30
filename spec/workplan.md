@@ -193,9 +193,12 @@ Rules for every round-4 WP:
 ```
 Phase 1 (parallel):  WP14 knowledge model v2 · WP15 template effects + declarative hardware model · WP21 controls registry + staged release
 Phase 2 (parallel):  WP16 transaction-level simulator (after WP15) · WP18 gap decomposition + routing (after WP15, WP21)
-                     WP19 FormulationPlan + chain enumerator + access discipline (after WP14, WP15) · WP20 learning-loop runner (after WP14)
-Phase 3:             WP17 steady-state projection compiler + MIP↔simulator check (after WP15, WP16, WP19)
+                     WP19 FormulationPlan + chain enumerator + access discipline + projection compiler (WP17 folded in; after WP14, WP15)
+                     WP20 learning-loop runner (after WP14)
+Final step:          the WP19 session adds the MIP↔L2 consistency check once WP16 has merged
 ```
+
+To save tokens (D328), WP17 is not a separate session: its scope is done by WP19, which already owns the formulation module; the MIP↔L2 check is a follow-up message to the same session after WP16 merges. Sessions run on Opus 5.5 at medium effort; mechanical pieces (migration re-runs, view-only frontend additions, doc merges) may go to a Sonnet session or be done by the coordinator.
 
 ## WP14 Knowledge model v2
 
@@ -236,9 +239,9 @@ Phase 3:             WP17 steady-state projection compiler + MIP↔simulator che
   - Regression set and scoreboard: every measured kernel becomes a regression case; rank correlation and error per resource per model version; API + web views (scoreboard, per-kernel predicted-vs-measured timeline).
 - **Acceptance (code stage)**: GEMM seed family simulated at L2 with a timeline; L1 equals the steady-state limit of L2 on a loop-dominated fixture; what-if shows a non-zero shadow price on a walled fixture; scoreboard renders on fixture data marked FIXTURE.
 
-## WP17 Steady-state projection compiler and MIP↔simulator check
+## WP17 Steady-state projection compiler and MIP↔simulator check (done inside WP19, D328)
 
-- **Depends**: WP15, WP16, WP19. **Reads**: 02 §5.1, §5.2; 22 §3.3; 10 §4.4; `src/kta/formulation/`, `src/kta/solve/`.
+- **Depends**: WP15, WP16 (for the check), WP19. **Reads**: 02 §5.1, §5.2; 22 §3.3; 10 §4.4; `src/kta/formulation/`, `src/kta/solve/`.
 - **Closes**: R1, R4, E8; D-T1, D-T4.
 - **Produces**:
   - The projection compiler: from FormulationPlan + chain effects + HwModel to a MIP with ResMII, RecMII, one-hot menus, epigraph max, integer ceil, menu products, table terms; non-linearisable effects moved to outer enumeration. The agent writes none of it.
