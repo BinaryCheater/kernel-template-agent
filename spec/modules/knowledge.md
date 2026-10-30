@@ -17,7 +17,13 @@ knowledge/scope.py         Γ 求值；增量复用的逐步检查
 knowledge/retrieve.py      检索：Template、族、链、按诊断、差集
 knowledge/render.py        卡片、族概览、文字知识渲染
 knowledge/coverage.py      覆盖统计（21 §2）
-knowledge/seed/            初始 Pattern 表、Structure 表、论文 GEMM 五步的 Template（YAML）
+knowledge/capabilities.py  Capability support per Target; Template availability (D442, D445)
+knowledge/realisations.py  Realisations of a Template, legacy ones from schema-1 bodies; SASS expectations (D443)
+knowledge/findings.py      Findings (incl. legacy Regime/Negative) and Couplings (D444, D447)
+knowledge/ladder.py        the one ladder of empirical knowledge and its evidence rules (D446)
+knowledge/promotion.py     promote, demote (with stale propagation), promotion review (D448)
+knowledge/pooldiff.py      diff of two PoolSnapshots (D449)
+knowledge/seed/            初始 Pattern 表、Structure 表、论文 GEMM 五步的 Template（YAML）；Capabilities, GB10 declarations, Realisations (WP14)
 ```
 
 ## 接口
@@ -30,7 +36,8 @@ def match_pattern(tx: TxDescription, patterns) -> list[tuple[str, float]]   # �
 # Template
 def validate_template(t: Template, store, hw: dict | None) -> list[Issue]   # Issue: kind, message, where, severity error|warning (D201)
     # 字段完整；表达式可解析、自由变量已声明；preconditions 的 same_as 指向存在的约束；
-    # relations 的 target 存在；refines 和 produces 的 Pattern 存在；requires_hw 的 HwFeature 存在；
+    # relations 的 target 存在；refines 和 produces 的 Pattern 存在；requires 的 Capability 存在
+    # (D442: unknown name -> Issue "unknown_hw_feature"; a legacy HwFeature name -> warning "hw_feature_not_capability")；
     # 查重：同一 refines、同类 object.type、变量名集合与成本单元集合相同 → Issue(kind="possible_duplicate")
 def propose_template(ctx, store, t: Template, sources: list[str]) -> str     # 校验通过后写入，状态 proposed，保证等级 declared（D202、D203）
 
@@ -52,7 +59,9 @@ def reuse_plan(store, chain_id: str, case: Case, hw: dict, params: dict | None =
 
 # 检索
 def retrieve_families(store, case: Case, k: int = 5, hw: dict | None = None) -> list[Card]
-def retrieve_templates(store, pattern: str | None, unit: str | None, text: str | None, case: Case | None, k: int = 10, hw: dict | None = None, params: dict | None = None) -> list[Card]
+def retrieve_templates(store, pattern: str | None, unit: str | None, text: str | None, case: Case | None, k: int = 10, hw: dict | None = None, params: dict | None = None, target: str | None = None) -> list[Card]
+    # target (default case.target): only Templates whose every required Capability is "yes" there (D445)
+def unavailable_templates(store, target: str) -> dict[str, list[str]]   # {"unavailable": [...] (a capability "no"), "unconfirmed": [...] ("unknown")}
 def nearest_chains(store, case: Case, k: int = 3) -> list[Card]
 def diff_templates(store, reference_chain: str, current_chain: str) -> list[Card]     # 差集检索
 def card(store, record_id: str) -> Card          # 五行以内：名称、作用、强弱项（来自证据）、状态、保证等级
@@ -60,12 +69,30 @@ def card(store, record_id: str) -> Card          # 五行以内：名称、作�
 # 渲染与覆盖
 def family_overview(store, pattern_or_problem: str) -> str     # Markdown，一页
 def render_text_knowledge(store, snapshot_id: str | None, out_dir: Path) -> None
-def coverage_report(store, snapshot_id: str | None, rng: Random) -> CoverageReport   # 21 §2 的全部量
+def coverage_report(store, snapshot_id: str | None, rng: Random, targets: list[str] | None = None) -> CoverageReport   # 21 §2 的全部量
+    # + availability: target -> available / known_unavailable_here / unconfirmed_here (D445); targets default: every known Target name
 
 # Seed (kta init)
 def import_seed(ctx, store, root: Path, code: CodeState | None = None) -> ImportResult
 def import_references(ctx, store, references: Path, code: CodeState | None = None) -> ImportResult
 ```
+
+# Knowledge model v2 (WP14)
+def target_capabilities(store, target: str, names: Iterable[str] | None = None) -> dict[str, CapabilityState]
+    # status yes|no|unknown and basis: newest CapabilityDecl, else inferred from realised_by HwFeature probes, else unknown;
+    # a legacy HwFeature name is answered by its support table (basis legacy_hw_feature)
+def template_availability(store, requires: Iterable[str], target: str | None) -> Availability   # available, missing, unconfirmed
+def realisations_of(store, template_ref: str, backend: str | None = None) -> list[RealisationRef]   # incl. the legacy one
+def expected_sass(store, template_refs: Iterable[str], backend: str) -> dict[str, list[SassExpect]]
+def probed_on(store, template_ref: str) -> list[str]           # Template's and its realisations' probed_on
+def validate_realisation(r: Realisation, store) -> list[Issue]
+def findings(store, subject=None, kind=None, target=None, usable_only=True) -> list[FindingRef]   # status "prior" out of scope
+def couplings(store, member: str | None = None, target: str | None = None) -> list[CouplingRef]
+def rule_problems(store, subject: Record, to_status: str, evidence: Iterable[str]) -> list[str]   # ladder (D446)
+def promote(store, subject: str, to_status: str, evidence: list[str], now) -> str      # checker; PermissionDenied when a rule fails
+def demote(store, subject: str, counter_evidence: list[str], reason: str, now) -> Demotion   # system; one step; stale propagation
+def review(store, now) -> str                                  # Report "promotion_review" with candidates; changes nothing else
+def diff(store, a: str, b: str) -> PoolDiff                    # pooldiff: added, removed, changed, status moves, counts
 
 (D200) Functions that read the pool take the `Store` explicitly (no global state, conventions §3.1); `snapshot_id=None` means the whole store; `rng` is `ctx.rng("coverage")`. The package registers no interface implementation. Seed layout and atomic import: D204; `p.*` in Template expressions and chain bindings: D205.
 
@@ -73,13 +100,14 @@ def import_references(ctx, store, references: Path, code: CodeState | None = Non
 
 - **开放的表。** Pattern、HwFeature、Structure 都存在存储中，可以随时新增。代码中不得写死 Pattern 的枚举；`category` 的取值是 schema 中固定的少数几种，含 `other`。
 - **查重是提示，不是拒绝。** `possible_duplicate` 会写入 Issue 和 Submission 的检查结果；worker 必须在交付说明中解释区别，否则完成检查不通过。
-- **检索排序**：先硬过滤（Pattern 匹配、Γ 成立或无法求值、requires_hw 在当前 Target 上为 yes），再按以下顺序排序：保证等级、在相似 case 上的 %下界（来自 Solution）、复用次数。Γ 无法求值的排在后面，并在卡片上标明。
+- **检索排序**：先硬过滤（Pattern 匹配、Γ 成立或无法求值、requires 的每个 Capability 在当前 Target 上为 yes，D445），再按以下顺序排序：保证等级、在相似 case 上的 %下界（来自 Solution）、复用次数。Γ 无法求值的排在后面，并在卡片上标明。
 - **卡片和概览只从证据生成**，不读取作者写的评价性文字（summary 除外，且标明是作者说明）。
 - **覆盖统计**（`CoverageReport`）至少包括：
   - Template 的发现曲线（按 Reconstruction 的时间顺序，随机重排 50 次）、Chao1 估计、Good–Turing 覆盖率；
   - 各 Reference 的匹配率、未匹配事务数（按 level 和 pattern_guess 统计）；
   - Pattern 中 `other` 的数量；
-  - HwFeature × Pattern 网格；
+  - Capability × Pattern 网格（`hw_pattern_grid`，键 `none` 表示不需要能力）；
+  - 每个 Target 上可用、"known, unavailable here"、"unconfirmed here" 的 Template 数（D445）；
   - 保证等级分布；
   - 每个 Template 出现在多少个族中。
 
@@ -100,3 +128,11 @@ def import_references(ctx, store, references: Path, code: CodeState | None = Non
 
 - `reuse_plan(store, chain_id, case, hw, params=None, assignment=None)`: with an assignment of the family variables, `p.*` expression bindings are evaluated per shape before Γ (`scope_holds(t, case, hw, params, bound=None, assignment=None)`). `problem_params` accepts a Problem record ID.
 - The seed holds seven Templates: the paper's five GEMM steps plus `output_tiling@2` and `compute_instruction_selection@2` (D280); `knowledge/seed/families/gemm_fp16_tilelang/` is the first family and `knowledge/seed/cases/` holds its Case files (Problem, Contract, Case, baseline).
+
+## WP14 knowledge model v2 (D440–D454)
+
+- **Objects.** Template requires abstract Capabilities; Realisations carry code fragments, ISA constraints and expected SASS per backend × ISA range; Targets declare Capabilities by CapabilityDecl records; Findings replace Regime and Negative (legacy records are read as Findings); Couplings record `coupled_with` with evidence and scope. Levels are 1–7 (D441).
+- **Unprobed mechanisms.** A Template whose required Capability no target provides stays in the pool (`probed_on: []`); retrieval on a target hides it; coverage counts it per target.
+- **Ladder and engine.** One status ladder for empirical knowledge with evidence rules (D446); `promote` (checker), `demote` (system, one step, then `kta.store.stale.propagate`), `review` proposes promotions into the hardware model, a Template's Γ or a Structure's regime, and new Patterns. Thresholds `MIN_REPLICATIONS = 2`, `MIN_TARGETS_FOR_SCOPE = 2`, `MIN_REPEATS_FOR_PATTERN = 3` are module defaults until the controls registry (WP21) holds them.
+- **Seed layout additions.** `capabilities/*.yaml` (Capability), `targets/<target>/*.yaml` (CapabilityDecl), `realisations/*.yaml` and `references/<ref>/realisations/*.yaml` (Realisation, refs.template resolved from `template: name@version`). Seed migrations are scripts under `scripts/migrations/` recorded in `knowledge/seed/migrations.yaml` (D450).
+- **SASS checks** take expectations from realisations on the family's backend (`orchestrator.pipeline.chain_sass`, D453).

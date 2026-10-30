@@ -32,7 +32,8 @@ def _rows(api: Api, kind: str, limit: int = 2000) -> list[tuple[str, dict[str, A
     out: list[tuple[str, dict[str, Any]]] = []
     for rec in api.store.query(kind, order="created_at", limit=limit):
         data = rec.to_json_dict()
-        out.append((record_id(data), data))
+        # The ID is of the stored form; the body shown is the current shape (D440).
+        out.append((record_id(data), {**data, "body": rec.body}))
     return out
 
 
@@ -53,7 +54,8 @@ def _template(b: dict[str, Any]) -> dict[str, Any]:
     return {
         **{k: b.get(k) for k in keys},
         "summary": b.get("summary", ""),
-        "requires_hw": b.get("requires_hw", []),
+        "requires": b.get("requires", []),
+        "probed_on": b.get("probed_on", []),
         "variables": len(b.get("variables", [])),
         "constraints": len(b.get("constraints", [])),
         "obligations": len(b.get("obligations", [])),

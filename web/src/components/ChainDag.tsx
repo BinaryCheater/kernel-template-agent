@@ -5,7 +5,7 @@ import {
 import "@xyflow/react/dist/style.css";
 import type { ChainNode } from "../data/types";
 import { layout, roundedPath, type Placed } from "./elk";
-import { LEVEL_NAMES } from "./format";
+import { LEVELS, LEVEL_NAMES } from "./format";
 import "./diagram.css";
 
 type ItemData = { n: ChainNode; selected: boolean };
@@ -19,7 +19,7 @@ function ItemNode({ data }: NodeProps<Node<ItemData>>) {
     <div className={`chain-node ${selected ? "sel" : ""} as-${n.assurance}`} title={n.summary}>
       <Handle type="target" position={Position.Left} isConnectable={false} className="h" />
       <div className="cn-levels" title={n.level_from == null ? "levels unknown (Template record missing)" : `level ${n.level_from} → ${n.level_to}: ${LEVEL_NAMES[n.level_from]} → ${LEVEL_NAMES[n.level_to ?? n.level_from]}`}>
-        {[0, 1, 2, 3, 4, 5].map((l) => <span key={l} className={n.level_from != null && l >= n.level_from && l <= (n.level_to ?? n.level_from) ? `on lv${l}` : ""} />)}
+        {LEVELS.map((l) => <span key={l} className={n.level_from != null && l >= n.level_from && l <= (n.level_to ?? n.level_from) ? `on lv${l}` : ""} />)}
       </div>
       <div className="cn-head"><span className="mono cn-key">{n.key}</span><span className={`cn-assur as-${n.assurance}`}>{n.assurance}</span></div>
       <div className="cn-tpl"><b>{name}</b><span className="muted">@{ver}</span></div>

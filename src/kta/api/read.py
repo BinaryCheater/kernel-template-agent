@@ -92,6 +92,10 @@ def router(api: Api) -> APIRouter:
     def list_snapshots() -> list[dict[str, Any]]:  # pyright: ignore[reportUnusedFunction]
         return pool.snapshots(api)
 
+    @r.get("/pool/diff")
+    def pool_diff(a: str, b: str) -> dict[str, Any]:  # pyright: ignore[reportUnusedFunction]
+        return pool.diff(api, a, b)
+
     @r.get("/coverage")
     def coverage(snapshot: str) -> dict[str, Any]:  # pyright: ignore[reportUnusedFunction]
         return pool.coverage(api, snapshot)

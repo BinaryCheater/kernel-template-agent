@@ -53,8 +53,8 @@ replaced by which finer transactions here, and what new object does it introduce
 
 For each step:
 
-1. Decide its level (0 graph, 1 operator transformation, 2 tensor execution mapping,
-   3 instruction scheduling, 4 system architecture, 5 microarchitecture).
+1. Decide its level (1 workload, 2 graph, 3 operators, 4 tensor map, 5 instructions,
+   6 architecture, 7 microarchitecture).
 2. Decide the Pattern of the refined transaction: `kta query tmpl --pattern <pattern>`.
    If no Pattern describes it, use `other` and describe it precisely.
 3. Retrieve Templates that refine that Pattern: `kta query tmpl --pattern <pattern>
@@ -121,8 +121,12 @@ What happens to them after your submission is accepted:
   `kta validate-template` checks it. Write drafts so that a later worker who did not see
   this decomposition can finish them: cite the source lines and name the Gap.
 
-Hardware requirements use only feature names from the target's feature list; a feature
-without a name there stays out of `requires_hw` and is described in the scope text.
+Hardware requirements are abstract Capabilities (`kta query` kind Capability, e.g.
+`async_copy`, `warpgroup_mma`) in `requires`; the ISA instructions that realise them
+(cp.async, wgmma, ...) belong to a Realisation, not the Template. A mechanism the target
+cannot run is still written down: its Capability is declared `no` there and the pool
+counts it as "known, unavailable here". A capability with no name yet is described in
+the scope text and listed in the delivery note.
 
 The delivery note gives: the match rate and the unmatched transactions by class; the
 three judgements you are least sure of, with reasons; comments on the Pattern table or

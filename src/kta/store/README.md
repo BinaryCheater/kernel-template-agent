@@ -18,3 +18,7 @@ Append-only evidence records, content-addressed blobs, operations tables (tasks,
 
 - May import: `core`.
 - Enforced by import-linter (`pyproject.toml`, `[tool.importlinter]`).
+
+## Demotion (WP14, D448)
+
+`status.py`: actor `system` may move a record down the promotion ladder (never up); `stale.propagate` is what the knowledge promotion engine calls after a demotion.

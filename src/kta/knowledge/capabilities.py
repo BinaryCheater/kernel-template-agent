@@ -87,7 +87,8 @@ def target_capabilities(
     caps = capabilities(store)
     decls = _decls(store, target)
     features = _features(store)
-    wanted = list(dict.fromkeys([*caps, *(names or [])]))
+    extra: list[str] = list(names) if names is not None else []
+    wanted: list[str] = list(dict.fromkeys([*caps, *extra]))
     out: dict[str, CapabilityState] = {}
     for name in wanted:
         if name in decls:

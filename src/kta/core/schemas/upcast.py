@@ -54,6 +54,7 @@ def gap_v1(body: dict[str, Any]) -> dict[str, Any]:
 
 def reconstruction_v1(body: dict[str, Any]) -> dict[str, Any]:
     out = copy.deepcopy(body)
-    for tx in out.get("unmatched_transactions") or []:
+    txs: list[dict[str, Any]] = out.get("unmatched_transactions") or []
+    for tx in txs:
         tx["level"] = _level(tx.get("level"))
     return out

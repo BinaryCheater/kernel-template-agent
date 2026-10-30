@@ -253,8 +253,9 @@ def import_hw_catalog(
 ) -> ImportResult:
     """Write declared HwFeature records for names the store does not know yet.
 
-    Templates' ``requires_hw`` must name existing HwFeatures. Any HwFeature with the same
-    name (declared earlier or probed) already satisfies that, so those names are skipped.
+    HwFeatures are ISA instruction families: Realisations name them in ``requires`` and
+    Capabilities in ``realised_by`` (D442, D443). Any HwFeature with the same name
+    (declared earlier or probed) already serves, so those names are skipped.
     """
     actor = _actor(code or code_state())
     result = ImportResult("hw_catalog")

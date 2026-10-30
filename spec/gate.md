@@ -42,6 +42,7 @@
 | WP10a | `knowledge/seed/references/` 下每个参考实现都有 Reference、Chain、Reconstruction；YAML 能被模型解析；未匹配事务与 Gap 一一对应 |
 | WP10b | Named WP10b tests pass (expand machine, WP10a replay frozen → covered via Python and CLI, cancelled extraction, inflated `matched`); expand transitions create only T1–T3 and reach `covered`; T2/T3 done-checks exist. Full stage: ≥ 10 reference directories and a listed clean coverage Report in `dev/WP10b` with a covered reference (D388) |
 | WP13 | 交付说明中的每个数字都有来源文件路径 |
+| WP14 | Named WP14 tests pass (old-format records read back, unprobed Template filtered on GB10 and counted, promotion/demotion with stale propagation, pool diff, seed migration idempotent); the seed loads under the new schema with Capabilities, GB10 declarations and Realisations; the seed migration `--check` reports nothing pending; no `requires_hw` left in seed Template YAML; every 02 §2 object kind is registered; the delivery note has the design-interrogation artefacts and a pool-diff screenshot. Full stage: a probe-backed CapabilityDecl and a non-empty `probed_on` from a real run in `dev/WP14` |
 
 ## 验收测试的锁定
 

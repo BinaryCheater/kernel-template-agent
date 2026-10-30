@@ -10,6 +10,10 @@ Imported by `kta init` (`kta.knowledge.import_seed`, decision D204). Every YAML 
 | `patterns/` | Pattern | reduce, contract, map, store, transfer, sync, access, other (docs/design/22 §2.2) | — |
 | `structures/` | Structure | the nine exploitable structures of the paper's structure catalog | — |
 | `templates/` | Template | the paper's five GEMM steps (below) | `sources` = every seed Source |
+| `capabilities/` | Capability | abstract hardware capabilities Templates `requires` (D442) | `sources` = every seed Source |
+| `targets/<target>/` | CapabilityDecl | one Target's documented declaration per Capability (D451) | `sources` = every seed Source |
+| `realisations/` | Realisation | code / ISA / SASS of a Template per backend (D443) | `template` from `template: name@version`; `sources` |
+| `migrations.yaml` | — | ledger of seed migrations (`scripts/migrations/`, D450); not imported | — |
 | `references/` | several | hand decompositions of reference kernels (WP10a; see its README) | by layout (D100) |
 | `families/` | Family packages | executable families (WP7) | — |
 

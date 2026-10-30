@@ -131,8 +131,10 @@ def migrate_template(path: Path, features: dict[str, str]) -> Path | None:
     if span is not None:
         del lines[span[0] : span[1]]
     lines = _drop_fragments(lines)
-    req = f"requires: [{', '.join(requires)}]"
-    lines = [f"{req}\nprobed_on: []" if ln.startswith("requires_hw:") else ln for ln in lines]
+    span = _block(lines, "requires_hw")
+    if span is not None:  # flow or block list: replace the whole top-level block
+        req = f"requires: [{', '.join(requires)}]"
+        lines[span[0] : span[1]] = [req, "probed_on: []"]
     new = "\n".join(lines)
     Template.model_validate(yaml.safe_load(new))
     path.write_text(new, encoding="utf-8")
@@ -196,7 +198,9 @@ def main() -> int:
     done = {str(e["id"]) for e in ledger}
     feats = yaml.safe_load(FEATURES.read_text(encoding="utf-8"))["features"]
     features = {str(f["name"]): str(f.get("since", "")) for f in feats}
-    templates = sorted([*seed.glob("templates/*.yaml"), *seed.glob("references/*/templates/*.yaml")])
+    templates = sorted(
+        [*seed.glob("templates/*.yaml"), *seed.glob("references/*/templates/*.yaml")]
+    )
     pending_t = [p for p in templates if "requires_hw" in yaml.safe_load(p.read_text("utf-8"))]
     pending_l = "WP14-levels" not in done
     if args.check:
