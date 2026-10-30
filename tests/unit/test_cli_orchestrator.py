@@ -120,7 +120,7 @@ class _Api(BaseHTTPRequestHandler):
 
     do_GET = do_POST = _answer
 
-    def log_message(self, format: str, *args: Any) -> None:  # noqa: A002  # quiet server
+    def log_message(self, format: str, *args: Any) -> None:  # quiet server
         return None
 
 
