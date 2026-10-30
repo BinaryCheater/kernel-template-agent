@@ -9,7 +9,8 @@ import re
 
 SECRET_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("anthropic_key", re.compile(r"sk-ant-[A-Za-z0-9_\-]{20,}")),
-    ("openai_key", re.compile(r"sk-(?:proj-|svcacct-)?[A-Za-z0-9_\-]{32,}")),
+    # The lookbehind keeps "task-<long-hyphenated-name>" from matching (reported in WP13).
+    ("openai_key", re.compile(r"(?<![A-Za-z0-9_\-])sk-(?:proj-|svcacct-)?[A-Za-z0-9_\-]{32,}")),
     ("aws_access_key", re.compile(r"\bAKIA[0-9A-Z]{16}\b")),
     ("github_token", re.compile(r"\b(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{36,}\b")),
     ("github_pat", re.compile(r"\bgithub_pat_[A-Za-z0-9_]{50,}\b")),

@@ -31,3 +31,10 @@ def test_json_lines_with_context_and_redaction(ctx: Context) -> None:
 def test_debug_only_in_dev(ctx: Context) -> None:
     setup(dataclasses.replace(ctx, env="test"))
     assert logging.getLogger("kta").level == logging.INFO
+
+
+def test_secret_patterns_skip_hyphenated_names() -> None:
+    from kta.core.secrets import find_secrets
+
+    assert find_secrets("task-" + "attention-medium-template-round-one-feedback.json") == []
+    assert find_secrets("key " + "sk-" + "proj-" + "Ab1" * 12) != []
