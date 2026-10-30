@@ -1,0 +1,32 @@
+[
+ {
+  "claim": "WP21 unit tests pass at this commit: every row of docs/design/12 is a registry knob with its set_by; one typed accessor per knob; X1-X9 defined; versions with author, reason and the version read; definition upgrades; TaskCard and AgentRun record refs.controls (the AgentRun from a real agent step with the fake CLI, tests/fakes/fake_codex.py); S0 holds agent calls and skips processes outside it; S1 holds a task until released through the real step_once; settings and release API with and without the operator token; a task token cannot write a ControlsVersion. Internal checks, not acceptance; WP21 is not record-backed (code stage, D320)",
+  "command": "scripts/gate --stage code WP21 (runs uv run --frozen pytest over tests/, including tests/unit/test_wp21_controls.py, tests/unit/test_gate_wp21.py, tests/unit/test_agents_runner.py)",
+  "git_commit": "420b4f681c9138c995ce55d8720cf280626acebd",
+  "dirty": false,
+  "env": "dev",
+  "control_host": "Mac.lan",
+  "workers": [],
+  "record_ids": [],
+  "blob_ids": [],
+  "env_manifests": [],
+  "started_at": "2026-10-30T23:23:20Z",
+  "requires_gpu": false,
+  "output": "deliveries/WP21.md section 'Gate output'"
+ },
+ {
+  "claim": "The /settings and /release pages render against the API and write through it: version 2 written from the page (retries 2 -> 3 with a reason), stage changed to S1 (version 3), one held call released (attempt 1). Run against a scratch store seeded by scripts/seed-dev (origin fixture, synthetic), not a real dev store; it found and fixed the expected=null bug in kta.store.controls.propose",
+  "command": "KTA_ENV=dev KTA_WP=WP21-fixture KTA_DATA=<session scratch> scripts/seed-dev --wp WP21-fixture; kta controls token; scripts/api (port 7331); npx vite --port 5191; browser pane",
+  "git_commit": "420b4f681c9138c995ce55d8720cf280626acebd",
+  "dirty": false,
+  "env": "dev",
+  "control_host": "Mac.lan",
+  "workers": [],
+  "record_ids": [],
+  "blob_ids": [],
+  "env_manifests": [],
+  "started_at": "2026-10-30T23:23:20Z",
+  "requires_gpu": false,
+  "notes": "Fixture data only; the pages were exercised at the commits before 420b4f6 with the same web and API code except the propose fix, which the API was restarted with. The real-store run is listed under Pending real runs. started_at is when this manifest was written; the browser check ran earlier in the same session."
+ }
+]
