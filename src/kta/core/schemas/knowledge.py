@@ -139,11 +139,12 @@ class Template(Body):
 
     @model_validator(mode="before")
     @classmethod
-    def _upcast(cls, data: Any) -> Any:
+    def _upcast(cls, data: object) -> object:
         # Schema-1 bodies carry ``cost``; read them as effects (D461).
-        if isinstance(data, dict) and "cost" in data:
-            return upcast_template_body(cast(dict[str, Any], data))
-        return data
+        if not isinstance(data, dict):
+            return data
+        body = cast(dict[str, Any], data)
+        return upcast_template_body(body) if "cost" in body else body
 
     @property
     def cost(self) -> list[CostTerm]:

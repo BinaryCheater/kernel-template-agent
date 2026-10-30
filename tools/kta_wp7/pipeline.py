@@ -24,7 +24,7 @@ from kta.core.jobs import JobRunner
 from kta.core.registry import resolve
 from kta.core.schemas import Record
 from kta.core.schemas.evaluation import Build
-from kta.core.schemas.hardware import HwModel, Target
+from kta.core.schemas.hardware import Target
 from kta.core.schemas.knowledge import SassExpect, Template
 from kta.core.schemas.process import Report
 from kta.formulation import Formulation, assemble
@@ -32,7 +32,7 @@ from kta.knowledge import FamilyPackage
 from kta.knowledge.pool import find_template
 from kta.measure.baseline import measure_baseline
 from kta.measure.runner import Measurer
-from kta.models import UnitModel
+from kta.models import MachineModel, UnitModel
 from kta.solve import record_solve, rerank, shape_buckets, solve
 from kta.solve.result import Candidate
 from kta.store.base import Store
@@ -197,7 +197,7 @@ def run_bucket(
     s: Solved,
     bucket: dict[str, Any],
     refs: dict[str, str],
-    hw: HwModel,
+    hw: MachineModel,
     model: UnitModel,
     k: int,
     shortlist: int,
@@ -285,14 +285,14 @@ def run_topk(
     ids: CaseIds,
     fp: FamilyPackage,
     refs: dict[str, str],
-    hw: HwModel,
+    hw: MachineModel,
     model: UnitModel,
     k: int = 8,
     shortlist: int = 64,
     workers: int = 8,
 ) -> str:
     templates = templates_of(e.store, fp)
-    s = Solved(assemble(fp, fp.chain, templates, ids.body, hw.limits), templates)
+    s = Solved(assemble(fp, fp.chain, templates, ids.body, hw.hw), templates)
     gen = Generator(fp)
     buckets = [
         run_bucket(e, ids, fp, gen, s, b, refs, hw, model, k, shortlist, workers)

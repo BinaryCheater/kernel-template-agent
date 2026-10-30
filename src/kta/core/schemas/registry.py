@@ -78,7 +78,9 @@ KINDS: dict[str, KindSpec] = {
     "Worker": KindSpec(hw.Worker),
     "EnvManifest": KindSpec(hw.EnvManifest),
     # 2: architecture class + chip instance (D463); schema-1 bodies are valid as they are.
-    "HwModel": KindSpec(hw.HwModel, version=2, ref_kinds={"arch": "HwArch"}),
+    "HwModel": KindSpec(
+        hw.HwModel, version=2, ref_kinds={"arch": "HwArch", "previous_instance": "HwModel"}
+    ),
     "HwArch": KindSpec(hm.HwArch, ref_kinds={"previous": "HwArch", "sources": "Source"}),
     "ModelVersion": KindSpec(
         hm.ModelVersion,

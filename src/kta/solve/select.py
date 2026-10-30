@@ -93,7 +93,7 @@ def solve(
     case: Case,
     shape_bucket: dict[str, Any],
     model: UnitModel,
-    hw: HwModel,
+    hw: HwModel | MachineModel,
     shortlist: int = 64,
     time_limit_s: float = 60,
     rng: random.Random | None = None,
