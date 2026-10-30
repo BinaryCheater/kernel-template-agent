@@ -1,70 +1,54 @@
 [
  {
-  "claim": "Time breakdown of the 27 F2 v7 Attention construction trajectories (92 v7 stages, 91 author sessions): shares of end-to-end wall, per-trajectory and per-stage medians, provider reconnect stalls, action composition, Template-minus-Text differences (deliveries/WP13.md section (a), tables A1-A4).",
-  "command": "python3 scripts/analysis/f2_time_breakdown.py && python3 scripts/analysis/f2_report.py > deliveries/WP13/tables.md",
-  "sources": [
-   "/Users/dingyi/Projects/agentic-codesign/kernel-lab/results/formulaic-reuse-f2-20261027-01/formal-v7/trajectory-*-v7.json",
-   "/Users/dingyi/Projects/agentic-codesign/kernel-lab/results/formulaic-reuse-f2-20261027-01/formal-v7/<stage>/provider.{stdout,stderr}, provider-command.json, provider-completion.json",
-   "/Users/dingyi/Projects/agentic-codesign/kernel-lab/results/formulaic-reuse-f2-20261027-01/formal-v7/solve-<stage>/*.receipt.json",
-   "/Users/dingyi/Projects/agentic-codesign/kernel-lab/results/formulaic-reuse-f2-20261027-01/formal-v7/feedback-<stage>/costs.json",
-   "/Users/dingyi/Projects/agentic-codesign/kernel-lab/results/formulaic-reuse-f2-20261027-01/formal-v7/export-attention-20261027-01/results.json"
-  ],
-  "outputs": {
-   "deliveries/WP13/f2-time-breakdown.json": "ce67ccd3a56ae1b7230aa838c3c7905a7a167a7fb601ba7624381f0836bd3321",
-   "deliveries/WP13/tables.md": "43b7aa033eab69d29347635a5069e3d81581d07e4649bad470b853d9cbe22c96"
-  },
-  "git_commit": "1c77de822f9c05254ef9bbceaf5f29eb220f38b2",
+  "claim": "Time breakdown of the 27 F2 v7 Attention construction trajectories (92 v7 stages, 91 author sessions) from read-only research-repo ledgers, receipts and session files; deliveries/WP13.md section (a). Output deliveries/WP13/f2-time-breakdown.json sha256 ce67ccd3a56ae1b7230aa838c3c7905a7a167a7fb601ba7624381f0836bd3321",
+  "command": "python3 scripts/analysis/f2_time_breakdown.py",
+  "git_commit": "ae365270e05951f676077d968e8d5e9a34df25b9",
   "dirty": false,
-  "env": "none (offline analysis of research-repo files; no KTA store exists before WP1)",
+  "env": "dev",
   "control_host": "dingyideMacBook-Pro.local",
   "workers": [],
   "record_ids": [],
   "blob_ids": [],
   "env_manifests": [],
-  "started_at": "2026-10-30T04:16:22Z"
+  "started_at": "2026-10-30T04:23:07Z"
  },
  {
-  "claim": "Prediction error of the frozen F2 v7 GB10 latency models: 491 measured/predicted pairs over 90 stages, ranking and regret statistics, final-recommendation error over 27 trajectories, formulation sizes, K+V working set vs hw_l2_bytes (deliveries/WP13.md section (b), tables B1-B5).",
-  "command": "python3 scripts/analysis/f2_model_error.py && python3 scripts/analysis/f2_report.py > deliveries/WP13/tables.md",
-  "sources": [
-   "/Users/dingyi/Projects/agentic-codesign/kernel-lab/results/formulaic-reuse-f2-20261027-01/formal-v7/feedback-<stage>/selection-freeze.json",
-   "/Users/dingyi/Projects/agentic-codesign/kernel-lab/results/formulaic-reuse-f2-20261027-01/formal-v7/feedback-<stage>/mechanical-summary.json",
-   "/Users/dingyi/Projects/agentic-codesign/kernel-lab/results/formulaic-reuse-f2-20261027-01/formal-v7/export-attention-20261027-01/results.json",
-   "/Users/dingyi/Projects/agentic-codesign/kernel-lab/results/formulaic-reuse-f2-20261027-01/formal-v5/common-assets/hardware.json",
-   "/Users/dingyi/Projects/agentic-codesign/kernel-lab/results/formulaic-reuse-f2-20261027-01/formal-v7/trajectory-*-v7.json"
-  ],
-  "outputs": {
-   "deliveries/WP13/f2-model-error.json": "a9e4db98bb8a95464150fc2ecec7e67fc811fbdf4b79296d89a50027f22f421d",
-   "deliveries/WP13/tables.md": "43b7aa033eab69d29347635a5069e3d81581d07e4649bad470b853d9cbe22c96"
-  },
-  "git_commit": "1c77de822f9c05254ef9bbceaf5f29eb220f38b2",
+  "claim": "Prediction error of the frozen F2 v7 GB10 latency models (491 measured/predicted pairs over 90 stages; 27 final recommendations); deliveries/WP13.md section (b). Output deliveries/WP13/f2-model-error.json sha256 a9e4db98bb8a95464150fc2ecec7e67fc811fbdf4b79296d89a50027f22f421d",
+  "command": "python3 scripts/analysis/f2_model_error.py",
+  "git_commit": "ae365270e05951f676077d968e8d5e9a34df25b9",
   "dirty": false,
-  "env": "none (offline analysis of research-repo files; no KTA store exists before WP1)",
+  "env": "dev",
   "control_host": "dingyideMacBook-Pro.local",
   "workers": [],
   "record_ids": [],
   "blob_ids": [],
   "env_manifests": [],
-  "started_at": "2026-10-30T04:16:22Z"
+  "started_at": "2026-10-30T04:23:07Z"
  },
  {
-  "claim": "SHA-256 identities of the 930 raw research-repo files cited by the two analysis outputs, for checking that the read-only inputs are unchanged.",
+  "claim": "Delivery tables rendered from the two analysis outputs. Output deliveries/WP13/tables.md sha256 d2e99bfb395230ff1ea6d8b09b0959606f1b4df83b6d79f64ba058b20ecb677d",
+  "command": "python3 scripts/analysis/f2_report.py > deliveries/WP13/tables.md",
+  "git_commit": "ae365270e05951f676077d968e8d5e9a34df25b9",
+  "dirty": false,
+  "env": "dev",
+  "control_host": "dingyideMacBook-Pro.local",
+  "workers": [],
+  "record_ids": [],
+  "blob_ids": [],
+  "env_manifests": [],
+  "started_at": "2026-10-30T04:23:07Z"
+ },
+ {
+  "claim": "SHA-256 identities of the 930 raw research-repo files cited by the analysis outputs. Output deliveries/WP13/f2-inputs-sha256.json sha256 89755bad57e4c0c96eab7348b49f720ffd117cd8e05aebc013c71cb0ebc5b92d",
   "command": "python3 scripts/analysis/f2_inputs_manifest.py",
-  "sources": [
-   "deliveries/WP13/f2-time-breakdown.json",
-   "deliveries/WP13/f2-model-error.json"
-  ],
-  "outputs": {
-   "deliveries/WP13/f2-inputs-sha256.json": "89755bad57e4c0c96eab7348b49f720ffd117cd8e05aebc013c71cb0ebc5b92d"
-  },
-  "git_commit": "1c77de822f9c05254ef9bbceaf5f29eb220f38b2",
+  "git_commit": "ae365270e05951f676077d968e8d5e9a34df25b9",
   "dirty": false,
-  "env": "none (offline analysis of research-repo files; no KTA store exists before WP1)",
+  "env": "dev",
   "control_host": "dingyideMacBook-Pro.local",
   "workers": [],
   "record_ids": [],
   "blob_ids": [],
   "env_manifests": [],
-  "started_at": "2026-10-30T04:16:22Z"
+  "started_at": "2026-10-30T04:23:07Z"
  }
 ]
