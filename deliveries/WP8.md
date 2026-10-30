@@ -122,4 +122,34 @@ What the full gate (`KTA_DATA=~/kta-data scripts/gate WP8`) still requires. Step
 
 ## Gate output
 
-GATE_OUTPUT_PLACEHOLDER
+`KTA_DATA=~/kta-data scripts/gate --stage code WP8` on `wp/WP8` @ 77c8429 (the commit before this note's gate paste):
+
+```
+gate WP8 --stage code: PASSED (22 pass, 2 warn, 0 fail)
+  PASS ruff format
+  PASS ruff check
+  PASS import layers
+  PASS residue
+  PASS test doubles
+  PASS error handling
+  PASS print
+  PASS subprocess outside Executor
+  PASS secrets
+  PASS acceptance lock — 7 locked files unchanged
+  PASS pyright
+  PASS unit tests — 324 passed
+  PASS contract tests — 5 passed
+  PASS fake coverage — 1 fake(s) covered
+  PASS registry (kta doctor, dev)
+  PASS delivery note
+  PASS fixture declarations — 1 declared
+  PASS decision log — 217 decisions
+  PASS skipped tests — none
+  WARN evidence — evidence list is empty
+  PASS WP8 tests — 8 named tests passed
+  PASS runtime skills — 5 skills
+  PASS non-persistent session options — none in src/
+  WARN WP8 agent runs — pending real run (code stage): real T1, resume, induced write
+```
+
+The two WARNs are expected in the code stage: the evidence list is empty (no real runs yet) and the WP8 agent-run check is pending (see "Pending real runs").
