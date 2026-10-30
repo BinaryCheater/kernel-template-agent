@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Manual remote operations during construction: scripts/remote-run <command> <host> ...
+# Run `scripts/remote-run --help` for usage. Business code uses the Executor instead.
+set -euo pipefail
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+export PYTHONPATH="$root/tools${PYTHONPATH:+:$PYTHONPATH}"
+exec uv run --project "$root" --frozen --quiet python -m kta_remote "$@"

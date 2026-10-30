@@ -1,0 +1,7 @@
+# KTA configuration. Paths come from here, never from code (spec/conventions.md §3.1).
+
+[impl]
+# interface = "implementation name"; empty until WP1+ register implementations.
+
+[toolchain]
+cuda_home = "/usr/local/cuda"

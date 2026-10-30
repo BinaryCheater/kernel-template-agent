@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# Set up (or re-check) a control-plane checkout on this machine. Safe to re-run.
+# Installs only into the project (.venv, web/node_modules); see spec/conventions.md §7.
+set -euo pipefail
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$root"
+
+die() { echo "bootstrap: $*" >&2; exit 1; }
+
+command -v uv >/dev/null || die "uv not found on PATH (install uv first; see deliveries/ENV-CHECK.md)"
+uv_version="$(uv --version | awk '{print $2}')"
+case "$uv_version" in 0.11.*) ;; *) die "uv $uv_version: expected 0.11.x (uv.lock and uv_build pin)";; esac
+
+pinned_python="$(cat .python-version)"
+if ! uv python find "$pinned_python" >/dev/null 2>&1; then
+  # Keep the interpreter inside the project instead of the user-level uv directory.
+  export UV_PYTHON_INSTALL_DIR="$root/.uv/python"
+  uv python install "$pinned_python"
+fi
+uv sync --frozen
+
+if [ -d web ]; then
+  command -v node >/dev/null || die "node not found; web/ needs $(cat web/.nvmrc)"
+  want="$(sed 's/^v//' web/.nvmrc)"; have="$(node --version | sed 's/^v//')"
+  [ "$want" = "$have" ] || die "node $have != web/.nvmrc $want"
+  (cd web && npm ci)
+fi
+
+if [ -n "${KTA_DATA:-}" ]; then
+  mkdir -p "$KTA_DATA/dev" "$KTA_DATA/main"
+  echo "bootstrap: data directory $KTA_DATA ready"
+else
+  echo "bootstrap: KTA_DATA is not set; set it before running KTA (spec/conventions.md §2)" >&2
+fi
+
+KTA_ENV="${KTA_ENV:-dev}" KTA_WP="${KTA_WP:-bootstrap}" KTA_DATA="${KTA_DATA:-$root/.uv/no-data}" \
+  uv run --frozen kta doctor
