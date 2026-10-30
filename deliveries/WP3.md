@@ -1,6 +1,12 @@
 # WP3 delivery: measure and checks
 
-Branch `wp/WP3`, cut from `integration` @ `c4081bb` (WP0, WP1, WP2, WP4, WP10a, WP13 merged). Code commit of the evidence runs: `832061774429ff9502f33dd952202f537be70820` (clean); the Protocol record `measure-v1` was written earlier on this branch at the clean commit `aa83ac2f64e5` (claim 0) and is reused by identity. Records are in `~/kta-data/dev/WP3/kta.db` on the control host (this Mac); command outputs are under `~/kta-data/dev/WP3/evidence/8320617…/`. Claim numbers are 0-based indexes into `deliveries/WP3.evidence.json`.
+Branch `wp/WP3`, cut from `integration` @ `c4081bb` (WP0, WP1, WP2, WP4, WP10a, WP13 merged). Code commits of the evidence runs (all clean, all on this branch):
+
+- noise probe and `measure-v2`: `832061774429ff9502f33dd952202f537be70820` (claims 1, 2);
+- compare and checker selftest: `818dff49cc047255a64c30411d870ef6770ff54a` (claims 3–6). It differs from `8320617` only in documentation. The first runs at `8320617` were recorded dirty because doc edits were uncommitted, so they were repeated and are not listed;
+- the Protocol record `measure-v1`: written earlier at the clean commit `aa83ac2f64e5` (claim 0) and reused by identity.
+
+Records are in `~/kta-data/dev/WP3/kta.db` on the control host (this Mac). Command outputs are under `~/kta-data/dev/WP3/evidence/<commit>/`. Claim numbers are 0-based indexes into `deliveries/WP3.evidence.json`.
 
 ## What was done
 
@@ -29,8 +35,8 @@ All runs: control plane on this Mac (`KTA_ENV=dev`), GPU jobs on spark (GB10, sm
   - **Noise floor: 0.4%.** It is the larger CV rounded up to 0.1%, and it is now `measure-v2`'s `noise_floor_rel`. The significance threshold is therefore 3 × 0.4% = 1.2%. WP13's capture-to-capture deviation was 1.1% median and 4.3% p90 (finding 6). Interleaving inside one job and repeating the protocol give a finer resolution.
   - Most of the spread is between jobs, not within one. Within a group the vector add's 95% CI is about 0.2–0.35% wide, but its group medians alternate between about 889 and 895 µs. The GEMM's medians step from 884.4 µs to about 890.6 µs in the later groups, while the GPU temperature rose from 43 to 51 °C. The SM clock sampled at group end ranged from 1748 to 2496 MHz (boost, not locked).
 - **Interleaved comparison under `measure-v2` (claims 3, 4).**
-  - FMA chains of 1000 vs 1050 steps differ by **+3.92%** (CI +3.92%..+3.92%): significant (Report `6bb43adda4d0…`). The pair was built to differ by about 5%. The measured 3.9% reflects launch and memory overhead outside the loop.
-  - The same kernel against itself differs by 0.00%: not significant (Report `079964342fdc…`).
+  - FMA chains of 1000 vs 1050 steps differ by **+3.92%** (CI +3.92%..+3.92%): significant (Report `8c804cb2b53e…`). The pair was built to differ by about 5%. The measured 3.9% reflects launch and memory overhead outside the loop.
+  - The same kernel against itself differs by 0.00%: not significant (Report `49287abc2f5b…`).
   - The degenerate CIs come from the event timer's 0.032 µs steps on very stable runs.
 - **Checks (`kta.checks`).**
   - `check_numeric`: the module is run once per input distribution with NaN-filled outputs. The reference comes from `Problem.reference_impl`, a torch statement run in FP64 on the GPU inside the worker image (D223). The criterion is per element `|y−ref| ≤ atol + rtol·|ref|`, plus the relative L2 error.
@@ -48,16 +54,16 @@ All runs: control plane on this Mac (`KTA_ENV=dev`), GPU jobs on spark (GB10, sm
 
   | Variant | Verdict | Failed checks | Aggregate Check |
   | --- | --- | --- | --- |
-  | correct | pass | none | `b9930a6a610d…` |
-  | out-of-bounds write (one element past C) | fail | `sanitizer.memcheck` | `6434411a1eb8…` |
-  | last row of C never written | fail | `anticheat.nan_coverage`, `numeric` (128 unwritten elements per distribution) | `3350b49a917a…` |
-  | host library calling `cublasGemmEx` (`.so` module, D222) | fail | `anticheat.libraries` (`libcublas.so.13`, `cublasCreate_v2`, `cublasGemmEx`), `anticheat.kernels` (launched `nvjet_sm121_hsh_mma_…`, declared `gemm` not launched) | `962369274113…` |
+  | correct | pass | none | `656eef755e74…` |
+  | out-of-bounds write (one element past C) | fail | `sanitizer.memcheck` | `8eb2addcaed5…` |
+  | last row of C never written | fail | `anticheat.nan_coverage`, `numeric` (128 unwritten elements per distribution) | `cd1bd70379a2…` |
+  | host library calling `cublasGemmEx` (`.so` module, D222) | fail | `anticheat.libraries` (`libcublas.so.13`, `cublasCreate_v2`, `cublasGemmEx`), `anticheat.kernels` (launched `nvjet_sm121_hsh_mma_…`, declared `gemm` not launched) | `bc071da81111…` |
 
   - Each aggregate references its 8 sub-check records:
     - numeric, sanitizer and anti-cheat at the module's shape;
     - numeric at 2 edge shapes;
     - numeric at 3 hidden shapes.
-  - No checker errors occurred. Report `17258a792aa1…` lists the four variants.
+  - No checker errors occurred. Report `ab7dc41e1a30…` lists the four variants.
 - **WP3 gate checks** (`tools/kta_gate/specific_wp3.py`, registered in `specific.py`, D232; unit-tested in `tests/unit/test_gate_wp3.py`). The gate:
   - runs `pytest -m gpu tests/acceptance/WP3` and requires its four tests to pass;
   - requires these records to be listed in the evidence manifest, real and clean: Measurement and Check from a GPU worker, `measure-v1`/`v2`, v2's noise reports with at least 30 groups, the all-as-expected checker selftest, and one significant and one non-significant compare under v2.
@@ -100,7 +106,7 @@ All runs: control plane on this Mac (`KTA_ENV=dev`), GPU jobs on spark (GB10, sm
 - **SASS checking is unit-tested only.** No delivered run uses SASS expectations: the selftest GEMM declares none. The WP2 CUDA backend writes the `sass` blob that `check_sass` reads.
 - **bf16 inputs** raise NotSupported (numpy has no bf16). Only f16, f32, f64 and i32 are generated.
 - **Timer resolution.** CUDA event times move in 0.032 µs steps on GB10. Very stable kernels therefore get degenerate bootstrap CIs (both ends equal), as in the compare Reports. The significance rule still requires the 3 × floor margin.
-- **The dev store holds earlier construction runs.** It also contains records from the work-in-progress commits `aa83ac2`, `cef1739` and `3390551` (short noise probes, checker runs). Only the records listed in the evidence manifest are evidence.
+- **The dev store holds earlier construction runs.** It also contains records from the work-in-progress commits `aa83ac2`, `cef1739` and `3390551` (short noise probes, checker runs), and the dirty compare/checker runs at `8320617`. Only the records listed in the evidence manifest are evidence.
 - **Data written during WP3:**
   - spark: `~/kta-work/src/<commit>` for the WP3 commits and `~/kta-work/data/{dev/WP3,test-worker}`;
   - control host: `~/kta-data/dev/WP3`.
