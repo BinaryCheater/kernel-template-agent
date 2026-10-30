@@ -74,7 +74,51 @@ def summary(api: Api, case_id: str) -> dict[str, Any]:
 
 
 def cases(api: Api) -> list[dict[str, Any]]:
-    return [summary(api, r) for r in _ids(api, "Case")]
+    """GET /cases: summary plus per-round progress, the active task and last activity."""
+    tasks = opsread.tasks(api.ops)
+    out = []
+    for cid in _ids(api, "Case"):
+        s = summary(api, cid)
+        rounds = _rounds(api, s["loop_id"], cid)
+        bound = s["bound_us"]
+        cands = [
+            (api.store.get_json(c)["created_at"], c)
+            for c in incoming(api, cid, "case", "Candidate")
+        ]
+        progress = []
+        for r in rounds:
+            lo, hi = r["steps"][0]["start"], r["steps"][-1]["end"] or "9999"
+            best = [_best_measured(api, c) for at, c in cands if lo <= at <= hi]
+            best_us = min((b for b in best if b is not None), default=None)
+            progress.append(
+                {
+                    "n": r["n"],
+                    "last_state": r["steps"][-1]["state"],
+                    "open": r["steps"][-1]["end"] is None,
+                    "rule": r["outcome"]["rule"] if r["outcome"] else None,
+                    "tasks": [t["type"] for t in r["tasks"]],
+                    "pct_of_bound": bound / best_us if bound and best_us else None,
+                }
+            )
+        live = [t for t in tasks if t.work_unit == s["loop_id"] and t.state in ("queued", "leased")]
+        stamps = [st["end"] or st["start"] for r in rounds for st in r["steps"]]
+        out.append(
+            {
+                **s,
+                "rounds": progress,
+                "active_task": {"type": live[-1].card_type, "state": live[-1].state}
+                if live
+                else None,
+                "last_activity": max(stamps) if stamps else None,
+            }
+        )
+    return out
+
+
+def _best_measured(api: Api, cand: str) -> float | None:
+    build = latest(api, incoming(api, cand, "candidate", "Build"))
+    meas = latest(api, incoming(api, build, "build", "Measurement")) if build else None
+    return _measured_us(api, meas)
 
 
 def _ids(api: Api, kind: str) -> list[str]:

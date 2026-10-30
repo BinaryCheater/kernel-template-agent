@@ -1,31 +1,63 @@
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { api } from "../data/source";
-import type { ChainNode, FamilyDetail } from "../data/types";
+import type { ChainNode, FamilyDetail, FamilySummary } from "../data/types";
 import { useApi } from "../data/useApi";
+import { useNow } from "../data/live";
 import { ChainDag } from "../components/ChainDag";
 import { AssuranceChip, Loading, Panel, RecordLink } from "../components/ui";
-import { LEVEL_NAMES, hhmm } from "../components/format";
+import { LEVEL_NAMES, dur, hhmm, since } from "../components/format";
 import { useSnapshot } from "../components/Shell";
 
 export function FamilyList() {
   const { snapshots, snapshot } = useSnapshot();
   const fams = useApi(() => api.families(snapshot), [snapshot]);
   const nav = useNavigate();
+  const now = useNow();
   if (!fams.data) return <Loading error={fams.error} />;
   return (
     <Panel primary title="Families" sub={`executable families in ${snapshots.find((s) => s.id === snapshot)?.label ?? "the current snapshot"}: a composition chain plus a generator`}>
-      <table className="t">
-        <thead><tr><th>family</th><th>backend</th><th>problem</th><th className="r">chain steps</th><th className="r">accepted solutions</th></tr></thead>
+      <table className="t index">
+        <thead><tr><th>family</th><th>problem</th><th>composition chain — one bar per step: refinement levels it spans, colour = assurance</th>
+          <th className="r">versions</th><th className="r">solutions</th><th className="r">last version</th></tr></thead>
         <tbody>{fams.data.map((f) => (
           <tr key={f.id} className="click" onClick={() => nav(`/families/${f.id}`)}>
-            <td><Link to={`/families/${f.id}`} className="mono"><b>{f.name}</b>@{f.version}</Link></td>
-            <td>{f.backend}</td><td className="mono small">{f.problem}</td>
-            <td className="r num">{f.steps}</td><td className="r num">{f.solutions}</td>
+            <td><Link to={`/families/${f.id}`} className="mono"><b>{f.name}</b>@{f.version}</Link><div className="small muted">{f.backend}</div></td>
+            <td className="mono small">{f.problem}</td>
+            <td><StepBars steps={f.step_detail ?? []} /></td>
+            <td className="r num">{typeof f.versions === "number" ? f.versions : "—"}</td>
+            <td className="r num">{f.solutions}</td>
+            <td className="r small ink2 num">{f.updated_at ? `${dur(since(f.updated_at, now))} ago` : "—"}</td>
           </tr>
         ))}</tbody>
       </table>
+      <div className="legend" style={{ marginTop: 10 }}>
+        <span>levels 0 graph → 5 microarchitecture (bottom → top)</span>
+        <span><span className="sw as-bar-declared" />declared</span><span><span className="sw as-bar-tested" />tested</span>
+        <span><span className="sw as-bar-bounded" />bounded</span><span><span className="sw as-bar-proved" />proved</span>
+      </div>
     </Panel>
+  );
+}
+
+function StepBars({ steps }: { steps: NonNullable<FamilySummary["step_detail"]> }) {
+  const H = 48;
+  const unit = H / 6;
+  return (
+    <div className="step-bars">
+      {steps.map((s) => {
+        const lo = s.level_from ?? 0;
+        const hi = s.level_to ?? lo;
+        return (
+          <div key={s.key} className="step-bar" title={`${s.key}: ${s.template} · level ${lo}→${hi} · ${s.assurance}`}>
+            <div className="step-col" style={{ height: H }}>
+              <span className={`as-bar-${s.assurance}`} style={{ bottom: lo * unit, height: (hi - lo + 1) * unit - 1 }} />
+            </div>
+            <span className="step-key mono">{s.key}</span>
+          </div>
+        );
+      })}
+    </div>
   );
 }
 

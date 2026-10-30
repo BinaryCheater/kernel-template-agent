@@ -21,14 +21,14 @@
 .sm-node.sel { box-shadow: 0 0 0 2px var(--ink); }
 .sm-node.dim { opacity: 0.55; }
 .sm-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
-.sm-name { font: 600 13px/1.2 var(--mono); }
+.sm-name { font: 600 14px/1.2 var(--mono); }
 .sm-count { min-width: 20px; height: 20px; border-radius: 10px; color: #fff; font: 600 12px/20px var(--font); text-align: center; padding: 0 6px; }
 .sm-count.t-running { background: var(--st-running); }
 .sm-count.t-waiting { background: var(--st-waiting); color: #0b0b0b; }
 .sm-count.t-ok { background: var(--st-ok); }
 .sm-count.t-fail { background: var(--st-fail); }
 .sm-count.t-human { background: var(--st-human); }
-.sm-does { font-size: 10.5px; line-height: 1.3; color: var(--ink-2); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.sm-does { font-size: 11.5px; line-height: 1.32; color: var(--ink-2); display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
 .sm-work { margin-top: auto; font-size: 9.5px; color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.05em; }
 
 .sm-pill {
@@ -85,3 +85,5 @@
 .cn-assur.as-proved { border-color: #0ca30c; color: #fff; background: #0ca30c; }
 .lvsw.lv0 { background: var(--lv0); } .lvsw.lv1 { background: var(--lv1); } .lvsw.lv2 { background: var(--lv2); }
 .lvsw.lv3 { background: var(--lv3); } .lvsw.lv4 { background: var(--lv4); } .lvsw.lv5 { background: var(--lv5); }
+
+.sm-scroll { width: 100%; overflow-x: auto; overflow-y: hidden; }

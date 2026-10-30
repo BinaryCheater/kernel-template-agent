@@ -1,12 +1,12 @@
 import { useMemo } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { api } from "../data/source";
-import type { CaseDetail, Machines } from "../data/types";
+import type { CaseDetail, CaseRoundProgress, Machines } from "../data/types";
 import { useApi } from "../data/useApi";
 import { useNow } from "../data/live";
 import { AXIS, EChart, TOOLTIP, echarts, type EOption } from "../components/EChart";
 import { Chip, Loading, Panel, RecordLink, Stat } from "../components/ui";
-import { dur, fix1, hhmm, pct, stateTone, us } from "../components/format";
+import { dur, fix1, hhmm, pct, since, stateTone, us } from "../components/format";
 
 const TONE_COLOR: Record<string, string> = { running: "#2a78d6", waiting: "#fab219", ok: "#0ca30c", fail: "#d03b3b", human: "#6250d6", idle: "#898781" };
 
@@ -14,26 +14,65 @@ export function CaseList() {
   const cases = useApi(api.cases, []);
   const m = useApi(api.machines, []);
   const nav = useNavigate();
+  const now = useNow();
   if (!cases.data || !m.data) return <Loading error={cases.error ?? m.error} />;
   const solve = m.data.machines.find((x) => x.id === "solve");
+  const maxRounds = Number(solve?.limits?.max_rounds ?? 5);
   return (
-    <Panel primary title="Cases" sub="one solve-loop instance per case; % of bound = lower bound ÷ best measured latency (100% = at the bound)">
-      <table className="t">
-        <thead><tr><th>case</th><th>problem</th><th>state</th><th>round</th><th className="r">bound</th><th className="r">best</th><th style={{ width: 260 }}>% of bound</th></tr></thead>
+    <Panel primary title="Cases" sub="one solve-loop instance per case · % of bound = lower bound ÷ best measured latency (100% = at the bound)">
+      <table className="t index">
+        <thead><tr><th>case</th><th>now</th><th>rounds (of {maxRounds})</th><th>% of bound by round</th><th className="r">bound</th><th className="r">accepted</th><th>active task</th><th className="r">last activity</th></tr></thead>
         <tbody>{cases.data.map((c) => (
           <tr key={c.id} className="click" onClick={() => nav(`/cases/${c.id}`)}>
-            <td><Link to={`/cases/${c.id}`}><b>{c.name}</b></Link></td>
-            <td className="mono small">{c.problem}</td>
+            <td><Link to={`/cases/${c.id}`}><b>{c.name}</b></Link><div className="mono small muted">{c.problem}</div></td>
             <td><Chip tone={stateTone(solve, c.state)}>{c.state}</Chip></td>
-            <td className="num">{c.round || "—"}/5</td>
+            <td><RoundDots rounds={c.rounds ?? []} max={maxRounds} /></td>
+            <td><Spark values={(c.rounds ?? []).map((r) => r.pct_of_bound)} max={maxRounds} /></td>
             <td className="r num">{us(c.bound_us)}</td>
             <td className="r num">{us(c.best_us)}</td>
-            <td><div className="row"><div className="bar" style={{ flex: 1 }}><span className="used" style={{ width: `${(c.pct_of_bound ?? 0) * 100}%` }} /></div>
-              <span className="num small" style={{ width: 40, textAlign: "right" }}>{pct(c.pct_of_bound)}</span></div></td>
+            <td>{c.active_task ? <><span className="tag task">{c.active_task.type}</span> <span className="small ink2">{c.active_task.state}</span></> : <span className="muted small">—</span>}</td>
+            <td className="r small ink2 num">{c.last_activity ? `${dur(since(c.last_activity, now))} ago` : "—"}</td>
           </tr>
         ))}</tbody>
       </table>
+      <div className="legend" style={{ marginTop: 10 }}>
+        <span><span className="rd done" /> round judged (R3 = judging rule 3)</span><span>sparkline: best measured candidate per round, dashed line = 100%</span><span><span className="rd task" /> round ended waiting on a task</span>
+        <span><span className="rd open" /> current round</span><span><span className="rd todo" /> rounds left before escalation</span>
+      </div>
     </Panel>
+  );
+}
+
+function RoundDots({ rounds, max }: { rounds: CaseRoundProgress[]; max: number }) {
+  return (
+    <div className="round-dots">
+      {Array.from({ length: max }, (_, i) => {
+        const r = rounds[i];
+        if (!r) return <span key={i} className="rd todo" title={`round ${i + 1}: not started`} />;
+        const cls = r.open ? "open" : r.rule ? "done" : "task";
+        const title = `round ${r.n}: ${r.open ? "in progress, " : "ended in "}${r.last_state}${r.rule ? ` · rule ${r.rule}` : ""}${r.tasks.length ? ` · created ${r.tasks.join(", ")}` : ""}`;
+        return <span key={i} className={`rd ${cls}`} title={title}>{r.rule ? `R${r.rule}` : r.tasks[0] ?? ""}</span>;
+      })}
+    </div>
+  );
+}
+
+/** Tiny line of % of bound per round (0-100%); rounds without a measurement leave a gap. */
+function Spark({ values, max }: { values: (number | null)[]; max: number }) {
+  const W = 120;
+  const H = 28;
+  const pts = values.map((v, i) => (v == null ? null : [6 + (i * (W - 12)) / Math.max(1, max - 1), H - 4 - v * (H - 8)] as const));
+  const last = [...values].reverse().find((v) => v != null);
+  if (!pts.some(Boolean)) return <span className="muted small">no measurement yet</span>;
+  return (
+    <span className="spark">
+      <svg width={W} height={H} aria-label="% of bound by round">
+        <line x1="0" x2={W} y1={4} y2={4} className="spark-ref" />
+        <polyline points={pts.filter(Boolean).map((p) => p!.join(",")).join(" ")} className="spark-line" />
+        {pts.map((p, i) => p && <circle key={i} cx={p[0]} cy={p[1]} r={3} className="spark-dot" />)}
+      </svg>
+      <span className="num small">{pct(last)}</span>
+    </span>
   );
 }
 

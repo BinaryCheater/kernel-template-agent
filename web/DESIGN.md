@@ -49,29 +49,24 @@ chain node links to its Template record.
 
 ### 3.1 Overview — "What does the system do, and what is it doing now?"
 
-- **Primary visual:** the three orchestrator state machines drawn from
-  `src/kta/orchestrator/machines.yaml` (D96): solve loop, expand loop, task lifecycle. Laid out
-  automatically (elkjs layered, left → right) and rendered with React Flow, read-only.
-  - Stacking order: solve loop (full width, it is the main loop and needs 9 layers to stay
-    legible) → Now band → expand loop → task lifecycle → pipeline strip.
-  - Each state node shows: name, what it does (two lines, full text on hover), who works in it
-    (orchestrator / executor jobs / agent task / you), and a live **count badge** of instances in
-    that state. Nodes with instances are tinted by status tone with a left accent.
-  - Transitions that create a task carry a violet pill label (`① T6`, `② T4`, `④ T2/T1`, `T1`);
-    other guarded exits carry the short `label` from the YAML. Labels sit at the edge tail, next
-    to the state they leave.
-  - Under each diagram, a **branches** list spells out every guarded exit in rule order (full
-    `when` condition, created task, target), and the YAML `notes` (paths the design leaves open).
-  - Dashed edges: resume after waiting, retry, human actions, "any state → cancelled".
-  - **Click a state** → an instance list opens under the diagram (subject, round, time in
-    state, waiting-on task; task rows show goal, slot, retries, last rejection, card record).
-- **Now band** (four columns): agent slots (task, elapsed vs budget, uncharged queue time), GPU
-  exclusive lease (holder, held vs 10-min max) and job pools (running/capacity, queued), workers
-  and today's budgets, inbox count and recently finished items.
-- **Bottom:** compact pipeline strip — the last 45 minutes of spans per lane, no labels, click →
-  Pipeline page.
-- Collapsed by default: the full transition table under each diagram ("Show transitions as a
-  table").
+Revised after the coordinator's review (D174): the machine and the Now column are both above the
+fold at 1440×900.
+
+- **Primary visual:** one orchestrator state machine at a time, chosen with tabs (Solve loop by
+  default, Expand loop, Task lifecycle; each tab shows its instance count; `?machine=` keeps the
+  choice in the URL). Drawn from `src/kta/orchestrator/machines.yaml` (D96) with elkjs layered
+  layout wrapped into two rows and React Flow; never shrunk below 80 % (wider graphs scroll).
+  - Every node shows its name, its full "does" text (up to four lines), who works in it and a
+    live count badge; nodes with instances are tinted by status tone.
+  - Task-creating transitions carry violet labels (`① T6`, `② T4`, `④ T2/T1`, `T1`); other
+    guarded exits carry the YAML `label`, shortened to the rule glyph when the edge is too short.
+  - "From any state" transitions (you cancel) are a footnote line under the diagram, not a
+    floating node.
+  - Click a state → its instances are listed under the diagram. Below: the branch conditions in
+    rule order, the YAML notes, and the full transition table (collapsed).
+- **Now column (right, 320 px):** needs-you items (from `/inbox`), agent slots with elapsed vs
+  budget, GPU exclusive lease, workers with pool occupancy pills, today's budgets, just finished.
+- **Bottom:** recent pipeline strip (45 minutes, 17 px per track, click → Pipeline).
 
 ### 3.2 Running — "What is occupying the system right now?"
 
@@ -100,6 +95,10 @@ chain node links to its Template record.
 
 ### 3.4 Cases — list; Case — "How well is this problem solved?"
 
+- **List:** one row per case with state, round dots (judged / ended waiting on a task / current /
+  left before escalation), a sparkline of % of bound per round, bound, accepted result, the
+  active task and the last activity.
+
 - **Header stat row:** lower bound, strongest reference, best result, % of bound — each a
   RecordLink.
 - **Primary visual:** iteration timeline. One row per round; each row is the sequence of
@@ -120,6 +119,9 @@ chain node links to its Template record.
 - Collapsed: raw bodies, build log summary, failures list.
 
 ### 3.6 Families — list; Family — "How is this kernel built, step by step?"
+
+- **List:** one row per family with a mini chart of its chain (one bar per step spanning the
+  refinement levels it covers, coloured by assurance), versions, solutions, last version time.
 
 - **Primary visual:** the composition chain as a DAG (React Flow + elkjs, layered left→right):
   node = chain item (template@version, the transaction it refines, assurance chip), edge =

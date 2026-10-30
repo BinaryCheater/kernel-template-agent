@@ -207,3 +207,21 @@ def test_app_serves_every_spec_read_endpoint(api: Api) -> None:
 
 def test_machines_come_from_the_orchestrator_file() -> None:
     assert [m["id"] for m in machines()["machines"]] == ["solve", "expand", "task"]
+
+
+def test_case_index_rows_carry_round_progress(api: Api) -> None:
+    by_name = {c["name"]: c for c in cases.cases(api)}
+    soft = by_name["softmax_bf16"]["rounds"]
+    assert [(r["n"], r["last_state"], r["open"]) for r in soft] == [
+        (1, "waiting", False),
+        (2, "measuring", True),
+    ]
+    assert by_name["vadd_f32"]["rounds"][0]["rule"] == 3
+    assert by_name["vadd_f32"]["rounds"][0]["pct_of_bound"] == pytest.approx(41.9 / 43.6)
+    assert by_name["gemm_bf16_256"]["active_task"] == {"type": "T1", "state": "leased"}
+
+
+def test_family_index_rows_carry_step_levels(api: Api) -> None:
+    gemm = next(f for f in pool.families(api, None) if f["name"] == "gemm_tiled")
+    assert [s["key"] for s in gemm["step_detail"]] == ["cta", "warp", "a_ld", "b_ld", "mma", "epi"]
+    assert gemm["step_detail"][4]["level_to"] == 5 and gemm["versions"] == 1

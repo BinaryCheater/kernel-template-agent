@@ -66,14 +66,32 @@ def _summary(api: Api, fid: str) -> dict[str, Any]:
     b = body(api, fid)
     chain = ref_one(api, fid, "chain")
     problem = ref_one(api, fid, "problem")
+    items = body(api, chain)["items"] if chain else []
+    steps = []
+    for it in items:
+        tid = _template(api, it["template"])
+        t = body(api, tid) if tid else {}
+        steps.append(
+            {
+                "key": it["key"],
+                "template": it["template"],
+                "level_from": t.get("level_from"),
+                "level_to": t.get("level_to"),
+                "assurance": (api.store.status(tid)[1] if tid else None) or "declared",
+            }
+        )
+    versions = [x for x in _ids(api, "Family") if body(api, x)["name"] == b["name"]]
     return {
         "id": fid,
         "name": b["name"],
         "version": b["version"],
         "backend": b["backend"],
         "problem": body(api, problem)["name"] if problem else "",
-        "steps": len(body(api, chain)["items"]) if chain else 0,
+        "steps": len(items),
         "solutions": len(incoming(api, fid, "family", "Solution")),
+        "step_detail": steps,
+        "versions": len(versions),
+        "updated_at": api.store.get_json(fid)["created_at"],
     }
 
 

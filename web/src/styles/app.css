@@ -212,3 +212,47 @@ table.hwgrid td b { display: block; font-size: 14px; }
 table.hwgrid td span { font-size: 10px; }
 .sample-banner.down { background: var(--st-fail-tint); color: #9b1f1f; border-bottom-color: #eeb1b1; }
 .missing { background: var(--st-fail-tint); color: #9b1f1f; border-radius: var(--radius); padding: var(--s2) var(--s4); }
+
+/* ---- overview v2: machine tabs + Now column ---- */
+.overview-main { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: var(--s4); align-items: start; }
+.machine-tabs { display: flex; align-items: flex-end; gap: 2px; padding: 8px 12px 0; border-bottom: 1px solid var(--hairline); }
+.machine-tabs button { border: 1px solid transparent; border-bottom: 0; background: none; padding: 7px 14px 8px; border-radius: 6px 6px 0 0; font-size: 14px; font-weight: 600; color: var(--ink-2); cursor: pointer; display: flex; gap: 8px; align-items: center; margin-bottom: -1px; }
+.machine-tabs button:hover { color: var(--ink); background: #f3f3ef; }
+.machine-tabs button.on { color: var(--ink); background: var(--panel); border-color: var(--hairline); box-shadow: inset 0 3px 0 var(--st-running); }
+.tab-count { background: var(--st-running-tint); color: #184f95; border-radius: 9px; padding: 0 7px; font-size: 11px; line-height: 18px; }
+.tab-hint { margin-left: auto; font-size: var(--fs-small); padding-bottom: 8px; }
+.machine-panel .machine-summary { max-width: none; margin-bottom: 4px; }
+.any-state { display: flex; gap: 12px; margin: 2px 0 6px; font-size: var(--fs-small); color: var(--ink-3); }
+.any-state .linkbtn { color: var(--ink-2); border-bottom: 1px dashed #a3a29b; }
+.now-panel > header { display: flex; align-items: baseline; gap: var(--s2); padding: var(--s3) var(--s3) 0; }
+.now-panel > header h2 { font-size: var(--fs-section); }
+.now-panel > header .sub { color: var(--ink-3); font-size: var(--fs-small); }
+.now-panel > header .right { margin-left: auto; font-size: var(--fs-small); }
+.now-panel .inbox-callout { margin-top: 0; }
+.slot.gpu { border-left-color: var(--k-measure); }
+.worker-line { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.pool-pills { display: flex; flex-wrap: wrap; gap: 4px; width: 100%; }
+.pool-pill { font-size: 11px; border: 1px solid var(--hairline); border-radius: 9px; padding: 0 7px; color: var(--ink-2); background: #fff; }
+.pool-pill.busy { border-color: #9ec5f4; background: var(--st-running-tint); color: #184f95; }
+.pool-pill b { color: #8a5a00; }
+
+/* ---- index pages ---- */
+table.t.index td { vertical-align: middle; padding-top: 9px; padding-bottom: 9px; }
+.round-dots { display: flex; gap: 4px; }
+.rd { width: 22px; height: 22px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; font-size: 10.5px; font-weight: 600; border: 1px solid transparent; }
+.legend .rd { width: 12px; height: 12px; border-radius: 3px; vertical-align: -2px; margin-right: 4px; }
+.rd.done { background: var(--st-ok-tint); color: #006300; border-color: #a9daa9; }
+.rd.task { background: var(--st-human-tint); color: #3d2fa0; border-color: #c4bdf3; }
+.rd.open { background: var(--st-running); color: #fff; }
+.rd.todo { border: 1px dashed #c3c2b7; }
+.spark { display: inline-flex; align-items: center; gap: 6px; }
+.spark-ref { stroke: #e1e0d9; stroke-dasharray: 2 2; }
+.spark-line { fill: none; stroke: var(--st-running); stroke-width: 1.5; }
+.spark-dot { fill: var(--st-running); stroke: #fff; stroke-width: 1; }
+.step-bars { display: flex; gap: 6px; align-items: flex-end; }
+.step-bar { display: flex; flex-direction: column; align-items: center; gap: 2px; width: 34px; }
+.step-col { position: relative; width: 14px; background: repeating-linear-gradient(to top, #f0efeb 0 5px, #fcfcfb 5px 6px); border-radius: 2px; }
+.step-col span { position: absolute; left: 0; right: 0; border-radius: 2px; }
+.step-key { font-size: 9.5px; color: var(--ink-3); max-width: 34px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.as-bar-declared { background: #c3c2b7; } .as-bar-tested { background: var(--st-running); }
+.as-bar-bounded { background: var(--st-ok); } .as-bar-proved { background: #006300; }

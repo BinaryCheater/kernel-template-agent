@@ -84,20 +84,30 @@ function edgeLabel(t: TransitionDef): string | undefined {
 
 function graphOf(m: MachineDef, taskTypes: TaskTypeDef[], size: { w: number; h: number }) {
   const nodes: LNode[] = [];
-  if (m.transitions.some((t) => t.from === "*")) nodes.push({ id: "__any", width: 76, height: 24 });
-  for (const s of orderedStates(m)) nodes.push({ id: s.id, width: s.kind === "terminal" ? size.w - 16 : size.w, height: size.h });
-  const edges = m.transitions.map((t, i) => ({ id: `e${i}`, source: t.from === "*" ? "__any" : t.from, target: t.to, label: edgeLabel(t), t }));
+  // "From any state" transitions are listed under the diagram (AnyState), not drawn: a node
+  // fed only by them would float unconnected.
+  const drawn = m.transitions.filter((t) => t.from !== "*");
+  const reached = new Set(drawn.flatMap((t) => [t.from, t.to]));
+  for (const s of orderedStates(m)) {
+    if (reached.has(s.id) || s.initial) nodes.push({ id: s.id, width: s.kind === "terminal" ? size.w - 16 : size.w, height: size.h });
+  }
+  const edges = m.transitions.flatMap((t, i) => (t.from === "*" ? [] : [{ id: `e${i}`, source: t.from, target: t.to, label: edgeLabel(t), t }]));
   const taskName = (id: string) => taskTypes.find((x) => x.id === id)?.name ?? id;
   return { nodes, edges, taskName };
 }
 
 /** Place a label at the edge's tail, beside its first segment (labels stay out of the elk layout). */
-function tailLabel(pts: { x: number; y: number }[], label?: string): { lx?: number; ly?: number } {
+function tailLabel(pts: { x: number; y: number }[], label?: string, t?: TransitionDef): { label?: string; lx?: number; ly?: number } {
   if (!label || pts.length < 2) return {};
   const [a, b] = pts;
-  const w = labelWidth(label);
-  if (a.y === b.y) return { lx: b.x >= a.x ? a.x + 3 : a.x - w - 3, ly: a.y - 16 };
-  return { lx: a.x + 4, ly: b.y > a.y ? a.y + 2 : a.y - 18 };
+  const room = Math.abs(b.x - a.x) + Math.abs(b.y - a.y);
+  // A label wider than its first segment would cover the next node: fall back to the rule glyph.
+  let text = label;
+  if (labelWidth(text) > room + 10 && t?.kind !== "creates_task") text = t?.rule ? RULE[t.rule] : "";
+  if (!text) return {};
+  const w = labelWidth(text);
+  if (a.y === b.y) return { label: text, lx: b.x >= a.x ? a.x + 3 : a.x - w - 3, ly: a.y - 16 };
+  return { label: text, lx: a.x + 4, ly: b.y > a.y ? a.y + 2 : a.y - 18 };
 }
 
 export interface StateMachineProps {
@@ -108,6 +118,8 @@ export interface StateMachineProps {
   onSelect?: (state: string | undefined) => void;
   direction?: "RIGHT" | "DOWN";
   nodeSize?: { w: number; h: number };
+  /** Never shrink below this zoom; a wider graph scrolls horizontally instead. */
+  minScale?: number;
   options?: Record<string, string>;
 }
 
@@ -129,15 +141,15 @@ function Diagram(p: StateMachineProps & { placed: Placed; g: ReturnType<typeof g
     return {
       id: e.id, source: e.source, target: e.target, type: "elk", selectable: false,
       markerEnd: { type: "arrowclosed" as const, width: 14, height: 14, color: kind === "creates_task" ? "#6250d6" : kind === "normal" ? "#6b6a65" : "#a3a29b" },
-      data: { points: pe?.points ?? [], label: e.label, title: edgeTitle(e.t, g.taskName), ...tailLabel(pe?.points ?? [], e.label), kind },
+      data: { points: pe?.points ?? [], title: edgeTitle(e.t, g.taskName), ...tailLabel(pe?.points ?? [], e.label, e.t), kind },
     };
   }), [g, placed]);
   useEffect(() => {
-    const id = requestAnimationFrame(() => fitView({ padding: 0.02 }));
+    const id = requestAnimationFrame(() => fitView({ padding: 0.02, maxZoom: 1 }));
     return () => cancelAnimationFrame(id);
   }, [placed, fitView]);
   return (
-    <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} edgeTypes={edgeTypes} fitView fitViewOptions={{ padding: 0.02 }}
+    <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} edgeTypes={edgeTypes} fitView fitViewOptions={{ padding: 0.02, maxZoom: 1 }}
       nodesDraggable={false} nodesConnectable={false} elementsSelectable={false} panOnDrag={false} zoomOnScroll={false}
       zoomOnPinch={false} zoomOnDoubleClick={false} preventScrolling={false} proOptions={{ hideAttribution: true }} minZoom={0.3}
       onNodeClick={(_, n) => n.type === "state" && p.onSelect?.(p.selected === n.id ? undefined : n.id)} />
@@ -162,14 +174,18 @@ export function StateMachine(p: StateMachineProps) {
     ro.observe(box.current);
     return () => ro.disconnect();
   }, []);
-  const height = placed ? Math.ceil(placed.height * Math.min(1, width / placed.width)) + 8 : 200;
+  const scale = placed ? Math.max(p.minScale ?? 0, Math.min(1, width / placed.width)) : 1;
+  const height = placed ? Math.ceil(placed.height * scale) + 8 : 200;
+  const inner = placed ? Math.max(width, Math.ceil(placed.width * scale) + 8) : width;
   return (
-    <div ref={box} className="sm-box" style={{ height }}>
-      {placed && (
-        <ReactFlowProvider>
-          <Diagram {...p} placed={placed} g={g} />
-        </ReactFlowProvider>
-      )}
+    <div ref={box} className="sm-scroll" style={{ height: height + (inner > width ? 12 : 0) }}>
+      <div className="sm-box" style={{ height, width: inner }}>
+        {placed && (
+          <ReactFlowProvider>
+            <Diagram {...p} placed={placed} g={g} />
+          </ReactFlowProvider>
+        )}
+      </div>
     </div>
   );
 }
