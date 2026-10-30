@@ -41,7 +41,6 @@ class HostConfig:
 class AgentsConfig:
     worker: str
     pool: str = "agent"
-    slots: int = 2  # concurrent agent slots (docs/design/11 §2); lanes agent:1..slots
     batch: str = ""  # default batch root of agent runs (kta agents env build, D322)
     agent_user: str | None = None
     token_key_file: str = "~/.config/kta/task-token.key"
@@ -72,6 +71,8 @@ def agents_config(ctx: Context) -> AgentsConfig:
     data = dict(ctx.config.section("agents"))
     if "worker" not in data:
         raise ConfigError("[agents] worker is not set: name the Executor worker that runs agents")
+    if "slots" in data:
+        raise ConfigError("[agents] slots moved to the controls knob budget.agent_instances (D483)")
     hosts = {str(k): _host(str(k), v) for k, v in dict(data.pop("hosts", {})).items()}
     known = set(AgentsConfig.__dataclass_fields__) - {"hosts"}
     unknown = set(data) - known

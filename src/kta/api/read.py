@@ -9,7 +9,7 @@ from typing import Any
 from fastapi import APIRouter, Query
 
 from kta.api import cases, opsread, pool, runs, trace
-from kta.api.common import Api, envelope, iso, machines
+from kta.api.common import Api, envelope, iso, machines_view
 from kta.core.errors import ConfigError
 from kta.core.ids import record_id
 
@@ -42,7 +42,7 @@ def router(api: Api) -> APIRouter:
 
     @r.get("/machines")
     def get_machines() -> dict[str, Any]:  # pyright: ignore[reportUnusedFunction]
-        return machines()
+        return machines_view(api)
 
     @r.get("/records/{id}")
     def get_record(id: str) -> dict[str, Any]:  # pyright: ignore[reportUnusedFunction]

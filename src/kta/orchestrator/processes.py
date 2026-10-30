@@ -17,7 +17,7 @@ from datetime import datetime, timedelta
 
 from kta.core.errors import ConfigError, NotSupported
 from kta.core.ids import UlidFactory
-from kta.orchestrator import control, quotas
+from kta.orchestrator import control, quotas, release
 from kta.orchestrator.budget import configure_scopes
 from kta.orchestrator.operations import reverify_suspects
 from kta.orchestrator.pipeline import Services
@@ -26,6 +26,7 @@ from kta.orchestrator.proc_experiment import experiment_tick
 from kta.orchestrator.proc_learn import learn_tick
 from kta.orchestrator.proc_summarize import summarize_tick
 from kta.orchestrator.runner import Runner
+from kta.store import controls as controls_store
 
 log = logging.getLogger("kta.orchestrator.processes")
 ALL = ("solve", "learn", "calibrate", "maintain", "experiment", "summarize")
@@ -113,8 +114,8 @@ def run(
     lease = int(max(60.0, 4 * (interval_s or 10.0)))
     if not svc.ops.acquire(lock, holder, lease):
         raise ConfigError(f"process {name} is already running (lock {lock})")
-    configure_scopes(svc.ops, svc.ctx.config)
-    quotas.apply_quotas(svc.ops, svc.ctx.config)  # WP11: experiment share when none runs
+    configure_scopes(svc.ops, svc.ctx.config, svc.ctx.controls)
+    quotas.apply_quotas(svc.ops, svc.ctx.controls)  # WP11: experiment share when none runs
     runner = Runner(svc, holder)
     pause = threading.Event()
     ticks = 0
@@ -123,7 +124,12 @@ def run(
             if stop_requested(svc, name, started):
                 break
             svc.ops.acquire(lock, holder, lease)
-            if control.paused_scope(svc.ops, [f"process:{name}", "global"]) is None:
+            snap = controls_store.ensure(svc.store, svc.ops, svc.ctx.clock.now())
+            if snap != runner.ctx.controls:  # a new controls version: the next tick uses it
+                runner = Runner(svc.with_controls(snap), holder)
+            if not release.process_allowed(snap, name):
+                rep = TickReport()  # outside the release stage (WP21): skip, keep the lock
+            elif control.paused_scope(svc.ops, [f"process:{name}", "global"]) is None:
                 rep = TICKS[name](runner)
             else:
                 rep = TickReport()  # paused (D364): skip the tick, keep the lock

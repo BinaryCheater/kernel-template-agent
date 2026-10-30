@@ -88,6 +88,7 @@ KINDS: dict[str, KindSpec] = {
     "Protocol": KindSpec(pr.Protocol),
     "ExperimentRun": KindSpec(pr.ExperimentRun),
     "Report": KindSpec(pr.Report, ref_kinds=_ENV),
+    "ControlsVersion": KindSpec(pr.ControlsVersion, ref_kinds={"previous": "ControlsVersion"}),
 }
 
 

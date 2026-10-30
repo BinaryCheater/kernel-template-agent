@@ -7,9 +7,13 @@ not evidence. Rules (spec/modules/agents.md "会话", docs/design/10 §4.2), in 
 1. no session yet, or the last one is closed → new;
 2. the adapter cannot resume → new;
 3. the last step ended abnormally (no session id, start failure, wall, idle, guard) → new;
-4. context above ``reset_context_ratio`` of the window (default 0.6) → new;
-5. the same done check failed twice in a row for the same reason → new ("fresh view");
-6. otherwise resume.
+4. ``resume_scope`` is ``never`` (X3's fresh arm) → new;
+5. context above ``reset_context_ratio`` of the window → new;
+6. the same done check failed ``same_failure_rule`` times in a row for the same reason
+   → new ("fresh view");
+7. otherwise resume.
+
+The policy values come from the controls registry (``kta.agents.policy.loop_policy``).
 
 A new session's prompt asks the worker to read NOTES.md first (message ``new_session``).
 """
@@ -25,7 +29,6 @@ from kta.store.base import Ops
 
 POINTER_PREFIX = "agent-session/"
 ABNORMAL_EXITS = frozenset({"start_failed", "wall", "idle", "gpu_guard", "refused", "infra"})
-DEFAULT_RESET_RATIO = 0.6
 SET_ATTEMPTS = 5
 
 
@@ -82,17 +85,17 @@ def decide(
         return Decision("start", "adapter cannot resume")
     if state.last_exit in ABNORMAL_EXITS:
         return Decision("start", f"last step ended abnormally ({state.last_exit})")
-    ratio = float(loop_policy.get("reset_context_ratio", DEFAULT_RESET_RATIO))
+    if loop_policy["resume_scope"] == "never":
+        return Decision("start", "resume scope is never: a fresh session every step")
+    ratio = float(loop_policy["reset_context_ratio"])
     if state.context_ratio is not None and state.context_ratio > ratio:
         return Decision(
             "start", f"context at {state.context_ratio:.0%} of the window (> {ratio:.0%})"
         )
-    if (
-        loop_policy.get("reset_on_repeat_failure", True)
-        and failure is not None
-        and state.failures[-1:] == [failure]
-    ):
-        return Decision("start", "same check failed twice for the same reason")
+    n = int(loop_policy["same_failure_rule"])
+    recent = state.failures[max(0, len(state.failures) - (n - 1)) :]
+    if failure is not None and recent == [failure] * (n - 1):
+        return Decision("start", f"same check failed {n} times in a row for the same reason")
     return Decision("resume", "continue the work unit's session")
 
 

@@ -11,6 +11,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import replace
 from typing import Any
 
+from kta.core.controls import Controls
 from kta.core.errors import ExecutionError, KtaError
 from kta.core.ids import UlidFactory
 from kta.core.schemas import Actor, Record
@@ -23,6 +24,7 @@ from kta.orchestrator.solve_work import knowledge_of
 from kta.orchestrator.step import step
 from kta.orchestrator.tasks import TaskQueue
 from kta.orchestrator.transition import Draft, Loop, Settings, Transition
+from kta.store import controls as controls_store
 
 log = logging.getLogger("kta.orchestrator")
 LOCK_S = 3600
@@ -50,7 +52,14 @@ class Runner:
         self.ctx = svc.ctx
         self.ids = UlidFactory(self.ctx.clock)
         self.queue = TaskQueue(self.ctx, svc.store, svc.ops, svc)
-        self.settings = Settings.from_config(self.ctx.config)
+
+    def controls(self) -> Controls:
+        """The controls version in force (WP21): read at each start and step."""
+        return controls_store.ensure(self.svc.store, self.svc.ops, self.ctx.clock.now())
+
+    @property
+    def settings(self) -> Settings:
+        return Settings.of(self.controls())
 
     # ---- instances --------------------------------------------------------------
 
@@ -88,14 +97,7 @@ class Runner:
         data["state_span"] = self._open_span(loop_id, kind, m.initial, 1, "started")
         self.svc.ops.put_loop(loop_id, kind, subject, m.initial, data)
         process = PROCESS_OF[kind]
-        budget.ensure_scope(
-            self.svc.ops,
-            f"loop:{loop_id}",
-            {
-                "agent_min": self.settings.max_rounds * self.settings.task_wall_s / 60.0,
-                "gpu_min": self.settings.max_rounds * self.settings.task_gpu_s / 60.0,
-            },
-        )
+        budget.ensure_scope(self.svc.ops, f"loop:{loop_id}", self.settings.loop_limit())
         log.info(
             "loop %s started for %s (%s)", loop_id, subject, process, extra={"loop_id": loop_id}
         )
@@ -131,26 +133,29 @@ class Runner:
             scopes = [f"loop:{loop_id}", f"process:{PROCESS_OF[loop.kind]}", "global"]
             if control.paused_scope(self.svc.ops, scopes) is not None:
                 return None  # D364: a paused scope stops new steps; the state is kept
-            facts = self._work(loop)
+            snap = self.controls()
+            svc = self.svc.with_controls(snap)
+            facts = self._work(loop, svc)
             if facts is None:
                 return None
-            t = step(replace(loop, facts=facts), self.ctx)
-            self.apply(loop, t)
+            t = step(replace(loop, facts=facts), svc.ctx)
+            # the version this step decided under goes with the loop's data (WP21)
+            self.apply(loop, replace(t, data={**t.data, "controls": snap.version_id}))
             return t
         finally:
             self.svc.ops.release(lock, self.holder)
 
-    def _work(self, loop: Loop) -> dict[str, Any] | None:
+    def _work(self, loop: Loop, svc: Services) -> dict[str, Any] | None:
         """The state's work; a failure blocks the instance (D264), infra errors retry."""
         fn = WORK[loop.kind].get(loop.state)
         if fn is None:
             return {}
         try:
-            return fn(self.svc, loop)
+            return fn(svc, loop)
         except ExecutionError as exc:
             if exc.kind in ("infra", "timeout"):
                 n = int(loop.data.get("infra_failures", 0)) + 1
-                if n < self.settings.infra_retries:
+                if n < Settings.of(svc.ctx.controls).infra_retries:
                     self._put(loop, loop.state, {"infra_failures": n})
                     log.warning("loop %s %s: infra error %d: %s", loop.id, loop.state, n, exc)
                     return None

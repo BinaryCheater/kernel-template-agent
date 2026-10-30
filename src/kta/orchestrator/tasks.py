@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from kta.core.context import Context
+from kta.core.controls import Controls
 from kta.core.errors import ConfigError, KtaError, PermissionDenied, SchemaError
 from kta.core.ids import UlidFactory
 from kta.core.schemas import Actor, Record, RefValue
@@ -26,6 +27,7 @@ from kta.orchestrator.machines import Machine, machine
 from kta.orchestrator.outputs import write_outputs
 from kta.orchestrator.pipeline import Services
 from kta.orchestrator.transition import Settings, TaskRequest
+from kta.store import controls as controls_store
 from kta.store.base import Store, Task
 from kta.store.sqlite_ops import SqliteOps
 
@@ -52,9 +54,16 @@ class TaskQueue:
     ) -> None:
         self.ctx, self.store, self.ops = ctx, store, ops
         self.svc = svc or Services(ctx, store, ops)  # one executor per process (D184)
-        self.settings = Settings.from_config(ctx.config)
         self.machine: Machine = machine("task")
         self.ids = UlidFactory(ctx.clock)
+
+    def controls(self) -> Controls:
+        """The controls version in force (stored on first use, WP21)."""
+        return controls_store.ensure(self.store, self.ops, self.ctx.clock.now())
+
+    @property
+    def settings(self) -> Settings:
+        return Settings.of(self.controls())
 
     # ---- bookkeeping ----------------------------------------------------------
 
@@ -107,7 +116,8 @@ class TaskQueue:
         Without a loop the task is its own work unit ``human:<id>`` (D278, D365). The card
         names the approved profile (pointer ``current_profile``), else ``unassigned``.
         """
-        s = self.settings
+        snap = self.controls()
+        s = Settings.of(snap)
         loop_id = loop_id or f"human:{self.ids.new()}"
         profile = self.ops.get_pointer(CURRENT_PROFILE) or UNASSIGNED_PROFILE
         body = TaskCard.model_validate(
@@ -116,12 +126,14 @@ class TaskQueue:
                 "goal": req.goal,
                 "inputs": list(req.inputs),
                 "done_checks": list(DONE_CHECKS[req.type]),
-                "budget": {"wall_s": s.task_wall_s, "gpu_s": s.task_gpu_s, "steps": s.task_steps},
+                "budget": s.card_budget(req.type),
                 "profile": profile,
                 "work_unit": loop_id,
             }
         )
         refs: dict[str, RefValue] = {"inputs": sorted(set(req.inputs))} if req.inputs else {}
+        if snap.version_id:
+            refs["controls"] = snap.version_id  # the version the card's budget came from
         actor = human or Actor(type="system", name=f"kta.orchestrator ({process})")
         card_id = self.store.put(Record.new("TaskCard", body, actor, self.ctx.clock.now(), refs))
         task_id = self.ops.enqueue(card_id, priority, loop_id)

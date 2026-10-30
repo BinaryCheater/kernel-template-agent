@@ -14,8 +14,10 @@ import yaml
 from kta.api.wiring import Orchestration, Unwired
 from kta.core.config import Config
 from kta.core.context import Context
+from kta.core.controls import Controls, definitions
 from kta.core.errors import ConfigError
 from kta.store import SqliteOps, SqliteStore
+from kta.store import controls as controls_store
 
 
 @dataclass(frozen=True)
@@ -62,11 +64,38 @@ def machines() -> dict[str, Any]:
     return data  # pyright: ignore[reportUnknownVariableType]
 
 
-def machine_limit(machine: str, key: str, default: int) -> int:
+def controls(api: Api) -> Controls:
+    """The controls version in force (read only: nothing is written by a GET)."""
+    return controls_store.current(api.store, api.ops)
+
+
+def _limit(c: Controls, raw: Any) -> Any:
+    # machines.yaml names controls knobs for its numeric limits (WP21): show the value in force
+    return c.value(raw) if isinstance(raw, str) and raw in definitions().ids() else raw
+
+
+def machines_view(api: Api) -> dict[str, Any]:
+    """machines.yaml with each limit that names a controls knob replaced by its value;
+    ``limit_controls`` keeps the knob names."""
+    c = controls(api)
+    out = dict(machines())
+    resolved: list[dict[str, Any]] = []
+    for m in out["machines"]:
+        limits: dict[str, Any] = dict(m.get("limits") or {})
+        named = {k: v for k, v in limits.items() if isinstance(v, str) and v in definitions().ids()}
+        resolved.append(
+            {**m, "limits": {k: _limit(c, v) for k, v in limits.items()}, "limit_controls": named}
+        )
+    out["machines"] = resolved
+    return out
+
+
+def machine_limit(api: Api, machine: str, key: str) -> int | None:
     for m in machines()["machines"]:
         if m["id"] == machine:
-            return int(m.get("limits", {}).get(key, default))
-    return default
+            raw = m.get("limits", {}).get(key)
+            return None if raw is None else int(_limit(controls(api), raw))
+    return None
 
 
 def envelope(api: Api, id: str) -> dict[str, Any]:

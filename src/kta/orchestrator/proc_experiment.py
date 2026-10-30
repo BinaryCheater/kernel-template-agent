@@ -283,6 +283,6 @@ def experiment_tick(runner: Runner) -> ProcReport:
         if get_state(svc.ops, f"experiment:{pid}").get("status") == "running":
             running.append(pid)
     if quotas.set_active_experiments(svc.ops, running):
-        shares = quotas.apply_quotas(svc.ops, runner.ctx.config)
+        shares = quotas.apply_quotas(svc.ops, runner.controls())
         rep.add("quotas", *(f"{k}={v:.3f}" for k, v in sorted(shares.items())))
     return rep

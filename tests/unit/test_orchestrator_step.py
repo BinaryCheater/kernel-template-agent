@@ -153,7 +153,7 @@ def test_judging_rule_4_unexplained_creates_t1_without_reference(ctx: Context) -
 def test_judging_thresholds_come_from_config(ctx: Context) -> None:
     lp = judging(bucket(reference_us=None, predicted_us=8.0))  # explains 50% of the gap
     assert step(lp, ctx).rule == 4
-    assert step(lp, ctx_with(ctx, explained_min=0.4)).rule == 3
+    assert step(lp, ctx_with(ctx, {"judging.explained_min": 0.4})).rule == 3
 
 
 def test_judgement_report_has_the_api_fields(ctx: Context) -> None:
@@ -204,7 +204,7 @@ def test_round_limit_escalates_instead_of_resuming(ctx: Context) -> None:
     lp = loop("solve", "waiting", {"tasks": {"T": "accepted"}}, waiting_on="T", round=5)
     t = step(lp, ctx)
     assert t.to is None and t.data["escalated"] is True
-    assert step(lp, ctx_with(ctx, max_rounds=6)).to == "retrieving"
+    assert step(lp, ctx_with(ctx, {"budget.rounds_per_case_loop": 6})).to == "retrieving"
 
 
 def test_expand_creates_one_t3_per_template_to_extract(ctx: Context) -> None:

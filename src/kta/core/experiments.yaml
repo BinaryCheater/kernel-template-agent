@@ -1,0 +1,101 @@
+# System-parameter experiments X1–X9 (docs/design/02-design-notes.md §11, D-T28; WP21, D484).
+#
+# Definitions only: none has run. Each names the controls-registry knobs it sets (`sets`, ids in
+# controls.yaml) and, where the value lives in the AgentProfile instead, the profile fields
+# (`profile_fields`). A knob's `set_by` and an experiment's `sets` must agree (checked on load).
+# When an experiment runs, it becomes a frozen Protocol record (docs/design/50) and the value it
+# chooses is written as a new controls version whose reason names the ExperimentRun; the knob's
+# status then becomes `set`.
+
+format: 1
+
+experiments:
+  - id: X1
+    question: which model per task type
+    design: strong vs weak model on the same T1/T2/T3 tasks, same cards and budgets
+    arms: [strong model, weak model]
+    metrics: [admitted results per agent-hour, rejection rate, wall time per task type]
+    sets: [budget.task_wall_s, budget.gpu_s, budget.tool_call_steps]
+    profile_fields: [model]
+    depends_on: [S1 or S2 runs of T1/T2/T3]
+    status: defined
+
+  - id: X2
+    question: reasoning effort
+    design: two effort levels on the same tasks
+    arms: [effort low/medium, effort high]
+    metrics: [admitted results per agent-hour, rejection rate, tokens]
+    sets: []
+    profile_fields: [reasoning_effort]
+    depends_on: [X1]
+    status: defined
+
+  - id: X3
+    question: resume vs fresh session
+    design: O11 — two arms on the same work units
+    arms: [resume within work unit, fresh session every step]
+    metrics: [tokens, latency, outcome, rounds stuck]
+    sets: [session.resume_scope]
+    profile_fields: []
+    depends_on: [O11]
+    status: defined
+
+  - id: X4
+    question: access discipline vs dump vs free browsing
+    design: O10 — three arms; row ablation of the discipline table
+    arms: [access discipline, dump everything, free browsing]
+    metrics: [pulls per task, admitted results, tokens, missed relevant cards]
+    sets: [session.access_discipline_version]
+    profile_fields: []
+    depends_on: [O10, WP19 pull log]
+    status: defined
+
+  - id: X5
+    question: retries on rejected tasks
+    design: 2 vs 3 retries on rejected tasks
+    arms: [2 retries, 3 retries]
+    metrics: [marginal acceptance of the extra retry, agent-hours per acceptance]
+    sets: [budget.retries_per_task]
+    profile_fields: []
+    depends_on: [S2 runs]
+    status: defined
+
+  - id: X6
+    question: improvement band
+    design: measured noise of the measurement protocol per kernel class (repeated measurements of fixed kernels)
+    arms: [per kernel class]
+    metrics: [CI of the median, run-to-run spread]
+    sets: [guard.improvement_band]
+    profile_fields: []
+    depends_on: [S0 golden path]
+    status: defined
+
+  - id: X7
+    question: L2 reproduction tolerance ε
+    design: distribution of reproduction error over the 7 decomposed references
+    arms: [one per reference]
+    metrics: [relative reproduction error per reference and step]
+    sets: [learning.reproduction_epsilon]
+    profile_fields: []
+    depends_on: [L2 reproduction runs (01 §6 run 3)]
+    status: defined
+
+  - id: X8
+    question: measured points k and exploration share
+    design: vary k and the exploration share on a fixed case set
+    arms: ["k in {4, 8, 16} x exploration share in {0, 2/8, 4/8}"]
+    metrics: [rank correlation, hit rate of the best candidate]
+    sets: [guard.exploration_share, solve.shortlist]
+    profile_fields: []
+    depends_on: [S2 runs]
+    status: defined
+
+  - id: X9
+    question: task wall-clock budgets
+    design: completion-time distribution per task type from S1/S2 runs
+    arms: [per task type]
+    metrics: [completion time quantiles, share cut off by the budget]
+    sets: [budget.task_wall_s]
+    profile_fields: []
+    depends_on: [S1, S2 runs]
+    status: defined

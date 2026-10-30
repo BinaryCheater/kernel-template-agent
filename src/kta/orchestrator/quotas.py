@@ -3,10 +3,11 @@
 ``budget.py`` reserves and settles along ``task < loop < process < global``. This module
 keeps the upper two levels right while processes run:
 
-- **Quotas.** Process shares default to 11 §3.1 (``budget.QUOTAS``); ``[budget.quotas]``
-  overrides them. While no experiment batch runs, the experiment share is handed to the
-  other processes in proportion to their shares (11 §3.1); ``apply_quotas`` rewrites the
-  process limits from the global limit whenever that changes (D401).
+- **Quotas.** Process shares are the controls knob ``budget.process_quotas`` (defaults of
+  11 §3.1; changed through a controls version, WP21). While no experiment batch runs, the
+  experiment share is handed to the other processes in proportion to their shares
+  (11 §3.1); ``apply_quotas`` rewrites the process limits from the global limit
+  whenever that changes (D401).
 - **Periods.** ``[budget] period = "day" | "week"`` makes the global budget periodic: at a
   period change ``roll_period`` writes a Report (title ``budget_period``) with each
   scope's final use, then books the negative of that use so the period starts at zero.
@@ -24,10 +25,11 @@ from datetime import datetime
 from typing import Any
 
 from kta.core.config import Config
+from kta.core.controls import Controls, definitions
 from kta.core.errors import ConfigError
 from kta.core.schemas import Actor, Record
 from kta.core.schemas.process import Report
-from kta.orchestrator.budget import QUOTAS, has_scope
+from kta.orchestrator.budget import has_scope
 from kta.store.base import Store, Task
 from kta.store.sqlite_ops import SqliteOps
 
@@ -37,15 +39,9 @@ PERIOD = "budget:period"
 ACTOR = Actor(type="system", name="kta.orchestrator.quotas")
 
 
-def shares(config: Config) -> dict[str, float]:
-    """Configured process shares (defaults of 11 §3.1); they must sum to at most 1."""
-    raw = config.section("budget").get("quotas", {})
-    if not isinstance(raw, Mapping):
-        raise ConfigError("[budget.quotas] must be a table of process -> share")
-    out = {**QUOTAS, **{str(k): float(v) for k, v in raw.items()}}  # pyright: ignore[reportUnknownVariableType, reportUnknownArgumentType]
-    if any(v < 0 for v in out.values()) or sum(out.values()) > 1.0 + 1e-9:
-        raise ConfigError(f"process quotas must be >= 0 and sum to <= 1: {out}")
-    return out
+def shares(controls: Controls) -> dict[str, float]:
+    """Process shares in the controls (the registry validates >= 0 and a sum <= 1)."""
+    return controls.process_quotas
 
 
 def effective(base: Mapping[str, float], experiment_running: bool) -> dict[str, float]:
@@ -79,9 +75,9 @@ def set_active_experiments(ops: SqliteOps, protocols: Sequence[str]) -> bool:
     return True
 
 
-def apply_quotas(ops: SqliteOps, config: Config) -> dict[str, float]:
+def apply_quotas(ops: SqliteOps, controls: Controls) -> dict[str, float]:
     """Process limits = global limit x effective share; no-op without a global limit."""
-    in_force = effective(shares(config), bool(active_experiments(ops)))
+    in_force = effective(shares(controls), bool(active_experiments(ops)))
     if not has_scope(ops, "global"):
         return in_force
     limit = ops.budget("global")["limit"]
@@ -114,7 +110,8 @@ def roll_period(store: Store, ops: SqliteOps, config: Config, now: datetime) -> 
         return None  # another process rolled it
     if old is None:
         return None  # first period: nothing to close
-    scopes = ["global", *(f"process:{p}" for p in shares(config))]
+    processes = definitions().knob("budget.process_quotas").fields
+    scopes = ["global", *(f"process:{p}" for p in processes)]
     usage: dict[str, Any] = {}
     for scope in scopes:
         if not has_scope(ops, scope):
@@ -132,10 +129,10 @@ def roll_period(store: Store, ops: SqliteOps, config: Config, now: datetime) -> 
 
 
 def order_queued(
-    tasks: Sequence[Task], process_of: Callable[[Task], str], ops: SqliteOps, config: Config
+    tasks: Sequence[Task], process_of: Callable[[Task], str], ops: SqliteOps, controls: Controls
 ) -> list[Task]:
     """Queued tasks in the order the agent pool should try them (11 §4.2)."""
-    in_force = effective(shares(config), bool(active_experiments(ops)))
+    in_force = effective(shares(controls), bool(active_experiments(ops)))
 
     def load(process: str) -> float:
         share = in_force.get(process, 0.0)

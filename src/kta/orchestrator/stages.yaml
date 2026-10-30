@@ -1,0 +1,60 @@
+# Staged release S0–S4 (docs/design/02-design-notes.md §6.3, D-T22; WP21, D485).
+#
+# The stage in force is the controls knob `release.stage` (changed by a controls version with an
+# author and a reason, never here). Each stage says which processes tick, which task types an
+# agent may take, and how agent calls run:
+#   none       no agent call: tasks may be created and stay queued (held), visible in the UI
+#   gated      one call at a time; each call (task attempt) waits until you release it after
+#              reading its card, pull log and plan (POST /release/{task})
+#   automatic  calls run as the agent pool schedules them (budget.agent_instances)
+# `exit` lists the criteria for leaving the stage; they are shown in the UI and judged by you.
+# The `maintain` process always runs: it only returns lost leases and prunes spans.
+
+format: 1
+
+stages:
+  - id: S0
+    name: deterministic
+    runs: golden path (GEMM on GB10), no agent
+    processes: [solve, calibrate, maintain]
+    task_types: []
+    agent_calls: none
+    exit:
+      - numbers match the references
+      - every record is inspectable
+
+  - id: S1
+    name: hand-stepped
+    runs: one task type on one case; you read card, pull log and plan before each step
+    processes: [solve, calibrate, maintain]
+    task_types: [T1, T2, T3, T4, T5, T6]
+    agent_calls: gated
+    exit:
+      - you can predict the agent from its card and the access discipline
+
+  - id: S2
+    name: one case loop
+    runs: a handful of cases
+    processes: [solve, calibrate, maintain]
+    task_types: [T1, T4, T5, T6]
+    agent_calls: automatic
+    exit:
+      - the router is correct on injected faults
+      - no surprises in pull logs
+
+  - id: S3
+    name: knowledge loop
+    runs: learning and calibration on a batch
+    processes: [solve, learn, calibrate, maintain, summarize]
+    task_types: [T1, T2, T3, T4, T5, T6]
+    agent_calls: automatic
+    exit:
+      - promotions and invalidations behave as 02 §2 says
+
+  - id: S4
+    name: open
+    runs: all loops, protocol
+    processes: [solve, learn, calibrate, maintain, experiment, summarize]
+    task_types: [T1, T2, T3, T4, T5, T6]
+    agent_calls: automatic
+    exit: []

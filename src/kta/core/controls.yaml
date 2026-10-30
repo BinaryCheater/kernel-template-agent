@@ -1,0 +1,890 @@
+# The controls registry (docs/design/12-agent-controls.md, WP21, D480).
+#
+# One row per knob. This file holds the *definitions* and each knob's initial value; the values
+# in force are the newest ControlsVersion record (kta.store.controls). Changing a value is a new
+# version (settings page, `POST /controls`), never an edit of `value` here: `value` only seeds
+# version 1 and knobs added later. Adding a knob = one row here + one typed accessor on
+# kta.core.controls.Controls (spec/modules/core-store.md "Controls registry").
+#
+# Fields
+#   id         stable key <group>.<name>; versions store values under it
+#   row        the "Knob" cell of 12, verbatim (the gate matches rows of 12 against it)
+#   section    where the row is in 12
+#   controls   what it governs; prevents: the failure it exists to prevent
+#   type       int | float | bool | str | enum (choices) | per_task_type (T1..T6 -> number)
+#              | mapping (fields: name -> int|float|bool|str|list_str) | list_str
+#   where      profile | orch | protocol | ui | gate | knowledge (12 "where")
+#   status     spec (from a spec/design document, `source`) | default (no evidence yet) | set
+#              (set by an experiment run: `set_by` names the X experiment, `set_run` the run)
+#   set_by     X experiments of 02 §11 that set it; [] = none planned (the value stands as is)
+#   editable   false for invariants enforced in code: shown, never written by the settings page
+#   accessor   the typed property on Controls
+#   consumer   where code reads it today; "pending WP<n>" when the mechanism is not built yet
+
+format: 1
+
+task_types: [T1, T2, T3, T4, T5, T6]
+
+knobs:
+  # ---- 12 §1 Budget and rounds -------------------------------------------------------------
+  - id: budget.rounds_per_case_loop
+    row: rounds per case loop
+    section: "12 §1"
+    controls: iterations of the case loop before escalation to the user
+    type: int
+    value: 5
+    min: 1
+    unit: rounds
+    prevents: endless polishing of one case
+    where: [orch, ui]
+    status: spec
+    source: "10 §2.1"
+    set_by: []
+    editable: true
+    accessor: rounds_per_case_loop
+    consumer: orchestrator Settings.max_rounds (solve and expand round limit)
+
+  - id: budget.retries_per_task
+    row: retries per task
+    section: "12 §1"
+    controls: re-queues after rejection before escalation
+    type: int
+    value: 2
+    min: 0
+    unit: retries
+    prevents: repeating the same failed attempt
+    where: [orch, ui]
+    status: spec
+    source: "10 §3.2"
+    set_by: [X5]
+    editable: true
+    accessor: retries_per_task
+    consumer: orchestrator Settings.max_retries (TaskQueue reject -> escalate)
+
+  - id: budget.task_wall_s
+    row: task wall-clock budget
+    section: "12 §1"
+    controls: model time + tool time per task, by type
+    type: per_task_type
+    value: {T1: 3600, T2: 5400, T3: 1800, T4: 2700, T5: 1800, T6: 1800}
+    min: 60
+    unit: s
+    prevents: runaway sessions
+    where: [profile, ui]
+    status: default
+    source: "12 §1"
+    set_by: [X1, X9]
+    editable: true
+    accessor: task_wall_s
+    consumer: TaskCard budget.wall_s at task creation; agent step wall limit
+
+  - id: budget.hard_cap_factor
+    row: hard wall-clock cap
+    section: "12 §1"
+    controls: total elapsed time including queueing, as a multiple of the task budget
+    type: float
+    value: 3.0
+    min: 1.0
+    unit: x task budget
+    prevents: hanging on a long GPU queue
+    where: [orch]
+    status: spec
+    source: "11 §3.3"
+    set_by: []
+    editable: true
+    accessor: hard_cap_factor
+    consumer: agent step Executor timeout and task token lifetime
+
+  - id: budget.no_response_timeout_s
+    row: no-response timeout
+    section: "12 §1"
+    controls: CLI output and session file unchanged
+    type: int
+    value: 600
+    min: 30
+    unit: s
+    prevents: stuck process
+    where: [orch]
+    status: spec
+    source: "10 §4.8"
+    set_by: []
+    editable: true
+    accessor: no_response_timeout_s
+    consumer: agent step idle limit
+
+  - id: budget.lease_s
+    row: lease
+    section: "12 §1"
+    controls: task lease, renewed while running (every lease_s / 6)
+    type: int
+    value: 1800
+    min: 60
+    unit: s
+    prevents: orphaned tasks after a crash
+    where: [orch]
+    status: spec
+    source: "10 §4.3"
+    set_by: []
+    editable: true
+    accessor: lease_s
+    consumer: TaskQueue lease, agent runner renewal
+
+  - id: budget.gpu_s
+    row: GPU seconds per task / per case
+    section: "12 §1"
+    controls: executor-accounted GPU time per task by type; the case cap is case_factor x the task cap
+    type: mapping
+    fields: {T1: float, T2: float, T3: float, T4: float, T5: float, T6: float, case_factor: float}
+    value: {T1: 600.0, T2: 600.0, T3: 600.0, T4: 600.0, T5: 600.0, T6: 600.0, case_factor: 10.0}
+    min: 0
+    unit: s
+    prevents: measuring instead of thinking
+    where: [profile, orch, ui]
+    status: default
+    source: "12 §1"
+    set_by: [X1]
+    editable: true
+    accessor: gpu_s
+    consumer: TaskCard budget.gpu_s; loop budget scope gpu_min
+
+  - id: budget.tool_call_steps
+    row: tool-call steps per task
+    section: "12 §1"
+    controls: number of kta invocations
+    type: int
+    value: 200
+    min: 1
+    unit: steps
+    prevents: thrashing
+    where: [profile]
+    status: default
+    source: "12 §1"
+    set_by: [X1]
+    editable: true
+    accessor: tool_call_steps
+    consumer: TaskCard budget.steps
+
+  - id: budget.reminder_fraction
+    row: budget reminder
+    section: "12 §1"
+    controls: increment message to the agent at this fraction of any budget
+    type: float
+    value: 0.8
+    min: 0.0
+    max: 1.0
+    unit: fraction
+    prevents: surprise cut-off
+    where: [profile]
+    status: spec
+    source: "10 §4.10"
+    set_by: []
+    editable: true
+    accessor: reminder_fraction
+    consumer: pending WP18 (agent budget message); the inbox warning is inbox.budget_warn
+
+  - id: budget.process_quotas
+    row: process quotas
+    section: "12 §1"
+    controls: share of the global budget per process
+    type: mapping
+    fields: {experiment: float, solve: float, learn: float, calibrate: float, maintain: float}
+    value: {experiment: 0.5, solve: 0.25, learn: 0.15, calibrate: 0.05, maintain: 0.05}
+    min: 0.0
+    max: 1.0
+    sum_max: 1.0
+    unit: share
+    prevents: one process starving the others
+    where: [orch, ui]
+    status: spec
+    source: "11 §3.1"
+    set_by: []
+    editable: true
+    accessor: process_quotas
+    consumer: kta.orchestrator.quotas (process limits, fair turns)
+
+  - id: budget.agent_instances
+    row: agent instances
+    section: "12 §1"
+    controls: concurrent agent sessions (start, max)
+    type: mapping
+    fields: {start: int, max: int}
+    value: {start: 2, max: 4}
+    min: 1
+    unit: sessions
+    prevents: GPU queueing, rate limits
+    where: [orch, ui]
+    status: spec
+    source: "10 §4.5"
+    set_by: []
+    editable: true
+    accessor: agent_instances
+    consumer: agent slots (lanes agent:1..start); runner refuses slot > max
+
+  - id: budget.user_attention_cap
+    row: user attention cap
+    section: "12 §1"
+    controls: pending items at once; review queue shows the first n
+    type: mapping
+    fields: {pending: int, review_shown: int}
+    value: {pending: 10, review_shown: 5}
+    min: 0
+    unit: items
+    prevents: problems piling up unseen
+    where: [orch, ui]
+    status: spec
+    source: "11 §2, 01 §12"
+    set_by: []
+    editable: true
+    accessor: user_attention_cap
+    consumer: runner defers task creation at the cap; inbox
+
+  # ---- 12 §2 Session and context ------------------------------------------------------------
+  - id: session.fresh_session_threshold
+    row: fresh-session threshold
+    section: "12 §2"
+    controls: context used before the session is replaced, as a fraction of the model window
+    type: float
+    value: 0.6
+    min: 0.05
+    max: 1.0
+    unit: fraction
+    prevents: degraded reasoning in a full window
+    where: [profile]
+    status: spec
+    source: "10 §4.2"
+    set_by: []
+    editable: true
+    accessor: fresh_session_threshold
+    consumer: kta.agents.sessions.decide
+
+  - id: session.same_failure_rule
+    row: same-failure rule
+    section: "12 §2"
+    controls: fresh session after the same check fails for the same reason this many times
+    type: int
+    value: 2
+    min: 1
+    unit: times
+    prevents: digging in on one line of thought
+    where: [profile]
+    status: spec
+    source: "10 §4.2"
+    set_by: []
+    editable: true
+    accessor: same_failure_rule
+    consumer: kta.agents.sessions.decide
+
+  - id: session.resume_scope
+    row: resume scope
+    section: "12 §2"
+    controls: sessions resumed within a work unit, never across
+    type: enum
+    choices: [work_unit, never]
+    value: work_unit
+    prevents: context pollution across unrelated work
+    where: [orch]
+    status: spec
+    source: "10 §4.2; O11 tests resume vs fresh"
+    set_by: [X3]
+    editable: true
+    accessor: resume_scope
+    consumer: kta.agents.sessions.decide (never = always a fresh session)
+
+  - id: session.step_header_size
+    row: step-header size
+    section: "12 §2"
+    controls: cards in the task header, lines per card, header length (one page)
+    type: mapping
+    fields: {cards: int, card_lines: int, header_max_chars: int}
+    value: {cards: 5, card_lines: 5, header_max_chars: 6000}
+    min: 1
+    unit: cards / lines / chars
+    prevents: burying what matters
+    where: [profile]
+    status: spec
+    source: "10 §4.10, 22 §5"
+    set_by: []
+    editable: true
+    accessor: step_header_size
+    consumer: kta.agents.cards.step_header
+
+  - id: session.tool_output_truncation
+    row: tool-output truncation
+    section: "12 §2"
+    controls: summary length of compile logs, ncu, checks (summary + ID; --full on request)
+    type: int
+    value: 4000
+    min: 200
+    unit: chars
+    prevents: token waste
+    where: [profile]
+    status: spec
+    source: "10 §4.4"
+    set_by: []
+    editable: true
+    accessor: tool_output_truncation
+    consumer: workspace context policy (tool_output_max_chars)
+
+  - id: session.access_discipline_version
+    row: access discipline version
+    section: "12 §2"
+    controls: which situation -> fetch -> decide table the worker follows
+    type: str
+    value: v1
+    prevents: ad-hoc browsing
+    where: [profile]
+    status: default
+    source: "01 §7.1"
+    set_by: [X4]
+    editable: true
+    accessor: access_discipline_version
+    consumer: pending WP19 (the versioned access-discipline table)
+
+  - id: session.notes_required_sections
+    row: "`NOTES.md` required sections"
+    section: "12 §2"
+    controls: sections NOTES.md must have
+    type: list_str
+    value: [goal, done, tried-and-failed, why, next]
+    prevents: forgetting failed attempts across sessions
+    where: [profile, gate]
+    status: spec
+    source: "10 §4.2"
+    set_by: []
+    editable: true
+    accessor: notes_required_sections
+    consumer: agent compliance (NOTES.md required when non-empty)
+
+  # ---- 12 §3 Against digging in, slacking and gaming -------------------------------------------
+  - id: guard.improvement_band
+    row: improvement band
+    section: "12 §3"
+    controls: minimum gain that counts = max(measurement CI, rel_of_t x T)
+    type: mapping
+    fields: {use_measurement_ci: bool, rel_of_t: float}
+    value: {use_measurement_ci: true, rel_of_t: 0.05}
+    min: 0.0
+    prevents: crediting noise
+    where: [orch, ui]
+    status: default
+    source: "01 §9.4"
+    set_by: [X6]
+    editable: true
+    accessor: improvement_band
+    consumer: pending WP18 (loop disciplines)
+
+  - id: guard.mechanism_attribution
+    row: mechanism attribution
+    section: "12 §3"
+    controls: a credited gain must name a template step, opened variable or model term
+    type: bool
+    value: true
+    prevents: unexplained tweaks presented as progress
+    where: [orch]
+    status: default
+    source: "01 §9.4"
+    set_by: []
+    editable: true
+    accessor: mechanism_attribution
+    consumer: pending WP18
+
+  - id: guard.null_round_limit
+    row: null-round limit
+    section: "12 §3"
+    controls: rounds that add nothing and gain below the band before the case closes
+    type: int
+    value: 2
+    min: 1
+    unit: rounds
+    prevents: polishing instead of explaining
+    where: [orch, ui]
+    status: default
+    source: "01 §9.4"
+    set_by: []
+    editable: true
+    accessor: null_round_limit
+    consumer: pending WP18
+
+  - id: guard.one_mechanism_per_round
+    row: one mechanism per round
+    section: "12 §3"
+    controls: changes per iteration (coupled groups excepted)
+    type: int
+    value: 1
+    min: 1
+    unit: mechanisms
+    prevents: unattributable progress
+    where: [orch]
+    status: default
+    source: "01 §9"
+    set_by: []
+    editable: true
+    accessor: one_mechanism_per_round
+    consumer: pending WP18
+
+  - id: guard.exploration_share
+    row: exploration share
+    section: "12 §3"
+    controls: measured points per round (k) and how many of them are chosen for information
+    type: mapping
+    fields: {exploration_points: int, measured_points: int}
+    value: {exploration_points: 2, measured_points: 8}
+    min: 0
+    unit: points
+    prevents: the model only tested where it already believes
+    where: [orch, ui]
+    status: default
+    source: "01 §9"
+    set_by: [X8]
+    editable: true
+    accessor: exploration_share
+    consumer: orchestrator Settings.top_k = measured_points; exploration pending WP18
+
+  - id: guard.duplicate_proposal_rejection
+    row: duplicate-proposal rejection
+    section: "12 §3"
+    controls: a resubmission identical (by hash) to a rejected one is rejected without an agent run
+    type: bool
+    value: true
+    prevents: retrying the same thing
+    where: [orch]
+    status: default
+    source: "12 §3"
+    set_by: []
+    editable: true
+    accessor: duplicate_proposal_rejection
+    consumer: pending WP18
+
+  - id: guard.completion_checks_fixed
+    row: completion checks fixed
+    section: "12 §3"
+    controls: the agent cannot alter its task's checks (immutable task card)
+    type: bool
+    value: true
+    prevents: redefining success
+    where: [orch]
+    status: spec
+    source: "10 §3.3"
+    set_by: []
+    editable: false
+    accessor: completion_checks_fixed
+    consumer: invariant (TaskCard records are immutable)
+
+  - id: guard.hidden_shapes_and_seeds
+    row: hidden shapes and seeds
+    section: "12 §3"
+    controls: not visible to the agent; the checker returns verdicts and failing samples only
+    type: bool
+    value: true
+    prevents: overfitting to the test
+    where: [orch]
+    status: spec
+    source: "10 §4.7"
+    set_by: []
+    editable: false
+    accessor: hidden_shapes_and_seeds
+    consumer: invariant (kta.checks.hidden)
+
+  - id: guard.evidence_write_ban
+    row: evidence write ban
+    section: "12 §3"
+    controls: the agent cannot write measurements, checks or records (enforced by user permissions)
+    type: bool
+    value: true
+    prevents: fabricated results
+    where: [orch]
+    status: spec
+    source: "10 §4.7"
+    set_by: []
+    editable: false
+    accessor: evidence_write_ban
+    consumer: invariant (task-token write endpoint, agent user isolation)
+
+  - id: guard.fixture_declaration
+    row: fixture declaration
+    section: "12 §3"
+    controls: any simplification must be declared; the gate scans for stubs, fixed returns, skipped tests
+    type: bool
+    value: true
+    prevents: silent fallback presented as done
+    where: [gate]
+    status: spec
+    source: "60 §4"
+    set_by: []
+    editable: false
+    accessor: fixture_declaration
+    consumer: invariant (scripts/gate)
+
+  - id: guard.structural_dedupe
+    row: structural dedupe
+    section: "12 §3"
+    controls: new templates are deduplicated by structural signature
+    type: bool
+    value: true
+    prevents: farming variants of one idea
+    where: [knowledge]
+    status: spec
+    source: "22 §5"
+    set_by: []
+    editable: false
+    accessor: structural_dedupe
+    consumer: invariant (knowledge admission)
+
+  - id: guard.evidence_citation_in_plans
+    row: evidence citation in plans
+    section: "12 §3"
+    controls: every non-default FormulationPlan decision cites a structure and evidence
+    type: bool
+    value: true
+    prevents: unjustified fixing or decomposing
+    where: [orch]
+    status: default
+    source: "01 §7.1"
+    set_by: []
+    editable: true
+    accessor: evidence_citation_in_plans
+    consumer: pending WP19
+
+  - id: guard.selection_controls
+    row: selection controls
+    section: "12 §3"
+    controls: model top-k vs copied assignment vs random k recorded per solve
+    type: bool
+    value: true
+    prevents: a solver that adds nothing going unnoticed
+    where: [orch]
+    status: default
+    source: "01 §11 E4"
+    set_by: []
+    editable: true
+    accessor: selection_controls
+    consumer: pending WP18
+
+  - id: guard.canary_rate
+    row: canary rate
+    section: "12 §3"
+    controls: planted faults the checks must catch, per batch, rotating kinds
+    type: mapping
+    fields: {per_batch: int, rotate_kinds: bool}
+    value: {per_batch: 1, rotate_kinds: true}
+    min: 0
+    prevents: empty checks
+    where: [protocol, ui]
+    status: default
+    source: "01 §12"
+    set_by: []
+    editable: true
+    accessor: canary_rate
+    consumer: pending WP18 (canaries)
+
+  # ---- 12 §4 Escalation and reliability -------------------------------------------------------
+  - id: escalation.accept
+    row: accept
+    section: "12 §4"
+    controls: not worse than the strongest reference and unexplained gap < max_unexplained_rel of T; or gap fully explained as irreducible
+    type: mapping
+    fields: {not_worse_than_strongest_reference: bool, max_unexplained_rel: float, accept_if_fully_irreducible: bool}
+    value: {not_worse_than_strongest_reference: true, max_unexplained_rel: 0.10, accept_if_fully_irreducible: true}
+    min: 0.0
+    prevents: accepting unexplained results
+    where: [orch, ui]
+    status: default
+    source: "01 §9.4"
+    set_by: []
+    editable: true
+    accessor: accept
+    consumer: pending WP18 (gap decomposition and routing)
+
+  - id: escalation.case_to_knowledge
+    row: escalate case → knowledge
+    section: "12 §4"
+    controls: no applicable template; same residual class in >= n cases; top-k model error above e after one calibration
+    type: mapping
+    fields: {on_no_applicable_template: bool, same_residual_cases: int, topk_model_error_rel: float, calibrations_first: int}
+    value: {on_no_applicable_template: true, same_residual_cases: 3, topk_model_error_rel: 0.30, calibrations_first: 1}
+    min: 0
+    prevents: the case loop doing the knowledge loop's work badly
+    where: [orch]
+    status: default
+    source: "01 §9.4"
+    set_by: []
+    editable: true
+    accessor: case_to_knowledge
+    consumer: pending WP18
+
+  - id: escalation.to_user
+    row: escalate → user
+    section: "12 §4"
+    controls: escalate after the round limit (budget.rounds_per_case_loop), a budget overrun, a missed canary, a claim or criterion change
+    type: mapping
+    fields: {on_round_limit: bool, on_budget_overrun: bool, on_canary_missed: bool, on_claim_or_criterion_change: bool}
+    value: {on_round_limit: true, on_budget_overrun: true, on_canary_missed: true, on_claim_or_criterion_change: true}
+    prevents: silent scope changes
+    where: [orch]
+    status: spec
+    source: "10 §2.1 (rounds) + 01 §9.4"
+    set_by: []
+    editable: true
+    accessor: to_user
+    consumer: round limit in solve/expand loops; the rest pending WP18
+
+  - id: escalation.finding_ladder
+    row: finding ladder
+    section: "12 §4"
+    controls: observed -> replicated (>= n independent shapes/runs, same direction, beyond band) -> explained -> invalidated
+    type: mapping
+    fields: {replicate_min_independent: int}
+    value: {replicate_min_independent: 2}
+    min: 1
+    prevents: one measurement becoming a rule
+    where: [knowledge]
+    status: default
+    source: "01 §9.4"
+    set_by: []
+    editable: true
+    accessor: finding_ladder
+    consumer: pending WP14 (status ladder for empirical knowledge)
+
+  - id: escalation.model_term_provisionality
+    row: model-term provisionality
+    section: "12 §4"
+    controls: regression cases needed before a model term is trusted, with hold-out improvement
+    type: mapping
+    fields: {regression_cases: int, require_holdout_improvement: bool}
+    value: {regression_cases: 5, require_holdout_improvement: true}
+    min: 1
+    prevents: an unsupported term steering selection
+    where: [knowledge]
+    status: default
+    source: "01 §9.4"
+    set_by: []
+    editable: true
+    accessor: model_term_provisionality
+    consumer: pending WP16 (regression scoreboard)
+
+  - id: escalation.template_assurance_for_use
+    row: template assurance for use
+    section: "12 §4"
+    controls: declared templates may be used; results are flagged
+    type: enum
+    choices: [flag, refuse]
+    value: flag
+    prevents: unproved steps presented as proved
+    where: [orch]
+    status: spec
+    source: "22 §6"
+    set_by: []
+    editable: true
+    accessor: template_assurance_for_use
+    consumer: retrieval (flag is the behaviour of 22 §6); refuse pending WP18
+
+  - id: escalation.level_choice
+    row: level choice
+    section: "12 §4"
+    controls: graph-level bound < f x sum of kernel bounds -> graph moves first (phase one records only)
+    type: float
+    value: 0.8
+    min: 0.0
+    max: 1.0
+    unit: fraction
+    prevents: optimising a kernel whose loss is in the graph
+    where: [orch]
+    status: default
+    source: "01 §9.4"
+    set_by: []
+    editable: true
+    accessor: level_choice
+    consumer: pending WP18 (record only in phase one)
+
+  # ---- 12 §7 Rows added from code and D325 (WP21) -------------------------------------------
+  - id: solve.shortlist
+    row: shortlist size
+    section: "12 §7"
+    controls: candidates shortlisted by the pre-compile model per bucket
+    type: int
+    value: 64
+    min: 1
+    unit: candidates
+    prevents: compiling a search space instead of a shortlist
+    where: [orch]
+    status: spec
+    source: "10 §2.1"
+    set_by: [X8]
+    editable: true
+    accessor: shortlist
+    consumer: solve loop (solving)
+
+  - id: solve.time_limit_s
+    row: solver time limit
+    section: "12 §7"
+    controls: wall time of one MIP solve
+    type: float
+    value: 60.0
+    min: 1.0
+    unit: s
+    prevents: a solve blocking the loop
+    where: [orch]
+    status: default
+    source: "D263"
+    set_by: []
+    editable: true
+    accessor: solve_time_limit_s
+    consumer: solve loop (solving)
+
+  - id: judging.model_ranking
+    row: model-off thresholds
+    section: "12 §7"
+    controls: judging rule 2 — Spearman rho below rank_min with >= rank_n points, or median relative error above rel_error_max
+    type: mapping
+    fields: {rank_min: float, rank_n: int, rel_error_max: float}
+    value: {rank_min: 0.5, rank_n: 3, rel_error_max: 0.3}
+    min: 0
+    prevents: a model that misranks steering the search unchecked
+    where: [orch]
+    status: default
+    source: "D263"
+    set_by: []
+    editable: true
+    accessor: model_ranking
+    consumer: solve loop judging rule 2
+
+  - id: judging.explained_min
+    row: explained-gap share
+    section: "12 §7"
+    controls: judging rule 3 — share of the gap to the bound the model must explain
+    type: float
+    value: 0.8
+    min: 0.0
+    max: 1.0
+    unit: fraction
+    prevents: an unexplained gap passing as a result
+    where: [orch]
+    status: default
+    source: "D263"
+    set_by: []
+    editable: true
+    accessor: explained_min
+    consumer: solve loop judging rule 3
+
+  - id: inbox.suspicious_result
+    row: suspicious result
+    section: "12 §7"
+    controls: inbox item when faster than the strongest reference by this factor or closer to the bound than this percentage
+    type: mapping
+    fields: {vs_reference: float, pct_of_bound: float}
+    value: {vs_reference: 1.3, pct_of_bound: 95.0}
+    min: 0
+    prevents: a measurement or checking error accepted as a breakthrough
+    where: [orch, ui]
+    status: spec
+    source: "30 §2"
+    set_by: []
+    editable: true
+    accessor: suspicious_result
+    consumer: inbox
+
+  - id: inbox.repeat_failures
+    row: repeated check failure
+    section: "12 §7"
+    controls: inbox item when the same check fails in this many tasks
+    type: int
+    value: 3
+    min: 1
+    unit: failures
+    prevents: a broken checker or systematic defect going unseen
+    where: [orch, ui]
+    status: spec
+    source: "30 §2"
+    set_by: []
+    editable: true
+    accessor: repeat_failures
+    consumer: inbox
+
+  - id: inbox.budget_warn
+    row: budget warning
+    section: "12 §7"
+    controls: inbox item when a budget scope is used to this fraction
+    type: float
+    value: 0.8
+    min: 0.0
+    max: 1.0
+    unit: fraction
+    prevents: running out of budget without a decision
+    where: [orch, ui]
+    status: spec
+    source: "30 §2"
+    set_by: []
+    editable: true
+    accessor: budget_warn
+    consumer: inbox
+
+  - id: orch.infra_retries
+    row: infrastructure retries
+    section: "12 §7"
+    controls: retries of a loop step after an infra or timeout error before the loop blocks
+    type: int
+    value: 3
+    min: 0
+    unit: retries
+    prevents: one flaky worker blocking a loop / endless retry on a dead worker
+    where: [orch]
+    status: default
+    source: "D264"
+    set_by: []
+    editable: true
+    accessor: infra_retries
+    consumer: orchestrator runner
+
+  - id: learning.reproduction_epsilon
+    row: reproduction tolerance ε
+    section: "12 §7"
+    controls: relative error allowed when reproducing a reference's performance core from its chain
+    type: float
+    value: 0.10
+    min: 0.0
+    unit: fraction
+    prevents: a wrong decomposition passing as reproduced / a right one refused for noise
+    where: [orch, ui]
+    status: default
+    source: "02 §8.4, D325 (6)"
+    set_by: [X7]
+    editable: true
+    accessor: reproduction_epsilon
+    consumer: expand loop (reproduced)
+
+  - id: learning.scope
+    row: learning scope
+    section: "12 §7"
+    controls: workloads, target and knowledge in scope (v1); out-of-scope features are counted separately
+    type: mapping
+    fields: {version: str, workloads: list_str, targets: list_str, knowledge: str, counted_separately: list_str}
+    value:
+      version: v1
+      workloads: [gemm, quantised gemm/gemv, attention prefill, attention decode, moe grouped gemm, norm]
+      targets: [gb10]
+      knowledge: scheduling moves inside a kernel
+      counted_separately: [host planners, paged-KV machinery, PDL, dispatch, graph-level optimisation]
+    prevents: learning drifting to features we cannot use or compare
+    where: [orch, ui]
+    status: default
+    source: "01 §7, D325 (6)"
+    set_by: []
+    editable: true
+    accessor: learning_scope
+    consumer: pending WP20 (learning-loop runner, coverage)
+
+  - id: release.stage
+    row: release stage
+    section: "12 §7"
+    controls: which processes and task types may run and whether agent calls are gated (stages.yaml)
+    type: enum
+    choices: [S0, S1, S2, S3, S4]
+    value: S0
+    prevents: opening a stage before the previous one is understood
+    where: [orch, ui]
+    status: spec
+    source: "02 §6.3 (D-T22)"
+    set_by: []
+    editable: true
+    accessor: release_stage
+    consumer: kta.orchestrator.release (processes, task lease, S1 gate)

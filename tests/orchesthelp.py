@@ -3,13 +3,14 @@ a small real world (Problem, Contract, Case, HwModel) in a test store. Plain hel
 
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import Any
 
-from kta.core.config import config_from_mapping
 from kta.core.context import Context
 from kta.core.schemas import Actor, Record
 from kta.orchestrator.pipeline import Services
 from kta.orchestrator.transition import Loop
+from kta.store import controls as controls_store
 from kta.store.base import Store
 from solvehelp import TEST_HW
 
@@ -17,16 +18,18 @@ ID = "a" * 64  # a syntactically valid record ID for pure-step facts
 HUMAN = Actor(type="human", name="test")
 
 
-def ctx_with(ctx: Context, **orchestrator: Any) -> Context:
-    return Context(
-        ctx.env,
-        config_from_mapping({"orchestrator": orchestrator}),
-        ctx.data_dir,
-        ctx.registry,
-        ctx.clock,
-        ctx.seed,
-        ctx.process,
-    )
+def ctx_with(ctx: Context, changes: dict[str, Any]) -> Context:
+    """``ctx`` with an unstored controls proposal (knob id -> value), for pure step tests."""
+    return replace(ctx, controls=ctx.controls.with_changes(changes))
+
+
+def set_controls(store: Store, ops: Any, changes: dict[str, Any], reason: str = "test") -> str:
+    """Write a controls version through the real path; returns its record ID."""
+    now = store.clock.now()  # type: ignore[attr-defined]
+    expected = controls_store.ensure(store, ops, now).version_id
+    snap = controls_store.propose(store, ops, changes, HUMAN, reason, now, expected)
+    assert snap.version_id is not None
+    return snap.version_id
 
 
 def loop(kind: str, state: str, facts: dict[str, Any] | None = None, **data: Any) -> Loop:
