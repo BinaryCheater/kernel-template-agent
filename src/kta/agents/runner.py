@@ -20,10 +20,11 @@ from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
-from kta.agents import cards, compliance, guard, sessions, workspace
+from kta.agents import arms, cards, compliance, guard, sessions, workspace
 from kta.agents.adapters.base import StepPlan
 from kta.agents.adapters.codex import CREDENTIAL_FILES, CodexAdapter
 from kta.agents.adapters.codex_session import usage_of
+from kta.agents.arms import Arm
 from kta.agents.base import AgentEvent, Launch, Limits
 from kta.agents.batches import BatchRoot
 from kta.agents.config import AgentsConfig, agents_config
@@ -121,6 +122,7 @@ def _spec(
     run: str,
     bundle: workspace.Bundle,
     batch: str,
+    arm: Arm,
 ) -> LaunchSpec:
     run_as = None
     if profile.isolation == "config+user":
@@ -145,6 +147,7 @@ def _spec(
         workspace_files=sorted(bundle.workspace),
         batch=batch,
         batch_files=sorted(bundle.batch),
+        arm=arm.to_dict(),
         auth=auth,
         run_as=run_as,
         secret_env=[guard.TOKEN_VAR],
@@ -183,9 +186,14 @@ def tool_seconds(events: list[AgentEvent]) -> float:
 
 
 def violations_of(
-    deps: Deps, launch: Launch, events: list[AgentEvent], profile: AgentProfile, card: TaskCard
+    deps: Deps,
+    launch: Launch,
+    events: list[AgentEvent],
+    profile: AgentProfile,
+    card: TaskCard,
+    arm: Arm,
 ) -> list[dict[str, Any]]:
-    allowed = profile.allowed_commands.get(card.type, [])
+    allowed = arms.commands(arm, profile.allowed_commands.get(card.type, []))
     report = launch.report
     out = compliance.from_events(events, str(report.get("workspace", "")), allowed)
     out += compliance.from_report(report, bool(profile.context_policy.get("notes_required", True)))
@@ -228,6 +236,7 @@ def _plan(
     run: str,
     retry: cards.RetryNote | None,
     batch: BatchRoot,
+    arm: Arm,
 ) -> tuple[StepPlan, Limits]:
     """Bundle, launch spec and job inputs of one step."""
     bundle = workspace.build(
@@ -239,9 +248,10 @@ def _plan(
         card_body=card,
         used={},
         retry=retry,
+        arm=arm,
     )
     limits = _limits(card, profile)
-    spec = _spec(ctx, deps, task, card, profile, run, bundle, batch.root.name)
+    spec = _spec(ctx, deps, task, card, profile, run, bundle, batch.root.name, arm)
     inputs = {
         **_put_files(deps.runner, BUNDLE_WORKSPACE, bundle.workspace),
         **_put_files(deps.runner, BUNDLE_BATCH, bundle.batch),
@@ -297,7 +307,8 @@ def run_step(
             f"work unit {card.work_unit} lives on {state.worker}, not {deps.config.worker}"
         )
     root = open_batch(ctx, deps, card, state, batch)
-    plan, limits = _plan(ctx, deps, task, card, profile, run, retry, root)
+    arm = arms.arm_of(arms.task_info(deps.ops, task.id))
+    plan, limits = _plan(ctx, deps, task, card, profile, run, retry, root, arm)
     adapter = adapter_for(profile, deps, plan)
     decision = sessions.decide(
         state, adapter.supports_resume, profile.loop_policy, retry.signature if retry else None
@@ -325,7 +336,7 @@ def run_step(
         assert launch is not None
         sp.set(session=launch.session, exit=launch.exit, worker=launch.worker)
     return _record(
-        ctx, deps, task, card, profile, launch, events, prompt, state, raw, decision, retry
+        ctx, deps, task, card, profile, launch, events, prompt, state, raw, decision, retry, arm
     )
 
 
@@ -347,7 +358,12 @@ def _launch(
 
 
 def _agent_run(
-    deps: Deps, card: TaskCard, profile: AgentProfile, launch: Launch, events: list[AgentEvent]
+    deps: Deps,
+    card: TaskCard,
+    profile: AgentProfile,
+    launch: Launch,
+    events: list[AgentEvent],
+    arm: Arm,
 ) -> AgentRun:
     usage = usage_of(events)
     return AgentRun(
@@ -363,7 +379,8 @@ def _agent_run(
         queue_s=launch.queue_s,
         exit=launch.exit,
         context_manifest=launch.manifest,
-        violations=violations_of(deps, launch, events, profile, card),
+        violations=violations_of(deps, launch, events, profile, card, arm),
+        arm=arm.to_dict(),
     )
 
 
@@ -380,15 +397,18 @@ def _record(
     raw: str | None,
     decision: sessions.Decision,
     retry: cards.RetryNote | None,
+    arm: Arm,
 ) -> StepResult:
     usage = usage_of(events)
-    body = _agent_run(deps, card, profile, launch, events)
+    body = _agent_run(deps, card, profile, launch, events, arm)
     refs: dict[str, Any] = {
         "env": launch.env_manifest,
         "worker": launch.worker,
         "card": task.card_id,
         "profile": card.profile,
     }
+    if arm.snapshot:
+        refs["snapshot"] = arm.snapshot
     if state is not None and state.runs:
         refs["previous"] = state.runs[-1]
     blobs = {"prompt": deps.runner.put_blob(prompt.encode("utf-8"), "text/markdown")}

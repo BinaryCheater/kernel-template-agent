@@ -64,6 +64,9 @@ class LaunchSpec:
     gpu_guard: bool = True
     nvidia_smi: str = "nvidia-smi"
     watch: list[str] = field(default_factory=lambda: list[str]())  # host paths, depth 1
+    arm: dict[str, Any] = field(
+        default_factory=lambda: dict[str, Any]()
+    )  # knowledge condition (D430)
     expect_version: str | None = None  # the profile's CLI version; another version is refused
 
     def to_json(self) -> bytes:

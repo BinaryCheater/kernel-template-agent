@@ -104,11 +104,22 @@ In `out/`, one record body per YAML file:
 reference.yaml        # if not yet in the pool
 chain.yaml            # spec/schemas.md §4.3
 reconstruction.yaml   # spec/schemas.md §4.5
-gaps/*.yaml           # one file per Gap
+gaps/*.yaml           # one file per Gap, read in file-name order
 patterns/*.yaml       # proposed Patterns (status proposed)
-templates/*.yaml      # proposed Templates (spec/schemas.md §4.2, assurance declared;
+templates/*.yaml      # Template drafts (spec/schemas.md §4.2, assurance declared;
                       # write the obligations, no proof needed; skill write-template)
 ```
+
+What happens to them after your submission is accepted:
+
+- `chain.yaml`, `reconstruction.yaml` and every Gap are written to the pool.
+- `patterns/*.yaml` are written to the pool as proposed Patterns. A Pattern name that
+  already exists with a different body is refused: reuse the existing Pattern, or choose
+  a new name and say why in the delivery note.
+- `templates/*.yaml` are **not** written. Each draft becomes the starting point of a T3
+  task (one per Gap it addresses), where a worker turns it into a Template record and
+  `kta validate-template` checks it. Write drafts so that a later worker who did not see
+  this decomposition can finish them: cite the source lines and name the Gap.
 
 Hardware requirements use only feature names from the target's feature list; a feature
 without a name there stays out of `requires_hw` and is described in the scope text.

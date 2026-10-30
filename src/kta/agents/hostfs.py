@@ -197,6 +197,7 @@ def manifest(
         "session": spec.get("session"),
         "argv": spec["argv"],
         "run_as": spec.get("run_as"),
+        "arm": spec.get("arm") or {},
         "cli": cli,
         "workspace": {"path": str(workspace), "files": ws},
         "home": {"path": str(home), "created_this_run": home_created, "files": home_files},

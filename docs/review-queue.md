@@ -573,3 +573,10 @@ Decisions made without the user that need review. Newest last. Each entry: quest
 - **Choice:** listed real records (microbench HwFact, ExperimentRun, calibrate T4, improvement Report), spans of four process lanes in one 4-hour window, and a screenshot.
 - **Rationale:** the afternoon is defined by concurrent process activity; the frontend proof is a screenshot as in WP9.
 - **Cost of changing later:** low: `tools/kta_gate/specific_wp11.py`.
+
+## D430 — How an experiment arm shapes an agent step
+
+- **Question:** WP11 records each run's knowledge condition (from zero, text knowledge, Template pool) but nothing enforced it, so arms differed only in their label.
+- **Choice:** the agents module reads `info["arm"]` from the task bookkeeping. `zero`: no input records of pool kinds, no `find-knowledge` skill, `kta query` not allowed. `text`: the same, plus the pinned snapshot rendered as Markdown in `inputs/knowledge/`. `pool`: unchanged. The condition is recorded in the context manifest and `AgentRun.arm`.
+- **Rationale:** follows docs/design/20 §5 (same knowledge, different form) and the coordinator's brief. It departs from docs/design/10 §6 "skills are equal across arms" for `find-knowledge`, a skill about using the pool, in the arms that have no pool.
+- **Cost of changing later:** low: `kta.agents.arms`. Retrieval inside `kta query` and in the solve loop (WP6/knowledge) must also honour the pinned snapshot; the agents module cannot enforce that alone.

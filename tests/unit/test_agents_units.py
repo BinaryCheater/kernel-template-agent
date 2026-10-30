@@ -454,3 +454,21 @@ def test_prefix_is_byte_identical_and_task_md_is_bounded() -> None:
             retry=None,
             policy={"step_header_max_chars": 100},
         )
+
+
+def test_arm_of_task_info() -> None:
+    from kta.agents.arms import NO_ARM, arm_of
+
+    assert arm_of({}) == NO_ARM
+    a = arm_of({"arm": {"name": "z", "knowledge": "from_zero"}, "snapshot": "s1"})
+    assert (a.name, a.knowledge, a.snapshot) == ("z", "zero", "s1")
+    b = arm_of({"arm": "t", "arm_condition": {"knowledge": "text_knowledge", "snapshot": "s2"}})
+    assert (b.name, b.knowledge, b.snapshot) == ("t", "text", "s2")
+    for bad in (
+        {"arm": {"name": "x"}},
+        {"arm": {"knowledge": "books"}},
+        {"arm": {"knowledge": "text"}},
+        {"arm": 3},
+    ):
+        with pytest.raises(ConfigError):
+            arm_of(bad)

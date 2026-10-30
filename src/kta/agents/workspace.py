@@ -10,7 +10,8 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 
-from kta.agents import cards
+from kta.agents import arms, cards
+from kta.agents.arms import NO_ARM, Arm
 from kta.agents.batches import BatchRoot
 from kta.agents.profile import skill_description, unpack
 from kta.core.errors import ConfigError, SchemaError
@@ -29,24 +30,25 @@ class Bundle:
 
 
 def skills_of(
-    batch: BatchRoot, profile: AgentProfile, task_type: str
+    batch: BatchRoot, profile: AgentProfile, task_type: str, arm: Arm = NO_ARM
 ) -> dict[str, dict[str, bytes]]:
-    """Skill files by name, from the batch root's ``skills/<name>@<hash>/``."""
+    """Skill files by name, from the batch root's ``skills/<name>@<hash>/``, for the arm."""
     out: dict[str, dict[str, bytes]] = {}
     for ref in profile.skills.get(task_type, []):
         name, _, sha = ref.partition("@")
         if not sha:
             raise ConfigError(f"profile skill {ref!r} lacks its archive hash")
-        out[name] = batch.skill_files(ref)
+        if name in arms.skills(arm, [name]):
+            out[name] = batch.skill_files(ref)
     return out
 
 
-def descriptions(batch: BatchRoot, profile: AgentProfile) -> dict[str, str]:
-    """One line per skill of every task type: the prefix lists them all, so it is
-    byte-identical across sessions of the profile."""
+def descriptions(batch: BatchRoot, profile: AgentProfile, arm: Arm = NO_ARM) -> dict[str, str]:
+    """One line per skill of every task type the arm gives: the prefix lists them all, so
+    it is byte-identical across sessions of one profile and knowledge condition."""
     seen: dict[str, str] = {}
     for task_type in sorted(profile.skills):
-        for name, files in skills_of(batch, profile, task_type).items():
+        for name, files in skills_of(batch, profile, task_type, arm).items():
             seen[name] = skill_description(files["SKILL.md"].decode("utf-8"))
     return seen
 
@@ -100,23 +102,40 @@ def build(
     card_body: TaskCard,
     used: dict[str, float],
     retry: cards.RetryNote | None,
+    arm: Arm = NO_ARM,
 ) -> Bundle:
-    """Workspace files; templates and skills come only from the verified batch root (D322)."""
+    """Workspace files; templates and skills come only from the verified batch root (D322),
+    shaped by the arm's knowledge condition (D430)."""
     t = card_body.type
     if t not in profile.step_templates:
         raise ConfigError(f"profile {profile.name} has no step template for {t}")
-    skills = skills_of(batch, profile, t)
+    skills = skills_of(batch, profile, t, arm)
+    inputs = [rid for rid in card_body.inputs if arms.keeps_input(arm, store.get(rid).kind)]
+    book = arms.text_book(store, arm)
+    shown = input_cards(store, inputs)
+    if book:
+        shown.insert(
+            0,
+            cards.InputCard(
+                arms.TEXT_DIR + "index.md",
+                "text knowledge",
+                f"snapshot {arm.snapshot} as Markdown; start here",
+                [],
+            ),
+        )
     bundle = Bundle()
     ws = bundle.workspace
-    ws["AGENTS.md"] = cards.prefix(batch.text("prefix.md"), descriptions(batch, profile)).encode()
+    ws["AGENTS.md"] = cards.prefix(
+        batch.text("prefix.md"), descriptions(batch, profile, arm)
+    ).encode()
     ws["TASK.md"] = cards.task_md(
         batch.text(f"step-{t}.md"),
         task_id=task_id,
         card_id=card_id,
         card=card_body,
-        cards=input_cards(store, card_body.inputs),
+        cards=shown,
         skills=sorted(skills),
-        commands=profile.allowed_commands.get(t, []),
+        commands=arms.commands(arm, profile.allowed_commands.get(t, [])),
         used=used,
         retry=retry,
         policy=profile.context_policy,
@@ -126,6 +145,7 @@ def build(
     for name, files in skills.items():
         for rel, content in files.items():
             ws[f".agents/skills/{name}/{rel}"] = content
-    ws.update(input_files(store, card_body.inputs))
+    ws.update(input_files(store, inputs))
+    ws.update(book)
     bundle.batch = batch.template()
     return bundle

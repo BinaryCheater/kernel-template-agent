@@ -26,7 +26,7 @@ from kta.agents.units import close_work_unit
 from kta.core.config import config_from_mapping
 from kta.core.context import Context
 from kta.core.errors import PermissionDenied
-from kta.core.ids import UlidFactory
+from kta.core.ids import UlidFactory, record_id
 from kta.core.registry import Registry
 from kta.core.schemas import Actor, Record
 from kta.core.schemas.process import TaskCard
@@ -214,3 +214,73 @@ def test_runs_only_from_a_verified_batch(
     skill.write_text(skill.read_text() + "\ntampered\n")
     with tracing(tracer), pytest.raises(PermissionDenied, match="changed: skills/use-kta@"):
         run_step(actx, _task(store, ops, profile, wu="wu-c"), deps=deps)
+
+
+def test_each_arm_shapes_workspace_manifest_and_agent_run(actx: Context, parts) -> None:
+    from knowhelp import seed
+    from kta.core.schemas.process import PoolSnapshot, Report
+
+    store, ops, ex = parts
+    deps = Deps(store, ops, ex, agents_config(actx))
+    profile = _profile_and_batch(actx, store)
+    seed(actx, store)
+    template_id = record_id(store.query("Template", limit=1)[0])
+    members = [record_id(r) for kind in ("Pattern", "Template") for r in store.query(kind)]
+    actor = Actor(type="system", name="test")
+    snap = store.put(
+        Record.new(
+            "PoolSnapshot", PoolSnapshot(members=members, note="t"), actor, datetime.now(UTC)
+        )
+    )
+    subject = store.put(
+        Record.new(
+            "Report",
+            Report(title="case", subject="case", summary="the task subject"),
+            actor,
+            datetime.now(UTC),
+        )
+    )
+    manifests: dict[str, dict] = {}
+    runs: dict[str, dict] = {}
+    tracer = new_tracer(ops, actx.clock, UlidFactory(actx.clock), {})
+    for knowledge in ("zero", "text", "pool"):
+        card = TaskCard(
+            type="T1",
+            goal="g",
+            done_checks=["validate_family"],
+            budget={"wall_s": 120},
+            profile=profile,
+            work_unit=f"wu-{knowledge}",
+            inputs=[template_id, subject],
+        )
+        card_id = store.put(Record.new("TaskCard", card, actor, datetime.now(UTC)))
+        ops.enqueue(card_id, 1, f"wu-{knowledge}")
+        task = ops.lease("runner-test", ["T1"], 600)
+        assert task is not None
+        arm = {"name": f"arm-{knowledge}", "knowledge": knowledge, "snapshot": snap}
+        assert ops.set_pointer(f"task:{task.id}", None, json.dumps({"arm": arm}))
+        with tracing(tracer):
+            result = run_step(actx, task, deps=deps)
+        assert result.launch.exit == "ok", result.launch.report
+        manifests[knowledge] = json.loads(store.blob_path(result.run.context_manifest).read_bytes())
+        runs[knowledge] = {"arm": result.run.arm, "refs": store.get(result.run_id).refs}
+
+    def files(k: str) -> set[str]:
+        return set(manifests[k]["workspace"]["files"])
+
+    tmpl_input = f"inputs/Template-{template_id[:12]}.json"
+    subject_input = f"inputs/Report-{subject[:12]}.json"
+    assert all(subject_input in files(k) for k in manifests)  # the task subject is always given
+    assert tmpl_input in files("pool") and tmpl_input not in files("zero") | files("text")
+    assert any(f.startswith(".agents/skills/find-knowledge/") for f in files("pool"))
+    assert not any(
+        f.startswith(".agents/skills/find-knowledge/") for f in files("zero") | files("text")
+    )
+    assert "inputs/knowledge/index.md" in files("text")
+    assert not any(f.startswith("inputs/knowledge/") for f in files("zero") | files("pool"))
+    for k in manifests:
+        assert manifests[k]["arm"] == {"name": f"arm-{k}", "knowledge": k, "snapshot": snap}
+        assert runs[k]["arm"] == manifests[k]["arm"] and runs[k]["refs"]["snapshot"] == snap
+    # The fixed prefix differs only between conditions (skills listed), not within one.
+    prefix = {k: manifests[k]["workspace"]["files"]["AGENTS.md"] for k in manifests}
+    assert prefix["zero"] == prefix["text"] != prefix["pool"]

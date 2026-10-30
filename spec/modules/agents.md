@@ -138,6 +138,7 @@ agent 的行为由三样东西决定：给它的上下文、它的循环策略�
 
 - **Where the CLI runs (D300, needs user review).** The agent CLI runs as an Executor job (pool `agent`) on the worker named by `[agents] worker`; the job program `python -m kta.agents.launch` prepares `<data>/work/<work unit>/` and `<data>/agent-home/<work unit>/` on that host, writes the context manifest, enforces the limits and the GPU guard, commits the workspace and packs the session files. The agent-side `kta` uses `KTA_TASK_TOKEN` and `KTA_API` (D301).
 - **Interface.** `run_task(ctx, task) -> AgentRun` is unchanged; `run_step(ctx, task, *, retry, note, deps, lane) -> StepResult` also returns the AgentRun record ID, the `Launch` and the parsed events, and takes the rejection of the previous attempt (`RetryNote`) and a human note (D302). `AgentAdapter` also has `parse_session(path)` and `last_launch()`. `AgentEvent.kind` adds `other` for session entries the parser does not describe (D304).
+- **Experiment arms (D430, needs user review).** The arm in the task bookkeeping (`info["arm"]`) shapes the step: `zero` leaves out input records of pool kinds, `find-knowledge` and `kta query`; `text` does the same and adds the pinned snapshot rendered as Markdown under `inputs/knowledge/`; `pool` is unchanged. The condition is recorded in the context manifest and `AgentRun.arm`.
 
 ## Skills, backup and regenerable batch environments (D321, D322)
 
