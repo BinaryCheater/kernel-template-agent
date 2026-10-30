@@ -231,6 +231,9 @@ def inbox(api: Api, tasks: list[dict[str, Any]] | None = None) -> list[dict[str,
             "suggestion": "Retry with a note, modify the task, or drop it",
             "record": t["card"],
             "at": t["state_since"],
+            "task": t["id"],
+            "detail": t.get("last_rejection"),
+            "actions": ["retry", "cancel"],
         }
         for t in tasks
         if t["state"] == "escalated"
@@ -245,6 +248,9 @@ def inbox(api: Api, tasks: list[dict[str, Any]] | None = None) -> list[dict[str,
                     "suggestion": "Look at the Gaps of this case",
                     "record": row.subject,
                     "at": iso(row.updated_at),
+                    "task": None,
+                    "detail": None,
+                    "actions": ["flag"],
                 }
             )
     return items

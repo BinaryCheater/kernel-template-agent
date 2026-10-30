@@ -374,4 +374,207 @@ export interface InboxItem {
   suggestion: string;
   record: string;
   at: string;
+  task?: string | null; // ops task id when the item is about a task
+  detail?: string | null;
+  actions?: string[]; // operation names from GET /actions/capabilities
+}
+
+// ---- WP9b: operations (POST /actions/*, GET /actions/capabilities, GET /actions/log) ----
+
+export interface Capability {
+  name: string; // reject, flag, cancel, ...
+  endpoint: string;
+  writes: string;
+  wired: boolean;
+  needs: string | null; // what is missing when not wired
+  partial?: string;
+}
+
+export interface ActionLogEntry {
+  id: string;
+  at: string;
+  by: string;
+  actor_type: string;
+  task: string | null;
+  action: string;
+  verb: string;
+  params: Record<string, unknown> | null;
+  args: string;
+  reason: string;
+  refs: Record<string, string | string[]>;
+  origin: Origin;
+}
+
+// ---- GET /tasks/{id} ----
+
+export interface TaskSpan {
+  span_id: string;
+  parent_id: string | null;
+  trace_id: string;
+  kind: string;
+  lane: string;
+  name: string;
+  start: string;
+  end: string | null;
+  dur_s: number | null;
+  status: string;
+  attrs: Record<string, unknown>;
+}
+
+export interface TaskRecord {
+  id: string;
+  kind: string;
+  created_at: string;
+  actor: string;
+  status: string;
+  origin: Origin;
+  body: Record<string, unknown>;
+  blobs: Record<string, string>;
+  refs: Record<string, string | string[]>;
+}
+
+export interface TaskDetail {
+  task: TaskInstance;
+  card: { id: string; type: TaskType; goal: string; inputs: string[]; done_checks: string[]; budget: Record<string, number>; profile: string; work_unit: string };
+  loop: LoopInstance | null;
+  spans: TaskSpan[];
+  calls: TaskSpan[];
+  records: TaskRecord[];
+  agent_runs: TaskRecord[];
+  submissions: TaskRecord[];
+  checks: TaskRecord[];
+  rejections: TaskRecord[];
+  time: { wall_s: number; tool_s: number; queue_s: number; source: "AgentRun" | "spans" };
+  human_actions: { id: string; at: string; by: string; action: string; reason: string }[];
+}
+
+export interface BlobText {
+  sha256: string;
+  media: string;
+  size: number;
+  truncated: boolean;
+  text: string;
+}
+
+// ---- GET /agents ----
+
+export interface RuntimeSkill {
+  name: string;
+  description: string;
+  lines: number;
+  sha256: string;
+  files: string[];
+  catalogue: Record<string, string> | null;
+  used_by: string[];
+}
+
+export interface ProfileRow {
+  id: string;
+  created_at: string;
+  origin: Origin;
+  status: string;
+  current: boolean;
+  name: string;
+  version: number;
+  provider: string;
+  cli_version: string;
+  auth: string;
+  isolation: string;
+  model: string;
+  reasoning_effort: string | null;
+  cli_flags: string[];
+  skills: Record<string, string[]>;
+  skill_bundles: Record<string, string>;
+  allowed_commands: Record<string, number>;
+  context_policy: Record<string, unknown>;
+  loop_policy: Record<string, unknown>;
+  templates: Record<string, string | null>;
+  changed: string[] | null;
+}
+
+export interface BatchEnv {
+  batch: string;
+  path: string;
+  lock: Record<string, unknown> | null;
+  files?: number | null;
+  lock_sha256?: string;
+  work_units: string[];
+  verify: { state: string; needs?: string };
+}
+
+export interface AgentsView {
+  skills: { has_catalogue: boolean; skills: RuntimeSkill[]; planned: Record<string, string>[]; absent: { name: string; used_by: string[] }[] };
+  current: string | null;
+  profiles: ProfileRow[];
+  history: { at: string; from: string | null; to: string | null }[];
+  approvals: { id: string; at: string; by: string; reason: string; refs: Record<string, string | string[]> }[];
+  batches: BatchEnv[];
+  batches_root: string | null;
+}
+
+// ---- GET /pool ----
+
+interface PoolEnv {
+  id: string;
+  created_at: string;
+  origin: Origin;
+  actor: string;
+  status: string;
+  assurance: string | null;
+}
+export interface PoolPattern extends PoolEnv { name: string; level: number; category: string; description: string; examples: number; confirmed_by: string | null }
+export interface PoolTemplate extends PoolEnv {
+  name: string; version: number; level_from: number; level_to: number; change: string; refines: string; produces: string[];
+  summary: string; requires_hw: string[]; variables: number; constraints: number; obligations: number;
+}
+export interface PoolStructure extends PoolEnv { name: string; effect: string; description: string; evidence_needed: string; confirmed_by: string | null }
+export interface PoolGap extends PoolEnv { missing: string; description: string; level: number | null; pattern_guess: string | null; attribution: string; refs: Record<string, string | string[]> }
+export interface PoolReference extends PoolEnv { name: string; runnable_on: string[]; reconstruction: string | null; matched: number | null; total: number | null; unmatched: number | null }
+export interface PoolView {
+  snapshot: string | null;
+  patterns: PoolPattern[];
+  templates: PoolTemplate[];
+  structures: PoolStructure[];
+  gaps: PoolGap[];
+  references: PoolReference[];
+  counts: Record<string, number>;
+  other_patterns: number;
+}
+
+// ---- GET /experiments, /improvements ----
+
+export interface ExperimentProtocol extends PoolEnv {
+  name: string;
+  version: number;
+  description: string;
+  params: Record<string, unknown>;
+  approved: { id: string; at: string; by: string; reason: string }[];
+  arms: { name: string; runs: number; planned: number | null }[];
+  runs: (PoolEnv & { name: string; condition: string; seed: number | null; params: Record<string, unknown>; note: string })[];
+  results: (PoolEnv & { summary: string; data: Record<string, unknown> })[];
+}
+
+export interface ImprovementItem {
+  key?: string;
+  title: string;
+  kind: string;
+  description?: string;
+}
+
+export interface ImprovementsView {
+  attribution: Record<string, number>;
+  missing: Record<string, number>;
+  attribution_by_day: ({ day: string } & Record<string, number | string>)[];
+  reports: (PoolEnv & { summary: string; batch: string | null; attribution: Record<string, number>; items: ImprovementItem[]; approved: { id: string; at: string; by: string; reason: string }[] })[];
+}
+
+// ---- GET /model/residuals ----
+
+export interface Residual {
+  prediction: string;
+  measurement: string;
+  model: string;
+  predicted_us: number;
+  measured_us: number;
+  rel_error: number;
 }

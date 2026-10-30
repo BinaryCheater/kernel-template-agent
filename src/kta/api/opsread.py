@@ -181,3 +181,29 @@ def origin_counts(store: SqliteStore) -> dict[str, int]:
     with store.db.read() as con:
         rows = con.execute("SELECT origin, COUNT(*) FROM records GROUP BY origin").fetchall()
     return {r[0]: int(r[1]) for r in rows}
+
+
+def spans_of_task(ops: SqliteOps, task_id: str) -> list[SpanRow]:
+    """Spans tagged with ``attrs.task_id`` and all their descendants (session internals)."""
+    with ops.db.read() as con:
+        rows = con.execute(
+            "WITH RECURSIVE tree(id) AS ("
+            " SELECT span_id FROM spans WHERE json_extract(attrs_json, '$.task_id') = ?"
+            " UNION SELECT s.span_id FROM spans s JOIN tree t ON s.parent_id = t.id) "
+            "SELECT span_id, parent_id, trace_id, kind, lane, name, start_ts, end_ts, status, "
+            "attrs_json FROM spans WHERE span_id IN (SELECT id FROM tree) "
+            "ORDER BY start_ts, span_id",
+            (task_id,),
+        ).fetchall()
+    return [_span(r) for r in rows]
+
+
+def pointer_history(ops: SqliteOps, name: str) -> list[tuple[datetime, dict[str, Any]]]:
+    """(time, change) of every update of an ops pointer, oldest first (from ops_events)."""
+    with ops.db.read() as con:
+        rows = con.execute(
+            "SELECT at, change_json FROM ops_events WHERE table_name = 'pointers' AND row_id = ? "
+            "ORDER BY seq",
+            (name,),
+        ).fetchall()
+    return [(parse_ts(r[0]), json.loads(r[1])) for r in rows]

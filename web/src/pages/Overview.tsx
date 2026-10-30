@@ -186,12 +186,12 @@ function NowPanel({ a }: { a: ActiveRuns }) {
     <aside className="panel now-panel">
       <header><h2>Now</h2><span className="sub">{hhmm(a.as_of)} UTC</span><span className="right"><Link to="/running">Running →</Link></span></header>
       <div className="body now">
-        <div className="caption">Needs you</div>
+        <div className="caption">Needs you <Link to="/inbox" style={{ textTransform: "none", fontWeight: 400, marginLeft: 6 }}>Inbox →</Link></div>
         {(inbox.data ?? []).length === 0 ? <div className="small muted">nothing waiting</div> : (inbox.data ?? []).map((i) => (
-          <div key={i.id} className="inbox-callout">
+          <Link key={i.id} to="/inbox" className="inbox-callout" style={{ textDecoration: "none" }}>
             <span className="badge human">!</span>
             <span><b>{i.trigger}</b><br />{i.subject}<br /><span className="muted">{i.suggestion}</span></span>
-          </div>
+          </Link>
         ))}
 
         <div className="caption">Agent slots</div>

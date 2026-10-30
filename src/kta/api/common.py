@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from functools import cache
 from importlib import resources
+from pathlib import Path
 from typing import Any
 
 import yaml
 
+from kta.api.wiring import Orchestration, Unwired
 from kta.core.config import Config
 from kta.core.errors import ConfigError
 from kta.store import SqliteOps, SqliteStore
@@ -17,12 +19,18 @@ from kta.store import SqliteOps, SqliteStore
 
 @dataclass(frozen=True)
 class Api:
-    """What every view needs: the store, the ops tables, the config and the clock."""
+    """What every view needs: the store, the ops tables, the config and the clock.
+
+    ``data_dir`` is the environment's data directory (batch environments live under it);
+    ``orchestration`` carries the operations delegated to WP6/WP8 (wiring.py).
+    """
 
     store: SqliteStore
     ops: SqliteOps
     config: Config
     env: str
+    data_dir: Path | None = None
+    orchestration: Orchestration = field(default_factory=Unwired)
 
     def now(self) -> datetime:
         return self.store.clock.now()

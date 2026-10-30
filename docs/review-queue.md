@@ -436,3 +436,37 @@ Decisions made without the user that need review. Newest last. Each entry: quest
 - **Choice:** static checks (unit tests, family, Case file) plus listed, real, clean records: judgement or Solution, `wp7_faults` with all three caught (failed Checks from a GPU worker), replay Report consistent, HwModel, baseline Measurement, `wp7_reuse` as expected. Code stage: WARN.
 - **Rationale:** each acceptance item of WP7 maps to a record the gate can find.
 - **Cost of changing later:** low: `tools/kta_gate/specific_wp7.py`; the judgement/replay record shapes follow WP6 and may need adjusting after it merges.
+## D342 — How a HumanAction carries its parameters
+
+- **Question:** HumanAction has only `action` and `reason`; a budget change or a priority needs its values in the record, and refs can only hold record IDs.
+- **Choice:** `action = "<verb> <compact sorted JSON>"`, the subject in refs, the actor `human` named by `[api] operator` (default `user`). The log endpoint parses it back.
+- **Rationale:** no schema change for a code-stage WP; the record stays self-contained. WP6 already writes `task cancel <id>`, so two forms coexist until one is chosen.
+- **Cost of changing later:** low now: add `params: dict` to HumanAction (schema version 2) and write both forms during a migration; the frontend reads the parsed form only.
+
+## D343 — Flagging a record sets the status `suspect`
+
+- **Question:** design/30 §3 says "flag as suspect: triggers re-verification, does not change the status", while the schema has a human-only status `suspect`.
+- **Choice:** write a StatusChange to `suspect` and ask the orchestrator for a re-verification task (reported as not created until WP6 provides it).
+- **Rationale:** the status is visible everywhere the record appears; without it nothing would ever set `suspect`.
+- **Cost of changing later:** low: drop the StatusChange in `kta.api.operate.flag`; existing suspect statuses can be reset by a human StatusChange.
+
+## D345 — Record conventions for Experiments, Improvement and Pool pages
+
+- **Question:** the pages need to find experiment arms, results, improvement items and confirmations in records that WP10b, WP11 and WP12 have not written yet.
+- **Choice:** see D345 in docs/decisions.md (Protocol `type: experiment` with `params.arms`, ExperimentRun `condition`, Report titles `experiment` and `improvement`, HumanAction `approve_protocol`, `confirm_pattern`).
+- **Rationale:** uses existing kinds and fields only; mirrors D169 for the read-only pages.
+- **Cost of changing later:** low on the API side (`src/kta/api/studies.py`); producers must follow whatever is chosen.
+
+## D346 — What the full WP9b gate requires
+
+- **Question:** the workplan's acceptance "start a T1, cancel a task, reject a result from the frontend, records correct" must become a gate check.
+- **Choice:** listed, real, clean human HumanActions in `dev/WP9b` with action prefixes `create_task`/`task create`, `cancel`/`task cancel`, `reject`, plus a screenshot path in the delivery note.
+- **Rationale:** the HumanAction is the record every operation writes; prefixes cover both the API's and WP6's current forms.
+- **Cost of changing later:** low: one function in `tools/kta_gate/specific_wp9b.py`.
+
+## D348 — WP9b pages and navigation
+
+- **Question:** where the intervene pages and the operation controls go.
+- **Choice:** sidebar Watch / Understand (adds Pool, Model) / Intervene (Inbox, Operations, Experiments, Improvement, Agents); controls appear next to their subject (record drawer, Running, Task, Result), and the Operations page collects start-task, pause, budgets, the action log and the capability table.
+- **Rationale:** D93 (readable, one focus per page); every control says what it writes, and unwired ones say what they need.
+- **Cost of changing later:** low: `web/src/components/Shell.tsx` and the page files.
