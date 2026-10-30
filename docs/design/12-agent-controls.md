@@ -10,17 +10,17 @@ How to read "where": **profile** = AgentProfile, versioned, hash recorded per ru
 
 | Knob | Controls | Value | Prevents | Where | Status | set_by |
 | --- | --- | --- | --- | --- | --- | --- |
-| rounds per case loop | iterations of the case loop before escalation to the user | 5 | endless polishing of one case | orch, UI | spec (10 §2.1) | — |
+| rounds per case loop | iterations of the case loop before escalation to the user | 5 | endless polishing of one case | orch, UI | spec (10 §2.1) | S1/S2 logs |
 | retries per task | re-queues after rejection before escalation | 2 | repeating the same failed attempt | orch, UI | spec (10 §3.2) | X5 |
-| task wall-clock budget | model time + tool time per task, by type | T1 family 60 min, T2 decomposition 90 min, T3 template 30 min, T4 model diagnosis 45 min, T5 microbenchmark 30 min, T6 repair 30 min | runaway sessions | profile, UI | default | X1, X9 |
+| task wall-clock budget | model time + tool time per task, by type | T1 family 60 min, T2 decomposition 90 min, T3 template 30 min, T4 model diagnosis 45 min, T5 microbenchmark 30 min, T6 repair 30 min | runaway sessions | profile, UI | default | X1, X9, S1/S2 logs |
 | hard wall-clock cap | total elapsed time including queueing | 3 × task budget | hanging on a long GPU queue | orch | spec (11 §3.3) | — |
 | no-response timeout | CLI output and session file unchanged | 10 min | stuck process | orch | spec (10 §4.8) | — |
 | lease | task lease with renewal | 30 min, renewed while running | orphaned tasks after a crash | orch | spec (10 §4.3) | — |
-| GPU seconds per task / per case | executor-accounted GPU time | per type; case cap = 10 × task cap | measuring instead of thinking | profile, orch, UI | default | X1 |
-| tool-call steps per task | number of `kta` invocations | 200 | thrashing | profile | default | X1 |
+| GPU seconds per task / per case | executor-accounted GPU time | per type; case cap = 10 × task cap | measuring instead of thinking | profile, orch, UI | default | X1, S1/S2 logs |
+| tool-call steps per task | number of `kta` invocations | 200 | thrashing | profile | default | X1, S1/S2 logs |
 | budget reminder | increment message to the agent | at 80 % of any budget | surprise cut-off | profile | spec (10 §4.10) | — |
 | process quotas | share of global budget | experiment 50 %, solve 25 %, learn 15 %, calibrate+maintain 10 % | one process starving the others | orch, UI | spec (11 §3.1) | — |
-| agent instances | concurrent agent sessions | start 2, max 4 | GPU queueing, rate limits | orch, UI | spec (10 §4.5) | — |
+| agent instances | concurrent agent sessions | start 2, max 4 | GPU queueing, rate limits | orch, UI | spec (10 §4.5) | X12 |
 | user attention cap | pending items at once | 10; review queue shows 5 | problems piling up unseen | orch, UI | spec (11 §2), 01 §12 | — |
 
 ## 2. Session and context
@@ -41,7 +41,7 @@ How to read "where": **profile** = AgentProfile, versioned, hash recorded per ru
 | --- | --- | --- | --- | --- | --- | --- |
 | improvement band | minimum gain that counts | max(measurement CI, 5 % of T) | crediting noise | orch, UI | default (01 §9.4) | X6 |
 | mechanism attribution | a credited gain must name a template step, opened variable or model term | required | unexplained tweaks presented as progress | orch | default (01 §9.4) | — |
-| null-round limit | rounds that add nothing and gain below the band | 2 → close the case | polishing instead of explaining | orch, UI | default (01 §9.4) | — |
+| null-round limit | rounds that add nothing and gain below the band | 2 → close the case | polishing instead of explaining | orch, UI | default (01 §9.4) | S1/S2 logs |
 | one mechanism per round | changes per iteration (coupled groups excepted) | 1 | unattributable progress | orch | default (01 §9) | — |
 | exploration share | measured points chosen for information, not by the model | 2 of 8 | the model only tested where it already believes | orch, UI | default (01 §9) | X8 |
 | duplicate-proposal rejection | a resubmission identical (by hash) to a rejected one | rejected without an agent run | retrying the same thing | orch | default | — |
@@ -59,12 +59,12 @@ How to read "where": **profile** = AgentProfile, versioned, hash recorded per ru
 | Knob | Controls | Value | Prevents | Where | Status | set_by |
 | --- | --- | --- | --- | --- | --- | --- |
 | accept | not worse than strongest reference and unexplained gap < 10 % of T; or gap fully explained as irreducible | as stated | accepting unexplained results | orch, UI | default (01 §9.4) | — |
-| escalate case → knowledge | no applicable template; same residual class in ≥ 3 cases; top-k model error > 30 % after one calibration | as stated | the case loop doing the knowledge loop's work badly | orch | default (01 §9.4) | — |
+| escalate case → knowledge | no applicable template; same residual class in ≥ 3 cases; top-k model error > 30 % after one calibration | as stated | the case loop doing the knowledge loop's work badly | orch | default (01 §9.4) | S1/S2 logs |
 | escalate → user | 5 rounds; budget overrun; canary missed; claim or criterion change | as stated | silent scope changes | orch | spec + default | — |
 | finding ladder | observed → replicated (≥ 2 independent shapes/runs, same direction, beyond band) → explained → invalidated | as stated | one measurement becoming a rule | knowledge | default (01 §9.4) | — |
-| model-term provisionality | regression cases needed before a term is trusted | 5, with hold-out improvement | an unsupported term steering selection | knowledge | default (01 §9.4) | — |
+| model-term provisionality | regression cases needed before a term is trusted | 5, with hold-out improvement | an unsupported term steering selection | knowledge | default (01 §9.4) | S1/S2 logs |
 | template assurance for use | declared templates may be used; results flagged | flag | unproved steps presented as proved | orch | spec (22 §6) | — |
-| level choice | graph-level bound < 0.8 × sum of kernel bounds → graph moves first (phase one records only) | 0.8 | optimising a kernel whose loss is in the graph | orch | default (01 §9.4) | — |
+| level choice | graph-level bound < 0.8 × sum of kernel bounds → graph moves first (phase one records only) | 0.8 | optimising a kernel whose loss is in the graph | orch | default (01 §9.4) | S1/S2 logs |
 
 ## 5. Maintenance
 
@@ -72,7 +72,7 @@ A knob is added with the failure it prevents and removed when it has prevented n
 
 ## 6. How values get set
 
-No value in this table is fixed by discussion alone. A value marked *default* stands until the experiment that sets it has run (02 §11): X1 model per task type → §1 budgets and the AgentProfile model; X2 effort level → AgentProfile; X3 resume vs fresh → §2 resume scope; X4 access discipline → §2 discipline version; X5 retries → §1; X6 noise band → §3 improvement band; X7 reproduction ε → §4; X8 measured points and exploration share → §1, §3; X9 task budgets → §1. When a value is set by an experiment, its status column names the experiment and the run.
+No value in this table is fixed by discussion alone. A value marked *default* stands until the experiment that sets it has run (02 §11): X1 model per task type → §1 budgets and the AgentProfile model; X2 effort level → AgentProfile; X3 resume vs fresh → §2 resume scope; X4 access discipline → §2 discipline version; X5 retries → §1; X6 noise band → §3 improvement band; X7 reproduction ε → §4; X8 measured points and exploration share → §1, §3; X9 task budgets → §1; X10 hardware-model instance values → HwModel resources and interactions (not rows here); X11 MIP ↔ L2 acceptance thresholds → the check's thresholds (rows added with the check, WP19); X12 concurrent agent instances → §1. Rows whose set_by cell says "S1/S2 logs" (rounds per case loop, task budgets, null-round limit, escalation thresholds, model-term provisionality, level choice) are revised from the logs of S1/S2 runs, not by a dedicated experiment (02 §11 order, step 5). When a value is set by an experiment, its status column names the experiment and the run.
 
 ## 7. Rows added from code and D325 (WP21)
 

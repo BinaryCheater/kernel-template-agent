@@ -149,7 +149,7 @@ Endpoints (`kta.api.controls`). Reading is open; writing needs the operator toke
 
 | Endpoint | Returns / does |
 | --- | --- |
-| `GET /controls` | `version` {id, version, stored, definitions_hash, stored_under_hash}; `knobs` (definition + `value` in force + `initial`); `experiments` (X1–X9); `write` {header, token_configured} |
+| `GET /controls` | `version` {id, version, stored, definitions_hash, stored_under_hash}; `knobs` (definition + `value` in force + `initial`); `experiments` (X1–X12); `write` {header, token_configured} |
 | `GET /controls/versions?limit=` | stored versions newest first: id, version, at, author, author_type, reason, changes, previous |
 | `POST /controls` {expected, changes, reason} | a new ControlsVersion by `[api] operator` plus a HumanAction `set_controls` (refs.controls); 400 on an invalid value, a stale `expected` or a blank reason; 403 on an invariant knob |
 | `GET /release` | the stage in force, all stages with exit criteria, the controls version, tasks in flight, queued agent tasks with hold reason, card body, pull log and plan (null with a note until WP19) |
@@ -159,4 +159,4 @@ Endpoints (`kta.api.controls`). Reading is open; writing needs the operator toke
 
 `GET /machines` replaces limits that name a knob with the value in force and adds `limit_controls`; `GET /runs/active` takes `agent_slots` from `budget.agent_instances.start`; `GET /quotas` reads `budget.process_quotas`.
 
-Web pages: **Settings** (`/settings`): every knob grouped by 12's sections with value, prevents, where, status and set_by; editable values become one version with a reason; invariants are shown read-only; version history; X1–X9. **Release** (`/release`): stage table with exit criteria, a stage change (a controls version), and each held agent call with its card, pull log and plan and a release button in a gated stage. The operator token is typed into the page and kept in the tab's sessionStorage only.
+Web pages: **Settings** (`/settings`): every knob grouped by 12's sections with value, prevents, where, status and set_by; editable values become one version with a reason; invariants are shown read-only; version history; X1–X12 in 02 §11 order. **Release** (`/release`): stage table with exit criteria, a stage change (a controls version), and each held agent call with its card, pull log and plan and a release button in a gated stage. The operator token is typed into the page and kept in the tab's sessionStorage only.

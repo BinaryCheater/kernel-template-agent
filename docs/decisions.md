@@ -345,6 +345,7 @@
 | D487 | Inbox reads thresholds without writing | the inbox (and every GET) reads `kta.store.controls.current` and never writes a version; trigger text follows the value ("Budget at 80%" at the default) | WP21 |
 | D488 | Loop budget scope from 12 §1 | a loop's scope is `rounds × max task wall budget` agent time and `case_factor × max task GPU budget` GPU time (12 §1 "case cap = 10 × task cap"); before it was `rounds × task GPU` | WP21 |
 | D489 | WP21 gate check | named WP21 tests; registry vs 12 rows and `set_by` cells; X1–X9; replaced constants absent from `src/`; S0–S4 with exit criteria; `/settings` and `/release` routed; web build; the real S1 run is WARN in the code stage and FAIL in the full gate. In `tools/kta_gate/specific_wp21.py` | WP21 |
+| D490 | X10–X12 and the experiment order in the registry | following D328 / 02 §11 (coordinator, 89ddd7c): X10 (hardware-model instance values), X11 (MIP ↔ L2 thresholds) and X12 (agent instances, sets `budget.agent_instances`) are defined; each experiment has `step` (02 §11 order 1–6), `method` (run or logs) and `sets_elsewhere` for values outside the registry (X10 → HwModel resources and interactions; X11 → the check thresholds WP19 adds as knobs). Knobs revised from S1/S2 logs rather than by an experiment carry `set_from: S1/S2 logs` (rounds per case loop, task wall/GPU/steps budgets, null-round limit, escalate case → knowledge, model-term provisionality, level choice); X9 is `method: logs`. Doc 12's set_by cells show both | WP21 |
 
 ## 已确认
 

@@ -72,7 +72,7 @@ Code stage (D320): no real runs, no experiments. Branch `wp/WP21`; decisions D48
 | --- | --- |
 | R9 (staged release part) | S0–S4 as orchestrator configuration (`orchestrator/stages.yaml`), stage = knob `release.stage` (default S0); S1 gates each agent call until you release it; exit criteria on the Release page |
 | R11 | one versioned controls registry (`core/controls.yaml`, ControlsVersion records); code reads knobs only from it; settings page `/settings` edits only these values (operator token, author and reason per version) |
-| R12 | X1–X9 defined (`core/experiments.yaml`: arms, metrics, knobs set); every row of 12 names its `set_by` experiment |
+| R12 | X1–X12 defined (`core/experiments.yaml`: arms, metrics, knobs set, 02 §11 order, run or logs; X10–X12 per D328); every row of 12 names its `set_by` experiment or "S1/S2 logs" (D490) |
 | D-T22, D-T23, D-T25, D-T28 | implemented as the defaults they are |
 | D-open-6 (values) | scope v1 and ε = 10 % are registry values (`learning.scope`, `learning.reproduction_epsilon`), status default |
 

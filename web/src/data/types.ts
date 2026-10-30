@@ -624,6 +624,8 @@ export interface Knob {
   status: "spec" | "default" | "set";
   source: string;
   set_by: string[];
+  set_from: string;
+  set_by_cell: string;
   editable: boolean;
   accessor: string;
   consumer: string;
@@ -642,7 +644,10 @@ export interface SystemExperiment {
   metrics: string[];
   sets: string[];
   profile_fields: string[];
+  sets_elsewhere: string[];
   depends_on: string[];
+  step: number;
+  method: "run" | "logs";
   status: string;
 }
 

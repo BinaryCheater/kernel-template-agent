@@ -17,6 +17,8 @@
 #   status     spec (from a spec/design document, `source`) | default (no evidence yet) | set
 #              (set by an experiment run: `set_by` names the X experiment, `set_run` the run)
 #   set_by     X experiments of 02 §11 that set it; [] = none planned (the value stands as is)
+#   set_from   "S1/S2 logs": revised from the logs of S1/S2 runs, no dedicated experiment
+#              (02 §11 order, step 5; D490)
 #   editable   false for invariants enforced in code: shown, never written by the settings page
 #   accessor   the typed property on Controls
 #   consumer   where code reads it today; "pending WP<n>" when the mechanism is not built yet
@@ -40,6 +42,7 @@ knobs:
     status: spec
     source: "10 §2.1"
     set_by: []
+    set_from: S1/S2 logs
     editable: true
     accessor: rounds_per_case_loop
     consumer: orchestrator Settings.max_rounds (solve and expand round limit)
@@ -74,6 +77,7 @@ knobs:
     status: default
     source: "12 §1"
     set_by: [X1, X9]
+    set_from: S1/S2 logs
     editable: true
     accessor: task_wall_s
     consumer: TaskCard budget.wall_s at task creation; agent step wall limit
@@ -143,6 +147,7 @@ knobs:
     status: default
     source: "12 §1"
     set_by: [X1]
+    set_from: S1/S2 logs
     editable: true
     accessor: gpu_s
     consumer: TaskCard budget.gpu_s; loop budget scope gpu_min
@@ -160,6 +165,7 @@ knobs:
     status: default
     source: "12 §1"
     set_by: [X1]
+    set_from: S1/S2 logs
     editable: true
     accessor: tool_call_steps
     consumer: TaskCard budget.steps
@@ -215,7 +221,7 @@ knobs:
     where: [orch, ui]
     status: spec
     source: "10 §4.5"
-    set_by: []
+    set_by: [X12]
     editable: true
     accessor: agent_instances
     consumer: agent slots (lanes agent:1..start); runner refuses slot > max
@@ -401,6 +407,7 @@ knobs:
     status: default
     source: "01 §9.4"
     set_by: []
+    set_from: S1/S2 logs
     editable: true
     accessor: null_round_limit
     consumer: pending WP18
@@ -608,6 +615,7 @@ knobs:
     status: default
     source: "01 §9.4"
     set_by: []
+    set_from: S1/S2 logs
     editable: true
     accessor: case_to_knowledge
     consumer: pending WP18
@@ -658,6 +666,7 @@ knobs:
     status: default
     source: "01 §9.4"
     set_by: []
+    set_from: S1/S2 logs
     editable: true
     accessor: model_term_provisionality
     consumer: pending WP16 (regression scoreboard)
@@ -692,6 +701,7 @@ knobs:
     status: default
     source: "01 §9.4"
     set_by: []
+    set_from: S1/S2 logs
     editable: true
     accessor: level_choice
     consumer: pending WP18 (record only in phase one)

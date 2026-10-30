@@ -96,7 +96,7 @@ function Editor({ view }: { view: ControlsView }) {
                     <td className="small">{k.prevents}</td>
                     <td className="small">{k.where.join(", ")}</td>
                     <td className="small"><Chip tone={k.status === "set" ? "ok" : k.status === "spec" ? "idle" : "waiting"}>{k.status}</Chip> <span className="muted">{k.source}</span></td>
-                    <td className="small mono">{k.set_by.join(", ") || "—"}</td>
+                    <td className="small mono">{k.set_by_cell}</td>
                   </tr>
                 ))}
               </tbody>
@@ -156,16 +156,16 @@ function Versions({ rows, error }: { rows: ControlsVersionRow[]; error?: string 
 
 function Experiments({ view }: { view: ControlsView }) {
   return (
-    <Panel title="System-parameter experiments X1–X9" sub="02 §11: defined, not run; a default stands until its experiment has run">
+    <Panel title="System-parameter experiments X1–X12" sub="02 §11, in its order (step 1–6): defined, not run; a default stands until its experiment has run">
       <table className="t compact">
         <thead><tr><th>ID</th><th>Question and design</th><th>Arms · metrics</th><th>Sets</th></tr></thead>
         <tbody>
-          {view.experiments.map((e) => (
+          {[...view.experiments].sort((a, b) => a.step - b.step).map((e) => (
             <tr key={e.id}>
-              <td><b>{e.id}</b><div><Chip tone="idle">{e.status}</Chip></div></td>
+              <td><b>{e.id}</b><div className="small muted">step {e.step}{e.method === "logs" ? " · from logs" : ""}</div><div><Chip tone="idle">{e.status}</Chip></div></td>
               <td className="small"><b>{e.question}</b><div className="muted">{e.design}</div></td>
               <td className="small">{e.arms.join(" | ")}<div className="muted">{e.metrics.join(", ")}</div></td>
-              <td className="small mono">{[...e.sets, ...e.profile_fields.map((f) => `AgentProfile.${f}`)].join(", ") || "—"}</td>
+              <td className="small mono">{[...e.sets, ...e.profile_fields.map((f) => `AgentProfile.${f}`), ...e.sets_elsewhere].join(", ") || "—"}</td>
             </tr>
           ))}
         </tbody>

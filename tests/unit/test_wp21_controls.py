@@ -68,7 +68,7 @@ def test_registry_holds_every_row_of_12_with_set_by() -> None:
     assert set(rows) == set(by_row), set(rows) ^ set(by_row)
     for name, cells in rows.items():
         k = by_row[name]
-        assert cells[-1] == (", ".join(k.set_by) or "—"), name
+        assert cells[-1] == k.set_by_cell, name
         assert k.prevents and k.where and k.status in ("spec", "default", "set")
     sections = {k.section for k in defs.knobs}
     assert sections == {"12 §1", "12 §2", "12 §3", "12 §4", "12 §7"}
@@ -84,14 +84,25 @@ def test_every_knob_has_one_typed_accessor() -> None:
     assert b.version_id is None and b.definitions_hash == defs.hash
 
 
-def test_experiments_x1_to_x9_are_defined_with_the_knobs_they_set() -> None:
+def test_experiments_x1_to_x12_are_defined_with_the_knobs_they_set() -> None:
     defs = definitions()
-    assert [e.id for e in defs.experiments] == [f"X{i}" for i in range(1, 10)]
+    assert [e.id for e in defs.experiments] == [f"X{i}" for i in range(1, 13)]
     assert all(e.status == "defined" and e.arms and e.metrics for e in defs.experiments)
     sets = {e.id: set(e.sets) for e in defs.experiments}
     assert sets["X5"] == {"budget.retries_per_task"}
     assert sets["X7"] == {"learning.reproduction_epsilon"}
-    assert "budget.task_wall_s" in sets["X9"]
+    assert "budget.task_wall_s" in sets["X9"] and sets["X12"] == {"budget.agent_instances"}
+    by_id = {e.id: e for e in defs.experiments}
+    assert by_id["X9"].method == "logs" and by_id["X10"].sets_elsewhere
+    assert [by_id[x].step for x in ("X6", "X10", "X11", "X7", "X1")] == [1, 1, 2, 3, 4]
+    from_logs = {k.id for k in defs.knobs if k.set_from == "S1/S2 logs"}
+    assert {
+        "budget.rounds_per_case_loop",
+        "guard.null_round_limit",
+        "escalation.level_choice",
+        "escalation.model_term_provisionality",
+        "budget.task_wall_s",
+    } <= from_logs
     for k in defs.knobs:
         assert all(k.id in sets[x] for x in k.set_by), k.id
     assert next(e for e in defs.experiments if e.id == "X2").profile_fields == ("reasoning_effort",)

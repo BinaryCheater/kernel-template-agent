@@ -30,6 +30,7 @@ FIELD_TYPES = ("int", "float", "bool", "str", "list_str")
 WHERE = ("profile", "orch", "protocol", "ui", "gate", "knowledge")
 STATUSES = ("spec", "default", "set")
 EXPERIMENT_STATUSES = ("defined", "approved", "running", "done")
+SET_FROM = ("", "S1/S2 logs")  # 02 §11 step 5: revised from logs, no dedicated experiment
 
 
 @dataclass(frozen=True)
@@ -55,12 +56,20 @@ class Knob:
     max: float | None = None
     sum_max: float | None = None
     set_run: str | None = None
+    set_from: str = ""
+
+    @property
+    def set_by_cell(self) -> str:
+        """The `set_by` cell of 12: the experiments, then "S1/S2 logs" when revised from logs."""
+        parts = [*self.set_by, *([self.set_from] if self.set_from else [])]
+        return ", ".join(parts) or "—"
 
     def to_dict(self) -> dict[str, Any]:
         out: dict[str, Any] = {
             k: getattr(self, k) for k in self.__dataclass_fields__ if k not in ("fields",)
         }
         out["fields"] = dict(self.fields)
+        out["set_by_cell"] = self.set_by_cell
         for k in ("where", "set_by", "choices"):
             out[k] = list(out[k])
         return out
@@ -75,7 +84,10 @@ class Experiment:
     metrics: tuple[str, ...]
     sets: tuple[str, ...]
     profile_fields: tuple[str, ...]
+    sets_elsewhere: tuple[str, ...]  # values outside the registry (e.g. HwModel data)
     depends_on: tuple[str, ...]
+    step: int  # 02 §11 order, 1 (no agent, GPU minutes) .. 6 (claims)
+    method: str  # run | logs (revised from S1/S2 logs, no dedicated run)
     status: str
 
     def to_dict(self) -> dict[str, Any]:
@@ -139,12 +151,15 @@ def _knob(raw: dict[str, Any]) -> Knob:
         max=None if raw.get("max") is None else float(raw["max"]),
         sum_max=None if raw.get("sum_max") is None else float(raw["sum_max"]),
         set_run=None if raw.get("set_run") is None else str(raw["set_run"]),
+        set_from=str(raw.get("set_from", "")),
     )
     bad = [w for w in k.where if w not in WHERE]
     if bad or k.status not in STATUSES:
         raise ConfigError(f"control {k.id}: where {bad} or status {k.status!r} unknown")
     if k.type == "mapping" and any(t not in FIELD_TYPES for t in k.fields.values()):
         raise ConfigError(f"control {k.id}: field types must be among {FIELD_TYPES}")
+    if k.set_from not in SET_FROM:
+        raise ConfigError(f"control {k.id}: set_from must be one of {SET_FROM}")
     if (k.status == "set") != (k.set_run is not None):
         raise ConfigError(f"control {k.id}: status set needs set_run, and only then")
     return k
@@ -166,7 +181,10 @@ def definitions() -> Definitions:
             metrics=_tuple(r["metrics"]),
             sets=_tuple(r["sets"]),
             profile_fields=_tuple(r.get("profile_fields")),
+            sets_elsewhere=_tuple(r.get("sets_elsewhere")),
             depends_on=_tuple(r.get("depends_on")),
+            step=int(r["step"]),
+            method=str(r["method"]),
             status=str(r["status"]),
         )
         for r in cast(list[dict[str, Any]], exp_raw["experiments"])
@@ -190,6 +208,8 @@ def _validate(defs: Definitions) -> None:
         if unknown:
             raise ConfigError(f"control {k.id}: set_by names undefined experiments {unknown}")
     for e in defs.experiments:
+        if e.method not in ("run", "logs") or not 1 <= e.step <= 6:
+            raise ConfigError(f"experiment {e.id}: method run|logs and step 1..6")
         if e.status not in EXPERIMENT_STATUSES:
             raise ConfigError(f"experiment {e.id}: status {e.status!r} unknown")
         for knob_id in e.sets:

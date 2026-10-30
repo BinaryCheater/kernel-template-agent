@@ -137,8 +137,10 @@ Every knob of docs/design/12-agent-controls.md lives in one versioned registry. 
 core/controls.yaml     knob definitions: id, row (the "Knob" cell of 12), section, controls, type,
                        value (initial), prevents, where, status, source, set_by, editable,
                        accessor, consumer, unit, choices / fields / min / max / sum_max
-core/experiments.yaml  X1–X9 (02 §11): question, design, arms, metrics, sets (knob ids),
-                       profile_fields, depends_on, status (defined | approved | running | done)
+core/experiments.yaml  X1–X12 (02 §11): question, design, arms, metrics, sets (knob ids),
+                       profile_fields, sets_elsewhere (values outside the registry, e.g. HwModel),
+                       depends_on, step (02 §11 order 1–6), method (run | logs),
+                       status (defined | approved | running | done)
 core/controls.py       definitions(), coerce(), Controls (snapshot), baseline(), upgrade()
 core/knobs.py          Knobs: one typed property per knob (mixed into Controls)
 store/controls.py      ControlsVersion records and the pointer controls:current
@@ -176,7 +178,7 @@ history(store, limit) -> list[(id, Record)]
 
 ### Adding a knob (WP18, WP19 and later)
 
-1. Add a row to `core/controls.yaml` (with the failure it prevents, `where`, `status`, `set_by`; `consumer` names the code that reads it).
+1. Add a row to `core/controls.yaml` (with the failure it prevents, `where`, `status`, `set_by`, `set_from: S1/S2 logs` when it is revised from logs rather than by an experiment; `consumer` names the code that reads it). WP19 adds the MIP ↔ L2 thresholds with `set_by: [X11]` and lists them in X11's `sets` (moving them out of `sets_elsewhere`).
 2. Add one typed property with the row's `accessor` name to `core/knobs.py`.
 3. Add the row to docs/design/12-agent-controls.md (with its `set_by` cell); if an X experiment sets it, list the knob in that experiment's `sets`.
 4. Read it through `ctx.controls.<accessor>` (pure code) or `kta.store.controls.ensure(...)`.<accessor>.

@@ -1,7 +1,7 @@
 """WP21 specific checks (spec/gate.md "WP21", D489): controls registry and staged release.
 
 Static part (both stages): the named WP21 tests passed; the registry loads and holds every
-row of docs/design/12 with a matching `set_by` cell; X1–X9 are defined; the knob constants
+row of docs/design/12 with a matching `set_by` cell; X1–X12 are defined; the knob constants
 the registry replaced are gone from `src/`; stages S0–S4 are defined with exit criteria; the
 Settings and Release pages are routed and the web build passes.
 
@@ -20,7 +20,7 @@ from kta_gate.result import CheckResult, from_findings
 WP21_TESTS = (
     "test_registry_holds_every_row_of_12_with_set_by",
     "test_every_knob_has_one_typed_accessor",
-    "test_experiments_x1_to_x9_are_defined_with_the_knobs_they_set",
+    "test_experiments_x1_to_x12_are_defined_with_the_knobs_they_set",
     "test_d325_defaults_are_registry_values",
     "test_settings_are_a_view_of_the_controls",
     "test_invalid_values_and_invariants_are_refused",
@@ -80,12 +80,12 @@ def check_registry(root: Path) -> CheckResult:
     findings += [f"knob without a row in 12: {r}" for r in sorted(set(by_row) - set(rows))]
     for row, cell in rows.items():
         k = by_row.get(row)
-        if k is not None and cell != (", ".join(k.set_by) or "—"):
+        if k is not None and cell != k.set_by_cell:
             findings.append(f"{row}: set_by cell {cell!r} != registry {list(k.set_by)}")
     ids = [e.id for e in defs.experiments]
-    if ids != [f"X{i}" for i in range(1, 10)]:
-        findings.append(f"experiments are {ids}, not X1–X9")
-    return from_findings("WP21 registry", findings, f"{len(defs.knobs)} knobs, X1–X9, 12 matches")
+    if ids != [f"X{i}" for i in range(1, 13)]:
+        findings.append(f"experiments are {ids}, not X1–X12")
+    return from_findings("WP21 registry", findings, f"{len(defs.knobs)} knobs, X1–X12, 12 matches")
 
 
 def check_replaced(root: Path) -> CheckResult:
