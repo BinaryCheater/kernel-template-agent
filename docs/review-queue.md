@@ -59,3 +59,45 @@ Decisions made without the user that need review. Newest last. Each entry: quest
 - **Choice:** require the named WP1 acceptance tests to pass (they run with the unit tests) and a valid real `store-benchmark` Report in the dev store (clean WP1 commit, worker EnvManifest, ≥100 000 records, every p95 < 50 ms recomputed from the raw latency blob, listed in the evidence manifest).
 - **Rationale:** checks the same thing the spec's real-run acceptance asks for, from stored evidence rather than stdout.
 - **Cost of changing later:** low: one function in `tools/kta_gate/specific.py`.
+
+## D181 — Worker deployment and commit match
+
+- **Question:** conventions §5 require worker and control plane at the same commit; how is that enforced without a shared filesystem?
+- **Choice:** each commit is deployed to `<root>/src/<commit>` with its own venv; the ssh transport only runs the deployment of the control plane's commit; registration and the Executor refuse other commits.
+- **Rationale:** a worker can never run code other than the control plane's; old deployments stay for reproducing earlier records.
+- **Cost of changing later:** low: deployment layout is in `scripts/worker-setup` and `SshTransport.script`; disk use grows with deployments (cleanup not implemented).
+
+## D184 — One in-process Executor per control-plane process
+
+- **Question:** where do the job queue, pool limits and GPU leases live?
+- **Choice:** in the `JobExecutor` object of the process that submits; the GPU lease is mirrored in the ops `locks` table for cross-process exclusivity; gpu-shared deferral is per process.
+- **Rationale:** simplest design that meets the WP2 acceptance; the orchestrator (WP6) can own a single executor for the whole control plane.
+- **Cost of changing later:** medium: a shared queue (ops table or API service) would move `_place`/`_acquire_slot` onto a table; the Executor protocol stays.
+
+## D186 — Uniform harness through the CUDA driver API
+
+- **Question:** "all backends' modules are loaded and launched the same way" — as `.so` or cubin, and from what host code?
+- **Choice:** cubins only, launched by `kta.backends.harness.run` via ctypes on libcuda (no torch, no compiled launcher); timing with CUDA events per launch.
+- **Rationale:** both backends produce cubins naturally; one launch path makes timing comparable; no extra dependencies on workers.
+- **Cost of changing later:** low for adding `.so` modules; WP3 may refine the timing protocol (events per launch include launch overhead).
+
+## D187 — TileLang in a container, compiled by the host nvcc
+
+- **Question:** how to install and pin TileLang on an aarch64 GB10 worker without system installs, and keep one toolchain for both backends?
+- **Choice:** a worker image from the NGC PyTorch 26.03 image (pinned digest) plus a pinned pip lock; codegen in the container without network or GPU; compile with the host CUDA 13.0 nvcc mounted read-only.
+- **Rationale:** TileLang needs torch/TVM wheels that are heavy for the project venv and would not resolve on the macOS control plane; the container's own CUDA 13.2 needs forward-compatibility mode, so cubins built by it may not match the host driver.
+- **Cost of changing later:** low: `docker/worker/`, `kta.backends.tilelang`; changing TileLang version means regenerating `requirements.lock` (`docker/lock`).
+
+## D188 — What `support: yes/no/unknown` means for a HwFeature
+
+- **Question:** the spec says "compile and run a minimal kernel: success -> yes, compile failure -> no"; what about features that cannot be exercised without host setup, or runs that fail?
+- **Choice:** compile-only entries and failed runs are `unknown`; the probe uses `-arch=sm_121a`; raw output is kept per feature.
+- **Rationale:** never claims support that was not executed; `no` only when the toolchain rejects the instruction for sm_121a.
+- **Cost of changing later:** low: one function (`_decide`); adding run harnesses for TMA tensor maps would turn `unknown` into `yes`/`no`.
+
+## D198 — What the WP2 gate checks
+
+- **Question:** spec/gate.md asks for `pytest -m gpu tests/acceptance/WP2/` via the Executor on spark and real Target/Build records.
+- **Choice:** the gate runs that suite (it reaches spark and slai over ssh, so it needs this commit deployed on both) and checks listed, real, clean Target, Build, Worker, EnvManifest and Check records in `$KTA_DATA/dev/WP2/kta.db`, including a passed vector-add Check per backend.
+- **Rationale:** the acceptance run proves the behaviour now; the record check proves the delivered evidence.
+- **Cost of changing later:** low: one function in `tools/kta_gate/specific.py`.
