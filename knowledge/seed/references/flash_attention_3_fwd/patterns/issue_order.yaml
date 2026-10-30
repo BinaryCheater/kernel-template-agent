@@ -1,0 +1,16 @@
+name: issue_order
+level: 3
+category: other
+params:
+  - {name: scope, type: enum, values: [within_executor, across_executors], meaning: "whether the order constrains one executor's instruction stream or the interleaving of several executors"}
+  - {name: across_iterations, type: bool, meaning: "whether operations of different loop iterations are interleaved"}
+  - {name: dependency, type: enum, values: [data, resource, none], meaning: "why the order matters: data dependency or contention for a shared unit"}
+description: >-
+  The order in which dependent or competing operations are issued, within one executor's loop or
+  across executors that share a unit. The coarse transaction is "operations execute in program
+  order"; refinements reorder them across iterations or across warpgroups to overlap units, while
+  data dependencies are kept by waits or barriers. The schema's fixed category list has no
+  scheduling category, so this is filed under `other`.
+examples:
+  - "FlashAttention-3 intra-warpgroup overlap: issue QK^T of block n, then PV of block n+1, and run softmax of n while PV is in flight (hopper/mainloop_fwd_sm90_tma_gmma_ws.hpp:1170-1206)"
+  - "FlashAttention-3 ping-pong: two warpgroups take turns on the tensor cores, ordered by named barriers (hopper/mainloop_fwd_sm90_tma_gmma_ws.hpp:915-950)"

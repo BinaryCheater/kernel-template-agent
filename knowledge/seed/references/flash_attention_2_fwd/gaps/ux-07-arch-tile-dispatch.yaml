@@ -1,0 +1,8 @@
+missing: family
+description: >-
+  [ux-07] Dispatch between several bindings of the same chain by device and workload flags is family-level
+  content (DispatchSpec), not a chain step, so a Reconstruction cannot express it. A Reference needs either
+  one Chain per dispatch bucket or a dispatch record attached to the Chain.
+level: 2
+pattern_guess: other
+attribution: granularity

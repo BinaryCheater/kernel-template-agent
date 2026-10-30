@@ -1,0 +1,7 @@
+missing: template
+description: >-
+  [ux-11] No seed Template re-lays out a register tile through a shared-memory staging buffer. physical_storage
+  explains the buffer aliasing but not the two-phase transfer and its barriers. Proposed: staged_relayout@1.
+level: 3
+pattern_guess: transfer
+attribution: space

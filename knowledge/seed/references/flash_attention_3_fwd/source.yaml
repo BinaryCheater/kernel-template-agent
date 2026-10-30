@@ -1,0 +1,11 @@
+name: flash_attention_3_fwd_source
+type: git
+locator: https://github.com/Dao-AILab/flash-attention
+revision: a3a9dfa9bf10b52e55e8507b16ab0fe0dc1f38a0
+license: BSD-3-Clause
+note: >-
+  FlashAttention-3 forward for sm_90 (hopper/ directory of the same repository as the FlashAttention-2
+  reference). Commit date 2026-10-29T16:03:11-07:00; retrieved 2026-10-30T04:03:53Z (shallow clone, cached
+  outside git). Files analysed: hopper/flash_fwd_kernel_sm90.h, hopper/mainloop_fwd_sm90_tma_gmma_ws.hpp,
+  hopper/softmax.h, hopper/epilogue_fwd.hpp, hopper/tile_scheduler.hpp, hopper/tile_size.h, hopper/flash_fwd_launch_template.h,
+  hopper/named_barrier.hpp.

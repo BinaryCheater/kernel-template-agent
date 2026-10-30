@@ -1,0 +1,7 @@
+missing: family
+description: >-
+  [ux-07] Dispatch over compiled instances is family-level (DispatchSpec), not a chain step. Same gap
+  as flash_attention_2_fwd ux-07.
+level: 2
+pattern_guess: other
+attribution: granularity

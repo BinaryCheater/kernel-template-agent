@@ -1,0 +1,43 @@
+name: indexed_gather
+version: 1
+level_from: 2
+level_to: 3
+change: vertical
+refines: transfer
+produces: [transfer, transfer]
+object:
+  type: index_map
+  description: "A runtime index array (page table, sorted token ids) that maps logical rows of an operand tile to physical rows in global memory; the tile transfer gathers rows through it."
+variables:
+  - {name: granularity, kind: structure, binding: compile, role: software, domain: [page, row], meaning: "unit addressed by one index (a page of page_size rows, or a single row)"}
+  - {name: index_prefetch, kind: structure, binding: compile, role: software, domain: [none, smem_batched, registers], meaning: "how indices are brought on chip before the data loads (FlashInfer: page offsets for bdx future iterations computed into smem)"}
+  - {name: index_reuse, kind: numeric, binding: compile, role: software, domain: {lo: 1, hi: 64}, meaning: "iterations served by one index prefetch"}
+constraints:
+  - {id: c_reuse, expr: "index_reuse >= 1", meaning: "each prefetch serves at least one iteration", cls: semantic}
+preconditions:
+  - {id: pre_valid, expr: "case.indices_in_bounds", meaning: "every index points into the allocated pool (validated by the producer of the index array)", cls: semantic}
+program:
+  description: "Every bdx iterations, threads translate the next logical KV positions through kv_indices / page_size into element offsets and store them in smem; the cp.async loads of K and V read their source address from that smem table (include/flashinfer/attention/decode.cuh:491-499, 535-547, 560-565)."
+  fragments: {}
+backward_map: "Materialize the gathered operand contiguously (copy rows in index order) and run the dense transfer: equal tile contents."
+obligations:
+  - {name: gather_correct, statement: "The row loaded for logical position i is the physical row index[i] (page index and in-page offset computed correctly, including the last partial page).", method: exhaustive}
+  - {name: index_ready, statement: "Offsets are written to smem and a barrier passes before any load reads them; they are not overwritten while loads that read them are being issued.", method: test}
+cost:
+  - {unit: dram, work: "p.gathered_bytes + p.index_bytes", overlap: overlappable}
+scope:
+  predicate: "True"
+  text: "Operands stored non-contiguously behind a runtime index: paged KV caches, token permutations for MoE, sparse row selection."
+requires_hw: []
+relations:
+  - {type: requires, target: async_transfer}
+  - {type: requires, target: vectorized_access, note: "rows within a page or row stay contiguous and vectorized"}
+signature:
+  algorithm: "index-driven row gather into on-chip tiles"
+  reuse: "index table reused over several iterations"
+  storage: "index table in smem or registers"
+  boundary: "last partial page; padding indices"
+  resources: [dram]
+numeric_risk: null
+expected_sass: []
+summary: "Loads operand rows through a runtime index array (page table or token permutation) instead of a dense stride. Usually prefetches the indices on chip and reuses them over several iterations. Obligations cover index translation and the ordering between index writes and the loads that use them."

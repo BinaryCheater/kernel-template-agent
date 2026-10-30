@@ -1,0 +1,7 @@
+missing: template
+description: >-
+  [ux-02] No pool Template restricts a reduction's iteration space using mask structure or peels masked
+  iterations. Proposed: masked_tile_pruning@1 (change = restriction).
+level: 2
+pattern_guess: reduce
+attribution: space

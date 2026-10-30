@@ -1,0 +1,41 @@
+name: pingpong_schedule
+version: 1
+level_from: 3
+level_to: 3
+change: vertical
+refines: issue_order
+produces: [issue_order, sync]
+object:
+  type: turn_order
+  description: "A cyclic order in which several consumer warpgroups take turns issuing their tensor-core work, enforced by named barriers so one group's GEMMs overlap another group's softmax."
+variables:
+  - {name: groups, kind: numeric, binding: compile, role: software, domain: [2, 3], meaning: "warpgroups taking turns"}
+  - {name: turn_unit, kind: structure, binding: compile, role: software, domain: [qk_and_pv_gemms, single_gemm], meaning: "work issued per turn"}
+constraints:
+  - {id: c_barriers, expr: "groups <= hw.named_barriers - 4", meaning: "one named barrier per group, leaving the reserved ones", cls: resource}
+preconditions:
+  - {id: pre_independent, expr: "p.groups_independent", meaning: "the groups work on disjoint rows, so the order changes only timing", cls: semantic}
+program:
+  description: "Before its GEMMs a group waits on its own scheduler barrier (warp_scheduler_barrier_sync); after issuing them it arrives on the next group's barrier (warp_scheduler_barrier_arrive); group 1 is primed at start (hopper/mainloop_fwd_sm90_tma_gmma_ws.hpp:915-950, 1176-1183)."
+  fragments: {}
+backward_map: "Drop the barriers: groups issue whenever ready. Values are unchanged because groups own disjoint output rows."
+obligations:
+  - {name: no_deadlock, statement: "The turn order is a cycle in which every group eventually gets its turn, including when groups have different numbers of iterations (causal) and at the last tile.", method: exhaustive}
+  - {name: barrier_ids_disjoint, statement: "Scheduler barrier IDs do not collide with other named barriers in use.", method: test}
+cost: []
+scope:
+  predicate: "True"
+  text: "Two or three consumer warpgroups sharing the tensor cores, each with a non-tensor-core stage long enough to hide another group's GEMMs."
+requires_hw: [named_barrier]
+relations:
+  - {type: requires, target: warp_specialization}
+signature:
+  algorithm: "inter-warpgroup ping-pong on the tensor cores"
+  reuse: null
+  storage: null
+  boundary: "unequal iteration counts"
+  resources: [tensor]
+numeric_risk: null
+expected_sass:
+  - {when: "True", must_contain: [BAR.SYNC, BAR.ARV], must_not_contain: []}
+summary: "Makes consumer warpgroups take turns on the tensor cores with named barriers, so one group's GEMMs hide another's softmax. Pure reordering of independent work. Its obligation is deadlock freedom of the turn cycle."

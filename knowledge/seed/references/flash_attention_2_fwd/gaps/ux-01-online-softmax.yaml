@@ -1,0 +1,8 @@
+missing: template
+description: >-
+  [ux-01] No pool Template turns a two-pass reduction into a single rescaled pass; reduction_partition
+  splits a reduction but has no running reference point or correction factor. Proposed: online_rescaled_reduction@1
+  (Pre: assoc and rescalable).
+level: 1
+pattern_guess: reduce
+attribution: space

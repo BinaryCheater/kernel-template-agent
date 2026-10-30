@@ -1,0 +1,45 @@
+name: per_slot_handshake
+version: 1
+level_from: 3
+level_to: 3
+change: vertical
+refines: sync
+produces: [sync]
+object:
+  type: slot_barrier_pair
+  description: "A full barrier and an empty barrier per buffer slot (mbarrier with phase parity); the producer waits on empty and signals full (or the copy engine signals it via a transaction count), the consumer waits on full and signals empty."
+variables:
+  - {name: full_signal, kind: structure, binding: compile, role: boundary, domain: [tma_tx_count, thread_arrive, cp_async_arrive], meaning: "who completes the full barrier"}
+  - {name: empty_arrivals, kind: numeric, binding: compile, role: software, domain: {lo: 1, hi: 1024}, meaning: "arrivals that complete the empty barrier (consumer threads or warps)"}
+  - {name: stages, kind: numeric, binding: compile, role: software, domain: {lo: 1, hi: 8}, meaning: "slots in the ring (from multi_buffer_rotation S)"}
+constraints:
+  - {id: c_stages, expr: "stages >= 1", meaning: "at least one slot", cls: semantic}
+preconditions:
+  - {id: pre_ring, expr: "p.ring_slots_known", meaning: "the slot ring (S, P) is fixed by multi_buffer_rotation", cls: semantic}
+program:
+  description: "producer_acquire(slot) waits on empty[slot] with the current phase; the TMA copy is issued with full[slot] as its completion barrier; consumer_wait(slot) waits on full[slot]; consumer_release(slot) arrives on empty[slot]; phase flips when the ring wraps (cutlass PipelineTmaAsync used at hopper/mainloop_fwd_sm90_tma_gmma_ws.hpp:283-289, 750-768, 1140-1143, 1185-1188)."
+  fragments: {}
+backward_map: "Replace each pair by one CTA-wide barrier at the same program points: the single-barrier rotation of multi_buffer_rotation."
+obligations:
+  - {name: generation, statement: "A consumer that waits on full[slot] with phase p reads the generation written in round p, never an older or newer one.", method: exhaustive}
+  - {name: arrival_count, statement: "Each barrier's expected arrival count (or transaction bytes) equals what is actually delivered per round.", method: test}
+  - {name: progress, statement: "No wait is unsatisfiable, including the producer tail (producer_tail) and early-exit tiles.", method: exhaustive}
+cost:
+  - {unit: issue, work: "4 * p.tiles", overlap: overlappable}
+scope:
+  predicate: "True"
+  text: "Buffer rings shared by different warps (warp specialization) or filled by an asynchronous copy engine."
+requires_hw: [mbarrier]
+relations:
+  - {type: refines, target: multi_buffer_rotation, note: "realizes the rotation's trailing barrier as per-slot barriers"}
+  - {type: alternative_of, target: multi_buffer_rotation, note: "alternative to a CTA-wide __syncthreads per iteration"}
+signature:
+  algorithm: "per-slot full/empty mbarrier protocol with phase bits"
+  reuse: null
+  storage: "mbarrier objects in smem"
+  boundary: "pipeline tail and empty tiles"
+  resources: [issue]
+numeric_risk: null
+expected_sass:
+  - {when: "full_signal == 'tma_tx_count'", must_contain: [SYNCS.ARRIVE.TRANS64, UTMALDG], must_not_contain: []}
+summary: "Replaces the CTA-wide barrier that protects a buffer ring with a full/empty barrier pair per slot and phase parity. Lets different warps or a copy engine produce and consume independently. Its obligations are generation correctness, exact arrival counts and progress."

@@ -1,0 +1,4 @@
+name: vllm_rms_norm
+problem: rms_norm_f16
+build: "pip install vllm (rms_norm is in the vllm._C extension; not executed in WP10a)"
+runnable_on: [gb10]

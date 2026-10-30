@@ -1,0 +1,8 @@
+missing: other
+description: >-
+  [ux-12] Same as cutlass_ampere_tf32_gemm ux-13. Here the budget itself is a design variable (register_rebalancing)
+  while the allocation is not, which makes the gap sharper: a chain can choose 240 registers but cannot
+  state that the compiled kernel fits.
+level: 3
+pattern_guess: other
+attribution: intent_sass

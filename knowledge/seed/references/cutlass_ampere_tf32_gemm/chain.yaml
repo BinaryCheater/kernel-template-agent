@@ -1,0 +1,110 @@
+workload: "D = alpha * A @ B + beta * C, A row-major f32 [M,K], B column-major f32 [K,N], TF32 tensor cores, f32 accumulate (CUTLASS example 14 configuration)"
+items:
+  - key: out_cta
+    template: output_tiling@1
+    applies_to: "D[M,N] split into 128x128 CTA tiles, one CTA per tile (examples/14_ampere_tf32_tensorop_gemm/ampere_tf32_tensorop_gemm.cu:189-190; include/cutlass/gemm/kernel/gemm.h:218-227)"
+    bindings: {tile_m: 128, tile_n: 128, executor: cta, index_map: identity}
+    after: []
+    code_markers: []
+  - key: raster
+    template: block_rasterization@1
+    applies_to: "blockIdx -> (m_tile, n_tile); GemmIdentityThreadblockSwizzle<1> gives log_tile = 0, m fastest (include/cutlass/gemm/threadblock/threadblock_swizzle.h:110-139; include/cutlass/gemm/kernel/gemm.h:206-209; example:197)"
+    bindings: {order: column_major, group: 1}
+    after: [out_cta]
+    code_markers: []
+  - key: k_part
+    template: reduction_partition@1
+    applies_to: "sum over K of each CTA tile split into ceil(K/16) consecutive groups of 16, accumulated in place in the same register accumulators (include/cutlass/gemm/kernel/gemm.h:229-235, 269-276; include/cutlass/gemm/threadblock/mma_multistage.h:649-662)"
+    bindings: {num_groups: "ceil_div(K, 16)", group_size: 16, assignment: contiguous_sequential}
+    after: [out_cta]
+    code_markers: []
+  - key: out_warp
+    template: output_tiling@1
+    applies_to: "CTA tile split into 2x2 warp tiles of 64x64; warp index -> (warp_m, warp_n), no K split across warps (include/cutlass/gemm/threadblock/default_mma_core_sm80.h:1409-1411; include/cutlass/gemm/threadblock/mma_multistage.h:235-245; example:192)"
+    bindings: {tile_m: 64, tile_n: 64, executor: warp, index_map: identity}
+    after: [out_cta]
+    code_markers: []
+  - key: tf32
+    template: operand_precision_conversion@1
+    applies_to: "A and B fragments converted f32 -> tf32 with round_half_ulp_truncate before each MMA (include/cutlass/gemm/warp/mma_tensor_op.h:355-380; include/cutlass/numeric_conversion.h:8362-8368; include/cutlass/gemm/warp/default_mma_tensor_op_sm80.h:158-180)"
+    bindings: {from_dtype: f32, to_dtype: tf32, rounding: round_half_ulp_truncate, site: registers_before_mma}
+    after: [k_part]
+    code_markers: []
+  - key: mma
+    template: compute_instruction_selection@1
+    applies_to: "64x64x16 warp tile issued as mma.sync.aligned.m16n8k8.row.col.f32.tf32.tf32.f32 (include/cutlass/arch/mma_sm80.h:217-260; example:194)"
+    bindings: {instruction: mma_sync_m16n8k8_tf32, operand_source: rr, accum_dtype: f32, macs_per_instruction: 1024}
+    after: [out_warp, tf32]
+    code_markers: []
+  - key: acc_store
+    template: physical_storage@1
+    applies_to: "accumulator tile (64x64 f32 per warp) held in registers for the whole K loop (include/cutlass/gemm/kernel/gemm.h:269-271)"
+    bindings: {level: reg, buffer: FragmentC, share_order: none}
+    after: [mma]
+    code_markers: []
+  - key: ab_smem
+    template: physical_storage@1
+    applies_to: "A and B CTA tiles held in shared memory buffers operand_A/operand_B; the mainloop storage is a union with the epilogue staging buffer, used mainloop first (include/cutlass/gemm/threadblock/mma_base.h:140-195; include/cutlass/gemm/kernel/gemm.h:139-141)"
+    bindings: {level: smem, buffer: operand_A_B, share_order: mainloop_then_epilogue}
+    after: [k_part]
+    code_markers: []
+  - key: ab_async
+    template: async_transfer@1
+    applies_to: "A and B tiles global -> shared via cp.async.ca 16 B per access; issue split into groups interleaved between warp-MMA k-steps; completion awaited by gmem_wait before the stage is read (include/cutlass/gemm/threadblock/mma_multistage.h:300-356, 551-583, 486-491; include/cutlass/arch/memory_sm80.h:151-170, 443-454)"
+    bindings: {mechanism: instruction, issue_point: interleaved_with_warp_mma_ksteps, complete_point: before_stage_read, granularity_bytes: 16}
+    after: [ab_smem]
+    code_markers: []
+  - key: ab_thread_map
+    template: vectorized_access@1
+    applies_to: "128 threads cover each A/B tile with 128-bit accesses in a warp-raked pitch-linear map (include/cutlass/gemm/threadblock/default_mma_core_sm80.h:1425, 1459-1480)"
+    bindings: {vector_bytes: 16, thread_arrangement: warp_raked, threads: 128}
+    after: [ab_async]
+    code_markers: []
+  - key: ab_guard
+    template: boundary_predication@1
+    applies_to: "A/B accesses outside M, N or the residual K are predicated off and zero-filled (cp.async src-size 0); the last iterations clear the masks (include/cutlass/gemm/threadblock/mma_multistage.h:310-315, 373-374, 591-592, 623-624; include/cutlass/arch/memory_sm80.h:151-170)"
+    bindings: {boundary_kind: tile_residue, fill: zero, specialize_even: false}
+    after: [ab_thread_map]
+    code_markers: []
+  - key: ab_stages
+    template: multi_buffer_rotation@1
+    applies_to: "4-stage circular shared-memory buffer, prologue fetches S-1 = 3 stages ahead, cp.async.wait_group<S-2> followed by __syncthreads before a stage is reused (include/cutlass/gemm/threadblock/mma_multistage.h:250-284, 360-435, 486-491; example:210)"
+    bindings: {S: 4, P: 3, beta: 1}
+    after: [ab_async]
+    code_markers: []
+  - key: ab_swizzle
+    template: shared_resource_binding@1
+    applies_to: "A/B shared-memory tiles use the crosswise TensorOpMultiplicand layout whose XOR permutation keeps both the 128-bit cp.async writes and the LDSM reads bank-conflict free (include/cutlass/gemm/threadblock/default_mma_core_sm80.h:1447-1452; include/cutlass/layout/tensor_op_multiplicand_sm75.h:185-188)"
+    bindings: {binding: tensorop_crosswise_xor, queue_depth: hw_fixed}
+    after: [ab_smem]
+    code_markers: []
+  - key: frag_load
+    template: collective_fragment_load@1
+    applies_to: "warp fragments of A and B loaded from shared memory with ldmatrix (LDSM) in mma fragment order (include/cutlass/gemm/warp/mma_tensor_op_tile_iterator.h:85, 410; include/cutlass/arch/memory_sm75.h:58-110)"
+    bindings: {instruction: ldmatrix_x4, transpose: false}
+    after: [mma, ab_swizzle]
+    code_markers: []
+  - key: frag_stages
+    template: multi_buffer_rotation@1
+    applies_to: "two register fragment buffers per operand: fragment k+1 is loaded from smem while MMA k runs (include/cutlass/gemm/threadblock/mma_multistage.h:177-183, 505-523, 598-604). Partial match, see gap ux-09."
+    bindings: {S: 2, P: 1, beta: 0}
+    after: [frag_load]
+    code_markers: []
+  - key: epi_fusion
+    template: operator_fusion@1
+    applies_to: "D = alpha*acc + beta*C applied to accumulator fragments in the epilogue instead of a separate kernel; C is read in the epilogue (include/cutlass/epilogue/thread/linear_combination.h:239-247; include/cutlass/epilogue/threadblock/epilogue.h:488-491, 528)"
+    bindings: {consumer_kind: elementwise, intermediate_site: registers, fused_ops: linear_combination}
+    after: [acc_store]
+    code_markers: []
+  - key: epi_stage
+    template: staged_relayout@1
+    applies_to: "accumulators written to shared memory in fragment order and re-read by the shared-load iterator in store order, one OutputTileIterator slice per iteration, barriers around each slice (include/cutlass/epilogue/threadblock/epilogue.h:484-535)"
+    bindings: {chunks: OutputTileIterator_kIterations, reader: threads, write_instruction: sts}
+    after: [epi_fusion, ab_smem]
+    code_markers: []
+  - key: d_guard
+    template: boundary_predication@1
+    applies_to: "epilogue loads of C and stores of D masked outside M and N (OutputTileIterator masks constructed at include/cutlass/gemm/kernel/gemm.h:313-330)"
+    bindings: {boundary_kind: tile_residue, fill: none, specialize_even: false}
+    after: [epi_stage]
+    code_markers: []

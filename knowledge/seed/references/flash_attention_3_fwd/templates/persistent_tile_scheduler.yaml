@@ -1,0 +1,46 @@
+name: persistent_tile_scheduler
+version: 1
+level_from: 2
+level_to: 2
+change: vertical
+refines: work_assign
+produces: [work_assign, sync]
+object:
+  type: persistent_work_loop
+  description: "A grid of about one CTA per SM slot where each CTA loops over tiles, obtaining the next tile index from a static stride or a global atomic counter, in a chosen tile order."
+variables:
+  - {name: fetch, kind: structure, binding: compile, role: software, domain: [static_stride, atomic_counter], meaning: "how the next tile index is obtained"}
+  - {name: order, kind: structure, binding: compile, role: software, domain: [natural, longest_first, l2_sectioned_longest_first], meaning: "tile order; longest-processing-time-first for unequal tiles; sectioning heads so concurrent tiles share K/V in L2"}
+  - {name: grid, kind: numeric, binding: runtime, role: software, domain: {lo: 1, hi: 4096}, meaning: "CTAs launched (number of SMs times CTAs per SM)"}
+  - {name: broadcast, kind: structure, binding: compile, role: software, domain: [none, smem_named_barrier], meaning: "how the fetched index reaches the other roles of the CTA"}
+constraints:
+  - {id: c_grid, expr: "grid >= 1", meaning: "at least one CTA", cls: semantic}
+preconditions:
+  - {id: pre_indep, expr: "p.independent_outputs", meaning: "tiles are independent, so any assignment order is valid", cls: semantic}
+program:
+  description: "Initial tile = blockIdx.x; next tile = tile + gridDim.x (static) or atomicAdd(counter, 1) + gridDim.x (dynamic), fetched by the producer and broadcast through smem with two named barriers; tile index decoded with L2 sections and reversed m_block order (hopper/tile_scheduler.hpp:141-215, 220-366)."
+  fragments: {}
+backward_map: "Unroll each CTA's loop into one CTA per tile: the non-persistent grid over the same tiles."
+obligations:
+  - {name: exactly_once, statement: "Every tile index in [0, total) is processed by exactly one CTA iteration; indices >= total end the loop.", method: exhaustive}
+  - {name: counter_reset, statement: "The global counter starts from the value the decode expects for every launch (reset by the host or a preceding kernel).", method: test}
+  - {name: broadcast_order, statement: "All roles of a CTA read the same tile index for the same iteration (smem slot protected by the full/empty named barriers).", method: exhaustive}
+cost:
+  - {unit: launch, work: "grid", overlap: serial}
+scope:
+  predicate: "True"
+  text: "Grids of independent tiles, especially with unequal tile costs (causal attention) or when the epilogue of one tile should overlap the prologue of the next."
+requires_hw: []
+relations:
+  - {type: requires, target: output_tiling}
+  - {type: alternative_of, target: block_rasterization, note: "a launch-order swizzle is the non-persistent counterpart"}
+signature:
+  algorithm: "persistent CTAs with static or atomic tile fetch"
+  reuse: "K/V shared in L2 by concurrently processed heads"
+  storage: "one smem slot for the tile index"
+  boundary: "last tiles; counter reset"
+  resources: [launch, l2]
+numeric_risk: null
+expected_sass:
+  - {when: "fetch == 'atomic_counter'", must_contain: [ATOMG.E.ADD], must_not_contain: []}
+summary: "Launches about one CTA per SM slot and lets each CTA loop over tiles, fetched by a static stride or a global atomic counter in a chosen order. Balances unequal tiles and lets one tile's epilogue overlap the next tile's loads. The obligation is exactly-once processing and a correct counter reset."

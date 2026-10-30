@@ -1,0 +1,100 @@
+matched: 6
+total: 18
+unmatched_transactions:
+- level: 2
+  pattern_guess: map
+  description: >-
+    [ux-01] D is split into 128x128 CTA tiles with one CTA per tile (chain step out_cta). The seed has
+    no Template that tiles an output space; resolved by proposed Template output_tiling.
+  where: >-
+    examples/14_ampere_tf32_tensorop_gemm/ampere_tf32_tensorop_gemm.cu:189-190; include/cutlass/gemm/kernel/gemm.h:218-227
+- level: 2
+  pattern_guess: work_assign
+  description: >-
+    [ux-02] blockIdx -> (m_tile, n_tile) map with an optional L2 interleave, identity (log_tile = 0) in
+    this configuration (chain step raster). No seed Pattern describes assignment/order of work units;
+    resolved by proposed Pattern work_assign and Template block_rasterization.
+  where: >-
+    include/cutlass/gemm/threadblock/threadblock_swizzle.h:110-139; include/cutlass/gemm/kernel/gemm.h:206-209
+- level: 2
+  pattern_guess: map
+  description: >-
+    [ux-03] CTA tile split into 2x2 warp tiles of 64x64 (chain step out_warp); second application of output_tiling
+    one executor level down.
+  where: >-
+    include/cutlass/gemm/threadblock/default_mma_core_sm80.h:1409-1411; include/cutlass/gemm/threadblock/mma_multistage.h:235-245
+- level: 1
+  pattern_guess: contract
+  description: >-
+    [ux-04] f32 operands are rounded to tf32 (round_half_ulp_truncate) in registers before every MMA (chain
+    step tf32). Changes numerics.
+  where: include/cutlass/gemm/warp/mma_tensor_op.h:355-380; include/cutlass/numeric_conversion.h:8362-8368
+- level: 3
+  pattern_guess: contract
+  description: >-
+    [ux-05] Warp tile issued as mma.sync m16n8k8 TF32 tensor-core instructions with their register fragment
+    layout (chain step mma).
+  where: >-
+    include/cutlass/arch/mma_sm80.h:217-260; include/cutlass/gemm/warp/default_mma_tensor_op_sm80.h:158-180
+- level: 3
+  pattern_guess: transfer
+  description: >-
+    [ux-06] Each A/B tile transfer is mapped onto 128 threads issuing 128-bit accesses in a warp-raked
+    pitch-linear arrangement (chain step ab_thread_map).
+  where: include/cutlass/gemm/threadblock/default_mma_core_sm80.h:1425, 1459-1480
+- level: 3
+  pattern_guess: transfer
+  description: >-
+    [ux-07] A/B accesses outside M, N or the K residue are disabled and zero-filled; masks cleared for
+    trailing iterations (chain step ab_guard).
+  where: >-
+    include/cutlass/gemm/threadblock/mma_multistage.h:310-315, 373-374, 591-592; include/cutlass/arch/memory_sm80.h:151-170
+- level: 3
+  pattern_guess: transfer
+  description: >-
+    [ux-08] Shared memory -> register fragment loads use the warp-collective ldmatrix instruction that
+    lands data in mma fragment order (chain step frag_load).
+  where: >-
+    include/cutlass/gemm/warp/mma_tensor_op_tile_iterator.h:85, 410; include/cutlass/arch/memory_sm75.h:58-110
+- level: 3
+  pattern_guess: store
+  description: >-
+    [ux-09] Two register fragment buffers per operand, fragment k+1 loaded while MMA k runs, no barrier
+    (chain step frag_stages). Bound to multi_buffer_rotation with S=2, P=1, beta=0, which violates that
+    Template's lifetime obligation P <= S - 2 + beta although the code is correct.
+  where: include/cutlass/gemm/threadblock/mma_multistage.h:177-183, 505-523, 598-604
+- level: 1
+  pattern_guess: map
+  description: >-
+    [ux-10] alpha*acc + beta*C applied to accumulator fragments inside the GEMM kernel; C read in the
+    epilogue (chain step epi_fusion).
+  where: >-
+    include/cutlass/epilogue/thread/linear_combination.h:239-247; include/cutlass/epilogue/threadblock/epilogue.h:488-491,
+    528
+- level: 3
+  pattern_guess: transfer
+  description: >-
+    [ux-11] Accumulators go register -> shared memory (fragment order) -> registers (store order) -> global,
+    slice by slice with barriers (chain step epi_stage).
+  where: include/cutlass/epilogue/threadblock/epilogue.h:484-535
+- level: 3
+  pattern_guess: transfer
+  description: '[ux-12] Epilogue loads of C and stores of D masked outside M and N (chain step d_guard).'
+  where: include/cutlass/gemm/kernel/gemm.h:313-330
+- level: 3
+  pattern_guess: other
+  description: >-
+    [ux-13] Register allocation, full unrolling of the warp-MMA loop (CUTLASS_PRAGMA_UNROLL) and instruction
+    scheduling inside an iteration are decided by nvcc. No chain step explains them; they decide whether
+    the register-resident fragments of acc_store and frag_stages actually stay in registers.
+  where: >-
+    include/cutlass/gemm/threadblock/mma_multistage.h:504-505 (CUTLASS_PRAGMA_UNROLL over warp_mma_k);
+    no source location for the allocation itself
+reproduction_error: null
+notes: >-
+  Pool at decomposition time: assumed seed only (5 Templates, 8 Patterns); this is the first reference.
+  18 chain steps, 6 matched by seed Templates (k_part, acc_store, ab_smem, ab_async, ab_stages, ab_swizzle).
+  11 steps use the 9 Templates proposed here and 1 step (frag_stages) is a partial match. One transaction
+  (compiler register allocation and unrolling) is explained by no step. The serial split-K path (include/cutlass/gemm/kernel/gemm.h:299-370)
+  is compiled out in this configuration (SplitKSerial defaults to false) and is not part of the decomposed
+  program. Not built or run; no reproduction.

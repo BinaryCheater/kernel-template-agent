@@ -1,0 +1,16 @@
+name: gemm_f32_tf32_rowcol
+reference_impl: "D = alpha * (A @ B) + beta * C computed in float64 on the host (cutlass::reference::host::Gemm in the example)"
+inputs:
+  - {name: A, shape: [M, K], dtype: f32, layout: row_major}
+  - {name: B, shape: [K, N], dtype: f32, layout: column_major}
+  - {name: C, shape: [M, N], dtype: f32, layout: row_major}
+outputs:
+  - {name: D, shape: [M, N], dtype: f32, layout: row_major}
+params:
+  alpha: "f32 scalar, runtime"
+  beta: "f32 scalar, runtime"
+  M: "int, runtime"
+  N: "int, runtime"
+  K: "int, runtime"
+  alignment_elems: "4 (128-bit accesses); can_implement rejects misaligned operands (include/cutlass/gemm/kernel/gemm.h:182-196)"
+  tolerance: "inputs are rounded to TF32 (10-bit mantissa) inside the kernel; the error contract must allow TF32 operand rounding with FP32 accumulation"

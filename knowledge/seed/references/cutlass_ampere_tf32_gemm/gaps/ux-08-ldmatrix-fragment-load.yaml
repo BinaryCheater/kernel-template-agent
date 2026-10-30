@@ -1,0 +1,6 @@
+missing: template
+description: >-
+  [ux-08] No seed Template for the smem -> register transfer in consumer fragment layout. Proposed: collective_fragment_load@1.
+level: 3
+pattern_guess: transfer
+attribution: space

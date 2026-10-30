@@ -1,0 +1,43 @@
+name: cross_lane_reduction
+version: 1
+level_from: 2
+level_to: 3
+change: vertical
+refines: reduce
+produces: [transfer, reduce]
+object:
+  type: lane_exchange_tree
+  description: "A butterfly of register exchanges between lanes of one warp (shfl.xor) that combines per-lane partial results without shared memory."
+variables:
+  - {name: lanes, kind: numeric, binding: compile, role: software, domain: [2, 4, 8, 16, 32], meaning: "number of lanes that hold partials of one reduction"}
+  - {name: result_to, kind: structure, binding: compile, role: software, domain: [all_lanes, lane0], meaning: "allreduce (xor butterfly) or reduce to one lane"}
+  - {name: combine_op, kind: structure, binding: compile, role: software, domain: [add, max, rescaled_merge], meaning: "combine operator"}
+constraints:
+  - {id: c_pow2, expr: "is_pow2(lanes)", meaning: "butterfly needs a power-of-two group", cls: implementation}
+preconditions:
+  - {id: pre_assoc, expr: "p.assoc and p.comm", meaning: "the combine is associative and commutative (the butterfly reorders it)", cls: semantic}
+program:
+  description: "for offset in lanes/2 .. 1: x = op(x, shfl_xor(x, offset)) over the full warp mask (FlashAttention-2 Allreduce<4> used by quad_allreduce_)."
+  fragments: {}
+backward_map: "Every lane's final value equals the combine of all lanes' partials of its group; the exchange pattern is erased."
+obligations:
+  - {name: group_complete, statement: "Each exchange stays within the lane group and the mask includes every participating lane.", method: exhaustive}
+  - {name: convergence, statement: "All participating lanes execute every exchange (no divergent exit before the shuffle).", method: test}
+cost:
+  - {unit: issue, work: "p.reductions * log2(lanes)", overlap: overlappable}
+scope:
+  predicate: "True"
+  text: "Reductions whose partials sit in registers of lanes of the same warp (row max/sum in MMA fragment layouts, dot products split over lanes)."
+requires_hw: [shfl_sync]
+relations:
+  - {type: requires, target: reduction_partition, note: "lanes hold partials of a partitioned reduction"}
+signature:
+  algorithm: "warp shuffle butterfly"
+  reuse: null
+  storage: "registers"
+  boundary: null
+  resources: [issue]
+numeric_risk: "Reorders floating-point additions; results can differ from a sequential sum in the last bits and differ with the lane count."
+expected_sass:
+  - {when: "True", must_contain: [SHFL.BFLY], must_not_contain: []}
+summary: "Combines partial results held by lanes of one warp with a shuffle butterfly. No shared memory or barrier is needed, but the lane group must be complete and converged. Reorders the combine, so the reduction must be associative and commutative."

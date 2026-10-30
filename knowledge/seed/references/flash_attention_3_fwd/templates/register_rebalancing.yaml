@@ -1,0 +1,42 @@
+name: register_rebalancing
+version: 1
+level_from: 3
+level_to: 3
+change: vertical
+refines: store
+produces: [store]
+object:
+  type: register_budget
+  description: "A per-role register budget set at run time (setmaxnreg), moving registers from the producer warps to the consumer warps."
+variables:
+  - {name: producer_regs, kind: numeric, binding: compile, role: software, domain: {lo: 24, hi: 256, step: 8}, meaning: "registers per thread after dealloc in the producer role"}
+  - {name: consumer_regs, kind: numeric, binding: compile, role: software, domain: {lo: 24, hi: 256, step: 8}, meaning: "registers per thread after alloc in the consumer role"}
+  - {name: consumer_groups, kind: numeric, binding: compile, role: software, domain: {lo: 1, hi: 3}, meaning: "consumer warpgroups (from warp_specialization)"}
+constraints:
+  - {id: c_file, expr: "128 * producer_regs + 128 * consumer_groups * consumer_regs <= hw.regs_per_sm", meaning: "budgets fit the register file", cls: resource}
+preconditions:
+  - {id: pre_roles, expr: "consumer_groups >= 1", meaning: "warp roles exist (warp_specialization applied)", cls: semantic}
+program:
+  description: "Producer warpgroup calls warpgroup_reg_dealloc<24>, consumers call warpgroup_reg_alloc<240> at role entry (hopper/flash_fwd_kernel_sm90.h:82-83, 309, 361)."
+  fragments: {}
+backward_map: "Ignore the reallocation: every warp keeps the launch-time budget, which is valid whenever each role's live registers fit."
+obligations:
+  - {name: fits, statement: "Each role's live registers fit its budget (no spills introduced by the compiler).", method: test}
+  - {name: alloc_after_dealloc, statement: "Allocation by consumers can be satisfied after the producer's deallocation (sum within the file, all warps of a warpgroup execute it).", method: test}
+cost: []
+scope:
+  predicate: "True"
+  text: "Warp-specialized kernels on GPUs with setmaxnreg (sm_90a)."
+requires_hw: [setmaxnreg]
+relations:
+  - {type: requires, target: warp_specialization}
+signature:
+  algorithm: "per-role register reallocation"
+  reuse: null
+  storage: "register file"
+  boundary: null
+  resources: [registers]
+numeric_risk: null
+expected_sass:
+  - {when: "True", must_contain: [USETMAXREG], must_not_contain: []}
+summary: "Moves registers from producer warps to consumer warps at run time. Lets consumers hold larger accumulator tiles without lowering occupancy. Depends on warp roles and on a setmaxnreg-capable GPU."

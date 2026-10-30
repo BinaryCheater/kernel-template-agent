@@ -1,0 +1,4 @@
+name: flash_attention_3_fwd
+problem: attention_fwd_f16_d128
+build: "cd hopper && python setup.py install (builds sm_90a kernels; not executed in WP10a)"
+runnable_on: []

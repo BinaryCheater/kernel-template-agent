@@ -1,0 +1,8 @@
+missing: other
+description: >-
+  [ux-13] Compiler-decided transactions have no place in a Chain: they are not design variables, but whether
+  physical_storage(level=reg) holds depends on them (spills). Needs a way to record compiler outcomes
+  as checked facts (registers, spills from Build) attached to a chain step rather than as a Template.
+level: 3
+pattern_guess: other
+attribution: intent_sass

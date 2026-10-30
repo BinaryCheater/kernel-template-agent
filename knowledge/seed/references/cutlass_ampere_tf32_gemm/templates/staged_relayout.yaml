@@ -1,0 +1,44 @@
+name: staged_relayout
+version: 1
+level_from: 2
+level_to: 3
+change: vertical
+refines: transfer
+produces: [transfer, sync, transfer]
+object:
+  type: staging_buffer
+  description: "A shared-memory buffer through which a register-resident tile is rewritten from the compute layout (fragment order) into a layout suited to the next transfer (coalesced global stores or a bulk copy engine)."
+variables:
+  - {name: chunks, kind: numeric, binding: compile, role: software, domain: {lo: 1, hi: 16}, meaning: "how many slices the tile is staged in (CUTLASS OutputTileIterator::kIterations)"}
+  - {name: reader, kind: structure, binding: compile, role: software, domain: [threads, tma], meaning: "who reads the staging buffer"}
+  - {name: write_instruction, kind: structure, binding: compile, role: boundary, domain: [sts, stmatrix], meaning: "register -> smem store instruction"}
+constraints:
+  - {id: c_fit, expr: "p.tile_bytes / chunks <= hw.smem_per_cta", meaning: "one staged slice fits in shared memory", cls: resource}
+preconditions:
+  - {id: pre_free, expr: "p.staging_buffer_free", meaning: "the buffer is not holding live values of an earlier step (it may alias mainloop buffers only after their last read)", cls: semantic}
+program:
+  description: "Per slice: barrier, every thread stores its fragment into smem in fragment order, barrier (or async-proxy fence + barrier when the reader is TMA), readers load in store order and write to global memory."
+  fragments: {}
+backward_map: "Composing the smem write and read is the identity on tile values; the transfer is the coarse register -> global store."
+obligations:
+  - {name: write_before_read, statement: "Every smem element is written before it is read in the same slice (barrier between the two phases).", method: test}
+  - {name: no_overwrite_before_read, statement: "A slice is not overwritten before all its reads finished (barrier before the next slice's writes).", method: test}
+  - {name: permutation, statement: "The write layout and read layout together form a bijection on tile elements.", method: exhaustive}
+cost:
+  - {unit: smem, work: "2 * p.tile_bytes", overlap: serial}
+scope:
+  predicate: "True"
+  text: "Register tiles whose fragment layout is not coalesced for the destination, typically GEMM and attention epilogues."
+requires_hw: []
+relations:
+  - {type: requires, target: vectorized_access, note: "the read side is a vectorized transfer"}
+signature:
+  algorithm: "register -> smem -> global re-layout"
+  reuse: null
+  storage: "smem staging buffer"
+  boundary: null
+  resources: [smem]
+numeric_risk: null
+expected_sass:
+  - {when: "write_instruction == 'stmatrix'", must_contain: [STSM], must_not_contain: []}
+summary: "Writes a register tile to a shared-memory staging buffer in fragment order and reads it back in a coalesced (or bulk-copy) order. Needs barriers between the two phases and between slices. Typically reuses mainloop shared memory."

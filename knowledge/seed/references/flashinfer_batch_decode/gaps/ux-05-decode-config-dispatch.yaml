@@ -1,0 +1,5 @@
+missing: family
+description: '[ux-05] Family-level dispatch, same gap as flash_attention_2_fwd ux-07.'
+level: 2
+pattern_guess: other
+attribution: granularity

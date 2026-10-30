@@ -1,0 +1,8 @@
+missing: check
+description: >-
+  [ux-01] The knowledge model can state reduction order as a numeric_risk sentence but has no obligation
+  or check kind for 'result independent of batch size / launch configuration' (batch invariance, determinism).
+  This needs a check (and a contract field) rather than a Template.
+level: 2
+pattern_guess: reduce
+attribution: verification

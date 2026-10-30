@@ -1,0 +1,52 @@
+matched: 16
+total: 19
+unmatched_transactions:
+- level: 2
+  pattern_guess: work_assign
+  description: >-
+    [ux-01] the host chooses the KV chunk size by binary search to fill the grid and writes request_indices,
+    kv_tile_indices, o_indptr and block_valid_mask for a padded, CUDA-graph-friendly grid (chain step
+    plan).
+  where: include/flashinfer/attention/scheduler.cuh:74-99, 150-208, 349-363, 426-512
+- level: 3
+  pattern_guess: reduce
+  description: >-
+    [ux-02] partial (o, lse) states of the chunks are merged by a separate persistent kernel (chain step
+    merge).
+  where: >-
+    include/flashinfer/attention/decode.cuh:815-835; include/flashinfer/attention/cascade.cuh:374-475,
+    690-725
+- level: 3
+  pattern_guess: transfer
+  description: >-
+    [ux-03] K/V rows are fetched through the page table, with offsets for bdx future iterations precomputed
+    into shared memory (chain step paged_gather).
+  where: include/flashinfer/attention/decode.cuh:491-499, 535-547, 560-565
+- level: 3
+  pattern_guess: sync
+  description: >-
+    [ux-04] griddepcontrol.wait before reading q and griddepcontrol.launch_dependents at the end let the
+    next kernel (the merge, or the next layer) launch early and overlap its prologue (sm_90+, enabled
+    by enable_pdl).
+  where: >-
+    include/flashinfer/attention/decode.cuh:470-481, 616-618, 792-804; include/flashinfer/attention/cascade.cuh:390,
+    471
+- level: 2
+  pattern_guess: other
+  description: >-
+    [ux-05] GQA group size (bdy), vec_size and bdx from head_dim, tile_size_per_bdx from group size and
+    dtype, and num_stages_smem from the compute capability are chosen by dispatch macros.
+  where: include/flashinfer/attention/decode.cuh:770-781
+- level: 3
+  pattern_guess: other
+  description: >-
+    [ux-06] register allocation of the unrolled tile loops (s[bdy * tile_size_per_bdx], state vectors)
+    is decided by nvcc.
+  where: include/flashinfer/attention/decode.cuh:530-534
+reproduction_error: null
+notes: >-
+  Pool at decomposition time: seed plus proposals of the first four references (32 Templates, 2 new Patterns).
+  19 chain steps: 16 matched, 3 use Templates proposed here (runtime_work_descriptors, split_combine_kernel,
+  indexed_gather). Three transactions are explained by no step. The softmax layer matched FlashAttention-2
+  proposals, the cross-warp state merge matched smem_partial_combine from Marlin (combine_op = rescaled_merge);
+  what is new is runtime planning, the merge kernel and the page-table gather. Not built or run; no reproduction.

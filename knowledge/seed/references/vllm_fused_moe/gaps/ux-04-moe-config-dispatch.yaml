@@ -1,0 +1,7 @@
+missing: family
+description: >-
+  [ux-04] Family-level dispatch, same gap as flash_attention_2_fwd ux-07; here the buckets are tuned offline
+  per device and stored as data files.
+level: 2
+pattern_guess: other
+attribution: granularity

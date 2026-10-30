@@ -1,0 +1,9 @@
+missing: template
+description: >-
+  [ux-01] No pool Template combines partials with atomics (shared or global). smem_partial_combine assumes
+  barrier-separated rounds, ordered_global_combine a lock order. An atomic combine has different obligations
+  (commutativity, no lost updates, nondeterministic order) and is common in histogram-style metadata kernels.
+  Not proposed here.
+level: 1
+pattern_guess: reduce
+attribution: space
