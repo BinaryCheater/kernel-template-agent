@@ -30,8 +30,12 @@ obligations:
   - {name: bijective_binding, statement: "The request -> bank map is a permutation of the tile's addresses.", method: exhaustive}
   - {name: conflict_freedom, statement: "Each access completes in the declared number of bank passes.", method: test}
   - {name: no_deadlock_progress, statement: "Under the declared arbitration contract every request is eventually served.", method: unspecified}
-cost:
-  - {unit: smem, work: "p.wavefronts * p.accesses", overlap: overlappable}
+effects:
+  transactions:
+    - {id: access, pattern: access, kind: smem_access, count: "p.accesses",
+       amounts: {wavefronts: "p.wavefronts"}}
+  storage: []
+  overlap: []
 scope:
   predicate: "hw.smem_banks >= 1"
   text: >-

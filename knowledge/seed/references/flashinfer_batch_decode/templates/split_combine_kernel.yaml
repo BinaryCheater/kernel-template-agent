@@ -23,9 +23,14 @@ obligations:
   - {name: all_partials_merged, statement: "For each output, exactly the partials in [o_indptr[b], o_indptr[b+1]) are merged.", method: exhaustive}
   - {name: merge_equivalence, statement: "Merging rescaled states equals the single-pass result up to rounding, including chunks whose state is empty (m = -inf).", method: test}
   - {name: kernel_order, statement: "The merge reads partials only after the main kernel wrote them (stream order or programmatic dependent launch with the wait placed before the reads).", method: test}
-cost:
-  - {unit: dram, work: "2 * p.partial_bytes", overlap: serial}
-  - {unit: launch, work: "1", overlap: serial}
+effects:
+  transactions:
+    - {id: partials, pattern: transfer, kind: dram_stream, count: "1",
+       amounts: {bytes: "2 * p.partial_bytes"}}
+    - {id: combine_kernel, pattern: launch, kind: kernel_launch, count: "1"}
+  storage: []
+  overlap:
+    - {between: [partials], when: "False", note: "never overlaps (v1 cost was serial)"}
 scope:
   predicate: "True"
   text: "Split reductions where the number of partials per output varies at run time or exceeds what one CTA can merge in place."

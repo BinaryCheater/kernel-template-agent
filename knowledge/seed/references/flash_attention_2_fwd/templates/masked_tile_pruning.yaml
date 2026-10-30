@@ -24,8 +24,12 @@ obligations:
   - {name: skipped_fully_masked, statement: "Every skipped tile is fully masked for every row of the output tile.", method: exhaustive}
   - {name: unmasked_really_unmasked, statement: "Every iteration run without mask code contains no masked element.", method: exhaustive}
   - {name: mask_applied, statement: "Partially masked tiles set exactly the masked elements to the identity before they reach the reduction.", method: test}
-cost:
-  - {unit: tensor, work: "p.work_full * p.mask_density", overlap: overlappable}
+effects:
+  transactions:
+    - {id: kept, pattern: contract, kind: tensor_flops, count: "1",
+       amounts: {flops: "p.work_full * p.mask_density"}}
+  storage: []
+  overlap: []
 scope:
   predicate: "True"
   text: "Reductions over a structurally masked domain (causal or windowed attention, sequence-length residues)."

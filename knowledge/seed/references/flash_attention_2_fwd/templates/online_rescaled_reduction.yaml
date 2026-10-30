@@ -25,9 +25,13 @@ obligations:
   - {name: invariant, statement: "After consuming any prefix of tiles, (m, l, o) equal the exact max, rescaled sum and rescaled accumulator of that prefix.", method: proof}
   - {name: finalize_equivalence, statement: "o / l after the last tile equals the materialized softmax followed by the weighted sum, up to floating-point rounding.", method: test}
   - {name: masked_rows, statement: "Rows whose every score is masked produce the defined output (0 or NaN-free) and the defined LSE.", method: test}
-cost:
-  - {unit: fma, work: "p.rows * p.tiles * p.head_dim", overlap: overlappable}
-  - {unit: sfu, work: "p.rows * p.tiles", overlap: overlappable}
+effects:
+  transactions:
+    - {id: rescale, pattern: reduce, kind: ffma, count: "p.rows * p.tiles * p.head_dim",
+       amounts: {ops: "1"}}
+    - {id: exp, pattern: map, kind: mufu, count: "p.rows * p.tiles", amounts: {ops: "1"}}
+  storage: []
+  overlap: []
 scope:
   predicate: "True"
   text: "Reductions whose combine is associative and rescalable: softmax denominators, attention outputs, logsumexp, Welford-style statistics."

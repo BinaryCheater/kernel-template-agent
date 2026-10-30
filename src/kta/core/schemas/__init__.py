@@ -26,6 +26,7 @@ from kta.core.schemas.registry import (
     model_for,
     normalize_body,
     parse_body,
+    upcast_body,
     validate_body,
 )
 
@@ -51,5 +52,6 @@ __all__ = [
     "model_for",
     "normalize_body",
     "parse_body",
+    "upcast_body",
     "validate_body",
 ]

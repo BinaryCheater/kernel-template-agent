@@ -30,13 +30,17 @@ backward_map: "The union of all tiles' outputs, placed at their tile origins, is
 obligations:
   - {name: coverage_exact_once, statement: "Every output point lies in exactly one tile; points of residue tiles beyond the problem bounds are not written.", method: exhaustive}
   - {name: index_map_bijective, statement: "The executor index -> tile origin map is injective on valid tiles and hits every tile.", method: exhaustive}
-cost:
-  # One launch slot per tile (serial: scheduling of the grid does not overlap with itself).
-  - {unit: launch, work: "ceil_div(p.M, tile_m) * ceil_div(p.N, tile_n)", overlap: serial}
-  # Inputs are read once per tile (the reuse this step buys): bytes moved from L2 into the executors.
-  - {unit: l2, work: "ceil_div(p.M, tile_m) * ceil_div(p.N, tile_n) * p.input_bytes_per_tile", overlap: overlappable}
-  # Lower estimate of DRAM traffic: every input and output byte once (L2 misses beyond that are not modeled).
-  - {unit: dram, work: "p.compulsory_bytes", overlap: overlappable}
+effects:
+  transactions:
+    - {id: ctas, pattern: launch, kind: cta_launch,
+       count: "ceil_div(p.M, tile_m) * ceil_div(p.N, tile_n)"}
+    - {id: kernel, pattern: launch, kind: kernel_launch, count: "1"}
+    # Lower estimate of DRAM traffic: every input and output byte once. The tiles'
+    # operand reads from L2 are declared by the transfer step that performs them.
+    - {id: compulsory, pattern: transfer, kind: dram_stream, count: "1",
+       amounts: {bytes: "p.compulsory_bytes"}, src: dram, dst: l2}
+  storage: []
+  overlap: []
 scope:
   predicate: "True"
   text: "Any operator whose outputs are independent given the inputs (GEMM outputs, attention rows, normalization rows)."

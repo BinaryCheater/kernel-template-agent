@@ -22,8 +22,12 @@ backward_map: "Each CTA loads the whole tile itself: the per-CTA transfer, with 
 obligations:
   - {name: same_stage, statement: "All CTAs of the cluster consume the multicast tile in the same stage slot and release it before it is overwritten for any of them.", method: exhaustive}
   - {name: cluster_sync_at_exit, statement: "No CTA exits while a peer may still write into its shared memory.", method: test}
-cost:
-  - {unit: l2, work: "p.shared_tile_bytes / cluster_size", overlap: overlappable}
+effects:
+  transactions:
+    - {id: multicast, pattern: transfer, kind: l2_traffic, count: "1",
+       amounts: {bytes: "p.shared_tile_bytes / cluster_size"}}
+  storage: []
+  overlap: []
 scope:
   predicate: "True"
   text: "Neighbouring CTAs that read the same operand tile in lock step (attention K/V across Q tiles, GEMM B across M tiles). Also needs the .multicast::cluster form of cp.async.bulk.tensor, which the GB10 feature list (src/kta/targets/gb10/features.yaml) does not contain yet, so requires_hw omits it (D108)."

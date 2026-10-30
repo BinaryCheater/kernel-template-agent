@@ -23,8 +23,11 @@ backward_map: "Restricted to in-bounds elements the guarded transfer equals the 
 obligations:
   - {name: no_oob_access, statement: "No access touches memory outside the operand's allocation.", method: test}
   - {name: neutral_fill, statement: "Filled elements do not change the downstream result (neutral for the reduction or masked later).", method: test}
-cost:
-  - {unit: issue, work: "p.tile_accesses", overlap: overlappable}
+effects:
+  transactions:
+    - {id: predicates, pattern: other, kind: warp_instruction, count: "p.tile_accesses"}
+  storage: []
+  overlap: []
 scope:
   predicate: "True"
   text: "Tile transfers whose tiles can straddle problem bounds or whose base pointers can be misaligned."

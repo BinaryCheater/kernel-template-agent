@@ -24,8 +24,13 @@ obligations:
   - {name: write_before_read, statement: "Every smem element is written before it is read in the same slice (barrier between the two phases).", method: test}
   - {name: no_overwrite_before_read, statement: "A slice is not overwritten before all its reads finished (barrier before the next slice's writes).", method: test}
   - {name: permutation, statement: "The write layout and read layout together form a bijection on tile elements.", method: exhaustive}
-cost:
-  - {unit: smem, work: "2 * p.tile_bytes", overlap: serial}
+effects:
+  transactions:
+    - {id: relayout, pattern: transfer, kind: smem_access, count: "2 * p.tile_bytes / 512",
+       amounts: {wavefronts: "4"}}
+  storage: []
+  overlap:
+    - {between: [relayout], when: "False", note: "never overlaps (v1 cost was serial)"}
 scope:
   predicate: "True"
   text: "Register tiles whose fragment layout is not coalesced for the destination, typically GEMM and attention epilogues."

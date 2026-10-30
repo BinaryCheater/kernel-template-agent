@@ -24,8 +24,12 @@ backward_map: "Apply the inverse permutation and unpack: the operand in its logi
 obligations:
   - {name: permutation_inverse, statement: "The kernel's read map composed with the host permutation is the identity on logical (k, n) indices.", method: exhaustive}
   - {name: scale_alignment, statement: "Scale permutation matches the weight permutation for every group.", method: exhaustive}
-cost:
-  - {unit: dram, work: "p.K * p.N * pack_bits / 8", overlap: overlappable}
+effects:
+  transactions:
+    - {id: packed, pattern: transfer, kind: dram_stream, count: "1",
+       amounts: {bytes: "p.K * p.N * pack_bits / 8"}}
+  storage: []
+  overlap: []
 scope:
   predicate: "True"
   text: "Constant operands (inference weights) whose layout the kernel author controls."

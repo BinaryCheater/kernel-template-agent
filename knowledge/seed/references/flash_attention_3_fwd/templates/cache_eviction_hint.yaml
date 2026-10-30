@@ -20,8 +20,12 @@ program:
 backward_map: "Drop the hint: the access with the default policy reads the same values."
 obligations:
   - {name: value_neutral, statement: "The hint changes no value (always true; the obligation is only that the hinted operand is not written concurrently).", method: unspecified}
-cost:
-  - {unit: l2, work: "p.reused_bytes", overlap: overlappable}
+effects:
+  transactions:
+    - {id: reuse, pattern: transfer, kind: l2_traffic, count: "1",
+       amounts: {bytes: "p.reused_bytes"}}
+  storage: []
+  overlap: []
 scope:
   predicate: "True"
   text: "Global loads whose reuse across CTAs is known: streamed-once operands (weights in decode GEMMs, Q) versus operands reread by other CTAs (K/V). Needs L2 cache-policy hints (createpolicy, .L2::cache_hint), which the GB10 feature list (src/kta/targets/gb10/features.yaml) does not contain yet, so requires_hw is empty (D108)."

@@ -3,11 +3,16 @@ Structure, Regime, Negative, Gap (spec/schemas.md §4.1-§4.5, §4.7)."""
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from kta.core.schemas.common import Binding, Body, ChangeKind, Level, Unit, VarKind, VarRole
+from kta.core.schemas.effects import (
+    LEGACY_KIND_PREFIX,
+    Effects,
+    upcast_template_body,
+)
 
 # ---- 4.1 Pattern ---------------------------------------------------------------
 
@@ -74,6 +79,8 @@ class Obligation(Body):
 
 
 class CostTerm(Body):
+    """Schema-1 cost term; kept as the read-only legacy view ``Template.cost`` (D461)."""
+
     unit: Unit
     work: str
     overlap: Literal["overlappable", "serial"] = "overlappable"
@@ -120,7 +127,7 @@ class Template(Body):
     backward_map: str
     backward_map_fn: str | None = None
     obligations: list[Obligation] = Field(default_factory=lambda: list[Obligation]())
-    cost: list[CostTerm] = Field(default_factory=lambda: list[CostTerm]())
+    effects: Effects = Field(default_factory=Effects)
     scope: ScopeSpec
     requires_hw: list[str] = Field(default_factory=lambda: list[str]())
     relations: list[Relation] = Field(default_factory=lambda: list[Relation]())
@@ -129,6 +136,33 @@ class Template(Body):
     expected_sass: list[SassExpect] = Field(default_factory=lambda: list[SassExpect]())
     summary: str
     example_code: str | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _upcast(cls, data: Any) -> Any:
+        # Schema-1 bodies carry ``cost``; read them as effects (D461).
+        if isinstance(data, dict) and "cost" in data:
+            return upcast_template_body(cast(dict[str, Any], data))
+        return data
+
+    @property
+    def cost(self) -> list[CostTerm]:
+        """Legacy view: the transactions of ``unit:<u>`` classes as schema-1 cost terms,
+        in order (empty for a Template written with effects)."""
+        serial = {
+            o.between[0]
+            for o in self.effects.overlap
+            if len(o.between) == 1 and o.when is not None and o.when.strip() == "False"
+        }
+        return [
+            CostTerm(
+                unit=t.kind[len(LEGACY_KIND_PREFIX) :],
+                work=t.count,
+                overlap="serial" if t.id in serial else "overlappable",
+            )
+            for t in self.effects.transactions
+            if t.kind.startswith(LEGACY_KIND_PREFIX)
+        ]
 
 
 # ---- 4.3 Chain / 4.4 Family ----------------------------------------------------

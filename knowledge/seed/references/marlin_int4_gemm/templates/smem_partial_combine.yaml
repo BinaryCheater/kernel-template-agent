@@ -24,8 +24,13 @@ backward_map: "Sum (or merge) all warps' partials in any order: the unsplit redu
 obligations:
   - {name: exactly_once, statement: "Each warp's partial is combined exactly once.", method: exhaustive}
   - {name: barriers, statement: "Each smem slot is written before it is read and not overwritten before all its reads in the round (barrier between rounds).", method: test}
-cost:
-  - {unit: smem, work: "2 * p.partial_bytes * participants", overlap: serial}
+effects:
+  transactions:
+    - {id: combine, pattern: reduce, kind: smem_access,
+       count: "2 * p.partial_bytes * participants / 512", amounts: {wavefronts: "4"}}
+  storage: []
+  overlap:
+    - {between: [combine], when: "False", note: "never overlaps (v1 cost was serial)"}
 scope:
   predicate: "True"
   text: "Reductions whose partials are spread over several warps of a CTA (K split across warps, rows reduced by a whole CTA, attention states split across warps)."

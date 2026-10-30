@@ -4,7 +4,10 @@ Every family variable is a finite menu encoded one-hot (sum of binaries = 1, val
 sum of value * binary); range domains are expanded when they have at most MENU_MAX
 values. Constraints are linear comparisons joined by ``and``; cost terms are linear.
 The objective is the model's pre-compile total without interaction terms:
-T >= overlappable time of each unit, plus the serial time. A shortlist is obtained by
+T >= overlappable time of each unit, plus the serial time. Work per unit comes from
+``kta.formulation.work_terms``: legacy cost terms and each priced transaction's
+reservation-table use (D472); L1's pair and recurrence bounds are relaxed (the MIP's
+value is a lower bound of L1; the shortlist is re-priced by L1). A shortlist is obtained by
 re-solving with a no-good cut on each solution found.
 """
 
@@ -22,8 +25,8 @@ from kta.core.errors import NotSupported
 from kta.core.expr import Expr
 from kta.core.schemas.hardware import HwModel
 from kta.core.schemas.knowledge import RangeSpec, VarSpec
-from kta.formulation import Formulation
-from kta.models import UnitModel, unit_time_us
+from kta.formulation import BoundCost, Formulation, work_terms
+from kta.models import MachineModel, UnitModel, machine, unit_time_us
 from kta.solve.enumerate import domain_size, range_values
 
 MENU_MAX = 4096
@@ -160,13 +163,25 @@ def _constraint_rows(m: _Model, f: Formulation, lin: _Lin) -> None:
             _add_row(m.h, lo, hi, idx, val)
 
 
-def _objective(m: _Model, f: Formulation, lin: _Lin, model: UnitModel, hw: HwModel) -> None:
+def _terms(f: Formulation, hw: MachineModel) -> list[BoundCost]:
+    try:
+        terms = work_terms(f, hw)
+    except NotSupported as exc:
+        raise NotExportable(str(exc)) from exc
+    unpriced = sorted({t.unit for t in terms if hw.rate(t.unit) is None})
+    if unpriced:
+        # Infinite capacity (D465) would drop these rows; enumeration reports them instead.
+        raise NotExportable(f"resources without a peak: {unpriced}")
+    return terms
+
+
+def _objective(m: _Model, f: Formulation, lin: _Lin, model: UnitModel, hw: MachineModel) -> None:
     t_col = m.h.getNumCol()
     m.h.addVar(0.0, INF)
     m.h.changeColCost(t_col, 1.0)
     over: dict[str, tuple[dict[str, float], float]] = {}
     serial_cost: dict[int, float] = {}
-    for term in f.cost_terms:
+    for term in _terms(f, hw):
         coeffs, const = lin.form(ast.parse(term.work.src.strip(), mode="eval").body)
         scale = unit_time_us(term.unit, 1.0, hw)
         if term.overlap == "serial":
@@ -187,7 +202,10 @@ def _objective(m: _Model, f: Formulation, lin: _Lin, model: UnitModel, hw: HwMod
         _add_row(m.h, const * scale, INF, [t_col, *idx], [1.0, *(-v for v in val)])
 
 
-def build(f: Formulation, shape: Mapping[str, Any], hw: HwModel, model: UnitModel) -> _Model:
+def build(
+    f: Formulation, shape: Mapping[str, Any], hw: HwModel | MachineModel, model: UnitModel
+) -> _Model:
+    mm = machine(hw)
     h = highspy.Highs()
     h.setOptionValue("output_flag", False)
     h.setOptionValue("mip_rel_gap", 0.0)
@@ -202,9 +220,9 @@ def build(f: Formulation, shape: Mapping[str, Any], hw: HwModel, model: UnitMode
             h.addVar(0.0, 1.0)
             h.changeColIntegrality(col, highspy.HighsVarType.kInteger)
         _add_row(h, 1.0, 1.0, m.cols[name], [1.0] * len(m.cols[name]))
-    lin = _Lin(set(f.variables), shape, hw.limits)
+    lin = _Lin(set(f.variables), shape, mm.hw)
     _constraint_rows(m, f, lin)
-    _objective(m, f, lin, model, hw)
+    _objective(m, f, lin, model, mm)
     h.changeObjectiveSense(highspy.ObjSense.kMinimize)
     return m
 
@@ -212,7 +230,7 @@ def build(f: Formulation, shape: Mapping[str, Any], hw: HwModel, model: UnitMode
 def solve_mip(
     f: Formulation,
     shape: Mapping[str, Any],
-    hw: HwModel,
+    hw: HwModel | MachineModel,
     model: UnitModel,
     shortlist: int,
     time_limit_s: float,

@@ -33,8 +33,17 @@ obligations:
   - {name: readiness, statement: "Every read of the destination happens after the completion of the transfer that fills it, on every interleaving.", method: test}
   - {name: no_overwrite_in_flight, statement: "No transfer in flight writes a destination that is still being read (with multi_buffer_rotation this becomes P <= S - 2 + beta).", method: test}
   - {name: mechanism_available, statement: "The chosen mechanism exists on the Target (cp.async for instruction, TMA for controller).", method: unspecified}
-cost:
-  - {unit: issue, work: "p.size_bytes / granularity_bytes", overlap: overlappable}
+effects:
+  transactions:
+    # One copy operation per granularity_bytes; which operation class depends on
+    # the mechanism. The shared-memory side is priced by shared_resource_binding.
+    - {id: copy, pattern: transfer, kind: mechanism,
+       kind_map: {software: global_load, instruction: cp_async_16, controller: tma_bulk},
+       count: "p.size_bytes / granularity_bytes",
+       amounts: {bytes: "granularity_bytes", vector_bytes: "granularity_bytes"},
+       src: global, dst: smem}
+  storage: []
+  overlap: []
 scope:
   predicate: "p.align_bytes >= 4 and p.size_bytes >= 4"
   text: >-

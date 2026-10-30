@@ -28,10 +28,15 @@ backward_map: "The sum over instruction tiles of each instruction's product repr
 obligations:
   - {name: fragment_layout, statement: "Each lane holds exactly the operand and accumulator elements the instruction defines for it.", method: test}
   - {name: exact_once, statement: "Every (m, n, k) product of the executor tile is issued in exactly one instruction.", method: exhaustive}
-cost:
-  # p.M x p.N x p.K is one executor tile's contraction; p.instances counts executor tiles.
-  - {unit: tensor, work: "2 * p.M * p.N * p.K", overlap: overlappable}
-  - {unit: issue, work: "p.M * p.N * p.K / macs_per_instruction", overlap: overlappable}
+effects:
+  transactions:
+    # p.M x p.N x p.K is one executor tile's contraction; p.instances counts tiles.
+    # The contraction is declared here once (it was missing from WP5's chain).
+    - {id: mma, pattern: contract, kind: instruction,
+       count: "p.M * p.N * p.K / macs_per_instruction",
+       amounts: {flops: "2 * macs_per_instruction"}}
+  storage: []
+  overlap: []
 scope:
   predicate: "p.operand_bits == p.instr_operand_bits and p.operand_exp_bits == p.instr_exp_bits"
   text: >-

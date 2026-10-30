@@ -21,8 +21,11 @@ program:
 backward_map: "Store the accumulator tile to memory and reload it as an operand: the reinterpretation is that round trip with the memory erased."
 obligations:
   - {name: lane_layout_match, statement: "For every lane, the accumulator elements it holds are exactly the A-operand elements it must supply, in the order the consumer expects.", method: exhaustive}
-cost:
-  - {unit: smem, work: "0", overlap: overlappable}
+effects:
+  # The step removes a shared-memory round trip; it adds no transaction.
+  transactions: []
+  storage: []
+  overlap: []
 scope:
   predicate: "True"
   text: "Back-to-back contractions where the first's output tile is the second's left operand tile (attention P @ V, chained MLP GEMMs)."

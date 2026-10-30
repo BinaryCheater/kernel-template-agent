@@ -31,9 +31,17 @@ backward_map: >-
 obligations:
   - {name: generation_correctness, statement: "Every consumer reads the generation it expects: slot (u mod S) holds generation u from the completion of its load until the last read of u.", method: exhaustive}
   - {name: progress, statement: "The number of unconsumed generations decreases at every phase (rank rho); no wait is circular.", method: proof}
-cost:
-  - {unit: issue, work: "beta * p.iterations", overlap: serial}
-  - {unit: dram, work: "p.size_bytes * p.iterations if P == 0 else 0", overlap: serial}
+effects:
+  transactions:
+    - {id: barrier, pattern: sync, kind: cta_barrier, count: "p.iterations * (1 + beta)",
+       amounts: {warps: "p.warps"}, note: "leading barrier, plus the trailing one when beta"}
+  storage: []
+  overlap:
+    # Loads of generation p+P overlap the consumption of generation p only when
+    # P >= 1 (the v1 cost forced this into a DRAM term); with P in flight the
+    # loop is also bound by the load-to-use recurrence.
+    - {between: ["pattern:transfer", "pattern:contract"], when: "P >= 1",
+       inflight: "P", trips: "p.iterations"}
 scope:
   predicate: "p.iterations >= 1"
   text: >-

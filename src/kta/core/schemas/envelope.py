@@ -9,7 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 from kta.core.ids import is_record_id
 from kta.core.schemas.common import ActorType, Origin
-from kta.core.schemas.registry import InvalidBody, kind_spec, normalize_body
+from kta.core.schemas.registry import InvalidBody, kind_spec, normalize_body, parse_body
 
 RefValue = str | list[str]
 
@@ -66,7 +66,7 @@ class Record(BaseModel):
     @model_validator(mode="after")
     def _check(self) -> Record:
         spec = kind_spec(self.kind)
-        if self.schema_ != spec.version:
+        if not 1 <= self.schema_ <= spec.version:
             raise InvalidBody(f"{self.kind} schema {self.schema_}; current is {spec.version}")
         for key, value in self.refs.items():
             for rid in [value] if isinstance(value, str) else value:
@@ -80,9 +80,18 @@ class Record(BaseModel):
             raise InvalidBody(f"{self.kind} needs refs {missing}")
         if self.kind == "Template" and self.actor.type != "human" and not self.refs.get("sources"):
             raise InvalidBody("Template needs refs.sources unless the actor is human")
+        if self.schema_ < spec.version:
+            # A stored older body (D461): validate its upcast form, keep the body as stored
+            # so the record's ID does not change. Readers parse it with ``body_model``.
+            parse_body(self.kind, self.body, self.schema_)
+            return self
         # Normalize in place: the model is frozen, but validation is construction time.
         object.__setattr__(self, "body", normalize_body(self.kind, self.body))
         return self
+
+    def body_model(self) -> BaseModel:
+        """The body as the current schema's model (older bodies upcast, D461)."""
+        return parse_body(self.kind, self.body, self.schema_)
 
     @classmethod
     def new(

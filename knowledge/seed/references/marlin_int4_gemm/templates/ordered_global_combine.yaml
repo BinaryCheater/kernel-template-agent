@@ -24,8 +24,13 @@ obligations:
   - {name: visibility, statement: "A CTA observes the previous CTA's writes (release / acquire on the lock at gpu scope).", method: test}
   - {name: no_deadlock, statement: "Every CTA whose turn is awaited is guaranteed to be running or to have run (all CTAs of the grid are co-resident or earlier CTAs never wait on later ones).", method: exhaustive}
   - {name: lock_reset, statement: "The lock returns to its initial value for the next launch.", method: test}
-cost:
-  - {unit: l2, work: "2 * p.tile_bytes * p.partials_per_tile", overlap: serial}
+effects:
+  transactions:
+    - {id: combine, pattern: reduce, kind: l2_traffic, count: "1",
+       amounts: {bytes: "2 * p.tile_bytes * p.partials_per_tile"}}
+  storage: []
+  overlap:
+    - {between: [combine], when: "False", note: "never overlaps (v1 cost was serial)"}
 scope:
   predicate: "True"
   text: "Partials of an output tile spread over CTAs when the grid is co-resident (one CTA per SM) and determinism is wanted."

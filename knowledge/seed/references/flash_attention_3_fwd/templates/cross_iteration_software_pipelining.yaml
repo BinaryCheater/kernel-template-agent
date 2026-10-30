@@ -23,8 +23,11 @@ backward_map: "Remove the skew: run each iteration's stages to completion in ord
 obligations:
   - {name: dependencies_kept, statement: "Every stage reads registers only after the asynchronous instruction that writes them has been waited for, and registers being read by an in-flight instruction are not overwritten.", method: test}
   - {name: prologue_epilogue, statement: "The first and last iterations are handled so every iteration's stages run exactly once.", method: exhaustive}
-cost:
-  - {unit: sfu, work: "p.softmax_work", overlap: overlappable}
+effects:
+  transactions:
+    - {id: softmax, pattern: map, kind: mufu, count: "p.softmax_work", amounts: {ops: "1"}}
+  storage: []
+  overlap: []
 scope:
   predicate: "True"
   text: "Loops whose body has an asynchronous tensor-core stage and a CUDA-core / SFU stage that can be skewed by one iteration."

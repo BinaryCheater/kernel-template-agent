@@ -5,9 +5,10 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from kta.core.schemas.common import Body, Unit
+from kta.core.schemas.hwmodel import EfficiencySpec, InteractionSpec, Provenance, TableSpec
 
 
 class Target(Body):
@@ -73,8 +74,33 @@ class EnvManifest(Body):
 
 
 class HwModel(Body):
+    """The chip instance of the hardware model (schema 2, D463).
+
+    ``peaks`` are measured chip-level peaks per resource (amount per second); they
+    override the architecture class's documented peak expressions. ``limits`` are the
+    ``hw.*`` values. A schema-1 body (no ``arch``) still reads: it prices only legacy
+    ``unit:<u>`` transactions, with ``peaks`` as the resources.
+    """
+
     target: str
     version: int
     peaks: dict[Unit, float] = Field(default_factory=lambda: dict[Unit, float]())
     # The hw.* names available in expressions, e.g. smem_per_cta, regs_per_thread.
     limits: dict[str, int | float] = Field(default_factory=lambda: dict[str, int | float]())
+    arch: str | None = None  # "<HwArch name>@<version>"
+    # "peaks.<resource>" / "limits.<name>" -> where the value comes from; required for
+    # every value when ``arch`` is set.
+    provenance: dict[str, Provenance] = Field(default_factory=lambda: dict[str, Provenance]())
+    tables: list[TableSpec] = Field(default_factory=lambda: list[TableSpec]())
+    efficiency: list[EfficiencySpec] = Field(default_factory=lambda: list[EfficiencySpec]())
+    interactions: list[InteractionSpec] = Field(default_factory=lambda: list[InteractionSpec]())
+
+    @model_validator(mode="after")
+    def _provenance(self) -> HwModel:
+        if self.arch is None:
+            return self
+        keys = [f"peaks.{k}" for k in self.peaks] + [f"limits.{k}" for k in self.limits]
+        missing = [k for k in keys if k not in self.provenance]
+        if missing:
+            raise ValueError(f"HwModel {self.target}@{self.version}: no provenance for {missing}")
+        return self

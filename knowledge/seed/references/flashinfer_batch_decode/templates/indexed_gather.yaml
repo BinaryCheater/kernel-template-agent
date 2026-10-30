@@ -23,8 +23,12 @@ backward_map: "Materialize the gathered operand contiguously (copy rows in index
 obligations:
   - {name: gather_correct, statement: "The row loaded for logical position i is the physical row index[i] (page index and in-page offset computed correctly, including the last partial page).", method: exhaustive}
   - {name: index_ready, statement: "Offsets are written to smem and a barrier passes before any load reads them; they are not overwritten while loads that read them are being issued.", method: test}
-cost:
-  - {unit: dram, work: "p.gathered_bytes + p.index_bytes", overlap: overlappable}
+effects:
+  transactions:
+    - {id: gather, pattern: transfer, kind: dram_stream, count: "1",
+       amounts: {bytes: "p.gathered_bytes + p.index_bytes"}}
+  storage: []
+  overlap: []
 scope:
   predicate: "True"
   text: "Operands stored non-contiguously behind a runtime index: paged KV caches, token permutations for MoE, sparse row selection."

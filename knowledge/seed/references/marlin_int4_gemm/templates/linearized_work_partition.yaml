@@ -23,8 +23,11 @@ backward_map: "Collapse each column's stripes into one CTA per column that runs 
 obligations:
   - {name: exactly_once, statement: "Every (column slice, k-tile) unit is processed by exactly one CTA.", method: exhaustive}
   - {name: slice_metadata, statement: "slice_count and slice_idx computed by every CTA of a column agree and enumerate exactly the CTAs that touch that column.", method: exhaustive}
-cost:
-  - {unit: launch, work: "grid", overlap: serial}
+effects:
+  transactions:
+    - {id: ctas, pattern: launch, kind: cta_launch, count: "grid"}
+  storage: []
+  overlap: []
 scope:
   predicate: "True"
   text: "GEMM-like kernels where the number of output tiles is small or not a multiple of the SM count (small-M inference, skinny shapes)."

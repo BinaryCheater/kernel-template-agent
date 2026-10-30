@@ -30,7 +30,11 @@ backward_map: >-
 obligations:
   - {name: lifetime, statement: "A value survives until its last read: no other value sharing the buffer is written between its first write and its last read.", method: test}
   - {name: capacity, statement: "At every time, the values resident in a level fit its capacity.", method: exhaustive}
-cost: []
+effects:
+  transactions: []
+  storage:
+    - {id: buffer, level: level, scope: cta, bytes: "p.size_bytes * p.copies"}
+  overlap: []
 scope:
   predicate: "p.size_bytes >= 1"
   text: >-

@@ -24,9 +24,14 @@ backward_map: "Replace the in-register conversion by reading a materialized fp16
 obligations:
   - {name: exact_conversion, statement: "For every 4-bit pattern the produced fp16 equals q - 8 exactly.", method: exhaustive}
   - {name: scale_error, statement: "Applying scales in fp16 before the MMA stays within the contract tolerance.", method: test}
-cost:
-  - {unit: fma, work: "p.K * p.N * p.m_tiles / 2", overlap: overlappable}
-  - {unit: dram, work: "p.K * p.N / 2", overlap: overlappable}
+effects:
+  transactions:
+    - {id: dequant, pattern: map, kind: ffma, count: "p.K * p.N * p.m_tiles / 2",
+       amounts: {ops: "1"}}
+    - {id: weights, pattern: transfer, kind: dram_stream, count: "1",
+       amounts: {bytes: "p.K * p.N / 2"}}
+  storage: []
+  overlap: []
 scope:
   predicate: "True"
   text: "GEMMs with low-bit integer weights and fp16/bf16 activations, especially memory-bound small-M inference. The magic-number method also needs lop3.b32, which the GB10 feature list (src/kta/targets/gb10/features.yaml) does not contain yet, so requires_hw names only the packed fp16 FMA (D108)."

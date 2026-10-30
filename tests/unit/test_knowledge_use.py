@@ -134,8 +134,10 @@ def test_reuse_plan_marks_steps(pool: Store) -> None:
 def test_retrieve_templates_filters_and_ranks(pool: Store) -> None:
     names = [c.name for c in retrieve_templates(pool, pattern="store")]
     assert sorted(names) == ["multi_buffer_rotation@1", "physical_storage@1"]
-    by_unit = [c.name for c in retrieve_templates(pool, unit="dram")]  # cost or resources
-    assert sorted(by_unit) == ["async_transfer@1", "multi_buffer_rotation@1", "output_tiling@2"]
+    # resources: signature, legacy cost units, or the HwArch reservation tables of the
+    # effects' transaction kinds (D460)
+    by_unit = [c.name for c in retrieve_templates(pool, unit="dram")]
+    assert sorted(by_unit) == ["async_transfer@1", "output_tiling@2"]
     assert [c.name for c in retrieve_templates(pool, text="slots rotate")] == [
         "multi_buffer_rotation@1"
     ]

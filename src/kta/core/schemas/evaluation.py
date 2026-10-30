@@ -53,6 +53,10 @@ class Prediction(Body):
     serial: float
     total: float
     model: str
+    # Schema 2 (D464): L1's non-resource lower bounds (serial pairs, recurrences) in us,
+    # and what L1 could not price (operation class or "resource:<r>" -> amount, D465).
+    bounds: dict[str, float] = Field(default_factory=lambda: dict[str, float]())
+    unpriced: dict[str, float] = Field(default_factory=lambda: dict[str, float]())
 
 
 class Build(Body):

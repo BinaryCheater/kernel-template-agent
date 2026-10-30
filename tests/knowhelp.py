@@ -39,6 +39,8 @@ def template_body(name: str) -> dict[str, Any]:
 
 def template(seed_name: str, **changes: Any) -> Template:
     body = template_body(seed_name)
+    if "cost" in changes:
+        body.pop("effects", None)  # a schema-1 cost override replaces the seed's effects
     body.update(changes)
     return Template.model_validate(body)
 

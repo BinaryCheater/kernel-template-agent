@@ -48,6 +48,8 @@ IDENTITY: dict[str, tuple[str, ...]] = {
     "Pattern": ("name",),
     "Structure": ("name",),
     "Template": ("name", "version"),
+    "HwArch": ("name", "version"),
+    "HwModel": ("target", "version"),
     "Gap": ("description",),
     "Chain": ("workload",),
     "Reconstruction": ("notes",),
@@ -166,7 +168,7 @@ def _actor(code: CodeState) -> Actor:
 def import_seed(
     ctx: Context, store: Store, root: Path, code: CodeState | None = None
 ) -> ImportResult:
-    """Import Sources, Patterns, Structures and Templates of the seed (one batch)."""
+    """Import Sources, Patterns, Structures, Templates and the hardware model (one batch)."""
     batch = _Batch("seed", store, _actor(code or code_state()), ctx.clock.now())
     sources = [rid for p in _yamls(root / "sources") if (rid := batch.add("Source", p))]
     for p in _yamls(root / "patterns"):
@@ -175,7 +177,25 @@ def import_seed(
         batch.add("Structure", p)
     for p in _yamls(root / "templates"):
         batch.add("Template", p, {"sources": sources})
+    _hardware(batch, root / "hardware")
     return batch.commit()
+
+
+def _hardware(batch: _Batch, directory: Path) -> None:
+    """``arch_*.yaml`` are HwArch records, ``model_*.yaml`` HwModels on them (D463)."""
+    archs: dict[str, str] = {}
+    for p in _yamls(directory):
+        if p.name.startswith("arch_") and (rid := batch.add("HwArch", p)):
+            body = _body(p)
+            archs[f"{body['name']}@{body['version']}"] = rid
+    for p in _yamls(directory):
+        if not p.name.startswith("model_"):
+            continue
+        arch = _body(p).get("arch")
+        if arch is not None and arch not in archs:
+            batch.issues.append(Issue("unknown_arch", f"HwArch {arch} is not in the seed", str(p)))
+            continue
+        batch.add("HwModel", p, {"arch": archs[arch]} if arch else {})
 
 
 def reference_order(references: Path) -> list[Path]:

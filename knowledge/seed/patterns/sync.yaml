@@ -5,6 +5,7 @@ params:
   - {name: producers, type: str, meaning: "who writes the protected data"}
   - {name: consumers, type: str, meaning: "who reads it"}
   - {name: scope, type: enum, values: [thread, warp, cta, cluster, grid], meaning: "set of executors that synchronize"}
+  - {name: warps, type: int, meaning: "warps taking part (one barrier instruction each); added by WP15 for effects"}
 description: >-
   An ordering between producers and consumers of data: a barrier, a wait on a copy group or an
   arrive/wait on a memory barrier. Refinements choose the primitive and where it sits in the
