@@ -65,6 +65,11 @@ class RecordReasonBody(_Body):
     reason: Reason
 
 
+class ImprovementBody(_Body):
+    improvement: Id
+    reason: Reason
+
+
 class FlagBody(_Body):
     record: Id
     reason: str = ""
@@ -105,7 +110,8 @@ CATALOGUE: list[tuple[str, str, str, str | None]] = [
     ("flag", "/actions/flag", "HumanAction, StatusChange (suspect), re-verification task", None),
     ("deprecate", "/actions/deprecate", "HumanAction, StatusChange (deprecated)", None),
     ("approve-protocol", "/actions/approve", "HumanAction (protocol frozen)", None),
-    ("approve-improvement", "/actions/approve", "HumanAction", None),
+    ("approve-improvement", "/actions/approve", "HumanAction approve_improvement", None),
+    ("reject-improvement", "/actions/reject-improvement", "HumanAction reject_improvement", None),
     ("approve-profile", "/actions/approve", "HumanAction, profile pointer", "approve-profile"),
     ("confirm", "/actions/confirm", "HumanAction", None),
     ("budget", "/actions/budget", "HumanAction, budget limit", None),
@@ -206,6 +212,10 @@ def router(api: Api) -> APIRouter:
     @r.post("/deprecate")
     def deprecate(b: RecordReasonBody) -> dict[str, Any]:  # pyright: ignore[reportUnusedFunction]
         return operate.deprecate(api, b.record, b.reason)
+
+    @r.post("/reject-improvement")
+    def reject_improvement(b: ImprovementBody) -> dict[str, Any]:  # pyright: ignore[reportUnusedFunction]
+        return operate.decide_improvement(api, b.improvement, b.reason, approve=False)
 
     @r.post("/flag")
     def flag(b: FlagBody) -> dict[str, Any]:  # pyright: ignore[reportUnusedFunction]

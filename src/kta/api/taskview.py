@@ -19,7 +19,17 @@ from kta.store.sqlite import RecordNotFound
 
 BLOB_TEXT_MAX_BYTES = 256 * 1024
 # Span kinds shown as the agent's calls (the kta commands and parsed tool calls).
-CALL_KINDS = ("tool_call", "kta", "compile", "check", "measure", "profile", "job_run", "job_queue")
+CALL_KINDS = (
+    "tool_call",
+    "kta",
+    "cli",
+    "compile",
+    "check",
+    "measure",
+    "profile",
+    "job_run",
+    "job_queue",
+)
 
 
 def _records_of_task(api: Api, task_id: str) -> list[dict[str, Any]]:

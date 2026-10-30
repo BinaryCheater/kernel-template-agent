@@ -13,7 +13,7 @@ from kta.agents.profile import write_profile
 from kta.api import operate, opsread
 from kta.api.app import create_app
 from kta.api.common import Api
-from kta.api.wiring import HUMAN_PRIORITY, NEEDS
+from kta.api.wiring import HUMAN_PRIORITY
 
 
 @pytest.fixture
@@ -85,16 +85,28 @@ def test_deprecate_does_not_propagate(api: Api) -> None:
     assert actions(api)[0]["body"]["action"].startswith("deprecate ")
 
 
-def test_flag_marks_suspect_and_reports_the_missing_reverification(api: Api) -> None:
+def test_flag_marks_suspect_and_starts_a_reverification(api: Api) -> None:
     sol = _id(api, "Solution")
     status, out = call(api, "/actions/flag", {"record": sol})
     assert status == 200, out
     assert api.store.status(sol)[0] == "suspect"
-    [act] = actions(api)
-    assert act["body"] == {"action": 'flag {"kind":"Solution"}', "reason": ""}
-    assert out["followups"] == [
-        {"what": "re-verification task", "state": "not_supported", "needs": NEEDS["reverify"]}
-    ]
+    flag, reverify = actions(api)
+    assert flag["body"] == {"action": 'flag {"kind":"Solution"}', "reason": ""}
+    assert reverify["body"]["action"] == f"reverify {sol}" and reverify["actor"]["name"] == "user"
+    [follow] = out["followups"]
+    assert follow["state"] == "started" and len(follow["loops"]) == 1
+    loop = api.ops.get_loop(follow["loops"][0])
+    assert loop["kind"] == "solve" and loop["subject"] == api.store.get(sol).refs["case"]
+
+
+def test_flag_of_a_kind_that_cannot_be_reverified(api: Api) -> None:
+    tid = _id(api, "Template")
+    status, out = call(api, "/actions/flag", {"record": tid, "reason": "odd"})
+    assert status == 200, out
+    assert (
+        out["followups"][0]["state"] == "not_supported" and "D368" in out["followups"][0]["needs"]
+    )
+    assert [a["body"]["action"].split()[0] for a in actions(api)] == ["flag"]
 
 
 def test_decision_records_cannot_be_judged(api: Api) -> None:
@@ -212,11 +224,14 @@ def test_retry_requeues_an_escalated_task(api: Api) -> None:
     assert act["body"]["reason"] == "declare swz's domain"
 
 
-def test_priority_is_not_supported_yet(api: Api) -> None:
-    status, out = call(api, "/actions/priority", {"task": _task(api, "queued"), "priority": 5})
-    assert status == 501 and NEEDS["priority"] in out["detail"]
+def test_priority_goes_through_the_task_queue(api: Api) -> None:
+    task = _task(api, "queued")
+    status, out = call(api, "/actions/priority", {"task": task, "priority": 5, "reason": "first"})
+    assert status == 200, out
+    assert api.ops.task(task).priority == 5
+    [act] = actions(api)
+    assert act["actor"]["name"] == "user" and act["body"]["reason"] == "first"
     assert call(api, "/actions/priority", {"task": "01NOSUCHTASK", "priority": 5})[0] == 404
-    assert actions(api) == []
 
 
 def test_create_task_queues_a_human_task(api: Api) -> None:
@@ -234,16 +249,22 @@ def test_create_task_queues_a_human_task(api: Api) -> None:
     assert row.work_unit == out["work_unit"] and out["work_unit"].startswith("human:")
     card = api.store.get(out["card"])
     assert card.body["goal"] == "bf16 -> fp16 variant" and card.body["inputs"] == [family]
-    [act] = actions(api)
-    assert act["body"]["action"].startswith('create_task {"task":"' + out["task"])
-    assert act["body"]["reason"] == "try" and act["refs"] == {"card": out["card"]}
-    assert act["actor"] == {**act["actor"], "type": "human", "name": "user"}
+    [act] = actions(api)  # written by TaskQueue.create as you (WP6 D365), not by the API
+    assert act["body"] == {"action": f"task create {out['task']}", "reason": "try"}
+    assert act["actor"]["type"] == "human" and act["actor"]["name"] == "user"
 
 
-@pytest.mark.parametrize("path", ["/actions/pause", "/actions/resume"])
-def test_pause_and_resume_are_not_supported_yet(api: Api, path: str) -> None:
-    assert call(api, path, {"scope": "global"})[0] == 501
-    assert call(api, path, {"scope": "somewhere"})[0] == 400
+def test_pause_and_resume_a_scope(api: Api) -> None:
+    status, out = call(api, "/actions/pause", {"scope": "process:solve", "reason": "look first"})
+    assert status == 200 and out["paused"] is True, out
+    assert api.ops.get_pointer("paused:process:solve") is not None
+    status, out = call(api, "/actions/resume", {"scope": "process:solve"})
+    assert status == 200 and out["paused"] is False, out
+    assert [a["body"]["action"] for a in actions(api)] == [
+        "pause process:solve",
+        "resume process:solve",
+    ]
+    assert call(api, "/actions/pause", {"scope": "somewhere"})[0] == 400
 
 
 def test_approve_profile_moves_the_pointer(api: Api) -> None:
@@ -262,14 +283,9 @@ def test_approve_profile_moves_the_pointer(api: Api) -> None:
 def test_capabilities_say_what_is_wired(api: Api) -> None:
     status, caps = call(api, "/actions/capabilities", method="GET")
     assert status == 200
+    assert all(c["wired"] for c in caps), [c["name"] for c in caps if not c["wired"]]
     by = {c["name"]: c for c in caps}
-    for name in ("reject", "budget", "confirm", "cancel", "retry", "create-task", "approve-profile",
-                 "env-verify", "write-record"):  # fmt: skip
-        assert by[name]["wired"], name
-    for name in ("priority", "pause", "resume"):
-        assert not by[name]["wired"] and by[name]["needs"] == NEEDS[name]
-    assert "not stopped" in by["cancel"]["partial"]
-    assert "re-verification" in by["flag"]["partial"]
+    assert "not stopped" in by["cancel"]["partial"] and "partial" not in by["flag"]
 
 
 def test_unwired_port_answers_501_for_every_delegated_operation(tmp_path: Path) -> None:
@@ -286,7 +302,7 @@ def test_action_log_is_newest_first_with_parameters(api: Api) -> None:
     call(api, "/actions/budget", {"scope": "global", "limit": {"gpu_min": 30}, "reason": "cap"})
     status, log = call(api, "/actions/log?limit=10", method="GET")
     assert status == 200
-    assert [x["verb"] for x in log] == ["budget", "flag"]
+    assert [x["verb"] for x in log] == ["budget", "flag"]  # a Template is flagged only
     assert log[0]["params"]["scope"] == "global" and log[1]["refs"] == {"subject": tid}
 
 
