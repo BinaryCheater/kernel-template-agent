@@ -1,0 +1,152 @@
+workload: "O = softmax(scale * Q K^T [+ causal mask]) V and LSE, f16, head_dim 128, GQA, non-split forward (FlashAttention-2 compute_attn_1rowblock with Flash_fwd_kernel_traits<128, 128, 64, 4> as selected for non-sm8x GPUs)"
+items:
+  - key: online
+    template: online_rescaled_reduction@1
+    applies_to: "softmax row max and row sum over Sk computed in one pass with running (row_max, row_sum, acc_o) and rescaling by exp2((m_old - m_new) * scale_log2); deferred division and LSE at the end (csrc/flash_attn/src/softmax.h:128-185)"
+    bindings: {state: max_sum_acc, rescale_point: per_tile, finalize: deferred_divide, traversal: descending, inf_guard: true}
+    after: []
+    code_markers: []
+  - key: fuse
+    template: operator_fusion@1
+    applies_to: "S = QK^T, softmax and PV fused into one kernel; S and P never written to global memory (flash_fwd_kernel.h:309-436)"
+    bindings: {consumer_kind: row_reduce_then_map, intermediate_site: registers, fused_ops: softmax_then_matmul}
+    after: [online]
+    code_markers: []
+  - key: out_cta
+    template: output_tiling@1
+    applies_to: "O split into 128-row Q tiles per (batch, head); grid (num_m_block, B, H); K/V head = q head / h_h_k_ratio (flash_fwd_launch_template.h:64; flash_fwd_kernel.h:1083-1098, 155-161; launch template 262 selects kBlockM = 128)"
+    bindings: {tile_m: 128, tile_n: 128, executor: cta, index_map: grouped_heads}
+    after: [fuse]
+    code_markers: []
+  - key: kv_part
+    template: reduction_partition@1
+    applies_to: "reduction over Sk split into kBlockN = 64 key blocks consumed sequentially by the same CTA (flash_fwd_kernel.h:90-94, 274, 309, 385)"
+    bindings: {num_groups: "ceil_div(Sk, 64)", group_size: 64, assignment: contiguous_sequential}
+    after: [out_cta]
+    code_markers: []
+  - key: causal_prune
+    template: masked_tile_pruning@1
+    applies_to: "for causal masks n_block_max stops at the diagonal; the first n_masking_steps = ceil(BM/BN) (+1 if not even) iterations, visited first because traversal is descending, apply the mask, the rest run mask-free (flash_fwd_kernel.h:90-101, 297-382, 385-412; mask.h:129-200)"
+    bindings: {mask_kind: causal, masked_steps: "ceil_div(128, 64) + 1", masked_first: true}
+    after: [kv_part, online]
+    code_markers: []
+  - key: out_warp
+    template: output_tiling@1
+    applies_to: "4 warps laid 4x1 along M (TiledMma Layout<4,1,1>, Tile<64,16,16>): each warp owns whole rows of S and O, so row reductions stay inside a warp (kernel_traits.h:74-77)"
+    bindings: {tile_m: 32, tile_n: 128, executor: warp, index_map: identity}
+    after: [out_cta]
+    code_markers: []
+  - key: mma
+    template: compute_instruction_selection@1
+    applies_to: "QK^T and PV issued as mma.sync m16n8k16 f16 -> f32 (kernel_traits.h:32; utils.h:139-185)"
+    bindings: {instruction: mma_sync_m16n8k16_f16, operand_source: rr, accum_dtype: f32, macs_per_instruction: 2048}
+    after: [out_warp]
+    code_markers: []
+  - key: p_convert
+    template: operand_precision_conversion@1
+    applies_to: "probabilities P converted f32 -> f16 before the PV MMA (flash_fwd_kernel.h:354, 416; utils.h:229-240)"
+    bindings: {from_dtype: f32, to_dtype: f16, rounding: round_to_nearest, site: registers_before_mma}
+    after: [mma]
+    code_markers: []
+  - key: p_reuse
+    template: accumulator_operand_reuse@1
+    applies_to: "the S accumulator fragment, after conversion, is reinterpreted as the A operand of the PV MMA (flash_fwd_kernel.h:372-374, 434-435; utils.h:200-226)"
+    bindings: {producer_instruction: mma_sync_m16n8k16_f16, consumer_operand: mma_a_regs}
+    after: [p_convert, fuse]
+    code_markers: []
+  - key: exp2
+    template: approximate_math_rewrite@1
+    applies_to: "exp(scale*x - scale*m) computed as exp2f(x*scale_log2 - m*scale_log2), one FFMA + EX2 per score; __logf for LSE (softmax.h:66-90, 157, 180)"
+    bindings: {rewrite: exp_to_exp2_folded_scale, fused_fma: true}
+    after: [online]
+    code_markers: []
+  - key: row_xlane
+    template: cross_lane_reduction@1
+    applies_to: "row max and row sum combined over the 4 lanes (quad) that share a row in the MMA accumulator layout (softmax.h:38-52, 172; utils.h:112-130)"
+    bindings: {lanes: 4, result_to: all_lanes, combine_op: max}
+    after: [online, out_warp]
+    code_markers: []
+  - key: acc_store
+    template: physical_storage@1
+    applies_to: "acc_o (32x128 f32 per warp), acc_s, row_max, row_sum kept in registers across all KV blocks (flash_fwd_kernel.h:290-292, 310)"
+    bindings: {level: reg, buffer: acc_o_acc_s, share_order: none}
+    after: [mma, online]
+    code_markers: []
+  - key: q_smem
+    template: physical_storage@1
+    applies_to: "Q tile in shared memory, read by every QK^T; its buffer is reused for the O staging tile after the loop (flash_fwd_kernel.h:167, 444, 451)"
+    bindings: {level: smem, buffer: sQ, share_order: Q_then_O}
+    after: [out_cta]
+    code_markers: []
+  - key: kv_smem
+    template: physical_storage@1
+    applies_to: "one K tile and one V tile buffer in shared memory, K and V adjacent (flash_fwd_kernel.h:170-173; kernel_traits.h:108-109)"
+    bindings: {level: smem, buffer: sK_sV, share_order: none}
+    after: [kv_part]
+    code_markers: []
+  - key: kv_async
+    template: async_transfer@1
+    applies_to: "Q, K, V global -> shared with cp.async.cg 16 B; V(n) issued before QK(n), K(n-1) issued before softmax/PV(n); completion by cp_async_wait<0> + __syncthreads (kernel_traits.h:124-128; flash_fwd_kernel.h:257-259, 276-278, 312-324, 339-346, 388-408)"
+    bindings: {mechanism: instruction, issue_point: one_phase_ahead_on_other_operand, complete_point: barrier_before_use, granularity_bytes: 16}
+    after: [kv_smem]
+    code_markers: []
+  - key: kv_rotation
+    template: multi_buffer_rotation@1
+    applies_to: "K and V each have one slot; the K slot is refilled mid-iteration right after the barrier that follows its last read, giving one tile of lookahead with S = 1. Partial match, see gap ux-06."
+    bindings: {S: 1, P: 1, beta: 1}
+    after: [kv_async]
+    code_markers: []
+  - key: vec
+    template: vectorized_access@1
+    applies_to: "128 threads, 8 threads per 64-element row chunk, 128-bit accesses for Q/K/V loads and O stores (kernel_traits.h:111-133)"
+    bindings: {vector_bytes: 16, thread_arrangement: warp_raked, threads: 128}
+    after: [kv_async]
+    code_markers: []
+  - key: k_guard
+    template: boundary_predication@1
+    applies_to: "K rows beyond actual_seqlen_k are not loaded and not cleared; the scores they produce are masked (flash_fwd_kernel.h:275-277; mask.h:129-200). Guard-free variant compiled when Is_even_MN."
+    bindings: {boundary_kind: runtime_length, fill: none, specialize_even: true}
+    after: [vec]
+    code_markers: []
+  - key: v_guard
+    template: boundary_predication@1
+    applies_to: "V rows beyond actual_seqlen_k are zero-filled in the first (residue) iteration (flash_fwd_kernel.h:316-323)"
+    bindings: {boundary_kind: runtime_length, fill: zero, specialize_even: true}
+    after: [vec]
+    code_markers: []
+  - key: swizzle
+    template: shared_resource_binding@1
+    applies_to: "Q/K/V shared-memory tiles use Swizzle<3,3,3> over 8x64 atoms (kernel_traits.h:70-72, 79-100)"
+    bindings: {binding: "cute_swizzle_3_3_3", queue_depth: hw_fixed}
+    after: [q_smem, kv_smem]
+    code_markers: []
+  - key: qk_frag
+    template: collective_fragment_load@1
+    applies_to: "Q and K fragments loaded with ldmatrix.x4 (SM75_U32x4_LDSM_N) (kernel_traits.h:40; utils.h:149-156)"
+    bindings: {instruction: ldmatrix_x4, transpose: false}
+    after: [mma, swizzle]
+    code_markers: []
+  - key: v_frag
+    template: collective_fragment_load@1
+    applies_to: "V fragments loaded transposed with ldmatrix.x4.trans (SM75_U16x8_LDSM_T) from the row-major V tile (kernel_traits.h:41; flash_fwd_kernel.h:173-174, 212)"
+    bindings: {instruction: ldmatrix_x4, transpose: true}
+    after: [mma, swizzle]
+    code_markers: []
+  - key: frag_prefetch
+    template: multi_buffer_rotation@1
+    applies_to: "inside each gemm call the k-slice i+1 is loaded into its own registers before MMA i; every slice has its own registers (S = number of k-slices), lookahead 1 (utils.h:149-158, 174-182)"
+    bindings: {S: MMA_K_slices, P: 1, beta: 0}
+    after: [qk_frag, v_frag]
+    code_markers: []
+  - key: epi_stage
+    template: staged_relayout@1
+    applies_to: "normalized O converted to f16, written to sO (aliasing sQ) in fragment order, barrier, read back with 128-bit thread copies and stored (flash_fwd_kernel.h:440-472)"
+    bindings: {chunks: 1, reader: threads, write_instruction: sts}
+    after: [acc_store, q_smem]
+    code_markers: []
+  - key: o_guard
+    template: boundary_predication@1
+    applies_to: "O and LSE stores predicated on actual_seqlen_q (flash_fwd_kernel.h:476-500)"
+    bindings: {boundary_kind: runtime_length, fill: none, specialize_even: true}
+    after: [epi_stage]
+    code_markers: []

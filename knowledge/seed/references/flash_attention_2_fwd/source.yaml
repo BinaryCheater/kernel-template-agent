@@ -1,0 +1,13 @@
+repo: https://github.com/Dao-AILab/flash-attention
+commit: a3a9dfa9bf10b52e55e8507b16ab0fe0dc1f38a0
+commit_date: "2026-10-29T16:03:11-07:00"
+license: BSD-3-Clause
+paths:
+  - csrc/flash_attn/src/flash_fwd_kernel.h
+  - csrc/flash_attn/src/flash_fwd_launch_template.h
+  - csrc/flash_attn/src/kernel_traits.h
+  - csrc/flash_attn/src/softmax.h
+  - csrc/flash_attn/src/utils.h
+  - csrc/flash_attn/src/mask.h
+retrieved_at: "2026-10-30T00:00:00Z"
+note: FlashAttention-2 forward kernel (csrc/flash_attn), non-split path compute_attn_1rowblock. The repository also contains FlashAttention-3 (hopper/), decomposed separately.

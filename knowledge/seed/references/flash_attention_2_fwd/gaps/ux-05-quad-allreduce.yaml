@@ -1,0 +1,7 @@
+missing: template
+description: >-
+  [ux-05] reduction_partition says a reduction is split into groups but nothing in the pool describes
+  combining partials held in different lanes' registers. Proposed: cross_lane_reduction@1.
+level: 3
+pattern_guess: reduce
+attribution: space

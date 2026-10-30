@@ -1,0 +1,46 @@
+name: online_rescaled_reduction
+version: 1
+level_from: 1
+level_to: 1
+change: expansion
+refines: reduce
+produces: [reduce, map]
+object:
+  type: running_reduction_state
+  description: "A per-row running state (running max m, running sum l, and optionally a running weighted accumulator o) updated tile by tile, with a correction factor exp(m_old - m_new) applied to earlier contributions."
+variables:
+  - {name: state, kind: structure, binding: compile, role: software, domain: [max_sum, max_sum_acc], meaning: "which quantities are carried (softmax denominator only, or also the weighted output)"}
+  - {name: rescale_point, kind: structure, binding: compile, role: software, domain: [per_tile, before_next_mma, after_mma], meaning: "when the accumulator is multiplied by the correction factor"}
+  - {name: finalize, kind: structure, binding: compile, role: software, domain: [deferred_divide, none], meaning: "whether o / l is applied once at the end"}
+  - {name: traversal, kind: structure, binding: compile, role: software, domain: [ascending, descending], meaning: "order in which reduction tiles are consumed"}
+  - {name: inf_guard, kind: structure, binding: compile, role: software, domain: [false, true], meaning: "whether a fully masked row (m = -inf) is special-cased to avoid NaN"}
+constraints: []
+preconditions:
+  - {id: pre_assoc, expr: "p.assoc and p.rescalable", meaning: "the combine is associative and partial results can be corrected by a factor when the reference point (max) changes", cls: semantic}
+program:
+  description: "For each tile: m_new = max(m, rowmax(tile)); c = exp(m - m_new); l = c*l + rowsum(exp(tile - m_new)); o = c*o + exp(tile - m_new) @ V; at the end o /= l and lse = m + log(l) (FlashAttention-2 Softmax::softmax_rescale_o and normalize_softmax_lse)."
+  fragments: {}
+backward_map: "Unroll the recurrence: after the last tile, (m, l, o) equal (max over the row, sum of exp(x - max), sum of exp(x - max) v), so o / l is the two-pass softmax-weighted sum."
+obligations:
+  - {name: invariant, statement: "After consuming any prefix of tiles, (m, l, o) equal the exact max, rescaled sum and rescaled accumulator of that prefix.", method: proof}
+  - {name: finalize_equivalence, statement: "o / l after the last tile equals the materialized softmax followed by the weighted sum, up to floating-point rounding.", method: test}
+  - {name: masked_rows, statement: "Rows whose every score is masked produce the defined output (0 or NaN-free) and the defined LSE.", method: test}
+cost:
+  - {unit: fma, work: "p.rows * p.tiles * p.head_dim", overlap: overlappable}
+  - {unit: sfu, work: "p.rows * p.tiles", overlap: overlappable}
+scope:
+  predicate: "True"
+  text: "Reductions whose combine is associative and rescalable: softmax denominators, attention outputs, logsumexp, Welford-style statistics."
+requires_hw: []
+relations:
+  - {type: enables, target: operator_fusion, note: "makes the softmax-then-matmul consumer tile-local so QK^T, softmax and PV fuse"}
+  - {type: requires, target: reduction_partition, note: "the tiles come from a partition of the reduction"}
+signature:
+  algorithm: "single-pass rescaled (online) reduction"
+  reuse: "scores never leave registers"
+  storage: "running state per row in registers"
+  boundary: "fully masked rows"
+  resources: [fma, sfu]
+numeric_risk: "Rounding differs from the two-pass form; the correction factor underflows for large max jumps. Check with inputs that have large score ranges and rows that are fully masked (input distributions: large_logits, fully_masked_rows)."
+expected_sass: []
+summary: "Replaces a two-pass reduction (max, then sum) by a single pass that carries a running reference point and rescales earlier contributions when it changes. Requires an associative, rescalable combine. Its key obligation is the prefix invariant."

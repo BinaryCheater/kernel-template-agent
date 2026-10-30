@@ -1,0 +1,4 @@
+name: flash_attention_2_fwd
+problem: attention_fwd_f16_d128
+build: "pip install flash-attn --no-build-isolation (setup.py compiles csrc/flash_attn for the arch list in setup.py; not executed in WP10a; GB10 would need sm_121 added to the arch list)"
+runnable_on: [gb10]
