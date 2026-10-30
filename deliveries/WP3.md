@@ -135,4 +135,31 @@ D220, D221, D222, D223 (needs user review), D224 (needs user review), D225, D226
 
 ## Gate output
 
-(to be filled in)
+Run: `KTA_DATA=~/kta-data scripts/gate WP3` on the control host at `aa70e3a`, with spark deployed at that commit. The commit after it adds only this section.
+
+```text
+gate WP3: PASSED (23 pass, 0 warn, 0 fail)
+  PASS ruff format
+  PASS ruff check
+  PASS import layers
+  PASS residue
+  PASS test doubles
+  PASS error handling
+  PASS print
+  PASS subprocess outside Executor
+  PASS secrets
+  PASS acceptance lock — 4 locked files unchanged
+  PASS pyright
+  PASS unit tests — 262 passed
+  PASS contract tests — 2 passed
+  PASS fake coverage — 1 fake(s) covered
+  PASS registry (kta doctor, dev)
+  PASS delivery note
+  PASS fixture declarations — 1 declared
+  PASS decision log — 178 decisions
+  PASS skipped tests — none
+  PASS evidence — 7 claim(s)
+  PASS WP3 GPU acceptance run — 4 passed
+  PASS WP3 acceptance tests — 4 tests passed
+  PASS WP3 records — Measurement, Check, Protocol v1/v2, noise, compare, checker selftest listed
+```
