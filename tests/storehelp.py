@@ -40,7 +40,7 @@ def gap(description: str, refs: dict[str, RefValue] | None = None, n: int = 0) -
         "missing": "template",
         "description": description,
         "attribution": "space",
-        "level": n % 6,
+        "level": 1 + n % 7,  # levels 1-7 (D441)
     }
     return Record.new("Gap", body, actor(), T0, refs=refs or {})
 

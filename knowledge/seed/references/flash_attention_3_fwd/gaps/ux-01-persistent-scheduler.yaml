@@ -2,6 +2,6 @@ missing: template
 description: >-
   [ux-01] block_rasterization only permutes a one-tile-per-CTA grid; nothing in the pool expresses a persistent
   work loop with runtime tile fetch. Proposed: persistent_tile_scheduler@1.
-level: 2
+level: 4
 pattern_guess: work_assign
 attribution: space

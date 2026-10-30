@@ -49,10 +49,9 @@ from kta.knowledge import (
 from kta.orchestrator.pipeline import (
     Services,
     build,
+    chain_sass,
     family_package,
     generate,
-    sass_for,
-    templates_of,
 )
 from kta.orchestrator.tasks import TaskQueue
 
@@ -237,7 +236,7 @@ def router(api: Api) -> APIRouter:
             result, module = build(svc, generate(fp, b.assignment, b.shape))
             if not result.ok or not module.sass_blob:
                 raise ConfigError(f"build {module.build_id[:12]} failed or has no SASS")
-            expect = sass_for(fp, templates_of(api.store, fp), b.assignment)
+            expect = chain_sass(api.store, fp, b.assignment)
             checked = sass_check(svc.checker(), module, expect, b.assignment)
             return {
                 "check": checked.id,

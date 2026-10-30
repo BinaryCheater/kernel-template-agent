@@ -1,0 +1,14 @@
+template: accumulator_operand_reuse@1
+backend: any
+isa:
+  family: sm
+requires: []
+fragments: {}
+expected_sass:
+- when: 'True'
+  must_contain:
+  - F2FP
+  must_not_contain: []
+probed_on: []
+summary: Migrated by WP14 from the Template's v1 fields requires_hw, expected_sass and program.fragments
+  (D443); backend-independent.

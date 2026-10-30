@@ -1,5 +1,5 @@
 name: access
-level: 5
+level: 7
 category: access
 params:
   - {name: resource, type: enum, values: [bank, port, queue], meaning: "physical resource the requests contend for"}

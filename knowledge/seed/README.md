@@ -29,4 +29,4 @@ them. Obligations are listed with their planned check method; none is checked ye
 
 Limitations (decisions D207, D216): expressions cannot compare strings, so conditions on
 string-valued variables (for example "mechanism is instruction needs cp.async") are stated in
-obligations and Γ text, and `requires_hw` is empty for all five Templates.
+obligations and Γ text, and `requires` (abstract Capabilities, D442) is empty for all five Templates.

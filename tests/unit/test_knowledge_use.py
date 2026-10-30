@@ -237,7 +237,7 @@ def test_coverage_report(pool: Store) -> None:
     assert (rep.templates_observed, rep.singletons, rep.doubletons) == (3, 2, 0)
     assert rep.chao1 == 4.0 and rep.good_turing == pytest.approx(1 - 2 / 5)
     assert len(rep.discovery_mean) == 3 and rep.discovery_mean[-1] == 3
-    assert rep.unmatched_by_level == {"0": 0, "1": 0, "2": 3, "3": 0, "4": 0, "5": 0}
+    assert rep.unmatched_by_level == {str(n): 3 if n == 2 else 0 for n in range(1, 8)}
     assert rep.unmatched_by_pattern == {"map": 3}
     assert rep.assurance == {"declared": 7, "tested": 0, "bounded": 0, "proved": 0}
     assert rep.other_patterns == 0

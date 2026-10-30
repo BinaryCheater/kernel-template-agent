@@ -1,7 +1,7 @@
 name: ordered_global_combine
 version: 1
-level_from: 2
-level_to: 3
+level_from: 4
+level_to: 5
 change: vertical
 refines: reduce
 produces: [transfer, sync, reduce]
@@ -17,7 +17,6 @@ preconditions:
   - {id: pre_assoc, expr: "p.reduce_assoc", meaning: "the reduction is associative (partials can be added in any grouping)", cls: semantic}
 program:
   description: "barrier_acquire spins with ld.acquire.gpu until the lock equals slice_idx; the CTA reads the current partial from C (unless first), adds its own in f32, writes back in f16 (unless last, which writes the final result); barrier_release does fence.acq_rel.gpu and red.add on the lock, or resets it (marlin/marlin_cuda_kernel.cu:162-188, 514-571, 674-678)."
-  fragments: {}
 backward_map: "Sum the partials of all CTAs of the tile in the lock order: the single-CTA reduction over the whole K range."
 obligations:
   - {name: exactly_once, statement: "Each CTA's partial is added exactly once, in the declared order.", method: exhaustive}
@@ -29,7 +28,8 @@ cost:
 scope:
   predicate: "True"
   text: "Partials of an output tile spread over CTAs when the grid is co-resident (one CTA per SM) and determinism is wanted."
-requires_hw: []
+requires: []
+probed_on: []
 relations:
   - {type: requires, target: reduction_partition}
   - {type: alternative_of, target: smem_partial_combine, note: "smem combine is the intra-CTA counterpart"}
@@ -40,6 +40,4 @@ signature:
   boundary: "first and last CTA of a slice"
   resources: [l2]
 numeric_risk: "With partial_dtype = f16 every intermediate sum is rounded to fp16; error grows with the number of partials. Check with long K split across many CTAs (input distribution: long_k_many_splits)."
-expected_sass:
-  - {when: "True", must_contain: [RED.E.ADD, MEMBAR], must_not_contain: []}
 summary: "Combines partial sums of one tile from different CTAs by adding them into the output buffer one CTA at a time, ordered by a per-tile lock. Deterministic, stays in L2, but needs co-residency to avoid deadlock. Storing partials in fp16 is a numeric risk."

@@ -1,5 +1,5 @@
 name: scan
-level: 1
+level: 3
 category: other
 params:
   - {name: inclusive, type: bool, meaning: "inclusive or exclusive prefix"}

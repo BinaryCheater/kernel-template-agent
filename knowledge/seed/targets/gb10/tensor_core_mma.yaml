@@ -1,0 +1,7 @@
+target: gb10
+capability: tensor_core_mma
+status: 'yes'
+params:
+  dtypes: f16,bf16,tf32,s8,e4m3
+basis: documented
+note: 'PTX ISA target requirements: mma.sync shapes for these types exist from sm_80/sm_89.'

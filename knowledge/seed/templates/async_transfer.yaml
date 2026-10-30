@@ -1,7 +1,7 @@
 name: async_transfer
 version: 1
-level_from: 2
-level_to: 3
+level_from: 4
+level_to: 5
 change: expansion
 refines: transfer
 produces: [transfer, sync]
@@ -25,7 +25,6 @@ program:
     issue(copy src -> dst in granularity_bytes pieces) at issue_point; ... independent work ...;
     wait for completion at complete_point; read dst. software: ld/st through registers;
     instruction: cp.async + commit/wait_group; controller: TMA copy + mbarrier wait.
-  fragments: {}
 backward_map: >-
   Collapse issue and completion into one atomic write at the completion event; reads after the wait
   see exactly what the atomic write would have written.
@@ -41,7 +40,8 @@ scope:
     Transfers into on-chip storage whose destination is not read until a later point in the
     schedule; asynchronous copies need at least 4-byte alignment. The instruction and controller
     mechanisms need cp.async (sm_80+) and TMA (sm_90+) respectively.
-requires_hw: []
+requires: []
+probed_on: []
 relations:
   - {type: enables, target: multi_buffer_rotation, note: "issuing ahead needs a slot to land in"}
 signature:
@@ -51,7 +51,6 @@ signature:
   boundary: "residue tiles need predicated or zero-filled copies"
   resources: [issue, dram, smem]
 numeric_risk: null
-expected_sass: []
 summary: >-
   Paper GEMM step 3: an atomic write becomes an issue event and a later completion. Decisions are
   the issue and completion points and the mechanism (software, instruction or controller); the

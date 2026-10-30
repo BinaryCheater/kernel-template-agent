@@ -1,5 +1,5 @@
 name: reduce
-level: 1
+level: 3
 category: reduce
 params:
   - {name: axis, type: str, meaning: "the reduced dimension (e.g. K of a GEMM, the row of a softmax)"}

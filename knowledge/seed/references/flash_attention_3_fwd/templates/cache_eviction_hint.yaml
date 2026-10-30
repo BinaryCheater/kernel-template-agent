@@ -1,7 +1,7 @@
 name: cache_eviction_hint
 version: 1
-level_from: 3
-level_to: 4
+level_from: 5
+level_to: 6
 change: vertical
 refines: transfer
 produces: [transfer]
@@ -16,7 +16,6 @@ preconditions:
   - {id: pre_semantic, expr: "True", meaning: "cache policy never changes values; only timing", cls: semantic}
 program:
   description: "Pass a cache hint to the copy: TMA CacheHintSm90::EVICT_LAST for K/V and EVICT_FIRST for Q (hopper/mainloop_fwd_sm90_tma_gmma_ws.hpp:753, 767, 820); createpolicy.fractional.L2::evict_first with cp.async for streamed weights (Marlin)."
-  fragments: {}
 backward_map: "Drop the hint: the access with the default policy reads the same values."
 obligations:
   - {name: value_neutral, statement: "The hint changes no value (always true; the obligation is only that the hinted operand is not written concurrently).", method: unspecified}
@@ -25,9 +24,10 @@ cost:
 scope:
   predicate: "True"
   text: "Global loads whose reuse across CTAs is known: streamed-once operands (weights in decode GEMMs, Q) versus operands reread by other CTAs (K/V). Needs L2 cache-policy hints (createpolicy, .L2::cache_hint), which the GB10 feature list (src/kta/targets/gb10/features.yaml) does not contain yet, so requires_hw is empty (D108)."
-# requires_hw uses WP2 feature names (D108). createpolicy / .L2::cache_hint has no feature
-# entry yet; it is listed under Needed changes in deliveries/WP10a.md.
-requires_hw: []
+# requires names abstract Capabilities (D442, migrated by WP14). createpolicy / .L2::cache_hint
+# has no ISA feature entry yet; it is listed under Needed changes in deliveries/WP10a.md.
+requires: []
+probed_on: []
 relations: []
 signature:
   algorithm: "L2 eviction priority per operand"
@@ -36,5 +36,4 @@ signature:
   boundary: null
   resources: [l2]
 numeric_risk: null
-expected_sass: []
 summary: "Attaches an L2 eviction priority to a global transfer according to whether other CTAs will reread the data. Never changes values. Its effect is only on L2 hit rate and therefore can only be confirmed by measurement."

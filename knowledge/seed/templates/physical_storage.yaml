@@ -1,7 +1,7 @@
 name: physical_storage
 version: 1
-level_from: 1
-level_to: 2
+level_from: 3
+level_to: 4
 change: vertical
 refines: store
 produces: [store, transfer]
@@ -23,7 +23,6 @@ program:
     Allocate the buffer at the chosen level (register fragment, shared-memory array, tensor memory,
     or global scratch); write the value into it; read it from there until its last use. Values that
     share a buffer are written in share_order.
-  fragments: {}
 backward_map: >-
   Read every value from its buffer occupancy: while the occupancy lasts the buffer holds exactly the
   logical value, so forgetting buffers and order gives the logical dataflow.
@@ -36,7 +35,8 @@ scope:
   text: >-
     Any logical value with a known size; the level menu is limited by what the Target has (tmem
     only on chips with tensor memory).
-requires_hw: []
+requires: []
+probed_on: []
 relations:
   - {type: enables, target: async_transfer, note: "a value in a buffer is filled by a transfer"}
   - {type: enables, target: multi_buffer_rotation, note: "a buffer can be split into rotating slots"}
@@ -48,7 +48,6 @@ signature:
   boundary: null
   resources: [smem, reg]
 numeric_risk: null
-expected_sass: []
 summary: >-
   Paper GEMM step 2: a logical operand or partial result becomes an occupancy of a reusable buffer.
   Decisions are the level, the buffer sharing and the order of values that share it; the obligation

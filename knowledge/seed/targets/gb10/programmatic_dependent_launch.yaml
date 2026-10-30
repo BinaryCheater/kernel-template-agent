@@ -1,0 +1,6 @@
+target: gb10
+capability: programmatic_dependent_launch
+status: 'yes'
+params: {}
+basis: documented
+note: 'PTX ISA target requirements: griddepcontrol requires sm_90 or higher.'

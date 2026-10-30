@@ -1,0 +1,22 @@
+template: compute_instruction_selection@2
+backend: any
+isa:
+  family: sm
+requires: []
+fragments: {}
+expected_sass:
+- when: instruction == 'mma_sync_m16n8k8_tf32'
+  must_contain:
+  - HMMA.1688.F32.TF32
+  must_not_contain: []
+- when: instruction == 'mma_sync_m16n8k16_f16'
+  must_contain:
+  - HMMA.16816.F32
+  must_not_contain: []
+- when: instruction == 'mma_sync_m16n8k16_bf16'
+  must_contain:
+  - HMMA.16816.F32.BF16
+  must_not_contain: []
+probed_on: []
+summary: Migrated by WP14 from the Template's v1 fields requires_hw, expected_sass and program.fragments
+  (D443); backend-independent.

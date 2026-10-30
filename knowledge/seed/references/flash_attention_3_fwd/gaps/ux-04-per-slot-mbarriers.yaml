@@ -3,6 +3,6 @@ description: >-
   [ux-04] multi_buffer_rotation models the slot ring with one trailing CTA-wide barrier (beta); it has
   no representation of per-slot barrier pairs, phase bits or arrival counts, which carry their own obligations.
   Proposed: per_slot_handshake@1, related to multi_buffer_rotation by refines.
-level: 3
+level: 5
 pattern_guess: sync
 attribution: space

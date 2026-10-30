@@ -1,0 +1,6 @@
+target: gb10
+capability: global_atomics
+status: 'yes'
+params: {}
+basis: documented
+note: 'PTX ISA target requirements: atom.global.add (s32 and f32) on all current targets.'

@@ -1,0 +1,6 @@
+target: gb10
+capability: async_copy
+status: 'yes'
+params: {}
+basis: documented
+note: 'PTX ISA target requirements: cp.async requires sm_80 or higher.'

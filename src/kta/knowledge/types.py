@@ -130,6 +130,11 @@ class CoverageReport:
     templates_missing: list[str]  # chain refs the pool lacks (extraction left open)
     direct_test: dict[str, int]  # references; all steps matched; and nothing unexplained
     pending: dict[str, str]  # 21 §2 quantities that need real runs: item -> why
+    # Added by WP14 (D445): target -> available / known_unavailable_here / unconfirmed_here
+    # counts and the Template refs of the last two.
+    availability: dict[str, dict[str, Any]] = field(
+        default_factory=lambda: dict[str, dict[str, Any]]()
+    )
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

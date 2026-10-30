@@ -2,6 +2,6 @@ missing: family
 description: >-
   [ux-10] Workload-dependent selection among bindings of one chain is family-level dispatch (DispatchSpec);
   a Reconstruction cannot express it. Same gap as flash_attention_2_fwd ux-07.
-level: 2
+level: 4
 pattern_guess: other
 attribution: granularity

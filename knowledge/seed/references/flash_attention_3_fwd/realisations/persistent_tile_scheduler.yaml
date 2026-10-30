@@ -1,0 +1,14 @@
+template: persistent_tile_scheduler@1
+backend: any
+isa:
+  family: sm
+requires: []
+fragments: {}
+expected_sass:
+- when: fetch == 'atomic_counter'
+  must_contain:
+  - ATOMG.E.ADD
+  must_not_contain: []
+probed_on: []
+summary: Migrated by WP14 from the Template's v1 fields requires_hw, expected_sass and program.fragments
+  (D443); backend-independent.

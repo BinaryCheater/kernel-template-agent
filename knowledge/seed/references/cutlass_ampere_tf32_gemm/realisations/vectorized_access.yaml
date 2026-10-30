@@ -1,0 +1,14 @@
+template: vectorized_access@1
+backend: any
+isa:
+  family: sm
+requires: []
+fragments: {}
+expected_sass:
+- when: vector_bytes == 16
+  must_contain:
+  - '.128'
+  must_not_contain: []
+probed_on: []
+summary: Migrated by WP14 from the Template's v1 fields requires_hw, expected_sass and program.fragments
+  (D443); backend-independent.

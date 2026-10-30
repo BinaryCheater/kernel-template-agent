@@ -1,0 +1,6 @@
+target: gb10
+capability: async_transaction_barrier
+status: 'yes'
+params: {}
+basis: documented
+note: 'PTX ISA target requirements: mbarrier expect-tx requires sm_90 or higher.'

@@ -1,0 +1,7 @@
+name: async_transaction_barrier
+description: A barrier object in the scratchpad that completes on thread arrivals plus a count of bytes
+  delivered by asynchronous copies (mbarrier with tx-count).
+unit: sync
+params: []
+realised_by:
+- mbarrier

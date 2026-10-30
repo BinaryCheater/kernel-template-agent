@@ -2,6 +2,6 @@ missing: template
 description: >-
   [ux-03] Same missing Template as ux-01 at the warp level (WarpShape 64x64x16, WarpCount 2x2x1). Resolved
   by output_tiling@1 with executor = warp.
-level: 2
+level: 4
 pattern_guess: map
 attribution: space

@@ -1,5 +1,5 @@
 name: issue_order
-level: 3
+level: 5
 category: other
 params:
   - {name: scope, type: enum, values: [within_executor, across_executors], meaning: "whether the order constrains one executor's instruction stream or the interleaving of several executors"}

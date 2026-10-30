@@ -1,7 +1,7 @@
 name: linearized_work_partition
 version: 1
-level_from: 2
-level_to: 2
+level_from: 4
+level_to: 4
 change: vertical
 refines: work_assign
 produces: [work_assign, reduce]
@@ -18,7 +18,6 @@ preconditions:
   - {id: pre_partial_combinable, expr: "p.reduce_assoc", meaning: "splitting one tile's K loop across CTAs requires an associative reduction whose partials are combined later", cls: semantic}
 program:
   description: "CTA b starts at unit b * iters, decodes (slice_row, slice_col), runs slice_iters k-tiles of the current column, then moves to the next column; it also computes slice_count and slice_idx for the later combine (marlin/marlin_cuda_kernel.cu:231-298, 681-690)."
-  fragments: {}
 backward_map: "Collapse each column's stripes into one CTA per column that runs the whole K loop: the output-tile-per-CTA program, with the partial combine removed."
 obligations:
   - {name: exactly_once, statement: "Every (column slice, k-tile) unit is processed by exactly one CTA.", method: exhaustive}
@@ -28,7 +27,8 @@ cost:
 scope:
   predicate: "True"
   text: "GEMM-like kernels where the number of output tiles is small or not a multiple of the SM count (small-M inference, skinny shapes)."
-requires_hw: []
+requires: []
+probed_on: []
 relations:
   - {type: requires, target: reduction_partition, note: "a stripe boundary inside a column partitions that column's K reduction"}
   - {type: requires, target: ordered_global_combine, note: "partials of a column must be combined"}
@@ -40,5 +40,4 @@ signature:
   boundary: "stripes ending inside a tile"
   resources: [launch]
 numeric_risk: "The number of partial sums per column, and therefore the rounding, depends on the SM count."
-expected_sass: []
 summary: "Lays all (output tile, k-tile) units out in one linear order and gives each SM-sized CTA an equal contiguous stripe, even if it crosses tile boundaries. Balances work for skinny problems. Requires combining the partial sums of tiles that are split between CTAs."

@@ -1,0 +1,6 @@
+target: gb10
+capability: warpgroup_mma
+status: 'no'
+params: {}
+basis: documented
+note: 'PTX ISA target requirements: wgmma requires sm_90a; sm_121 is not sm_90a.'

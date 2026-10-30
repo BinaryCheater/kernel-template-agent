@@ -1,5 +1,5 @@
 name: map
-level: 1
+level: 3
 category: map
 params:
   - {name: function, type: str, meaning: "the element-wise or per-point function"}

@@ -3,6 +3,6 @@ description: >-
   [ux-01] physical_storage chooses where a value lives, not a host-side, one-time layout transformation
   of a constant operand that the kernel's read map inverts. Proposed: offline_operand_prepack@1 (level
   0 -> 2).
-level: 2
+level: 4
 pattern_guess: store
 attribution: space

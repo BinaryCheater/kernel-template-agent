@@ -3,6 +3,6 @@ description: >-
   [ux-04] No Template refines the kernel-boundary dependency (stream order) into an early launch plus
   an in-kernel wait. The obligation is that every read of the predecessor's output follows the wait. Not
   proposed here; split_combine_kernel lists the ordering as an obligation.
-level: 3
+level: 5
 pattern_guess: sync
 attribution: space

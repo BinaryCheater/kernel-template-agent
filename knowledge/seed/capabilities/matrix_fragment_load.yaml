@@ -1,0 +1,7 @@
+name: matrix_fragment_load
+description: A collective load from the scratchpad into registers in the fragment layout of the tensor
+  instruction (ldmatrix).
+unit: smem
+params: []
+realised_by:
+- ldmatrix

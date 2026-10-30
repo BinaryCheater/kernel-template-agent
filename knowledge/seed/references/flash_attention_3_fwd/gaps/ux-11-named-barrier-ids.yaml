@@ -4,6 +4,6 @@ description: >-
   binding, but shared_resource_binding (as assumed from the paper) covers memory banks, ports and queues
   only. Either its scope must include sync resources or a sibling Template is needed; collisions are a
   real failure mode (pingpong_schedule declares barrier_ids_disjoint as an obligation).
-level: 5
+level: 7
 pattern_guess: access
 attribution: granularity

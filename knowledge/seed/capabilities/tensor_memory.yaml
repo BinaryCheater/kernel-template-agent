@@ -1,0 +1,7 @@
+name: tensor_memory
+description: A dedicated accumulator memory attached to the tensor unit, allocated and moved explicitly
+  (TMEM, tcgen05).
+unit: tensor
+params: []
+realised_by:
+- tcgen05
