@@ -46,7 +46,7 @@ def _t2_files(store: SqliteStore, unmatched: int = 1, gaps: int = 1) -> dict[str
         },
         "reconstruction": {
             "matched": 1,
-            "total": 1 + unmatched,
+            "total": 1,
             "notes": "test",
             "unmatched_transactions": [tx] * unmatched,
         },

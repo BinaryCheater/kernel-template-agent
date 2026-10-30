@@ -2,12 +2,18 @@
 
 Facts each state's work reports (``kta.orchestrator.expand_work``):
 
-- frozen: ``source``, ``revision``
-- measured: ``reference_point`` (Measurement ID)
+- frozen: ``source``, ``problem``, ``revision``, ``analysis_only`` (reason, or None)
+- measured: ``reference_point`` (Measurement ID; None when analysis-only)
 - analyzing, gap: ``tasks`` {task ID: lifecycle state}; when the awaited T2 is accepted,
-  ``reconstruction`` and ``gaps`` [{"id", "missing"}] from its outputs
-- reconstructed: ``error_rel`` (reproduction error), ``family``, ``measurement``
+  ``reconstruction``, ``submission`` (the T2 Submission), ``gaps`` [{"id", "missing"}] and
+  ``to_extract`` (Template refs the chain names that the pool lacks)
+- reconstructed: ``analysis_only`` and ``coverage`` (Report ID) for an analysis-only
+  reference; otherwise ``error_rel`` (reproduction error), ``family``, ``measurement``
 - reproduced, ablated: ``report`` (Report ID of the reproduction / ablation)
+
+Tasks follow the chain, not the Gaps (D382): one T3 per Template the chain names that the
+pool lacks. Gaps are recorded for every unmatched transaction and stay visible in the
+coverage report; those no chain item names a Template for stay open (D384).
 """
 
 from __future__ import annotations
@@ -16,22 +22,28 @@ from collections.abc import Mapping
 from typing import Any
 
 from kta.core.context import Context
-from kta.orchestrator.solve_loop import STUCK_TASK_STATES
 from kta.orchestrator.transition import Draft, Loop, Settings, TaskRequest, Transition, hold
 
 LINEAR = {"frozen": "measured", "reproduced": "ablated", "ablated": "covered"}
+# A cancelled extraction task is your decision to leave its Template unextracted (D384);
+# while analyzing, or for the T1 after a missed reproduction, it stops the loop.
+STUCK = frozenset({"escalated", "suspended"})
+SETTLED = frozenset({"accepted", "cancelled"})
 
 
-def _t2(loop: Loop) -> TaskRequest:
-    return TaskRequest("T2", "Decompose this reference into a composition chain", [loop.subject])
+def _t2(loop: Loop, previous: str | None = None) -> TaskRequest:
+    d = {**loop.data, **loop.facts}
+    inputs = [loop.subject] + [str(d[k]) for k in ("source", "problem") if d.get(k)]
+    if previous:
+        return TaskRequest(
+            "T2", "Re-match the chain of this reference against the pool", [*inputs, previous]
+        )
+    return TaskRequest("T2", "Decompose this reference into a composition chain", inputs)
 
 
-def _awaited(loop: Loop) -> tuple[list[str], list[str]]:
-    """(states of the awaited tasks, those that are stuck)."""
+def _awaited(loop: Loop) -> list[str]:
     states: Mapping[str, str] = loop.facts.get("tasks", {})
-    ids = [str(t) for t in loop.data.get("waiting_tasks", [])]
-    got = [states.get(t, "") for t in ids]
-    return got, [s for s in got if s in STUCK_TASK_STATES]
+    return [states.get(str(t), "") for t in loop.data.get("waiting_tasks", [])]
 
 
 def step(loop: Loop, ctx: Context) -> Transition:
@@ -43,41 +55,63 @@ def step(loop: Loop, ctx: Context) -> Transition:
         data = {"reference_point": f["reference_point"]}
         return Transition("measured", "analyzing", "creates_task", data=data, tasks=(_t2(loop),))
     if loop.state in ("analyzing", "gap"):
-        got, stuck = _awaited(loop)
+        got = _awaited(loop)
+        strict = loop.state == "analyzing" or loop.data.get("resume_at") == "reconstructed"
+        stuck = [g for g in got if g in STUCK or (strict and g == "cancelled")]
         if stuck:
             return hold(loop, f"awaited task is {stuck[0]}", escalated=True)
-        if not got or any(g != "accepted" for g in got):
+        if not got or any(g not in SETTLED for g in got):
             return hold(loop, "waiting for tasks")
-        return _analyzed(loop) if loop.state == "analyzing" else _filled(loop)
+        return _analyzed(loop) if loop.state == "analyzing" else _filled(loop, got, s)
     if loop.state == "reconstructed":
+        if f.get("analysis_only"):
+            data = {"coverage": f["coverage"]}
+            return Transition("reconstructed", "covered", "normal", data=data, note="analysis only")
         return _reproduction(loop, s)
     return hold(loop, f"{loop.state} has no outgoing transition")
 
 
 def _analyzed(loop: Loop) -> Transition:
-    gaps: list[Mapping[str, Any]] = list(loop.facts.get("gaps", []))
-    data = {"reconstruction": loop.facts["reconstruction"]}
-    if not gaps:
+    f = loop.facts
+    recon = str(f["reconstruction"])
+    data: dict[str, Any] = {"reconstruction": recon, "submission": f.get("submission")}
+    to_extract = [str(t) for t in f.get("to_extract", [])]
+    if not to_extract:
         return Transition("analyzing", "reconstructed", "normal", data=data)
+    inputs = [recon, loop.subject] + [
+        str(x) for x in (loop.data.get("source"), f.get("submission")) if x
+    ]
     tasks = tuple(
         TaskRequest(
-            "T1" if g.get("missing") == "family" else "T3",
-            "Extend the family for this Gap"
-            if g.get("missing") == "family"
-            else "Extract a Template for this Gap",
-            [str(g["id"]), loop.subject],
+            "T3", f"Extract Template {ref} named by the chain of this Reconstruction", inputs
         )
-        for g in gaps
+        for ref in to_extract
     )
     data["resume_at"] = "analyzing"
     return Transition("analyzing", "gap", "creates_task", data=data, tasks=tasks)
 
 
-def _filled(loop: Loop) -> Transition:
+def _filled(loop: Loop, got: list[str], s: Settings) -> Transition:
     if loop.data.get("resume_at") == "reconstructed":
         return Transition("gap", "reconstructed", "resume", data={"resume_at": None})
+    if "accepted" not in got:
+        return Transition(
+            "gap",
+            "reconstructed",
+            "normal",
+            data={"resume_at": None},
+            note="no Template extracted; the Gaps stay open",
+        )
+    rounds = int(loop.data.get("round", 1))
+    if rounds >= s.max_rounds:
+        return hold(loop, f"round limit {s.max_rounds} reached", escalated=True)
+    previous = loop.data.get("reconstruction")
     return Transition(
-        "gap", "analyzing", "creates_task", data={"resume_at": None}, tasks=(_t2(loop),)
+        "gap",
+        "analyzing",
+        "creates_task",
+        data={"resume_at": None, "round": rounds + 1},
+        tasks=(_t2(loop, str(previous) if previous else None),),
     )
 
 

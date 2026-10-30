@@ -265,15 +265,19 @@ def propose_template(
     sources: list[str],
     actor: Actor | None = None,
     hw: Mapping[str, Any] | None = None,
+    validate_in: Store | None = None,
 ) -> str:
     """Validate and write ``t`` (status proposed, assurance declared); returns the record ID.
+
+    ``validate_in`` (default ``store``) is the pool ``t`` is validated against, e.g. a
+    PendingView holding Patterns and sibling Templates written in the same task (D383).
 
     Refuses when validation has errors, when no Source is given for a non-human actor,
     or when ``name@version`` already exists with a different body (a change needs a new
     version, decision D202). Writing the same body again returns the existing ID.
     """
     actor = actor or Actor(type="tool", name="kta knowledge propose")
-    bad = errors_of(validate_template(t, store, hw))
+    bad = errors_of(validate_template(t, validate_in or store, hw))
     if bad:
         raise SchemaError("; ".join(str(i) for i in bad))
     existing = pool.find_template(store, pool.template_ref(t.name, t.version))

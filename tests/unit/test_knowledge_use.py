@@ -23,7 +23,7 @@ from kta.knowledge import (
     reuse_plan,
     scope_holds,
 )
-from kta.knowledge.coverage import chao1
+from kta.knowledge.coverage import chao1, chao1_interval, coverage_page
 from kta.knowledge.pool import find_template
 from kta.store.base import Store
 from storehelp import status_change
@@ -237,14 +237,62 @@ def test_coverage_report(pool: Store) -> None:
     assert (rep.templates_observed, rep.singletons, rep.doubletons) == (3, 2, 0)
     assert rep.chao1 == 4.0 and rep.good_turing == pytest.approx(1 - 2 / 5)
     assert len(rep.discovery_mean) == 3 and rep.discovery_mean[-1] == 3
-    assert rep.unmatched_by_level == {"2": 3} and rep.unmatched_by_pattern == {"map": 3}
-    assert rep.assurance == {"declared": 7} and rep.other_patterns == 0
+    assert rep.unmatched_by_level == {"0": 0, "1": 0, "2": 3, "3": 0, "4": 0, "5": 0}
+    assert rep.unmatched_by_pattern == {"map": 3}
+    assert rep.assurance == {"declared": 7, "tested": 0, "bounded": 0, "proved": 0}
+    assert rep.other_patterns == 0
     assert rep.hw_pattern_grid["none"]["reduce"] == {"declared": 1}
-    assert rep.families_per_template == {"reduction_partition": 1, "physical_storage": 1}
+    fams = rep.families_per_template
+    assert fams["reduction_partition"] == 1 and fams["physical_storage"] == 1
+    assert len(fams) == 7 and sum(fams.values()) == 2  # every Template, 0 when in no family
+    assert rep.direct_test == {"references": 3, "all_steps_matched": 1, "nothing_unexplained": 1}
+    assert rep.gaps_by_missing["template"] == 0 and rep.templates_missing == []
+    assert set(rep.pending) >= {"instruction_coverage", "gap_explained"}
     again = coverage_report(pool, None, random.Random(1))
     assert again.discovery_mean == rep.discovery_mean
     snap = put(pool, "PoolSnapshot", {"members": [], "note": "empty"})
     assert coverage_report(pool, snap, random.Random(1)).reconstructions == 0
+
+
+def test_coverage_counts_the_latest_reconstruction_per_reference(pool: Store) -> None:
+    first = put_chain(pool, "a", [GEMM_ITEMS[0], GEMM_ITEMS[1]])
+    second = put_chain(pool, "a2", [GEMM_ITEMS[0]])
+    ref_id = pool.get(_recon(pool, first, "ref", matched=2, unmatched=1)).refs["reference"]
+    put(
+        pool,
+        "Reconstruction",
+        {"matched": 1, "total": 1, "notes": "re-match"},
+        {"reference": str(ref_id), "chain": second},
+    )
+    rep = coverage_report(pool, None, random.Random(1))
+    assert rep.reconstructions == 1 and rep.discovery_observed == [1]
+    assert rep.references[0]["unmatched"] == 0
+
+
+def test_chao1_interval_and_page_fields(pool: Store) -> None:
+    lo, hi = chao1_interval(10, 4, 2)
+    assert lo >= 10 and lo < chao1(10, 4, 2) < hi
+    assert chao1_interval(5, 0, 3) == (5.0, 5.0)
+    _recon(pool, put_chain(pool, "a", [GEMM_ITEMS[0]]), "ref", matched=1, unmatched=1)
+    rep = coverage_report(pool, None, random.Random(1))
+    ref_id = str(rep.references[0]["reference_id"])
+    page = coverage_page(
+        rep, {ref_id: "covered"}, [{"snapshot": "s0", "good_turing": 0.1, "expressible": 0.0}]
+    )
+    want = {"scope", "discovery", "trend", "instruction_families", "hw_patterns"}
+    want |= {"references", "gap_explained", "backlog", "structure"}
+    assert want <= set(page)
+    assert page["references"] == [
+        {
+            "name": "ref",
+            "state": "covered",
+            "record": rep.references[0]["reconstruction"],
+            "gaps": 1,
+        }
+    ]
+    assert [t["snapshot"] for t in page["trend"]] == ["s0", "whole store"]
+    cells = page["hw_patterns"]["cells"]
+    assert cells and all(c["n"] >= 0 for c in cells)
 
 
 def test_render_text_knowledge_and_overview(pool: Store, tmp_path: Path) -> None:

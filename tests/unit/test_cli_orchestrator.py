@@ -86,7 +86,7 @@ def test_human_task_create_submit_check(kta: Any, tmp_path: Path) -> None:
     code, verdict = kta("task", "submit", created["task"], "--dir", str(out), "--check")
     assert code == 1 and verdict["state"] == "queued"  # rejected: no template.yaml, short note
     failed = {c["name"] for c in verdict["checks"] if not c["passed"]}
-    assert failed == {"delivery_note", "validate_template"}
+    assert failed == {"delivery_note", "validate_template", "template_fills_chain"}
     _, shown = kta("task", "show", created["task"])
     assert shown["attempts"] == 1 and shown["state"] == "queued"
 

@@ -1,0 +1,142 @@
+#!/usr/bin/env -S uv run --frozen --quiet python
+"""Scripted human for the expand loop (WP10b): take WP10a's references from ``frozen`` to
+``covered`` with ``kta`` commands only, answering each T2 and T3 by resubmitting WP10a's hand
+decomposition files. No agent runs; nothing is built or measured (analysis-only, D385).
+
+    KTA_ENV=dev KTA_WP=WP10b scripts/replay-references [--init] [reference ...]
+
+Without names, every directory of knowledge/seed/references/ in pool order. Prints one JSON
+line per reference with the loop state and the tasks answered.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+from typing import Any
+
+import yaml
+
+ROOT = Path(__file__).resolve().parent.parent
+REFS = ROOT / "knowledge" / "seed" / "references"
+GOAL = re.compile(r"Extract Template (\S+)@(\d+)")
+NOTE = """# What was done
+Resubmitted the WP10a hand decomposition of {ref} (knowledge/seed/references/{ref}/) unchanged
+through `kta task submit` ({what}).
+
+# Fixtures and simplifications
+None. The files are WP10a's analysis of the frozen source; nothing was built or run.
+
+# Known issues
+See deliveries/WP10a.md for the open Gaps of this reference.
+"""
+
+
+def kta(*argv: str) -> Any:
+    out = subprocess.run(["kta", *argv, "--json"], capture_output=True, text=True, cwd=ROOT)
+    if out.returncode != 0:
+        sys.exit(f"kta {' '.join(argv)} failed ({out.returncode}): {out.stdout}{out.stderr}")
+    return json.loads(out.stdout) if out.stdout.strip() else None
+
+
+def order() -> list[str]:
+    listed = re.findall(r"^\d+\. `([^`]+)`", (REFS / "README.md").read_text(), re.M)
+    rest = sorted(p.name for p in REFS.iterdir() if p.is_dir() and p.name not in listed)
+    return [n for n in listed if (REFS / n).is_dir()] + rest
+
+
+def t2_dir(ref: str, root: Path) -> None:
+    d = REFS / ref
+    for name in ("chain.yaml", "reconstruction.yaml"):
+        (root / name).write_bytes((d / name).read_bytes())
+    for sub in ("gaps", "templates", "patterns"):
+        for p in sorted((d / sub).glob("*.yaml")):
+            (root / sub).mkdir(exist_ok=True)
+            (root / sub / p.name).write_bytes(p.read_bytes())
+
+
+def t3_doc(ref: str, goal: str, source: str) -> dict[str, Any]:
+    m = GOAL.search(goal)
+    if not m:
+        sys.exit(f"cannot read the Template from the goal {goal!r}")
+    draft = yaml.safe_load((REFS / ref / "templates" / f"{m.group(1)}.yaml").read_text())
+    return {"template": draft, "sources": [source]}
+
+
+def dependency_order(docs: dict[str, dict[str, Any]]) -> list[str]:
+    """A T3 after the sibling T3s whose Templates its relations name (cycles: any order)."""
+    pending = {
+        t: (d["template"]["name"], {r["target"] for r in d["template"].get("relations", [])})
+        for t, d in docs.items()
+    }
+    out: list[str] = []
+    while pending:
+        names = {n for n, _ in pending.values()}
+        ready = [t for t, (_, deps) in pending.items() if not deps & names] or list(pending)[:1]
+        out += ready
+        for t in ready:
+            del pending[t]
+    return out
+
+
+def submit(task: str, root: Path, ref: str, what: str) -> None:
+    (root / "DELIVERY.md").write_text(NOTE.format(ref=ref, what=what), encoding="utf-8")
+    v = kta("task", "submit", task, "--dir", str(root), "--check")
+    if v["state"] != "accepted":
+        sys.exit(f"{ref} {what}: {v['state']}: {[c for c in v['checks'] if not c['passed']]}")
+
+
+def replay(ref: str, tmp: Path) -> dict[str, Any]:
+    d = REFS / ref
+    doc = {"source": yaml.safe_load((d / "source.yaml").read_text())}
+    doc["reference"] = yaml.safe_load((d / "reference.yaml").read_text())
+    (tmp / f"{ref}.yaml").write_text(yaml.safe_dump(doc), encoding="utf-8")
+    added = kta("reference", "add", str(tmp / f"{ref}.yaml"))
+    why = "real runs paused (D320); WP10a replay"
+    loop = kta("expand", added["reference"], "--analysis-only", why, "--steps", "2")["loop"]
+    answered = {"T2": 0, "T3": 0}
+    state = kta("loop", "show", loop)["state"]
+    n = 0
+    while state != "covered":
+        queued = kta("task", "list", "--loop", loop, "--state", "queued")["tasks"]
+        t3 = {t["id"]: t3_doc(ref, t["goal"], added["source"]) for t in queued if t["type"] == "T3"}
+        for t in [t for t in queued if t["type"] == "T2"]:
+            n += 1
+            (tmp / f"{ref}-{n}").mkdir()
+            t2_dir(ref, tmp / f"{ref}-{n}")
+            submit(t["id"], tmp / f"{ref}-{n}", ref, "T2")
+            answered["T2"] += 1
+        for tid in dependency_order(t3):
+            n += 1
+            (tmp / f"{ref}-{n}").mkdir()
+            (tmp / f"{ref}-{n}" / "template.yaml").write_text(yaml.safe_dump(t3[tid]))
+            submit(tid, tmp / f"{ref}-{n}", ref, f"T3 {t3[tid]['template']['name']}")
+            answered["T3"] += 1
+        step = kta("loop", "step", loop)
+        if step.get("to") is None:
+            sys.exit(f"{ref}: loop {loop} holds in {step['state']}: {step.get('note')}")
+        state = step["state"]
+    return {"reference": ref, "loop": loop, "state": state, "tasks": answered}
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    ap.add_argument("--init", action="store_true", help="run `kta init` first")
+    ap.add_argument("references", nargs="*")
+    args = ap.parse_args()
+    if args.init:
+        kta("init")
+    with tempfile.TemporaryDirectory(prefix="kta-replay-") as tmp:
+        for ref in args.references or order():
+            sys.stdout.write(json.dumps(replay(ref, Path(tmp))) + "\n")
+            sys.stdout.flush()
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

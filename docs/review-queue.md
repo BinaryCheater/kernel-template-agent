@@ -498,3 +498,30 @@ Decisions made without the user that need review. Newest last. Each entry: quest
 - **Choice:** with `KTA_TASK_TOKEN` set, only `kta note` works (through that endpoint). Every other command refuses with NotSupported naming the endpoint it needs, and no command opens a local store.
 - **Rationale:** an agent must not fall back to direct store access; missing endpoints are visible.
 - **Cost of changing later:** low on the CLI side (`kta.cli.client.dispatch`). The API (WP9b) needs read, query, validate, build and submit endpoints for agents to work.
+## D382 — Expand-loop tasks follow the chain, not the Gaps
+
+- **Question:** spec/modules/orchestrator-cli.md says each Gap of a T2 creates one T3. WP10a's 55 Gaps map to 30 Templates (several Gaps per proposed Template), and 18 Gaps (compiler-decided allocation, family-level dispatch, a missing check kind) have no Template to extract.
+- **Choice:** one T3 per Template the accepted chain names that the pool lacks; Gaps are recorded and counted in coverage but create no task; those not tied to a chain Template stay open. T1 is created only after a missed reproduction.
+- **Rationale:** a machine-readable link from a Gap to "its" Template does not exist (only Gap text says "Proposed: X@1"); per-Gap T3s would produce duplicate Templates or tasks with nothing to deliver.
+- **Cost of changing later:** low in code (`expand_loop._analyzed`, `expand_work.work_waiting`); a per-Gap rule needs a Gap → chain item link in the schema or the T2 layout.
+
+## D384 — A cancelled T3 leaves its Template open
+
+- **Question:** how the `gap` state ends when an extraction cannot be done.
+- **Choice:** a T3 you cancel counts as settled; if any T3 of the round was accepted a new T2 re-matches (bounded by `max_rounds`), otherwise the loop continues to `reconstructed` with the Gaps open.
+- **Rationale:** agents cannot decide to skip extraction (only you can cancel); without this the loop escalates forever on a Template nobody will write.
+- **Cost of changing later:** low: `expand_loop.step` and one machines.yaml edge.
+
+## D385 — Analysis-only expand loops
+
+- **Question:** with real runs paused (D320), runnable references cannot be built or measured, so their loops block in `frozen`.
+- **Choice:** `kta expand --analysis-only REASON` (or an empty `runnable_on`) skips build, measurement, reproduction and ablation; the loop reaches `covered` without a reference point or reproduction error.
+- **Rationale:** docs/design/24 §2 already allows "analysis only" for references that cannot run on GB10; this extends it to a recorded human choice.
+- **Cost of changing later:** low; but a `covered` reached this way is not a reproduced reference, and WP10b's acceptance ("frozen to covered") should say whether analysis-only counts.
+
+## D387 — `covered` takes a pool snapshot and writes the coverage page
+
+- **Question:** the coverage page (WP9b) reads a Report keyed by a PoolSnapshot, but nothing creates snapshots yet (the learn process is WP11).
+- **Choice:** the expand loop snapshots all knowledge records when it reaches `covered`, moves `current_pool` by compare-and-set, and writes the coverage Report in the page's shape.
+- **Rationale:** makes the coverage page show real data now (workplan WP10b), with no API change.
+- **Cost of changing later:** medium: if WP11 owns snapshotting, `expand_work.write_coverage` should call its function; the record shapes stay.
