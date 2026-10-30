@@ -15,6 +15,7 @@ from kta.agents.commands import register as register_agent_commands
 from kta.cli import client
 from kta.cli.agent_cmds import add_agent_commands
 from kta.cli.agent_runner import add_agent_runner_commands
+from kta.cli.controls_cmds import add_controls_commands
 from kta.cli.exec_cmds import add_exec_commands
 from kta.cli.init_cmd import add_init_command
 from kta.cli.loop_cmds import add_loop_commands
@@ -95,6 +96,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_agent_runner_commands(sub, context_from_environ)
     register_agent_commands(sub, context_from_environ, _emit)  # kta agents ... (WP8, D319)
     add_process_commands(sub, context_from_environ)
+    add_controls_commands(sub, context_from_environ)
     return parser
 
 

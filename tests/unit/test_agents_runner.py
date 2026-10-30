@@ -297,3 +297,37 @@ def test_each_arm_shapes_workspace_manifest_and_agent_run(actx: Context, parts) 
     # The fixed prefix differs only between conditions (skills listed), not within one.
     prefix = {k: manifests[k]["workspace"]["files"]["AGENTS.md"] for k in manifests}
     assert prefix["zero"] == prefix["text"] != prefix["pool"]
+
+
+def test_value_change_is_versioned_and_visible_in_the_agent_run(actx: Context, parts) -> None:
+    """WP21: a controls change is a new version; the next agent step runs under it and its
+    AgentRun names it in refs.controls (the fake CLI replaces only the LLM)."""
+    from kta.store import controls as controls_store
+
+    store, ops, ex = parts
+    deps = Deps(store, ops, ex, agents_config(actx))
+    profile = _profile_and_batch(actx, store)
+    tracer = new_tracer(ops, actx.clock, UlidFactory(actx.clock), {})
+    with tracing(tracer):
+        first = run_step(actx, _task(store, ops, profile, "wu-a"), deps=deps)
+    v1 = controls_store.current(store, ops)
+    assert v1.version == 1 and store.get(first.run_id).refs["controls"] == v1.version_id
+    human = Actor(type="human", name="tester")
+    v2 = controls_store.propose(
+        store,
+        ops,
+        {"budget.no_response_timeout_s": 900},
+        human,
+        "longer idle cut-off for this test",
+        datetime.now(UTC),
+        v1.version_id,
+    )
+    with tracing(tracer):
+        second = run_step(actx, _task(store, ops, profile, "wu-b"), deps=deps)
+    rec = store.get(second.run_id)
+    assert rec.refs["controls"] == v2.version_id != v1.version_id
+    version = store.get(str(v2.version_id))
+    assert version.refs["previous"] == v1.version_id and version.actor.name == "tester"
+    assert version.body["changes"] == [
+        {"knob": "budget.no_response_timeout_s", "old": 600, "new": 900}
+    ]

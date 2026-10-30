@@ -174,6 +174,8 @@ def _write_run(runner: Runner, spec: ExperimentSpec, key: str, loop_id: str) -> 
         refs["judgement"] = str(judgement)
     if solutions:
         refs["solutions"] = solutions
+    if d.get("controls_seen"):
+        refs["controls"] = [str(v) for v in d["controls_seen"]]  # versions the run used (WP21)
     return svc.store.put(Record.new("ExperimentRun", body, ACTOR, runner.ctx.clock.now(), refs))
 
 

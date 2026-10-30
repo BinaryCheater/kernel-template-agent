@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable, Mapping
 from dataclasses import replace
-from typing import Any
+from typing import Any, cast
 
 from kta.core.controls import Controls
 from kta.core.errors import ExecutionError, KtaError
@@ -139,8 +139,12 @@ class Runner:
             if facts is None:
                 return None
             t = step(replace(loop, facts=facts), svc.ctx)
-            # the version this step decided under goes with the loop's data (WP21)
-            self.apply(loop, replace(t, data={**t.data, "controls": snap.version_id}))
+            # the version this step decided under, and every version the loop ran under (WP21)
+            seen = [str(v) for v in cast(list[Any], loop.data.get("controls_seen") or [])]
+            if snap.version_id and snap.version_id not in seen:
+                seen.append(snap.version_id)
+            used = {"controls": snap.version_id, "controls_seen": seen}
+            self.apply(loop, replace(t, data={**t.data, **used}))
             return t
         finally:
             self.svc.ops.release(lock, self.holder)
