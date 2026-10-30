@@ -1,0 +1,2 @@
+# Acceptance test lock: "<sha256>  <path>" per line. Appended by the merger when a WP is merged.
+2098247d249c51d6d5b51f08c02ffb46424ea7ef3ad71f17141195931e165134  tests/acceptance/WP0/test_gate_blocks.py

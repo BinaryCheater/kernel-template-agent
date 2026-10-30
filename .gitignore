@@ -1,0 +1,40 @@
+# Environments and caches
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.import_linter_cache/
+node_modules/
+web/dist/
+
+# Data, databases, logs, workspaces, artifacts (spec/conventions.md §1, §5)
+data/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
+logs/
+*.log
+*.jsonl
+workspaces/
+agent-home/
+objects/
+artifacts/
+
+# Secrets (spec/conventions.md §8)
+.env
+.env.*
+secrets.env
+*.pem
+*.key
+
+# OS
+.DS_Store
+
+# Project-local interpreters (scripts/bootstrap)
+.uv/
+
+# Agent worktrees and local tool state
+.claude/

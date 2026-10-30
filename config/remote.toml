@@ -1,0 +1,15 @@
+# Hosts for manual remote operations during construction (scripts/remote-run).
+# Business code never uses these: it goes through the Executor (spec/conventions.md §6).
+# `root` is the project directory on the host; everything KTA installs there stays inside it.
+# `path` is prepended to PATH because remote shells are non-interactive.
+
+[hosts.spark]
+ssh = "spark"
+root = "~/kta-work"
+path = ["~/.local/bin", "/usr/local/cuda/bin"]
+
+[hosts.slai]
+ssh = "slai"
+# The root filesystem on slai is full; only /storage has space.
+root = "/storage/kta-work"
+path = []
