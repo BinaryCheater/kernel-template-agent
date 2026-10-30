@@ -32,7 +32,7 @@ def write_record(api: Api, token: str, data: dict[str, Any]) -> str:
         raise PermissionDenied(f"the record's actor.task must be the token's task {task_id}")
     if rec.actor.type not in WRITER_TYPES:
         raise PermissionDenied(f"a task may write records as {WRITER_TYPES}, not {rec.actor.type}")
-    if rec.kind in ("HumanAction", "StatusChange"):
+    if rec.kind in ("HumanAction", "StatusChange", "ControlsVersion"):  # WP21: humans only
         raise PermissionDenied(f"a task may not write {rec.kind} records")
     if rec.origin != "real":
         raise ConfigError("records written through the API have origin real")

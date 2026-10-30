@@ -155,6 +155,8 @@ Endpoints (`kta.api.controls`). Reading is open; writing needs the operator toke
 | `GET /release` | the stage in force, all stages with exit criteria, the controls version, tasks in flight, queued agent tasks with hold reason, card body, pull log and plan (null with a note until WP19) |
 | `POST /release` {task, reason} | releases the next attempt of a held task (gated stage only; 400 otherwise) |
 
+`POST /write/record` (task token) refuses ControlsVersion records like HumanAction and StatusChange: only a human writes controls versions.
+
 `GET /machines` replaces limits that name a knob with the value in force and adds `limit_controls`; `GET /runs/active` takes `agent_slots` from `budget.agent_instances.start`; `GET /quotas` reads `budget.process_quotas`.
 
 Web pages: **Settings** (`/settings`): every knob grouped by 12's sections with value, prevents, where, status and set_by; editable values become one version with a reason; invariants are shown read-only; version history; X1–X9. **Release** (`/release`): stage table with exit criteria, a stage change (a controls version), and each held agent call with its card, pull log and plan and a release button in a gated stage. The operator token is typed into the page and kept in the tab's sessionStorage only.

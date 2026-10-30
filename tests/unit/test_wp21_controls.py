@@ -11,6 +11,7 @@ import json
 import re
 from collections.abc import Callable
 from dataclasses import replace
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -386,3 +387,21 @@ def test_doc12_rows_name_each_registry_section() -> None:
     text = DOC12.read_text(encoding="utf-8")
     assert re.search(r"^## 7\. Rows added from code and D325", text, re.M)
     assert text.count("| set_by |") == 5
+
+
+def test_a_task_token_cannot_write_a_controls_version(api: Api) -> None:
+    """Design interrogation (C5): an agent's token must not write ControlsVersion records."""
+    from dataclasses import replace as dc_replace
+
+    from kta.api import auth
+    from kta.api.wiring import Unwired
+
+    class Verified(Unwired):
+        def verify_task_token(self, token: str, now: datetime) -> str:
+            return "T1"
+
+    body = ControlsVersion(version=9, definitions_hash="x", values={}, reason="agent")
+    agent = Actor(type="agent", name="worker", task="T1")
+    rec = Record.new("ControlsVersion", body, agent, api.now())
+    with pytest.raises(PermissionDenied, match="ControlsVersion"):
+        auth.write_record(dc_replace(api, orchestration=Verified()), "tok", rec.to_json_dict())

@@ -36,6 +36,7 @@ WP21_TESTS = (
     "test_release_api_shows_stages_and_releases_a_held_call",
     "test_operator_token_file_is_required_for_writes",
     "test_value_change_is_versioned_and_visible_in_the_agent_run",
+    "test_a_task_token_cannot_write_a_controls_version",
 )
 # Knob constants the registry replaced (D482, D483): none may come back in src/.
 REPLACED = (

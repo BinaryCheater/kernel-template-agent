@@ -64,7 +64,7 @@ AGENTS.md 规定最后一步必须运行 gate 并把输出贴进交付说明。�
 
 | Check | Fails when |
 | --- | --- |
-| WP21 tests | a named WP21 test did not pass (registry vs 12, accessors, X1–X9, D325 values, Settings view, invalid values and invariants, moved config keys, versions, definition upgrade, card and loop record the version, S0, S1 gate with a fake-adapter task, one call at a time, stage change, settings API, release API, operator token, AgentRun names the version) |
+| WP21 tests | a named WP21 test did not pass (registry vs 12, accessors, X1–X9, D325 values, Settings view, invalid values and invariants, moved config keys, versions, definition upgrade, card and loop record the version, S0, S1 gate with a fake-adapter task, one call at a time, stage change, settings API, release API, operator token, AgentRun names the version, a task token cannot write a ControlsVersion) |
 | WP21 registry | a row of docs/design/12 has no knob or a knob has no row; a row's `set_by` cell differs from the registry; the experiments are not X1–X9 |
 | WP21 no scattered knob constants | a replaced constant (`LEASE_S`, `RENEW_EVERY_S`, `DEFAULT_RESET_RATIO`, `BUDGET_WARN`, `REPEAT_FAILURES`, `QUOTAS`, `STEP_HEADER_MAX_CHARS`, `Settings.from_config`, numeric `max_rounds`/`max_retries` in machines.yaml) is back in `src/` |
 | WP21 stages | stages are not S0–S4; S0–S3 lack exit criteria; S0 does not run without agent calls or S1 does not gate |
