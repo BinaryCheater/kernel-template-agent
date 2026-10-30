@@ -1,0 +1,69 @@
+workload: "fp16 GEMM C[M,N] = A[M,K] @ B[K,N] (WP5 test data)"
+items:
+  - key: k_split
+    template: reduction_partition@1
+    applies_to: "sum over K of each CTA output tile"
+    bindings:
+      num_groups: KT
+      group_size: BK
+      assignment: contiguous_sequential
+      p.length: "case.K"
+      p.outputs: "BM * BN"
+      p.assoc: true
+      p.comm: true
+      p.instances: "ceil_div(case.M, BM) * ceil_div(case.N, BN)"
+    after: []
+    code_markers: [k_split]
+  - key: ab_smem
+    template: physical_storage@1
+    applies_to: "A and B k-tiles of a CTA"
+    bindings:
+      level: smem
+      buffer: dedicated
+      share_order: none
+      p.size_bytes: "(BM + BN) * BK * 2"
+      p.copies: S
+      p.capacity_bytes: "hw.smem_per_cta"
+      p.last_read: 0
+      p.delta: 0
+      p.next_write: 1
+    after: [k_split]
+    code_markers: [ab_smem]
+  - key: ab_async
+    template: async_transfer@1
+    applies_to: "global -> shared copy of one A/B k-tile pair"
+    bindings:
+      mechanism: mech
+      issue_point: ahead_by_prefetch
+      complete_point: wait_group_then_barrier
+      granularity_bytes: gran
+      p.align_bytes: 16
+      p.size_bytes: "(BM + BN) * BK * 2"
+      p.instances: "KT * ceil_div(case.M, BM) * ceil_div(case.N, BN)"
+    after: [ab_smem]
+    code_markers: [ab_async]
+  - key: ab_stages
+    template: multi_buffer_rotation@1
+    applies_to: "k-tiles of A and B rotating through S stages"
+    bindings:
+      S: S
+      P: P
+      beta: 1
+      p.size_bytes: "(BM + BN) * BK * 2"
+      p.capacity_bytes: "hw.smem_per_cta"
+      p.iterations: KT
+      p.instances: "ceil_div(case.M, BM) * ceil_div(case.N, BN)"
+    after: [ab_async]
+    code_markers: [ab_stages]
+  - key: ab_swizzle
+    template: shared_resource_binding@1
+    applies_to: "16-byte shared-memory accesses of a warp to the A/B tiles"
+    bindings:
+      binding: swz
+      queue_depth: 1
+      p.width_bytes: 16
+      p.requesters: 32
+      p.wavefronts: "ceil_div(16 * 32, hw.smem_banks * hw.smem_bank_bytes) * (1 if swz == 'xor_swizzle' else 2)"
+      p.accesses: "2 * KT * ceil_div(case.M, BM) * ceil_div(case.N, BN) * (BM + BN) * BK * 2 // (16 * 32)"
+    after: [ab_smem]
+    code_markers: [ab_swizzle]

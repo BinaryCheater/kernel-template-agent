@@ -10,6 +10,7 @@
 models/bound.py        理论下界
 models/unit_model.py   按单元的成本模型（编译前、编译后）
 models/calibrate.py    校准
+models/fit.py          拟合算法（D244）
 ```
 
 ### 接口
@@ -20,8 +21,10 @@ def bound(case: Case, shape: dict, hw: HwModel, work: dict[Unit, float]) -> Boun
     # 由 Problem 的参考定义计算，与任何族无关
 class UnitModel:
     version: str
-    def predict(self, per_unit_work: dict[Unit, float], serial: float, hw: HwModel,
+    def predict(self, per_unit_work: dict[Unit, float], serial: dict[Unit, float], hw: HwModel,
                 feedback: dict | None = None) -> Prediction
+        # (D240) serial is the serial work per unit; (D241) Prediction.per_unit / serial are
+        # the times at peak (eff = 1) in us, total is this model's prediction in us
         # time_u = work_u / (peak_u * eff_u)；total = max_u time_u + serial + Σ 交互项
         # feedback（编译后）：寄存器、spill、smem → occupancy，修正 eff_u
     def fit(self, data: list[tuple[Prediction, Measurement]]) -> "UnitModel"
@@ -51,9 +54,11 @@ class Formulation:
     constraints: list[BoundExpr]           # 各链项约束（经绑定）＋ glue；每条带来源（链项 key 或 "glue"）
     cost_terms: list[BoundCost]            # 各链项成本项（经绑定）；每条带来源
     linear: bool                           # 全部约束都属线性子集
-def assemble(family: FamilyPackage, chain: Chain, templates: dict[str, Template], case: Case, hw: dict) -> Formulation
-def per_unit_work(f: Formulation, assignment: dict, shape: dict, hw: dict) -> tuple[dict[Unit, float], float]
-    # 同一单元的工作量相加；serial 项单独相加
+def assemble(family: FamilyPackage, chain: Chain, templates: dict[str, Template], case: Case, hw: dict,
+             previous: Formulation | None = None) -> Formulation      # previous: reuse unchanged blocks
+def per_unit_work(f: Formulation, assignment: dict, shape: dict, hw: dict) -> tuple[dict[Unit, float], dict[Unit, float]]
+    # 同一单元的工作量相加；serial 项单独相加，按单元分开（D240）
+    # Binding semantics of chain items, including p.* and the reserved p.instances: D246, D247
 ```
 
 ### 行为
@@ -76,10 +81,16 @@ solve/select.py      短名单选择（编译前）与重排（编译后）
 
 ```python
 def solve(f: Formulation, case: Case, shape_bucket: dict, model: UnitModel, hw: HwModel,
-          shortlist: int = 64, time_limit_s: float = 60) -> SolveResult
+          shortlist: int = 64, time_limit_s: float = 60,
+          rng: random.Random | None = None, max_nodes: int = 2_000_000) -> SolveResult
+    # (D248) time_limit_s bounds the MIP; enumeration is bounded by max_nodes; rng shuffles
+    # the value order of a budgeted (non-exhaustive) enumeration
     # SolveResult：candidates（按预测排序，每个带 Prediction）、方法（enumerate/mip）、
     # 可行点数、剪枝数、是否穷尽、MIP 的 gap 与终止状态
 def rerank(candidates: list[Candidate], builds: dict[str, Build], model: UnitModel, hw: HwModel, k: int = 8) -> list[Candidate]
+    # builds keyed by Candidate.key (D250)
+def record_solve(ctx, store, result, actor, case_id=None, family_id=None, hw_model_id=None,
+                 model_id=None) -> SolveRecords      # Candidate, Prediction and a "solve" Report (D251)
 ```
 
 ### 行为
