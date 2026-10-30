@@ -96,4 +96,30 @@ D200, D201, D202, D203, D204, D205 (needs user review), D206 (needs user review)
 
 ## Gate output
 
-(pasted below after the final run)
+Run: `KTA_DATA=~/kta-data scripts/gate WP4` on the control host, after the evidence runs (WP10a not merged yet, so no reference WARN line).
+
+```text
+gate WP4: PASSED (22 pass, 0 warn, 0 fail)
+  PASS ruff format
+  PASS ruff check
+  PASS import layers
+  PASS residue
+  PASS test doubles
+  PASS error handling
+  PASS print
+  PASS subprocess outside Executor
+  PASS secrets
+  PASS acceptance lock — 2 locked files unchanged
+  PASS pyright
+  PASS unit tests — 190 passed
+  PASS contract tests — 2 passed
+  PASS fake coverage — 1 fake(s) covered
+  PASS registry (kta doctor, dev)
+  PASS delivery note
+  PASS fixture declarations — 1 declared
+  PASS decision log — 133 decisions
+  PASS skipped tests — none
+  PASS evidence — 2 claim(s)
+  PASS WP4 acceptance tests — 7 tests passed
+  PASS seed validates — 8 Pattern, 1 Source, 9 Structure, 5 Template
+```
