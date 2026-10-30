@@ -100,3 +100,10 @@ def import_references(ctx, store, references: Path, code: CodeState | None = Non
 
 - `reuse_plan(store, chain_id, case, hw, params=None, assignment=None)`: with an assignment of the family variables, `p.*` expression bindings are evaluated per shape before Γ (`scope_holds(t, case, hw, params, bound=None, assignment=None)`). `problem_params` accepts a Problem record ID.
 - The seed holds seven Templates: the paper's five GEMM steps plus `output_tiling@2` and `compute_instruction_selection@2` (D280); `knowledge/seed/families/gemm_fp16_tilelang/` is the first family and `knowledge/seed/cases/` holds its Case files (Problem, Contract, Case, baseline).
+
+## WP15 implementation notes (D460, D465, D468)
+
+- Templates declare `effects` (spec/schemas.md §4.2.1) instead of `cost`; a schema-1 `cost` body upcasts on read (D461). `validate_template` checks every effects expression like a constraint, refuses a storage level naming a non-level variable (`bad_storage_level`), and warns `unpriced_operation_class` for a literal transaction kind that no HwArch in the store prices (kinds chosen by a variable are counted by L1 instead). Duplicate detection compares transaction kinds instead of cost units.
+- `import_seed` also imports `knowledge/seed/hardware/`: `arch_*.yaml` as HwArch, `model_*.yaml` as HwModel with `refs.arch` (identity `(name, version)` and `(target, version)`); an instance naming an unknown class is an `unknown_arch` issue.
+- `retrieve_templates(unit=...)` matches a resource through the signature, legacy cost units, or the reservation tables (of every stored HwArch) of the Template's transaction kinds.
+- Seed migration: `scripts/migrations/WP15_effects.py` (idempotent, `--check`) rewrote the `cost:` block of all 37 seed Templates in place, keeping versions (D468). Pattern `sync` gained the parameter `warps`.

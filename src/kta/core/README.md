@@ -24,3 +24,7 @@ Schemas (pydantic models per record kind), content-hash IDs, the expression lang
 
 - May import: none (bottom layer).
 - Enforced by import-linter (`pyproject.toml`, `[tool.importlinter]`).
+
+## WP15 (D461, D462)
+
+Schema upcasts (`KindSpec.upcasts`, `upcast_body`, `parse_body(..., schema)`, `Record.body_model()`); expression roots for the hardware model (`Expr.parse(..., roots)`, `eval(..., extra=)`); schemas `effects.py` and `hwmodel.py` (HwArch, ModelVersion, RegressionSet, InterferenceMatrix).

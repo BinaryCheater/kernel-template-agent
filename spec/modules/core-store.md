@@ -126,3 +126,10 @@ Additions made in WP1 (D146, D152): `Store.put_many(records)` (one transaction),
 
 - 单元测试：`main` 环境拒绝 fixture 记录和 dirty 写入；注册表在 dev 环境拒绝 fixture 实现；ID 稳定性；UPDATE/DELETE 被触发器拒绝；refs 缺失时 put 失败；状态推进规则逐条测试；失效传播在一个五层依赖图上正确；CAS 指针并发更新只有一个成功。
 - 真实运行：在 spark 的数据目录上建库，写入 10 万条合成记录（标 origin="fixture"），查询和全文检索 p95 < 50 ms，记录耗时写入交付说明。
+
+## WP15 implementation notes (D461, D462)
+
+- Schema upcasts: `KindSpec.upcasts`, `upcast_body(kind, schema, body)`, `parse_body(kind, body, schema=None)`, `Record.body_model()`; `Record` accepts an older schema and keeps its stored body (and so its ID) unchanged (spec/schemas.md §1).
+- `Expr.parse(src, declared, roots=("hw", "p", "case"))` and `Expr.eval(env, hw, p, case, extra=None)`: the hardware model's expressions use the roots `hw`, `tx`, `f`, `tbl` (spec/schemas.md §3).
+- New kinds: HwArch, ModelVersion, RegressionSet (core/schemas/hwmodel.py); Template 2, HwModel 2, Prediction 2.
+

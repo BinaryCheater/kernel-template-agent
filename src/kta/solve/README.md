@@ -18,3 +18,7 @@ Enumeration and MIP solving of formulations; re-ranking with build information.
 
 - May import: `core`, `store`, `targets`, `execution`, `backends`, `knowledge`, `models`, `measure`, `formulation`.
 - Enforced by import-linter (`pyproject.toml`, `[tool.importlinter]`).
+
+## WP15 (D464, D472)
+
+`solve(..., arch=None)` prices points with L1 (`UnitModel.predict_l1`), drops no-launch points (counted in notes) and refuses priced effects on a class-less HwModel; the MIP objective uses `formulation.work_terms` (reservation-table rows) and relaxes L1's pair and recurrence bounds.

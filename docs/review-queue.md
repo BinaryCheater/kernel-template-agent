@@ -600,3 +600,52 @@ Decisions made without the user that need review. Newest last. Each entry: quest
 - **Choice**: follow 02's own proposals as defaults (see D325 in `docs/decisions.md`); the largest is (5): template `effects` and the declarative hardware model are built now, before the GEMM golden path has run.
 - **Why**: code stage (D320); no real records exist that a schema change would strand; building the golden path on the old `cost` schema would mean doing it twice.
 - **Cost to change**: (5) reverting means keeping both `cost` and `effects` readers (upcast exists either way); (1)–(4), (6), (7) are data or protocol definitions, cheap to change.
+
+## D460 — Template effects schema (transactions, storage, overlap)
+
+- **Question:** how `cost` becomes `effects` (02 §3 sketch only).
+- **Choice:** transactions name operation classes of the hardware model and carry per-transaction amounts; storage per executor scope; overlap between selectors with `when`, `inflight`, `trips`. Each physical transaction is declared once by the step that performs it.
+- **Rationale:** no hardware number in templates (D-T2); "declared once" removes the WP5 missing-contraction issue without chain-wide transaction identities.
+- **Cost of changing later:** medium: schema, the 37 seed Templates (one migration script), formulation blocks.
+
+## D461 — Schema upcasts on read
+
+- **Question:** records are immutable but the Template body changes.
+- **Choice:** `KindSpec.upcasts` chain; stored bodies and IDs untouched; Template 1→2 maps cost terms to legacy `unit:<u>` transactions priced exactly as before.
+- **Rationale:** one mechanism for every kind (WP14's Template change can register the next step).
+- **Cost of changing later:** low; merging with WP14 needs one decision on version numbers (2→3 or one combined 2).
+
+## D463 — HwModel split into class and instance
+
+- **Question:** where structure (resources, operation classes) and numbers (peaks, limits) live.
+- **Choice:** `HwArch` record for the class, `HwModel` schema 2 for the instance with per-value provenance; measured peaks override documented expressions.
+- **Rationale:** D-T10 structure reuse; every value points to its source (R3).
+- **Cost of changing later:** low–medium: consumers use `MachineModel`, not the records.
+
+## D464 — L1 composition rule
+
+- **Question:** how per-resource times, overlap statements and latencies combine (02 §5.1 gives ResMII/RecMII).
+- **Choice:** max over busy times, pair bounds and recurrence bounds, plus serial and interaction terms; recurrence per executor with the smallest latency per group (optimistic).
+- **Rationale:** each term is a lower bound of the steady state, so L1 ≤ L2 can be checked (WP16/WP17).
+- **Cost of changing later:** low: one function (`kta.models.l1.compose`).
+
+## D466 — UnitModel stays the calibration layer over L1
+
+- **Question:** "one parameter table" (R1) vs the existing fitted UnitModel versions used by the orchestrator and T4 tasks.
+- **Choice:** keep UnitModel's fitted eff/interactions as an overlay on the declared efficiency; composition is L1's.
+- **Rationale:** no change to T4 outputs, calibration records or WP6; avoids two fitting paths now.
+- **Cost of changing later:** medium: fold fitted values into HwModel instance versions with ModelVersion records (WP16 maintenance).
+
+## D468 — Seed Templates migrated in place, versions kept
+
+- **Question:** new content under the same `name@version` vs bumping versions.
+- **Choice:** in place; a pre-WP15 store conflicts on re-import.
+- **Rationale:** D325(5): no real data; avoids 147 chain-reference edits colliding with WP14.
+- **Cost of changing later:** medium: bump versions and chain refs if a store with real seed records ever needs both.
+
+## D474 — Upstream calibration contract as documented values
+
+- **Question:** the GB10 instance needs numbers before KTA measures any.
+- **Choice:** upstream-measured values labelled `documented`, with hash and commit; three placeholders `default`; CTA dispatch rate unmodelled.
+- **Rationale:** honest labelling; KTA's own protocol has not run (D320).
+- **Cost of changing later:** low: the first `kta.measure.peaks` run supersedes them with `measured` peaks.

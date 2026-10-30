@@ -42,6 +42,7 @@
 | WP10a | `knowledge/seed/references/` 下每个参考实现都有 Reference、Chain、Reconstruction；YAML 能被模型解析；未匹配事务与 Gap 一一对应 |
 | WP10b | Named WP10b tests pass (expand machine, WP10a replay frozen → covered via Python and CLI, cancelled extraction, inflated `matched`); expand transitions create only T1–T3 and reach `covered`; T2/T3 done-checks exist. Full stage: ≥ 10 reference directories and a listed clean coverage Report in `dev/WP10b` with a covered reference (D388) |
 | WP13 | 交付说明中的每个数字都有来源文件路径 |
+| WP15 | Named WP15 tests pass (effects on every seed Template; schema-1 cost records upcast; the GEMM seed chain priced by L1 with per-unit SOL; a peak or wall change alters the prediction without code; unpriced classes and unmodelled resources counted; bounds; MIP rows equal L1 amounts; regression set and interference job definitions; migration idempotent); no seed Template has `cost`; `scripts/migrations/WP15_effects.py --check` reports no change; the seed GB10 class and instance validate and resolve; spec/schemas.md §4.2.1 and §4.6.1 and the models spec's L1 interface exist (D473). Code stage only: the real runs are listed in the delivery note |
 
 ## 验收测试的锁定
 

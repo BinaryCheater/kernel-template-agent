@@ -12,7 +12,7 @@ from kta_gate import delivery, runners, scans, specific
 from kta_gate.result import CheckResult
 
 ROOT = Path(__file__).resolve().parents[2]
-WP_NAME = "WP0 WP1 WP2 WP3 WP4 WP5 WP6 WP7 WP8 WP9a WP9b WP10a WP10b WP11 WP12 WP13".split()
+WP_NAME = "WP0 WP1 WP2 WP3 WP4 WP5 WP6 WP7 WP8 WP9a WP9b WP10a WP10b WP11 WP12 WP13 WP15".split()
 
 
 def static_checks(root: Path) -> list[CheckResult]:

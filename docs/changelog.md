@@ -61,3 +61,25 @@ Status: **decided** = the user decided; **open** = waiting for the user; **defau
 ### What the user still has to decide
 
 D-open-1 … D-open-7 in 02 §12.
+
+## 2026-10-31: merged work package WP15 (Template effects and the declarative hardware model)
+
+Code stage (D320), branch `wp/WP15`; decisions D460–D474 (D325 (5) answers D-open-5 for now: R2 and R3 land before the golden path).
+
+### Closes
+
+| Item | How | Status |
+| --- | --- | --- |
+| R2, E2, D-T2 | Template `cost` → `effects` (transactions, storage, overlap) in schema, loader, validators, formulation and all 37 seed Templates (`scripts/migrations/WP15_effects.py`); schema-1 records upcast on read | code stage |
+| R3 (data and L1), E1, D-T3, D-T10 | `HwArch` (class) + `HwModel` schema 2 (instance) as declarative data with per-value provenance; restricted expression language (roots `hw`, `tx`, `f`, `tbl`) and table terms; L1 steady-state pricing; `bound` and the UnitModel rebuilt on it | code stage |
+| R5 (schema and job definitions), D-T14, D-T15 | interference microbenchmark definitions (A, B, A+B per pair), `InterferenceMatrix` artefact schema with coverage; unmodelled = infinite capacity, reported | code stage; runs pending |
+| R8 (record schemas), R9 | `ModelVersion` and `RegressionSet` (several configurations per kernel) as immutable records | schema only |
+| WP5 known issue | contraction and operand traffic declared once (instruction selection, transfer step) and priced by the model | code stage |
+
+### 02 sections implemented
+
+§3 (effects; the granularity statistics are not built), §4 (resources, walls with cliffs, operation classes, efficiency, interactions, composition, completeness as counted coverage; L2/L3 and maintenance views are WP16), §5.1 (L1 = the projection's terms; the MIP compiler is WP17). The interface WP16 and WP17 consume is in `spec/modules/formulation-solve-models.md` "Hardware model and L1".
+
+### Pending real runs
+
+`kta.measure.peaks` on the GB10 worker (measured peaks attach to `gb10` on `sm12x@1`), the interference pairs, and a first regression set with a `ModelVersion`; see `deliveries/WP15.md`.

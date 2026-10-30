@@ -22,3 +22,7 @@ Functions that read the pool take the `Store` as a parameter (D200). Validators 
 
 - May import: `core`, `store`, `targets`, `execution`.
 - Enforced by import-linter (`pyproject.toml`, `[tool.importlinter]`).
+
+## WP15 (D460, D465)
+
+Effects validation (expressions, storage levels, `unpriced_operation_class` warning); seed import of `knowledge/seed/hardware/` (HwArch, HwModel); retrieval by resource through HwArch reservation tables.

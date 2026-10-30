@@ -10,6 +10,7 @@ Imported by `kta init` (`kta.knowledge.import_seed`, decision D204). Every YAML 
 | `patterns/` | Pattern | reduce, contract, map, store, transfer, sync, access, other (docs/design/22 §2.2) | — |
 | `structures/` | Structure | the nine exploitable structures of the paper's structure catalog | — |
 | `templates/` | Template | the paper's five GEMM steps (below) | `sources` = every seed Source |
+| `hardware/` | HwArch, HwModel | `arch_sm12x.yaml` (the GB10 architecture class) and `model_gb10.yaml` (its chip instance; documented and default values with per-value provenance, no KTA measurement yet; D463, D467) | HwModel `arch` = the class record |
 | `references/` | several | hand decompositions of reference kernels (WP10a; see its README) | by layout (D100) |
 | `families/` | Family packages | executable families (WP7) | — |
 
@@ -30,3 +31,12 @@ them. Obligations are listed with their planned check method; none is checked ye
 Limitations (decisions D207, D216): expressions cannot compare strings, so conditions on
 string-valued variables (for example "mechanism is instruction needs cp.async") are stated in
 obligations and Γ text, and `requires_hw` is empty for all five Templates.
+
+Effects (WP15, D460, D468): every seed Template declares `effects` (transactions, storage,
+overlap) instead of `cost`; `scripts/migrations/WP15_effects.py` performed the migration in
+place (versions kept) and can be re-run (it is idempotent). Each physical transaction is
+declared once, by the step that performs it: operand traffic by `async_transfer@1`, the
+contraction by `compute_instruction_selection@2`, compulsory DRAM traffic and launches by
+`output_tiling@2`, shared-memory accesses by `shared_resource_binding@1`, barriers and the
+load/compute overlap by `multi_buffer_rotation@1`, storage by `physical_storage@1`.
+
