@@ -133,3 +133,8 @@ agent 的行为由三样东西决定：给它的上下文、它的循环策略�
 - 真实运行：一次真实的 T1（用 WP7 的 GEMM 族为起点，改一个 dtype 或形状条件），从领取到被接受或被正确驳回；有完整的 AgentRun 和时间构成。
 - 一次会话恢复：被驳回后重试时使用 `resume`，交付说明给出两次的墙钟时间对比；会话文件能被 `parse_session` 解析出事件。
 - 权限：在 agent 工作区中尝试直接写存储目录、直接调用 GPU，均被拒绝或被检测到。
+
+## Additions by WP8 (D300–D304)
+
+- **Where the CLI runs (D300, needs user review).** The agent CLI runs as an Executor job (pool `agent`) on the worker named by `[agents] worker`; the job program `python -m kta.agents.launch` prepares `<data>/work/<work unit>/` and `<data>/agent-home/<work unit>/` on that host, writes the context manifest, enforces the limits and the GPU guard, commits the workspace and packs the session files. The agent-side `kta` uses `KTA_TASK_TOKEN` and `KTA_API` (D301).
+- **Interface.** `run_task(ctx, task) -> AgentRun` is unchanged; `run_step(ctx, task, *, retry, note, deps, lane) -> StepResult` also returns the AgentRun record ID, the `Launch` and the parsed events, and takes the rejection of the previous attempt (`RetryNote`) and a human note (D302). `AgentAdapter` also has `parse_session(path)` and `last_launch()`. `AgentEvent.kind` adds `other` for session entries the parser does not describe (D304).

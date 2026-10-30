@@ -267,6 +267,29 @@ def _session(spec: LaunchSpec, stdout: Path, home: Path, before: set[Path]) -> s
     return codex_session.session_id_of(new[-1]) if new else None
 
 
+def _notes_sha(ws: Path, spec: LaunchSpec) -> str | None:
+    notes = ws / spec.notes_file
+    return hostfs.sha256_file(notes) if notes.exists() else None
+
+
+def _prepare(
+    job: Path, spec: LaunchSpec, ws: Path, home: Path
+) -> tuple[bool, list[str], Path | None]:
+    """Install the bundle and credentials; returns (home created, credentials, auth dir)."""
+    if spec.run_as:
+        os.umask(0o007)
+    hostfs.install_workspace(job, ws, spec.workspace_files)
+    created = hostfs.install_home(job, home, spec.home_files)
+    auth_dir = Path(spec.auth.dir).expanduser() if spec.auth else None
+    creds = (
+        hostfs.link_credentials(home, auth_dir, spec.auth.files) if spec.auth and auth_dir else []
+    )
+    if spec.run_as:
+        hostfs.share_with_group(ws)
+        hostfs.share_with_group(home)
+    return created, creds, auth_dir
+
+
 def step(job: Path, spec: LaunchSpec) -> dict[str, Any]:
     data = data_root(job)
     ws, home = data / "work" / spec.work_unit, data / "agent-home" / spec.work_unit
@@ -280,22 +303,10 @@ def step(job: Path, spec: LaunchSpec) -> dict[str, Any]:
     upward = hostfs.upward_agents_md(ws)
     if upward:
         return {**report, "exit": "refused", "error": f"AGENTS.md above the workspace: {upward}"}
-    if spec.run_as:
-        os.umask(0o007)
-    hostfs.install_workspace(job, ws, spec.workspace_files)
-    created = hostfs.install_home(job, home, spec.home_files)
-    auth_dir = Path(spec.auth.dir).expanduser() if spec.auth else None
-    creds = (
-        hostfs.link_credentials(home, auth_dir, spec.auth.files) if spec.auth and auth_dir else []
-    )
-    if spec.run_as:
-        hostfs.share_with_group(ws)
-        hostfs.share_with_group(home)
+    created, creds, auth_dir = _prepare(job, spec, ws, home)
     argv = [_sub(a, home, ws) for a in spec.argv]
     env = {k: _sub(v, home, ws) for k, v in spec.env.items()}
-    notes_before = (
-        hostfs.sha256_file(ws / spec.notes_file) if (ws / spec.notes_file).exists() else None
-    )
+    notes_before = _notes_sha(ws, spec)
     report["pre_commit"] = commit_workspace(ws, f"before {spec.mode} {spec.run}")
     cli = cli_identity(argv)
     if spec.expect_version and spec.expect_version not in str(cli["version"]):
@@ -320,9 +331,7 @@ def step(job: Path, spec: LaunchSpec) -> dict[str, Any]:
     before_watch, before_sessions = hostfs.snapshot(watch), set(codex_session.session_files(home))
     outcome = run_cli(spec, argv, env, ws, home, job)
     session = _session(spec, out / OUT_STDOUT, home, before_sessions)
-    notes_after = (
-        hostfs.sha256_file(ws / spec.notes_file) if (ws / spec.notes_file).exists() else None
-    )
+    notes_after = _notes_sha(ws, spec)
     report.update(
         exit=outcome.exit,
         exit_code=outcome.exit_code,

@@ -217,29 +217,16 @@ def _prompt(
     return "\n\n".join(parts)
 
 
-def run_task(
+def _plan(
     ctx: Context,
+    deps: Deps,
     task: Task,
-    *,
-    retry: cards.RetryNote | None = None,
-    note: str | None = None,
-    deps: Deps | None = None,
-    lane: str = "agent:0",
-) -> StepResult:
-    """Run one step of ``task`` and write its AgentRun (spec ``run_task(ctx, task)``).
-
-    ``retry`` carries the rejection of the previous attempt (from the orchestrator);
-    ``note`` is a human's message, passed verbatim.
-    """
-    deps = deps or deps_from(ctx)
-    card = TaskCard.model_validate(deps.store.get(task.card_id).body)
-    profile = AgentProfile.model_validate(deps.store.get(card.profile).body)
-    run = UlidFactory(ctx.clock).new()
-    state, raw = sessions.load(deps.ops, card.work_unit)
-    if state is not None and state.worker and state.worker != deps.config.worker:
-        raise ConfigError(
-            f"work unit {card.work_unit} lives on {state.worker}, not {deps.config.worker}"
-        )
+    card: TaskCard,
+    profile: AgentProfile,
+    run: str,
+    retry: cards.RetryNote | None,
+) -> tuple[StepPlan, Limits]:
+    """Bundle, launch spec and job inputs of one step."""
     bundle = workspace.build(
         deps.store,
         profile,
@@ -255,7 +242,38 @@ def run_task(
         **_put_files(deps.runner, BUNDLE_WORKSPACE, bundle.workspace),
         **_put_files(deps.runner, BUNDLE_HOME, bundle.home),
     }
-    plan = StepPlan(spec, inputs, {"pool": deps.config.pool}, hard_cap_s=3 * limits.wall_s)
+    return StepPlan(spec, inputs, {"pool": deps.config.pool}, hard_cap_s=3 * limits.wall_s), limits
+
+
+def run_task(ctx: Context, task: Task) -> AgentRun:
+    """The spec interface: run one step of a leased task and return its AgentRun."""
+    return run_step(ctx, task).run
+
+
+def run_step(
+    ctx: Context,
+    task: Task,
+    *,
+    retry: cards.RetryNote | None = None,
+    note: str | None = None,
+    deps: Deps | None = None,
+    lane: str = "agent:0",
+) -> StepResult:
+    """Run one step of ``task``, write its AgentRun, return it with its record ID (D302).
+
+    ``retry`` carries the rejection of the previous attempt (from the orchestrator);
+    ``note`` is a human's message, passed verbatim.
+    """
+    deps = deps or deps_from(ctx)
+    card = TaskCard.model_validate(deps.store.get(task.card_id).body)
+    profile = AgentProfile.model_validate(deps.store.get(card.profile).body)
+    run = UlidFactory(ctx.clock).new()
+    state, raw = sessions.load(deps.ops, card.work_unit)
+    if state is not None and state.worker and state.worker != deps.config.worker:
+        raise ConfigError(
+            f"work unit {card.work_unit} lives on {state.worker}, not {deps.config.worker}"
+        )
+    plan, limits = _plan(ctx, deps, task, card, profile, run, retry)
     adapter = adapter_for(profile, deps, plan)
     decision = sessions.decide(
         state, adapter.supports_resume, profile.loop_policy, retry.signature if retry else None
@@ -304,6 +322,27 @@ def _launch(
     return list(it)
 
 
+def _agent_run(
+    deps: Deps, card: TaskCard, profile: AgentProfile, launch: Launch, events: list[AgentEvent]
+) -> AgentRun:
+    usage = usage_of(events)
+    return AgentRun(
+        session=launch.session,
+        profile=card.profile,
+        cli_version=str(launch.report.get("cli_version", "")),
+        model=profile.model,
+        tokens_in=usage.tokens_in,
+        tokens_out=usage.tokens_out,
+        session_archive=launch.archive,
+        wall_s=launch.wall_s,
+        tool_s=tool_seconds(events),
+        queue_s=launch.queue_s,
+        exit=launch.exit,
+        context_manifest=launch.manifest,
+        violations=violations_of(deps, launch, events, profile, card),
+    )
+
+
 def _record(
     ctx: Context,
     deps: Deps,
@@ -319,22 +358,7 @@ def _record(
     retry: cards.RetryNote | None,
 ) -> StepResult:
     usage = usage_of(events)
-    violations = violations_of(deps, launch, events, profile, card)
-    body = AgentRun(
-        session=launch.session,
-        profile=card.profile,
-        cli_version=str(launch.report.get("cli_version", "")),
-        model=profile.model,
-        tokens_in=usage.tokens_in,
-        tokens_out=usage.tokens_out,
-        session_archive=launch.archive,
-        wall_s=launch.wall_s,
-        tool_s=tool_seconds(events),
-        queue_s=launch.queue_s,
-        exit=launch.exit,
-        context_manifest=launch.manifest,
-        violations=violations,
-    )
+    body = _agent_run(deps, card, profile, launch, events)
     refs: dict[str, Any] = {
         "env": launch.env_manifest,
         "worker": launch.worker,
@@ -377,4 +401,4 @@ def parse_session(path: Path) -> list[AgentEvent]:
     return codex_parse(path)
 
 
-__all__ = ["Deps", "StepResult", "parse_session", "run_task"]
+__all__ = ["Deps", "StepResult", "parse_session", "run_step", "run_task"]
