@@ -293,7 +293,10 @@ def coverage_page(
     ]
     backlog = [(f"extract {t}", "named by a chain, not in the pool") for t in rep.templates_missing]
     backlog += [
-        (f"{c} Gap(s) missing {k}", "unmatched transactions the pool cannot express")
+        (
+            f"{c} Gap(s) missing {k}",
+            "recorded when the reference was decomposed; a Gap stays after it is filled",
+        )
         for k, c in sorted(rep.gaps_by_missing.items(), key=lambda kv: -kv[1])
         if c
     ]
