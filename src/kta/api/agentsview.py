@@ -90,7 +90,10 @@ def skills(used: dict[str, list[str]]) -> dict[str, Any]:
         )
     listed = {s["name"] for s in out}
     planned = [r for name, r in by_name.items() if name and name not in listed]
-    return {"has_catalogue": bool(catalogue), "skills": out, "planned": planned}
+    # Named by the current profile but absent from this source tree (the profile keeps the
+    # bundle as a blob, D322): shown so the matrix never hides a skill the workers receive.
+    absent = [{"name": n, "used_by": used[n]} for n in sorted(used) if n not in listed]
+    return {"has_catalogue": bool(catalogue), "skills": out, "planned": planned, "absent": absent}
 
 
 def _profile(api: Api, rid: str, current: str | None) -> dict[str, Any]:

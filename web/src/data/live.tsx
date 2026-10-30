@@ -12,9 +12,11 @@ interface Live {
   now: number;
   connected: boolean;
   lastEvent: number | null;
+  /** Re-fetch everything now (after an operation, so the page shows its effect at once). */
+  refresh: () => void;
 }
 
-const LiveContext = createContext<Live>({ version: 0, now: Date.now(), connected: false, lastEvent: null });
+const LiveContext = createContext<Live>({ version: 0, now: Date.now(), connected: false, lastEvent: null, refresh: () => {} });
 
 export function LiveProvider({ children }: { children: ReactNode }) {
   const [version, setVersion] = useState(0);
@@ -48,7 +50,8 @@ export function LiveProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  return <LiveContext.Provider value={{ version, now, connected, lastEvent }}>{children}</LiveContext.Provider>;
+  const refresh = () => setVersion((v) => v + 1);
+  return <LiveContext.Provider value={{ version, now, connected, lastEvent, refresh }}>{children}</LiveContext.Provider>;
 }
 
 export const useLive = () => useContext(LiveContext);

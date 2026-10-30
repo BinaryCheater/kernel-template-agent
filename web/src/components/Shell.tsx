@@ -6,6 +6,7 @@ import type { Snapshot } from "../data/types";
 import { useApi } from "../data/useApi";
 import { hhmm } from "./format";
 import { RecordDrawer } from "./RecordDrawer";
+import { CapabilitiesProvider } from "./actions";
 
 const STATIC = new URLSearchParams(window.location.search).has("static");
 
@@ -25,9 +26,10 @@ export const useSnapshot = () => useContext(SnapshotContext);
 
 const NAV: { group: string; items: { to: string; label: string; later?: boolean; badge?: "inbox" }[] }[] = [
   { group: "Watch", items: [{ to: "/", label: "Overview" }, { to: "/running", label: "Running" }, { to: "/pipeline", label: "Pipeline" }] },
-  { group: "Understand", items: [{ to: "/cases", label: "Cases" }, { to: "/families", label: "Families" }, { to: "/coverage", label: "Coverage" }] },
-  { group: "Intervene", items: [{ to: "/inbox", label: "Inbox", later: true, badge: "inbox" }, { to: "/pool", label: "Pool", later: true },
-    { to: "/model", label: "Model", later: true }, { to: "/experiments", label: "Experiments", later: true }] },
+  { group: "Understand", items: [{ to: "/cases", label: "Cases" }, { to: "/families", label: "Families" }, { to: "/pool", label: "Pool" },
+    { to: "/coverage", label: "Coverage" }, { to: "/model", label: "Model" }] },
+  { group: "Intervene", items: [{ to: "/inbox", label: "Inbox", badge: "inbox" }, { to: "/operations", label: "Operations" },
+    { to: "/experiments", label: "Experiments" }, { to: "/improvement", label: "Improvement" }, { to: "/agents", label: "Agents" }] },
 ];
 
 export function Shell({ pages, children }: { pages: PageMeta[]; children: ReactNode }) {
@@ -49,6 +51,7 @@ export function Shell({ pages, children }: { pages: PageMeta[]; children: ReactN
 
   return (
     <SnapshotContext.Provider value={{ snapshots: snaps.data ?? [], snapshot, setSnapshot }}>
+     <CapabilitiesProvider>
       <div className="shell">
         <nav className="sidebar">
           <div className="brand"><b>KTA</b><span>Kernel Template Agent</span></div>
@@ -64,7 +67,7 @@ export function Shell({ pages, children }: { pages: PageMeta[]; children: ReactN
               ))}
             </div>
           ))}
-          <div className="foot">Read-only view (WP9a). Actions arrive in WP9b.</div>
+          <div className="foot">Every action writes a HumanAction record. Controls that wait for WP6/WP8 are shown dashed.</div>
         </nav>
         <div className="main">
           {metaApi.error && (
@@ -98,6 +101,7 @@ export function Shell({ pages, children }: { pages: PageMeta[]; children: ReactN
         </div>
       </div>
       <RecordDrawer />
+     </CapabilitiesProvider>
     </SnapshotContext.Provider>
   );
 }

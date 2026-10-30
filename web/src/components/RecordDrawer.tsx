@@ -3,6 +3,7 @@ import { api } from "../data/source";
 import { useApi } from "../data/useApi";
 import { wordTone } from "./format";
 import { AssuranceChip, Chip, Loading, RecordLink } from "./ui";
+import { RecordActions } from "./actions";
 
 /** Side drawer showing one record (envelope, body, refs, blobs); driven by `?rec=<id>`. */
 export function RecordDrawer() {
@@ -45,6 +46,7 @@ function DrawerBody({ id, close }: { id: string; close: () => void }) {
               <AssuranceChip a={r.assurance} />
               <span className="chip origin" title="origin: only real records can support conclusions">{r.origin}</span>
             </div>
+            <RecordActions id={r.id} kind={r.kind} small />
             <dl className="kv">
               <dt>kind</dt><dd>{r.kind} <span className="muted">schema {r.schema}</span></dd>
               <dt>created</dt><dd className="num">{r.created_at}</dd>

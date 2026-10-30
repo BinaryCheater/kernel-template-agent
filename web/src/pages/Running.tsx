@@ -7,6 +7,7 @@ import { useNow } from "../data/live";
 import { Chip, Loading, Panel, RecordLink, UsageBar } from "../components/ui";
 import { dur, hhmm, since, stateTone } from "../components/format";
 import { kindStyle } from "../components/Swimlanes";
+import { TaskActions } from "../components/actions";
 
 export function Running() {
   const a = useApi(api.active, []);
@@ -30,7 +31,7 @@ function RunningBody({ a, m }: { a: ActiveRuns; m: Machines }) {
                 <div className="cell busy agent" key={slot}>
                   <div className="row"><span className="mono small">{slot}</span><span className="tag task">{t.type}</span>
                     <span className="small" style={{ marginLeft: "auto" }}>{dur(t.used_wall_s)}</span></div>
-                  <div className="cell-title">{loopName(t.loop_id)}</div>
+                  <div className="cell-title"><Link to={`/tasks/${t.id}`}>{loopName(t.loop_id) || t.goal}</Link></div>
                   <div className="small ink2 ellipsis2">{t.goal}</div>
                   <UsageBar used={t.used_wall_s} limit={t.budget_wall_s} />
                   <div className="small muted">budget {dur(t.budget_wall_s)} · card <RecordLink id={t.card} /></div>
@@ -90,17 +91,18 @@ function RunningBody({ a, m }: { a: ActiveRuns; m: Machines }) {
       <div className="grid" style={{ gridTemplateColumns: "minmax(0, 1.4fr) minmax(0, 1fr)", alignItems: "start" }}>
         <Panel title="Tasks not finished" sub="queued tasks wait for a slot and a budget reservation">
           <table className="t">
-            <thead><tr><th>type</th><th>goal</th><th>state</th><th>prio</th><th>retries</th><th className="r">queued</th><th>card</th></tr></thead>
+            <thead><tr><th>type</th><th>goal</th><th>state</th><th>prio</th><th>retries</th><th className="r">queued</th><th>card</th><th /></tr></thead>
             <tbody>{a.tasks.filter((t) => t.state !== "accepted").map((t) => (
               <tr key={t.id}>
                 <td><span className="tag task">{t.type}</span></td>
-                <td>{t.goal}<div className="small muted">{loopName(t.loop_id)}</div>
+                <td><Link to={`/tasks/${t.id}`}>{t.goal}</Link><div className="small muted">{loopName(t.loop_id)}</div>
                   {t.last_rejection && <div className="small" style={{ color: "#9b1f1f" }}>last rejection: {t.last_rejection}</div>}</td>
                 <td><Chip tone={stateTone(m.machines.find((x) => x.id === "task"), t.state)}>{t.state}</Chip></td>
                 <td className="num">{t.priority}</td>
                 <td className="num">{t.retries}/{t.max_retries}</td>
                 <td className="r num">{dur(t.queue_s)}</td>
                 <td><RecordLink id={t.card} /></td>
+                <td><TaskActions task={t.id} label={`${t.type} ${t.goal}`} small retry={t.state === "escalated"} /></td>
               </tr>
             ))}</tbody>
           </table>

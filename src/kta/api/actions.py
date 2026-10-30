@@ -115,6 +115,8 @@ CATALOGUE: list[tuple[str, str, str, str | None]] = [
     ("priority", "/actions/priority", "HumanAction, task priority", "priority"),
     ("pause", "/actions/pause", "HumanAction", "pause"),
     ("resume", "/actions/resume", "HumanAction", "resume"),
+    ("env-verify", "/agents/batches/{batch}/verify", "nothing (a lock check)", "env-verify"),
+    ("write-record", "/write/record", "the agent's record, as its task", "write-record"),
 ]  # fmt: skip
 
 
