@@ -17,3 +17,10 @@ Decisions made without the user that need review. Newest last. Each entry: quest
 - **Choice:** record IDs are mandatory for WP1, WP2, WP3, WP7, WP8, WP9a, WP9b, WP10b, WP11, WP12; the gate opens `$KTA_DATA/dev/<WP>/kta.db` on the control host (where the dev store lives, per conventions §5) and requires `actor.commit` == the claim's commit and `actor.dirty` == false; GPU claims need `refs.worker` pointing at a Worker whose `labels` contain `gpu`. Other WPs may list claims with empty `record_ids` (still from a clean, existing commit).
 - **Rationale:** matches where the dev store actually is; gives WP1 a concrete field contract.
 - **Cost of changing later:** low until WP1 fixes the Actor fields; afterwards a schema migration.
+
+## D95 — Sample data in the frontend before the store exists
+
+- **Question:** you asked for a decent frontend quickly, but real records only exist after WP1 (store) and real runs after WP7.
+- **Choice:** WP9a phase A builds the full UI against a small sample dataset kept only in `web/`, flagged in code and shown with a SAMPLE DATA banner on every page; phase B switches to the real API over the store and deletes the sample path. Final WP9a acceptance still requires WP7's real records.
+- **Rationale:** lets you review layout and readability now instead of after M1.
+- **Cost of changing later:** low; the alternative is to wait for WP1 (frontend design review slips accordingly).
