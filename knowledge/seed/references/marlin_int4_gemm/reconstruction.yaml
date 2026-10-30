@@ -42,7 +42,7 @@ unmatched_transactions:
   description: >-
     [ux-07] (thread_m_blocks, thread_n_blocks, thread_k_blocks, group_blocks) chosen from M and groupsize
     among ten compiled instances; (thread_k, thread_n) = (128, 128) for M <= 16 else (64, 256).
-  where: marlin/marlin_cuda_kernel.cu:754-805
+  where: marlin/marlin_cuda_kernel.cu:754-764, 784-812
 - level: 3
   pattern_guess: issue_order
   description: >-

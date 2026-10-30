@@ -1,0 +1,19 @@
+name: batch_decode_paged_f16_d128
+reference_impl: "for each request b and query head h: o[b,h] = softmax(scale * q[b,h] . K_b[:, h/g]^T) V_b[:, h/g], with K_b, V_b gathered from the paged cache through the page table; float32 reference (tests/attention/test_batch_decode_kernels.py)"
+inputs:
+  - {name: q, shape: [B, H, "128"], dtype: f16, layout: row_major}
+  - {name: paged_k_cache, shape: [num_pages, page_size, Hk, "128"], dtype: f16, layout: "NHD paged"}
+  - {name: paged_v_cache, shape: [num_pages, page_size, Hk, "128"], dtype: f16, layout: "NHD paged"}
+  - {name: kv_indptr, shape: ["B+1"], dtype: i32, layout: contiguous}
+  - {name: kv_indices, shape: [nnz_pages], dtype: i32, layout: contiguous}
+  - {name: kv_last_page_len, shape: [B], dtype: i32, layout: contiguous}
+outputs:
+  - {name: o, shape: [B, H, "128"], dtype: f16, layout: row_major}
+  - {name: lse, shape: [B, H], dtype: f32, layout: row_major}
+params:
+  scale: "f32, runtime"
+  group_size: "H / Hk, dispatched at compile time (1, 2, 3, 4, 8)"
+  page_size: "int, runtime"
+  kv_len_per_request: "runtime, ragged across the batch"
+  excluded_features: "RoPE fused into q/k (POS_ENCODING_MODE), logits soft cap, sliding window, tensor-core decode path (uses prefill kernels), MLA"
+  tolerance: "f16 output against an f32 reference"

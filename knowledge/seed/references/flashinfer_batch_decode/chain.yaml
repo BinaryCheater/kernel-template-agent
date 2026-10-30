@@ -1,0 +1,116 @@
+workload: "Batch decode attention over a paged f16 KV cache, head_dim 128, GQA group size g, ragged kv lengths, optional split-KV with a merge kernel (FlashInfer BatchDecodeWithPagedKVCacheKernel + VariableLengthMergeStates, plan/run interface)"
+items:
+  - key: online
+    template: online_rescaled_reduction@1
+    applies_to: "per (request, q head) running state (m, d, o) updated per KV tile; o divided by d at the end, lse = m + log2(d) (include/flashinfer/attention/decode.cuh:64-118, 134-146; include/flashinfer/attention/state.cuh:37-70)"
+    bindings: {state: max_sum_acc, rescale_point: per_tile, finalize: deferred_divide, traversal: ascending, inf_guard: true}
+    after: []
+    code_markers: []
+  - key: fuse
+    template: operator_fusion@1
+    applies_to: "q.K^T, softmax and .V fused; scores live in registers (include/flashinfer/attention/decode.cuh:534-596)"
+    bindings: {consumer_kind: row_reduce_then_map, intermediate_site: registers, fused_ops: softmax_then_matmul}
+    after: [online]
+    code_markers: []
+  - key: out_cta
+    template: output_tiling@1
+    applies_to: "one CTA per (work unit, kv head); its bdy = g threads rows are the g query heads that share the kv head, so K/V are loaded once for the whole group (include/flashinfer/attention/decode.cuh:425-428, 770-791)"
+    bindings: {tile_m: group_size, tile_n: 128, executor: cta, index_map: grouped_heads}
+    after: [fuse]
+    code_markers: []
+  - key: split
+    template: reduction_partition@1
+    applies_to: "each request's KV range split into chunks of kv_chunk_size, one chunk per CTA when partition_kv (include/flashinfer/attention/decode.cuh:432-437)"
+    bindings: {num_groups: "ceil_div(kv_len, kv_chunk_size)", group_size: kv_chunk_size, assignment: contiguous_ranges}
+    after: [out_cta]
+    code_markers: []
+  - key: plan
+    template: runtime_work_descriptors@1
+    applies_to: "host planner binary-searches the chunk size so the unit count fits the occupancy grid, emits request_indices, kv_tile_indices, o_indptr and block_valid_mask for a padded grid (include/flashinfer/attention/scheduler.cuh:74-99, 150-208, 349-363, 426-512; include/flashinfer/attention/decode.cuh:425-431)"
+    bindings: {planner_site: host, balance: fill_grid_binary_search, grid_sizing: padded_upper_bound, unit_rows: kv_chunk_size}
+    after: [split]
+    code_markers: []
+  - key: merge
+    template: split_combine_kernel@1
+    applies_to: "partial (o, lse) per chunk written to tmp_v / tmp_s; a persistent merge kernel combines each request's chunks with state_t::merge (include/flashinfer/attention/decode.cuh:815-835; include/flashinfer/attention/cascade.cuh:374-475, 690-725)"
+    bindings: {combine_op: rescaled_merge, merge_grid: persistent, partial_dtype: f32}
+    after: [split, plan, online]
+    code_markers: []
+  - key: warp_part
+    template: reduction_partition@1
+    applies_to: "inside the CTA the bdz thread groups each take different KV rows of every tile (tile_size_per_bdx rows per group) (include/flashinfer/attention/decode.cuh:493-496, 534, 550-556)"
+    bindings: {num_groups: bdz, group_size: tile_size_per_bdx, assignment: strided_warps}
+    after: [split]
+    code_markers: []
+  - key: state_merge
+    template: smem_partial_combine@1
+    applies_to: "the bdz partial states are written to smem (o and m, d) and merged with state_t::merge after a barrier; thread group 0 writes the result (include/flashinfer/attention/decode.cuh:158-190, 600-615)"
+    bindings: {topology: serial, combine_op: rescaled_merge, result_to: one_warp, participants: bdz}
+    after: [warp_part, online]
+    code_markers: []
+  - key: qk_dot
+    template: compute_instruction_selection@1
+    applies_to: "q.k and p.v computed with f32 FMAs on CUDA cores, vec_size elements per thread (include/flashinfer/attention/decode.cuh:79-85, 134-146)"
+    bindings: {instruction: fma_f32, operand_source: rr, accum_dtype: f32, macs_per_instruction: 1}
+    after: [out_cta]
+    code_markers: []
+  - key: qk_xlane
+    template: cross_lane_reduction@1
+    applies_to: "each score's partial dot products over the bdx lanes that split head_dim are summed with shfl_xor (include/flashinfer/attention/decode.cuh:86-89)"
+    bindings: {lanes: bdx, result_to: all_lanes, combine_op: add}
+    after: [qk_dot]
+    code_markers: []
+  - key: exp2
+    template: approximate_math_rewrite@1
+    applies_to: "scores scaled by sm_scale_log2 and exponentiated with ptx_exp2 (ex2.approx); lse via ptx_log2 (include/flashinfer/attention/decode.cuh:93-95, 105-111; include/flashinfer/attention/state.cuh:45)"
+    bindings: {rewrite: exp_to_exp2_folded_scale, fused_fma: false}
+    after: [online]
+    code_markers: []
+  - key: q_reg
+    template: physical_storage@1
+    applies_to: "q held in registers as f32 (q_vec) for the whole KV range; state (m, d, o) in registers (include/flashinfer/attention/decode.cuh:452-483, 530-531)"
+    bindings: {level: reg, buffer: q_vec_state, share_order: none}
+    after: [qk_dot]
+    code_markers: []
+  - key: kv_smem
+    template: physical_storage@1
+    applies_to: "k_smem and v_smem with num_stages_smem slots; the same smem is reused as float storage by sync_state after the loop (include/flashinfer/attention/decode.cuh:441-448, 597-602)"
+    bindings: {level: smem, buffer: k_smem_v_smem, share_order: kv_then_state_merge}
+    after: [split]
+    code_markers: []
+  - key: kv_async
+    template: async_transfer@1
+    applies_to: "K and V rows global -> shared with cp.async pred_load (prefetch hint), separate commit groups for K and V; wait_group<2*S-1> + block.sync before use (include/flashinfer/attention/decode.cuh:503-528, 548-549, 569-595; include/flashinfer/cp_async.cuh:100-180)"
+    bindings: {mechanism: instruction, issue_point: after_stage_consumed, complete_point: wait_group_then_block_sync, granularity_bytes: 16}
+    after: [kv_smem]
+    code_markers: []
+  - key: kv_stages
+    template: multi_buffer_rotation@1
+    applies_to: "num_stages_smem-slot ring; prologue issues S stages; a slot is refilled with tile iter+S after the barrier following its use (include/flashinfer/attention/decode.cuh:486, 503-528, 557, 583, 595)"
+    bindings: {S: num_stages_smem, P: "num_stages_smem - 1", beta: 1}
+    after: [kv_async]
+    code_markers: []
+  - key: paged_gather
+    template: indexed_gather@1
+    applies_to: "every bdx iterations the page table (kv_indices, page_size divmod) is translated into element offsets stored in kv_offset_smem; K/V loads take their addresses from it (include/flashinfer/attention/decode.cuh:491-499, 535-547, 560-565)"
+    bindings: {granularity: page, index_prefetch: smem_batched, index_reuse: bdx}
+    after: [kv_async]
+    code_markers: []
+  - key: vec
+    template: vectorized_access@1
+    applies_to: "bdx threads cover one 128-element row with vec_size-element (16-byte) accesses; o stored with cast_store (include/flashinfer/attention/decode.cuh:424, 487, 610)"
+    bindings: {vector_bytes: 16, thread_arrangement: contiguous_chunk, threads: num_threads}
+    after: [kv_async]
+    code_markers: []
+  - key: k_guard
+    template: boundary_predication@1
+    applies_to: "K rows beyond the chunk are not loaded (kNoFill); their scores are set to -inf (include/flashinfer/attention/decode.cuh:511-515, 99)"
+    bindings: {boundary_kind: runtime_length, fill: none, specialize_even: false}
+    after: [vec]
+    code_markers: []
+  - key: v_guard
+    template: boundary_predication@1
+    applies_to: "V rows beyond the chunk are zero-filled (kFillZero) (include/flashinfer/attention/decode.cuh:519-525, 587-593)"
+    bindings: {boundary_kind: runtime_length, fill: zero, specialize_even: false}
+    after: [vec]
+    code_markers: []

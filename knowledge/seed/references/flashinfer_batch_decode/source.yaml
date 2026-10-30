@@ -1,0 +1,14 @@
+repo: https://github.com/flashinfer-ai/flashinfer
+commit: 732134f2ff4da63268b01c7c4ef9f61e9a1b8a43
+commit_date: "2026-10-30T04:02:47Z"
+license: Apache-2.0
+paths:
+  - include/flashinfer/attention/decode.cuh
+  - include/flashinfer/attention/scheduler.cuh
+  - include/flashinfer/attention/cascade.cuh
+  - include/flashinfer/attention/state.cuh
+  - include/flashinfer/page.cuh
+  - include/flashinfer/cp_async.cuh
+  - include/flashinfer/math.cuh
+retrieved_at: "2026-10-30T00:00:00Z"
+note: Batch decode with paged KV cache, plan/run interface (BatchDecodeWithPagedKVCacheDispatched + DecodePlan), CUDA-core (non-tensor-core) decode kernel.

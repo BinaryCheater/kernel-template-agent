@@ -2,7 +2,7 @@
 
 Source: IST-DASLab/marlin @ `1f25790bdd49fba53106164a24666dade68d7c90`. Kernel
 `Marlin<256, thread_m_blocks, thread_n_blocks, thread_k_blocks, 4, group_blocks>`
-(`marlin/marlin_cuda_kernel.cu:189-701`), host driver `marlin_cuda`
+(`marlin/marlin_cuda_kernel.cu:189-700`), host driver `marlin_cuda`
 (`marlin/marlin_cuda_kernel.cu:731-822`), weight packing `Layer.pack` (`marlin/__init__.py:102-139`).
 
 Pool: seed + proposals of the GEMM, FlashAttention-2 and FlashAttention-3 references. Status:
@@ -14,7 +14,7 @@ sm_12x.
 
 `C = A @ dequant(B)`, A f16 [M, K] row-major, B symmetric int4 [K, N] in the Marlin packed layout,
 scales s f16 per output channel or per 128-row group, C f16. `dequant(q) = (q - 8) * s`.
-N must be a multiple of thread_n and K of thread_k (`marlin/marlin_cuda_kernel.cu:769-770`). A
+N must be a multiple of thread_n and K of thread_k (`marlin/marlin_cuda_kernel.cu:770-771`). A
 zeroed int32 lock workspace is an input. Partial sums between CTAs are stored in fp16 in C.
 
 ## 2. Transaction inventory
@@ -22,9 +22,9 @@ zeroed int32 lock workspace is an input. Partial sums between CTAs are stored in
 | # | Class | Transaction | Where | Explained by |
 | --- | --- | --- | --- | --- |
 | T01 | storage | offline permutation + packing of B and s | `marlin/__init__.py:40-68, 102-139` | prepack |
-| T02 | schedule | host splits M into <= 64-row chunks, par 64-row problems per launch | `marlin/marlin_cuda_kernel.cu:784-805` | m_split |
+| T02 | schedule | host splits M into <= 64-row chunks, par 64-row problems per launch | `marlin/marlin_cuda_kernel.cu:784-816` | m_split |
 | T03 | schedule | grid = #SMs; stripes of `iters` k-tiles in column-major order | `marlin/marlin_cuda_kernel.cu:229-298, 768` | stripes, k_part |
-| T04 | schedule | config dispatch: (thread_k, thread_n) by M; ten CALL_IF instances | `marlin/marlin_cuda_kernel.cu:754-764, 795-805` | none (ux-07) |
+| T04 | schedule | config dispatch: (thread_k, thread_n) by M; ten CALL_IF instances | `marlin/marlin_cuda_kernel.cu:754-764, 800-812` | none (ux-07) |
 | T05 | executor | 8 warps: thread_n_blocks / 4 along N, the rest along K | `marlin/marlin_cuda_kernel.cu:300-325, 466-470` | out_warp, warp_k |
 | T06 | transfer | A via cp.async.cg 16 B, predicated rows | `marlin/marlin_cuda_kernel.cu:54-66, 387-396` | ab_async, vec, a_guard |
 | T07 | transfer | B and s via cp.async with L2::evict_first policy | `marlin/marlin_cuda_kernel.cu:69-80, 398-410` | ab_async, b_stream_hint |

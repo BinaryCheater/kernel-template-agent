@@ -1,0 +1,8 @@
+missing: template
+description: >-
+  [ux-02] ordered_global_combine needs a fixed number of co-resident CTAs and locks; smem_partial_combine
+  is intra-CTA. A separate merge kernel over a variable number of partials is not in the pool. Proposed:
+  split_combine_kernel@1.
+level: 3
+pattern_guess: reduce
+attribution: space

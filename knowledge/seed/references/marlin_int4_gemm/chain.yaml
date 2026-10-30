@@ -14,7 +14,7 @@ items:
     code_markers: []
   - key: m_split
     template: output_tiling@1
-    applies_to: "M split by the host into chunks of up to 64 rows (thread_m_blocks <= 4), with par parallel 64-row problems per launch; N split into thread_n columns (marlin/marlin_cuda_kernel.cu:754-805, 239-244)"
+    applies_to: "M split by the host into chunks of up to 64 rows (thread_m_blocks <= 4), with par parallel 64-row problems per launch; N split into thread_n columns (marlin/marlin_cuda_kernel.cu:754-764, 784-816, 239-244)"
     bindings: {tile_m: 64, tile_n: thread_n, executor: cta, index_map: custom}
     after: [dequant]
     code_markers: []
