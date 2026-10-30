@@ -21,24 +21,26 @@ order of the Template discovery curve:
 
 Every YAML file holds the `body` of one record kind (spec/schemas.md), the same convention as a
 family directory's `family.yaml` / `chain.yaml`. Refs are implied by the directory layout
-(decision D77):
+(decision D100). The directory names `gaps/`, `templates/` and `patterns/` are the ones `scripts/gate`
+uses to classify documents (D87); the decompose-kernel skill's `new_templates/` / `new_patterns/`
+are renamed accordingly:
 
 | File | Kind | Implied refs |
 | --- | --- | --- |
-| `source.yaml` | Source (fields not yet in spec/schemas.md, see D78) | — |
+| `source.yaml` | Source (fields not yet in spec/schemas.md, see D101) | — |
 | `problem.yaml` | Problem (§4.8): the workload | — |
 | `reference.yaml` | Reference (§4.5) | `source` = source.yaml, `problem` = problem.yaml |
 | `chain.yaml` | Chain (§4.3) | `templates` = every `template` named in `items` |
 | `reconstruction.yaml` | Reconstruction (§4.5) | `reference`, `chain`, `gaps` = `gaps/*.yaml` |
 | `gaps/ux-NN-*.yaml` | Gap (§4.7) | — |
-| `new_patterns/<name>.yaml` | Pattern (§4.1), proposed | — |
-| `new_templates/<name>.yaml` | Template (§4.2), status proposed, assurance declared | `sources` = this directory's source.yaml |
+| `patterns/<name>.yaml` | Pattern (§4.1), proposed (D105) | — |
+| `templates/<name>.yaml` | Template (§4.2), status proposed, assurance declared | `sources` = this directory's source.yaml |
 | `decomposition.md` | not a record | human-readable workload, full transaction inventory with file:line, step-by-step matching argument |
 
 Citations in `where`, `applies_to` and `decomposition.md` are `path:line` relative to the frozen
 upstream commit in `source.yaml`.
 
-## Counting rules (decision D79)
+## Counting rules (decision D102)
 
 - A chain item is **matched** when its Template was in the pool before this reference and it
   expresses the step without a Gap. `Reconstruction.matched` counts those; `total` is the number
@@ -51,7 +53,7 @@ upstream commit in `source.yaml`.
 - A Gap whose step is resolved by a Template proposed in the same directory says so in its
   description. The Gap stays: it records that the pool could not express the step at the time.
 
-## Assumed seed pool (decision D80)
+## Assumed seed pool (decision D103)
 
 WP4 owns `knowledge/seed/` patterns and the five paper GEMM Templates; they did not exist when
 this WP was written. Chains bind against the following names, taken from paper.md §3.3 (table of
@@ -71,5 +73,5 @@ Patterns: `reduce`, `contract`, `map`, `store`, `transfer`, `sync`, `access`, `o
 ## Reproduction status
 
 No reference was built or run on GB10 in WP10a (allowed by spec/workplan.md WP10a). `runnable_on`
-records ISA eligibility only (decision D81): `["gb10"]` when every instruction the reference
+records ISA eligibility only (decision D104): `["gb10"]` when every instruction the reference
 needs exists on sm_121 per its documentation; `[]` (analysis-only) otherwise.

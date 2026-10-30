@@ -74,6 +74,13 @@
 | D62 | 防止假实现 | 替身只在 tests/fakes 且必须通过合同测试；做不到抛 NotSupported；证据清单逐条远端核对；gate 用 AST 扫描 src 中的替身、吞异常、print、空函数 | spec/conventions §9–§10、spec/gate |
 | D63 | 远端运行方式（已被 D70、D71 替代） | 本地提交后用 scripts/sync 同步到 spark 的 WP 目录，uv sync --frozen 后运行；不在 spark 上改代码；有未提交修改的运行不能作证据 | spec/conventions §5–§6 |
 | D64 | 机密 | API key 只放在 spark 的 ~/.config/kta/secrets.env，由运行器注入；gate 扫描常见 key 格式 | spec/conventions §8 |
+| D100 | Seed reference file format | default — needs user review: every YAML file under `knowledge/seed/references/<name>/` is the `body` of one kind (as `family.yaml` / `chain.yaml` are); refs are implied by the layout (source.yaml, problem.yaml, reference.yaml, chain.yaml, reconstruction.yaml, `gaps/`, `templates/`, `patterns/`); `templates/` and `patterns/` replace the skill's `new_templates/` / `new_patterns/` so the gate's D87 classification sees them | WP10a |
+| D101 | Source record fields | default — needs user review: spec/schemas.md has no Source kind although Reference refs `source`; seed `source.yaml` uses repo, commit, commit_date, license, paths, retrieved_at, note | WP10a |
+| D102 | Reconstruction counting | default — needs user review: pool order = fixed decomposition order; `matched` = chain items whose Template predates the reference and match without a Gap; `total` = chain items; every unmatched step or step-less transaction is one `unmatched_transactions` entry with exactly one Gap (`ux-NN`, same level and pattern_guess) | WP10a |
+| D103 | Assumed seed Template variables | default — needs user review: chains bind the five paper GEMM Templates with variable names taken from paper.md §3.3 (listed in knowledge/seed/references/README.md); WP4 must adopt them or rename the bindings | WP10a |
+| D104 | `runnable_on` meaning in WP10a | `["gb10"]` = every instruction the reference needs exists on sm_121 per documentation (eligibility, not a run); `[]` = analysis-only | WP10a |
+| D105 | Proposed Patterns | default — needs user review: three Patterns proposed with status proposed and category `other` (the schema's category list has no scheduling or scan entry): `work_assign`, `issue_order`, `scan`; D50 requires your confirmation for new Patterns | WP10a |
+| D106 | Compiler-decided transactions | record register allocation / unrolling by the compiler as one unmatched transaction (pattern_guess other, attribution intent_sass) in every CUDA reference, so counts are comparable across references | WP10a |
 
 ## 已确认
 
