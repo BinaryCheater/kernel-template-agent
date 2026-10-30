@@ -10,5 +10,5 @@ paths:
   - include/flashinfer/page.cuh
   - include/flashinfer/cp_async.cuh
   - include/flashinfer/math.cuh
-retrieved_at: "2026-10-30T00:00:00Z"
+retrieved_at: "2026-10-30T04:04:20Z"
 note: Batch decode with paged KV cache, plan/run interface (BatchDecodeWithPagedKVCacheDispatched + DecodePlan), CUDA-core (non-tensor-core) decode kernel.

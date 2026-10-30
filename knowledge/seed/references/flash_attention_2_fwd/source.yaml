@@ -9,5 +9,5 @@ paths:
   - csrc/flash_attn/src/softmax.h
   - csrc/flash_attn/src/utils.h
   - csrc/flash_attn/src/mask.h
-retrieved_at: "2026-10-30T00:00:00Z"
+retrieved_at: "2026-10-30T04:03:53Z"
 note: FlashAttention-2 forward kernel (csrc/flash_attn), non-split path compute_attn_1rowblock. The repository also contains FlashAttention-3 (hopper/), decomposed separately.

@@ -6,5 +6,5 @@ paths:
   - vllm/model_executor/layers/fused_moe/fused_moe.py
   - vllm/model_executor/layers/fused_moe/moe_align_block_size.py
   - csrc/moe/moe_align_sum_kernels.cu
-retrieved_at: "2026-10-30T00:00:00Z"
+retrieved_at: "2026-10-30T04:04:03Z"
 note: Triton fused_moe_kernel (unquantized bf16/f16 path) plus the CUDA moe_align_block_size routing-metadata kernels. The activation (silu_and_mul) and moe_sum kernels of the full MoE layer are separate kernels, not part of this reference.

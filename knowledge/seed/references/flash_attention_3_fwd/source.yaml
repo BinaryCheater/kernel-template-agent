@@ -11,5 +11,5 @@ paths:
   - hopper/tile_size.h
   - hopper/flash_fwd_launch_template.h
   - hopper/named_barrier.hpp
-retrieved_at: "2026-10-30T00:00:00Z"
+retrieved_at: "2026-10-30T04:03:53Z"
 note: FlashAttention-3 forward for sm_90 (hopper/ directory of the same repository as the FlashAttention-2 reference).

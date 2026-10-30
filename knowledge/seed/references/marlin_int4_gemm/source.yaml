@@ -5,5 +5,5 @@ license: Apache-2.0
 paths:
   - marlin/marlin_cuda_kernel.cu
   - marlin/__init__.py
-retrieved_at: "2026-10-30T00:00:00Z"
+retrieved_at: "2026-10-30T04:03:51Z"
 note: Original Marlin repository (default branch head; the repository has had no commits since 2024-09). Later forks (vLLM gptq_marlin, machete) are not analysed.
