@@ -1,0 +1,8 @@
+# Packages the worker image adds to its base image (pip freeze difference after
+# `pip install tilelang==0.1.15` in the base image, 2026-10-30). Installed with --no-deps
+# so nothing else changes. Regenerate with docker/lock (on a worker with Docker).
+apache-tvm-ffi==0.1.12
+cloudpickle==3.1.2
+tilelang==0.1.15
+torch_c_dlpack_ext==0.1.5
+z3-solver==4.15.4.0

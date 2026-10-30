@@ -264,6 +264,17 @@ class SqliteOps:
             )
             self._log(con, "workers", name, {"host": host, "healthy": healthy})
 
+    def worker_health(self, name: str) -> bool | None:
+        """The last reported health of a worker; None when it never reported."""
+        with self.db.read() as con:
+            row = con.execute("SELECT healthy FROM workers WHERE name = ?", (name,)).fetchone()
+        return None if row is None else bool(row[0])
+
+    def record_event(self, table: str, row_id: str, change: Mapping[str, Any]) -> None:
+        """Append an event that changes no table row (e.g. a forced lease release, D192)."""
+        with self.db.write() as con:
+            self._log(con, table, row_id, change)
+
     def put_loop(
         self, id: str, kind: str, subject: str, state: str, data: Mapping[str, Any]
     ) -> None:
