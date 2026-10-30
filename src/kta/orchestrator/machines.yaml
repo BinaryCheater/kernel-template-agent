@@ -2,7 +2,10 @@
 #
 # Source: docs/design/10 §2.1 (solve loop), §2.2 (expand loop), §3.1-§3.2 (task types and
 # lifecycle); docs/design/11 §3.4 (budget exhaustion). The frontend draws these diagrams from this
-# file (via GET /machines) and WP6 implements `step` against it, with a consistency test.
+# file (via GET /machines). WP6 implements `step` against it (kta.orchestrator.step): a test checks
+# that every transition `step` can produce is listed here and every listed one is produced
+# (tests/unit/test_orchestrator_machines.py). Paths the design left open are settled by the
+# decisions named in `notes` (D261, D262, D266, D267).
 #
 # Field meanings
 #   state.kind      step      deterministic work done by the orchestrator or the executor
@@ -13,7 +16,8 @@
 #   transition.rule evaluation order when a state has several guarded exits (judging: 1-4)
 #   transition.label short display label for diagrams (at most 16 characters); `when` is the full condition
 #   from: "*"       the transition is allowed from any non-terminal state
-#   notes           paths the design documents do not specify; kept visible instead of guessed
+#   transition.creates  task types created; several types mean one of them (or one per Gap)
+#   notes           how paths the design documents leave open were settled (decision IDs)
 
 version: 1
 
@@ -62,8 +66,12 @@ machines:
       - {from: retrieving, to: solving, kind: normal, label: found, when: legal Templates found}
       - {from: retrieving, to: waiting, kind: creates_task, creates: [T1], label: none legal,
          when: no legal Template}
-      - {from: solving, to: building, kind: normal}
-      - {from: building, to: checking, kind: normal}
+      - {from: solving, to: building, kind: normal, label: shortlisted, when: feasible candidates found}
+      - {from: solving, to: waiting, kind: creates_task, creates: [T1], label: no candidate,
+         when: no family has a feasible candidate on some bucket}
+      - {from: building, to: checking, kind: normal, label: built, when: some candidates built}
+      - {from: building, to: waiting, kind: creates_task, creates: [T6], label: none built,
+         when: no shortlisted candidate built or kept a resident CTA}
       - {from: checking, to: measuring, kind: normal}
       - {from: measuring, to: judging, kind: normal}
       - {from: judging, to: waiting, kind: creates_task, rule: 1, creates: [T6], label: check failed,
@@ -74,11 +82,20 @@ machines:
          when: not below the strongest reference, or the gap to the bound is explained}
       - {from: judging, to: waiting, kind: creates_task, rule: 4, creates: [T2, T1], label: gap unexplained,
          when: gap cannot be explained}
-      - {from: waiting, to: retrieving, kind: resume, label: resume, when: task from retrieving accepted}
-      - {from: waiting, to: judging, kind: resume, label: resume, when: task from judging accepted}
+      - {from: waiting, to: retrieving, kind: resume, label: re-retrieve,
+         when: a T1, T2 or T6 task accepted (the pool changed)}
+      - {from: waiting, to: solving, kind: resume, label: re-solve,
+         when: a T4 task accepted (the model changed)}
     notes:
-      - Resuming at judging after T6, T4 or T1/T2 (rules 1, 2, 4) follows docs/design/10 §2.1 literally; whether building and
-        measuring rerun first is not specified there (to be settled with WP6).
+      - D261 (needs user review) - a resume starts a new round. Knowledge tasks (T1, T2, T6) resume at
+        retrieving because the pool changed; T4 resumes at solving because only the model changed.
+        docs/design/10 §2.1 says resume at the creating state, which for judging would re-judge
+        unchanged measurements. When the round limit is reached the instance stays in waiting and
+        is escalated to the inbox.
+      - D262 (needs user review) - solving with no feasible candidate creates T1; building with no
+        candidate built creates T6 (the family's generator or constraints are wrong).
+      - D264 - a state whose work fails (NotSupported, checker or infrastructure error) keeps the
+        instance in that state, marked blocked, with an inbox item; it is not a transition.
 
   - id: expand
     title: Expand loop
@@ -109,12 +126,20 @@ machines:
       - {from: analyzing, to: reconstructed, kind: normal, label: all matched, when: every step matched}
       - {from: analyzing, to: gap, kind: creates_task, creates: [T3, T1], label: unmatched,
          when: some steps unmatched}
-      - {from: gap, to: analyzing, kind: resume, label: resume, when: extraction tasks accepted}
+      - {from: gap, to: analyzing, kind: creates_task, creates: [T2], label: re-match,
+         when: every extraction task accepted; a new T2 re-matches the chain}
+      - {from: gap, to: reconstructed, kind: resume, label: resume,
+         when: the T1 created after a missed reproduction was accepted}
       - {from: reconstructed, to: reproduced, kind: normal, label: within ε, when: error within epsilon}
+      - {from: reconstructed, to: gap, kind: creates_task, creates: [T1], label: missed ε,
+         when: reproduction error above epsilon; T1 extends the family}
       - {from: reproduced, to: ablated, kind: normal}
       - {from: ablated, to: covered, kind: normal}
     notes:
-      - What happens when reproduction misses epsilon is not specified in docs/design/10 §2.2.
+      - D267 (needs user review) - a missed reproduction writes a Gap (attribution space) and creates
+        T1; its acceptance resumes at reconstructed. After extraction tasks, a fresh T2 re-matches.
+      - D264 - reference build, measurement, reproduction and ablation raise NotSupported until the
+        learn process exists (WP11); the instance is then blocked in that state.
 
   - id: task
     title: Task lifecycle
@@ -145,19 +170,28 @@ machines:
          does: Over budget or unresponsive; handled as rejected}
       - {id: escalated, kind: wait, work: human,
          does: Retry limit exceeded; waits in your inbox (retry with note, modify, drop)}
+      - {id: suspended, kind: wait, work: human,
+         does: A checker crashed; waits in your inbox and does not count as a retry}
       - {id: cancelled, kind: terminal, work: human,
          does: Cancelled by you}
     transitions:
       - {from: created, to: queued, kind: normal}
       - {from: queued, to: leased, kind: normal}
       - {from: leased, to: running, kind: normal}
+      - {from: leased, to: queued, kind: normal, label: lease lost, when: lease expired before start}
       - {from: running, to: submitted, kind: normal}
       - {from: submitted, to: checking, kind: normal}
       - {from: checking, to: accepted, kind: normal, label: pass, when: done-checks pass}
       - {from: checking, to: rejected, kind: normal, label: fail, when: a done-check fails}
+      - {from: checking, to: suspended, kind: normal, label: checker error, when: a checker crashed}
+      - {from: suspended, to: checking, kind: human, label: you recheck, when: you rerun the checks}
       - {from: running, to: expired, kind: normal, label: over budget, when: over budget or no response}
       - {from: expired, to: rejected, kind: normal}
       - {from: rejected, to: queued, kind: retry, label: retry +1, when: retries below limit (retry +1)}
       - {from: rejected, to: escalated, kind: normal, label: limit hit, when: retry limit exceeded}
       - {from: escalated, to: queued, kind: human, label: you retry, when: you retry with a note}
       - {from: "*", to: cancelled, kind: any, label: you cancel, when: you cancel}
+    notes:
+      - D265 (needs user review) - the ops tasks table stores these state names directly.
+      - D266 (needs user review) - suspended (checker crash, docs/design/10 §7) and leased to queued
+        (lease lost before the task started, 11 §6) are additions to the lifecycle of 10 §3.2.

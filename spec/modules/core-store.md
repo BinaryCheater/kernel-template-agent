@@ -95,6 +95,13 @@ class Ops:
     def lease(self, worker: str, kinds: list[str], seconds: int) -> Task | None
     def renew(self, task_id: str, worker: str, seconds: int) -> bool
     def finish(self, task_id: str, state: str) -> None
+    # Added by WP6 on SqliteOps (D265): lifecycle compare-and-set and listings.
+    def update_task(self, task_id: str, expected: Collection[str], state: str,
+                    owner: str | None = None, lease_s: int | None = None,
+                    count_attempt: bool = False) -> bool
+    def list_tasks(self, work_unit: str | None = None,
+                   states: Collection[str] | None = None) -> list[Task]
+    def list_loops(self, kind: str | None = None) -> list[dict]
     def acquire(self, lock: str, holder: str, seconds: int) -> bool
     def release(self, lock: str, holder: str) -> None
     def set_pointer(self, name: str, expected: str | None, value: str) -> bool   # compare-and-set

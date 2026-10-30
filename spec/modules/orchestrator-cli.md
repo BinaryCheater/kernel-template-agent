@@ -26,6 +26,13 @@ def step(loop: Loop, ctx: Context) -> Transition
     # Transition：新状态、要写的记录、要创建的作业或任务、要等待的对象
 ```
 
+Implementation (WP6, D260): the state's work runs first and is handed to `step` as `loop.facts`;
+`step` stays pure. `Transition` = target state (or a hold), the machines.yaml kind and rule,
+loop-data updates, task requests and record drafts. The files are those listed above plus
+`machines.py`, `transition.py`, `step.py`, `solve_work.py`, `expand_work.py`, `runner.py`,
+`pipeline.py`, `done_checks.py` and `outputs.py`; `improve.py` belongs to the summarize process
+(WP11). Open paths of the design are settled in machines.yaml `notes` (D261, D262, D264, D266, D267).
+
 进程的主循环反复：取出可推进的循环实例 → 加循环实例锁 → `step` → 写结果 → 释放锁。等待中的实例（等任务、等作业、等快照）在等待对象完成后被唤醒。
 
 求解循环的状态与判定规则，严格按 docs/design/10 §2.1 实现，包括：
@@ -51,6 +58,9 @@ def step(loop: Loop, ctx: Context) -> Transition
 
 "交付说明完整"：包含做了什么、简化与 fixture（可写"无"）、已知问题。
 
+Function names stored in `TaskCard.done_checks` and the submission layout per type: D277, D269
+(`src/kta/orchestrator/done_checks.py`). Done-check results are Reports titled `done_checks` (D276).
+
 ### 预算
 
 按 docs/design/11 §3 实现预留与结算。预算层级的键：`global`、`process:<名>`、`loop:<ID>`、`task:<ID>`。
@@ -71,6 +81,11 @@ kta task list|show|cancel|retry
 kta coverage [--snapshot <id>]   打印覆盖报告摘要
 kta export <snapshot> <dir>      导出快照为可浏览目录
 ```
+
+WP6 additions and deviations (D274): `kta loop list|show|step`, `kta inbox`, `kta budget`,
+`kta card`, `kta task submit|check|recheck`; `kta solve <case>` starts the loop (the agent form
+`kta solve <template> <case>` is not provided); `instantiate`, `build`, `sass`, `run`, `src` raise
+NotSupported until WP8; `bound` is not provided.
 
 agent 使用的命令（`show`、`query`、`why`、`instantiate`、`build`、`sass`、`check`、`run`、`measure`、`profile`、`bound`、`solve`、`validate-template`、`validate-family`、`note`、`submit`、`src`）在 agent 环境中通过任务令牌鉴权，见 agents.md。
 

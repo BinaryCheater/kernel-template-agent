@@ -506,6 +506,44 @@ def wp5(root: Path, passed: set[str]) -> list[CheckResult]:
     return results
 
 
+WP6_TESTS = (
+    "test_step_produces_exactly_the_yaml_transitions",
+    "test_created_task_types_are_listed_on_the_edge",
+    "test_lifecycle_edges_used_are_in_the_yaml",
+    "test_budget_refusal_keeps_the_task_queued",
+)
+WP6_MACHINES = Path("src") / "kta" / "orchestrator" / "machines.yaml"
+
+
+def wp6(root: Path, passed: set[str]) -> list[CheckResult]:
+    """Every transition and judging rule of machines.yaml has a passing test (D275)."""
+    names = {t.split("::")[-1].split("[")[0] for t in passed}
+    absent = [f"{t} did not pass" for t in WP6_TESTS if t not in names]
+    results = [from_findings("WP6 transition tests", absent, f"{len(WP6_TESTS)} tests passed")]
+    path = root / WP6_MACHINES
+    if not path.exists():
+        return [*results, CheckResult("judging rules tested", "FAIL", f"{path} is missing")]
+    doc = yaml.safe_load(path.read_text(encoding="utf-8"))
+    rules = sorted(
+        {
+            int(t["rule"])
+            for m in doc.get("machines", [])
+            for t in m.get("transitions", [])
+            if t.get("rule") is not None
+        }
+    )
+    untested = [
+        f"rule {n} has no passing test_judging_rule_{n}_*"
+        for n in rules
+        if not any(x.startswith(f"test_judging_rule_{n}_") for x in names)
+    ]
+    detail = f"rules {rules} each tested" if rules else "no judging rules found"
+    if not rules:
+        untested.append("machines.yaml lists no judging rules")
+    results.append(from_findings("judging rules tested", untested, detail))
+    return results
+
+
 def wp10a(root: Path, passed: set[str]) -> list[CheckResult]:
     base = root / "knowledge" / "seed" / "references"
     refs = sorted(p for p in base.iterdir() if p.is_dir()) if base.exists() else []
@@ -581,6 +619,7 @@ SPECIFIC: dict[str, Callable[[Path, set[str]], list[CheckResult]]] = {
     "WP1": wp1,
     "WP4": wp4,
     "WP5": wp5,
+    "WP6": wp6,
     "WP2": wp2,
     "WP3": wp3,
     "WP10a": wp10a,

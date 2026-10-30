@@ -1,5 +1,6 @@
 """``kta`` command entry point. WP0: ``doctor``; WP1: ``store``; WP2: ``worker``, ``target``,
-``backend``; WP4: ``init``; WP6 adds the rest."""
+``backend``; WP3: ``measure``, ``check``; WP4: ``init``; WP6: cases, loops, tasks, processes,
+inbox, budgets and the agent-facing commands."""
 
 from __future__ import annotations
 
@@ -8,11 +9,14 @@ import os
 import sys
 from collections.abc import Sequence
 
+from kta.cli.agent_cmds import add_agent_commands
 from kta.cli.exec_cmds import add_exec_commands
 from kta.cli.init_cmd import add_init_command
+from kta.cli.loop_cmds import add_loop_commands
 from kta.cli.measure_cmds import add_measure_commands
 from kta.cli.output import emit_error, emit_json, emit_text
 from kta.cli.store_cmds import add_store_commands
+from kta.cli.task_cmds import add_task_commands
 from kta.core.config import default_config_path, load_config
 from kta.core.context import Context, data_dir_for, parse_env
 from kta.core.doctor import DoctorReport, run_doctor
@@ -79,6 +83,9 @@ def build_parser() -> argparse.ArgumentParser:
     add_init_command(sub, context_from_environ)
     add_exec_commands(sub, context_from_environ)
     add_measure_commands(sub, context_from_environ)
+    add_loop_commands(sub, context_from_environ)
+    add_task_commands(sub, context_from_environ)
+    add_agent_commands(sub, context_from_environ)
     return parser
 
 
