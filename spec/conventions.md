@@ -48,10 +48,15 @@
 ### 3.2 实现的注册与选择
 
 ```python
-# kta/core/registry.py
-register(interface: str, name: str, factory: Callable[[Context], Any], fixture: bool = False)
-resolve(interface: str, ctx: Context) -> Any        # 按 config 中 [impl] 段的名字选择
+# kta/core/registry.py   (revised by D77: the registry is an object carried by ctx.registry)
+Registry.register(interface: str, name: str, factory: Callable[[Context], Any], fixture: bool = False)
+Registry.select(interface: str, config: Config) -> Implementation   # [impl] name, else the only real one
+resolve(interface: str, ctx: Context) -> Any        # = ctx.registry.resolve; fixture in dev/main -> PermissionDenied
+build_registry() -> Registry   # calls register_implementations(registry) of each package under src/kta
 ```
+
+- Each package under `src/kta/` that provides implementations defines `register_implementations(registry: Registry) -> None` in its `__init__.py`. There is no module-level registry (no global mutable state); tests build their own `Registry`.
+- `register` refuses `fixture=True` for factories defined in `kta.*` and `fixture=False` for factories defined elsewhere.
 
 - 每个实现在注册时声明 `fixture`。`src/` 中注册的实现一律 `fixture=False`；`tests/fakes/` 中的替身在测试启动时注册，`fixture=True`。
 - 需要的能力在当前 Target 或环境上做不到时，实现必须抛 `NotSupported`（§3.3），不得返回假结果。

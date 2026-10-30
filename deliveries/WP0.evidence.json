@@ -1,0 +1,84 @@
+[
+  {
+    "claim": "scripts/bootstrap sets up the control plane from the lock files (uv sync --frozen, data dir) and ends with a passing kta doctor",
+    "command": "KTA_DATA=~/kta-data KTA_WP=WP0 scripts/bootstrap",
+    "git_commit": "cff37267acacbfd3f1e3c845194fcab9820f4e38",
+    "dirty": false,
+    "env": "dev",
+    "control_host": "dingyideMacBook-Pro.local",
+    "workers": [],
+    "record_ids": [],
+    "blob_ids": [],
+    "env_manifests": [],
+    "started_at": "2026-10-30T04:17:52+00:00",
+    "requires_gpu": false,
+    "output": "/Users/dingyi/kta-data/dev/WP0/evidence/cff37267acacbfd3f1e3c845194fcab9820f4e38/bootstrap.local.txt"
+  },
+  {
+    "claim": "kta doctor in KTA_ENV=dev on the control host: no interface selects a fixture, environment matches .python-version and uv.lock, EnvManifest fields collected, clean commit",
+    "command": "KTA_ENV=dev KTA_WP=WP0 KTA_DATA=~/kta-data uv run --frozen kta doctor --json",
+    "git_commit": "cff37267acacbfd3f1e3c845194fcab9820f4e38",
+    "dirty": false,
+    "env": "dev",
+    "control_host": "dingyideMacBook-Pro.local",
+    "workers": [],
+    "record_ids": [],
+    "blob_ids": [],
+    "env_manifests": [],
+    "started_at": "2026-10-30T04:17:52+00:00",
+    "requires_gpu": false,
+    "output": "/Users/dingyi/kta-data/dev/WP0/evidence/cff37267acacbfd3f1e3c845194fcab9820f4e38/doctor.local.json"
+  },
+  {
+    "claim": "The committed tree deploys to spark from uv.lock alone (project-local .venv) and kta doctor --role worker produces a worker EnvManifest with CUDA 13.0.3, driver 580.95.05, nvcc/ptxas 13.0.88, no lock mismatches",
+    "command": "scripts/remote-run sync spark && scripts/remote-run exec spark -- sh -c 'cd current && uv sync --frozen && KTA_ENV=dev KTA_WP=WP0 KTA_DATA=$HOME/kta-work/data uv run --frozen kta doctor --role worker --json'",
+    "git_commit": "cff37267acacbfd3f1e3c845194fcab9820f4e38",
+    "dirty": false,
+    "env": "dev",
+    "control_host": "dingyideMacBook-Pro.local",
+    "workers": [
+      "spark"
+    ],
+    "record_ids": [],
+    "blob_ids": [],
+    "env_manifests": [],
+    "started_at": "2026-10-30T04:17:52+00:00",
+    "requires_gpu": false,
+    "output": "/Users/dingyi/kta-data/dev/WP0/evidence/cff37267acacbfd3f1e3c845194fcab9820f4e38/doctor.spark.json",
+    "notes": "Probe only: no GPU job ran. Store records for EnvManifest come with WP1."
+  },
+  {
+    "claim": "scripts/remote-run exec reaches slai non-interactively in its project root under /storage",
+    "command": "scripts/remote-run exec slai -- sh -c 'hostname; uname -m; df -h . | tail -1'",
+    "git_commit": "cff37267acacbfd3f1e3c845194fcab9820f4e38",
+    "dirty": false,
+    "env": "dev",
+    "control_host": "dingyideMacBook-Pro.local",
+    "workers": [
+      "slai"
+    ],
+    "record_ids": [],
+    "blob_ids": [],
+    "env_manifests": [],
+    "started_at": "2026-10-30T04:17:54+00:00",
+    "requires_gpu": false,
+    "output": "/Users/dingyi/kta-data/dev/WP0/evidence/cff37267acacbfd3f1e3c845194fcab9820f4e38/remote-run.slai.txt"
+  },
+  {
+    "claim": "scripts/remote-run bg/status/logs start a background run on spark and read its exit code and log",
+    "command": "scripts/remote-run bg spark wp0-evidence -- sh -c 'nvidia-smi -L'; scripts/remote-run status spark wp0-evidence; scripts/remote-run logs spark wp0-evidence",
+    "git_commit": "cff37267acacbfd3f1e3c845194fcab9820f4e38",
+    "dirty": false,
+    "env": "dev",
+    "control_host": "dingyideMacBook-Pro.local",
+    "workers": [
+      "spark"
+    ],
+    "record_ids": [],
+    "blob_ids": [],
+    "env_manifests": [],
+    "started_at": "2026-10-30T04:17:54+00:00",
+    "requires_gpu": false,
+    "output": "/Users/dingyi/kta-data/dev/WP0/evidence/cff37267acacbfd3f1e3c845194fcab9820f4e38/remote-run.spark-bg.txt"
+  }
+]

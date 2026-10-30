@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "kta/deliveries/evidence.schema.json",
+  "title": "KTA work-package evidence manifest (spec/conventions.md §5)",
+  "description": "deliveries/<WP>.evidence.json: one entry per claimed capability. scripts/gate validates the format and, for store-backed work packages, checks every record_id in $KTA_DATA/dev/<WP>/kta.db (exists, origin real, actor.commit == git_commit, actor.dirty false; requires_gpu claims need a worker labelled gpu).",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": ["claim", "command", "git_commit", "dirty", "env", "control_host", "workers",
+                 "record_ids", "blob_ids", "env_manifests", "started_at"],
+    "properties": {
+      "claim": {"type": "string", "minLength": 1},
+      "command": {"type": "string", "minLength": 1},
+      "git_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+      "dirty": {"const": false},
+      "env": {"const": "dev"},
+      "control_host": {"type": "string"},
+      "workers": {"type": "array", "items": {"type": "string"}},
+      "record_ids": {"type": "array", "items": {"type": "string"}},
+      "blob_ids": {"type": "array", "items": {"type": "string"}},
+      "env_manifests": {"type": "array", "items": {"type": "string"}},
+      "started_at": {"type": "string", "format": "date-time"},
+      "requires_gpu": {"type": "boolean"},
+      "output": {"type": "string", "description": "Where the captured output of the command is kept (path or host:path)."},
+      "notes": {"type": "string"}
+    },
+    "additionalProperties": false
+  }
+}
