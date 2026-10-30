@@ -124,6 +124,12 @@ class CoverageReport:
     hw_pattern_grid: dict[str, dict[str, dict[str, int]]]
     assurance: dict[str, int]
     families_per_template: dict[str, int]
+    # Added by WP10b (D386): latest Reconstruction per Reference only; zero counts kept.
+    gaps_by_missing: dict[str, int]
+    gaps_by_attribution: dict[str, int]
+    templates_missing: list[str]  # chain refs the pool lacks (extraction left open)
+    direct_test: dict[str, int]  # references; all steps matched; and nothing unexplained
+    pending: dict[str, str]  # 21 §2 quantities that need real runs: item -> why
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

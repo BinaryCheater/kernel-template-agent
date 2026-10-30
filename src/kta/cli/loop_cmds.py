@@ -66,6 +66,16 @@ def cmd_reference_add(args: argparse.Namespace, make_ctx: ContextFactory) -> int
     return 0
 
 
+def _analysis_only(svc: Services, row: dict[str, Any], reason: str) -> None:
+    """Your decision that this expand loop skips build, measurement and reproduction (D385)."""
+    data = {**row["data"], "analysis_only": f"set by you: {reason}"}
+    svc.ops.put_loop(row["id"], row["kind"], row["subject"], row["state"], data)
+    body = {"action": f"expand analysis-only {row['id']}", "reason": reason}
+    actor = HUMAN.model_copy(update={"name": "kta expand --analysis-only"})
+    refs: dict[str, RefValue] = {"reference": str(row["subject"])}
+    svc.store.put(Record.new("HumanAction", body, actor, svc.ctx.clock.now(), refs=refs))
+
+
 def _start(args: argparse.Namespace, make_ctx: ContextFactory, kind: str) -> int:
     with command(make_ctx, f"{kind}-start", f"kta {kind} {args.subject}") as ctx:
         svc = Services.open(ctx)
@@ -76,6 +86,8 @@ def _start(args: argparse.Namespace, make_ctx: ContextFactory, kind: str) -> int
         name = args.name or str(rec.body.get("name", args.subject[:12]))
         loop_id = Runner(svc, f"cli:{kind}").start(kind, args.subject, name)
         row = svc.ops.get_loop(loop_id)
+        if getattr(args, "analysis_only", None) and row["state"] == "frozen":
+            _analysis_only(svc, row, args.analysis_only)
         steps = []
         for _ in range(args.steps):
             t = Runner(svc, f"cli:{kind}").advance(loop_id)
@@ -231,6 +243,12 @@ def add_loop_commands(
         p.add_argument("subject", help="Case ID" if kind == "solve" else "Reference ID")
         p.add_argument("--name")
         p.add_argument("--steps", type=int, default=0, help="advance this many steps now")
+        if kind == "expand":
+            p.add_argument(
+                "--analysis-only",
+                metavar="REASON",
+                help="decompose without building, measuring or reproducing (D385)",
+            )
     loop = sub.add_parser("loop", help="loop instances")
     lc = loop.add_subparsers(dest="loop_command", required=True)
     parser(lc, "list", cmd_loop_list, "loop instances").add_argument("--kind")

@@ -105,31 +105,36 @@ machines:
       implementation into a composition chain, extracting what the pool is missing.
     states:
       - {id: frozen, kind: step, work: executor, initial: true,
-         does: Freeze the source to a commit or hash; build it in a container}
+         does: Freeze the source to a commit or hash; build it in a container (skipped when analysis-only)}
       - {id: measured, kind: step, work: executor,
-         does: Check and measure under our protocol to get the reference point}
+         does: Check and measure under our protocol to get the reference point (skipped when analysis-only)}
       - {id: analyzing, kind: wait, work: agent,
          does: T2 decomposes the reference into a chain and matches each step to Templates}
       - {id: gap, kind: wait, work: agent,
-         does: Unmatched steps are written as Gaps; T3 (and T1 if needed) fill them}
+         does: Unmatched transactions are written as Gaps; one T3 per Template the chain names that the pool lacks (T1 after a missed reproduction)}
       - {id: reconstructed, kind: step, work: executor,
-         does: All steps matched; generate the kernel from a family and reproduce performance}
+         does: Every Template the chain names is in the pool; generate the kernel from a family and reproduce performance}
       - {id: reproduced, kind: step, work: executor,
          does: Reproduction error within epsilon and checks pass}
       - {id: ablated, kind: step, work: executor,
          does: Switch off each removable chain step and measure (calibration data)}
       - {id: covered, kind: terminal, work: orchestrator,
-         does: Coverage status updated}
+         does: Pool snapshot taken and its coverage Report written}
     transitions:
       - {from: frozen, to: measured, kind: normal}
       - {from: measured, to: analyzing, kind: creates_task, creates: [T2]}
-      - {from: analyzing, to: reconstructed, kind: normal, label: all matched, when: every step matched}
-      - {from: analyzing, to: gap, kind: creates_task, creates: [T3, T1], label: unmatched,
-         when: some steps unmatched}
+      - {from: analyzing, to: reconstructed, kind: normal, label: all in pool,
+         when: every Template the chain names is in the pool}
+      - {from: analyzing, to: gap, kind: creates_task, creates: [T3], label: to extract,
+         when: the chain names Templates the pool lacks; one T3 each}
       - {from: gap, to: analyzing, kind: creates_task, creates: [T2], label: re-match,
-         when: every extraction task accepted; a new T2 re-matches the chain}
+         when: every extraction task settled and one was accepted; a new T2 re-matches the chain}
+      - {from: gap, to: reconstructed, kind: normal, label: left open,
+         when: every extraction task was cancelled; the Gaps stay open}
       - {from: gap, to: reconstructed, kind: resume, label: resume,
          when: the T1 created after a missed reproduction was accepted}
+      - {from: reconstructed, to: covered, kind: normal, label: analysis only,
+         when: the reference is analysis-only; no reproduction or ablation}
       - {from: reconstructed, to: reproduced, kind: normal, label: within ε, when: error within epsilon}
       - {from: reconstructed, to: gap, kind: creates_task, creates: [T1], label: missed ε,
          when: reproduction error above epsilon; T1 extends the family}
@@ -140,6 +145,13 @@ machines:
         T1; its acceptance resumes at reconstructed. After extraction tasks, a fresh T2 re-matches.
       - D264 - reference build, measurement, reproduction and ablation raise NotSupported until the
         learn process exists (WP11); the instance is then blocked in that state.
+      - D382 (needs user review) - extraction tasks follow the chain, one T3 per Template it names
+        that the pool lacks. Gaps no chain item names a Template for create no task and stay open.
+      - D384 (needs user review) - a cancelled T3 leaves its Template unextracted; when every T3
+        of a round was cancelled the loop goes on to reconstructed. Re-matching is bounded by
+        max_rounds.
+      - D385 (needs user review) - an analysis-only reference (empty runnable_on, or
+        `kta expand --analysis-only`) skips building, measuring, reproduction and ablation.
 
   - id: task
     title: Task lifecycle

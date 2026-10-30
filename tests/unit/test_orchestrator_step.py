@@ -45,16 +45,14 @@ def expand_branches() -> list[tuple[str, dict[str, Any], dict[str, Any]]]:
     done = {"tasks": {"T": "accepted"}}
     wait = {"waiting_tasks": ["T"]}
     return [
-        ("frozen", {"source": ID}, {}),
+        ("frozen", {"source": ID, "problem": ID, "analysis_only": None}, {}),
         ("measured", {"reference_point": ID}, {}),
-        ("analyzing", {**done, "reconstruction": ID, "gaps": []}, wait),
-        (
-            "analyzing",
-            {**done, "reconstruction": ID, "gaps": [{"id": ID, "missing": "template"}]},
-            wait,
-        ),
+        ("analyzing", {**done, "reconstruction": ID, "to_extract": []}, wait),
+        ("analyzing", {**done, "reconstruction": ID, "to_extract": ["x@1"]}, wait),
         ("gap", done, {**wait, "resume_at": "analyzing"}),
+        ("gap", {"tasks": {"T": "cancelled"}}, {**wait, "resume_at": "analyzing"}),
         ("gap", done, {**wait, "resume_at": "reconstructed"}),
+        ("reconstructed", {"analysis_only": True, "coverage": ID}, {}),
         ("reconstructed", {"error_rel": 0.01, "family": ID}, {}),
         ("reconstructed", {"error_rel": 0.5, "family": ID}, {}),
         ("reproduced", {"report": ID}, {}),
@@ -209,15 +207,56 @@ def test_round_limit_escalates_instead_of_resuming(ctx: Context) -> None:
     assert step(lp, ctx_with(ctx, max_rounds=6)).to == "retrieving"
 
 
-def test_expand_gap_tasks_follow_the_gap_kind(ctx: Context) -> None:
-    gaps = [{"id": ID, "missing": "template"}, {"id": ID, "missing": "family"}]
+def test_expand_creates_one_t3_per_template_to_extract(ctx: Context) -> None:
+    facts = {
+        "tasks": {"T": "accepted"},
+        "reconstruction": ID,
+        "submission": "S",
+        "gaps": [{"id": ID, "missing": "template"}, {"id": ID, "missing": "family"}],
+        "to_extract": ["a@1", "b@1"],
+    }
+    lp = loop("expand", "analyzing", facts, waiting_tasks=["T"], source="SRC")
+    t = step(lp, ctx)
+    assert [r.type for r in t.tasks] == ["T3", "T3"]
+    assert "a@1" in t.tasks[0].goal and t.tasks[0].inputs == [ID, lp.subject, "SRC", "S"]
+
+
+@pytest.mark.parametrize("state", ["analyzing", "gap"])
+def test_expand_stuck_tasks_escalate(ctx: Context, state: str) -> None:
+    lp = loop("expand", state, {"tasks": {"T": "suspended"}}, waiting_tasks=["T"])
+    assert step(lp, ctx).data["escalated"] is True
+    lp = loop("expand", "analyzing", {"tasks": {"T": "cancelled"}}, waiting_tasks=["T"])
+    assert step(lp, ctx).data["escalated"] is True
+
+
+def test_expand_gap_waits_until_every_task_settles(ctx: Context) -> None:
+    tasks = {"A": "accepted", "B": "running"}
+    lp = loop("expand", "gap", {"tasks": tasks}, waiting_tasks=["A", "B"], resume_at="analyzing")
+    assert step(lp, ctx).to is None
+    tasks["B"] = "cancelled"
+    t = step(lp, ctx)
+    assert t.to == "analyzing" and t.data["round"] == 2 and t.tasks[0].type == "T2"
+
+
+def test_expand_rematch_is_bounded_by_the_round_limit(ctx: Context) -> None:
+    facts = {"tasks": {"A": "accepted"}}
+    lp = loop("expand", "gap", facts, waiting_tasks=["A"], resume_at="analyzing", round=5)
+    t = step(lp, ctx)
+    assert t.to is None and t.data["escalated"] is True
+
+
+def test_expand_rematch_t2_gets_the_previous_reconstruction(ctx: Context) -> None:
     lp = loop(
         "expand",
-        "analyzing",
-        {"tasks": {"T": "accepted"}, "reconstruction": ID, "gaps": gaps},
-        waiting_tasks=["T"],
+        "gap",
+        {"tasks": {"A": "accepted"}},
+        waiting_tasks=["A"],
+        resume_at="analyzing",
+        source="SRC",
+        problem="PRB",
+        reconstruction="REC",
     )
-    assert [r.type for r in step(lp, ctx).tasks] == ["T3", "T1"]
+    assert step(lp, ctx).tasks[0].inputs == [lp.subject, "SRC", "PRB", "REC"]
 
 
 def test_expand_missed_epsilon_writes_a_gap(ctx: Context) -> None:

@@ -40,6 +40,7 @@
 | WP8 | 存在至少一条 AgentRun（origin="real"），以及一次会话恢复的记录 |
 | WP9a、WP9b | 前端构建通过；API 测试通过；交付说明中附截图 |
 | WP10a | `knowledge/seed/references/` 下每个参考实现都有 Reference、Chain、Reconstruction；YAML 能被模型解析；未匹配事务与 Gap 一一对应 |
+| WP10b | Named WP10b tests pass (expand machine, WP10a replay frozen → covered via Python and CLI, cancelled extraction, inflated `matched`); expand transitions create only T1–T3 and reach `covered`; T2/T3 done-checks exist. Full stage: ≥ 10 reference directories and a listed clean coverage Report in `dev/WP10b` with a covered reference (D388) |
 | WP13 | 交付说明中的每个数字都有来源文件路径 |
 
 ## 验收测试的锁定

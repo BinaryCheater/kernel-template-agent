@@ -12,11 +12,18 @@ from typing import Any
 import yaml
 
 from kta.core.schemas import Actor, Record
-from kta.core.schemas.knowledge import Chain, Family, Gap, Reconstruction, Template
+from kta.core.schemas.knowledge import Family
 from kta.knowledge import load_family, propose_template
+from kta.knowledge.pool import find_template
 from kta.models.calibrate import save_model
 from kta.models.unit_model import UnitModel
-from kta.orchestrator.done_checks import CheckInput, read_yaml
+from kta.orchestrator.done_checks import (
+    CheckInput,
+    new_patterns,
+    t2_documents,
+    t3_documents,
+    t3_pool,
+)
 
 RESULT_TITLE = "task_result"
 
@@ -43,32 +50,31 @@ def _family(inp: CheckInput, actor: Actor) -> dict[str, Any]:
 
 
 def _reconstruction(inp: CheckInput, actor: Actor) -> dict[str, Any]:
-    doc = read_yaml(inp.workdir / "reconstruction.yaml")
+    docs = t2_documents(inp.workdir)
     reference = inp.card.inputs[0]
-    chain_id = _put(inp, actor, "Chain", Chain.model_validate(doc["chain"]))
-    gap_ids = [
-        _put(inp, actor, "Gap", Gap.model_validate(g), refs={"reference": reference})
-        for g in doc.get("gaps", [])
-    ]
+    pattern_ids = [_put(inp, actor, "Pattern", p) for p in new_patterns(inp.store, docs.patterns)]
+    known = [find_template(inp.store, i.template) for i in docs.chain.items]
+    chain_refs: dict[str, Any] = {}
+    if any(known):
+        chain_refs["templates"] = sorted({k[0] for k in known if k is not None})
+    chain_id = _put(inp, actor, "Chain", docs.chain, refs=chain_refs)
+    gap_ids = [_put(inp, actor, "Gap", g, refs={"reference": reference}) for g in docs.gaps]
     refs: dict[str, Any] = {"reference": reference, "chain": chain_id}
     if gap_ids:
         refs["gaps"] = gap_ids
-    recon = _put(
-        inp,
-        actor,
-        "Reconstruction",
-        Reconstruction.model_validate(doc["reconstruction"]),
-        refs=refs,
-    )
+    recon = _put(inp, actor, "Reconstruction", docs.reconstruction, refs=refs)
     gaps = [{"id": g, "missing": inp.store.get(g).body["missing"]} for g in gap_ids]
-    return {"reconstruction": recon, "chain": chain_id, "gaps": gaps}
+    out: dict[str, Any] = {"reconstruction": recon, "chain": chain_id, "gaps": gaps}
+    return out | {"patterns": pattern_ids} if pattern_ids else out
 
 
 def _template(inp: CheckInput, actor: Actor) -> dict[str, Any]:
-    doc = read_yaml(inp.workdir / "template.yaml")
-    t = Template.model_validate(doc["template"])
-    tid = propose_template(inp.ctx, inp.store, t, [str(s) for s in doc["sources"]], actor)
-    return {"template": tid}
+    t, patterns, doc = t3_documents(inp)
+    view = t3_pool(inp, t, patterns)  # before the Patterns are written
+    pattern_ids = [_put(inp, actor, "Pattern", p) for p in new_patterns(inp.store, patterns)]
+    sources = [str(s) for s in doc["sources"]]
+    tid = propose_template(inp.ctx, inp.store, t, sources, actor, validate_in=view)
+    return {"template": tid, "patterns": pattern_ids} if pattern_ids else {"template": tid}
 
 
 def _model(inp: CheckInput, actor: Actor) -> dict[str, Any]:
@@ -87,6 +93,7 @@ def write_outputs(inp: CheckInput, actor: Actor) -> str:
     outputs = writer(inp, who) if writer else {}
     ids = [v for v in outputs.values() if isinstance(v, str)]
     ids += [g["id"] for g in outputs.get("gaps", [])]
+    ids += list(outputs.get("patterns", []))
     refs: dict[str, Any] = {"card": inp.card_id, "submission": inp.submission_id}
     if ids:
         refs["outputs"] = ids

@@ -43,6 +43,8 @@ loop-data updates, task requests and record drafts. The files are those listed a
 
 扩展循环在 `analyzing` 创建 T2；T2 交付的 Reconstruction 中每个未匹配事务生成一条 Gap；每条 Gap 创建一个 T3。
 
+(WP10b, D382, D384, D385 — needs user review) Implemented: each unmatched transaction of the accepted T2 is written as a Gap; one T3 is created per Template the chain names that the pool lacks (Gaps create no task). A cancelled T3 leaves its Template open; analysis-only references skip build, measurement, reproduction and ablation.
+
 ### 完成检查
 
 每种任务类型的完成检查是固定的函数列表，`TaskCard.done_checks` 存函数名：
@@ -50,8 +52,8 @@ loop-data updates, task requests and record drafts. The files are those listed a
 | 类型 | 完成检查 |
 | --- | --- |
 | T1 | `validate_family` 无错误；`verify_space` 通过；交付说明完整 |
-| T2 | Reconstruction 字段完整；`matched` 的链项都引用已有 Template；`unmatched_transactions` 与 Gap 一一对应；交付说明完整 |
-| T3 | `validate_template` 无错误（`possible_duplicate` 须在交付说明中解释）；交付说明完整 |
+| T2 | Reconstruction 字段完整；`matched` 的链项都引用已有 Template；`unmatched_transactions` 与 Gap 一一对应；交付说明完整 （计数规则与提交格式见 D380、D381） |
+| T3 | `validate_template` 无错误（`possible_duplicate` 须在交付说明中解释）；交付说明完整 ；扩展循环的 T3 须交付链中点名、池中尚无的 Template（`template_fills_chain`，D382、D383） |
 | T4 | 新模型版本在留出点上的误差低于旧版本 |
 | T5 | microbenchmark 重复 5 次，变异系数低于噪声底的 2 倍 |
 | T6 | 原失败用例通过；`verify_space` 通过 |
