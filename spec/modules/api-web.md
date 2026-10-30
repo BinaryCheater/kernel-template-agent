@@ -54,6 +54,34 @@ POST /actions/confirm      {pattern | structure}       新增的模式或结构�
 
 写入：`POST /write/record`（只接受带有效任务令牌或本机工具身份的请求）。
 
+Additions made in WP9a (D170): `GET /meta` (env, record counts by origin), `GET /machines`
+(the orchestrator state machines, D96), `GET /cases`, `GET /families?snapshot=`, `GET /snapshots`.
+`GET /lineage/{id}` also returns `result`, the assembled evidence chain, when `id` is a Solution.
+`GET /coverage?snapshot=` serves the stored coverage Report of that snapshot (501 when none exists).
+Served by `python -m kta.api` (`scripts/api`) on `[api] host/port` in config/kta.toml; the host must be
+a loopback address.
+
+### Record conventions read by the API (D169, default — needs user review)
+
+The read views are derived only from records, ops tables and spans. Producers (WP2, WP6, WP7, WP8,
+WP10b) must write them this way for the pages to show their work:
+
+| What | Convention |
+| --- | --- |
+| Loop instance | `loops` row: `kind` = `solve`/`expand`, `subject` = Case/Reference ID; `data` keys `name`, `round`, `started_at`, `state_since`, `waiting_on` (task ID), `escalated` (bool) |
+| Loop state history | one `loop_step` span per state: `trace_id` = loop ID, lane `process:solve`/`process:learn`, attrs `state`, `round`, `note` |
+| Task | `tasks` row; `work_unit` = loop ID; `lease_owner` = agent slot (`agent:<n>`); the agent session is an `agent_session` span with attrs `task_id` (an open one means the task is running) |
+| Rejection | Check record with `actor.task` = task ID and `passed = false` |
+| Job | an open `job_queue` span (queued) or `compile`/`check`/`measure`/`profile`/`job_run` span (running) on lane `worker:<host>:<pool>` or `gpu:<worker>:<device>`; attrs `job_id`, `job_kind`, `pool`, `worker`, `task_id` |
+| GPU lease | lock `gpu:<worker>:<device>` held by the job ID; a `lock_hold` span with attrs `lock` |
+| Worker capacity | Worker record label `pools` = `"<pool>:<capacity>,..."`; health from the `workers` table |
+| Budgets | scopes `global` and `process:<name>`; resource keys `<resource>_<unit>`, e.g. `agent_min`, `gpu_min` |
+| Case results | Bound, Candidate, Gap and baseline Measurement have `refs.case`; Candidate `refs.family`; Prediction and Build `refs.candidate`; Check and Measurement `refs.build`; a baseline Measurement has `refs.baseline` (a Source naming the baseline) |
+| Solution | `refs.case`, `refs.family`, `refs.measurement`, `refs.check` (numeric check), `refs.bound`; the SASS check is a Check on the build whose actor name starts with `check_sass` |
+| Judgement | Report `title = "judgement"`, `subject` = Case ID, `refs.case`, `refs.solution` when accepted; `data`: `kind = "judgement"`, `round`, `rule`, `units` (`unit`, `bound_us`, `predicted_us`, `measured_us`), `explained_share` |
+| Coverage | Report `title = "coverage"`, `subject` = PoolSnapshot ID, `data` = the coverage page's fields (`scope`, `discovery`, `trend`, `instruction_families`, `hw_patterns`, `references`, `gap_explained`, `backlog`, `structure`) |
+| Snapshot membership | a Family is in a snapshot when its ID is in the PoolSnapshot `members` |
+
 ### 行为
 
 - 只监听 spark 的本机端口；通过 SSH 隧道访问。不做登录。

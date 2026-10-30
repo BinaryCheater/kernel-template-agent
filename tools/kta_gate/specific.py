@@ -577,7 +577,57 @@ def wp13(root: Path, passed: set[str]) -> list[CheckResult]:
     return [from_findings("number sources", findings, f"{len(sources)} sources")]
 
 
+WP9A_TESTS = (
+    "test_active_maps_ops_states_onto_the_task_lifecycle",
+    "test_case_list_and_timeline",
+    "test_lineage_builds_the_full_evidence_chain",
+    "test_families_follow_snapshot_membership",
+    "test_coverage_reads_the_stored_report_or_reports_missing",
+    "test_trace_window_includes_spans_started_before_it",
+    "test_app_serves_every_spec_read_endpoint",
+    "test_machine_is_well_formed[solve]",
+    "test_judging_rules_are_ordered_one_to_four",
+)
+WEB_FIXTURE = re.compile(r"kta:fixture|SAMPLE DATA")
+
+
+def wp9a(root: Path, passed: set[str]) -> list[CheckResult]:
+    """API tests pass, the web build (type check + bundle) passes, no sample data in web/."""
+    names = {t.split("::")[-1] for t in passed}
+    absent = [f"{t} did not pass" for t in WP9A_TESTS if t not in names]
+    web = root / "web"
+    if not (web / "node_modules").is_dir():
+        build = CheckResult("web build", "FAIL", "web/node_modules missing: run `npm ci` in web/")
+    else:
+        proc = subprocess.run(
+            ["npm", "run", "--silent", "build"],
+            cwd=web,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        tail = (proc.stdout + proc.stderr).strip().splitlines()[-10:]
+        build = (
+            CheckResult("web build", "PASS", "tsc + vite build")
+            if proc.returncode == 0
+            else CheckResult("web build", "FAIL", "\n".join(tail))
+        )
+    sample = [
+        f"{p.relative_to(root)} contains sample-data markers"
+        for p in sorted((web / "src").rglob("*"))
+        if p.is_file() and WEB_FIXTURE.search(p.read_text(encoding="utf-8", errors="replace"))
+    ]
+    if (web / "src" / "sample").exists():
+        sample.append("web/src/sample still exists (D95: deleted in phase B)")
+    return [
+        from_findings("WP9a API tests", absent, f"{len(WP9A_TESTS)} tests passed"),
+        build,
+        from_findings("no sample data in web/", sample, "web/src reads the API only"),
+    ]
+
+
 SPECIFIC: dict[str, Callable[[Path, set[str]], list[CheckResult]]] = {
+    "WP9a": wp9a,
     "WP0": wp0,
     "WP1": wp1,
     "WP4": wp4,
