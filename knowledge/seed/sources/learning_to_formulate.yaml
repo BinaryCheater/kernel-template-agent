@@ -1,0 +1,13 @@
+name: learning_to_formulate_paper
+type: paper
+locator: https://github.com/memxlife/AI-Infra-Co-Design/tree/8e749852f8eb4a57792393600d0a93340aefd3c7/papers/learning_to_formulate
+revision: 8e749852f8eb4a57792393600d0a93340aefd3c7
+license: null
+note: >-
+  "Learning to Formulate" paper. The seed uses: Table "Template fields and their consumers" and
+  Listing "The shared-memory tiling template as a contract" (section "The template as a contract"),
+  Table "Exploitable structures in the co-design space" (section "Where templates come from"),
+  Table "Design objects, decisions and obligations across refinement levels" and Table "A five-step
+  GEMM refinement" (section "A worked progression: one GEMM, five steps finer"). Read from the local
+  read-only copy /Users/dingyi/Projects/agentic-codesign/paper/paper.tex (sha256
+  be95016f7c9badc8a904284d0704c1691b521496c4deec14534475eda7c6f654), imported from the commit above.

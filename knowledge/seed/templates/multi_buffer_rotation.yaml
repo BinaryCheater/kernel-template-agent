@@ -1,0 +1,59 @@
+name: multi_buffer_rotation
+version: 1
+level_from: 2
+level_to: 3
+change: vertical
+refines: store
+produces: [store, sync]
+object:
+  type: buffer_slot
+  description: >-
+    One of S slots through which the generations of a buffered value (for example the k-tiles of A
+    and B) rotate; generation u lives in slot u mod S and is loaded P generations ahead of its use.
+variables:
+  - {name: S, kind: numeric, binding: compile, role: software, domain: {lo: 1, hi: 8}, meaning: "number of slots"}
+  - {name: P, kind: numeric, binding: compile, role: software, domain: {lo: 0, hi: 7}, meaning: "prefetch distance in generations"}
+  - {name: beta, kind: numeric, binding: compile, role: software, domain: [0, 1], meaning: "1 when a trailing barrier follows each consumption before the slot is refilled"}
+constraints:
+  - {id: c_lifetime, expr: "P <= S - 2 + beta", meaning: "a slot is refilled only after every consumer finished the generation it held (paper Listing, C3)", cls: semantic}
+  - {id: c_capacity, expr: "S * p.size_bytes <= p.capacity_bytes", meaning: "S generations fit the capacity budget of the level (shared memory per block for smem tiles)", cls: resource}
+preconditions:
+  - {id: pre_lifetime, expr: "P <= S - 2 + beta", meaning: "generation correctness; the weakest precondition, exact on the paper's 24 cases", cls: semantic, same_as: c_lifetime}
+program:
+  description: >-
+    for u in 0..P-1: load generation u -> slot u mod S;
+    for p in 0..n-1: if p+P < n: load generation p+P -> slot (p+P) mod S; barrier (leading);
+    consume slot p mod S; if beta: barrier (trailing).
+  fragments: {}
+backward_map: >-
+  Forget the slots and the schedule: each consumption of slot p mod S reads generation p, so the
+  computation equals the single-buffer one.
+obligations:
+  - {name: generation_correctness, statement: "Every consumer reads the generation it expects: slot (u mod S) holds generation u from the completion of its load until the last read of u.", method: exhaustive}
+  - {name: progress, statement: "The number of unconsumed generations decreases at every phase (rank rho); no wait is circular.", method: proof}
+cost:
+  - {unit: issue, work: "beta * p.iterations", overlap: serial}
+  - {unit: dram, work: "p.size_bytes * p.iterations if P == 0 else 0", overlap: serial}
+scope:
+  predicate: "p.iterations >= 1"
+  text: >-
+    A value consumed in generations by a loop, with a leading barrier before each consumption and
+    loads that may be issued ahead (needs async_transfer for P >= 1 to overlap). Barrier semantics
+    are those of a CTA-wide barrier; register double buffering within one thread is a different
+    ordering model.
+requires_hw: []
+relations:
+  - {type: requires, target: physical_storage, note: "rotates the generations of a buffer"}
+signature:
+  algorithm: "rotate generations through S slots, loading P ahead"
+  reuse: "slot u mod S is reused every S generations"
+  storage: "S slots at the level chosen by physical_storage"
+  boundary: "the first P generations are loaded in a prologue; the last P iterations issue no load"
+  resources: [smem, issue]
+numeric_risk: null
+expected_sass: []
+summary: >-
+  Paper GEMM step 4 (double buffering): one buffer per value becomes generations rotating through S
+  slots, loaded P tiles ahead, with an optional trailing barrier. The lifetime condition becomes
+  P <= S - 2 + beta.
+example_code: null

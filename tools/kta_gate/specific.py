@@ -214,6 +214,97 @@ def _model_validator() -> Callable[[str, dict[str, Any]], None] | None:
     return cast(Callable[[str, dict[str, Any]], None], validate)
 
 
+WP4_ACCEPTANCE = (
+    "test_seed_templates_pass_validate_template",
+    "test_seed_pattern_table_has_the_eight_categories",
+    "test_validate_template_error_classes",
+    "test_expression_free_variables_are_checked",
+    "test_duplicate_is_reported_as_a_hint",
+    "test_validate_chain_good_and_error_classes",
+    "test_validate_family_good_and_error_classes",
+)
+WP4_SEED_TEMPLATES = (
+    "reduction_partition",
+    "physical_storage",
+    "async_transfer",
+    "multi_buffer_rotation",
+    "shared_resource_binding",
+)
+WP4_PATTERNS = ("reduce", "contract", "map", "store", "transfer", "sync", "access", "other")
+WP4_STRUCTURES = 9
+
+
+def _seed_check(seed: Path, data: Path) -> tuple[CheckResult, CheckResult | None]:
+    """Import the seed into a scratch test store; every Template must validate.
+
+    Reference decompositions under seed/references belong to WP10a: they are imported in
+    the same scratch store and reported, as WARN when they fail (decision D215).
+    """
+    # Imported here so the gate of a branch without kta.knowledge still loads.
+    from kta.core.config import config_from_mapping
+    from kta.core.context import Context
+    from kta.core.registry import Registry
+    from kta.knowledge import SeedError, errors_of, import_references, import_seed
+    from kta.knowledge.pool import find_template, names
+    from kta.knowledge.templates import validate_template
+    from kta.store import CodeState, open_store
+
+    ctx = Context(env="test", config=config_from_mapping({}), data_dir=data, registry=Registry())
+    code = CodeState("0" * 40, False)
+    store = open_store(ctx, code)
+    try:
+        result = import_seed(ctx, store, seed, code)
+    except SeedError as exc:
+        return CheckResult(
+            "seed validates", "FAIL", "seed import refused", [str(i) for i in exc.issues]
+        ), None
+    findings: list[str] = []
+    for name in WP4_SEED_TEMPLATES:
+        hit = find_template(store, f"{name}@1")
+        if hit is None:
+            findings.append(f"Template {name}@1 missing")
+            continue
+        findings += [f"{name}: {i}" for i in errors_of(validate_template(hit[1], store, None))]
+    findings += [f"Pattern {p} missing" for p in WP4_PATTERNS if p not in names(store, "Pattern")]
+    if len(names(store, "Structure")) < WP4_STRUCTURES:
+        findings.append(f"fewer than {WP4_STRUCTURES} Structures")
+    detail = ", ".join(f"{n} {k}" for k, n in sorted(result.counts.items()))
+    seed_result = from_findings("seed validates", findings, detail)
+    refs = seed / "references"
+    if not refs.is_dir():
+        return seed_result, None
+    try:
+        rr = import_references(ctx, store, refs, code)
+    except SeedError as exc:
+        kinds: dict[str, int] = {}
+        for i in exc.issues:
+            kinds[i.kind] = kinds.get(i.kind, 0) + 1
+        summary = ", ".join(f"{k} {n}" for k, n in sorted(kinds.items()))
+        return seed_result, CheckResult(
+            "reference decompositions",
+            "WARN",
+            f"not importable: {summary}",
+            [str(i) for i in exc.issues[:40]],
+        )
+    detail = ", ".join(f"{n} {k}" for k, n in sorted(rr.counts.items()))
+    return seed_result, CheckResult("reference decompositions", "PASS", detail)
+
+
+def wp4(root: Path, passed: set[str]) -> list[CheckResult]:
+    """The seed imports and validates; the WP4 acceptance tests passed by name."""
+    import tempfile
+
+    names_ = {t.split("::")[-1].split("[")[0] for t in passed if "acceptance.WP4" in t}
+    absent = [f"{t} did not pass" for t in WP4_ACCEPTANCE if t not in names_]
+    results = [from_findings("WP4 acceptance tests", absent, f"{len(names_)} tests passed")]
+    with tempfile.TemporaryDirectory(prefix="kta-gate-wp4-") as tmp:
+        seed_result, ref_result = _seed_check(root / "knowledge" / "seed", Path(tmp))
+    results.append(seed_result)
+    if ref_result is not None:
+        results.append(ref_result)
+    return results
+
+
 def wp10a(root: Path, passed: set[str]) -> list[CheckResult]:
     base = root / "knowledge" / "seed" / "references"
     refs = sorted(p for p in base.iterdir() if p.is_dir()) if base.exists() else []
@@ -287,6 +378,7 @@ def wp13(root: Path, passed: set[str]) -> list[CheckResult]:
 SPECIFIC: dict[str, Callable[[Path, set[str]], list[CheckResult]]] = {
     "WP0": wp0,
     "WP1": wp1,
+    "WP4": wp4,
     "WP10a": wp10a,
     "WP13": wp13,
 }

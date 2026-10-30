@@ -1,0 +1,8 @@
+name: symmetry
+effect: enumeration
+description: >-
+  Identical units, interchangeable banks and mirrored layouts make many assignments equivalent.
+  Symmetry-breaking constraints remove the equivalent copies at no cost.
+evidence_needed: >-
+  An algebraic proof that the permuted assignments have the same cost and correctness, proved once
+  per Template and reused.

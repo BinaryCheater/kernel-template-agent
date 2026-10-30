@@ -1,0 +1,59 @@
+name: async_transfer
+version: 1
+level_from: 2
+level_to: 3
+change: expansion
+refines: transfer
+produces: [transfer, sync]
+object:
+  type: async_transfer
+  description: >-
+    One transfer split into an issue event and a later completion event, carried out by software,
+    by an asynchronous instruction or by a copy controller.
+variables:
+  - {name: mechanism, kind: structure, binding: compile, role: boundary, domain: [software, instruction, controller], meaning: "who performs the copy: plain loads and stores, an asynchronous copy instruction (cp.async), or a controller (TMA); the paper's one-hot b_jmu"}
+  - {name: issue_point, kind: structure, binding: compile, role: software, domain: [prologue, ahead_by_prefetch, interleaved_with_compute, after_slot_released, compiler_pipelined], meaning: "where in the schedule the copy is issued"}
+  - {name: complete_point, kind: structure, binding: compile, role: software, domain: [before_read, wait_group_then_barrier, barrier_wait, compiler_pipelined], meaning: "where the completion is awaited before the data is read"}
+  - {name: granularity_bytes, kind: numeric, binding: compile, role: software, domain: {lo: 1, hi: 262144}, meaning: "bytes per copy operation (16 for cp.async.cg, a whole tile for TMA)"}
+constraints:
+  - {id: c_aligned, expr: "p.align_bytes % granularity_bytes == 0 or granularity_bytes >= p.size_bytes", meaning: "each copy operation is aligned to its width, unless one operation moves the whole transfer", cls: implementation}
+  - {id: c_divides, expr: "p.size_bytes % granularity_bytes == 0", meaning: "the transfer splits into whole copy operations", cls: implementation}
+preconditions:
+  - {id: pre_aligned, expr: "p.align_bytes % granularity_bytes == 0 or granularity_bytes >= p.size_bytes", meaning: "the copy instruction's alignment requirement holds", cls: implementation, same_as: c_aligned}
+program:
+  description: >-
+    issue(copy src -> dst in granularity_bytes pieces) at issue_point; ... independent work ...;
+    wait for completion at complete_point; read dst. software: ld/st through registers;
+    instruction: cp.async + commit/wait_group; controller: TMA copy + mbarrier wait.
+  fragments: {}
+backward_map: >-
+  Collapse issue and completion into one atomic write at the completion event; reads after the wait
+  see exactly what the atomic write would have written.
+obligations:
+  - {name: readiness, statement: "Every read of the destination happens after the completion of the transfer that fills it, on every interleaving.", method: test}
+  - {name: no_overwrite_in_flight, statement: "No transfer in flight writes a destination that is still being read (with multi_buffer_rotation this becomes P <= S - 2 + beta).", method: test}
+  - {name: mechanism_available, statement: "The chosen mechanism exists on the Target (cp.async for instruction, TMA for controller).", method: unspecified}
+cost:
+  - {unit: issue, work: "p.size_bytes / granularity_bytes", overlap: overlappable}
+scope:
+  predicate: "p.align_bytes >= 4 and p.size_bytes >= 4"
+  text: >-
+    Transfers into on-chip storage whose destination is not read until a later point in the
+    schedule; asynchronous copies need at least 4-byte alignment. The instruction and controller
+    mechanisms need cp.async (sm_80+) and TMA (sm_90+) respectively.
+requires_hw: []
+relations:
+  - {type: enables, target: multi_buffer_rotation, note: "issuing ahead needs a slot to land in"}
+signature:
+  algorithm: "split a copy into issue and completion and overlap the gap with other work"
+  reuse: null
+  storage: "destination buffer from physical_storage"
+  boundary: "residue tiles need predicated or zero-filled copies"
+  resources: [issue, dram, smem]
+numeric_risk: null
+expected_sass: []
+summary: >-
+  Paper GEMM step 3: an atomic write becomes an issue event and a later completion. Decisions are
+  the issue and completion points and the mechanism (software, instruction or controller); the
+  obligation is readiness.
+example_code: null

@@ -1,0 +1,15 @@
+name: access
+level: 5
+category: access
+params:
+  - {name: resource, type: enum, values: [bank, port, queue], meaning: "physical resource the requests contend for"}
+  - {name: width_bytes, type: int, meaning: "bytes per requester per access"}
+  - {name: requesters, type: int, meaning: "number of simultaneous requesters (e.g. 32 lanes)"}
+  - {name: accesses, type: int, meaning: "number of such accesses over the kernel"}
+  - {name: wavefronts, type: int, meaning: "serialized bank passes per access"}
+description: >-
+  Requests served by banks, ports and queues under arbitration. Refinements bind requests to banks
+  (layouts, swizzles), and on configurable chips choose queue depths and port counts.
+examples:
+  - "a warp's ldmatrix reading 32 shared-memory banks"
+  - "cp.async writes of 16 B per lane into a swizzled shared-memory tile"

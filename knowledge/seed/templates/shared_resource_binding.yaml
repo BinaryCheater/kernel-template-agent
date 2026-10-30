@@ -1,0 +1,55 @@
+name: shared_resource_binding
+version: 1
+level_from: 4
+level_to: 5
+change: vertical
+refines: access
+produces: [access]
+object:
+  type: request_binding
+  description: >-
+    The binding of the requests of an access to banks, ports and bounded queues, for example the
+    address-to-bank map of a shared-memory tile layout.
+variables:
+  - {name: binding, kind: structure, binding: compile, role: software, domain: [identity, xor_swizzle, padding], meaning: "request -> bank map; reconstruction chains may name the concrete swizzle"}
+  - {name: queue_depth, kind: numeric, binding: compile, role: hardware, domain: {lo: 1, hi: 64}, meaning: "depth of the request queue in front of the banks; a chip variable, fixed on GB10"}
+constraints:
+  - {id: c_queue_fixed, expr: "queue_depth == hw.smem_queue_depth", meaning: "on a fixed chip (GB10) the queue depth is the hardware's value", cls: resource}
+  - {id: c_min_wavefronts, expr: "p.wavefronts == ceil_div(p.width_bytes * p.requesters, hw.smem_banks * hw.smem_bank_bytes)", meaning: "the binding reaches the minimum number of bank passes (conflict free)", cls: performance_assumption}
+preconditions:
+  - {id: pre_progress, expr: "queue_depth >= 1", meaning: "a request can always enter the queue eventually (no zero-capacity queue)", cls: semantic}
+program:
+  description: >-
+    Address the tile through the bank map (e.g. column chunk XOR row) on every write and read of the
+    buffer; the hardware arbitrates the resulting requests.
+  fragments: {}
+backward_map: >-
+  The bank map is a bijection on addresses inside the tile; reading through its inverse gives the
+  logical layout, and arbitration order does not change the values read.
+obligations:
+  - {name: bijective_binding, statement: "The request -> bank map is a permutation of the tile's addresses.", method: exhaustive}
+  - {name: conflict_freedom, statement: "Each access completes in the declared number of bank passes.", method: test}
+  - {name: no_deadlock_progress, statement: "Under the declared arbitration contract every request is eventually served.", method: unspecified}
+cost:
+  - {unit: smem, work: "p.wavefronts * p.accesses", overlap: overlappable}
+scope:
+  predicate: "hw.smem_banks >= 1"
+  text: >-
+    Accesses to banked on-chip memory with a declared arbitration contract. On GB10 the chip
+    variables (queue depth, bank count and width) are fixed hardware values, not decisions.
+requires_hw: []
+relations:
+  - {type: requires, target: physical_storage, note: "binds the requests of a buffer in banked memory"}
+signature:
+  algorithm: "map requests to banks so concurrent requests spread across banks"
+  reuse: null
+  storage: "banked on-chip memory (shared memory)"
+  boundary: null
+  resources: [smem]
+numeric_risk: null
+expected_sass: []
+summary: >-
+  Paper GEMM step 5: an untimed access becomes requests to banks, ports and bounded queues. The
+  software decision is the bank binding (swizzle); on GB10 the queue depth and port counts are fixed
+  hardware values. Obligations: conflict freedom, no deadlock, progress.
+example_code: null

@@ -1,0 +1,16 @@
+name: transfer
+level: 2
+category: transfer
+params:
+  - {name: src, type: enum, values: [reg, smem, tmem, l2, gmem], meaning: "source storage level"}
+  - {name: dst, type: enum, values: [reg, smem, tmem, l2, gmem], meaning: "destination storage level"}
+  - {name: size_bytes, type: int, meaning: "bytes moved per transfer"}
+  - {name: align_bytes, type: int, meaning: "guaranteed alignment of source and destination addresses"}
+  - {name: contiguous, type: bool, meaning: "the bytes are contiguous in the source"}
+description: >-
+  Data moved between storage levels. At the coarse level it is one atomic write; refinements split
+  it into an issue and a later completion, pick the mechanism (software copy, asynchronous
+  instruction, copy engine) and the access width.
+examples:
+  - "A tile copied global -> shared with cp.async 16 B per thread"
+  - "K/V tiles copied global -> shared by the TMA unit"

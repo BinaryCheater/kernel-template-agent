@@ -94,3 +94,38 @@ Decisions made without the user that need review. Newest last. Each entry: quest
 - **Choice:** proposed `work_assign` (assignment and order of work units), `issue_order` (issue order within / across executors) and `scan` (prefix computation), all with category `other` because the schema's category enum has no matching entry; they stay `proposed`.
 - **Rationale:** 7 chain steps over 5 references needed work_assign, 2 needed issue_order (plus one unmatched), 1 needed scan.
 - **Cost of changing later:** low while proposed; if the category enum gains `schedule` / `scan`, the three files change one field.
+
+## D205 — Pattern parameters (`p.*`) in Template expressions and chain bindings
+
+- **Question:** a Template's capacity and lifetime conditions need the size and timing of the transaction it refines (bytes of a tile, capacity of its level), which are neither Template variables nor workload parameters. Chain bindings in WP10a also hold strings that are descriptions or expressions, not family variables.
+- **Choice:** Template expressions refer to the refined transaction's parameters as `p.<param>`; a chain item may bind `p.<name>`; constant bindings are checked against domains and C/Pre, string bindings only in families (must name a family variable or domain value).
+- **Rationale:** keeps the five paper steps self-contained and lets WP10a's reconstruction chains validate without rewriting them.
+- **Cost of changing later:** medium: WP5 must decide how a family binds `p.*` to expressions over family variables; changing the convention touches the seed Templates and every chain that binds `p.*`.
+
+## D206 — Content of the five seed Templates
+
+- **Question:** the paper gives the five GEMM steps in a table and one full listing (shared-memory tiling); fields such as levels, change kind, cost terms, Γ and constraint forms had to be chosen.
+- **Choice:** variable names from WP10a's assumed seed (D103); levels 0→1, 1→2, 2→3, 2→3, 4→5; `async_transfer` is a representation expansion; capacity/lifetime constraints over `p.*`; step 5's chip variables fixed through `hw.*`; obligations listed with planned methods.
+- **Rationale:** follows the paper's tables and listing; compatible with WP10a's seven chains; the expression language cannot compare strings (D216).
+- **Cost of changing later:** low before WP7 builds the GEMM family; afterwards every chain using the seed needs a new Template version.
+
+## D213 — Family generators run in the control-plane process during validation
+
+- **Question:** `validate_family` must check code markers in generated source and that `generate()` returns for edge shapes; the generator is worker-written Python.
+- **Choice:** load `gen.py` with importlib in the calling process; only source text is produced; compiling and running go through the Executor.
+- **Rationale:** generation is pure text production and fast; an Executor round trip per validation would need WP2.
+- **Cost of changing later:** low: one function (`kta.knowledge.families._generation`) can be switched to an Executor job once WP2 is merged.
+
+## D215 — What the WP4 gate checks
+
+- **Question:** spec/gate.md asks for "seed 全部通过校验". After WP10a merges, `knowledge/seed/references/` is part of the seed tree, but its Templates fail validation for reasons outside WP4 (string comparisons, HwFeatures not yet in the store, a Problem name defined twice, unmet `requires` relations).
+- **Choice:** FAIL when the WP4 seed (Sources, Patterns, Structures, the five Templates) does not import and validate or when the named acceptance tests did not pass; the references are imported in the same scratch store and reported as WARN with the issue counts.
+- **Rationale:** WP4's acceptance is about its own seed; the reference findings are listed in deliveries/WP4.md "Needed changes" for WP10a, WP2 and core.
+- **Cost of changing later:** low: switch the WARN to FAIL in `tools/kta_gate/specific.py` once those changes land.
+
+## D216 — No string values in expressions
+
+- **Question:** `kta.core.expr` accepts only numbers and booleans as literals, so `mechanism == "instruction"`-style conditions cannot be written; WP10a's Templates use them (13 expressions fail to parse).
+- **Choice:** the seed Templates avoid string comparisons and state such conditions in obligations and Γ text; a change to core is requested (string literals in `==`/`!=`, optionally `in` over a literal list; not linear).
+- **Rationale:** `src/kta/core` is owned by WP1 and locked for WP4.
+- **Cost of changing later:** low for core (one node type in the checker/evaluator); after the change the seed Templates can gain conditional constraints in a new version.
