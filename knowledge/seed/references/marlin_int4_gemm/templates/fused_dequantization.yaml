@@ -29,8 +29,10 @@ cost:
   - {unit: dram, work: "p.K * p.N / 2", overlap: overlappable}
 scope:
   predicate: "True"
-  text: "GEMMs with low-bit integer weights and fp16/bf16 activations, especially memory-bound small-M inference."
-requires_hw: [lop3]
+  text: "GEMMs with low-bit integer weights and fp16/bf16 activations, especially memory-bound small-M inference. The magic-number method also needs lop3.b32, which the GB10 feature list (src/kta/targets/gb10/features.yaml) does not contain yet, so requires_hw names only the packed fp16 FMA (D108)."
+# requires_hw uses WP2 feature names (D108). lop3 has no feature entry yet; it is listed
+# under Needed changes in deliveries/WP10a.md.
+requires_hw: [fma_f16x2]
 relations:
   - {type: requires, target: compute_instruction_selection}
   - {type: requires, target: offline_operand_prepack, note: "bit order must match the lop3 extraction"}

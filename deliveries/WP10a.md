@@ -104,6 +104,34 @@ reference has Reference, Chain, Reconstruction and Gap count = unmatched count. 
 numbers do not prove the cited line says what the text claims; spot checks were done while
 writing, not exhaustively.
 
+### Import into the knowledge pool (after WP2 and WP4)
+
+After merging `integration` @ c4081bb (WP2 feature list, WP4 `kta init --references`, D97 string
+literals), WP4's import refused the batch with 16 errors. All were fixed in the data:
+
+- 11 `unknown_hw_feature`: `requires_hw` now uses the names of
+  `src/kta/targets/gb10/features.yaml` (D108). Six names were already WP2's; `tma` became
+  `cp_async_bulk_tensor`; cluster_multicast now names `[cp_async_bulk_tensor, barrier_cluster]`.
+  The multicast form of cp.async.bulk.tensor, createpolicy / `.L2::cache_hint` and lop3 have no
+  feature entry and were dropped from `requires_hw`; each affected Template says so in
+  `scope.text` and a YAML comment, and the three features are listed under Needed changes.
+  fused_dequantization names `fma_f16x2` (HFMA2) instead of lop3.
+- 1 `conflict`: FlashAttention-2 and -3 now carry one identical Problem body
+  `attention_fwd_f16_d128` (D109), so both References share one Problem record.
+- 4 `missing_required`: boundary_predication, staged_relayout and indexed_gather now `enable`
+  vectorized_access instead of requiring it (D110). FlashAttention-3 predicates and re-lays out
+  through TMA and vLLM fused_moe uses Triton masked loads, so neither chain lacks a step.
+
+No chain item, binding, Gap or count changed; match rates are unchanged (99/135).
+
+Real import check: the whole batch was imported with `kta.knowledge.import_seed` +
+`import_references` into a scratch test store that also holds the 52 HwFeature bodies of WP2's
+feature list (support unset). It imports with no error: 7 Source, 6 Problem, 7 Reference,
+3 Pattern, 30 Template, 7 Chain, 7 Reconstruction, 55 Gap. The WP4 gate's own scratch store
+holds no HwFeature records at all, so every non-empty `requires_hw` (10 names in 9 Templates)
+still fails there as `unknown_hw_feature`. Emptying all `requires_hw` would remove the hardware
+requirement information to satisfy that check, so it was not done; see Needed changes.
+
 ### Critique of the knowledge model
 
 1. **Match rate is not coverage.** vllm_fused_moe and vllm_rms_norm match 100% of their steps yet
@@ -189,6 +217,10 @@ writing, not exhaustively.
 - D105 three proposed Patterns (needs user review)
 - D106 compiler-decided transactions recorded per CUDA reference
 - D107 seed `source.yaml` uses the WP1 Source body (replaces D101)
+- D108 `requires_hw` uses WP2's GB10 feature names; unlisted features dropped with a note
+- D109 one shared Problem for FlashAttention-2 and -3
+- D110 boundary_predication, staged_relayout and indexed_gather enable (not require)
+  vectorized_access
 
 ## Needed changes
 
@@ -197,12 +229,21 @@ writing, not exhaustively.
   ref to the transaction it records (today the one-to-one link is by file name and order, D102);
   consider `schedule` and `scan` in the Pattern category enum (D105); consider allowing a Template
   to refine several Patterns.
-- **WP4 (seed):** adopt the seed Template variable names of D103 or rename the bindings in the
-  seven `chain.yaml` files; scope or split `multi_buffer_rotation` so register buffers and
-  per-operand barrier phases are expressible.
-- **WP2 / WP4 (hardware vocabulary):** HwFeature names used in `requires_hw`: ldmatrix,
-  shfl_sync, mbarrier, setmaxnreg, named_barrier, wgmma, tma, cluster_multicast, l2_cache_hint,
-  lop3. `hw.*` limits used: smem_per_cta, max_threads_per_cta, regs_per_sm, named_barriers,
+- **WP4 (seed):** the seed adopted the variable names of D103 (D206), so no chain binding needs
+  renaming. Still open: scope or split `multi_buffer_rotation` so register buffers and
+  per-operand barrier phases are expressible (its validator reports the three partial matches as
+  `constraint_false` warnings).
+- **WP4 gate / `tools/kta_gate` (reference import check, D215):** the scratch store used for
+  `kta init --references` holds no HwFeature records, so any Template with a non-empty
+  `requires_hw` is refused there even when the names are WP2's. Load the HwFeatures of the GB10
+  feature list (`kta.targets.gb10.probe.load_features()`, or `Gb10Target.features()`) into the
+  scratch store before importing references, or let `kta init` import them. With that, the batch
+  imports with no error (checked as described under "Import into the knowledge pool").
+- **WP2 (feature list):** three features the reference Templates need have no entry in
+  `src/kta/targets/gb10/features.yaml` and were dropped from `requires_hw` (D108):
+  `cp.async.bulk.tensor` with `.multicast::cluster` (cluster_multicast), `createpolicy` /
+  `.L2::cache_hint` loads (cache_eviction_hint), and `lop3.b32` (fused_dequantization). `hw.*`
+  limits used: smem_per_cta, max_threads_per_cta, regs_per_sm, named_barriers,
   max_cluster_size. Cost unit `sfu` is used besides dram, l2, smem, tensor, fma, issue, launch.
 - **decompose-kernel skill:** its output directories `new_templates/` / `new_patterns/` differ from
   the names the gate classifies (`templates/`, `patterns/`, D87); align one of the two.
@@ -211,7 +252,7 @@ writing, not exhaustively.
 
 ## Gate output
 
-`KTA_DATA=~/kta-data scripts/gate WP10a` on `wp/WP10a` after merging `integration` @ 6762cc0 (WP1):
+`KTA_DATA=~/kta-data scripts/gate WP10a` on `wp/WP10a` @ 0dd4f92, after merging `integration` @ c4081bb (WP2, WP4):
 
 ```
 gate WP10a: PASSED (21 pass, 0 warn, 0 fail)
@@ -224,15 +265,15 @@ gate WP10a: PASSED (21 pass, 0 warn, 0 fail)
   PASS print
   PASS subprocess outside Executor
   PASS secrets
-  PASS acceptance lock — 2 locked files unchanged
+  PASS acceptance lock — 4 locked files unchanged
   PASS pyright
-  PASS unit tests — 158 passed
+  PASS unit tests — 232 passed
   PASS contract tests — 2 passed
   PASS fake coverage — 1 fake(s) covered
   PASS registry (kta doctor, dev)
   PASS delivery note
   PASS fixture declarations — 1 declared
-  PASS decision log — 124 decisions
+  PASS decision log — 166 decisions
   PASS skipped tests — none
   PASS evidence — 8 claim(s)
   PASS references — 7 references

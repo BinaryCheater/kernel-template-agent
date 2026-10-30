@@ -31,7 +31,7 @@ scope:
 requires_hw: []
 relations:
   - {type: requires, target: async_transfer}
-  - {type: requires, target: vectorized_access, note: "rows within a page or row stay contiguous and vectorized"}
+  - {type: enables, target: vectorized_access, note: "rows within a page stay contiguous, so each gathered row can be copied with vector accesses; a compiler-chosen width (Triton) also works, so it does not require vectorized_access (D110)"}
 signature:
   algorithm: "index-driven row gather into on-chip tiles"
   reuse: "index table reused over several iterations"

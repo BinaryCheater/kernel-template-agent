@@ -24,8 +24,10 @@ cost:
   - {unit: l2, work: "p.reused_bytes", overlap: overlappable}
 scope:
   predicate: "True"
-  text: "Global loads whose reuse across CTAs is known: streamed-once operands (weights in decode GEMMs, Q) versus operands reread by other CTAs (K/V)."
-requires_hw: [l2_cache_hint]
+  text: "Global loads whose reuse across CTAs is known: streamed-once operands (weights in decode GEMMs, Q) versus operands reread by other CTAs (K/V). Needs L2 cache-policy hints (createpolicy, .L2::cache_hint), which the GB10 feature list (src/kta/targets/gb10/features.yaml) does not contain yet, so requires_hw is empty (D108)."
+# requires_hw uses WP2 feature names (D108). createpolicy / .L2::cache_hint has no feature
+# entry yet; it is listed under Needed changes in deliveries/WP10a.md.
+requires_hw: []
 relations: []
 signature:
   algorithm: "L2 eviction priority per operand"
