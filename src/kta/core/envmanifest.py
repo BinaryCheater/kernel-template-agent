@@ -47,12 +47,18 @@ class EnvManifestData:
         return asdict(self)
 
 
-def _last_version(text: str | None) -> str | None:
-    """Pick the last dotted version number from tool output."""
+def parse_version(text: str | None) -> str | None:
+    """The most specific dotted version in tool output (first one on ties).
+
+    nvcc prints ``release 13.0, V13.0.88`` and then ``cuda_13.0.r13.0``; the most
+    specific number is the real version.
+    """
     if text is None:
         return None
     found = re.findall(r"\d+(?:\.\d+)+", text)
-    return found[-1] if found else None
+    if not found:
+        return None
+    return max(found, key=lambda v: (v.count("."), -found.index(v)))
 
 
 def _cuda_version(cuda_home: Path) -> str | None:
@@ -86,15 +92,15 @@ def collect_manifest(role: Role, root: Path, cuda_home: Path) -> EnvManifestData
         os=_os_name(),
         arch=platform.machine(),
         python=platform.python_version(),
-        uv=_last_version(run_probe([uv_exe, "--version"])) or "absent",
+        uv=parse_version(run_probe([uv_exe, "--version"])) or "absent",
         uv_lock_sha256=file_sha256(root / "uv.lock") or "absent",
-        node=_last_version(run_probe(["node", "--version"])),
-        npm=_last_version(run_probe(["npm", "--version"])),
+        node=parse_version(run_probe(["node", "--version"])),
+        npm=parse_version(run_probe(["npm", "--version"])),
         npm_lock_sha256=file_sha256(root / "web" / "package-lock.json"),
         cuda=_cuda_version(cuda_home),
         driver=driver.splitlines()[0].strip() if driver else None,
-        nvcc=_last_version(run_probe([str(cuda_home / "bin" / "nvcc"), "--version"])),
-        ptxas=_last_version(run_probe([str(cuda_home / "bin" / "ptxas"), "--version"])),
+        nvcc=parse_version(run_probe([str(cuda_home / "bin" / "nvcc"), "--version"])),
+        ptxas=parse_version(run_probe([str(cuda_home / "bin" / "ptxas"), "--version"])),
         image_digest=os.environ.get("KTA_IMAGE_DIGEST"),
         commit=commit,
         dirty=dirty,

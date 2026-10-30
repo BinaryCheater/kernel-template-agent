@@ -85,3 +85,17 @@ def test_kta_doctor_cli_json(tmp_path: Path) -> None:
     assert out["env"] == "dev" and out["data_dir"] == str(tmp_path / "dev" / "WP0")
     missing = subprocess.run([kta, "doctor"], env={**env, "KTA_ENV": ""}, capture_output=True)
     assert missing.returncode == 2
+
+
+def test_parse_version_prefers_most_specific() -> None:
+    from kta.core.envmanifest import parse_version
+
+    nvcc = (
+        "nvcc: NVIDIA (R) Cuda compiler driver\n"
+        "Cuda compilation tools, release 13.0, V13.0.88\n"
+        "Build cuda_13.0.r13.0/compiler.36424714_0"
+    )
+    assert parse_version(nvcc) == "13.0.88"
+    assert parse_version("uv 0.11.2 (aarch64-unknown-linux-gnu)") == "0.11.2"
+    assert parse_version("v26.12.1") == "26.12.1"
+    assert parse_version("no version") is None
