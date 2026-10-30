@@ -13,8 +13,23 @@ from collections import defaultdict
 from typing import Any
 
 from kta.api import opsread
-from kta.api.common import Api, body, envelope, incoming, iso, latest, ref_one, refs
+from kta.api.common import (
+    Api,
+    body,
+    done_check_reports,
+    envelope,
+    incoming,
+    iso,
+    latest,
+    ref_one,
+    refs,
+)
 from kta.store.base import SpanRow
+
+
+# Lifecycle states (D265) of a task still being worked on, i.e. neither terminal nor waiting
+# for you.
+LIVE_TASK = ("queued", "leased", "running", "submitted", "checking", "rejected", "expired")
 
 
 def _loop_for(api: Api, case_id: str) -> opsread.LoopRow | None:
@@ -100,7 +115,7 @@ def cases(api: Api) -> list[dict[str, Any]]:
                     "pct_of_bound": bound / best_us if bound and best_us else None,
                 }
             )
-        live = [t for t in tasks if t.work_unit == s["loop_id"] and t.state in ("queued", "leased")]
+        live = [t for t in tasks if t.work_unit == s["loop_id"] and t.state in LIVE_TASK]
         stamps = [st["end"] or st["start"] for r in rounds for st in r["steps"]]
         out.append(
             {
@@ -170,36 +185,22 @@ def _rounds(api: Api, loop_id: str | None, case_id: str) -> list[dict[str, Any]]
 
 
 def _round_task(api: Api, t: opsread.TaskRow) -> dict[str, Any]:
-    rejections = []
-    for cid in _ids_by_task(api, t.id, "Check"):
-        rec = api.store.get_json(cid)
-        if rec["body"]["passed"]:
-            continue
-        first = (rec["body"].get("failures") or [{}])[0]
-        rejections.append(
-            {
-                "at": rec["created_at"],
-                "record": cid,
-                "reason": f"{first.get('check', 'check')}: {first.get('error', 'failed')}",
-            }
-        )
+    """A task of one round: its lifecycle state (D265) and its rejections (D276)."""
+    rejections = [
+        {"at": r["created_at"], "record": r["id"], "reason": r["reason"]}
+        for r in done_check_reports(api, t.id)
+        if not r["passed"]
+    ]
+    ended = t.state in ("accepted", "cancelled", "escalated", "suspended")
     return {
         "id": t.id,
         "type": t.card_type,
         "card": t.card_id,
         "created_at": iso(t.created_at),
-        "ended_at": iso(t.updated_at) if t.state in ("done", "failed", "cancelled") else None,
-        "state": {"done": "accepted", "failed": "rejected"}.get(t.state, t.state),
+        "ended_at": iso(t.updated_at) if ended else None,
+        "state": t.state,
         "rejections": rejections,
     }
-
-
-def _ids_by_task(api: Api, task: str, kind: str) -> list[str]:
-    with api.store.db.read() as con:
-        rows = con.execute(
-            "SELECT id FROM records WHERE task = ? AND kind = ? ORDER BY created_at", (task, kind)
-        ).fetchall()
-    return [r[0] for r in rows]
 
 
 def _candidates(api: Api, case_id: str) -> list[dict[str, Any]]:

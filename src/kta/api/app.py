@@ -13,6 +13,7 @@ from fastapi.responses import JSONResponse
 
 from kta.api import actions, auth, events, read, views
 from kta.api.common import Api
+from kta.api.wiring import Wired
 from kta.core.context import Context
 from kta.core.errors import ConfigError, KtaError, NotSupported, PermissionDenied, SchemaError
 from kta.core.registry import resolve
@@ -20,13 +21,8 @@ from kta.store.sqlite import RecordNotFound
 
 
 def open_api(ctx: Context) -> Api:
-    return Api(
-        store=resolve("store", ctx),
-        ops=resolve("ops", ctx),
-        config=ctx.config,
-        env=ctx.env,
-        data_dir=ctx.data_dir,
-    )
+    store, ops = resolve("store", ctx), resolve("ops", ctx)
+    return Api(ctx=ctx, store=store, ops=ops, orchestration=Wired(ctx, store, ops))
 
 
 def create_app(api: Api) -> FastAPI:

@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from kta.api.common import Api
+from kta.api.wiring import Wired
 from kta.core.config import config_from_mapping
 from kta.core.context import Context
 from kta.core.registry import Registry
@@ -22,11 +23,11 @@ END = datetime(2026, 10, 30, 14, 30, tzinfo=UTC)
 TEST_ACTOR = Actor(type="system", name="test")
 
 
-def seeded_api(tmp: Path) -> Api:
+def seeded_api(tmp: Path, config: dict[str, Any] | None = None, wired: bool = True) -> Api:
     clock = SeedClock(END - timedelta(minutes=WINDOW_MIN + 60))
     ctx = Context(
         env="test",
-        config=config_from_mapping({"agents": {"slots": 2}}),
+        config=config_from_mapping({"agents": {"slots": 2, **(config or {})}}),
         data_dir=tmp,
         registry=Registry(),
         clock=clock,
@@ -36,7 +37,9 @@ def seeded_api(tmp: Path) -> Api:
     seeder = Seeder(store, clock)
     seed_knowledge(seeder)
     seed_world(seeder, ops, END)
-    return Api(store=store, ops=ops, config=ctx.config, env="test", data_dir=tmp)
+    if not wired:
+        return Api(ctx=ctx, store=store, ops=ops)
+    return Api(ctx=ctx, store=store, ops=ops, orchestration=Wired(ctx, store, ops))
 
 
 def put(api: Api, kind: str, body: dict[str, Any], refs: dict[str, Any] | None = None) -> str:

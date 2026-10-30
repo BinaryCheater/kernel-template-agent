@@ -9,10 +9,11 @@ from typing import Any
 import pytest
 
 from apihelp import put, request, seeded_api
+from kta.agents.profile import write_profile
 from kta.api import opsread
 from kta.api.app import create_app
 from kta.api.common import Api
-from kta.api.wiring import NEEDS
+from kta.api.wiring import HUMAN_PRIORITY, NEEDS
 
 
 @pytest.fixture
@@ -184,68 +185,99 @@ def _task(api: Api, state: str) -> str:
     return next(t.id for t in opsread.tasks(api.ops) if t.state == state)
 
 
-@pytest.mark.parametrize(
-    ("path", "body", "need"),
-    [
-        ("/actions/cancel", {"reason": "stuck"}, "cancel"),
-        ("/actions/retry", {"note": "use cp.async"}, "retry"),
-        ("/actions/priority", {"priority": 5}, "priority"),
-    ],
-)
-def test_task_operations_are_not_supported_until_wp6(
-    api: Api, path: str, body: dict[str, Any], need: str
-) -> None:
-    task = _task(api, "leased")
-    status, out = call(api, path, {"task": task, **body})
-    assert status == 501 and NEEDS[need] in out["detail"]
-    status, _ = call(api, path, {"task": "01NOSUCHTASK", **body})
-    assert status == 404
+def _actions_like(api: Api, prefix: str) -> list[dict[str, Any]]:
+    return [a for a in actions(api) if a["body"]["action"].startswith(prefix)]
+
+
+def test_cancel_goes_through_the_task_queue(api: Api) -> None:
+    task = _task(api, "running")
+    status, out = call(api, "/actions/cancel", {"task": task, "reason": "stuck"})
+    assert status == 200, out
+    assert out["state"] == "cancelled" and api.ops.task(task).state == "cancelled"
+    [act] = _actions_like(api, "task cancel")
+    assert act["body"] == {"action": f"task cancel {task}", "reason": "stuck"}
+    assert act["actor"]["type"] == "human"
+    status, _ = call(api, "/actions/cancel", {"task": task, "reason": "again"})
+    assert status == 400  # already terminal: the lifecycle has no such edge
+    assert call(api, "/actions/cancel", {"task": "01NOSUCHTASK"})[0] == 404
+
+
+def test_retry_requeues_an_escalated_task(api: Api) -> None:
+    task = _task(api, "escalated")
+    assert call(api, "/actions/retry", {"task": task})[0] == 400  # the note is required
+    status, out = call(api, "/actions/retry", {"task": task, "note": "declare swz's domain"})
+    assert status == 200, out
+    assert api.ops.task(task).state == "queued"
+    [act] = _actions_like(api, "task retry")
+    assert act["body"]["reason"] == "declare swz's domain"
+
+
+def test_priority_is_not_supported_yet(api: Api) -> None:
+    status, out = call(api, "/actions/priority", {"task": _task(api, "queued"), "priority": 5})
+    assert status == 501 and NEEDS["priority"] in out["detail"]
+    assert call(api, "/actions/priority", {"task": "01NOSUCHTASK", "priority": 5})[0] == 404
     assert actions(api) == []
 
 
-def test_retry_needs_a_note(api: Api) -> None:
-    status, _ = call(api, "/actions/retry", {"task": _task(api, "failed")})
-    assert status == 400
-
-
-def test_create_task_validates_then_needs_wp6(api: Api) -> None:
+def test_create_task_queues_a_human_task(api: Api) -> None:
     family = _id(api, "Family")
     status, _ = call(api, "/actions/create-task", {"type": "T9", "goal": "g", "inputs": []})
     assert status == 400
     status, _ = call(api, "/actions/create-task", {"type": "T1", "goal": "g", "inputs": ["0" * 40]})
     assert status == 404
-    body = {"type": "T1", "goal": "bf16 -> fp16 variant", "inputs": [family]}
-    status, out = call(api, "/actions/create-task", body)
-    assert status == 501 and "TaskQueue.create" in out["detail"]
     assert actions(api) == []
+    body = {"type": "T1", "goal": "bf16 -> fp16 variant", "inputs": [family], "reason": "try"}
+    status, out = call(api, "/actions/create-task", body)
+    assert status == 200, out
+    row = api.ops.task(out["task"])
+    assert row.state == "queued" and row.priority == HUMAN_PRIORITY
+    assert row.work_unit == out["work_unit"] and out["work_unit"].startswith("human:")
+    card = api.store.get(out["card"])
+    assert card.body["goal"] == "bf16 -> fp16 variant" and card.body["inputs"] == [family]
+    [act] = actions(api)
+    assert act["body"]["action"].startswith('create_task {"task":"' + out["task"])
+    assert act["body"]["reason"] == "try" and act["refs"] == {"card": out["card"]}
+    assert act["actor"] == {**act["actor"], "type": "human", "name": "user"}
 
 
 @pytest.mark.parametrize("path", ["/actions/pause", "/actions/resume"])
-def test_pause_and_resume_need_wp6(api: Api, path: str) -> None:
+def test_pause_and_resume_are_not_supported_yet(api: Api, path: str) -> None:
     assert call(api, path, {"scope": "global"})[0] == 501
     assert call(api, path, {"scope": "somewhere"})[0] == 400
 
 
-def test_approve_profile_needs_wp8(api: Api) -> None:
+def test_approve_profile_moves_the_pointer(api: Api) -> None:
     status, _ = call(api, "/actions/approve", {"profile": _id(api, "Template")})
     assert status == 400
     assert actions(api) == []
-
-
-def test_write_record_needs_a_task_token(api: Api) -> None:
-    rec = {"kind": "Gap"}
-    assert call(api, "/write/record", rec)[0] == 403
-    status, out = call(api, "/write/record", rec, authorization="Bearer kta1.x.y.z")
-    assert status == 501 and "task tokens" in out["detail"]
+    profile = write_profile(api.store, api.now())
+    status, out = call(api, "/actions/approve", {"profile": profile, "reason": "first profile"})
+    assert status == 200, out
+    assert out["current"] == profile == api.ops.get_pointer("current_profile")
+    [act] = actions(api)
+    assert act["body"] == {"action": "approve_profile", "reason": "first profile"}
+    assert act["refs"] == {"profile": profile} and act["actor"]["name"] == "user"
 
 
 def test_capabilities_say_what_is_wired(api: Api) -> None:
     status, caps = call(api, "/actions/capabilities", method="GET")
     assert status == 200
     by = {c["name"]: c for c in caps}
-    assert by["reject"]["wired"] and by["budget"]["wired"] and by["confirm"]["wired"]
-    assert not by["cancel"]["wired"] and by["cancel"]["needs"] == NEEDS["cancel"]
+    for name in ("reject", "budget", "confirm", "cancel", "retry", "create-task", "approve-profile",
+                 "env-verify", "write-record"):  # fmt: skip
+        assert by[name]["wired"], name
+    for name in ("priority", "pause", "resume"):
+        assert not by[name]["wired"] and by[name]["needs"] == NEEDS[name]
+    assert "not stopped" in by["cancel"]["partial"]
     assert "re-verification" in by["flag"]["partial"]
+
+
+def test_unwired_port_answers_501_for_every_delegated_operation(tmp_path: Path) -> None:
+    bare = seeded_api(tmp_path, wired=False)
+    task = _task(bare, "running")
+    assert call(bare, "/actions/cancel", {"task": task})[0] == 501
+    assert call(bare, "/actions/create-task", {"type": "T1", "goal": "g", "inputs": []})[0] == 501
+    assert actions(bare) == []
 
 
 def test_action_log_is_newest_first_with_parameters(api: Api) -> None:

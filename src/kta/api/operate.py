@@ -187,7 +187,11 @@ def create_task(api: Api, spec: TaskSpec, reason: str) -> dict[str, Any]:
     for rid in spec.inputs:
         if not api.store.exists(rid):
             raise RecordNotFound(f"input record {rid} does not exist")
-    return api.orchestration.create_task(spec, reason, operator(api))
+    out = api.orchestration.create_task(spec, reason, operator(api))
+    # TaskQueue.create writes the card as the orchestrator; this records that you asked.
+    params = {"type": spec.type, "task": out["task"], "work_unit": out.get("work_unit")}
+    action = write_action(api, "create_task", reason, {"card": out["card"]}, params)
+    return {**out, "action": action}
 
 
 def pause(api: Api, scope: str, reason: str, resume: bool) -> dict[str, Any]:

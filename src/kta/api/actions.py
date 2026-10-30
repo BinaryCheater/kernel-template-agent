@@ -14,7 +14,7 @@ from pydantic import BaseModel, ConfigDict, StringConstraints, model_validator
 
 from kta.api import operate
 from kta.api.common import Api, iso
-from kta.api.wiring import NEEDS, TaskSpec
+from kta.api.wiring import HUMAN_PRIORITY, NEEDS, TaskSpec
 from kta.core.ids import record_id
 
 Reason = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
@@ -56,7 +56,7 @@ class CreateTaskBody(_Body):
     type: Literal["T1", "T2", "T3", "T4", "T5", "T6"]
     goal: Reason
     inputs: list[Id]
-    priority: int = 0
+    priority: int | None = None  # default HUMAN_PRIORITY: tasks you start come first
     reason: str = ""
 
 
@@ -121,19 +121,16 @@ CATALOGUE: list[tuple[str, str, str, str | None]] = [
 
 
 def capabilities(api: Api) -> list[dict[str, Any]]:
-    missing = api.orchestration.missing()
+    missing, partial = api.orchestration.missing(), api.orchestration.partial()
     out: list[dict[str, Any]] = []
     for name, endpoint, writes, delegated in CATALOGUE:
         gap = missing.get(delegated) if delegated else None
-        out.append(
-            {
-                "name": name,
-                "endpoint": endpoint,
-                "writes": writes,
-                "wired": gap is None,
-                "needs": gap,
-            }
-        )
+        row: dict[str, Any] = {
+            "name": name, "endpoint": endpoint, "writes": writes, "wired": gap is None, "needs": gap
+        }  # fmt: skip
+        if delegated in partial:
+            row["partial"] = partial[delegated]
+        out.append(row)
     if "reverify" in missing:
         out[1]["partial"] = f"the re-verification task is not created yet: {NEEDS['reverify']}"
     return out
@@ -198,7 +195,8 @@ def router(api: Api) -> APIRouter:
 
     @r.post("/create-task")
     def create_task(b: CreateTaskBody) -> dict[str, Any]:  # pyright: ignore[reportUnusedFunction]
-        spec = TaskSpec(b.type, b.goal, list(b.inputs), b.priority)
+        prio = HUMAN_PRIORITY if b.priority is None else b.priority
+        spec = TaskSpec(b.type, b.goal, list(b.inputs), prio)
         return operate.create_task(api, spec, b.reason)
 
     @r.post("/reject")
