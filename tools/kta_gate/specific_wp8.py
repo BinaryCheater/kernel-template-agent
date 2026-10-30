@@ -26,7 +26,12 @@ WP8_TESTS = (
     "test_compliance_from_events",
     "test_pack_excludes_credentials_and_links_and_is_deterministic",
     "test_fake_accepts_adapter_argv_and_refuses_non_persistent",
+    "test_same_profile_and_commit_give_byte_identical_batches",
+    "test_verify_reports_tampered_added_and_missing_files",
+    "test_runs_only_from_a_verified_batch",
+    "test_credentials_never_enter_a_template",
 )
+PLANNED_SKILLS = ("diagnose-model", "write-microbench")
 RUNTIME_SKILLS = ("use-kta", "find-knowledge", "write-family", "write-template", "decompose-kernel")
 # Options that disable session persistence (conventions §7.1); only the capability table
 # that defines the refusal may spell them.
@@ -47,6 +52,14 @@ def check_skills(root: Path) -> CheckResult:
         front = head[1] if len(head) > 2 else ""
         if f"name: {name}" not in front or "description:" not in front:
             findings.append(f"{name}: front matter needs name: {name} and a description")
+    catalogue = root / "src" / "kta" / "agents" / "skills" / "README.md"
+    text = catalogue.read_text(encoding="utf-8") if catalogue.exists() else ""
+    if not text:
+        findings.append("missing runtime skill catalogue src/kta/agents/skills/README.md (D321)")
+    dirs = sorted(p.name for p in catalogue.parent.iterdir() if p.is_dir()) if text else []
+    for name in [*dirs, *PLANNED_SKILLS]:
+        if text and f"`{name}`" not in text:
+            findings.append(f"skill catalogue does not list {name}")
     return from_findings("runtime skills", findings, f"{len(RUNTIME_SKILLS)} skills")
 
 

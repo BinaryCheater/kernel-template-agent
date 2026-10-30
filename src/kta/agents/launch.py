@@ -42,6 +42,7 @@ from kta.agents.launchspec import (
 from kta.core.errors import ConfigError, KtaError
 
 POLL_S = 1.0
+LOCK_FILE = "env.lock.json"  # kta.agents.batches.LOCK
 GPU_POLL_S = 5.0
 KILL_GRACE_S = 10.0
 GIT_ENV = {
@@ -279,7 +280,7 @@ def _prepare(
     if spec.run_as:
         os.umask(0o007)
     hostfs.install_workspace(job, ws, spec.workspace_files)
-    created = hostfs.install_home(job, home, spec.home_files)
+    created = hostfs.install_home(_batch_root(job, spec) / "agent-home-template", home)
     auth_dir = Path(spec.auth.dir).expanduser() if spec.auth else None
     creds = (
         hostfs.link_credentials(home, auth_dir, spec.auth.files) if spec.auth and auth_dir else []
@@ -290,16 +291,31 @@ def _prepare(
     return created, creds, auth_dir
 
 
+def _batch_root(job: Path, spec: LaunchSpec) -> Path:
+    if not spec.batch:
+        raise ConfigError("every agent run belongs to a batch (D322)")
+    return data_root(job) / "batches" / spec.batch
+
+
+def unit_dirs(job: Path, spec: LaunchSpec) -> tuple[Path, Path]:
+    """Workspace and CLI home of the work unit inside its batch root."""
+    root = _batch_root(job, spec)
+    return root / "work" / spec.work_unit, root / "agent-home" / spec.work_unit
+
+
 def step(job: Path, spec: LaunchSpec) -> dict[str, Any]:
-    data = data_root(job)
-    ws, home = data / "work" / spec.work_unit, data / "agent-home" / spec.work_unit
+    ws, home = unit_dirs(job, spec)
     out = job / "out"
     report: dict[str, Any] = {
         "run": spec.run,
         "mode": spec.mode,
         "workspace": str(ws),
         "home": str(home),
+        "batch": spec.batch,
     }
+    problems = hostfs.ensure_batch(job, _batch_root(job, spec), spec.batch_files, LOCK_FILE)
+    if problems:
+        return {**report, "exit": "refused", "error": f"batch {spec.batch}: {problems[:5]}"}
     upward = hostfs.upward_agents_md(ws)
     if upward:
         return {**report, "exit": "refused", "error": f"AGENTS.md above the workspace: {upward}"}
@@ -361,8 +377,7 @@ def pack_outputs(
 def close(job: Path, spec: LaunchSpec, remove: bool) -> dict[str, Any]:
     """End of a work unit: pack workspace (with git) and home; delete only on ``remove``
     after the control plane confirmed both archives by hash (conventions §7.1)."""
-    data = data_root(job)
-    ws, home = data / "work" / spec.work_unit, data / "agent-home" / spec.work_unit
+    ws, home = unit_dirs(job, spec)
     creds = spec.auth.files if spec.auth else []
     report: dict[str, Any] = {"run": spec.run, "mode": spec.mode, "exit": "ok"}
     report.update(pack_outputs(ws, home, job / "out", creds, with_git=True))

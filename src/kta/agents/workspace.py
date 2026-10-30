@@ -11,6 +11,7 @@ import json
 from dataclasses import dataclass, field
 
 from kta.agents import cards
+from kta.agents.batches import BatchRoot
 from kta.agents.profile import skill_description, unpack
 from kta.core.errors import ConfigError, SchemaError
 from kta.core.schemas.process import AgentProfile, TaskCard
@@ -24,30 +25,28 @@ TAR_BLOBS = ("package", "source", "sources")  # blobs that hold a directory tree
 @dataclass
 class Bundle:
     workspace: dict[str, bytes] = field(default_factory=lambda: dict[str, bytes]())
-    home: dict[str, bytes] = field(default_factory=lambda: dict[str, bytes]())
+    batch: dict[str, bytes] = field(default_factory=lambda: dict[str, bytes]())  # template + lock
 
 
-def _text(store: Store, blob: str) -> str:
-    return store.blob_path(blob).read_bytes().decode("utf-8")
-
-
-def skills_of(store: Store, profile: AgentProfile, task_type: str) -> dict[str, dict[str, bytes]]:
-    """Skill files by name, from the profile's ``<name>@<archive sha>`` entries."""
+def skills_of(
+    batch: BatchRoot, profile: AgentProfile, task_type: str
+) -> dict[str, dict[str, bytes]]:
+    """Skill files by name, from the batch root's ``skills/<name>@<hash>/``."""
     out: dict[str, dict[str, bytes]] = {}
     for ref in profile.skills.get(task_type, []):
         name, _, sha = ref.partition("@")
         if not sha:
             raise ConfigError(f"profile skill {ref!r} lacks its archive hash")
-        out[name] = unpack(store.blob_path(sha).read_bytes())
+        out[name] = batch.skill_files(ref)
     return out
 
 
-def descriptions(store: Store, profile: AgentProfile) -> dict[str, str]:
+def descriptions(batch: BatchRoot, profile: AgentProfile) -> dict[str, str]:
     """One line per skill of every task type: the prefix lists them all, so it is
     byte-identical across sessions of the profile."""
     seen: dict[str, str] = {}
     for task_type in sorted(profile.skills):
-        for name, files in skills_of(store, profile, task_type).items():
+        for name, files in skills_of(batch, profile, task_type).items():
             seen[name] = skill_description(files["SKILL.md"].decode("utf-8"))
     return seen
 
@@ -94,6 +93,7 @@ def input_files(store: Store, ids: list[str]) -> dict[str, bytes]:
 def build(
     store: Store,
     profile: AgentProfile,
+    batch: BatchRoot,
     *,
     task_id: str,
     card_id: str,
@@ -101,17 +101,16 @@ def build(
     used: dict[str, float],
     retry: cards.RetryNote | None,
 ) -> Bundle:
+    """Workspace files; templates and skills come only from the verified batch root (D322)."""
     t = card_body.type
     if t not in profile.step_templates:
         raise ConfigError(f"profile {profile.name} has no step template for {t}")
-    skills = skills_of(store, profile, t)
+    skills = skills_of(batch, profile, t)
     bundle = Bundle()
     ws = bundle.workspace
-    ws["AGENTS.md"] = cards.prefix(
-        _text(store, profile.prefix_template), descriptions(store, profile)
-    ).encode()
+    ws["AGENTS.md"] = cards.prefix(batch.text("prefix.md"), descriptions(batch, profile)).encode()
     ws["TASK.md"] = cards.task_md(
-        _text(store, profile.step_templates[t]),
+        batch.text(f"step-{t}.md"),
         task_id=task_id,
         card_id=card_id,
         card=card_body,
@@ -122,13 +121,11 @@ def build(
         retry=retry,
         policy=profile.context_policy,
     ).encode()
-    seed = profile.message_templates.get("notes_seed")
-    if seed:
-        ws["NOTES.md"] = store.blob_path(seed).read_bytes()
+    if "notes_seed" in profile.message_templates:
+        ws["NOTES.md"] = batch.text("msg-notes_seed.md").encode()
     for name, files in skills.items():
         for rel, content in files.items():
             ws[f".agents/skills/{name}/{rel}"] = content
     ws.update(input_files(store, card_body.inputs))
-    for name, sha in profile.home_files.items():
-        bundle.home[name] = store.blob_path(sha).read_bytes()
+    bundle.batch = batch.template()
     return bundle

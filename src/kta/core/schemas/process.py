@@ -67,6 +67,8 @@ class AgentProfile(Body):
     step_templates: dict[str, str] = Field(default_factory=lambda: dict[str, str]())
     message_templates: dict[str, str] = Field(default_factory=lambda: dict[str, str]())
     skills: dict[str, list[str]] = Field(default_factory=lambda: dict[str, list[str]]())
+    # "<skill>@<sha256>" -> blob of the deterministic skill tar (D322)
+    skill_bundles: dict[str, str] = Field(default_factory=lambda: dict[str, str]())
     allowed_commands: dict[str, list[str]] = Field(default_factory=lambda: dict[str, list[str]]())
     context_policy: dict[str, Any] = Field(default_factory=lambda: dict[str, Any]())
     loop_policy: dict[str, Any] = Field(default_factory=lambda: dict[str, Any]())

@@ -142,6 +142,7 @@ def profile_body(store: Store, spec: ProfileSpec = CODEX_V1) -> AgentProfile:
         step_templates={t: blob(f"step-{t}.md") for t in TASK_TYPES},
         message_templates=messages,
         skills={t: [refs[s] for s in names] for t, names in SKILLS_BY_TYPE.items()},
+        skill_bundles={ref: ref.partition("@")[2] for ref in refs.values()},
         allowed_commands={t: list(AGENT_COMMANDS) for t in TASK_TYPES},
         context_policy=dict(CONTEXT_POLICY),
         loop_policy=dict(LOOP_POLICY),

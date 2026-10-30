@@ -19,7 +19,7 @@ KTA_BIN = "{kta_bin}"  # bin directory of the deployed kta on the agent host
 SPEC_FILE = "launch.json"
 PROMPT_FILE = "prompt.md"
 BUNDLE_WORKSPACE = "bundle/workspace/"  # job-input prefix of files installed into the workspace
-BUNDLE_HOME = "bundle/home/"  # job-input prefix of files installed into a new CLI home
+BUNDLE_BATCH = "batch/"  # job-input prefix of the batch template files and env.lock.json
 # Top-level workspace entries allowed by spec/modules/agents.md ("工作区文件").
 WORKSPACE_ENTRIES: tuple[str, ...] = (
     "AGENTS.md",
@@ -55,7 +55,8 @@ class LaunchSpec:
     wall_s: int = 3600
     idle_s: int = 600
     workspace_files: list[str] = field(default_factory=lambda: list[str]())
-    home_files: list[str] = field(default_factory=lambda: list[str]())
+    batch: str = ""  # batch root <data>/batches/<batch>/ on the agent host (D322)
+    batch_files: list[str] = field(default_factory=lambda: list[str]())  # template + lock
     auth: AuthSpec | None = None
     run_as: str | None = None  # system user of config+user isolation (D09); None = job user
     secret_env: list[str] = field(default_factory=lambda: list[str]())  # never in the manifest

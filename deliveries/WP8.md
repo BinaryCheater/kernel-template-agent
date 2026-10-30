@@ -1,6 +1,6 @@
 # WP8 delivery: agents and runtime skills (code stage)
 
-Branch `wp/WP8`, cut from `integration` @ `90aa678` and fast-forwarded to `65a0e2d` (D320). This is a **code-stage** delivery (D320: the user paused real data and measurements on 2026-10-31). No real Codex session has run. The code paths below are real; tests drive them with a stand-in for the CLI (`tests/fakes/fake_codex.py`). Real-run acceptance (T1 with WP7's chain, resume, induced write, user-level marker) is listed under "Pending real runs".
+Branch `wp/WP8`, cut from `integration` @ `90aa678`, fast-forwarded to `65a0e2d` (D320), then merged with `integration` @ `868885b` for the scope addition D321/D322 (runtime skill catalogue, skill backup, batch environments). This is a **code-stage** delivery (D320: the user paused real data and measurements on 2026-10-31). No real Codex session has run. The code paths below are real; tests drive them with a stand-in for the CLI (`tests/fakes/fake_codex.py`). Real-run acceptance (T1 with WP7's chain, resume, induced write, user-level marker) is listed under "Pending real runs".
 
 ## What was done
 
@@ -54,6 +54,15 @@ Three kinds of claims below, labelled as such: code that exists and is tested wi
   - `approve_profile` sets `current_profile` only with a HumanAction.
   - No profile record has been written to a dev store yet.
 - **`kta-agent` setup script (code, D312).** `scripts/kta-agent-setup` does a dry run unless `--apply` is given. **Not run on any machine**: `--apply` creates a system user, a group, ACLs and a sudoers rule, which needs your approval.
+- **Batch environments (code, D321, D322, D318).**
+  - `kta.agents.batches.build` writes `$KTA_DATA/<env>/batches/<batch>/` from one AgentProfile record's blobs only: `env.lock.json`, `agent-home-template/` (exactly `home_files`), `skills/<name>@<hash>/` and `prompts/`. It refuses an existing name.
+  - `verify` regenerates the template into a temporary directory and compares it with the lock and with the files on disk.
+  - `run_step` refuses a batch that fails verification, requires the batch's profile to be the card's profile, keeps a work unit in one batch, and takes prefix, step and message templates and skills only from the batch root.
+  - On the agent host, the launcher keeps a copy of the batch root, checked file by file against the same lock, with `work/<wu>` and `agent-home/<wu>` inside it.
+  - Credentials are linked per work unit at start; a credential-named home file is refused from the template. Locks, templates, blobs and archives hold no credentials.
+- **Skill backup (code, D322).** `AgentProfile.skill_bundles` (added to `kta.core.schemas.process`, additive) maps every `<name>@<sha256>` to its deterministic tar.gz blob, written when the profile is recorded. `batches.export_profile` writes the profile and every blob back out as files.
+- **`kta agents` commands (code, D319).** `kta.agents.commands.register(sub, make_ctx, emit)` adds `export-profile`, `env build` and `env verify`. Wiring the hook into `kta`'s parser is WP6's (see "Needed changes").
+- **Runtime skill catalogue (D321).** `src/kta/agents/skills/README.md` lists name, task types, author WP and status, including `diagnose-model` and `write-microbench` (WP11, planned). It is kept apart from the construction skills in `.agents/skills/`.
 - **Runtime skills.**
   - New: `use-kta`, `find-knowledge`, `write-family`, `write-template`.
   - `decompose-kernel` finished and translated to English. Its output directories are now `templates/` / `patterns/` (WP10a's request). It adds the compiler-decided transaction class (D106), the counting rule (D102), configuration scoping and the HwFeature naming rule (D108).
@@ -70,6 +79,8 @@ Three kinds of claims below, labelled as such: code that exists and is tested wi
   - `tests/unit/test_agents_units.py`: 23 unit tests.
   - `tests/contract/test_codex_cli_contract.py`: 3 contract tests.
   - `tests/unit/test_gate_wp8.py`: 4 gate tests.
+  - `tests/unit/test_agents_batches.py`: the same profile and commit give byte-identical batch roots on two stores; existing and malformed names are refused; tampered, added and missing files fail verification; credentials are refused from templates; export writes every blob.
+  - `test_runs_only_from_a_verified_batch`: with the source prompts and skills directories made unreachable and a marked `~/.codex/AGENTS.md` in the worker's HOME, a step still runs and the marker appears in no archive, workspace or manifest; a tampered skill file in the batch refuses the next start.
 
 ## Fixtures and simplifications
 
@@ -96,16 +107,17 @@ Three kinds of claims below, labelled as such: code that exists and is tested wi
 
 ## New decisions
 
-D300, D301, D302, D303, D304, D305, D306, D307, D308, D309, D310, D311, D312, D313, D314, D315, D316, D317. Needing your review: D300, D301, D305, D307, D308, D310, D312, D317 (in `docs/review-queue.md`).
+D300, D301, D302, D303, D304, D305, D306, D307, D308, D309, D310, D311, D312, D313, D314, D315, D316, D317, D318, D319 (D318 implements the coordinator's D322). Needing your review: D300, D301, D305, D307, D308, D310, D312, D317 (in `docs/review-queue.md`).
 
 ## Needed changes
 
 - **WP6 (cli, orchestrator):**
+  - In `kta.cli.main.build_parser`, call `kta.agents.commands.register(sub, context_from_environ, emit)`, where `emit(args, data, text)` prints JSON with `--json`, else the text (D319). Until then `kta agents ...` does not exist on the command line; the functions are tested directly.
   - When `KTA_TASK_TOKEN` is set, `kta` runs as an API client: it uploads the files its arguments name and sends the token with every call (D301).
   - The orchestrator calls `kta.agents.runner.run_step(ctx, task, retry=RetryNote(...), note=...)` from a process at layer 9, binding a tracer, and moves task states after it returns.
   - A command for `profile.approve_profile` (human) and `units.close_work_unit`.
 - **WP9 (api):** verify agent requests with `kta.agents.guard.verify_task_token(key, token, now, ops)`, with the key from `[agents] token_key_file` (D305).
-- **Lower modules:** none changed. `config/kta.toml` gained an `[agents]` section and `agent = 2` in spark's pools (additive). The `Ops` Protocol has no `task()` (SqliteOps has it, D152); `guard` uses its own small Protocol for it instead of changing `kta.store.base`.
+- **Lower modules:** `kta.core.schemas.process.AgentProfile` gained `skill_bundles: dict[str, str]` (default empty), as spec/schemas.md §4.9 now specifies (additive). Otherwise none. `config/kta.toml` gained an `[agents]` section, which now also holds WP9a's `slots = 2` (one table, the merge had declared it twice), and `agent = 2` in spark's pools (additive). The `Ops` Protocol has no `task()` (SqliteOps has it, D152); `guard` uses its own small Protocol for it instead of changing `kta.store.base`.
 - **spec/modules/agents.md:** an English addendum records D300–D304 (where the CLI runs, `run_step`, the extra adapter methods, event kind `other`).
 
 ## Pending real runs
@@ -114,7 +126,7 @@ What the full gate (`KTA_DATA=~/kta-data scripts/gate WP8`) still requires. Step
 
 1. **Approval, credentials:** place the Codex subscription credentials for KTA in `~/.config/kta/auth/codex/auth.json` (mode 600) on the agent host. On spark that means copying `~/.codex/auth.json` or running `codex login` with `CODEX_HOME` set to that directory.
 2. **Approval, system change:** run `scripts/kta-agent-setup --data ~/kta-work/data/dev/WP8 --apply` on spark (system user, group, ACLs, sudoers). The alternative is to use a profile version with isolation `config` for the first runs.
-3. After WP6 (task queue, `kta` commands, CLI client mode) and WP7 (GEMM chain) are merged into `integration`: deploy with `scripts/worker-setup spark`, write `codex-v1` into the WP8 dev store, then enqueue and run a T1 starting from WP7's GEMM family with one dtype or shape condition changed, from lease to accepted or correctly rejected.
+3. After WP6 (task queue, `kta` commands, CLI client mode) and WP7 (GEMM chain) are merged into `integration`: deploy with `scripts/worker-setup spark`, write `codex-v1` into the WP8 dev store, run `kta agents env build wp8-first --profile <id>` and `kta agents env verify wp8-first`, then enqueue and run a T1 starting from WP7's GEMM family with one dtype or shape condition changed, from lease to accepted or correctly rejected.
 4. Reject once and retry through `resume`, and compare the two wall times.
 5. Induce one out-of-workspace write (a human note), and attempt a direct GPU call from the workspace; both must appear in `AgentRun.violations`.
 6. **Approval, user config:** put a marked `AGENTS.md` in spark's user-level `~/.codex/` for the duration of one T1 run, and check that the marker is absent from the session events. `~/.codex` on spark is shared with other projects of the `memx` account.

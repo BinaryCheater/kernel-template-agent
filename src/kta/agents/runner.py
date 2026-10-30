@@ -25,8 +25,9 @@ from kta.agents.adapters.base import StepPlan
 from kta.agents.adapters.codex import CREDENTIAL_FILES, CodexAdapter
 from kta.agents.adapters.codex_session import usage_of
 from kta.agents.base import AgentEvent, Launch, Limits
+from kta.agents.batches import BatchRoot
 from kta.agents.config import AgentsConfig, agents_config
-from kta.agents.launchspec import BUNDLE_HOME, BUNDLE_WORKSPACE, AuthSpec, LaunchSpec
+from kta.agents.launchspec import BUNDLE_BATCH, BUNDLE_WORKSPACE, AuthSpec, LaunchSpec
 from kta.core.context import Context
 from kta.core.errors import ConfigError, NotSupported
 from kta.core.ids import UlidFactory, sha256_hex
@@ -119,6 +120,7 @@ def _spec(
     profile: AgentProfile,
     run: str,
     bundle: workspace.Bundle,
+    batch: str,
 ) -> LaunchSpec:
     run_as = None
     if profile.isolation == "config+user":
@@ -141,7 +143,8 @@ def _spec(
         run=run,
         mode="start",
         workspace_files=sorted(bundle.workspace),
-        home_files=sorted(bundle.home),
+        batch=batch,
+        batch_files=sorted(bundle.batch),
         auth=auth,
         run_as=run_as,
         secret_env=[guard.TOKEN_VAR],
@@ -194,8 +197,7 @@ def violations_of(
 
 
 def _prompt(
-    store: Store,
-    profile: AgentProfile,
+    batch: BatchRoot,
     mode: str,
     card: TaskCard,
     task: Task,
@@ -203,7 +205,7 @@ def _prompt(
     note: str | None,
 ) -> str:
     def tpl(name: str) -> str:
-        return store.blob_path(profile.message_templates[name]).read_text(encoding="utf-8")
+        return batch.text(f"msg-{name}.md")
 
     parts: list[str] = []
     if mode == "start":
@@ -225,11 +227,13 @@ def _plan(
     profile: AgentProfile,
     run: str,
     retry: cards.RetryNote | None,
+    batch: BatchRoot,
 ) -> tuple[StepPlan, Limits]:
     """Bundle, launch spec and job inputs of one step."""
     bundle = workspace.build(
         deps.store,
         profile,
+        batch,
         task_id=task.id,
         card_id=task.card_id,
         card_body=card,
@@ -237,12 +241,29 @@ def _plan(
         retry=retry,
     )
     limits = _limits(card, profile)
-    spec = _spec(ctx, deps, task, card, profile, run, bundle)
+    spec = _spec(ctx, deps, task, card, profile, run, bundle, batch.root.name)
     inputs = {
         **_put_files(deps.runner, BUNDLE_WORKSPACE, bundle.workspace),
-        **_put_files(deps.runner, BUNDLE_HOME, bundle.home),
+        **_put_files(deps.runner, BUNDLE_BATCH, bundle.batch),
     }
     return StepPlan(spec, inputs, {"pool": deps.config.pool}, hard_cap_s=3 * limits.wall_s), limits
+
+
+def open_batch(
+    ctx: Context, deps: Deps, card: TaskCard, state: sessions.SessionState | None, name: str | None
+) -> BatchRoot:
+    """The verified batch root of this step; a work unit never changes batch."""
+    name = name or deps.config.batch
+    if not name:
+        raise ConfigError("no batch: pass batch= or set [agents] batch (kta agents env build)")
+    if state is not None and state.batch and state.batch != name:
+        raise ConfigError(f"work unit {card.work_unit} belongs to batch {state.batch}, not {name}")
+    root = BatchRoot.open(deps.store, ctx.data_dir, name)
+    if root.lock["profile"] != card.profile:
+        raise ConfigError(
+            f"batch {name} is built from profile {root.lock['profile']}, not the card's"
+        )
+    return root
 
 
 def run_task(ctx: Context, task: Task) -> AgentRun:
@@ -257,12 +278,14 @@ def run_step(
     retry: cards.RetryNote | None = None,
     note: str | None = None,
     deps: Deps | None = None,
-    lane: str = "agent:0",
+    lane: str = "agent:1",
+    batch: str | None = None,
 ) -> StepResult:
     """Run one step of ``task``, write its AgentRun, return it with its record ID (D302).
 
     ``retry`` carries the rejection of the previous attempt (from the orchestrator);
-    ``note`` is a human's message, passed verbatim.
+    ``note`` is a human's message, passed verbatim. ``batch`` (default ``[agents] batch``)
+    names the batch root; a batch that fails verification refuses the start (D322).
     """
     deps = deps or deps_from(ctx)
     card = TaskCard.model_validate(deps.store.get(task.card_id).body)
@@ -273,14 +296,15 @@ def run_step(
         raise ConfigError(
             f"work unit {card.work_unit} lives on {state.worker}, not {deps.config.worker}"
         )
-    plan, limits = _plan(ctx, deps, task, card, profile, run, retry)
+    root = open_batch(ctx, deps, card, state, batch)
+    plan, limits = _plan(ctx, deps, task, card, profile, run, retry, root)
     adapter = adapter_for(profile, deps, plan)
     decision = sessions.decide(
         state, adapter.supports_resume, profile.loop_policy, retry.signature if retry else None
     )
     key = guard.ensure_key(Path(deps.config.token_key_file))
     token = guard.issue_token(key, task.id, ctx.clock.now() + timedelta(seconds=plan.hard_cap_s))
-    prompt = _prompt(deps.store, profile, decision.mode, card, task, retry, note)
+    prompt = _prompt(root, decision.mode, card, task, retry, note)
     stop = threading.Event()
     renewer = threading.Thread(target=_renewing, args=(deps.ops, task, stop), daemon=True)
     with span(
@@ -384,6 +408,7 @@ def _record(
         state,
         session=launch.session,
         worker=deps.config.worker,
+        batch=str(launch.report.get("batch") or ""),
         run_id=run_id,
         exit=launch.exit,
         context_ratio=usage.context_ratio,

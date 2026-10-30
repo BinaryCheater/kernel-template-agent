@@ -17,7 +17,12 @@ from collections.abc import Iterable
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from kta.agents.launchspec import BUNDLE_HOME, BUNDLE_WORKSPACE, REPLACED_DIRS, WORKSPACE_ENTRIES
+from kta.agents.launchspec import (
+    BUNDLE_BATCH,
+    BUNDLE_WORKSPACE,
+    REPLACED_DIRS,
+    WORKSPACE_ENTRIES,
+)
 from kta.core.errors import ConfigError, PermissionDenied
 from kta.core.secrets import find_secrets
 
@@ -95,16 +100,41 @@ def install_workspace(job_dir: Path, workspace: Path, names: list[str]) -> list[
     return written
 
 
-def install_home(job_dir: Path, home: Path, names: list[str]) -> bool:
-    """Create the CLI home from the profile's home files only on first use (agents.md)."""
+def install_home(template: Path, home: Path) -> bool:
+    """Create the CLI home from the batch's agent-home-template only on first use."""
     if home.exists():
         return False
-    home.mkdir(parents=True)
-    for name in names:
-        dest = home / safe_rel(name)
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(job_dir / (BUNDLE_HOME + name), dest)
+    shutil.copytree(template, home, symlinks=False)
     return True
+
+
+def ensure_batch(job_dir: Path, root: Path, names: list[str], lock_name: str) -> list[str]:
+    """The agent host's copy of a batch root: created from the job inputs on first use,
+    afterwards compared with them; returns the problems (empty = identical to the lock)."""
+    lock = json.loads((job_dir / (BUNDLE_BATCH + lock_name)).read_text(encoding="utf-8"))
+    expected: dict[str, str] = dict(lock["files"])
+    if set(names) != {*expected, lock_name}:
+        return ["job inputs do not match the batch lock"]
+    if not (root / lock_name).exists():
+        tmp = root.with_name(f".{root.name}.installing")
+        if tmp.exists():
+            shutil.rmtree(tmp)  # an interrupted install of the same batch
+        for name in names:
+            dest = tmp / safe_rel(name)
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(job_dir / (BUNDLE_BATCH + name), dest)
+        root.parent.mkdir(parents=True, exist_ok=True)
+        tmp.rename(root)
+    problems: list[str] = []
+    if (root / lock_name).read_bytes() != (job_dir / (BUNDLE_BATCH + lock_name)).read_bytes():
+        problems.append("agent host batch lock differs from the control plane's")
+    for rel, sha in sorted(expected.items()):
+        path = root / rel
+        if path.is_symlink() or not path.is_file():
+            problems.append(f"missing {rel}")
+        elif sha256_file(path) != sha:
+            problems.append(f"changed: {rel}")
+    return problems
 
 
 def link_credentials(home: Path, auth_dir: Path, files: list[str]) -> list[str]:

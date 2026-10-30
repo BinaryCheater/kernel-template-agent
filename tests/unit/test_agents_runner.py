@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 
-from kta.agents import sessions
+from kta.agents import batches, sessions
 from kta.agents.cards import RetryNote
 from kta.agents.config import agents_config
 from kta.agents.profile import ProfileSpec, write_profile
@@ -25,6 +25,7 @@ from kta.agents.runner import Deps, parse_session, run_step
 from kta.agents.units import close_work_unit
 from kta.core.config import config_from_mapping
 from kta.core.context import Context
+from kta.core.errors import PermissionDenied
 from kta.core.ids import UlidFactory
 from kta.core.registry import Registry
 from kta.core.schemas import Actor, Record
@@ -49,6 +50,7 @@ def actx(tmp_path: Path) -> Context:
         "executor": {"queue_timeout_s": 60},
         "agents": {
             "worker": "local",
+            "batch": "b1",
             "pool": "agent",
             "token_key_file": str(tmp_path / "keys" / "task-token.key"),
             "watch": [str(tmp_path / "watched")],
@@ -72,6 +74,12 @@ def parts(actx: Context) -> tuple[SqliteStore, SqliteOps, JobExecutor]:
     ops = open_ops(actx)
     register(actx, store, ops, worker_configs(actx)["local"], code_state().commit)
     return store, ops, JobExecutor(actx, store, ops, code_state().commit)
+
+
+def _profile_and_batch(actx: Context, store: SqliteStore) -> str:
+    profile = write_profile(store, datetime.now(UTC), TEST_PROFILE)
+    batches.build(store, actx.data_dir, "b1", profile, code_state().commit)
+    return profile
 
 
 def _task(store: SqliteStore, ops: SqliteOps, profile: str, wu: str = "wu-1"):
@@ -105,7 +113,7 @@ def _members(store: SqliteStore, blob: str) -> dict[str, bytes]:
 def test_start_resume_violation_and_close(actx: Context, parts, tmp_path: Path) -> None:
     store, ops, ex = parts
     deps = Deps(store, ops, ex, agents_config(actx))
-    profile = write_profile(store, datetime.now(UTC), TEST_PROFILE)
+    profile = _profile_and_batch(actx, store)
     assert write_profile(store, datetime.now(UTC), TEST_PROFILE) == profile  # idempotent
     task = _task(store, ops, profile)
     tracer = new_tracer(ops, actx.clock, UlidFactory(actx.clock), {})
@@ -155,6 +163,7 @@ def test_start_resume_violation_and_close(actx: Context, parts, tmp_path: Path) 
     ws = _members(store, report.blobs["workspace"])
     assert any(n.startswith(".git/") for n in ws) and "NOTES.md" in ws
     data_root = Path(actx.data_dir)
+    assert (data_root / "batches" / "b1" / "env.lock.json").exists()
     assert not list(data_root.rglob("work/wu-1")) and not list(data_root.rglob("agent-home/wu-1"))
     state, _ = sessions.load(ops, "wu-1")
     assert state is not None and state.status == "closed"
@@ -165,8 +174,43 @@ def test_refuses_an_agents_md_above_the_workspace(actx: Context, parts, tmp_path
     deps = Deps(store, ops, ex, agents_config(actx))
     profile = write_profile(store, datetime.now(UTC), TEST_PROFILE)
     task = _task(store, ops, profile, wu="wu-up")
+    batches.build(store, actx.data_dir, "b1", profile, code_state().commit)
     (Path(actx.data_dir) / "AGENTS.md").parent.mkdir(parents=True, exist_ok=True)
     (Path(actx.data_dir) / "AGENTS.md").write_text("user-level instructions")
     with tracing(new_tracer(ops, actx.clock, UlidFactory(actx.clock), {})):
         result = run_step(actx, task, deps=deps)
     assert result.launch.exit == "refused" and "AGENTS.md" in result.launch.report["error"]
+
+
+def test_runs_only_from_a_verified_batch(
+    actx: Context, parts, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store, ops, _ = parts
+    profile = _profile_and_batch(actx, store)
+    # Nothing may come from the source tree or the user's ~/.codex at run time.
+    from kta.agents import profile as profile_mod
+
+    monkeypatch.setattr(profile_mod, "PROMPTS", tmp_path / "no-prompts")
+    monkeypatch.setattr(profile_mod, "SKILLS", tmp_path / "no-skills")
+    fake_home = tmp_path / "user-home"
+    (fake_home / ".codex").mkdir(parents=True)
+    (fake_home / ".codex" / "AGENTS.md").write_text("USER-LEVEL-MARKER-7f3a\n")
+    monkeypatch.setenv("HOME", str(fake_home))
+    # A new executor, so the local worker process inherits the fake HOME.
+    deps = Deps(store, ops, JobExecutor(actx, store, ops, code_state().commit), agents_config(actx))
+    tracer = new_tracer(ops, actx.clock, UlidFactory(actx.clock), {})
+    with tracing(tracer):
+        ok = run_step(actx, _task(store, ops, profile, wu="wu-b"), deps=deps)
+    assert ok.launch.exit == "ok", ok.launch.report
+    manifest = json.loads(store.blob_path(ok.run.context_manifest).read_bytes())
+    used = "present, not used (CODEX_HOME points to home)"
+    assert manifest["user_level"] == {str(fake_home / ".codex"): used}
+    for blob in (ok.run.session_archive, ok.launch.workspace, ok.run.context_manifest):
+        assert b"USER-LEVEL-MARKER-7f3a" not in store.blob_path(blob).read_bytes()
+    archive = _members(store, ok.run.session_archive)
+    assert not any(b"USER-LEVEL-MARKER-7f3a" in data for data in archive.values())
+
+    skill = next((Path(actx.data_dir) / "batches" / "b1" / "skills").glob("use-kta@*/SKILL.md"))
+    skill.write_text(skill.read_text() + "\ntampered\n")
+    with tracing(tracer), pytest.raises(PermissionDenied, match="changed: skills/use-kta@"):
+        run_step(actx, _task(store, ops, profile, wu="wu-c"), deps=deps)

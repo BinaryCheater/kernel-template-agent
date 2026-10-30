@@ -4,6 +4,7 @@
 [agents]
 worker = "spark"                    # Executor worker that runs agent CLIs (D300)
 pool = "agent"                      # its pool for agent jobs ([workers.<w>] pools)
+batch = ""                          # default batch (kta agents env build <batch> --profile <id>)
 agent_user = "kta-agent"            # system user of config+user isolation (D09)
 token_key_file = "~/.config/kta/task-token.key"   # on the control host
 api_url = ""                        # KTA_API given to the agent-side kta (WP6/WP9)
@@ -40,6 +41,8 @@ class HostConfig:
 class AgentsConfig:
     worker: str
     pool: str = "agent"
+    slots: int = 2  # concurrent agent slots (docs/design/11 §2); lanes agent:1..slots
+    batch: str = ""  # default batch root of agent runs (kta agents env build, D322)
     agent_user: str | None = None
     token_key_file: str = "~/.config/kta/task-token.key"
     api_url: str = ""

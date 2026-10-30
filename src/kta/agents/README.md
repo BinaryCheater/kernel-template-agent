@@ -19,6 +19,8 @@ job program is `python -m kta.agents.launch`, the only file here that starts pro
 - `profile.write_profile`, `profile.approve_profile` (AgentProfile `codex-v1`, pointer `current_profile`)
 - `guard.issue_token`, `guard.verify_token`, `guard.verify_task_token` (for the API and agent-side `kta`)
 - `units.close_work_unit`: archive and remove a work unit's workspace and CLI home
+- `batches.build`, `batches.verify`, `batches.export_profile`, `batches.BatchRoot` (D322): batch roots `<data>/batches/<batch>/`
+- `commands.register(sub, make_ctx, emit)`: `kta agents export-profile|env build|env verify` (wired by the cli)
 - `adapters.capabilities`: the admission table per CLI
 
 | File | Role |
@@ -27,7 +29,9 @@ job program is `python -m kta.agents.launch`, the only file here that starts pro
 | `launch.py`, `hostfs.py`, `launchspec.py` | job program on the agent host: install, manifest, limits, GPU guard, git, pack |
 | `adapters/` | `codex.py` + `codex_session.py` (parser); others raise `NotSupported` |
 | `cards.py`, `workspace.py`, `prompts/` | AGENTS.md, TASK.md, messages, step bundle |
+| `batches.py`, `commands.py` | batch roots (template, lock, verify), profile export, `kta agents` hook |
 | `sessions.py`, `compliance.py`, `guard.py`, `profile.py`, `units.py`, `config.py` | as named |
+| `skills/README.md` | runtime skill catalogue (D321); construction skills are in the repo's `.agents/skills/` |
 
 ## Dependencies
 

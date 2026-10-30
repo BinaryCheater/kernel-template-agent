@@ -40,8 +40,11 @@ def close_work_unit(
     state, raw = sessions.load(ops, work_unit)
     if state is None:
         raise ConfigError(f"work unit {work_unit} has no agent session state")
+    if not state.batch:
+        raise ConfigError(f"work unit {work_unit} has no batch in its session state")
     auth = AuthSpec("codex", config.host.auth_dir, list(CREDENTIAL_FILES))
-    spec = LaunchSpec("codex", work_unit, UlidFactory(ctx.clock).new(), "close", auth=auth)
+    run = UlidFactory(ctx.clock).new()
+    spec = LaunchSpec("codex", work_unit, run, "close", auth=auth, batch=state.batch)
     plan = StepPlan(spec, {}, {"pool": config.pool}, hard_cap_s=CLOSE_TIMEOUT_S)
     closed = launch_job(runner, plan, spec, "")
     _report(runner, closed)
@@ -52,7 +55,12 @@ def close_work_unit(
             title=f"work unit {work_unit} archive",
             subject="work_unit_archive",
             summary=f"workspace with git history and CLI home of {work_unit}, no credentials",
-            data={"work_unit": work_unit, "session": state.session, "runs": state.runs},
+            data={
+                "work_unit": work_unit,
+                "batch": state.batch,
+                "session": state.session,
+                "runs": state.runs,
+            },
         ),
         Actor(type="system", name="kta.agents.units"),
         ctx.clock.now(),

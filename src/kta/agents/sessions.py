@@ -33,6 +33,7 @@ SET_ATTEMPTS = 5
 class SessionState:
     session: str | None = None
     worker: str | None = None  # the agent host the work unit is pinned to
+    batch: str | None = None  # the batch root the work unit lives in (D322)
     status: Literal["active", "closed"] = "active"
     runs: list[str] = field(default_factory=lambda: list[str]())  # AgentRun record IDs
     last_exit: str | None = None
@@ -101,6 +102,7 @@ def after_run(
     session: str,
     worker: str,
     run_id: str,
+    batch: str | None = None,
     exit: str,
     context_ratio: float | None,
     failure: str | None,
@@ -113,6 +115,7 @@ def after_run(
     return SessionState(
         session=session or None,
         worker=worker,
+        batch=batch or prev.batch,
         status="active",
         runs=[*prev.runs, run_id],
         last_exit=exit,
