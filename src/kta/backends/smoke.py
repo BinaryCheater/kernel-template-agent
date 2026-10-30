@@ -215,7 +215,9 @@ class Smoke:
         shared = harness.run_job(
             self.ex, module, gk.launch, buffers, {"n": N}, ["C"], self.gpu, kind="run"
         )
-        cpu = Job(kind="shell", argv=["sh", "-c", "echo cpu job"], requires={})
+        # The cpu job must be able to run only on the leased worker: on another worker
+        # (no lease there) it would rightly start at once.
+        cpu = Job(kind="shell", argv=["sh", "-c", "echo cpu job"], requires=self.gpu)
         ex_id = self.ex.submit(exclusive)
         deadline = time.monotonic() + 120
         while not lease_probe():  # wait until the exclusive job holds the lease
