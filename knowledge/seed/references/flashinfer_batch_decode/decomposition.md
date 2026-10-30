@@ -2,7 +2,7 @@
 
 Source: flashinfer-ai/flashinfer @ `732134f2ff4da63268b01c7c4ef9f61e9a1b8a43`. Kernel
 `BatchDecodeWithPagedKVCacheDevice` (`include/flashinfer/attention/decode.cuh:401-619`), launch
-`BatchDecodeWithPagedKVCacheDispatched` (`include/flashinfer/attention/decode.cuh:760-840`), plan
+`BatchDecodeWithPagedKVCacheDispatched` (`include/flashinfer/attention/decode.cuh:756-842`), plan
 `DecodePlan` (`include/flashinfer/attention/scheduler.cuh:426-527`), merge
 `VariableLengthMergeStates` (`include/flashinfer/attention/cascade.cuh:690-725`). This is the
 CUDA-core decode path (FlashInfer routes large GQA groups to tensor-core prefill kernels; that path

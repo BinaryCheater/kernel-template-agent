@@ -1,0 +1,15 @@
+name: scan
+level: 1
+category: other
+params:
+  - {name: inclusive, type: bool, meaning: "inclusive or exclusive prefix"}
+  - {name: assoc, type: bool, meaning: "whether the combine is associative (needed for parallel scans)"}
+  - {name: segmented, type: bool, meaning: "whether the scan restarts at segment boundaries"}
+description: >-
+  A prefix computation: output i combines inputs 0..i (or 0..i-1). Unlike reduce it produces one
+  result per input, and unlike map each result depends on all earlier inputs. Appears in
+  runtime metadata generation (offsets of variable-size groups), stream compaction and sorting.
+  The fixed category list in spec/schemas.md has no scan entry, so it is filed under `other`.
+examples:
+  - "vLLM moe_align_block_size: exclusive sum of padded per-expert token counts with cub::BlockScan (csrc/moe/moe_align_sum_kernels.cu:192-211)"
+  - "CSR indptr construction from per-row counts (e.g. FlashInfer's o_indptr built on the host, include/flashinfer/attention/scheduler.cuh:349-363)"
