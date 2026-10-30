@@ -258,6 +258,7 @@ class AgentProfile:                                   # 控制 agent 行为的�
     step_templates: dict[str, str]        # 任务类型 → blob：TASK.md 模板
     message_templates: dict[str, str]     # rejection、budget_warning、human_note、new_session → blob
     skills: dict[str, list[str]]          # 任务类型 → ["<skill 名>@<hash>"]
+    skill_bundles: dict[str, str]         # "<skill 名>@<hash>" → blob (deterministic tar of the skill dir; D322)
     allowed_commands: dict[str, list[str]]   # 任务类型 → 允许的 kta 子命令
     context_policy: dict                  # cards_k、card_max_lines、tool_output_max_chars、step_header_max_chars、notes_required
     loop_policy: dict                     # max_retries、reset_context_ratio、reset_on_repeat_failure、idle_s、各任务类型的预算

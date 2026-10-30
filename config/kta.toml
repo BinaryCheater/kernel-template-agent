@@ -6,6 +6,14 @@
 [toolchain]
 cuda_home = "/usr/local/cuda"
 
+[api]
+# The API listens on the control host only; other machines reach it through an SSH tunnel.
+host = "127.0.0.1"
+port = 7310
+
+[agents]
+# Concurrent agent slots (docs/design/11 §2, default 2); the frontend draws one lane per slot.
+slots = 2
 [knowledge]
 # Seed knowledge imported by `kta init` (relative to the source tree root).
 seed_dir = "knowledge/seed"

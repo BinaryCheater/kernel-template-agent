@@ -1,0 +1,71 @@
+/* Design tokens (web/DESIGN.md §4). Status colours keep one meaning everywhere. */
+:root {
+  color-scheme: light;
+
+  /* surfaces and ink */
+  --page: #f4f4f1;
+  --panel: #fcfcfb;
+  --panel-sunk: #f0efeb;
+  --hairline: #e1e0d9;
+  --axis: #c3c2b7;
+  --ink: #0b0b0b;
+  --ink-2: #52514e;
+  --ink-3: #898781;
+  --link: #1c5cab;
+
+  /* status */
+  --st-running: #2a78d6;
+  --st-running-tint: #e3eefb;
+  --st-waiting: #fab219;
+  --st-waiting-tint: #fdf3dc;
+  --st-ok: #0ca30c;
+  --st-ok-tint: #e2f4e2;
+  --st-fail: #d03b3b;
+  --st-fail-tint: #fae3e3;
+  --st-human: #6250d6;
+  --st-human-tint: #ebe8fa;
+  --st-idle: #898781;
+  --st-idle-tint: #efeeea;
+
+  /* span kinds (§4.3) */
+  --k-loop: #6b7280;
+  --k-agent: #6250d6;
+  --k-model: #a79cf0;
+  --k-tool: #1baf7a;
+  --k-compile: #eb6834;
+  --k-check: #008300;
+  --k-measure: #2a78d6;
+  --k-solve: #e87ba4;
+  --k-hold: #eda100;
+  --k-human: #6250d6;
+  --k-other: #a3a29b;
+
+  /* refinement levels 0-5 (sequential blue, ordinal) */
+  --lv0: #b7d3f6;
+  --lv1: #86b6ef;
+  --lv2: #5598e7;
+  --lv3: #2a78d6;
+  --lv4: #1c5cab;
+  --lv5: #104281;
+
+  /* type */
+  --font: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  --fs-caption: 11px;
+  --fs-small: 12px;
+  --fs-body: 13px;
+  --fs-section: 15px;
+  --fs-title: 18px;
+  --fs-hero: 28px;
+
+  /* space */
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --s5: 24px;
+  --s6: 32px;
+  --radius: 8px;
+  --radius-sm: 4px;
+  --shadow: 0 1px 2px rgba(11, 11, 11, 0.06);
+}
