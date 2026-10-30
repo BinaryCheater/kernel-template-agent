@@ -214,3 +214,52 @@ Decisions made without the user that need review. Newest last. Each entry: quest
 - **Choice:** the gate runs that suite (four named tests; needs this commit deployed on spark) and checks listed, real, clean records in `$KTA_DATA/dev/WP3/kta.db`: Measurement and Check from a GPU worker, measure-v1 and v2, v2's noise reports (≥ 30 groups), the checker-selftest Report with all four variants as expected, and a significant and a non-significant compare under v2.
 - **Rationale:** the acceptance run proves the behaviour now; the record check proves the delivered evidence.
 - **Cost of changing later:** low: `tools/kta_gate/specific_wp3.py`.
+
+## D241 — What a Prediction holds
+
+- **Question:** the Prediction schema has `per_unit`, `serial`, `total`, `model` without units or a statement of whether efficiencies are applied.
+- **Choice:** `per_unit` and `serial` are times at peak (eff = 1, no occupancy factor) in µs; `total` is the model's prediction in µs.
+- **Rationale:** any model version can be refitted on predictions made by another; the bottleneck unit at peak stays visible.
+- **Cost of changing later:** low before WP7 stores real predictions; afterwards a migration or a schema version.
+
+## D243 — Minimum work for the bound
+
+- **Question:** `bound()` needs the semantic minimum work, computed "from the Problem's reference definition"; the Problem schema has no field for it.
+- **Choice:** `Problem.params["min_work"]` maps unit -> expression over `case.*`; peaks from `HwModel.peaks`.
+- **Rationale:** no schema change; the Problem author states it once per problem.
+- **Cost of changing later:** low: `kta.models.bound.min_work`.
+
+## D244 — Fitting rule and interaction significance
+
+- **Question:** the spec asks for interaction terms "when the combined residual is significant by measure's rule", but models (layer 4) cannot import measure (layer 5), and measure is not merged.
+- **Choice:** own F test (F > 4, >= 3 residual dof, >= 10% lower loss); relative-error loss; every fifth point held out.
+- **Rationale:** a standard nested-model test with a conservative threshold; hold-out error is reported per version as the spec requires.
+- **Cost of changing later:** low: `kta.models.fit`; or move the rule into core so both modules share it.
+
+## D245 — Model versions as Report records
+
+- **Question:** "each model version is a record", but there is no UnitModel kind.
+- **Choice:** a `Report` with subject `unit_model`; refs `previous`, `predictions`, `measurements`.
+- **Rationale:** no new kind in core; Reports are already queried by subject.
+- **Cost of changing later:** medium once WP6/WP9a read them: a new kind needs a migration of existing versions.
+
+## D246 / D247 — Binding semantics and the cost scale `p.instances`
+
+- **Question:** WP4 left the meaning of `p.*` bindings in families to WP5 (D205); Template cost terms also lack a statement of scale (per instance or per kernel).
+- **Choice:** string bindings are family variables, list-domain values, or expressions over family variables, `case.*` and `hw.*`; `p.*` likewise; the reserved `p.instances` multiplies the item's cost terms (Template costs describe one instance).
+- **Rationale:** lets a family state per-tile sizes (alignment, capacity) and whole-kernel counts without changing the Templates; the GEMM test family over the five seed Templates needs both.
+- **Cost of changing later:** medium once WP7/WP10b families use them. `validate_family` (WP4) accepts all of this already, except that it reports an expression bound to a *Template variable* (not a `p.*`) as `unbound_name`.
+
+## D250 — Rerank inputs
+
+- **Question:** `rerank(candidates, builds, ...)` keys builds by a string and needs threads per CTA for occupancy, which Build does not record.
+- **Choice:** key = `Candidate.key` (hash of bucket and assignment); threads from the family variable named `threads`.
+- **Rationale:** stable without store IDs; families that tile CTAs name their thread count anyway.
+- **Cost of changing later:** low: `kta.solve.select`.
+
+## D252 — What the WP5 gate checks
+
+- **Question:** spec/gate.md asks for "seed validates" and `pytest tests/acceptance/WP5/`; the seed has no family yet.
+- **Choice:** the named acceptance tests; WP4's seed check; every seed family plus the WP5 GEMM test family validates and assembles, and together they use all five seed Templates.
+- **Rationale:** checks that the seed's Templates compose into a formulation, not only that each validates.
+- **Cost of changing later:** low: one function in `tools/kta_gate/specific.py`.

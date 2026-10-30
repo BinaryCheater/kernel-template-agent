@@ -1,0 +1,30 @@
+# Test data for WP5 (not a kernel): a GEMM family whose chain uses all five seed Templates.
+# Its generator only emits step markers. Cost terms are those of the seed Templates; the
+# seed has no step carrying the contraction's tensor work or the operand DRAM traffic.
+name: gemm_seed5_test
+version: 1
+backend: cuda
+variables:
+  - {name: BM, kind: numeric, binding: compile, role: software, domain: [64, 128, 256], meaning: "CTA tile rows"}
+  - {name: BN, kind: numeric, binding: compile, role: software, domain: [64, 128, 256], meaning: "CTA tile columns"}
+  - {name: BK, kind: numeric, binding: compile, role: software, domain: [16, 32, 64], meaning: "k-tile size (reduction group size)"}
+  - {name: S, kind: numeric, binding: compile, role: software, domain: {lo: 1, hi: 6}, meaning: "shared-memory stages"}
+  - {name: P, kind: numeric, binding: compile, role: software, domain: {lo: 0, hi: 5}, meaning: "prefetch distance in k-tiles"}
+  - {name: KT, kind: numeric, binding: runtime, role: software, domain: {lo: 1, hi: 65536}, meaning: "k-tiles per output tile"}
+  - {name: mech, kind: structure, binding: compile, role: boundary, domain: [software, instruction], meaning: "copy mechanism"}
+  - {name: gran, kind: numeric, binding: compile, role: software, domain: [4, 8, 16], meaning: "bytes per copy operation"}
+  - {name: swz, kind: structure, binding: compile, role: software, domain: [identity, xor_swizzle], meaning: "shared-memory bank map"}
+  - {name: threads, kind: numeric, binding: compile, role: software, domain: [128, 256], meaning: "threads per CTA"}
+glue_constraints:
+  - id: g_acc_regs
+    expr: "BM * BN <= threads * 128"
+    meaning: "at most 128 fp32 accumulators per thread; couples the output tile with the CTA size, which no single step owns"
+    cls: resource
+dispatch:
+  runtime_vars: [KT]
+  buckets: []
+  rule: "KT = ceil_div(case.K, BK) for each shape"
+edge_cases:
+  - {M: 1, N: 1, K: 1}
+numeric_risk: []
+entry: gen.py:generate

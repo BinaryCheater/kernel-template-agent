@@ -1,0 +1,32 @@
+[
+  {
+    "claim": "WP5 acceptance tests (constraint sources after assembly; a constant binding removes the variable and only the changed block is rebuilt; enumeration and the HiGHS MIP give the same optimum and the same next-best points on a small linear problem) and the WP5 unit tests (bound, per-unit prediction, occupancy feedback, fit with hold-out and interaction test, calibration records, GEMM test family over the five seed Templates solved exhaustively, interval pruning against brute force, budgeted sampling, MIP path and fallback, rerank, solve records, gate check) pass. Unit/acceptance runs only: WP5 is not record-backed (D84); its real run is WP7's",
+    "command": "uv run --frozen pytest -v tests/acceptance/WP5 tests/unit/test_models_unit.py tests/unit/test_formulation_solve_unit.py tests/unit/test_gate_wp5.py",
+    "git_commit": "4ad1b8347d2a7b05333d7e30deb294d12da1a9f6",
+    "dirty": false,
+    "env": "dev",
+    "control_host": "dingyideMacBook-Pro.local",
+    "workers": [],
+    "record_ids": [],
+    "blob_ids": [],
+    "env_manifests": [],
+    "started_at": "2026-10-30T06:38:44Z",
+    "requires_gpu": false,
+    "output": "dingyideMacBook-Pro.local:~/kta-data/dev/WP5/evidence/pytest-4ad1b83.txt"
+  },
+  {
+    "claim": "The WP5 GEMM test family (all five seed Templates) assembles into a 10-variable, 12-constraint, 5-cost-term formulation and solves exhaustively by pruned enumeration on three shapes (256^3, 1024^3, 4096^3) with a test HwModel; every point of the 1.5e9-point space is accounted for as feasible or pruned by a named constraint. Informational run with test data (not GB10 facts); the top candidates tie because the seed chain has no contraction or operand-DRAM cost term (Known issues)",
+    "command": "uv run --frozen python ~/kta-data/dev/WP5/evidence/gemm-solve-demo.py (calls tests/solvehelp.gemm, kta.solve.shape_buckets and kta.solve.solve)",
+    "git_commit": "4ad1b8347d2a7b05333d7e30deb294d12da1a9f6",
+    "dirty": false,
+    "env": "dev",
+    "control_host": "dingyideMacBook-Pro.local",
+    "workers": [],
+    "record_ids": [],
+    "blob_ids": [],
+    "env_manifests": [],
+    "started_at": "2026-10-30T06:40:00Z",
+    "requires_gpu": false,
+    "output": "dingyideMacBook-Pro.local:~/kta-data/dev/WP5/evidence/gemm-solve-4ad1b83.txt"
+  }
+]

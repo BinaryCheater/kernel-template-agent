@@ -419,6 +419,93 @@ def wp4(root: Path, passed: set[str]) -> list[CheckResult]:
     return results
 
 
+WP5_ACCEPTANCE = (
+    "test_constraint_sources_after_assembly",
+    "test_constant_binding_removes_variable",
+    "test_enumeration_and_mip_agree_on_small_linear_problem",
+)
+WP5_TEST_FAMILY = Path("tests") / "acceptance" / "WP5" / "gemm_family"
+
+
+def _wp5_families(root: Path) -> list[Path]:
+    seed = root / "knowledge" / "seed" / "families"
+    found = sorted(p for p in seed.iterdir() if p.is_dir()) if seed.is_dir() else []
+    test_family = root / WP5_TEST_FAMILY
+    return [*found, test_family] if test_family.is_dir() else found
+
+
+def _assemble_check(root: Path, data: Path) -> CheckResult:
+    """Every family (seed families and the WP5 GEMM test family) validates and assembles
+    over the seed Templates in a scratch store; together they use all seed Templates
+    (decision D252)."""
+    from kta.core.config import config_from_mapping
+    from kta.core.context import Context
+    from kta.core.errors import SchemaError
+    from kta.core.registry import Registry
+    from kta.core.schemas.evaluation import Case
+    from kta.formulation import assemble
+    from kta.knowledge import SeedError, errors_of, import_seed, load_family, validate_family
+    from kta.knowledge.pool import find_template
+    from kta.store import CodeState, open_store
+
+    ctx = Context(env="test", config=config_from_mapping({}), data_dir=data, registry=Registry())
+    code = CodeState("0" * 40, False)
+    store = open_store(ctx, code)
+    try:
+        import_seed(ctx, store, root / "knowledge" / "seed", code)
+    except SeedError as exc:
+        return CheckResult("seed formulations assemble", "FAIL", f"seed import refused: {exc}")
+    families = _wp5_families(root)
+    if not families:
+        return CheckResult("seed formulations assemble", "FAIL", "no family to assemble")
+    case = Case(problem="gate", shape_dist=[], objective="weighted_latency", target="gate")
+    findings: list[str] = []
+    used: set[str] = set()
+    sizes: list[str] = []
+    for path in families:
+        name = path.relative_to(root)
+        try:
+            fp = load_family(path)
+        except SchemaError as exc:
+            findings.append(f"{name}: {exc}")
+            continue
+        findings += [f"{name}: {i}" for i in errors_of(validate_family(fp, store, None))]
+        templates = {}
+        for item in fp.chain.items:
+            hit = find_template(store, item.template)
+            if hit is not None:
+                templates[item.template] = hit[1]
+        try:
+            f = assemble(fp, fp.chain, templates, case, {})
+        except SchemaError as exc:
+            findings.append(f"{name}: {exc}")
+            continue
+        used |= {t.split("@")[0] for t in templates}
+        sizes.append(
+            f"{fp.family.name}: {len(f.constraints)} constraints, {len(f.cost_terms)} costs"
+        )
+    findings += [
+        f"seed Template {t} is not used by any assembled family"
+        for t in WP4_SEED_TEMPLATES
+        if t not in used
+    ]
+    return from_findings("seed formulations assemble", findings, "; ".join(sizes))
+
+
+def wp5(root: Path, passed: set[str]) -> list[CheckResult]:
+    """WP5 acceptance tests passed; the seed validates; seed formulations assemble."""
+    import tempfile
+
+    names_ = {t.split("::")[-1].split("[")[0] for t in passed if "acceptance.WP5" in t}
+    absent = [f"{t} did not pass" for t in WP5_ACCEPTANCE if t not in names_]
+    results = [from_findings("WP5 acceptance tests", absent, f"{len(names_)} tests passed")]
+    with tempfile.TemporaryDirectory(prefix="kta-gate-wp5-") as tmp:
+        seed_result, _ = _seed_check(root / "knowledge" / "seed", Path(tmp) / "seed")
+        results.append(seed_result)
+        results.append(_assemble_check(root, Path(tmp) / "assemble"))
+    return results
+
+
 def wp10a(root: Path, passed: set[str]) -> list[CheckResult]:
     base = root / "knowledge" / "seed" / "references"
     refs = sorted(p for p in base.iterdir() if p.is_dir()) if base.exists() else []
@@ -493,6 +580,7 @@ SPECIFIC: dict[str, Callable[[Path, set[str]], list[CheckResult]]] = {
     "WP0": wp0,
     "WP1": wp1,
     "WP4": wp4,
+    "WP5": wp5,
     "WP2": wp2,
     "WP3": wp3,
     "WP10a": wp10a,
