@@ -1,9 +1,10 @@
-repo: https://github.com/IST-DASLab/marlin
-commit: 1f25790bdd49fba53106164a24666dade68d7c90
-commit_date: "2024-09-04T15:35:00+02:00"
+name: marlin_int4_gemm_source
+type: git
+locator: https://github.com/IST-DASLab/marlin
+revision: 1f25790bdd49fba53106164a24666dade68d7c90
 license: Apache-2.0
-paths:
-  - marlin/marlin_cuda_kernel.cu
-  - marlin/__init__.py
-retrieved_at: "2026-10-30T04:03:51Z"
-note: Original Marlin repository (default branch head; the repository has had no commits since 2024-09). Later forks (vLLM gptq_marlin, machete) are not analysed.
+note: >-
+  Original Marlin repository (default branch head; the repository has had no commits since 2024-09). Later
+  forks (vLLM gptq_marlin, machete) are not analysed. Commit date 2024-09-04T15:35:00+02:00; retrieved
+  2026-10-30T04:03:51Z (shallow clone, cached outside git). Files analysed: marlin/marlin_cuda_kernel.cu,
+  marlin/__init__.py.

@@ -119,6 +119,7 @@
 | D104 | `runnable_on` meaning in WP10a | `["gb10"]` = every instruction the reference needs exists on sm_121 per documentation (eligibility, not a run); `[]` = analysis-only | WP10a |
 | D105 | Proposed Patterns | default — needs user review: three Patterns proposed with status proposed and category `other` (the schema's category list has no scheduling or scan entry): `work_assign`, `issue_order`, `scan`; D50 requires your confirmation for new Patterns | WP10a |
 | D106 | Compiler-decided transactions | record register allocation / unrolling by the compiler as one unmatched transaction (pattern_guess other, attribution intent_sass) in every CUDA reference, so counts are comparable across references | WP10a |
+| D107 | Seed source.yaml uses the WP1 Source body (replaces D101) | `source.yaml` follows D143 (name, type, locator, revision, license, note); commit date, retrieval time and analysed paths are kept in `note` because the Source body has no fields for them | WP10a |
 
 ## 已确认
 

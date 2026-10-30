@@ -1,10 +1,11 @@
-repo: https://github.com/vllm-project/vllm
-commit: 2eae56c4ba0cf12087fec035514eedede83c257d
-commit_date: "2026-10-29T22:27:49-05:00"
+name: vllm_fused_moe_source
+type: git
+locator: https://github.com/vllm-project/vllm
+revision: 2eae56c4ba0cf12087fec035514eedede83c257d
 license: Apache-2.0
-paths:
-  - vllm/model_executor/layers/fused_moe/fused_moe.py
-  - vllm/model_executor/layers/fused_moe/moe_align_block_size.py
-  - csrc/moe/moe_align_sum_kernels.cu
-retrieved_at: "2026-10-30T04:04:03Z"
-note: Triton fused_moe_kernel (unquantized bf16/f16 path) plus the CUDA moe_align_block_size routing-metadata kernels. The activation (silu_and_mul) and moe_sum kernels of the full MoE layer are separate kernels, not part of this reference.
+note: >-
+  Triton fused_moe_kernel (unquantized bf16/f16 path) plus the CUDA moe_align_block_size routing-metadata
+  kernels. The activation (silu_and_mul) and moe_sum kernels of the full MoE layer are separate kernels,
+  not part of this reference. Commit date 2026-10-29T22:27:49-05:00; retrieved 2026-10-30T04:04:03Z (shallow
+  clone, cached outside git). Files analysed: vllm/model_executor/layers/fused_moe/fused_moe.py, vllm/model_executor/layers/fused_moe/moe_align_block_size.py,
+  csrc/moe/moe_align_sum_kernels.cu.

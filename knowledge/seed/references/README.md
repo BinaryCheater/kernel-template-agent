@@ -27,7 +27,7 @@ are renamed accordingly:
 
 | File | Kind | Implied refs |
 | --- | --- | --- |
-| `source.yaml` | Source (fields not yet in spec/schemas.md, see D101) | — |
+| `source.yaml` | Source (spec/schemas.md §4.10, D143; replaces the draft fields of D101, see D107) | — |
 | `problem.yaml` | Problem (§4.8): the workload | — |
 | `reference.yaml` | Reference (§4.5) | `source` = source.yaml, `problem` = problem.yaml |
 | `chain.yaml` | Chain (§4.3) | `templates` = every `template` named in `items` |
