@@ -1,0 +1,4 @@
+name: flashinfer_batch_decode
+problem: batch_decode_paged_f16_d128
+build: "pip install flashinfer-python (JIT-compiles the decode module for the visible GPU on first use; not executed in WP10a)"
+runnable_on: [gb10]

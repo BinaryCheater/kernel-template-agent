@@ -1,0 +1,140 @@
+workload: "C = A @ dequant(B), A f16 [M,K], B symmetric int4 with fp16 scales (per channel or groups of 128), C f16; Marlin kernel with 256 threads, 4 stages, (thread_n, thread_k) = (128, 128) for M <= 16 else (256, 64)"
+items:
+  - key: prepack
+    template: offline_operand_prepack@1
+    applies_to: "weights quantized, permuted into 16x64 tiles in mma B-fragment order with the 0,2,4,6,1,3,5,7 interleave and packed 8 per int32; scales permuted to match (marlin/__init__.py:40-68, 102-139)"
+    bindings: {tile_rows: 16, tile_cols: 64, element_order: mma_fragment_interleaved, pack_bits: 4}
+    after: []
+    code_markers: []
+  - key: dequant
+    template: fused_dequantization@1
+    applies_to: "int4 -> fp16 in registers with two lop3 and one hsub2 / hfma2 per 8 values, zero point 8 folded, group scale multiplied before the MMA (marlin/marlin_cuda_kernel.cu:116-160, 442-464)"
+    bindings: {method: magic_number_lop3, zero_point: symmetric_folded, scale_site: per_group_before_mma, group_size: groupsize}
+    after: [prepack]
+    code_markers: []
+  - key: m_split
+    template: output_tiling@1
+    applies_to: "M split by the host into chunks of up to 64 rows (thread_m_blocks <= 4), with par parallel 64-row problems per launch; N split into thread_n columns (marlin/marlin_cuda_kernel.cu:754-764, 784-816, 239-244)"
+    bindings: {tile_m: 64, tile_n: thread_n, executor: cta, index_map: custom}
+    after: [dequant]
+    code_markers: []
+  - key: stripes
+    template: linearized_work_partition@1
+    applies_to: "grid = #SMs; each CTA takes iters consecutive k-tiles in column-major (k fastest) order across column slices (marlin/marlin_cuda_kernel.cu:229-298, 681-690, 768)"
+    bindings: {units_per_cta: iters, order: k_major_within_column, grid: sms}
+    after: [m_split]
+    code_markers: []
+  - key: k_part
+    template: reduction_partition@1
+    applies_to: "the K reduction of one column slice is split into contiguous k-tile ranges owned by different CTAs (slice_row, slice_iters) (marlin/marlin_cuda_kernel.cu:245-276)"
+    bindings: {num_groups: slice_count, group_size: iters, assignment: contiguous_ranges}
+    after: [stripes]
+    code_markers: []
+  - key: global_combine
+    template: ordered_global_combine@1
+    applies_to: "CTAs of a column slice add their partials into C in slice_idx order under a per-column lock; intermediate partials stored in fp16 (marlin/marlin_cuda_kernel.cu:162-188, 514-571, 674-678)"
+    bindings: {order: by_k_partition_index, partial_dtype: f16, lock_reset: last_resets}
+    after: [k_part]
+    code_markers: []
+  - key: warp_k
+    template: reduction_partition@1
+    applies_to: "inside a CTA the 8 warps split the CTA tile along K as well as N (thread_k_blocks sub-tiles; red_off warps share outputs) (marlin/marlin_cuda_kernel.cu:300-325, 466-470)"
+    bindings: {num_groups: red_off_times_2, group_size: 16, assignment: strided_warps}
+    after: [k_part]
+    code_markers: []
+  - key: smem_combine
+    template: smem_partial_combine@1
+    applies_to: "warp partials combined by a logarithmic tree through shared memory with barriers (marlin/marlin_cuda_kernel.cu:466-509)"
+    bindings: {topology: log_tree, combine_op: add, result_to: one_warp, participants: red_off_times_2}
+    after: [warp_k]
+    code_markers: []
+  - key: out_warp
+    template: output_tiling@1
+    applies_to: "thread_n_blocks / 4 warps along N each own 64 output columns of the CTA tile (marlin/marlin_cuda_kernel.cu:300-325, 594)"
+    bindings: {tile_m: 64, tile_n: 64, executor: warp, index_map: identity}
+    after: [m_split]
+    code_markers: []
+  - key: mma
+    template: compute_instruction_selection@1
+    applies_to: "mma.sync m16n8k16 f16 -> f32 (marlin/marlin_cuda_kernel.cu:93-105, 459-461)"
+    bindings: {instruction: mma_sync_m16n8k16_f16, operand_source: rr, accum_dtype: f32, macs_per_instruction: 2048}
+    after: [out_warp, dequant]
+    code_markers: []
+  - key: acc_store
+    template: physical_storage@1
+    applies_to: "frag_c accumulators in registers for a whole stripe segment (marlin/marlin_cuda_kernel.cu:374-384)"
+    bindings: {level: reg, buffer: frag_c, share_order: none}
+    after: [mma]
+    code_markers: []
+  - key: ab_smem
+    template: physical_storage@1
+    applies_to: "sh_a, sh_b, sh_s stage buffers in dynamic smem; the same smem is reused by thread_block_reduce and by write_result after the pipeline drains (marlin/marlin_cuda_kernel.cu:369-373, 466-509, 573-619)"
+    bindings: {level: smem, buffer: sh, share_order: pipeline_then_reduce_then_output}
+    after: [k_part]
+    code_markers: []
+  - key: ab_async
+    template: async_transfer@1
+    applies_to: "A, B and scales global -> shared with cp.async.cg 16 B, one commit group per stage; the next stage is issued when the second-last k sub-tile of the current stage is loaded into registers (marlin/marlin_cuda_kernel.cu:54-90, 387-415, 637-646)"
+    bindings: {mechanism: instruction, issue_point: before_last_ksubtile_of_stage, complete_point: wait_for_stage, granularity_bytes: 16}
+    after: [ab_smem]
+    code_markers: []
+  - key: b_stream_hint
+    template: cache_eviction_hint@1
+    applies_to: "B and scale loads use createpolicy.fractional.L2::evict_first: weights are streamed once (marlin/marlin_cuda_kernel.cu:69-80, 401, 408)"
+    bindings: {policy: evict_first, operand_role: streamed_once}
+    after: [ab_async]
+    code_markers: []
+  - key: stages
+    template: multi_buffer_rotation@1
+    applies_to: "4-stage ring, start_pipes fetches stages - 1, cp.async.wait_group<stages - 2> + __syncthreads before reuse (marlin/marlin_cuda_kernel.cu:417-422, 621-630, 706)"
+    bindings: {S: 4, P: 3, beta: 1}
+    after: [ab_async]
+    code_markers: []
+  - key: a_swizzle
+    template: shared_resource_binding@1
+    applies_to: "A tiles written and read through the XOR transform_a so neither the 16-byte writes nor the ldmatrix reads conflict (marlin/marlin_cuda_kernel.cu:340-361)"
+    bindings: {binding: row_xor_16B_chunks, queue_depth: hw_fixed}
+    after: [ab_smem]
+    code_markers: []
+  - key: a_frag
+    template: collective_fragment_load@1
+    applies_to: "A fragments loaded with ldmatrix.x4 (marlin/marlin_cuda_kernel.cu:107-114, 436-437)"
+    bindings: {instruction: ldmatrix_x4, transpose: false}
+    after: [mma, a_swizzle]
+    code_markers: []
+  - key: b_frag
+    template: collective_fragment_load@1
+    applies_to: "B fragments read as one 128-bit vector per thread, already in fragment order thanks to the prepack (marlin/marlin_cuda_kernel.cu:438-439)"
+    bindings: {instruction: lds128, transpose: false}
+    after: [mma, prepack]
+    code_markers: []
+  - key: frag_stages
+    template: multi_buffer_rotation@1
+    applies_to: "frag_a, frag_b_quant and frag_s double-buffered in registers by k % 2; sub-tile k+1 fetched before matmul(k). Partial match, see gap ux-06 (same finding as cutlass_ampere_tf32_gemm ux-09)."
+    bindings: {S: 2, P: 1, beta: 0}
+    after: [a_frag, b_frag]
+    code_markers: []
+  - key: vec
+    template: vectorized_access@1
+    applies_to: "all global loads and stores are 16-byte int4 accesses spread over 256 threads (marlin/marlin_cuda_kernel.cu:300-325, 387-410)"
+    bindings: {vector_bytes: 16, thread_arrangement: strided_loop, threads: 256}
+    after: [ab_async]
+    code_markers: []
+  - key: a_guard
+    template: boundary_predication@1
+    applies_to: "A rows beyond prob_m (M not a multiple of 16) are not loaded; their output rows are not stored (marlin/marlin_cuda_kernel.cu:333-338, 392-395, 612)"
+    bindings: {boundary_kind: tile_residue, fill: none, specialize_even: false}
+    after: [vec]
+    code_markers: []
+  - key: epi_scale
+    template: operator_fusion@1
+    applies_to: "per-channel scales applied and f32 -> f16 conversion done during write-out (marlin/marlin_cuda_kernel.cu:588-592, 659-672)"
+    bindings: {consumer_kind: elementwise, intermediate_site: registers, fused_ops: scale_and_cast}
+    after: [acc_store, dequant]
+    code_markers: []
+  - key: epi_stage
+    template: staged_relayout@1
+    applies_to: "results written to smem in fragment order, barrier, then copied to C with 16-byte stores (marlin/marlin_cuda_kernel.cu:573-619)"
+    bindings: {chunks: 1, reader: threads, write_instruction: sts}
+    after: [epi_scale, ab_smem]
+    code_markers: []

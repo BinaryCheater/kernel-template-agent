@@ -1,0 +1,17 @@
+name: attention_fwd_f16_d128
+reference_impl: "Same workload as flash_attention_2_fwd: O = softmax(scale * Q K^T + mask) V and LSE per (batch, head), float32 naive reference (hopper/test_flash_attn.py)"
+inputs:
+  - {name: Q, shape: [B, Sq, H, "128"], dtype: f16, layout: "row_major, last dim contiguous"}
+  - {name: K, shape: [B, Sk, Hk, "128"], dtype: f16, layout: "row_major, last dim contiguous"}
+  - {name: V, shape: [B, Sk, Hk, "128"], dtype: f16, layout: "row_major, last dim contiguous"}
+outputs:
+  - {name: O, shape: [B, Sq, H, "128"], dtype: f16, layout: "row_major, last dim contiguous"}
+  - {name: LSE, shape: [B, H, Sq], dtype: f32, layout: row_major}
+params:
+  scale: "f32, runtime"
+  causal: "bool, runtime switch compiled into separate kernels"
+  H_over_Hk: "int, GQA ratio, runtime"
+  Sq: "int, runtime"
+  Sk: "int, runtime"
+  excluded_features: "FP8 (V transpose, descale), varlen, paged KV, split, PackGQA, AppendKV, Qv, local window, softcap: compiled-out variants not decomposed"
+  tolerance: "as for flash_attention_2_fwd"

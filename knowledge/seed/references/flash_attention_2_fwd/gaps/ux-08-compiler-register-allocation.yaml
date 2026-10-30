@@ -1,0 +1,7 @@
+missing: other
+description: >-
+  [ux-08] Same kind of gap as cutlass_ampere_tf32_gemm ux-13: compiler outcomes (registers, spills) that
+  decide whether physical_storage(level=reg) holds have no place in a Chain.
+level: 3
+pattern_guess: other
+attribution: intent_sass

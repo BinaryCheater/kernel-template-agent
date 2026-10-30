@@ -1,0 +1,45 @@
+name: split_combine_kernel
+version: 1
+level_from: 2
+level_to: 3
+change: vertical
+refines: reduce
+produces: [transfer, reduce]
+object:
+  type: partial_state_buffer
+  description: "A global buffer of per-split partial results (here attention states o and lse) written by the main kernel and merged by a second kernel."
+variables:
+  - {name: combine_op, kind: structure, binding: compile, role: software, domain: [add, rescaled_merge], meaning: "combine operator; rescaled_merge for (o, lse) states"}
+  - {name: merge_grid, kind: structure, binding: compile, role: software, domain: [persistent, one_cta_per_output], meaning: "how the merge kernel walks the outputs"}
+  - {name: partial_dtype, kind: structure, binding: compile, role: software, domain: [f32, f16], meaning: "precision of the stored partials"}
+constraints: []
+preconditions:
+  - {id: pre_assoc, expr: "p.reduce_assoc and (combine_op == 'add' or p.rescalable)", meaning: "the combine is associative; for attention states it must be rescalable", cls: semantic}
+program:
+  description: "Main kernel writes o and lse per (request, chunk) to tmp_v / tmp_s at o_indptr offsets; VariableLengthMergeStates launches a persistent kernel that, per (request, head), merges the chunks' states with state_t::merge and writes the final o and lse (include/flashinfer/attention/decode.cuh:815-835; include/flashinfer/attention/cascade.cuh:374-475, 690-725; include/flashinfer/attention/state.cuh:53-70)."
+  fragments: {}
+backward_map: "Merge the partial states of each output in any order: equal to the unsplit online reduction over the whole KV range."
+obligations:
+  - {name: all_partials_merged, statement: "For each output, exactly the partials in [o_indptr[b], o_indptr[b+1]) are merged.", method: exhaustive}
+  - {name: merge_equivalence, statement: "Merging rescaled states equals the single-pass result up to rounding, including chunks whose state is empty (m = -inf).", method: test}
+  - {name: kernel_order, statement: "The merge reads partials only after the main kernel wrote them (stream order or programmatic dependent launch with the wait placed before the reads).", method: test}
+cost:
+  - {unit: dram, work: "2 * p.partial_bytes", overlap: serial}
+  - {unit: launch, work: "1", overlap: serial}
+scope:
+  predicate: "True"
+  text: "Split reductions where the number of partials per output varies at run time or exceeds what one CTA can merge in place."
+requires_hw: []
+relations:
+  - {type: requires, target: reduction_partition}
+  - {type: alternative_of, target: ordered_global_combine}
+  - {type: alternative_of, target: smem_partial_combine}
+signature:
+  algorithm: "separate merge kernel over partial states in global memory"
+  reuse: null
+  storage: "partial buffer in gmem"
+  boundary: "requests with a single chunk (merge copies)"
+  resources: [dram, launch]
+numeric_risk: "Merge order and partial precision affect rounding; with rescaled_merge, empty chunks must not produce NaN (input distribution: very_short_and_very_long_requests)."
+expected_sass: []
+summary: "Writes per-split partial results to a global buffer and merges them in a second kernel. Handles a runtime-varying number of partials per output without cross-CTA locks. Costs an extra launch and a round trip of the partials through DRAM."

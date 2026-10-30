@@ -1,0 +1,7 @@
+missing: template
+description: >-
+  [ux-06] async_transfer covers issue/complete events but not the thread -> address map and vector width
+  that make the transfer coalesced. Proposed: vectorized_access@1.
+level: 3
+pattern_guess: transfer
+attribution: space

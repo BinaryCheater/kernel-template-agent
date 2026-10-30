@@ -74,6 +74,9 @@ def test_fixture_marker_must_be_declared(tmp_path: Path) -> None:
     _note(tmp_path, "WPx", FULL_NOTE.replace("None\n## Known", "src/kta/x.py: why\n## Known"))
     assert delivery.check_fixture_declarations(tmp_path, "WPx").status == "PASS"
     assert scans.fixture_markers(tmp_path) == [("src/kta/x.py", 1)]
+    # Declared by the WP that added it: a later WP's note need not repeat it.
+    _note(tmp_path, "WPy", FULL_NOTE)
+    assert delivery.check_fixture_declarations(tmp_path, "WPy").status == "PASS"
 
 
 def test_lock_detects_modification(tmp_path: Path) -> None:

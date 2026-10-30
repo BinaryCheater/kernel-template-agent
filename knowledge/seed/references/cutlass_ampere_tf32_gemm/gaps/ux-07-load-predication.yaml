@@ -1,0 +1,7 @@
+missing: template
+description: >-
+  [ux-07] No seed Template guards tile transfers at problem boundaries with a neutral fill. Proposed:
+  boundary_predication@1.
+level: 3
+pattern_guess: transfer
+attribution: space

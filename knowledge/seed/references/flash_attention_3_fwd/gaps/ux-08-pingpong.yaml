@@ -1,0 +1,7 @@
+missing: template
+description: >-
+  [ux-08] No pool Template orders independent executors' use of a shared unit. Proposed: pingpong_schedule@1
+  (refines issue_order).
+level: 3
+pattern_guess: issue_order
+attribution: space

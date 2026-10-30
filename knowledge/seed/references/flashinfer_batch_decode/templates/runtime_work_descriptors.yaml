@@ -1,0 +1,44 @@
+name: runtime_work_descriptors
+version: 1
+level_from: 2
+level_to: 2
+change: vertical
+refines: work_assign
+produces: [work_assign, map]
+object:
+  type: work_descriptor_arrays
+  description: "Arrays computed at run time from data-dependent sizes (sequence lengths, expert routing) that tell each CTA which unit of work it owns: request index, chunk index, expert id, row range, output offset, validity flag."
+variables:
+  - {name: planner_site, kind: structure, binding: compile, role: software, domain: [host, device_kernel], meaning: "where the descriptors are computed (host before launch, or a separate GPU kernel)"}
+  - {name: balance, kind: structure, binding: compile, role: software, domain: [fill_grid_binary_search, pad_to_block, none], meaning: "how unit sizes are chosen (FlashInfer: smallest chunk size whose unit count fits the grid; MoE: pad each group to the block size)"}
+  - {name: grid_sizing, kind: structure, binding: compile, role: software, domain: [exact, padded_upper_bound], meaning: "launch exactly as many CTAs as units, or a fixed upper bound with a validity flag (CUDA-graph friendly)"}
+  - {name: unit_rows, kind: numeric, binding: runtime, role: software, domain: {lo: 1, hi: 1048576}, meaning: "rows per unit (KV chunk length, or padded block size)"}
+constraints:
+  - {id: c_rows, expr: "unit_rows >= 1", meaning: "non-empty units", cls: semantic}
+preconditions:
+  - {id: pre_sizes_known, expr: "p.sizes_known_before_launch", meaning: "the data-dependent sizes are available to the planner before the consuming kernel starts", cls: semantic}
+program:
+  description: "Host: binary search the KV chunk size so that sum(ceil(len_b / chunk)) * Hk fits the occupancy-derived grid, then emit request_indices, kv_tile_indices, o_indptr and block_valid_mask for a padded grid (include/flashinfer/attention/scheduler.cuh:74-99, 150-208, 349-363, 426-512). Device variant: count per group, prefix-sum, scatter ids (vLLM moe_align_block_size)."
+  fragments: {}
+backward_map: "Enumerate all (request, chunk) or (group, block) units in order and give unit i to CTA i: the descriptor arrays are that enumeration written down."
+obligations:
+  - {name: exact_cover, statement: "Every element of work appears in exactly one unit, and units with validity false do no visible work.", method: exhaustive}
+  - {name: consistent_offsets, statement: "Output offsets (o_indptr) agree with the units, so the later combine finds every partial.", method: exhaustive}
+  - {name: grid_bound, statement: "With grid_sizing = padded_upper_bound the number of valid units never exceeds the launched grid.", method: test}
+cost:
+  - {unit: launch, work: "p.planner_launches", overlap: serial}
+scope:
+  predicate: "True"
+  text: "Work whose partition depends on runtime data: ragged sequence lengths, variable split counts, MoE routing."
+requires_hw: []
+relations:
+  - {type: requires, target: reduction_partition, note: "for split-KV the units are groups of a runtime reduction partition"}
+signature:
+  algorithm: "runtime planner emitting per-CTA work descriptors"
+  reuse: "plan reused across layers with the same sizes"
+  storage: "descriptor arrays in gmem (pinned host buffer copied once)"
+  boundary: "padding units; empty requests"
+  resources: [launch]
+numeric_risk: "The split count, and therefore the rounding of the combined result, depends on the batch composition and the GPU's SM count."
+expected_sass: []
+summary: "Computes per-CTA work descriptors at run time from data-dependent sizes, on the host or in a small GPU kernel. Allows balanced splits and padded CUDA-graph-friendly grids. Obligations are exact cover and consistency with whatever later combines the partial results."

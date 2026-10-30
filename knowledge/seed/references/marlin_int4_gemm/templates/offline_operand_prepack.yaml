@@ -1,0 +1,44 @@
+name: offline_operand_prepack
+version: 1
+level_from: 0
+level_to: 2
+change: vertical
+refines: store
+produces: [store, map]
+object:
+  type: prepacked_layout
+  description: "A storage layout of a constant operand (weights) chosen for the kernel's tiles, fragment order and dequantization trick, produced once offline by a host-side permutation."
+variables:
+  - {name: tile_rows, kind: numeric, binding: compile, role: software, domain: [16, 32, 64], meaning: "rows (K) of one packed tile"}
+  - {name: tile_cols, kind: numeric, binding: compile, role: software, domain: [16, 64, 128], meaning: "columns (N) of one packed tile"}
+  - {name: element_order, kind: structure, binding: compile, role: software, domain: [mma_fragment_interleaved, row_major], meaning: "order of elements inside a tile (Marlin: mma B-fragment order with the 0,2,4,6,1,3,5,7 interleave for lop3 dequant)"}
+  - {name: pack_bits, kind: numeric, binding: compile, role: software, domain: [4, 8, 16], meaning: "bits per stored element"}
+constraints:
+  - {id: c_tiles, expr: "p.K % tile_rows == 0 and p.N % tile_cols == 0", meaning: "the operand is a whole number of packed tiles", cls: implementation}
+preconditions:
+  - {id: pre_const, expr: "p.operand_is_constant", meaning: "the operand is constant across calls (weights), so the permutation cost is paid once", cls: semantic}
+program:
+  description: "Host: quantize, permute rows/columns into tile order, apply the fragment permutation and interleave, pack 8 int4 values per int32 (marlin/__init__.py:40-68, 102-139). Kernel: each thread reads its fragment as one contiguous int4 vector without address shuffling."
+  fragments: {}
+backward_map: "Apply the inverse permutation and unpack: the operand in its logical row-major layout."
+obligations:
+  - {name: permutation_inverse, statement: "The kernel's read map composed with the host permutation is the identity on logical (k, n) indices.", method: exhaustive}
+  - {name: scale_alignment, statement: "Scale permutation matches the weight permutation for every group.", method: exhaustive}
+cost:
+  - {unit: dram, work: "p.K * p.N * pack_bits / 8", overlap: overlappable}
+scope:
+  predicate: "True"
+  text: "Constant operands (inference weights) whose layout the kernel author controls."
+requires_hw: []
+relations:
+  - {type: enables, target: collective_fragment_load, note: "fragments become one vector load (lds128) instead of ldmatrix"}
+  - {type: enables, target: fused_dequantization}
+signature:
+  algorithm: "offline weight layout permutation"
+  reuse: null
+  storage: "gmem, prepacked"
+  boundary: "shapes must be whole tiles"
+  resources: [dram]
+numeric_risk: null
+expected_sass: []
+summary: "Rewrites a constant operand once, offline, into the exact order the kernel's fragments and dequantization trick consume. The kernel then needs no address shuffling or transposes for it. Its obligation is that the host permutation and the kernel's read map are inverse."

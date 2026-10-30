@@ -1,0 +1,43 @@
+name: vectorized_access
+version: 1
+level_from: 2
+level_to: 3
+change: vertical
+refines: transfer
+produces: [transfer]
+object:
+  type: thread_access_map
+  description: "The map from (thread, iteration) to contiguous vector accesses that together implement one tile transfer between global memory and on-chip storage."
+variables:
+  - {name: vector_bytes, kind: numeric, binding: compile, role: software, domain: [4, 8, 16, 32], unit: bytes, meaning: "bytes per access instruction"}
+  - {name: thread_arrangement, kind: structure, binding: compile, role: software, domain: [warp_raked, strided_loop, contiguous_chunk], meaning: "how threads are laid over the tile (CUTLASS PitchLinearWarpRakedThreadMap, grid-stride loop, ...)"}
+  - {name: threads, kind: numeric, binding: compile, role: software, domain: {lo: 32, hi: 1024, step: 32}, meaning: "threads cooperating on the transfer"}
+constraints:
+  - {id: c_align, expr: "p.contiguous_elems * p.elem_bytes % vector_bytes == 0", meaning: "the contiguous extent is a multiple of the vector width", cls: implementation}
+preconditions:
+  - {id: pre_aligned, expr: "case.base_alignment_bytes % vector_bytes == 0", meaning: "base addresses are aligned to the vector width (else a scalar prefix or a different step is needed)", cls: semantic}
+program:
+  description: "Each thread issues vector loads/stores at addresses given by the thread map; consecutive lanes touch consecutive vectors so a warp access is coalesced."
+  fragments: {}
+backward_map: "The union of all threads' vectors over all iterations is the tile; thread identity is erased."
+obligations:
+  - {name: coverage_exact_once, statement: "Every element of the tile is covered by exactly one (thread, iteration, lane-in-vector).", method: exhaustive}
+  - {name: alignment, statement: "Every vector access is aligned to vector_bytes.", method: test}
+cost:
+  - {unit: dram, work: "p.tile_bytes", overlap: overlappable}
+  - {unit: issue, work: "p.tile_bytes / vector_bytes", overlap: overlappable}
+scope:
+  predicate: "True"
+  text: "Any tile transfer through global memory where the contiguous dimension is long enough to vectorize."
+requires_hw: []
+relations: []
+signature:
+  algorithm: "coalesced vector accesses"
+  reuse: null
+  storage: null
+  boundary: "alignment of base and extent"
+  resources: [dram, issue]
+numeric_risk: null
+expected_sass:
+  - {when: "vector_bytes == 16", must_contain: [".128"], must_not_contain: []}
+summary: "Maps a tile transfer onto per-thread vector accesses so warps issue coalesced, wide memory instructions. Introduces vector width and thread arrangement. Requires aligned bases and extents."

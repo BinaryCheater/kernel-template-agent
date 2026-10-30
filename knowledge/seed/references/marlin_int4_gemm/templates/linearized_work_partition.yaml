@@ -1,0 +1,44 @@
+name: linearized_work_partition
+version: 1
+level_from: 2
+level_to: 2
+change: vertical
+refines: work_assign
+produces: [work_assign, reduce]
+object:
+  type: work_stripe
+  description: "A contiguous range of (output tile, k-tile) work units in a linear order, assigned to one CTA of a grid sized to the SM count; a range may end inside one output tile's K loop and continue in the next tile."
+variables:
+  - {name: units_per_cta, kind: numeric, binding: runtime, role: software, domain: {lo: 1, hi: 65536}, meaning: "k-tiles per CTA (Marlin iters = ceil(k_tiles * n_tiles * par / sms))"}
+  - {name: order, kind: structure, binding: compile, role: software, domain: [k_major_within_column, tile_major], meaning: "linear order of units (Marlin: all k-tiles of one column slice, then the next column)"}
+  - {name: grid, kind: numeric, binding: runtime, role: software, domain: {lo: 1, hi: 4096}, meaning: "CTAs (Marlin: number of SMs)"}
+constraints:
+  - {id: c_cover, expr: "grid * units_per_cta >= p.total_units", meaning: "stripes cover all units", cls: semantic}
+preconditions:
+  - {id: pre_partial_combinable, expr: "p.reduce_assoc", meaning: "splitting one tile's K loop across CTAs requires an associative reduction whose partials are combined later", cls: semantic}
+program:
+  description: "CTA b starts at unit b * iters, decodes (slice_row, slice_col), runs slice_iters k-tiles of the current column, then moves to the next column; it also computes slice_count and slice_idx for the later combine (marlin/marlin_cuda_kernel.cu:231-298, 681-690)."
+  fragments: {}
+backward_map: "Collapse each column's stripes into one CTA per column that runs the whole K loop: the output-tile-per-CTA program, with the partial combine removed."
+obligations:
+  - {name: exactly_once, statement: "Every (column slice, k-tile) unit is processed by exactly one CTA.", method: exhaustive}
+  - {name: slice_metadata, statement: "slice_count and slice_idx computed by every CTA of a column agree and enumerate exactly the CTAs that touch that column.", method: exhaustive}
+cost:
+  - {unit: launch, work: "grid", overlap: serial}
+scope:
+  predicate: "True"
+  text: "GEMM-like kernels where the number of output tiles is small or not a multiple of the SM count (small-M inference, skinny shapes)."
+requires_hw: []
+relations:
+  - {type: requires, target: reduction_partition, note: "a stripe boundary inside a column partitions that column's K reduction"}
+  - {type: requires, target: ordered_global_combine, note: "partials of a column must be combined"}
+  - {type: alternative_of, target: persistent_tile_scheduler}
+signature:
+  algorithm: "stream-K style linear partition of (tile, k) units"
+  reuse: null
+  storage: null
+  boundary: "stripes ending inside a tile"
+  resources: [launch]
+numeric_risk: "The number of partial sums per column, and therefore the rounding, depends on the SM count."
+expected_sass: []
+summary: "Lays all (output tile, k-tile) units out in one linear order and gives each SM-sized CTA an equal contiguous stripe, even if it crosses tile boundaries. Balances work for skinny problems. Requires combining the partial sums of tiles that are split between CTAs."

@@ -1,0 +1,7 @@
+missing: template
+description: >-
+  [ux-03] async_transfer and vectorized_access assume a strided source. Proposed: indexed_gather@1 (granularity
+  page or row).
+level: 3
+pattern_guess: transfer
+attribution: space

@@ -1,0 +1,8 @@
+missing: pattern
+description: >-
+  [ux-02] The seed Pattern table has no category for assigning independent work units to executors and
+  ordering them; the fixed category enum has no scheduling entry either. Proposed Pattern work_assign
+  (category other) and Template block_rasterization@1.
+level: 2
+pattern_guess: work_assign
+attribution: space

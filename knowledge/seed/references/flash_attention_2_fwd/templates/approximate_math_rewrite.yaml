@@ -1,0 +1,40 @@
+name: approximate_math_rewrite
+version: 1
+level_from: 1
+level_to: 3
+change: vertical
+refines: map
+produces: [map]
+object:
+  type: math_rewrite
+  description: "A rewrite of an elementwise function into a cheaper form, exact in real arithmetic (exp(x*s) -> exp2(x*s*log2e) with the constant folded into an FMA) or approximate (rsqrtf, __logf, ex2.approx)."
+variables:
+  - {name: rewrite, kind: structure, binding: compile, role: software, domain: [exp_to_exp2_folded_scale, rsqrt_approx, fast_log, fast_exp2], meaning: "which rewrite"}
+  - {name: fused_fma, kind: structure, binding: compile, role: software, domain: [false, true], meaning: "whether the scale and max subtraction become one FFMA before the exponential"}
+constraints: []
+preconditions:
+  - {id: pre_tol, expr: "case.tolerance_allows_fast_math", meaning: "the contract admits the extra rounding / approximation error", cls: semantic}
+program:
+  description: "Multiply the softmax scale by log2(e) once on the host, compute exp2f(x * scale_log2 - max * scale_log2) with one FFMA and one MUFU.EX2 (FlashAttention-2 scale_apply_exp2); other rewrites replace 1/sqrt by rsqrtf or log by __logf."
+  fragments: {}
+backward_map: "Substitute the identity exp(y) = exp2(y * log2 e) (exact) or the library function for the approximation; equality holds up to the declared ulp error."
+obligations:
+  - {name: error_bound, statement: "The rewritten function stays within the declared ulp error of the original on the admitted input range.", method: test}
+cost:
+  - {unit: sfu, work: "p.elements", overlap: overlappable}
+scope:
+  predicate: "True"
+  text: "Elementwise transcendental functions inside kernels whose contract tolerates approximation (softmax, normalization, activation functions)."
+requires_hw: []
+relations: []
+signature:
+  algorithm: "cheaper elementwise function form"
+  reuse: null
+  storage: null
+  boundary: null
+  resources: [sfu, fma]
+numeric_risk: "Changes rounding (FFMA contraction of scale and max) or introduces approximation error (MUFU). Check with large-magnitude inputs (input distribution: large_logits)."
+expected_sass:
+  - {when: "rewrite == 'exp_to_exp2_folded_scale'", must_contain: [MUFU.EX2, FFMA], must_not_contain: []}
+  - {when: "rewrite == 'rsqrt_approx'", must_contain: [MUFU.RSQ], must_not_contain: []}
+summary: "Rewrites an elementwise function into a cheaper hardware form, either exactly (exp to exp2 with folded constants) or approximately (rsqrt, fast log). Declares its numeric risk. Usually lowers SFU and FMA work in softmax and normalization."

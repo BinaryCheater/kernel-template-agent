@@ -1,0 +1,18 @@
+name: work_assign
+level: 2
+category: other
+params:
+  - {name: unit, type: enum, values: [output_tile, tile_and_k_range, transaction_class, request_chunk], meaning: "what is being assigned"}
+  - {name: executor, type: enum, values: [cta, warpgroup, warp, thread], meaning: "who receives the units"}
+  - {name: binding, type: enum, values: [compile, launch, runtime], meaning: "when the assignment is fixed"}
+  - {name: uniform_cost, type: bool, meaning: "whether all units cost the same (false for causal, ragged or routed work)"}
+description: >-
+  Assignment of independent units of work to executors and the order in which an executor takes
+  them. The coarse transaction is "all units get done"; refinements choose who does which unit,
+  in what order, and whether the choice is made at compile time, at launch, or by runtime data.
+  The fixed category list in spec/schemas.md has no scheduling category, so this is filed under
+  `other`.
+examples:
+  - "CUTLASS threadblock swizzle: blockIdx -> (m_tile, n_tile) with an optional L2-friendly interleave (include/cutlass/gemm/threadblock/threadblock_swizzle.h:132-139)"
+  - "FlashAttention-3 dynamic persistent scheduler: CTAs fetch the next tile index with atomicAdd (hopper/tile_scheduler.hpp:338)"
+  - "Marlin striped partition: each CTA takes `iters` consecutive k-tiles in column-major tile order (marlin/marlin_cuda_kernel.cu:231-276)"

@@ -1,0 +1,4 @@
+name: marlin_int4_gemm
+problem: gemm_f16_int4w_grouped
+build: "pip install . (setup.py builds marlin_cuda for the visible GPU; not executed in WP10a)"
+runnable_on: [gb10]

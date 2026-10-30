@@ -1,0 +1,63 @@
+matched: 19
+total: 25
+unmatched_transactions:
+- level: 1
+  pattern_guess: reduce
+  description: >-
+    [ux-01] softmax max and sum over Sk computed in one pass with a running max and rescaling of l and
+    acc_o (chain step online).
+  where: csrc/flash_attn/src/softmax.h:128-185
+- level: 2
+  pattern_guess: reduce
+  description: >-
+    [ux-02] causal key blocks above the diagonal are skipped and only the first n_masking_steps iterations
+    run mask code (chain step causal_prune).
+  where: csrc/flash_attn/src/flash_fwd_kernel.h:90-101, 297-382
+- level: 3
+  pattern_guess: transfer
+  description: >-
+    [ux-03] the S accumulator fragment is reinterpreted in registers as the A operand of the PV MMA (chain
+    step p_reuse).
+  where: csrc/flash_attn/src/flash_fwd_kernel.h:372-374; csrc/flash_attn/src/utils.h:200-226
+- level: 1
+  pattern_guess: map
+  description: >-
+    [ux-04] exp of scaled scores rewritten as exp2f with log2(e) folded into the scale and the max subtraction
+    fused into one FFMA (chain step exp2).
+  where: csrc/flash_attn/src/softmax.h:66-90
+- level: 3
+  pattern_guess: reduce
+  description: >-
+    [ux-05] row max / row sum partials spread over the 4 lanes of a quad are combined with shfl.xor (chain
+    step row_xlane).
+  where: csrc/flash_attn/src/softmax.h:38-52; csrc/flash_attn/src/utils.h:112-130
+- level: 3
+  pattern_guess: store
+  description: >-
+    [ux-06] K and V each have one shared-memory slot, yet the next K tile is loaded one iteration ahead
+    because the K slot is refilled right after the mid-iteration barrier that ends its last read (chain
+    step kv_rotation, bound S=1, P=1, beta=1). The binding violates multi_buffer_rotation's obligation
+    P <= S - 2 + beta although the schedule is correct.
+  where: csrc/flash_attn/src/flash_fwd_kernel.h:312-346, 388-408
+- level: 2
+  pattern_guess: other
+  description: >-
+    [ux-07] the CTA tile shape is chosen at launch from the device: (128, 32) or (64, 64) for sm86/sm89
+    depending on causal, (128, 64) otherwise. No chain step explains a choice between alternative chain
+    bindings.
+  where: csrc/flash_attn/src/flash_fwd_launch_template.h:246-266
+- level: 3
+  pattern_guess: other
+  description: >-
+    [ux-08] register allocation and unrolling of the fully unrolled MMA / softmax loops are decided by
+    nvcc; whether acc_o (64 f32 values per thread) stays in registers depends on it.
+  where: >-
+    csrc/flash_attn/src/flash_fwd_kernel.h:308 (#pragma unroll on the masking loop); csrc/flash_attn/src/utils.h:152-153
+reproduction_error: null
+notes: >-
+  Pool at decomposition time: seed plus the 9 Templates and 1 Pattern proposed by cutlass_ampere_tf32_gemm.
+  25 chain steps: 19 matched, 5 use Templates proposed here (online_rescaled_reduction, masked_tile_pruning,
+  accumulator_operand_reuse, approximate_math_rewrite, cross_lane_reduction), 1 partial (kv_rotation).
+  Two transactions are explained by no step (architecture-dependent tile dispatch, compiler register allocation).
+  Every Template proposed by the GEMM reference except block_rasterization was reused here. Not built
+  or run; no reproduction.

@@ -1,0 +1,7 @@
+missing: template
+description: >-
+  [ux-03] physical_storage places values in the register file but cannot change the per-warp register
+  budget at run time. Proposed: register_rebalancing@1 (requires setmaxnreg).
+level: 3
+pattern_guess: store
+attribution: space

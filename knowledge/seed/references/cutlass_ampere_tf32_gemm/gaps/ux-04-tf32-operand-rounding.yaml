@@ -1,0 +1,7 @@
+missing: template
+description: >-
+  [ux-04] No seed Template inserts an operand precision conversion before a contraction; its obligation
+  is an error bound, not equivalence. Proposed: operand_precision_conversion@1 (numeric_risk declared).
+level: 1
+pattern_guess: contract
+attribution: space

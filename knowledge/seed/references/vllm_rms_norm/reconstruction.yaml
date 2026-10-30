@@ -1,0 +1,32 @@
+matched: 9
+total: 9
+unmatched_transactions:
+- level: 2
+  pattern_guess: reduce
+  description: >-
+    [ux-01] the CTA size is 1024 threads for fewer than 256 tokens and 256 otherwise, so the row reduction
+    is grouped differently and results for the same row can differ in the last bits depending on batch
+    size; a batch-invariant mode pins 1024.
+  where: csrc/layernorm_kernels.cu:254-257, 269-271
+- level: 2
+  pattern_guess: other
+  description: >-
+    [ux-02] VEC_SIZE (gcd of 16 / sizeof(T) and D), tensor rank (2, 3, 4) and HasWeight select among compiled
+    instances.
+  where: csrc/layernorm_kernels.cu:262-290
+- level: 3
+  pattern_guess: other
+  description: >-
+    [ux-03] unrolling of the vector loops and register allocation are decided by nvcc (low impact for
+    this kernel).
+  where: csrc/layernorm_kernels.cu:55-58, 89-99
+reproduction_error: null
+notes: >-
+  Pool at decomposition time: seed plus proposals of the first six references (35 Templates, 3 new Patterns).
+  All 9 chain steps matched; no Template or Pattern proposed. Three transactions are explained by no step:
+  the dependence of the reduction order on the launch configuration (block size switches between 1024
+  and 256 threads at 256 tokens unless batch-invariant mode is on), the vector-size / rank dispatch, and
+  compiler register allocation. Observation not counted as a transaction: pass 1 has a scalar prefix for
+  a misaligned row start, pass 2 reinterprets the row as vectors without one, so pass 2 relies on alignment
+  that is not checked in this kernel (not verified whether callers guarantee it). Not built or run; no
+  reproduction.

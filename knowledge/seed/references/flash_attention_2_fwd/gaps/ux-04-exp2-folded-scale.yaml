@@ -1,0 +1,7 @@
+missing: template
+description: >-
+  [ux-04] No pool Template rewrites an elementwise function into a cheaper (exact or approximate) hardware
+  form with a declared numeric risk. Proposed: approximate_math_rewrite@1.
+level: 1
+pattern_guess: map
+attribution: space

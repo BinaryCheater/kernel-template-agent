@@ -1,0 +1,7 @@
+missing: template
+description: >-
+  [ux-03] No pool Template expresses forwarding an accumulator fragment to the next instruction's operand
+  registers; collective_fragment_load and staged_relayout both go through shared memory. Proposed: accumulator_operand_reuse@1.
+level: 3
+pattern_guess: transfer
+attribution: space
