@@ -7,13 +7,17 @@ WP that owns them adds them, so no check is silently skipped.
 from __future__ import annotations
 
 import importlib
+import io
 import json
 import math
 import os
 import re
 import sqlite3
 import subprocess
-from collections.abc import Callable
+import tarfile
+import tempfile
+from collections.abc import Callable, Generator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, cast
 
@@ -614,7 +618,87 @@ def wp13(root: Path, passed: set[str]) -> list[CheckResult]:
     return [from_findings("number sources", findings, f"{len(sources)} sources")]
 
 
+WP9A_TESTS = (
+    "test_active_maps_ops_states_onto_the_task_lifecycle",
+    "test_case_list_and_timeline",
+    "test_lineage_builds_the_full_evidence_chain",
+    "test_families_follow_snapshot_membership",
+    "test_coverage_reads_the_stored_report_or_reports_missing",
+    "test_trace_window_includes_spans_started_before_it",
+    "test_app_serves_every_spec_read_endpoint",
+    "test_machine_is_well_formed[solve]",
+    "test_judging_rules_are_ordered_one_to_four",
+)
+WEB_FIXTURE = re.compile(r"kta:fixture|SAMPLE DATA")
+
+
+def web_build(root: Path) -> CheckResult:
+    """Build ``web/`` as committed at HEAD, in a fresh directory.
+
+    Untracked or git-ignored sources and a cached ``tsconfig.tsbuildinfo`` exist only in
+    the working tree, so building the archive of HEAD (with the lockfile-installed
+    ``node_modules`` linked in) fails exactly when a clean checkout would.
+    """
+    web = root / "web"
+    if not (web / "node_modules").is_dir():
+        return CheckResult("web build", "FAIL", "web/node_modules missing: run `npm ci` in web/")
+    dirty = subprocess.run(
+        ["git", "-C", str(root), "status", "--porcelain", "--untracked-files=all", "--", "web"],
+        capture_output=True,
+        text=True,
+        check=False,
+    ).stdout.splitlines()
+    if dirty:
+        return CheckResult(
+            "web build", "FAIL", "web/ differs from HEAD; commit it first", dirty[:10]
+        )
+    archive = subprocess.run(
+        ["git", "-C", str(root), "archive", "--format=tar", "HEAD", "web"],
+        capture_output=True,
+        check=False,
+    )
+    if archive.returncode != 0:
+        return CheckResult("web build", "FAIL", archive.stderr.decode(errors="replace").strip())
+    with tempfile.TemporaryDirectory(prefix="kta-gate-web-") as tmp:
+        with tarfile.open(fileobj=io.BytesIO(archive.stdout)) as tar:
+            tar.extractall(tmp, filter="data")
+        clean = Path(tmp) / "web"
+        (clean / "node_modules").symlink_to(web / "node_modules", target_is_directory=True)
+        proc = subprocess.run(
+            ["npm", "run", "--silent", "build"],
+            cwd=clean,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    tail = (proc.stdout + proc.stderr).strip().splitlines()[-10:]
+    if proc.returncode != 0:
+        return CheckResult("web build", "FAIL", "\n".join(tail))
+    return CheckResult("web build", "PASS", "tsc + vite build of HEAD in a clean directory")
+
+
+def wp9a(root: Path, passed: set[str]) -> list[CheckResult]:
+    """API tests pass, the web build (type check + bundle) passes, no sample data in web/."""
+    names = {t.split("::")[-1] for t in passed}
+    absent = [f"{t} did not pass" for t in WP9A_TESTS if t not in names]
+    web = root / "web"
+    build = web_build(root)
+    sample = [
+        f"{p.relative_to(root)} contains sample-data markers"
+        for p in sorted((web / "src").rglob("*"))
+        if p.is_file() and WEB_FIXTURE.search(p.read_text(encoding="utf-8", errors="replace"))
+    ]
+    if (web / "src" / "sample").exists():
+        sample.append("web/src/sample still exists (D95: deleted in phase B)")
+    return [
+        from_findings("WP9a API tests", absent, f"{len(WP9A_TESTS)} tests passed"),
+        build,
+        from_findings("no sample data in web/", sample, "web/src reads the API only"),
+    ]
+
+
 SPECIFIC: dict[str, Callable[[Path, set[str]], list[CheckResult]]] = {
+    "WP9a": wp9a,
     "WP0": wp0,
     "WP1": wp1,
     "WP4": wp4,
@@ -625,6 +709,28 @@ SPECIFIC: dict[str, Callable[[Path, set[str]], list[CheckResult]]] = {
     "WP10a": wp10a,
     "WP13": wp13,
 }
+
+
+_STAGE: list[str] = ["full"]
+
+
+@contextmanager
+def stage(name: str) -> Generator[None]:
+    """Set the gate stage that WP-specific checks see (D320)."""
+    _STAGE.append(name)
+    try:
+        yield
+    finally:
+        _STAGE.pop()
+
+
+def code_stage() -> bool:
+    return _STAGE[-1] == "code"
+
+
+def pending_real(name: str, what: str) -> CheckResult:
+    """Use in place of a check that needs a real run or measurement, in the code stage only."""
+    return CheckResult(name, "WARN", f"pending real run (code stage): {what}")
 
 
 def run_specific(wp: str, root: Path, passed: set[str]) -> list[CheckResult]:

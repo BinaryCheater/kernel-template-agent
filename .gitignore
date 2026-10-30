@@ -10,6 +10,8 @@ web/dist/
 
 # Data, databases, logs, workspaces, artifacts (spec/conventions.md §1, §5)
 data/
+# The web frontend's API client is source, not data.
+!web/src/data/
 *.db
 *.db-journal
 *.db-wal

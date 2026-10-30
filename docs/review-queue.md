@@ -95,6 +95,26 @@ Decisions made without the user that need review. Newest last. Each entry: quest
 - **Rationale:** 7 chain steps over 5 references needed work_assign, 2 needed issue_order (plus one unmatched), 1 needed scan.
 - **Cost of changing later:** low while proposed; if the category enum gains `schedule` / `scan`, the three files change one field.
 
+## D164 — Format of `src/kta/orchestrator/machines.yaml`
+
+- **Question:** D96 makes one YAML file the definition of the solve loop, expand loop and task lifecycle for both the frontend and WP6's `step`, but the design documents give tables, not a data format.
+- **Choice:** states with `kind`/`work`/`does`; transitions with `kind`, `rule`, `creates`, `when`, short `label`; `from: "*"` for "any state"; escalation after the round limit is an instance flag, not a state; unspecified paths are written under `notes` instead of guessed. Two such notes are open: (1) what happens when reproduction misses ε in the expand loop; (2) after a task created at `judging` (T6, T4, T1/T2) is accepted, design/10 §2.1 says "resume at the creating state" — whether building and measuring rerun first is not said.
+- **Rationale:** keeps the diagrams and the orchestrator on one definition and makes gaps in the design visible on the Overview page.
+- **Cost of changing later:** low before WP6 implements `step`; afterwards the consistency test and the frontend change together.
+
+## D165 — Frontend information architecture and Overview layout
+
+- **Question:** you asked for a readable frontend whose home page shows the state-machine flowcharts and current work; the exact page split and layout were left to the assistant (D93).
+- **Choice:** see web/DESIGN.md: Overview = solve loop (full width) → Now band (agent slots, GPU lease, pools, workers, budget, inbox) → expand loop → task lifecycle → pipeline strip; other pages each have one primary visual (resource board, swimlanes, iteration timeline, evidence chain, chain DAG, discovery curve).
+- **Rationale:** the solve loop needs the full width to stay legible (9 layers); the Now band answers "what is happening" right under it.
+- **Cost of changing later:** low; layout lives in page components only.
+
+## D169 — Record conventions the API reads
+
+- **Question:** the pages (case timeline, evidence chain, running jobs, GPU lease, coverage) must be derived from records and ops tables, but the schemas do not say which refs, Report titles, span attrs or loop data keys connect them.
+- **Choice:** the table in spec/modules/api-web.md "Record conventions" (e.g. Solution refs case/family/measurement/check/bound; judgement Report with data.units and explained_share; loop_step spans per state; job spans with job_id/pool/worker; lock `gpu:<worker>:<device>`; Worker label `pools`).
+- **Rationale:** without one written convention each producer would invent its own and the frontend could not show their work; the fixture world (D168) exercises every convention.
+- **Cost of changing later:** low until WP2/WP6/WP7 write records; afterwards a migration of the views (records are immutable).
 ## D205 — Pattern parameters (`p.*`) in Template expressions and chain bindings
 
 - **Question:** a Template's capacity and lifetime conditions need the size and timing of the transaction it refines (bytes of a tile, capacity of its level), which are neither Template variables nor workload parameters. Chain bindings in WP10a also hold strings that are descriptions or expressions, not family variables.
@@ -319,3 +339,10 @@ Decisions made without the user that need review. Newest last. Each entry: quest
 - **Choice:** named tests (step produces exactly the YAML edges; created task types are on the edge; every lifecycle edge occurs; refused reservation keeps the task queued) plus one passing `test_judging_rule_<n>_*` per rule number found in machines.yaml.
 - **Rationale:** a new rule or edge in the YAML fails the gate until it is tested.
 - **Cost of changing later:** low: one function in `tools/kta_gate/specific.py`.
+
+## D322 — How batch agent environments are generated
+
+- **Question**: what makes a batch's agent workspace "completely generable", and where does it live?
+- **Choice**: one AgentProfile id plus a code commit determine the batch. Skills are deterministic tar blobs and templates are blobs. `kta agents env build <batch>` writes `$KTA_DATA/<env>/batches/<batch>/` with `env.lock.json`; `verify` regenerates and compares before every run; a batch is never overwritten; credentials are linked per work unit and are never stored.
+- **Why**: the profile is already the single record of agent behaviour (agents.md "Controlled configuration"). Storing content instead of paths survives source changes, and regenerating plus comparing makes isolation checkable instead of assumed.
+- **Cost of changing later**: low until WP12. The layout and command names live in the agents module and the CLI only. Batches already built keep their lock files.

@@ -23,6 +23,8 @@ SECTIONS: dict[str, tuple[str, ...]] = {
     "changes": ("needed changes", "需要的变更"),
     "gate": ("gate output", "gate 输出"),
 }
+# Required only by the code stage (D320): what still needs a real run before full acceptance.
+PENDING_SECTION = ("pending real runs", "待真实运行")
 HEADING = re.compile(r"^#{2,3}\s+(.+?)\s*$")
 DECISION_ROW = re.compile(r"^\|\s*(D\d+)\s*\|")
 DECISION_ID = re.compile(r"\bD\d{2,}\b")
@@ -50,7 +52,7 @@ def delivery_path(root: Path, wp: str) -> Path:
 
 
 def split_sections(text: str) -> dict[str, str]:
-    """Map section key -> body text for the known delivery headings."""
+    """Map section key -> body text for the known delivery headings (and "pending")."""
     out: dict[str, str] = {}
     current: str | None = None
     for line in text.splitlines():
@@ -58,6 +60,8 @@ def split_sections(text: str) -> dict[str, str]:
         if m:
             title = m.group(1).strip().lower()
             current = next((k for k, names in SECTIONS.items() if title in names), None)
+            if title in PENDING_SECTION:
+                current = "pending"
             if current is not None:
                 out.setdefault(current, "")
             continue
@@ -66,13 +70,15 @@ def split_sections(text: str) -> dict[str, str]:
     return out
 
 
-def check_delivery_sections(root: Path, wp: str) -> CheckResult:
+def check_delivery_sections(root: Path, wp: str, code_stage: bool = False) -> CheckResult:
     path = delivery_path(root, wp)
     if not path.exists():
         return CheckResult("delivery note", "FAIL", f"{path.relative_to(root)} is missing")
     sections = split_sections(path.read_text(encoding="utf-8"))
-    missing = [SECTIONS[k][0] for k in SECTIONS if k not in sections]
-    return from_findings("delivery note", [f"missing section: {m}" for m in missing])
+    findings = [f"missing section: {SECTIONS[k][0]}" for k in SECTIONS if k not in sections]
+    if code_stage and not sections.get("pending", "").strip():
+        findings.append(f"code stage needs a non-empty section: {PENDING_SECTION[0]}")
+    return from_findings("delivery note", findings)
 
 
 def check_fixture_declarations(root: Path, wp: str) -> CheckResult:
@@ -224,9 +230,15 @@ def _from_gpu_worker(con: sqlite3.Connection, record: dict[str, Any]) -> bool:
 
 
 def check_evidence(
-    root: Path, wp: str, data_root: Path | None, path: Path | None = None
+    root: Path,
+    wp: str,
+    data_root: Path | None,
+    path: Path | None = None,
+    code_stage: bool = False,
 ) -> CheckResult:
+    """In the code stage (D320) claims need no store records; real-run WPs owe them later."""
     path = path or root / "deliveries" / f"{wp}.evidence.json"
+    needs_records = wp in STORE_EVIDENCE_WPS and not code_stage
     if not path.exists():
         return CheckResult("evidence", "FAIL", f"{path} is missing")
     try:
@@ -243,7 +255,7 @@ def check_evidence(
             continue
         if not _commit_exists(root, claim["git_commit"]):
             findings.append(f"claim {i}: commit {claim['git_commit'][:12]} not in this repo")
-        if wp in STORE_EVIDENCE_WPS:
+        if needs_records:
             if not claim["record_ids"]:
                 findings.append(f"claim {i}: {wp} claims need record_ids")
                 continue
@@ -252,7 +264,7 @@ def check_evidence(
                 findings.append(f"claim {i}: dev store {db} not found (set KTA_DATA)")
                 continue
             findings += _verify_records(db, claim, i)
-    if wp in STORE_EVIDENCE_WPS and not claims:
+    if needs_records and not claims:
         findings.append(f"{wp} requires at least one evidenced claim")
     if not findings and not claims:
         return CheckResult("evidence", "WARN", "evidence list is empty")

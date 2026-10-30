@@ -1,0 +1,47 @@
+[
+  {
+    "claim": "The WP9a API view tests (19: ops task states mapped onto the task lifecycle, active runs and job views from open spans, inbox, budgets tree, case list with round progress and timeline, Solution evidence chain, family chain and snapshot membership, coverage stored or 501, trace window and summary, critical path, origin counts, route table), the machines.yaml structural tests (5) and the WP9a gate web-build tests (3: an ignored source dir fails, committed sources pass, uncommitted web files fail) pass. Every view test seeds a store through tools/kta_devseed, so all records are origin=fixture; code stage only (D320).",
+    "command": "uv run --frozen pytest -v tests/unit/test_api_views.py tests/unit/test_orchestrator_machines.py tests/unit/test_gate_wp9a.py",
+    "git_commit": "006062c47043d5adb0b8c77cff7a1c83101706be",
+    "dirty": false,
+    "env": "dev",
+    "control_host": "Mac.lan",
+    "workers": [],
+    "record_ids": [],
+    "blob_ids": [],
+    "env_manifests": [],
+    "started_at": "2026-10-30T17:49:59Z",
+    "requires_gpu": false,
+    "output": "Mac.lan:~/kta-data/dev/WP9a-fixture-006062c/evidence/pytest-006062c.txt"
+  },
+  {
+    "claim": "The web frontend (React + React Flow/elkjs + ECharts, every page reading the API through /api) type-checks and builds from `git archive HEAD web` in a fresh directory (no untracked or ignored files, no tsbuildinfo), with the lockfile-installed node_modules linked in.",
+    "command": "T=$(mktemp -d) && git archive --format=tar HEAD web | tar -x -C $T && ln -s $PWD/web/node_modules $T/web/node_modules && cd $T/web && npm run build",
+    "git_commit": "006062c47043d5adb0b8c77cff7a1c83101706be",
+    "dirty": false,
+    "env": "dev",
+    "control_host": "Mac.lan",
+    "workers": [],
+    "record_ids": [],
+    "blob_ids": [],
+    "env_manifests": [],
+    "started_at": "2026-10-30T17:50:01Z",
+    "requires_gpu": false,
+    "output": "Mac.lan:~/kta-data/dev/WP9a-fixture-006062c/evidence/web-build-006062c.txt"
+  },
+  {
+    "claim": "scripts/seed-dev writes a fresh fixture store (160 records, all origin=fixture), and a real uvicorn server running create_app(open_api(ctx)) over it answers 200 on /machines, /runs/active, /inbox, /trace/summary, /cases, /families, /snapshots, a case timeline, a family chain and /coverage; /meta reports origins {fixture: 160}. Fixture data only: the read-only acceptance on WP7's real records is pending (D320).",
+    "command": "KTA_DATA=~/kta-data scripts/seed-dev --wp WP9a-fixture-006062c && KTA_ENV=dev KTA_WP=WP9a-fixture-006062c KTA_DATA=~/kta-data uv run --frozen python api_smoke.py",
+    "git_commit": "006062c47043d5adb0b8c77cff7a1c83101706be",
+    "dirty": false,
+    "env": "dev",
+    "control_host": "Mac.lan",
+    "workers": [],
+    "record_ids": [],
+    "blob_ids": [],
+    "env_manifests": [],
+    "started_at": "2026-10-30T17:50:03Z",
+    "requires_gpu": false,
+    "output": "Mac.lan:~/kta-data/dev/WP9a-fixture-006062c/evidence/api-smoke-006062c.txt (script: Mac.lan:~/kta-data/dev/WP9a-fixture-006062c/evidence/api_smoke.py; seed log: Mac.lan:~/kta-data/dev/WP9a-fixture-006062c/evidence/seed-006062c.txt)"
+  }
+]
