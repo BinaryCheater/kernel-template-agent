@@ -38,8 +38,9 @@ selector (applies to every chart that depends on the pool), data-as-of time, liv
 | Understand | Result | `/results/:id` | WP9a |
 | Understand | Families → Family | `/families`, `/families/:id` | WP9a |
 | Understand | Coverage | `/coverage` | WP9a |
-| Intervene | Inbox | (count badge only) | WP9b |
-| Intervene | Task detail, Pool, Model, Experiments, Improvement | — | WP9b |
+| Understand | Pool, Model | `/pool`, `/model` | WP9b |
+| Intervene | Inbox, Operations, Experiments, Improvement, Agents | `/inbox`, `/operations`, `/experiments`, `/improvement`, `/agents` | WP9b |
+| (linked) | Task detail | `/tasks/:id` | WP9b |
 
 Cross-links: a loop instance links to its Case (solve) or Reference (expand); a task links to its
 trace in Pipeline; a Solution links to its Result page; a Result links to its Family; a Family
@@ -203,8 +204,42 @@ Unknown kinds (the table is open) get gray and are listed as "other" in the lege
   the FIXTURE DATA banner (D168). Missing evidence links are listed on the Result page.
 - Phase A's sample dataset (`web/src/sample/`) and build-time YAML plugin are deleted.
 
-## 6. Open questions for the user
+## 6. Second version (WP9b): intervene pages and operations
+
+Status: assistant's design (D348, needs the user's review). Every control posts to
+`/actions/*` and every call writes a HumanAction record (D342).
+
+### 6.1 Controls
+
+- **One dialog for every operation** (`web/src/components/actions.tsx`): title naming the
+  subject, what will happen, the records it writes (from `GET /actions/capabilities`), a reason
+  field (marked *required* for reject, deprecate, budget and retry; the API answers 400 without
+  one), extra fields when needed (budget limit), then the result: the HumanAction ID as a record
+  link, the number of records marked stale, follow-ups that could not be created.
+- **Unwired operations are visible, not hidden or faked** (D341): drawn as dashed, disabled
+  buttons tagged "not wired" whose tooltip names what they need (WP6 task queue, WP8 profile
+  pointer, ...). A 501 that still reaches the dialog says "Not available yet. Nothing was written."
+- **Controls sit next to their subject**: the record drawer offers flag / reject / deprecate /
+  confirm / approve for any record; Running and Task offer cancel / retry; the Result page flag /
+  reject; Experiments approve-and-freeze; Improvement approve; Agents "make current".
+- Danger actions (reject, cancel) are outlined red; approvals are violet (the "needs you" colour).
+
+### 6.2 Pages
+
+| Page | Question | Primary visual | Secondary |
+| --- | --- | --- | --- |
+| Inbox `/inbox` | What needs me now? | the item list, most urgent first; each item: trigger, subject, waiting time, last rejection, the system's suggestion, its controls | the ten design/30 §2 triggers and which ones are derived today |
+| Task `/tasks/:id` | What did this agent do? | the task's own swimlane (session, model and tool segments, jobs) | time stats, kta calls table, task card, done checks with failures, AgentRuns with the prompt (TASK.md) blob, records written, your actions |
+| Operations `/operations` | What can I start, stop or change? | start-a-task form (task type cards T1–T6, goal, input records with family quick-picks, priority) | pause / resume by scope; budget editor per scope and resource; action log; capability table |
+| Pool `/pool` | What does the system know now? | tabbed tables: Templates, Patterns (`other` rows highlighted), Structures, Gaps, References (reconstruction bar) with per-row actions | count tiles; snapshot filter (default: members of the selected snapshot) |
+| Model `/model` | Can the model be trusted? | predicted vs measured scatter with ±20 % guides, per model version | error stats; largest errors with record links |
+| Experiments `/experiments` | How far are the experiments? | one card per protocol: arms with run progress, approval state, results table | runs list, protocol parameters |
+| Improvement `/improvement` | Is the system getting better? | stacked bars of Gap attribution per day | attribution legend with meanings; improvement reports with items and approval |
+| Agents `/agents` | What controls the worker agents? | runtime skills × task types matrix (current profile) and skill cards | profile versions as a timeline with changed fields; pointer history; batch environments with their lock and verify state |
+
+## 7. Open questions for the user
 
 - Is the Overview's split (solve loop large, expand + task lifecycle small) the right emphasis?
 - Should Pipeline be a top-level page (as now) or a tab inside Case / Running?
-- Which pages do you want first in WP9b (Inbox and Task detail are planned)?
+- Should operations ask for a reason always (the spec requires it only for reject, deprecate and
+  budget), and should the operator name come from config (D342)?

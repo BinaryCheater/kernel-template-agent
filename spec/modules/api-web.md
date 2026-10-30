@@ -61,6 +61,21 @@ Additions made in WP9a (D170): `GET /meta` (env, record counts by origin), `GET 
 Served by `python -m kta.api` (`scripts/api`) on `[api] host/port` in config/kta.toml; the host must be
 a loopback address.
 
+Additions made in WP9b (D340–D354):
+
+- Operations: `POST /actions/deprecate {record, reason}` (reason required); `POST /actions/approve`
+  also takes `{profile}` (D351, delegated to WP8); `GET /actions/capabilities` (each operation,
+  what it writes, whether it is wired, what it needs); `GET /actions/log?limit=` (HumanActions,
+  newest first, verb and parameters parsed). Operations that need WP6/WP8 answer 501 NotSupported
+  and write nothing until wired (D341); a malformed body or a missing required reason is 400.
+- A HumanAction written by the API has `action = "<verb>"` or `"<verb> <compact JSON>"`, the
+  subject in refs and an actor `human` named by `[api] operator` (D342).
+- `POST /write/record` needs `Authorization: Bearer <task token>` (D352).
+- Reads: `GET /tasks/{id}` (task detail), `GET /blobs/{sha256}` (text blobs), `GET /agents`
+  (runtime skills, AgentProfile versions, `current_profile` history, batch environments),
+  `POST /agents/batches/{batch}/verify` (delegated to WP8), `GET /pool?snapshot=`,
+  `GET /experiments`, `GET /improvements` (D354, conventions D345 below).
+
 ### Record conventions read by the API (D169, default — needs user review)
 
 The read views are derived only from records, ops tables and spans. Producers (WP2, WP6, WP7, WP8,
@@ -81,6 +96,10 @@ WP10b) must write them this way for the pages to show their work:
 | Judgement | Report `title = "judgement"`, `subject` = Case ID, `refs.case`, `refs.solution` when accepted; `data`: `kind = "judgement"`, `round`, `rule`, `units` (`unit`, `bound_us`, `predicted_us`, `measured_us`), `explained_share` |
 | Coverage | Report `title = "coverage"`, `subject` = PoolSnapshot ID, `data` = the coverage page's fields (`scope`, `discovery`, `trend`, `instruction_families`, `hw_patterns`, `references`, `gap_explained`, `backlog`, `structure`) |
 | Snapshot membership | a Family is in a snapshot when its ID is in the PoolSnapshot `members` |
+| Experiment (D345) | Protocol `type: experiment`, `params.arms`, `params.runs_per_arm`; ExperimentRun `refs.protocol`, arm = `condition`; result Report `title: experiment`, `refs.protocol`, `data.rows`; approval HumanAction `approve_protocol`, `refs.protocol` |
+| Improvement (D345) | Report `title: improvement`, `data.batch`, `data.attribution` (category → count), `data.items` (`key`, `title`, `kind`, `description`); approval HumanAction `approve_improvement`, `refs.improvement` |
+| Confirmation (D345) | HumanAction `confirm_pattern` / `confirm_structure` with `refs.pattern` / `refs.structure` |
+| Task detail (D354) | records written in a task have `actor.task` = task ID (AgentRun, Submission, Check, ...); its spans carry `attrs.task_id` (children via `parent_id`) |
 
 ### 行为
 
