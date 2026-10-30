@@ -70,14 +70,23 @@ def machine_limit(machine: str, key: str, default: int) -> int:
 
 
 def envelope(api: Api, id: str) -> dict[str, Any]:
-    """GET /records/{id}: the stored JSON plus derived status and assurance."""
+    """GET /records/{id}: the stored JSON plus derived status and assurance.
+
+    A record stored under an older schema shows its upcast ``body`` (the current shape)
+    with the stored one under ``stored_body`` and ``upcast_from`` (D440).
+    """
     data = api.store.get_json(id)
     status, assurance = api.store.status(id)
-    return {"id": id, **data, "status": status, "assurance": assurance}
+    out = {"id": id, **data, "status": status, "assurance": assurance}
+    rec = api.store.get(id)
+    if rec.upcast:
+        out |= {"body": rec.body, "stored_body": data["body"], "upcast_from": data["schema"]}
+    return out
 
 
 def body(api: Api, id: str) -> dict[str, Any]:
-    return api.store.get_json(id)["body"]
+    """The record body in the current schema (upcast when stored older, D440)."""
+    return api.store.get(id).body
 
 
 def refs(api: Api, id: str) -> dict[str, Any]:

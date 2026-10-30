@@ -6,7 +6,7 @@ import { useApi } from "../data/useApi";
 import { useNow } from "../data/live";
 import { ChainDag } from "../components/ChainDag";
 import { AssuranceChip, Loading, Panel, RecordLink } from "../components/ui";
-import { LEVEL_NAMES, dur, hhmm, since } from "../components/format";
+import { LEVELS, LEVEL_NAMES, dur, hhmm, since } from "../components/format";
 import { useSnapshot } from "../components/Shell";
 
 export function FamilyList() {
@@ -42,16 +42,16 @@ export function FamilyList() {
 
 function StepBars({ steps }: { steps: NonNullable<FamilySummary["step_detail"]> }) {
   const H = 48;
-  const unit = H / 6;
+  const unit = H / 7;
   return (
     <div className="step-bars">
       {steps.map((s) => {
-        const lo = s.level_from ?? 0;
+        const lo = s.level_from ?? 1;
         const hi = s.level_to ?? lo;
         return (
           <div key={s.key} className="step-bar" title={`${s.key}: ${s.template} · level ${lo}→${hi} · ${s.assurance}`}>
             <div className="step-col" style={{ height: H }}>
-              <span className={`as-bar-${s.assurance}`} style={{ bottom: lo * unit, height: (hi - lo + 1) * unit - 1 }} />
+              <span className={`as-bar-${s.assurance}`} style={{ bottom: (lo - 1) * unit, height: (hi - lo + 1) * unit - 1 }} />
             </div>
             <span className="step-key mono">{s.key}</span>
           </div>
@@ -85,7 +85,7 @@ function FamilyBody({ f }: { f: FamilyDetail }) {
           <ChainDag nodes={f.nodes} selected={sel} onSelect={setSel} />
           <div className="legend">
             <span>refinement levels</span>
-            {LEVEL_NAMES.map((n, i) => <span key={n}><span className={`sw lvsw lv${i}`} />{i} {n}</span>)}
+            {LEVELS.map((i) => <span key={i}><span className={`sw lvsw lv${i}`} />{i} {LEVEL_NAMES[i]}</span>)}
           </div>
           <div className="legend" style={{ marginTop: 4 }}>
             <span>assurance:</span><span className="cn-assur as-declared">declared</span><span className="cn-assur as-tested">tested</span>
@@ -125,7 +125,7 @@ function TemplateCard({ n }: { n: ChainNode }) {
         <dl className="kv">
           <dt>refines</dt><dd>{n.applies_to}</dd>
           <dt>levels</dt><dd className="small">{n.level_from == null ? "—" : `${LEVEL_NAMES[n.level_from]} → ${LEVEL_NAMES[n.level_to ?? n.level_from]}`}</dd>
-          <dt>requires hw</dt><dd className="mono small">{n.requires_hw.length ? n.requires_hw.join(", ") : "—"}</dd>
+          <dt>requires</dt><dd className="mono small">{n.requires.length ? n.requires.join(", ") : "—"}{n.requires.length > 0 && ` · probed on ${n.probed_on.join(", ") || "nothing yet"}`}</dd>
           <dt>bindings</dt><dd className="mono small">{Object.keys(n.bindings).length ? Object.entries(n.bindings).map(([k, v]) => `${k} ← ${v}`).join(", ") : "—"}</dd>
         </dl>
         <div>

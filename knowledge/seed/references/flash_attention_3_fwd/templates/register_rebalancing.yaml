@@ -1,7 +1,7 @@
 name: register_rebalancing
 version: 1
-level_from: 3
-level_to: 3
+level_from: 5
+level_to: 5
 change: vertical
 refines: store
 produces: [store]
@@ -18,7 +18,6 @@ preconditions:
   - {id: pre_roles, expr: "consumer_groups >= 1", meaning: "warp roles exist (warp_specialization applied)", cls: semantic}
 program:
   description: "Producer warpgroup calls warpgroup_reg_dealloc<24>, consumers call warpgroup_reg_alloc<240> at role entry (hopper/flash_fwd_kernel_sm90.h:82-83, 309, 361)."
-  fragments: {}
 backward_map: "Ignore the reallocation: every warp keeps the launch-time budget, which is valid whenever each role's live registers fit."
 obligations:
   - {name: fits, statement: "Each role's live registers fit its budget (no spills introduced by the compiler).", method: test}
@@ -27,7 +26,8 @@ cost: []
 scope:
   predicate: "True"
   text: "Warp-specialized kernels on GPUs with setmaxnreg (sm_90a)."
-requires_hw: [setmaxnreg]
+requires: [register_reallocation]
+probed_on: []
 relations:
   - {type: requires, target: warp_specialization}
 signature:
@@ -37,6 +37,4 @@ signature:
   boundary: null
   resources: [registers]
 numeric_risk: null
-expected_sass:
-  - {when: "True", must_contain: [USETMAXREG], must_not_contain: []}
 summary: "Moves registers from producer warps to consumer warps at run time. Lets consumers hold larger accumulator tiles without lowering occupancy. Depends on warp roles and on a setmaxnreg-capable GPU."

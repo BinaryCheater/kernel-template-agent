@@ -1,5 +1,5 @@
 name: contract
-level: 1
+level: 3
 category: contract
 params:
   - {name: contracted_dims, type: str, meaning: "dimensions summed over (e.g. K)"}

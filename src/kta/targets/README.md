@@ -4,7 +4,7 @@ Layer 2. Specification: [spec/modules/target-exec.md](../../../spec/modules/targ
 
 ## Responsibility
 
-Hardware targets: probing a worker's GPU, driver, CUDA and backend versions through the Executor; unit table; `hw.*` limits (HwFacts); hardware feature list (HwFeatures with probed support).
+Hardware targets: probing a worker's GPU, driver, CUDA and backend versions through the Executor; unit table; `hw.*` limits (HwFacts); hardware feature list (HwFeatures: ISA instruction families; abstract Capabilities and per-Target declarations live in the knowledge pool, D442; HwFeatures with probed support).
 
 ## Public interface
 

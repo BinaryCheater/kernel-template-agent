@@ -1,0 +1,7 @@
+target: gb10
+capability: named_barriers
+status: 'yes'
+params:
+  count: 16
+basis: documented
+note: 'PTX ISA target requirements: bar.sync takes a barrier id 0-15.'

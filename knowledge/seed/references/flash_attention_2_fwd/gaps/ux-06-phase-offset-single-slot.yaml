@@ -4,6 +4,6 @@ description: >-
   barriers per iteration and staggers K and V refills by half an iteration, so slot lifetime depends on
   the barrier's position inside the iteration, not just on beta. Needs a finer variable (barrier phase
   per operand) or a Template for phase-offset multi-operand single buffering. Not resolved here.
-level: 3
+level: 5
 pattern_guess: store
 attribution: granularity

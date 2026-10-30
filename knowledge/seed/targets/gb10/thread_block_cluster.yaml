@@ -1,0 +1,7 @@
+target: gb10
+capability: thread_block_cluster
+status: 'yes'
+params:
+  max_cluster_size: 8
+basis: documented
+note: 'CUDA programming guide: clusters from compute capability 9.0; portable cluster size 8.'

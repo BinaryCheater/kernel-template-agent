@@ -1,0 +1,7 @@
+name: global_atomics
+description: Atomic read-modify-write on global memory (integer and floating-point add).
+unit: lsu
+params: []
+realised_by:
+- atom_global_add
+- atom_global_add_f32

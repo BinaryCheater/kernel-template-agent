@@ -25,6 +25,7 @@ GET /search?q=&kinds=                   全文检索
 GET /lineage/{id}?depth=                证据链
 GET /cases/{id}/timeline                求解循环的每一轮、每个任务、每次驳回
 GET /families/{id}/chain                组合链及每步的卡片
+GET /pool/diff?a=&b=                    PoolDiff between two PoolSnapshots (D449)
 GET /coverage?snapshot=                 CoverageReport
 GET /model/residuals?model=             预测对实测
 GET /runs/active                        正在运行的循环、任务、作业、租约
@@ -142,3 +143,10 @@ TypeScript、React、Vite、ECharts。独立目录 `web/`。
 
 - 真实运行：在本机通过 SSH 隧道打开前端，看到 WP7 的一次真实求解的时间线和结果证据链；截图写入交付说明。
 - 每个操作接口有测试：写出的 HumanAction 字段正确；缺少必填理由时返回 400。
+
+## WP14 additions (D449, D452)
+
+- `GET /pool/diff?a=&b=`: `kta.knowledge.pooldiff.diff` — added, removed, new versions (same kind and name), status moves of shared members between the two snapshot times, member counts per kind. 400 when an ID is not a PoolSnapshot.
+- Record bodies served by the API are in the current schema: `common.body` upcasts; `GET /records/{id}` of an upcast record adds `stored_body` and `upcast_from`.
+- `/pool` template rows carry `requires` (Capabilities) and `probed_on` instead of `requires_hw`.
+- Web page `/pool/diff` ("What did the pool gain, lose or change between two snapshots?"): two snapshot pickers (default: the last two), status moves first, then new versions, added and removed records, member counts. Levels are shown 1–7 (`LEVELS`, `LEVEL_NAMES` in `web/src/components/format.ts`).

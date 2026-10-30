@@ -12,6 +12,7 @@ import { TaskPage } from "./pages/Task";
 import { Operations } from "./pages/Operations";
 import { Agents } from "./pages/Agents";
 import { Pool } from "./pages/Pool";
+import { PoolDiff } from "./pages/PoolDiff";
 import { Model } from "./pages/Model";
 import { Experiments, Improvement } from "./pages/Studies";
 
@@ -29,6 +30,7 @@ const PAGES: PageMeta[] = [
   { path: "/tasks/:id", title: "Task", question: "What did this agent do?" },
   { path: "/operations", title: "Operations", question: "What can I start, stop or change, and what have I done?" },
   { path: "/pool", title: "Pool", question: "What does the system know now?" },
+  { path: "/pool/diff", title: "Pool diff", question: "What did the pool gain, lose or change between two snapshots?" },
   { path: "/model", title: "Model", question: "Can the performance model be trusted?" },
   { path: "/experiments", title: "Experiments", question: "How far are the experiments, and what do they conclude?" },
   { path: "/improvement", title: "Improvement", question: "Is the system getting better, and where does it fall short?" },
@@ -52,6 +54,7 @@ export function App() {
         <Route path="/tasks/:id" element={<TaskPage />} />
         <Route path="/operations" element={<Operations />} />
         <Route path="/pool" element={<Pool />} />
+        <Route path="/pool/diff" element={<PoolDiff />} />
         <Route path="/model" element={<Model />} />
         <Route path="/experiments" element={<Experiments />} />
         <Route path="/improvement" element={<Improvement />} />

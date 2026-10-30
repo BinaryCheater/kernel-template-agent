@@ -4,6 +4,6 @@ description: >-
   a barrier alone does not make generic-proxy smem writes visible to the async proxy. The Template needs
   a reader-dependent obligation (proxy fence before the barrier), or a separate sync Template for cross-proxy
   visibility. Not resolved here.
-level: 3
+level: 5
 pattern_guess: transfer
 attribution: verification

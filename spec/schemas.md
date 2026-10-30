@@ -26,6 +26,7 @@ class Record:
 ```
 
 - (D141) In Python the field `schema` is `Record.schema_` (JSON alias `schema`); the stored JSON uses `schema`. (D144) The body is stored normalized (every default filled in) and `created_at` in UTC before hashing. (D140) `Store.put` fills `actor.commit`/`actor.dirty` from its code state when absent and keeps them when present.
+- (D440) **Schema versions and upcast.** A kind's `schema` is `1 + len(upcasters)` (`kta.core.schemas.registry.KindSpec`); `upcasters[n-1]` maps a stored body of version n to n+1. A record stored under an older version is read with its stored body kept for hashing (`Record.to_json_dict()`, `Record.stored_body`) and its `body` upcast to the current shape; `schema_` stays the stored version and `Record.upcast` is true. A version newer than the code is refused. Stored records are never rewritten. Current versions changed by WP14: Pattern 2, Template 2, Gap 2, Reconstruction 2 (levels 0–5 → 1–7; Template also `requires_hw` → `requires`, `probed_on` added, `program.fragments` and `expected_sass` moved to Realisation).
 - **ID** = `sha256(canonical_json(record))` 的十六进制。`canonical_json`：键排序、无多余空白、UTF-8、datetime 用 ISO 8601、浮点用 `repr`。
 - `origin` 必填。只有 `real` 的记录能进入正式结论。
 - `refs` 中的每个 ID 必须已存在于存储中，否则写入失败。
@@ -36,13 +37,15 @@ class Record:
 ```python
 EvidenceStatus = Literal["proposed", "reproduced", "calibrated", "holdout_validated", "rejected", "deprecated", "stale", "suspect"]
 Assurance      = Literal["declared", "tested", "bounded", "proved"]
-Level          = Literal[0, 1, 2, 3, 4, 5]     # 论文的细化层级：0 计算图，1 算子变换，2 张量执行映射，3 指令调度，4 系统架构，5 微架构
+Level          = Literal[1, 2, 3, 4, 5, 6, 7]  # (D441) 1 workload, 2 graph, 3 operators, 4 tensor map, 5 instructions, 6 architecture, 7 microarchitecture
 ChangeKind     = Literal["vertical", "expansion", "horizontal", "restriction"]
 Binding        = Literal["compile", "runtime"]
 VarRole        = Literal["software", "hardware", "boundary"]
 VarKind        = Literal["structure", "numeric"]
 Unit           = str      # 硬件单元名，取自 Target 的单元表，例如 "dram", "l2", "smem", "tensor", "fma", "issue", "launch"
 ```
+
+(D441) Records written before WP14 used the paper's 0–5 (0 graph, 1 operator transforms, 2 tensor execution mapping, 3 instruction scheduling, 4 system architecture, 5 microarchitecture). They are read through the named mapping `paper-0to5@1` in `kta.core.schemas.levels` (n → n + 2). A published mapping is never edited; a later renumbering adds a new name.
 
 状态与保证等级由 StatusChange 记录推导（§4.9），不写在对象本身的 body 里。
 
@@ -92,11 +95,11 @@ class Template:
     obligations: list[Obligation]   # Σ
     cost: list[CostTerm]            # Ĵ
     scope: ScopeSpec                # Γ
-    requires_hw: list[str]          # HwFeature names
+    requires: list[str]             # Capability names (abstract; D442). Was requires_hw (HwFeature names) in schema 1
+    probed_on: list[str]            # Target names where a family using it compiled and ran (D445); [] = unprobed
     relations: list[Relation]
     signature: SignatureSpec        # ς
     numeric_risk: str?              # 若改变数值：说明；检查时必须加入的输入分布名
-    expected_sass: list[SassExpect]
     summary: str                    # 三句以内的说明，给人和 agent 读
     example_code: str?              # blob 名，最小代码示例
 
@@ -108,7 +111,7 @@ class RangeSpec:    lo: int; hi: int; step: int = 1; pow2: bool = False
 class ExprSpec:     id: str; expr: str; meaning: str
                     cls: Literal["semantic", "resource", "implementation", "performance_assumption"]
                     same_as: str?                         # 仅 preconditions 使用
-class ProgramSpec:  description: str; fragments: dict[str, str]   # 后端名 → blob 名（参考代码片段）
+class ProgramSpec:  description: str                  # the abstract program; code lives in Realisations (D443)
 class Obligation:   name: str; statement: str
                     method: Literal["test", "exhaustive", "smt", "proof", "unspecified"]
 class CostTerm:     unit: Unit; work: str                 # 表达式：该单元上的工作量（字节、FLOP、次数）
@@ -122,6 +125,26 @@ class SignatureSpec: algorithm: str; reuse: str?; storage: str?; boundary: str?;
 class SassExpect:   when: str; must_contain: list[str]; must_not_contain: list[str]
 ```
 refs：`previous`（上一版本，可无）、`sources`（Source 列表，至少一个，除非 actor 为 human）。
+
+#### 4.2b Realisation (D443)
+
+How a Template is written on one backend over an ISA range.
+
+```python
+class Realisation:
+    template: str                   # "<name>@<version>"
+    backend: str                    # open name: tilelang, cuda, triton, ...; "any" = backend-independent
+    isa: IsaRange
+    requires: list[str]             # ISA features (HwFeature names) it uses, e.g. cp_async
+    isa_constraints: list[ExprSpec] # constraints the ISA adds over the Template's variables
+    fragments: dict[str, str]       # fragment name -> blob (reference code)
+    code_markers: list[str]
+    expected_sass: list[SassExpect] # when names Template variables
+    probed_on: list[str]            # Target names
+    summary: str
+class IsaRange:     family: str; min: str?; max: str?          # inclusive, e.g. family "sm", min "80"
+```
+refs: `template` (required, Template), `sources`, `previous`. A schema-1 Template's `program.fragments` and `expected_sass` are read back as one legacy realisation (backend `any`, no record) by `kta.knowledge.realisations`.
 
 ### 4.3 Chain（组合链）
 
@@ -187,7 +210,13 @@ Reference refs：`source`、`problem`。Reconstruction refs：`reference`、`cha
 ```python
 class Target:     name: str; gpu: str; sm: str; driver: str; cuda: str; ptxas: str
                   image: str; backends: dict[str, str]     # 后端名 → 版本或 commit
-class HwFeature:  name: str; unit: Unit; instructions: list[str]; description: str
+class Capability: name: str; description: str; unit: Unit?          # abstract capability (D442)
+                  params: list[ParamSpec]                            # what a declaration states, e.g. max_cluster_size
+                  realised_by: list[str]                             # ISA features (HwFeature names) that provide it
+class CapabilityDecl: target: str; capability: str                   # one Target's declaration; newest per pair wins
+                  status: Literal["yes", "no", "unknown"]; params: dict[str, int | float | str | bool]
+                  basis: Literal["documented", "probed", "inferred"]; note: str
+class HwFeature:  name: str; unit: Unit; instructions: list[str]; description: str   # ISA instruction family (probe)
                   support: dict[str, Literal["yes", "no", "unknown"]]   # Target 名 → 是否支持
 class HwFact:     feature: str?; unit: Unit?; quantity: str; value: float | str
                   ci_low: float?; ci_high: float?; method: Literal["measured", "documented"]
@@ -206,8 +235,18 @@ class HwModel:    target: str; version: int; peaks: dict[Unit, float]; limits: d
 
 ```python
 class Structure:  name: str; effect: Literal["objective", "variables", "enumeration"]; description: str; evidence_needed: str
-class Regime:     structure: str; context: str; holds: bool; how: Literal["proved", "observed"]
-class Negative:   subject: str; condition: str; effect: str
+class Finding:    claim: str; kind: str                       # (D444) open kind: regime, negative, positive, observation, other
+                  subject: str?                               # Template / Family / Structure / Capability name
+                  scope: Scope; holds: bool = True
+                  basis: Literal["observed", "measured", "proved", "claimed"]
+                  explained_by: list[str]                     # record IDs or "HwModel:<id>#<term>"
+class Scope:      targets: list[str]; workload: str = ""; condition: str = ""; predicate: str?   # empty = unrestricted
+class Coupling:   members: list[CouplingMember]               # (D447) at least two
+                  scope: Scope; effect: str; joint_ratio: float?; noise_band: float?
+                  basis: Literal["observed", "measured", "proved", "claimed"]
+class CouplingMember: kind: Literal["variable", "template", "resource", "other"]; name: str
+class Regime:     structure: str; context: str; holds: bool; how: Literal["proved", "observed"]   # legacy, read as Finding
+class Negative:   subject: str; condition: str; effect: str                                    # legacy, read as Finding
 class Gap:        missing: Literal["pattern", "template", "relation", "hw_fact", "family", "model_term", "check", "other"]
                   description: str; level: Level?; pattern_guess: str?
                   attribution: Literal["space", "model", "intent_sass", "verification", "process", "granularity", "other"]
@@ -290,8 +329,13 @@ refs: Report may have `env` (EnvManifest). Template's `backward_map_fn: str?` (p
 | proposed → reproduced / calibrated / holdout_validated | checker |
 | 任何 → rejected / deprecated / suspect | human |
 | 任何 → stale | system（依赖的记录变更或被驳回时，见 docs/design/20 §6） |
+| a promotion level → a lower one (demotion, D448) | system |
 | 保证等级 declared → tested / bounded / proved | checker |
 
 不满足规则的 StatusChange 写入时被拒绝。
 
 Interpretation used by the implementation (D149, needs user review): checkers may also promote from `stale` and forward between promotion levels; `-> proposed` is allowed for any actor only while the object is proposed, for a human from any status; assurance only moves up.
+
+Refs of the WP14 kinds: Finding and Coupling `evidence` (records), `sources`; Coupling `family`; CapabilityDecl `target` (Target record, optional), `sources`; Capability `sources`.
+
+**One ladder for empirical knowledge (D446).** Finding, Coupling, Regime and Negative move along proposed → reproduced → calibrated → holdout_validated (02's names observed/claimed, replicated, explained are aliases). Evidence rules (`kta.knowledge.ladder`): reproduced needs ≥ 2 distinct real evidence records; calibrated a resolvable `explained_by` or a Report with `ci_low`/`ci_high`; holdout_validated a Report with `holdout` and `agrees` true. Templates keep assurance and are not on this ladder.

@@ -4,6 +4,6 @@ description: >-
   barrier-separated rounds, ordered_global_combine a lock order. An atomic combine has different obligations
   (commutativity, no lost updates, nondeterministic order) and is common in histogram-style metadata kernels.
   Not proposed here.
-level: 1
+level: 3
 pattern_guess: reduce
 attribution: space

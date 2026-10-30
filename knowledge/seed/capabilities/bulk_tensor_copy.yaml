@@ -1,0 +1,8 @@
+name: bulk_tensor_copy
+description: A copy engine that moves a multi-dimensional tile between global memory and the scratchpad
+  from one descriptor, issued by one thread (TMA).
+unit: tma
+params: []
+realised_by:
+- cp_async_bulk_tensor
+- cp_async_bulk

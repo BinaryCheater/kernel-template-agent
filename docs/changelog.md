@@ -61,3 +61,34 @@ Status: **decided** = the user decided; **open** = waiting for the user; **defau
 ### What the user still has to decide
 
 D-open-1 … D-open-7 in 02 §12.
+
+## 2026-10-31: merged work package WP14 (knowledge model v2, code stage)
+
+Branch `wp/WP14`; delivery note `deliveries/WP14.md`; decisions D440–D454.
+
+### Closes
+
+| Item | How |
+| --- | --- |
+| R13 (except the HwModel split, WP15) | Capability + CapabilityDecl replace HwFeature in `Template.requires`; Realisation split from Template; Finding unifies Regime and Negative; levels 1–7 |
+| R14 | `probed_on` on Template and Realisation; retrieval filters by the target's capabilities; coverage counts "known, unavailable here" and "unconfirmed here" |
+| E5 (population governance, knowledge part) | one ladder with evidence rules; promotion/demotion engine with stale propagation; promotion review Report |
+| E7 | level numbering 1–7 with the versioned mapping `paper-0to5@1` |
+| E14 (pool-diff part) | `GET /pool/diff` and the `/pool/diff` page |
+| E15 | `Coupling` records (`coupled_with` with evidence and scope); unprobed mechanisms recorded and counted |
+| D-T7, D-T8, D-T9, D-T27 | implemented as defaults (D441–D445) |
+| D-open-1, D-open-3 (relation part) | implemented per D325 (D446, D447) |
+
+02 sections implemented: §2 (definition, objects, promotion and demotion, unprobed mechanisms, two axes, status ladder), §8.2 (Finding and Realisation as products of a source), §8.4 (`coupled_with` relation only; ablation jobs are WP20).
+
+### Also changed
+
+- Schema versioning by upcast on read (D440): Pattern, Template, Gap, Reconstruction are schema 2; old records read back unchanged in storage.
+- Seed migrated by `scripts/migrations/WP14_knowledge_v2.py` (ledger `knowledge/seed/migrations.yaml`); 16 Capabilities and 16 GB10 declarations added; 18 Realisations extracted from Template bodies (1 seed, 17 in references).
+- Worker skills `decompose-kernel`, `write-template`, `find-knowledge` use `requires` (Capabilities), levels 1–7 and Realisations.
+
+### Not done here
+
+- No real run (D320): no probe confirmed any GB10 declaration; `probed_on` is empty everywhere. Listed under "Pending real runs" in the delivery note.
+- Knobs (`MIN_REPLICATIONS`, `MIN_TARGETS_FOR_SCOPE`, `MIN_REPEATS_FOR_PATTERN`) are module constants until WP21's registry merges.
+- 23 (knowledge structure) and 21 §1 are not rewritten; 02 §2 stays the design source until the merge of 02 into the numbered documents.

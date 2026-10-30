@@ -1,0 +1,13 @@
+name: tensor_core_mma
+description: Warp-level matrix multiply-accumulate on a tensor unit with operands in registers (mma.sync).
+unit: tensor
+params:
+- name: dtypes
+  type: str
+  meaning: operand types supported, comma separated
+realised_by:
+- mma_f16_f32acc
+- mma_bf16
+- mma_tf32
+- mma_s8
+- mma_e4m3

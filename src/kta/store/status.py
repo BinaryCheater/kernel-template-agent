@@ -4,6 +4,7 @@
 - proposed / stale / a lower promotion -> reproduced, calibrated, holdout_validated: checker.
 - any -> rejected / deprecated / suspect: human.
 - any -> stale: system.
+- a promotion level -> a lower one: system (demotion by counter-evidence, D448).
 - assurance upward (declared < tested < bounded < proved): checker.
 
 Interpretation of the spec table (decision D149): checkers may also re-promote stale
@@ -46,8 +47,12 @@ def fold(changes: Iterable[StatusChange]) -> tuple[EvidenceStatus, Assurance | N
 
 def _status_allowed(current: EvidenceStatus, target: EvidenceStatus, actor: ActorType) -> bool:
     if target == "proposed":
-        return actor == "human" or current == "proposed"
+        demotion = actor == "system" and PROMOTION_RANK.get(current, 0) > 0
+        return actor == "human" or current == "proposed" or demotion
     if target in PROMOTION_RANK:
+        if actor == "system":
+            # Demotion (D448): only down the ladder, never up and never out of stale.
+            return current in PROMOTION_RANK and PROMOTION_RANK[target] < PROMOTION_RANK[current]
         if actor != "checker":
             return False
         if current == "stale":

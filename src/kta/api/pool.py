@@ -1,4 +1,5 @@
-"""Pool views: /families, /families/{id}/chain, /snapshots, /coverage, /model/residuals.
+"""Pool views: /families, /families/{id}/chain, /snapshots, /pool/diff, /coverage,
+/model/residuals.
 
 A family belongs to a snapshot when its record is a member of that PoolSnapshot. The
 coverage page shows a stored Report with ``title == "coverage"`` whose ``subject`` is the
@@ -11,6 +12,7 @@ from typing import Any
 
 from kta.api.common import Api, body, envelope, incoming, latest, ref_one
 from kta.core.errors import NotSupported
+from kta.knowledge import pooldiff
 
 CURRENT_POOL = "current_pool"
 
@@ -134,7 +136,8 @@ def chain(api: Api, fid: str) -> dict[str, Any]:
                 "assurance": env.get("assurance") or "declared",
                 "status": env.get("status"),
                 "summary": t.get("summary", "Template record not found"),
-                "requires_hw": t.get("requires_hw", []),
+                "requires": t.get("requires", []),
+                "probed_on": t.get("probed_on", []),
                 "variables": [
                     {"name": v["name"], "domain": _domain(v["domain"]), "binding": v["binding"]}
                     for v in t.get("variables", [])
@@ -177,6 +180,11 @@ def chain(api: Api, fid: str) -> dict[str, Any]:
             for s in sols
         ],
     }
+
+
+def diff(api: Api, a: str, b: str) -> dict[str, Any]:
+    """GET /pool/diff: what changed between snapshots ``a`` and ``b`` (E14, D449)."""
+    return pooldiff.diff(api.store, a, b).to_dict()
 
 
 def coverage(api: Api, snapshot: str) -> dict[str, Any]:

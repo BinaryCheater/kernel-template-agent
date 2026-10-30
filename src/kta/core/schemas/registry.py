@@ -1,7 +1,9 @@
-"""Kind name -> body model, schema version and envelope rules.
+"""Kind name -> body model, schema version, upcasters and envelope rules.
 
 This is a constant table, not a mutable registry: adding a kind is a code change with a
-schema version, so stored records always know which model validated them.
+schema version, so stored records always know which model validated them. A kind's
+version is ``1 + len(upcasters)``; a stored body of version n is read through
+``upcasters[n - 1:]`` (D440).
 """
 
 from __future__ import annotations
@@ -16,6 +18,7 @@ from kta.core.schemas import evaluation as ev
 from kta.core.schemas import hardware as hw
 from kta.core.schemas import knowledge as kn
 from kta.core.schemas import process as pr
+from kta.core.schemas import upcast as up
 
 
 class InvalidBody(SchemaError):
@@ -25,11 +28,18 @@ class InvalidBody(SchemaError):
 @dataclass(frozen=True)
 class KindSpec:
     model: type[BaseModel]
-    version: int = 1
     # refs keys that must be present (spec/schemas.md §1 and per-kind "refs" lines).
     required_refs: tuple[str, ...] = ()
     # refs key -> kind the referenced record must have.
     ref_kinds: dict[str, str] = field(default_factory=lambda: dict[str, str]())
+    # upcasters[n - 1] maps a stored body of version n to version n + 1.
+    upcasters: tuple[up.Upcaster, ...] = ()
+    # Readable but superseded: new code writes the replacement kind (D442, D444).
+    legacy_of: str | None = None
+
+    @property
+    def version(self) -> int:
+        return 1 + len(self.upcasters)
 
 
 _ENV = {"env": "EnvManifest"}
@@ -37,8 +47,17 @@ _JOB = {"env": "EnvManifest", "worker": "Worker"}
 
 KINDS: dict[str, KindSpec] = {
     # knowledge
-    "Pattern": KindSpec(kn.Pattern),
-    "Template": KindSpec(kn.Template, ref_kinds={"previous": "Template", "sources": "Source"}),
+    "Pattern": KindSpec(kn.Pattern, upcasters=(up.pattern_v1,)),
+    "Template": KindSpec(
+        kn.Template,
+        ref_kinds={"previous": "Template", "sources": "Source"},
+        upcasters=(up.template_v1,),
+    ),
+    "Realisation": KindSpec(
+        kn.Realisation,
+        required_refs=("template",),
+        ref_kinds={"template": "Template", "sources": "Source", "previous": "Realisation"},
+    ),
     "Chain": KindSpec(kn.Chain, ref_kinds={"templates": "Template"}),
     "Family": KindSpec(
         kn.Family, ref_kinds={"chain": "Chain", "previous": "Family", "problem": "Problem"}
@@ -52,13 +71,20 @@ KINDS: dict[str, KindSpec] = {
             "gaps": "Gap",
             "measurement": "Measurement",
         },
+        upcasters=(up.reconstruction_v1,),
     ),
     "Structure": KindSpec(kn.Structure),
-    "Regime": KindSpec(kn.Regime),
-    "Negative": KindSpec(kn.Negative),
-    "Gap": KindSpec(kn.Gap),
+    "Finding": KindSpec(kn.Finding, ref_kinds={"sources": "Source"}),
+    "Coupling": KindSpec(kn.Coupling, ref_kinds={"sources": "Source", "family": "Family"}),
+    "Regime": KindSpec(kn.Regime, legacy_of="Finding"),
+    "Negative": KindSpec(kn.Negative, legacy_of="Finding"),
+    "Gap": KindSpec(kn.Gap, upcasters=(up.gap_v1,)),
     # hardware
     "Target": KindSpec(hw.Target),
+    "Capability": KindSpec(hw.Capability, ref_kinds={"sources": "Source"}),
+    "CapabilityDecl": KindSpec(
+        hw.CapabilityDecl, ref_kinds={"target": "Target", "sources": "Source"}
+    ),
     "HwFeature": KindSpec(hw.HwFeature),
     "HwFact": KindSpec(hw.HwFact),
     "Worker": KindSpec(hw.Worker),
@@ -111,6 +137,19 @@ def parse_body(kind: str, body: Any) -> BaseModel:
         return model.model_validate(body)
     except ValidationError as exc:
         raise InvalidBody(f"{kind}: {exc}") from exc
+
+
+def upcast_body(kind: str, schema: int, body: dict[str, Any]) -> dict[str, Any]:
+    """``body`` stored as version ``schema`` of ``kind``, in the current version's shape."""
+    spec = kind_spec(kind)
+    if schema < 1 or schema > spec.version:
+        raise InvalidBody(f"{kind} schema {schema}; current is {spec.version}")
+    for step in spec.upcasters[schema - 1 :]:
+        try:
+            body = step(body)
+        except (KeyError, TypeError, ValueError) as exc:
+            raise InvalidBody(f"{kind} v{schema} body cannot be upcast: {exc}") from exc
+    return body
 
 
 def validate_body(kind: str, body: dict[str, Any]) -> None:

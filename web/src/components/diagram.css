@@ -72,8 +72,9 @@
 .chain-node.sel { box-shadow: 0 0 0 2px var(--ink); }
 .chain-node.as-declared { border-style: dashed; }
 .cn-levels { position: absolute; top: 0; left: 0; right: 0; height: 5px; display: grid; grid-template-columns: repeat(6, 1fr); gap: 1px; background: #f0efeb; }
-.cn-levels span.on.lv0 { background: var(--lv0); } .cn-levels span.on.lv1 { background: var(--lv1); } .cn-levels span.on.lv2 { background: var(--lv2); }
-.cn-levels span.on.lv3 { background: var(--lv3); } .cn-levels span.on.lv4 { background: var(--lv4); } .cn-levels span.on.lv5 { background: var(--lv5); }
+.cn-levels span.on.lv1 { background: var(--lv1); } .cn-levels span.on.lv2 { background: var(--lv2); } .cn-levels span.on.lv3 { background: var(--lv3); }
+.cn-levels span.on.lv4 { background: var(--lv4); } .cn-levels span.on.lv5 { background: var(--lv5); } .cn-levels span.on.lv6 { background: var(--lv6); }
+.cn-levels span.on.lv7 { background: var(--lv7); }
 .cn-head { display: flex; justify-content: space-between; align-items: center; }
 .cn-key { font-size: 11px; color: var(--ink-3); }
 .cn-tpl { font-size: 13px; }
@@ -83,7 +84,8 @@
 .cn-assur.as-tested { border-color: #9ec5f4; color: #184f95; background: var(--st-running-tint); }
 .cn-assur.as-bounded { border-color: #a9daa9; color: #006300; background: var(--st-ok-tint); }
 .cn-assur.as-proved { border-color: #0ca30c; color: #fff; background: #0ca30c; }
-.lvsw.lv0 { background: var(--lv0); } .lvsw.lv1 { background: var(--lv1); } .lvsw.lv2 { background: var(--lv2); }
-.lvsw.lv3 { background: var(--lv3); } .lvsw.lv4 { background: var(--lv4); } .lvsw.lv5 { background: var(--lv5); }
+.lvsw.lv1 { background: var(--lv1); } .lvsw.lv2 { background: var(--lv2); } .lvsw.lv3 { background: var(--lv3); }
+.lvsw.lv4 { background: var(--lv4); } .lvsw.lv5 { background: var(--lv5); } .lvsw.lv6 { background: var(--lv6); }
+.lvsw.lv7 { background: var(--lv7); }
 
 .sm-scroll { width: 100%; overflow-x: auto; overflow-y: hidden; }

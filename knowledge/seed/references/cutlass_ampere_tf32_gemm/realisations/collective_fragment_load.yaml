@@ -1,0 +1,20 @@
+template: collective_fragment_load@1
+backend: any
+isa:
+  family: sm
+  min: '75'
+requires:
+- ldmatrix
+fragments: {}
+expected_sass:
+- when: instruction == 'ldmatrix_x4' and not transpose
+  must_contain:
+  - LDSM.16.M88.4
+  must_not_contain: []
+- when: transpose
+  must_contain:
+  - LDSM.16.MT88
+  must_not_contain: []
+probed_on: []
+summary: Migrated by WP14 from the Template's v1 fields requires_hw, expected_sass and program.fragments
+  (D443); backend-independent.

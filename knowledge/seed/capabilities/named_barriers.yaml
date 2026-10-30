@@ -1,0 +1,9 @@
+name: named_barriers
+description: Barriers over a subset of the warps of a CTA, several in flight at once.
+unit: sync
+params:
+- name: count
+  type: int
+  meaning: named barriers per CTA
+realised_by:
+- named_barrier

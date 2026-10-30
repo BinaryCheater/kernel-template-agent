@@ -5,6 +5,6 @@ description: >-
   already prevent overwrite before read, so the obligation is too strong and the Template rejects a correct
   design. Needs either a register variant (obligation: program order) or a scope predicate that excludes
   registers. Not resolved by a proposed Template here.
-level: 3
+level: 5
 pattern_guess: store
 attribution: granularity

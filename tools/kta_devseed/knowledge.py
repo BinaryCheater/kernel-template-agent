@@ -61,7 +61,7 @@ def var(name: str, domain: list[Any], meaning: str, binding: str = "compile") ->
     }
 
 
-# name, version, level_from, level_to, change, refines, assurance, summary, requires_hw, variables
+# name, version, level_from, level_to, change, refines, assurance, summary, requires, variables
 TEMPLATES: list[tuple[str, int, int, int, str, str, str, str, list[str], list[dict[str, Any]]]] = [
     (
         "grid_stride_map",
@@ -361,7 +361,7 @@ def seed_knowledge(s: Seeder) -> None:
                 "program": {"description": summary},
                 "backward_map": "identity on the refined transaction",
                 "scope": {"predicate": "True", "text": "toy scope"},
-                "requires_hw": hw,
+                "requires": hw,
                 "signature": {"algorithm": name},
                 "summary": summary,
             },

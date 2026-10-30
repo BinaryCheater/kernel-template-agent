@@ -1,7 +1,7 @@
 name: reduction_partition
 version: 1
-level_from: 0
-level_to: 1
+level_from: 2
+level_to: 3
 change: vertical
 refines: reduce
 produces: [reduce]
@@ -25,7 +25,6 @@ program:
     result = combine(partial[0..num_groups-1]). With contiguous_sequential the partials are summed in
     place into one accumulator (the k-loop of a tiled GEMM); with contiguous_parallel each group is
     a separate executor (split-K) and the combine is a separate reduction.
-  fragments: {}
 backward_map: >-
   Combining the group partial results gives the sum over all reduction indices, because the groups
   partition the index set; forget the groups.
@@ -39,7 +38,8 @@ scope:
   text: >-
     Reductions whose combine operator is associative and commutative in exact arithmetic (sum, max,
     min). Floating-point sums qualify only up to rounding; see numeric_risk.
-requires_hw: []
+requires: []
+probed_on: []
 relations:
   - {type: enables, target: physical_storage, note: "partial results become values that need storage"}
 signature:
@@ -52,7 +52,6 @@ numeric_risk: >-
   Changes the summation order, so floating-point results differ from a sequential sum within
   rounding. Checks must include the input distribution "large_dynamic_range" (values spanning many
   binades with cancellation).
-expected_sass: []
 summary: >-
   Paper GEMM step 1: one sum of K products becomes partial sums over groups followed by a combine.
   The decision is the assignment of reduction indices to groups; the obligation is exact-once.

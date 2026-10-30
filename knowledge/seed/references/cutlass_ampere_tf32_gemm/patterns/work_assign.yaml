@@ -1,5 +1,5 @@
 name: work_assign
-level: 2
+level: 4
 category: other
 params:
   - {name: unit, type: enum, values: [output_tile, tile_and_k_range, transaction_class, request_chunk], meaning: "what is being assigned"}

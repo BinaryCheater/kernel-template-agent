@@ -35,11 +35,10 @@ from kta.knowledge import (
 from kta.orchestrator.pipeline import (
     Services,
     build,
+    chain_sass,
     family_package,
     files_of,
     generate,
-    sass_for,
-    templates_of,
 )
 
 SHORT_BODY = 1200
@@ -215,7 +214,7 @@ def cmd_sass(args: argparse.Namespace, make_ctx: ContextFactory) -> int:
         b, module = build(svc, gk)
         if not b.ok or not module.sass_blob:
             raise ConfigError(f"build {module.build_id[:12]} failed or has no SASS")
-        expect = sass_for(fp, templates_of(svc.store, fp), assignment)
+        expect = chain_sass(svc.store, fp, assignment)
         checked = sass_check(svc.checker(), module, expect, assignment)
     data = {"check": checked.id, "passed": checked.passed, "failures": checked.body.failures}
     _out(

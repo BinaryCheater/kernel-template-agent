@@ -1,0 +1,6 @@
+target: gb10
+capability: packed_half_arith
+status: 'yes'
+params: {}
+basis: documented
+note: 'PTX ISA target requirements: fma.rn.f16x2 from sm_53, bf16x2 from sm_80.'

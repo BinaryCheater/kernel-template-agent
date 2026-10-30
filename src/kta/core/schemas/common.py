@@ -17,9 +17,10 @@ EvidenceStatus = Literal[
     "suspect",
 ]
 Assurance = Literal["declared", "tested", "bounded", "proved"]
-# Refinement levels of the paper: 0 graph, 1 operator transforms, 2 tensor execution
-# mapping, 3 instruction scheduling, 4 system architecture, 5 microarchitecture.
-Level = Literal[0, 1, 2, 3, 4, 5]
+# Refinement levels 1-7 of the research frontend (D-T7, D441): 1 workload, 2 graph,
+# 3 operators, 4 tensor map, 5 instructions, 6 architecture, 7 microarchitecture. Records
+# written before D441 used the paper's 0-5; ``kta.core.schemas.levels`` maps them on read.
+Level = Literal[1, 2, 3, 4, 5, 6, 7]
 ChangeKind = Literal["vertical", "expansion", "horizontal", "restriction"]
 Binding = Literal["compile", "runtime"]
 VarRole = Literal["software", "hardware", "boundary"]

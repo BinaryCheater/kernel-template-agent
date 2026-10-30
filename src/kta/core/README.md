@@ -24,3 +24,9 @@ Schemas (pydantic models per record kind), content-hash IDs, the expression lang
 
 - May import: none (bottom layer).
 - Enforced by import-linter (`pyproject.toml`, `[tool.importlinter]`).
+
+## Schema versions (WP14, D440, D441)
+
+- `schemas/upcast.py` and `KindSpec.upcasters`: old stored bodies are upcast on read; `Record.stored_body` / `to_json_dict()` keep the stored form (the ID), `Record.body` is the current shape.
+- `schemas/levels.py`: levels 1–7 and the versioned mapping `paper-0to5@1` from the paper's 0–5.
+- New kinds: Capability, CapabilityDecl (hardware), Realisation, Finding, Coupling (knowledge); Regime and Negative are legacy (`legacy_of = "Finding"`).

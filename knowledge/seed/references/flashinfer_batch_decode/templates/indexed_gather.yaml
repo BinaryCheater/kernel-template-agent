@@ -1,7 +1,7 @@
 name: indexed_gather
 version: 1
-level_from: 2
-level_to: 3
+level_from: 4
+level_to: 5
 change: vertical
 refines: transfer
 produces: [transfer, transfer]
@@ -18,7 +18,6 @@ preconditions:
   - {id: pre_valid, expr: "case.indices_in_bounds", meaning: "every index points into the allocated pool (validated by the producer of the index array)", cls: semantic}
 program:
   description: "Every bdx iterations, threads translate the next logical KV positions through kv_indices / page_size into element offsets and store them in smem; the cp.async loads of K and V read their source address from that smem table (include/flashinfer/attention/decode.cuh:491-499, 535-547, 560-565)."
-  fragments: {}
 backward_map: "Materialize the gathered operand contiguously (copy rows in index order) and run the dense transfer: equal tile contents."
 obligations:
   - {name: gather_correct, statement: "The row loaded for logical position i is the physical row index[i] (page index and in-page offset computed correctly, including the last partial page).", method: exhaustive}
@@ -28,7 +27,8 @@ cost:
 scope:
   predicate: "True"
   text: "Operands stored non-contiguously behind a runtime index: paged KV caches, token permutations for MoE, sparse row selection."
-requires_hw: []
+requires: []
+probed_on: []
 relations:
   - {type: requires, target: async_transfer}
   - {type: enables, target: vectorized_access, note: "rows within a page stay contiguous, so each gathered row can be copied with vector accesses; a compiler-chosen width (Triton) also works, so it does not require vectorized_access (D110)"}
@@ -39,5 +39,4 @@ signature:
   boundary: "last partial page; padding indices"
   resources: [dram]
 numeric_risk: null
-expected_sass: []
 summary: "Loads operand rows through a runtime index array (page table or token permutation) instead of a dense stride. Usually prefetches the indices on chip and reuses them over several iterations. Obligations cover index translation and the ordering between index writes and the loads that use them."

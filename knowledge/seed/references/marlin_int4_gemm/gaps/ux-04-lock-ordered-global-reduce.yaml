@@ -3,6 +3,6 @@ description: >-
   [ux-04] reduction_partition introduces groups and 'a combine' but nothing in the pool realizes a combine
   across CTAs with ordering, memory-model visibility and a co-residency condition for deadlock freedom.
   Proposed: ordered_global_combine@1.
-level: 3
+level: 5
 pattern_guess: reduce
 attribution: space

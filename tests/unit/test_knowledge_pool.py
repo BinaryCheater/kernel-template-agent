@@ -34,7 +34,15 @@ from storehelp import T0
 
 def test_seed_import_is_idempotent(ctx: Context, store: Store) -> None:
     first = seed(ctx, store)
-    assert first.counts == {"Source": 1, "Pattern": 8, "Structure": 9, "Template": 7}
+    assert first.counts == {
+        "Source": 1,
+        "Pattern": 8,
+        "Structure": 9,
+        "Capability": 16,
+        "CapabilityDecl": 16,
+        "Template": 7,
+        "Realisation": 1,
+    }
     assert first.warnings == []
     again = seed(ctx, store)
     assert again.written == [] and len(again.reused) == len(first.written)

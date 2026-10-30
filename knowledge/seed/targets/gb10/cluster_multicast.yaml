@@ -1,0 +1,7 @@
+target: gb10
+capability: cluster_multicast
+status: unknown
+params: {}
+basis: documented
+note: PTX ISA target requirements allow .multicast::cluster from sm_90; its behaviour and benefit on sm_12x
+  are not documented. To probe.

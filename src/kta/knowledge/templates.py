@@ -111,8 +111,6 @@ def _expressions(t: Template, hw: Mapping[str, Any] | None) -> list[Issue]:
         issues += check_expr(term.work, declared, f"cost[{i}].work", hw)[1]
     # Γ ranges over pattern/workload parameters and the hardware contract, not over X.
     issues += check_expr(t.scope.predicate, set(), "scope.predicate", hw)[1]
-    for i, sass in enumerate(t.expected_sass):
-        issues += check_expr(sass.when, declared, f"expected_sass[{i}].when", hw)[1]
     return issues
 
 
@@ -151,7 +149,6 @@ def _all_exprs(t: Template) -> list[tuple[str, str, set[str]]]:
     out += [(f"preconditions.{c.id}", c.expr, xs) for c in t.preconditions]
     out += [(f"cost[{i}].work", c.work, xs) for i, c in enumerate(t.cost)]
     out += [("scope.predicate", t.scope.predicate, set())]
-    out += [(f"expected_sass[{i}].when", s.when, xs) for i, s in enumerate(t.expected_sass)]
     return out
 
 
@@ -193,18 +190,34 @@ def _references(t: Template, store: Store) -> list[Issue]:
         for where, name in [("refines", t.refines), *(("produces", p) for p in t.produces)]
         if name not in patterns
     ]
-    features = pool.names(store, "HwFeature")
-    issues += [
-        Issue("unknown_hw_feature", f"HwFeature {f!r} is not in the store", "requires_hw")
-        for f in t.requires_hw
-        if f not in features
-    ]
+    issues += _requires(t.requires, store)
     known = pool.names(store, "Template") | {t.name}
     issues += [
         Issue("unknown_relation_target", f"{r.type} -> {r.target!r}: no such Template", "relations")
         for r in t.relations
         if r.target not in known
     ]
+    return issues
+
+
+def _requires(requires: list[str], store: Store) -> list[Issue]:
+    """Each name must be a Capability; a legacy HwFeature name is accepted with a warning.
+
+    The issue kind keeps its pre-D442 name ``unknown_hw_feature`` (Issue kinds are read by
+    done-checks and locked acceptance tests).
+    """
+    capabilities = pool.names(store, "Capability")
+    features = pool.names(store, "HwFeature")
+    issues: list[Issue] = []
+    for name in requires:
+        if name in capabilities:
+            continue
+        if name in features:
+            msg = f"{name!r} is an ISA feature (HwFeature), not an abstract Capability"
+            issues.append(Issue("hw_feature_not_capability", msg, "requires", "warning"))
+        else:
+            msg = f"Capability {name!r} is not in the store"
+            issues.append(Issue("unknown_hw_feature", msg, "requires"))
     return issues
 
 

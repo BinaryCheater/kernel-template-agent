@@ -3,6 +3,6 @@ description: >-
   [ux-02] operand_precision_conversion lowers precision before a contraction; dequantization raises packed
   integers to fp16 with a zero point and per-group scale and has an exactness obligation per bit pattern.
   Proposed: fused_dequantization@1.
-level: 1
+level: 3
 pattern_guess: contract
 attribution: space

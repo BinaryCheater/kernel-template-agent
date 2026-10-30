@@ -1,0 +1,10 @@
+name: thread_block_cluster
+description: CTAs co-scheduled as a cluster with a cluster-wide barrier and access to each other's scratchpad.
+unit: sync
+params:
+- name: max_cluster_size
+  type: int
+  meaning: largest portable cluster in CTAs
+realised_by:
+- barrier_cluster
+- distributed_shared_memory

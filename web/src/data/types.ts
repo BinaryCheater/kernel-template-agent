@@ -311,7 +311,8 @@ export interface ChainNode {
   change: string | null;
   assurance: string;
   summary: string;
-  requires_hw: string[];
+  requires: string[]; // abstract Capabilities (D442)
+  probed_on: string[];
   variables: { name: string; domain: string; binding: string }[];
   bindings: Record<string, string | number | boolean>;
 }
@@ -338,6 +339,17 @@ export interface FamilyDetail extends FamilySummary {
 }
 
 // ---- GET /coverage?snapshot= ----
+
+// ---- GET /pool/diff?a=&b= (D449) ----
+
+export interface PoolDiffEntry { id: string; kind: string; label: string }
+export interface PoolDiff {
+  a: string; b: string; a_at: string; b_at: string;
+  counts_a: Record<string, number>; counts_b: Record<string, number>;
+  added: PoolDiffEntry[]; removed: PoolDiffEntry[];
+  changed: { kind: string; label: string; old: string; new: string }[];
+  status: { id: string; kind: string; label: string; old: string; new: string }[];
+}
 
 export interface Snapshot {
   id: string;
@@ -544,7 +556,7 @@ interface PoolEnv {
 export interface PoolPattern extends PoolEnv { name: string; level: number; category: string; description: string; examples: number; confirmed_by: string | null }
 export interface PoolTemplate extends PoolEnv {
   name: string; version: number; level_from: number; level_to: number; change: string; refines: string; produces: string[];
-  summary: string; requires_hw: string[]; variables: number; constraints: number; obligations: number;
+  summary: string; requires: string[]; probed_on: string[]; variables: number; constraints: number; obligations: number;
 }
 export interface PoolStructure extends PoolEnv { name: string; effect: string; description: string; evidence_needed: string; confirmed_by: string | null }
 export interface PoolGap extends PoolEnv { missing: string; description: string; level: number | null; pattern_guess: string | null; attribution: string; refs: Record<string, string | string[]> }

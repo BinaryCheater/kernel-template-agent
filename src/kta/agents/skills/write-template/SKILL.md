@@ -18,7 +18,8 @@ citation is not admitted.
 
 ## Fill the record (spec/schemas.md §4.2 field names; use `inputs/` examples)
 
-1. **What it refines.** The Pattern of the transaction it replaces and the level (0–5).
+1. **What it refines.** The Pattern of the transaction it replaces and the level (1–7:
+   workload, graph, operators, tensor map, instructions, architecture, microarchitecture).
    If no Pattern fits, use `other` and describe the transaction precisely.
 2. **What it produces.** The finer transactions and the one new object.
 3. **Variables.** Each choice the step makes, with role (software, hardware, boundary),
@@ -33,8 +34,11 @@ citation is not admitted.
    discharge it.
 6. **Cost terms.** Per hardware unit, per instance of the step (`p.instances` scales
    them). Only terms you can justify from the code or a cited fact.
-7. **Hardware requirements.** Feature names from the target's feature list only; if a
-   feature has no name there, leave it out and say so in the scope text.
+7. **Hardware requirements.** `requires` lists abstract Capabilities (e.g. `async_copy`,
+   `managed_scratchpad`), never ISA instruction names; leave `probed_on` empty (the
+   system fills it from runs). Code fragments and expected SASS go to a Realisation of
+   the Template (backend × ISA range), not into the Template. A capability with no name
+   yet is described in the scope text.
 8. **Scope text.** One paragraph: what the step is and where it does not apply.
 
 The Template's assurance is `declared`: you assert it; checkers raise it later.

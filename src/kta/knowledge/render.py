@@ -11,6 +11,7 @@ from pathlib import Path
 from kta.core.errors import SchemaError
 from kta.core.schemas import Record
 from kta.knowledge import pool
+from kta.knowledge.findings import FindingRef, findings
 from kta.knowledge.retrieve import card
 from kta.store.base import Store
 
@@ -85,14 +86,25 @@ def _pattern_page(store: Store, name: str, members: set[str] | None) -> str:
     for rid, t in pool.templates(store):
         if t.refines == name and (members is None or rid in members):
             lines += [*card(store, rid).lines, ""]
-    negatives = [r for r in pool.records(store, "Negative")]
     names = {t.name for _, t in pool.templates(store) if t.refines == name}
-    negs = [n for n in negatives if n.body.get("subject") in names]
-    lines += ["## Negative knowledge", ""]
-    lines += [
-        f"- {n.body['subject']}: when {n.body['condition']}: {n.body['effect']}" for n in negs
-    ] or ["- none"]
+    found = [f for f in findings(store) if f.body.subject in names]
+    lines += ["## Findings", ""]
+    lines += [_finding_line(f) for f in found] or ["- none"]
     return "\n".join(lines) + "\n"
+
+
+def _finding_line(f: FindingRef) -> str:
+    b = f.body
+    where = "; ".join(
+        x
+        for x in (
+            f"targets {', '.join(b.scope.targets)}" if b.scope.targets else "",
+            f"workload {b.scope.workload}" if b.scope.workload else "",
+            f"when {b.scope.condition}" if b.scope.condition else "",
+        )
+        if x
+    )
+    return f"- {b.subject} [{b.kind}, {f.status}]: {b.claim}" + (f" ({where})" if where else "")
 
 
 def render_text_knowledge(store: Store, snapshot_id: str | None, out_dir: Path) -> None:

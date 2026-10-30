@@ -2,6 +2,6 @@ missing: template
 description: >-
   [ux-05] cross_lane_reduction combines within one warp only; the cross-warp combine through shared memory
   with barriers is not in the pool. Proposed: smem_partial_combine@1.
-level: 3
+level: 5
 pattern_guess: reduce
 attribution: space

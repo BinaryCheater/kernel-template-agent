@@ -1,7 +1,7 @@
 """Deterministic retrieval of Templates, Families and Chains, rendered as cards (22 §5).
 
 Ranking (knowledge.md "检索排序"): hard filters first (Pattern, Γ true or unknown,
-required hardware features ``yes`` on the case's Target), then assurance, then reuse
+every required Capability ``yes`` on the case's Target, D445), then assurance, then reuse
 count; Γ-unknown entries go last and are marked on the card. Solutions do not exist
 before WP7, so the %-of-bound term is not used yet (allowed by WP4, decision D210).
 """
@@ -17,6 +17,8 @@ from kta.core.schemas import Record
 from kta.core.schemas.evaluation import Case
 from kta.core.schemas.knowledge import Chain, Template
 from kta.knowledge import pool
+from kta.knowledge.capabilities import template_availability
+from kta.knowledge.findings import findings
 from kta.knowledge.scope import item_params, problem_params, scope_holds
 from kta.knowledge.types import Card
 from kta.store.base import Store
@@ -30,11 +32,16 @@ CARD_KINDS = frozenset(
         "Pattern",
         "Structure",
         "Gap",
+        "Finding",
+        "Coupling",
         "Negative",
         "Regime",
         "Family",
         "Reference",
         "Reconstruction",
+        "Realisation",
+        "Capability",
+        "CapabilityDecl",
         "HwFeature",
         "HwFact",
     }
@@ -59,7 +66,7 @@ def reuse_counts(store: Store) -> dict[str, int]:
 
 
 def _negatives(store: Store, name: str) -> int:
-    return sum(1 for r in pool.records(store, "Negative") if r.body.get("subject") == name)
+    return len(findings(store, subject=name, kind="negative"))
 
 
 def _template_card(store: Store, rid: str, t: Template, scope_unknown: bool = False) -> Card:
@@ -73,7 +80,8 @@ def _template_card(store: Store, rid: str, t: Template, scope_unknown: bool = Fa
         f"vars: {', '.join(v.name for v in t.variables)}; "
         f"obligations: {', '.join(o.name for o in t.obligations)}",
         f"evidence: used in {uses} chain(s); negatives {_negatives(store, t.name)}; "
-        f"hw: {', '.join(t.requires_hw) or 'none'}",
+        f"requires: {', '.join(t.requires) or 'none'}; probed on: "
+        f"{', '.join(t.probed_on) or 'none'}",
     ]
     if scope_unknown:
         lines.append(f"scope NOT EVALUATED for this case: {t.scope.predicate}")
@@ -81,15 +89,23 @@ def _template_card(store: Store, rid: str, t: Template, scope_unknown: bool = Fa
 
 
 def _hw_ok(store: Store, t: Template, target: str | None) -> bool:
-    if not t.requires_hw:
-        return True
-    if target is None:
-        return False
-    for feature in t.requires_hw:
-        hit = pool.find_by_name(store, "HwFeature", feature)
-        if hit is None or hit[1].body.get("support", {}).get(target) != "yes":
-            return False
-    return True
+    return template_availability(store, t.requires, target).available
+
+
+def unavailable_templates(store: Store, target: str) -> dict[str, list[str]]:
+    """Usable Templates retrieval hides on ``target``: ``unavailable`` (a required
+    Capability is ``no``: known, unavailable here) and ``unconfirmed`` (``unknown``)."""
+    out: dict[str, list[str]] = {"unavailable": [], "unconfirmed": []}
+    for rid, t in pool.templates(store):
+        if not pool.usable(store, rid):
+            continue
+        a = template_availability(store, t.requires, target)
+        ref = pool.template_ref(t.name, t.version)
+        if a.missing:
+            out["unavailable"].append(ref)
+        elif a.unconfirmed:
+            out["unconfirmed"].append(ref)
+    return {k: sorted(v) for k, v in out.items()}
 
 
 def retrieve_templates(
@@ -101,8 +117,14 @@ def retrieve_templates(
     k: int = 10,
     hw: Mapping[str, Any] | None = None,
     params: Mapping[str, Any] | None = None,
+    target: str | None = None,
 ) -> list[Card]:
-    """Templates matching every given filter, best first, as cards."""
+    """Templates matching every given filter, best first, as cards.
+
+    ``target`` (default: the case's) hides Templates whose required Capabilities are not
+    all ``yes`` there (D445); ``unavailable_templates`` lists what was hidden.
+    """
+    target = target or (case.target if case is not None else None)
     text_ids = (
         {h.id for h in store.search(text, kinds=["Template"], limit=pool.ALL)} if text else None
     )
@@ -119,9 +141,9 @@ def retrieve_templates(
         if text_ids is not None and rid not in text_ids:
             continue
         unknown = False
+        if target is not None and not _hw_ok(store, t, target):
+            continue
         if case is not None:
-            if not _hw_ok(store, t, case.target):
-                continue
             holds = scope_holds(t, case, hw or {}, p).holds
             if holds is False:
                 continue
@@ -251,9 +273,15 @@ def card(store: Store, record_id: str) -> Card:
         return _chain_card(store, record_id, Chain.model_validate(rec.body))
     status, assurance = pool.status_of(store, record_id)
     body = rec.body
-    title = str(body.get("name") or body.get("description") or body.get("subject") or record_id)
+    title = str(
+        body.get("name")
+        or body.get("claim")
+        or body.get("description")
+        or body.get("subject")
+        or record_id
+    )
     lines = [f"{rec.kind} {_first_sentence(title, 120)} [{status}, {assurance}]"]
-    for key in ("description", "condition", "effect", "summary", "evidence_needed"):
+    for key in ("description", "condition", "effect", "summary", "evidence_needed", "kind"):
         if key in body and body[key] and len(lines) < CARD_MAX_LINES:
             lines.append(f"{key}: {_first_sentence(str(body[key]))}")
     return Card(record_id, rec.kind, title[:80], lines, status, assurance)

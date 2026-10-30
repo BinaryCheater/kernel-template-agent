@@ -1,0 +1,17 @@
+template: cluster_multicast@1
+backend: any
+isa:
+  family: sm
+  min: '90'
+requires:
+- cp_async_bulk_tensor
+- barrier_cluster
+fragments: {}
+expected_sass:
+- when: cluster_size > 1
+  must_contain:
+  - UTMALDG.2D.MULTICAST
+  must_not_contain: []
+probed_on: []
+summary: Migrated by WP14 from the Template's v1 fields requires_hw, expected_sass and program.fragments
+  (D443); backend-independent.
