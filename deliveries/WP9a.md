@@ -1,6 +1,6 @@
 # WP9a delivery: read API and web frontend (code stage)
 
-Branch `wp/WP9a`, with `integration` @ `65a0e2d` merged (WP0–WP5, WP10a, WP13 and the code-stage gate). Code commit of the evidence runs: `68300fcbaf910edd19e0c718e3b5cd1c406aa6c5` (clean). This is a **code-stage** delivery (D320): the user paused real runs, so everything below was exercised on `origin="fixture"` records only. The final read-only acceptance on WP7's real records is listed under "Pending real runs". Evidence: `deliveries/WP9a.evidence.json`, with outputs under `~/kta-data/dev/WP9a-fixture-68300fc/evidence/` on the control host.
+Branch `wp/WP9a`, with `integration` @ `65a0e2d` merged (WP0–WP5, WP10a, WP13 and the code-stage gate). Code commit of the evidence runs: `006062c47043d5adb0b8c77cff7a1c83101706be` (clean). This is a **code-stage** delivery (D320): the user paused real runs, so everything below was exercised on `origin="fixture"` records only. The final read-only acceptance on WP7's real records is listed under "Pending real runs". Evidence: `deliveries/WP9a.evidence.json`, with outputs under `~/kta-data/dev/WP9a-fixture-006062c/evidence/` on the control host.
 
 ## What was done
 
@@ -35,7 +35,8 @@ Branch `wp/WP9a`, with `integration` @ `65a0e2d` merged (WP0–WP5, WP10a, WP13 
   - A **FIXTURE DATA** banner shows whenever `/meta` reports non-real origins.
   - Evidence: claim 1 for the build; claim 2 for the endpoints it reads.
   - Screenshots at 1440×900 against the fixture store are in the coordinator's notes folder, under `WP9a-review-fixes/`.
-- **Gate check** (`tools/kta_gate/specific.py`, `wp9a`): the named API tests pass, `npm run build` passes, and `web/src` contains no sample data or fixture markers.
+- **Gate check** (`tools/kta_gate/specific.py`, `wp9a`): the named API tests pass, and `web/src` contains no sample data or fixture markers. The web build runs on `git archive HEAD web` in a fresh directory with `node_modules` linked in, so untracked or ignored sources and a cached `tsbuildinfo` cannot make it pass. It fails when `web/` differs from HEAD. Tests are in `tests/unit/test_gate_wp9a.py`.
+- **Review fix:** `web/src/data/` (the API client) had been ignored by the repo-wide `data/` rule and never committed. It is now committed, with a narrow `!web/src/data/` in `.gitignore`. The earlier evidence at `68300fc` built from a working tree that had those ignored files, so it was replaced by runs at `006062c`.
 
 ## Fixtures and simplifications
 
@@ -112,7 +113,7 @@ gate WP9a --stage code: PASSED (23 pass, 0 warn, 0 fail)
   PASS secrets
   PASS acceptance lock — 7 locked files unchanged
   PASS pyright
-  PASS unit tests — 316 passed
+  PASS unit tests — 319 passed
   PASS contract tests — 2 passed
   PASS fake coverage — 1 fake(s) covered
   PASS registry (kta doctor, dev)
@@ -122,6 +123,6 @@ gate WP9a --stage code: PASSED (23 pass, 0 warn, 0 fail)
   PASS skipped tests — none
   PASS evidence — 3 claim(s)
   PASS WP9a API tests — 9 tests passed
-  PASS web build — tsc + vite build
+  PASS web build — tsc + vite build of HEAD in a clean directory
   PASS no sample data in web/ — web/src reads the API only
 ```
