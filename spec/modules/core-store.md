@@ -51,6 +51,9 @@ store/status.py      状态与保证等级推导、推进规则
 store/stale.py       失效传播
 store/snapshot.py    池快照
 store/migrations/    建表 SQL
+store/db.py          connection, migrations (PRAGMA user_version), timestamp format
+store/querybuild.py  `query` filters (D147); store/textindex.py: FTS fields (D151)
+store/sqlite_ops.py  Ops on SQLite; store/transfer.py: verified bundles (D153); store/bench.py: benchmark (D156)
 ```
 
 ### 表
@@ -62,7 +65,7 @@ edges(src TEXT, rel TEXT, dst TEXT)                        -- 从 refs 展开；
 blobs(sha256 TEXT PRIMARY KEY, size INT, media TEXT, first_seen TEXT)
 records_fts                                                -- FTS5，索引 Template.summary、Pattern.description 等文本字段
 -- 运维表（允许修改）：
-tasks(id, card_id, state, priority, lease_owner, lease_until, attempts, work_unit, created_at, updated_at)
+tasks(id, card_id, card_type, state, priority, lease_owner, lease_until, attempts, work_unit, created_at, updated_at)
 loops(id, kind, subject, state, data_json, updated_at)
 workers(name, host, healthy, heartbeat)
 locks(name, holder, until)
@@ -99,6 +102,8 @@ class Ops:
     def settle(self, scope: str, reserved: dict, used: dict) -> None
     def events(self, since: int) -> list[OpsEvent]
 ```
+
+Additions made in WP1 (D146, D152): `Store.put_many(records)` (one transaction), `exists`, `get_json`, `kind_of`, `count`, `blob_media`; `Ops.get_pointer`, `set_budget`, `budget`, `task`, `heartbeat`, `put_loop`/`get_loop`, `start_span`/`end_span` (the `kta.core.trace.SpanSink`), `spans`, `prune_spans`. `query(where=...)` syntax: D147. `stale.propagate(store, id, reason, now)`, `stale.reject(...)`, `snapshot(store, ops, members, parent, note, actor, now)` take the store explicitly.
 
 ### 行为
 
