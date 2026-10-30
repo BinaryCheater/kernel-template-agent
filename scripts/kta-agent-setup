@@ -1,0 +1,109 @@
+#!/usr/bin/env bash
+# Set up the kta-agent system user and permissions on an agent host (Linux), for
+# AgentProfile isolation "config+user" (decision D09; spec/modules/agents.md "权限").
+#
+#   scripts/kta-agent-setup --data <data dir> [--auth <dir>] [--user kta-agent]
+#                           [--group kta-agents] [--apply]
+#
+# Without --apply (the default) nothing is changed: the script prints every command it
+# would run and checks the current state. --apply creates a system user and a group,
+# a sudoers rule and ACLs: that is a system change and needs the user's approval first.
+# It is re-runnable; every step checks before it changes anything.
+#
+# What it sets up:
+#   - group <group>; the invoking user joins it (so the launcher can share workspaces);
+#   - system user <user> (no login password, not in video/render groups);
+#   - <data>/work and <data>/agent-home: owner = invoking user, group <group>, mode 2770;
+#   - traverse-only ACL (u:<user>:--x) on each ancestor of <data>/work, so the agent can
+#     reach its workspace without listing or reading anything else (kta.db, objects/);
+#   - group read on the credential files in <auth> (linked into each CLI home);
+#   - /etc/sudoers.d/kta-agent: the invoking user may run commands as <user> only;
+#   - a report on GPU device permissions: if /dev/nvidia* are world-accessible they
+#     cannot be restricted per user without a system-wide driver setting, and the
+#     launcher's GPU guard (detect and terminate) is what enforces "GPU only via kta".
+set -euo pipefail
+
+user="kta-agent"; group="kta-agents"; data=""; auth="$HOME/.config/kta/auth/codex"; apply=0
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --user) user="$2"; shift 2 ;;
+    --group) group="$2"; shift 2 ;;
+    --data) data="$2"; shift 2 ;;
+    --auth) auth="$2"; shift 2 ;;
+    --apply) apply=1; shift ;;
+    -h|--help) sed -n '2,26p' "$0"; exit 0 ;;
+    *) echo "unknown argument: $1" >&2; exit 2 ;;
+  esac
+done
+[[ -n "$data" ]] || { echo "--data <data dir> is required (e.g. ~/kta-work/data/dev/WP8)" >&2; exit 2; }
+[[ "$(uname -s)" == "Linux" ]] || { echo "only Linux agent hosts are supported" >&2; exit 3; }
+me="$(id -un)"
+data="$(realpath -m "$data")"
+
+run() {  # print, and run only with --apply
+  echo "+ $*"
+  if [[ $apply -eq 1 ]]; then "$@"; fi
+}
+check() { if "$@" >/dev/null 2>&1; then echo "  ok: $*"; else echo "  NOT YET: $*"; fi; }
+
+echo "== plan for user=$user group=$group data=$data auth=$auth invoking user=$me (apply=$apply)"
+for tool in useradd groupadd usermod setfacl visudo; do
+  command -v "$tool" >/dev/null || command -v "/usr/sbin/$tool" >/dev/null || echo "  missing tool: $tool"
+done
+
+getent group "$group" >/dev/null || run sudo groupadd --system "$group"
+id -nG "$me" | tr ' ' '\n' | grep -qx "$group" || run sudo usermod -a -G "$group" "$me"
+if ! id "$user" >/dev/null 2>&1; then
+  run sudo useradd --system --gid "$group" --home-dir /nonexistent --no-create-home \
+    --shell /usr/sbin/nologin "$user"
+fi
+
+for d in "$data/work" "$data/agent-home"; do
+  [[ -d "$d" ]] || run mkdir -p "$d"
+  run sudo chgrp "$group" "$d"
+  run chmod 2770 "$d"
+done
+
+# Traverse-only ACL on every ancestor of the data directory, up to /.
+p="$data"
+while [[ "$p" != "/" ]]; do
+  run sudo setfacl -m "u:$user:--x" "$p"
+  p="$(dirname "$p")"
+done
+
+if [[ -d "$auth" ]]; then
+  p="$auth"
+  while [[ "$p" != "/" ]]; do run sudo setfacl -m "u:$user:--x" "$p"; p="$(dirname "$p")"; done
+  for f in "$auth"/*; do [[ -f "$f" ]] && run sudo setfacl -m "u:$user:r--" "$f"; done
+else
+  echo "  note: $auth does not exist yet; credentials are placed there by the user (conventions §8)"
+fi
+
+rule="/etc/sudoers.d/kta-agent"
+line="$me ALL=($user) NOPASSWD: ALL"
+if ! sudo -n test -f "$rule" 2>/dev/null || ! sudo -n grep -qxF "$line" "$rule" 2>/dev/null; then
+  tmp="$(mktemp)"; echo "$line" >"$tmp"
+  run sudo visudo -cf "$tmp"
+  run sudo install -m 0440 -o root -g root "$tmp" "$rule"
+  rm -f "$tmp"
+fi
+
+echo "== GPU device permissions"
+for dev in /dev/nvidia*; do
+  [[ -e "$dev" ]] || continue
+  mode="$(stat -c '%a %U:%G' "$dev")"
+  echo "  $dev $mode"
+  if [[ "$(stat -c '%a' "$dev")" =~ [2367]$ ]]; then
+    echo "    world-accessible: cannot be denied to $user per user; the GPU guard detects and stops use"
+  fi
+done
+
+echo "== checks"
+check id "$user"
+check sudo -n -u "$user" true
+check sudo -n -u "$user" test -w "$data/work"
+check sudo -n -u "$user" test -w "$data/agent-home"
+check sudo -n -u "$user" test ! -r "$data/kta.db"
+check sudo -n -u "$user" test ! -r "$data/objects"
+[[ -d "$auth" ]] && check sudo -n -u "$user" test -r "$auth/auth.json"
+[[ $apply -eq 1 ]] || echo "(dry run: nothing changed; rerun with --apply after approval)"

@@ -1,82 +1,127 @@
 ---
 name: decompose-kernel
-description: 把一个参考 kernel 拆解成 KTA 的组合链：列出它在硬件上的全部事务，从 workload 起逐步写出细化步骤，匹配已有 Template，记录未匹配的事务和缺口。用于任务 T2，以及人工拆解参考实现（WP10a）。
+description: Decompose a reference kernel into a KTA chain — list every transaction it performs on the hardware, write the refinement steps from the workload down, match existing Templates, and record unmatched transactions and Gaps. Used for task T2 and for manual decomposition (WP10a).
 ---
 
-# 拆解参考 kernel
+# Decomposing a reference kernel
 
-目标：回答"这个 kernel 能不能写成一串已有 Template 的组合；不能的话，缺的是什么"。你要产出的是证据，不是评价。不确定的地方如实标注，不要为了让链看起来完整而硬套已有 Template。
+Goal: answer "can this kernel be written as a composition of existing Templates, and if
+not, what is missing?". You produce evidence, not an assessment. Mark uncertainty as
+such; never force an existing Template onto a step to make the chain look complete.
 
-本 skill 只讲方法。它不包含任何关于具体 kernel 应该怎样设计的结论。
+This skill describes a method only. It contains no conclusion about how any particular
+kernel should be designed.
 
-## 输入
+## Inputs
 
-- Reference 记录：来源（已冻结的 commit）、构建方式、是否能在当前 Target 上运行。
-- 如果能运行：已有的 Measurement、SASS（`kta sass`）、profile（`kta profile`）。
+- The Reference record: source frozen to a commit, build recipe, whether it runs on the
+  current Target.
+- If it runs: existing Measurements, SASS (`kta sass`), profile (`kta profile`).
+- Source access: `kta src <reference> <symbol or words>`; do not read the whole tree.
 
-## 第 1 步：写出 workload
+Decompose one configuration (one dtype, one code path). Name the configuration, and the
+compiled-out variants you exclude, in the delivery note.
 
-用一段话加一张表写清：输入和输出张量（形状参数、dtype、布局）、计算的数学定义、允许的误差、有哪些运行时参数（例如变长序列的长度表）。只写"算什么"，不写"怎么算"。
+## Step 1: the workload
 
-## 第 2 步：列出事务清单
+One paragraph and one table: input and output tensors (shape parameters, dtype,
+layout), the mathematical definition, the allowed error, runtime parameters (for
+example a table of sequence lengths). Only *what* is computed, not *how*.
 
-从源码入手，SASS 和 profile 用来核对。逐类列出，每条写明源码位置（文件:行）：
+## Step 2: the transaction inventory
 
-| 类别 | 要找什么 | 读源码时的线索 | 核对方式 |
+Start from the source; use SASS and profile to confirm. List every transaction by class,
+each with its source location (`path:line` at the frozen commit):
+
+| Class | What to find | Clues in the source | How to confirm |
 | --- | --- | --- | --- |
-| 计算 | 每个归约、收缩、逐元素运算；用什么单元和指令 | 循环中的累加；矩阵乘调用；数学函数 | SASS 中的计算指令种类与数量 |
-| 存储 | 每个中间值放在哪一级（寄存器、shared、其他片上存储、全局），布局，几份 | 数组声明；shared 声明；分配调用 | 编译反馈中的寄存器和 smem 用量 |
-| 搬运 | 在哪两级之间；同步还是异步；何时发出、何时等待；粒度 | load/store；拷贝调用；异步拷贝与等待 | SASS 中的访存与异步拷贝指令 |
-| 同步 | 每个屏障或等待，保护的是什么 | barrier；fence；等待调用 | SASS 中的同步指令 |
-| 执行者 | 哪些线程、warp、CTA 做哪些事；是否按角色分工 | 按线程或 warp 编号的分支 | — |
-| 调度 | 循环顺序；块的遍历顺序；是否 persistent；运行时如何分配工作 | grid 计算；工作队列；元数据 | — |
-| 数值 | 是否改变了数学形式或精度（近似函数、缩放、低精度累加） | 特殊函数实现；缩放因子 | 与参考结果比对误差 |
+| compute | every reduction, contraction, elementwise op; which unit and instruction | accumulating loops; matrix-multiply calls; math functions | kinds and counts of compute instructions in SASS |
+| storage | where each intermediate lives (registers, shared, other on-chip, global), layout, how many copies | array and shared declarations; allocations | registers and shared memory in the build feedback |
+| transfer | between which levels; synchronous or asynchronous; when issued, when waited; granularity | loads/stores; copy calls; async copies and waits | memory and async-copy instructions in SASS |
+| synchronization | every barrier or wait and what it protects | barriers; fences; wait calls | synchronization instructions in SASS |
+| executors | which threads, warps, CTAs do what; role specialization | branches on thread or warp index | — |
+| scheduling | loop order; tile traversal order; persistent or not; runtime work assignment | grid computation; work queues; metadata | — |
+| numerics | changes of the mathematical form or precision (approximations, scaling, low-precision accumulation) | special-function code; scale factors | error against the reference result |
+| compiler-decided | register allocation, unrolling, and any lowering the source leaves to the compiler | no explicit code | build feedback, SASS (record as one transaction per kind, attribution `intent_sass`) |
 
-清单要完整：之后检查链是否解释了这里的每一条。
+The inventory must be complete: step 4 checks the chain against every entry.
 
-## 第 3 步：从上往下排出细化链
+## Step 3: the refinement chain, top down
 
-从 workload 出发，每一步只回答一个问题：**这里把哪一个粗事务，替换成了哪些更细的事务？引入了什么新对象？**
+Start from the workload. Each step answers one question: **which coarse transaction is
+replaced by which finer transactions here, and what new object does it introduce?**
 
-对每一步：
+For each step:
 
-1. 判断层级（0 计算图、1 算子变换、2 张量执行映射、3 指令调度、4 系统架构、5 微架构）。
-2. 判断被细化事务的模式：`kta query tmpl --pattern <模式>`。现有模式描述不了的，记为 `other`，写清楚它是什么。
-3. 检索 refines 该模式的 Template：`kta query tmpl --pattern <模式> --text <关键词>`。逐个读卡片，必要时 `kta show <ID>` 看 Γ 和变量。
-4. 判断匹配：
-   - **匹配**：这一步的新对象与 Template 的 O 同类，这一步的选择都能表达为该 Template 变量的取值，Γ 在这个 kernel 的情境下成立。写一个链项，给出变量取值，code_markers 留空（参考实现没有我们的标记），在 applies_to 中写明作用的具体事务，并引用源码行。
-   - **部分匹配**：大体相同但有 Template 表达不了的选择。不要硬套。写链项的同时写一条 Gap（missing="template" 或 "relation"），说明差在哪里。
-   - **不匹配**：写一条 Gap，描述这一步：层级、细化的模式、新对象、引入的选择、你认为它的局部义务是什么（例如"读取发生在传输完成之后"）。
-5. 写出这一步与前序步骤的依赖（after）。
+1. Decide its level (0 graph, 1 operator transformation, 2 tensor execution mapping,
+   3 instruction scheduling, 4 system architecture, 5 microarchitecture).
+2. Decide the Pattern of the refined transaction: `kta query tmpl --pattern <pattern>`.
+   If no Pattern describes it, use `other` and describe it precisely.
+3. Retrieve Templates that refine that Pattern: `kta query tmpl --pattern <pattern>
+   --text <words>`. Read each card; `kta show <id>` for variables and Γ (skill
+   `find-knowledge`).
+4. Judge the match:
+   - **match**: the step's new object is of the kind the Template produces, every
+     choice of the step is a value of the Template's variables, and Γ holds in this
+     kernel's context. Write a chain item with the bindings (`p.<name>` for Pattern
+     parameters), empty `code_markers` (the reference has none of our markers), the
+     concrete transaction in `applies_to`, and the source lines.
+   - **partial match**: mostly the same, but a choice the Template cannot express. Do not
+     force it. Write the chain item *and* a Gap (missing "template" or "relation")
+     stating the difference.
+   - **no match**: write a Gap describing the step: level, refined Pattern, new object,
+     choices introduced, and what you think its local obligation is (for example "a
+     read happens after its transfer completes").
+5. Write the step's dependencies on earlier steps (`after`).
 
-一步只引入一个对象。如果一处代码同时改变了多个事务（例如同时改变执行者分工和搬运方式），先按事务分开写成多步；分不开的，写成一步并在 Gap 中注明"同时细化多个事务"，并列出是哪些。
+One step introduces one object. If one code region changes several transactions at
+once (for example the executor split and the transfer mechanism), first try to write
+them as separate steps; if they cannot be separated, write one step and say in the Gap
+that it refines several transactions together, and which.
 
-## 第 4 步：检查链是否完整
+## Step 4: check the chain against the inventory
 
-把第 2 步的事务清单逐条对照链项。没有被任何链项解释的事务，写入 `unmatched_transactions`（层级、模式猜测、描述、源码位置），并各写一条 Gap。
+Go through the inventory of step 2. Every transaction that no chain item explains goes
+into `unmatched_transactions` (level, Pattern guess, description, source location), each
+with exactly one Gap.
 
-## 第 5 步：复现（仅在能运行、且全部步骤匹配时）
+Counting (so match rates compare across references): `total` is the number of chain
+items; `matched` counts the items whose Template existed before this reference and match
+without a Gap. Report the unmatched transactions next to the rate: a full match rate with
+unexplained transactions is not full coverage.
 
-找一个链与之最接近的族（`kta query chain --near`），用这组取值生成 kernel，检查、测量，与参考实现对比。复现误差写入 Reconstruction。
+## Step 5: reproduce (only if it runs and every step matches)
 
-## 输出
+Find the family whose chain is closest (`kta query chain --near`), generate the kernel
+with these values, check and measure it, and compare with the reference. Write the
+reproduction error into the Reconstruction.
 
-在 `out/` 中写：
+## Output
+
+In `out/`, one record body per YAML file:
 
 ```
-reference.yaml        # 若尚未入库
-chain.yaml            # schemas.md §4.3
-reconstruction.yaml   # schemas.md §4.5
-gaps/*.yaml           # 每条 Gap 一个文件
-new_patterns/*.yaml   # 若提议新模式
-new_templates/*.yaml  # 若提议新 Template（字段按 schemas.md §4.2；obligations 写出即可，不必证明）
+reference.yaml        # if not yet in the pool
+chain.yaml            # spec/schemas.md §4.3
+reconstruction.yaml   # spec/schemas.md §4.5
+gaps/*.yaml           # one file per Gap
+patterns/*.yaml       # proposed Patterns (status proposed)
+templates/*.yaml      # proposed Templates (spec/schemas.md §4.2, assurance declared;
+                      # write the obligations, no proof needed; skill write-template)
 ```
 
-交付说明中写：匹配率；未匹配事务的分类；你最不确定的三处判断及理由；对模式表或 Template 粒度的意见。
+Hardware requirements use only feature names from the target's feature list; a feature
+without a name there stays out of `requires_hw` and is described in the scope text.
 
-## 常见错误
+The delivery note gives: the match rate and the unmatched transactions by class; the
+three judgements you are least sure of, with reasons; comments on the Pattern table or
+Template granularity.
 
-- 只按函数或代码块划分步骤。步骤要按"细化了哪个事务"划分，一个函数里可能有多步，多个函数也可能共同完成一步。
-- 把参考实现的名字当作 Template。Template 描述的是细化步骤，适用范围用模式参数和硬件契约写。
-- 漏掉第 4 步。没有对照事务清单，就无法知道链是否完整。
-- 没有引用源码行。没有出处的判断不能入库。
+## Common mistakes
+
+- Cutting steps along functions or code blocks. Steps follow "which transaction is
+  refined"; one function may hold several steps, several functions may make one.
+- Using the reference's name as a Template. A Template describes a refinement step; its
+  scope is written with Pattern parameters and the hardware contract.
+- Skipping step 4. Without checking the inventory you cannot know the chain is complete.
+- Claims without source lines. A judgement without a citation is not admitted.

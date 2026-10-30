@@ -1,0 +1,35 @@
+# Isolated CODEX_HOME config of AgentProfile codex-v1 (spec/modules/agents.md).
+# Created once per work unit from the profile; nothing from ~/.codex is used.
+approval_policy = "never"
+sandbox_mode = "workspace-write"
+web_search = "disabled"
+check_for_update_on_startup = false
+hide_agent_reasoning = false
+
+[sandbox_workspace_write]
+# kta commands reach the control-plane API (D307); writes stay limited to the workspace.
+network_access = true
+exclude_tmpdir_env_var = false
+exclude_slash_tmp = false
+
+[shell_environment_policy]
+# The launcher already passes only whitelisted variables; keep KTA_TASK_TOKEN visible to
+# the shell (the default filter drops names containing TOKEN or KEY).
+inherit = "all"
+ignore_default_excludes = true
+
+[history]
+persistence = "save-all"
+
+[features]
+# Spark (Ubuntu 24.04, kernel.apparmor_restrict_unprivileged_userns = 1) refuses the
+# bubblewrap sandbox; the Landlock sandbox works there (D317).
+use_legacy_landlock = true
+apps = false
+plugins = false
+multi_agent = false
+memories = false
+tool_suggest = false
+skill_mcp_dependency_install = false
+codex_hooks = false
+child_agents_md = false

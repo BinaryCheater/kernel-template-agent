@@ -339,6 +339,54 @@ Decisions made without the user that need review. Newest last. Each entry: quest
 - **Choice:** named tests (step produces exactly the YAML edges; created task types are on the edge; every lifecycle edge occurs; refused reservation keeps the task queued) plus one passing `test_judging_rule_<n>_*` per rule number found in machines.yaml.
 - **Rationale:** a new rule or edge in the YAML fails the gate until it is tested.
 - **Cost of changing later:** low: one function in `tools/kta_gate/specific.py`.
+## D300 / D301 — Where the agent CLI runs, and how its `kta` reaches the store
+
+- **Question:** spec/modules/agents.md puts the agent process on the control-plane machine, while the WP8 acceptance names spark's user-level Codex directory and DGX OS GPU permissions, and conventions §6 sends all computation through the Executor. With the control plane on the Mac and the agent on spark, the agent's `kta` calls have no direct path to the store.
+- **Choice:** the CLI runs as an Executor job (pool `agent`) on the worker named by `[agents] worker` (spark), started by `kta.agents.launch`; workspace and CLI home live in that host's data directory. The agent-side `kta` authenticates with `KTA_TASK_TOKEN` and talks to the control-plane API at `KTA_API`; the API verifies the token with `kta.agents.guard.verify_task_token`. Setting `[agents] worker` to a `local` worker runs agents on the control host instead, where `kta` can open the store directly.
+- **Rationale:** keeps the agent's shell commands (and fan noise) off the Mac, matches the acceptance items, and gives every agent process the Executor's timeout, process-group kill and output transfer by hash.
+- **Cost of changing later:** low for the agents module (one config value); the CLI client mode (WP6) and the API token endpoint (WP9) are needed in either case once the kta-agent user cannot read the store.
+
+## D305 — Task token
+
+- **Question:** the spec requires a task token in the agent's environment but defines neither its form nor where it is checked.
+- **Choice:** HMAC-signed `kta1.<task>.<expiry>.<mac>`; key file `~/.config/kta/task-token.key` (600) created on first use on the control host; valid until 3× the wall budget and only while the task is leased or running.
+- **Rationale:** no new table or migration; revocation follows the task state.
+- **Cost of changing later:** low: `kta.agents.guard`; tokens live only as long as a task.
+
+## D307 — Codex sandbox with network access
+
+- **Question:** the agent-side `kta` needs the network (D301); Codex's `workspace-write` sandbox blocks it by default.
+- **Choice:** `workspace-write` with `network_access = true`, `approval_policy = "never"`; no firewall in the first phase; direct network tools (curl, wget, ssh) are counted as violations.
+- **Rationale:** the only setting under which `kta` works inside the sandbox without giving up the write restriction.
+- **Cost of changing later:** low (one line in the profile's config.toml, a new profile version); restricting egress to the API and the model provider needs a host firewall rule (system change).
+
+## D308 — Model of codex-v1
+
+- **Question:** which model and reasoning effort the first profile uses (D02 is still open).
+- **Choice:** `gpt-5.4`, effort `medium`, CLI 0.117.0: what spark's Codex is configured with today.
+- **Rationale:** a model the installed CLI is known to serve; changing it is a new profile version.
+- **Cost of changing later:** low (new profile version, pointer switch by you).
+
+## D310 — Credentials live on the agent host
+
+- **Question:** conventions §8 puts subscription credentials in a protected directory on the control-plane machine; under D300 the CLI runs on spark.
+- **Choice:** `[agents.hosts.spark] auth_dir = ~/.config/kta/auth/codex` on spark, symlinked into each CLI home, never archived. Placing the credential file there is your step (copying `~/.codex/auth.json` on spark, or `codex login` with that CODEX_HOME).
+- **Rationale:** the CLI must read them where it runs; nothing copies credentials between machines.
+- **Cost of changing later:** low.
+
+## D312 — kta-agent user and permissions
+
+- **Question:** D09's default isolation `config+user` needs a system user, a sudoers rule and ACLs on spark.
+- **Choice:** `scripts/kta-agent-setup` (dry run by default, `--apply` changes the system): group `kta-agents`, system user `kta-agent` without login, setgid group directories for workspaces and CLI homes, traverse-only ACLs, `/etc/sudoers.d/kta-agent`; GPU device modes are reported and left unchanged — if they are world-accessible, the launcher's GPU guard (detect and terminate) enforces "GPU only via kta".
+- **Rationale:** smallest change that separates the agent from the store and the user's files; device modes are system-wide driver settings.
+- **Cost of changing later:** medium: removing the user and ACLs is a second system change.
+
+## D317 — Codex's sandbox on spark
+
+- **Question:** Codex 0.117's default Linux sandbox (bubblewrap) fails on spark because Ubuntu 24.04 restricts unprivileged user namespaces (`kernel.apparmor_restrict_unprivileged_userns = 1`); every sandboxed command would fail.
+- **Choice:** codex-v1 enables `features.use_legacy_landlock`. Probed with `codex sandbox linux` (no model call): writes inside the workspace succeed, writes outside are denied, network is blocked by default; reads are not restricted.
+- **Rationale:** needs no system change; the read restriction comes from the kta-agent user (D312) in either case.
+- **Cost of changing later:** low (one config line, new profile version). The alternative — an AppArmor profile or sysctl allowing bwrap's user namespaces — is a system setting you would have to approve.
 
 ## D322 — How batch agent environments are generated
 

@@ -27,6 +27,7 @@ from kta_gate.delivery import split_sections
 from kta_gate.result import CheckResult, from_findings
 from kta_gate.specific_wp3 import wp3
 from kta_gate.specific_wp7 import wp7
+from kta_gate.specific_wp8 import wp8
 
 MODULES = (
     "core",
@@ -708,6 +709,7 @@ SPECIFIC: dict[str, Callable[[Path, set[str]], list[CheckResult]]] = {
     "WP2": wp2,
     "WP3": wp3,
     "WP7": wp7,
+    "WP8": wp8,
     "WP10a": wp10a,
     "WP13": wp13,
 }
