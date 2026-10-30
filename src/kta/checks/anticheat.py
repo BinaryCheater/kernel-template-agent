@@ -57,7 +57,10 @@ FORBIDDEN_SYMBOLS = (
     "_ZN2at",
     "_ZN3c10",
 )
+# nsys needs a writable TMPDIR; the job directory's .home is created by the worker.
 NSYS = [
+    "env",
+    "TMPDIR={job}/.home",
     "{cuda_home}/bin/nsys",
     "profile",
     "--trace=cuda",
