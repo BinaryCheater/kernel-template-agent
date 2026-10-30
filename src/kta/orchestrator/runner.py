@@ -53,12 +53,21 @@ class Runner:
 
     # ---- instances --------------------------------------------------------------
 
-    def start(self, kind: str, subject: str, name: str) -> str:
+    def start(
+        self,
+        kind: str,
+        subject: str,
+        name: str,
+        extra: Mapping[str, Any] | None = None,
+        distinct: bool = False,
+    ) -> str:
         """The live instance for ``subject``, or a new one in the initial state.
 
         Starting again clears a ``blocked`` mark (the human asked to retry the work).
+        ``distinct`` always starts a new instance (experiment runs, WP11); ``extra`` joins
+        its loop data (``process`` books its tasks to that process).
         """
-        for row in self.svc.ops.list_loops(kind):
+        for row in [] if distinct else self.svc.ops.list_loops(kind):
             if row["subject"] == subject and not machine(kind).terminal(row["state"]):
                 data = {**row["data"], "blocked": None, "infra_failures": 0}
                 self.svc.ops.put_loop(row["id"], kind, subject, row["state"], data)
@@ -73,6 +82,7 @@ class Runner:
             "state_since": now,
             "escalated": False,
             "waiting_on": None,
+            **(extra or {}),
         }
         data["state_span"] = self._open_span(loop_id, kind, m.initial, 1, "started")
         self.svc.ops.put_loop(loop_id, kind, subject, m.initial, data)
@@ -176,7 +186,8 @@ class Runner:
         data: dict[str, Any] = {**loop.data, **t.data, "deferred": None, "infra_failures": 0}
         self._write_drafts(loop, t.records, data)
         if t.tasks:
-            ids = [self.queue.create(r, loop.id, PROCESS_OF[loop.kind]) for r in t.tasks]
+            process = str(loop.data.get("process") or PROCESS_OF[loop.kind])
+            ids = [self.queue.create(r, loop.id, process) for r in t.tasks]
             data.update(waiting_on=ids[0], waiting_tasks=ids, waiting_type=t.tasks[0].type)
         now = self.ctx.clock.now()
         if loop.data.get("state_span"):

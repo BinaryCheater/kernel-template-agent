@@ -72,8 +72,8 @@ def test_agent_build_commands_are_not_supported_yet(kta: Any) -> None:
     assert kta("build", "x")[0] == EXIT_NOT_SUPPORTED
 
 
-def test_unimplemented_process_exits_not_supported(kta: Any) -> None:
-    assert kta("process", "start", "learn", "--ticks", "1")[0] == EXIT_NOT_SUPPORTED
+def test_learn_process_runs_one_tick(kta: Any) -> None:
+    assert kta("process", "start", "learn", "--ticks", "1", "--interval", "0")[0] == EXIT_OK
 
 
 def test_human_task_create_submit_check(kta: Any, tmp_path: Path) -> None:

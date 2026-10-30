@@ -57,3 +57,23 @@ watch = ["~/.codex", "~"]
 codex_cmd = ["/home/memx/.nvm/versions/node/v22.21.1/bin/node", "/home/memx/.nvm/versions/node/v22.21.1/bin/codex"]
 auth_dir = "~/.config/kta/auth/codex"
 nvidia_smi = "nvidia-smi"
+
+# WP11 processes. Values shown are the defaults (D401, D402, D405, D406); uncomment to change.
+# [budget]
+# agent_min = 6000          # global budget per period; process limits = global x quota
+# gpu_min = 600
+# period = "day"            # none | day | week
+# [budget.quotas]
+# experiment = 0.5
+# solve = 0.25
+# learn = 0.15
+# calibrate = 0.05
+# maintain = 0.05
+# [calibrate]
+# refit_after = 50
+# window = 50
+# alert_rel = 0.15
+# min_pairs = 10
+# retry_s = 3600
+# [summarize]
+# every_s = 86400

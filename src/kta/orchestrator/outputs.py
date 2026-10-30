@@ -77,7 +77,20 @@ def _model(inp: CheckInput, actor: Actor) -> dict[str, Any]:
     return {"model": save_model(inp.ctx, inp.store, model, actor, previous=inp.card.inputs[0])}
 
 
-WRITERS = {"T1": _family, "T6": _family, "T2": _reconstruction, "T3": _template, "T4": _model}
+def _microbench(inp: CheckInput, actor: Actor) -> dict[str, Any]:
+    from kta.orchestrator.microbench_check import write_microbench  # WP11; import cycle
+
+    return dict(write_microbench(inp, actor))
+
+
+WRITERS = {
+    "T1": _family,
+    "T6": _family,
+    "T2": _reconstruction,
+    "T3": _template,
+    "T4": _model,
+    "T5": _microbench,
+}
 
 
 def write_outputs(inp: CheckInput, actor: Actor) -> str:

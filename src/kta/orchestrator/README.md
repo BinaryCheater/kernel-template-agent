@@ -22,6 +22,10 @@ Deterministic loops (solve, expand, learn, calibrate, maintain, experiment, summ
 - `space.py`: verify_space items (structural paths and 4 samples) and reruns of failed checks.
 - `processes.py`: `run(svc, name)`, `solve_tick`, `maintain_tick`, `request_stop` (D273).
 
+- WP11: processes `learn`, `calibrate`, `experiment`, `summarize` (`proc_*.py`, `improve.py`,
+  `proc_common.py`); budget hierarchy and quotas (`quotas.py`); T5 check (`microbench_check.py`).
+  See spec/modules/orchestrator-cli.md "WP11 implementation notes".
+
 ## Dependencies
 
 - May import: `core`, `store`, `targets`, `execution`, `backends`, `knowledge`, `models`, `measure`, `formulation`, `checks`, `solve`.

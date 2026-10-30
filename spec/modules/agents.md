@@ -172,3 +172,11 @@ $KTA_DATA/<env>/batches/<batch>/
 - Work units inside a batch take their home, skills and prompts from the batch root only. Nothing is read from `~/.codex`, the repo checkout, or another batch.
 - The same profile id and code commit always produce byte-identical template parts. This is how a batch is reproduced on a new machine.
 - Credentials are linked into `agent-home/<work_unit>/` at start (D76). They are never part of the template, the lock file, a blob or an archive.
+
+## Additions by WP11 (D407, D410)
+
+- Runtime skills `diagnose-model` (T4) and `write-microbench` (T5). `ProfileSpec` gains
+  `skills_by_type`; `CODEX_V2` = codex-v1 plus these two; codex-v1's content is unchanged.
+- `kta.agents.register_implementations` registers interface `batch_envs`
+  (`kta.agents.batch_port.BatchEnvs.ensure(batch, profile) -> lock summary`: build if absent,
+  verify, refuse a lock made from another profile) for the experiment process.

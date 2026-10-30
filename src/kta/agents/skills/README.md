@@ -17,11 +17,12 @@ conclusion about a particular GPU or kernel (docs/design/10 §6).
 | `write-family` | T1, T6 | WP8 | written |
 | `decompose-kernel` | T2 | WP10a draft, WP8 finished | written |
 | `write-template` | T2, T3 | WP8 | written |
-| `diagnose-model` | T4 | WP11 | planned |
-| `write-microbench` | T5 | WP11 | planned |
+| `diagnose-model` | T4 | WP11 | written |
+| `write-microbench` | T5 | WP11 | written |
 
 Which skills a task type receives is fixed by the AgentProfile (`skills`, D309); planned
-skills join a new profile version when written.
+skills join a new profile version when written. `diagnose-model` and `write-microbench`
+are in `codex-v2` (`kta.agents.profile.CODEX_V2`, D407); `codex-v1` is unchanged.
 
 ## Versions and backup
 

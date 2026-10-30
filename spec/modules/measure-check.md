@@ -111,3 +111,11 @@ Additive; existing signatures unchanged.
 - `Measurer.measurement_body(t, index, subject, protocol_id)` and `Measurer.write_measurement(t, body, times_us, refs, case)` split out of `_record` (same values as before).
 - `full_check(..., extra_dists=None, sanitizer_shape=None)` / `run_full(..., sanitizer_shape=None)`: sanitizers on a module built for `sanitizer_shape` (D285).
 - The checkers' input table adds `large_dynamic_range` (D289).
+
+## WP11 implementation notes (D404, D407)
+
+Additive. `kta.measure.microbench`: `l2_sweep`, `dram_latency`, `launch_latency` (each writes
+measured HwFacts from Measurements taken by `Measurer.measure`; `SUITE` maps names to them),
+`effective_capacity(points)`, and the T5 format `Microbench.from_doc(doc, source)`,
+`repeat(m, backend, target, target_id, mb, protocol_id, n=5) -> Repeats`,
+`write_repeat_fact(...)`.

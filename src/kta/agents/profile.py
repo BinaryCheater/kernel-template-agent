@@ -14,7 +14,7 @@ from __future__ import annotations
 import gzip
 import io
 import tarfile
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -41,9 +41,15 @@ SKILLS_BY_TYPE: dict[str, list[str]] = {
     "T1": ["use-kta", "find-knowledge", "write-family"],
     "T2": ["use-kta", "find-knowledge", "decompose-kernel", "write-template"],
     "T3": ["use-kta", "find-knowledge", "write-template"],
-    "T4": ["use-kta", "find-knowledge"],  # diagnose-model: WP11
-    "T5": ["use-kta", "find-knowledge"],  # write-microbench: WP11
+    "T4": ["use-kta", "find-knowledge"],
+    "T5": ["use-kta", "find-knowledge"],
     "T6": ["use-kta", "find-knowledge", "write-family"],
+}
+# codex-v2 (WP11, D407): the T4 and T5 skills join; everything else is as in codex-v1.
+SKILLS_BY_TYPE_V2: dict[str, list[str]] = {
+    **SKILLS_BY_TYPE,
+    "T4": ["use-kta", "find-knowledge", "diagnose-model"],
+    "T5": ["use-kta", "find-knowledge", "write-microbench"],
 }
 
 
@@ -57,9 +63,11 @@ class ProfileSpec:
     model: str = "gpt-5.4"
     reasoning_effort: str | None = "medium"
     isolation: str = "config+user"
+    skills_by_type: dict[str, list[str]] = field(default_factory=lambda: dict(SKILLS_BY_TYPE))
 
 
 CODEX_V1 = ProfileSpec()
+CODEX_V2 = ProfileSpec(name="codex-v2", version=2, skills_by_type=SKILLS_BY_TYPE_V2)
 CODEX_FLAGS = [
     "--json",
     "-c", 'sandbox_mode="workspace-write"',
@@ -124,7 +132,8 @@ def profile_body(store: Store, spec: ProfileSpec = CODEX_V1) -> AgentProfile:
     def blob(name: str, media: str = "text/markdown") -> str:
         return store.put_blob((PROMPTS / name).read_bytes(), media)
 
-    refs = {n: skill_ref(store, n) for n in sorted({s for v in SKILLS_BY_TYPE.values() for s in v})}
+    by_type = spec.skills_by_type
+    refs = {n: skill_ref(store, n) for n in sorted({s for v in by_type.values() for s in v})}
     messages = {m: blob(f"msg-{m}.md") for m in MESSAGES}
     messages["notes_seed"] = blob("notes-seed.md")
     return AgentProfile(
@@ -141,7 +150,7 @@ def profile_body(store: Store, spec: ProfileSpec = CODEX_V1) -> AgentProfile:
         prefix_template=blob("prefix.md"),
         step_templates={t: blob(f"step-{t}.md") for t in TASK_TYPES},
         message_templates=messages,
-        skills={t: [refs[s] for s in names] for t, names in SKILLS_BY_TYPE.items()},
+        skills={t: [refs[s] for s in names] for t, names in by_type.items()},
         skill_bundles={ref: ref.partition("@")[2] for ref in refs.values()},
         allowed_commands={t: list(AGENT_COMMANDS) for t in TASK_TYPES},
         context_policy=dict(CONTEXT_POLICY),

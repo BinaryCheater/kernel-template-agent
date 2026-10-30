@@ -98,3 +98,25 @@ agent 使用的命令（`show`、`query`、`why`、`instantiate`、`build`、`sa
 
 - 真实运行：WP7 中，`kta solve` 在不接 LLM 的情况下，对 GEMM case 从 `new` 走到 `accepted` 或某个有记录的判定；进程中途被杀死后重启，从原状态继续。
 - 单元测试：状态转移函数对每条判定规则各有一个测试；预算预留不足时任务不启动。
+
+## WP11 implementation notes (D400–D411)
+
+Additive; WP6's signatures are unchanged except where stated.
+
+- Processes: `learn` (`proc_learn.py`: expand loops, backlog, PoolSnapshots, D400), `calibrate`
+  (`proc_calibrate.py`: peaks and microbenchmarks, refits, T4 alerts, T5 per hw_fact Gap, D405),
+  `experiment` (`proc_experiment.py`: approved Protocols, batch environments, runs, D403),
+  `summarize` (`proc_summarize.py` + `improve.py`: improvement batches, D406); shared helpers in
+  `proc_common.py` (process actions are `process_action` spans, state in ops pointers, D411).
+  `processes.IMPLEMENTED == ALL`; `TICKS` values return objects with a readable `str`.
+- Budget hierarchy (`quotas.py`): configured and in-force shares, redistribution while no
+  experiment runs (D401), periodic global budget rolled by the maintain tick (D402),
+  `order_queued` for the agent pool (11 §4.2).
+- `Runner.start(kind, subject, name, extra=None, distinct=False)`; tasks are booked to
+  `loop.data.process` when set; the solve process skips loops of another process (D409).
+- T5: `done_checks.microbench_repeats` and the T5 output are in `microbench_check.py` (D404).
+- Inbox: `improvement_pending` items (system items of an improvement Report without a decision).
+- The registry interface `batch_envs` (implemented by `kta.agents`) gives the experiment process
+  `ensure(batch, profile)` (D410).
+- CLI (`cli/process_cmds.py`): `kta learn add|backlog`, `kta improve run [--label] [--now]`,
+  `kta experiment status`, `kta calibrate hw`, `kta quotas`, `kta profile write codex-v1|codex-v2`.

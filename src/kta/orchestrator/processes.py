@@ -1,4 +1,4 @@
-"""Process main loops (docs/design/11 §1). WP6 implements ``solve`` and ``maintain``.
+"""Process main loops (docs/design/11 §1). WP6: ``solve``, ``maintain``; WP11 the others.
 
 A process is a long-running foreground program (``kta process start <name>``). One
 instance per name runs at a time: it holds the ops lock ``process:<name>`` and renews it
@@ -17,13 +17,18 @@ from datetime import datetime, timedelta
 
 from kta.core.errors import ConfigError, NotSupported
 from kta.core.ids import UlidFactory
+from kta.orchestrator import quotas
 from kta.orchestrator.budget import configure_scopes
 from kta.orchestrator.pipeline import Services
+from kta.orchestrator.proc_calibrate import calibrate_tick
+from kta.orchestrator.proc_experiment import experiment_tick
+from kta.orchestrator.proc_learn import learn_tick
+from kta.orchestrator.proc_summarize import summarize_tick
 from kta.orchestrator.runner import Runner
 
 log = logging.getLogger("kta.orchestrator.processes")
-IMPLEMENTED = ("solve", "maintain")
 ALL = ("solve", "learn", "calibrate", "maintain", "experiment", "summarize")
+IMPLEMENTED = ALL
 SPAN_RETENTION = timedelta(days=90)
 
 
@@ -39,12 +44,18 @@ def solve_tick(runner: Runner) -> TickReport:
     """Check submitted tasks of solve loops, then advance every live solve instance once."""
     rep = TickReport()
     ops = runner.svc.ops
-    solve_loops = {row["id"] for row in ops.list_loops("solve")}
+    solve_loops = {
+        row["id"]
+        for row in ops.list_loops("solve")
+        if row["data"].get("process", "solve") == "solve"
+    }
     for t in ops.list_tasks(states=("submitted",)):
         if t.work_unit in solve_loops:
             runner.queue.check(t.id)
             rep.checked.append(t.id)
     for row in ops.list_loops("solve"):
+        if row["data"].get("process", "solve") != "solve":
+            continue  # experiment runs are advanced by the experiment process (WP11)
         if runner.advance(str(row["id"])) is not None:
             rep.advanced.append(str(row["id"]))
     return rep
@@ -52,12 +63,20 @@ def solve_tick(runner: Runner) -> TickReport:
 
 def maintain_tick(runner: Runner) -> TickReport:
     """Return lost leases to the queue, expire silent running tasks, prune old spans."""
+    quotas.roll_period(runner.svc.store, runner.svc.ops, runner.ctx.config, runner.ctx.clock.now())
     rep = TickReport(expired=runner.queue.expire())
     rep.pruned_spans = runner.svc.ops.prune_spans(runner.ctx.clock.now() - SPAN_RETENTION)
     return rep
 
 
-TICKS: dict[str, Callable[[Runner], TickReport]] = {"solve": solve_tick, "maintain": maintain_tick}
+TICKS: dict[str, Callable[[Runner], object]] = {
+    "solve": solve_tick,
+    "maintain": maintain_tick,
+    "learn": learn_tick,
+    "calibrate": calibrate_tick,
+    "experiment": experiment_tick,
+    "summarize": summarize_tick,
+}
 
 
 def stop_requested(svc: Services, name: str, since: datetime | None = None) -> bool:
@@ -92,6 +111,7 @@ def run(
     if not svc.ops.acquire(lock, holder, lease):
         raise ConfigError(f"process {name} is already running (lock {lock})")
     configure_scopes(svc.ops, svc.ctx.config)
+    quotas.apply_quotas(svc.ops, svc.ctx.config)  # WP11: experiment share when none runs
     runner = Runner(svc, holder)
     pause = threading.Event()
     ticks = 0

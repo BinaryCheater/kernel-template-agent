@@ -29,6 +29,9 @@ Measurement harness and versioned measurement protocols; comparisons and profile
 | `peak_kernels.py`, `peaks.py` | per-unit peak microbenchmarks, measured HwFacts and the HwModel (D283) |
 | `baseline.py`, `scripts/torch_bench.py` | library baselines (torch.matmul) under the same Protocol, in the worker image (D284) |
 
+- `microbench.py` (WP11): L2 working-set sweep, DRAM latency, launch latency; the T5
+  benchmark format (`Microbench`, `repeat`, `write_repeat_fact`).
+
 ## Dependencies
 
 - May import: `core`, `store`, `targets`, `execution`, `backends`, `knowledge`, `models`.

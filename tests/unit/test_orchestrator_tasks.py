@@ -121,7 +121,20 @@ def test_t3_template_is_proposed_on_acceptance(q: TaskQueue, store: SqliteStore)
 
 def test_checker_crash_suspends_without_counting(q: TaskQueue) -> None:
     task = q.create(TaskRequest("T5", "microbench", []), "L1", "calibrate")
-    _submit(q, task, {"bench.py": b"pass"})
+    bench = {
+        "quantity": "q",
+        "unit": "dram",
+        "entry": "k",
+        "grid": 1,
+        "block": 32,
+        "params": [{"name": "Y", "type": "f32*"}],
+        "outputs": [["Y", "m"]],
+        "shape": {"m": 1},
+        "work": "m",
+        "value": "s_per_work",
+    }
+    # A well-formed benchmark whose check cannot run here (no measurement Protocol record).
+    _submit(q, task, {"microbench.yaml": yaml.safe_dump(bench).encode(), "kernel.cu": b"k"})
     v = q.check(task)
     assert v.state == "suspended" and q.get(task).attempts == 1
     with pytest.raises(ConfigError):

@@ -33,6 +33,9 @@ job program is `python -m kta.agents.launch`, the only file here that starts pro
 | `sessions.py`, `compliance.py`, `guard.py`, `profile.py`, `units.py`, `config.py` | as named |
 | `skills/README.md` | runtime skill catalogue (D321); construction skills are in the repo's `.agents/skills/` |
 
+- WP11: `profile.CODEX_V2` (adds `diagnose-model`, `write-microbench`); `batch_port.BatchEnvs`,
+  registered as interface `batch_envs` for the experiment process.
+
 ## Dependencies
 
 - May import: `core`, `store`, `targets`, `execution`, `backends`, `knowledge`, `models`, `measure`, `formulation`, `checks`, `solve`, `orchestrator`.

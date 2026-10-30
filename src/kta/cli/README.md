@@ -23,6 +23,9 @@ The `kta` command: a thin layer that parses arguments, calls lower layers and fo
   `kta card`, `kta note`, `kta submit [--dir out]`, `kta validate-template`, `kta validate-family`;
   `instantiate`, `build`, `sass`, `run`, `src` raise NotSupported until WP8
 
+- WP11 (`process_cmds.py`): `kta learn add|backlog`, `kta improve run`, `kta experiment status`,
+  `kta calibrate hw`, `kta quotas`, `kta profile write`.
+
 ## Dependencies
 
 - May import: `core`, `store`, `targets`, `execution`, `backends`, `knowledge`, `models`, `measure`, `formulation`, `checks`, `solve`, `orchestrator`, `agents`.
