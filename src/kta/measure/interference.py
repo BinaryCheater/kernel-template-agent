@@ -73,8 +73,7 @@ PROBES: dict[str, Probe] = {
     "global_load": Probe(
         "global_load",
         "float gx = 0.f; int gi = blockIdx.x * blockDim.x + threadIdx.x;",
-        "{ float4 v = __ldcg(&X[(gi + r * gridDim.x * blockDim.x) & (n4 - 1)]);"
-        " gx += v.x + v.w; }",
+        "{ float4 v = __ldcg(&X[(gi + r * gridDim.x * blockDim.x) & (n4 - 1)]); gx += v.x + v.w; }",
         "gx",
         reads_global=True,
     ),

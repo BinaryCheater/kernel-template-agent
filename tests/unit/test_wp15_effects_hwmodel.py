@@ -24,7 +24,7 @@ from kta.core.ids import record_id
 from kta.core.schemas import Actor, Record
 from kta.core.schemas.evaluation import Case, Problem
 from kta.core.schemas.hardware import HwModel
-from kta.core.schemas.hwmodel import HwArch, ModelVersion, RegressionSet
+from kta.core.schemas.hwmodel import HwArch, ModelVersion, Provenance, RegressionSet
 from kta.core.schemas.knowledge import Template
 from kta.formulation import assemble, per_unit_work, price_point, work_terms
 from kta.knowledge import load_family, validate_template
@@ -287,9 +287,9 @@ def _toy() -> tuple[MachineModel, HwArch]:
         arch="toy@1",
         limits={"bw": 1e9, "ops": 1e9},
         provenance={
-            k: {"status": "default", "source": "test"} for k in ("limits.bw", "limits.ops")
+            k: Provenance(status="default", source="test") for k in ("limits.bw", "limits.ops")
         },
-    )  # type: ignore[arg-type]
+    )
     return MachineModel.build(hw, arch), arch
 
 
