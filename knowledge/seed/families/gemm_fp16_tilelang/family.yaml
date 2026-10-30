@@ -1,0 +1,48 @@
+# FP16 GEMM C[M,N] = A[M,K] @ B[K,N] (row-major, FP32 accumulation) in TileLang (WP7).
+# The chain (chain.yaml) uses the five seed GEMM-step Templates plus output_tiling@2 and
+# compute_instruction_selection@2, which carry the contraction and operand traffic (D280).
+name: gemm_fp16_tilelang
+version: 1
+backend: tilelang
+variables:
+  - {name: BM, kind: numeric, binding: compile, role: software, domain: [64, 128, 256], meaning: "CTA tile rows (block_M)"}
+  - {name: BN, kind: numeric, binding: compile, role: software, domain: [64, 128, 256], meaning: "CTA tile columns (block_N)"}
+  - {name: BK, kind: numeric, binding: compile, role: software, domain: [32, 64], meaning: "k-tile size: reduction indices per group"}
+  - {name: S, kind: numeric, binding: compile, role: software, domain: {lo: 2, hi: 4}, meaning: "shared-memory stages (T.Pipelined num_stages)"}
+  - {name: P, kind: numeric, binding: compile, role: software, domain: {lo: 1, hi: 3}, meaning: "prefetch distance in k-tiles"}
+  - {name: threads, kind: numeric, binding: compile, role: software, domain: [128, 256], meaning: "threads per CTA"}
+  - {name: split, kind: numeric, binding: compile, role: software, domain: [1, 2], meaning: "CTAs sharing one output tile along K (split-K); see glue g_no_combine"}
+  - {name: KT, kind: numeric, binding: runtime, role: software, domain: {lo: 1, hi: 65536}, meaning: "k-tiles per output tile"}
+glue_constraints:
+  - id: g_prefetch
+    expr: "P == S - 1"
+    meaning: >-
+      TileLang's T.Pipelined(num_stages=S) always issues the copy S - 1 k-tiles ahead. This is a
+      property of the generator's backend, not of the rotation step, whose P is free in general.
+    cls: implementation
+  - id: g_acc_regs
+    expr: "BM * BN <= threads * 128"
+    meaning: >-
+      At most 128 FP32 accumulators per thread (above that the fragment spills). It couples the
+      output tile with the CTA size and the register file, which no single step owns.
+    cls: resource
+  - id: g_no_combine
+    expr: "split == 1"
+    meaning: >-
+      The chain has no step that combines partial sums across CTAs (no split-K reduction), and
+      the generator stores each CTA's partial tile with plain stores. split > 1 would make
+      several CTAs write the same output tile: a write-write race. It is a glue constraint
+      because it relates the reduction step's assignment to the absence of a combine step.
+    cls: semantic
+dispatch:
+  runtime_vars: [KT]
+  buckets: []
+  rule: "KT = ceil_div(case.K, BK) for each shape (fixed by reduction_partition's c_cover and c_no_empty)"
+edge_cases:
+  - {M: 1, N: 1, K: 1}
+  - {M: 129, N: 193, K: 65}
+  - {M: 1, N: 4096, K: 4096}
+numeric_risk:
+  - "reduction_partition: summation order differs from a sequential sum (input distribution large_dynamic_range)"
+  - "compute_instruction_selection: mma.sync accumulation order and FP32 accumulation, FP16 output rounding"
+entry: gen.py:generate

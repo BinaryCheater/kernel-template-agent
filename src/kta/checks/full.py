@@ -92,7 +92,11 @@ def run_full(
     sass: list[SassExpect] | None = None,
     assignment: dict[str, Any] | None = None,
     extra_dists: list[str] | None = None,
+    sanitizer_shape: dict[str, Any] | None = None,
 ) -> Checked:
+    """``sanitizer_shape``: run compute-sanitizer on a module built for this (small) shape
+    instead of the module's own shape (docs/design/50 §3, decision D285); None keeps the
+    module's shape."""
     if build_for is None:
         raise NotSupported("full_check needs build_for to compile edge and hidden shapes")
     rebuild = build_for
@@ -107,7 +111,11 @@ def run_full(
             agg.error(name, str(exc))
 
     guarded("numeric", lambda: _numeric_one(c, module, problem, contract, shape, None, dists))
-    guarded("sanitizer", lambda: sanitizer_check(c, module, problem, shape))
+    if sanitizer_shape is None:
+        guarded("sanitizer", lambda: sanitizer_check(c, module, problem, shape))
+    else:
+        small = sanitizer_shape
+        guarded("sanitizer", lambda: sanitizer_check(c, rebuild(small)[1], problem, small))
     guarded("anticheat", lambda: anticheat_check(c, module, gk, problem, shape))
     if sass:
         guarded("sass", lambda: sass_check(c, module, sass, assignment or {}))
@@ -146,6 +154,8 @@ def full_check(
     build_for: BuildFor | None,
     sass: list[SassExpect] | None = None,
     assignment: dict[str, Any] | None = None,
+    extra_dists: list[str] | None = None,
+    sanitizer_shape: dict[str, Any] | None = None,
 ) -> Checked:
     return run_full(
         Checker.from_ctx(ctx),
@@ -159,6 +169,8 @@ def full_check(
         build_for=build_for,
         sass=sass,
         assignment=assignment,
+        extra_dists=extra_dists,
+        sanitizer_shape=sanitizer_shape,
     )
 
 

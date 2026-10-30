@@ -4,7 +4,10 @@
 in the worker image (TileLang installed, no network) with the host CUDA toolkit
 mounted, lowers the prim_func to CUDA source and compiles it with the same nvcc and
 flags as the CUDA backend (decision D187). The generated kernel must agree with
-``gk.launch``: same block size and parameter names in order; otherwise the Build fails.
+``gk.launch``: same block size and parameter names in order, a grid equal to the lowered
+one when TileLang states it, and at least the dynamic shared memory the kernel declares;
+otherwise the Build fails. ``kernel.py`` may set ``PASS_CONFIGS`` (decision D281); the
+Build's ``smem`` is the static plus the dynamic shared memory per CTA.
 """
 
 from __future__ import annotations
@@ -39,6 +42,15 @@ def launch_mismatch(gk: GeneratedKernel, gen: dict[str, object]) -> str | None:
     names = [p.name for p in gk.launch.params]
     if gen.get("params") != names:
         return f"TileLang kernel parameters {gen.get('params')} differ from launch spec {names}"
+    grid = gen.get("grid")
+    if isinstance(grid, list) and grid != [*gk.launch.grid, 1, 1, 1][:3]:
+        return f"TileLang kernel grid {grid} differs from launch spec {gk.launch.grid}"
+    smem = gen.get("dynamic_smem")
+    if isinstance(smem, int) and smem > gk.launch.smem_bytes:
+        return (
+            f"TileLang kernel needs {smem} bytes of dynamic shared memory, "
+            f"launch spec gives {gk.launch.smem_bytes}"
+        )
     return None
 
 
@@ -94,6 +106,16 @@ class TileLangBackend:
             extra["generated_source"] = result.outputs["kernel.cu"]
         failure = launch_mismatch(gk, gen) if result.ok else None
         entry = str(gen.get("kernel_entry", gk.entry))
+        dynamic = gen.get("dynamic_smem")
         return common.write_build(
-            self.store, self.clock, gk, target, key, result, entry, extra, failure
+            self.store,
+            self.clock,
+            gk,
+            target,
+            key,
+            result,
+            entry,
+            extra,
+            failure,
+            dynamic_smem=dynamic if isinstance(dynamic, int) else 0,
         )

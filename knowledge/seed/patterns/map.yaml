@@ -5,6 +5,10 @@ params:
   - {name: function, type: str, meaning: "the element-wise or per-point function"}
   - {name: independent_outputs, type: bool, meaning: "output points do not depend on each other given the inputs"}
   - {name: outputs, type: int, meaning: "number of output points"}
+  - {name: M, type: int, meaning: "extent of the first output dimension"}
+  - {name: N, type: int, meaning: "extent of the second output dimension (1 for row-wise operators)"}
+  - {name: input_bytes_per_tile, type: int, meaning: "input bytes one output tile reads"}
+  - {name: compulsory_bytes, type: int, meaning: "bytes of every input and output once (DRAM lower bound)"}
 description: >-
   Independent computation of output points from inputs: element-wise functions, and the output
   index space of operators whose outputs are independent. Refinements tile it, fuse it with a

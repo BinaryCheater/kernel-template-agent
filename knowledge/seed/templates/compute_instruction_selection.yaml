@@ -1,0 +1,58 @@
+# Version 2 of WP10a's proposed compute_instruction_selection@1
+# (knowledge/seed/references/cutlass_ampere_tf32_gemm), adopted into the seed by WP7 (decision D280).
+# Changes: the cost terms are per executor tile (scaled by p.instances), and Γ states the operand
+# type the chosen instruction accepts with numeric parameters, so reuse_plan can test a dtype change.
+name: compute_instruction_selection
+version: 2
+level_from: 2
+level_to: 3
+change: vertical
+refines: contract
+produces: [contract]
+object:
+  type: compute_instruction_tiling
+  description: "The tiling of an executor's contraction (or dot product) into hardware compute instructions with fixed operand shapes and register fragment layouts."
+variables:
+  - {name: instruction, kind: structure, binding: compile, role: boundary, domain: [mma_sync_m16n8k8_tf32, mma_sync_m16n8k16_f16, mma_sync_m16n8k16_bf16, wgmma_m64nNk16_f16, fma_f32, tcgen05_mma], meaning: "compute instruction family and shape"}
+  - {name: operand_source, kind: structure, binding: compile, role: software, domain: [rr, rs, ss], meaning: "where A and B operands are read from (registers or shared memory descriptors)"}
+  - {name: accum_dtype, kind: structure, binding: compile, role: software, domain: [f32, f16], meaning: "accumulator precision"}
+  - {name: macs_per_instruction, kind: numeric, binding: compile, role: boundary, domain: {lo: 1, hi: 262144}, meaning: "multiply-accumulates per instruction (m*n*k of the instruction shape; 1 for scalar FMA)"}
+constraints:
+  - {id: c_macs, expr: "macs_per_instruction >= 1", meaning: "instruction performs at least one multiply-accumulate", cls: semantic}
+preconditions:
+  - {id: pre_dtype, expr: "p.operand_dtype_supported", meaning: "operand dtypes are accepted by the instruction (after any conversion step)", cls: semantic}
+program:
+  description: "Warp (or warpgroup / thread) tile loops over instruction tiles and issues one instruction per tile; fragments use the instruction's register layout. In TileLang: T.gemm on shared-memory tiles into a register fragment."
+  fragments: {}
+backward_map: "The sum over instruction tiles of each instruction's product reproduces the executor tile's contraction."
+obligations:
+  - {name: fragment_layout, statement: "Each lane holds exactly the operand and accumulator elements the instruction defines for it.", method: test}
+  - {name: exact_once, statement: "Every (m, n, k) product of the executor tile is issued in exactly one instruction.", method: exhaustive}
+cost:
+  # p.M x p.N x p.K is one executor tile's contraction; p.instances counts executor tiles.
+  - {unit: tensor, work: "2 * p.M * p.N * p.K", overlap: overlappable}
+  - {unit: issue, work: "p.M * p.N * p.K / macs_per_instruction", overlap: overlappable}
+scope:
+  predicate: "p.operand_bits == p.instr_operand_bits and p.operand_exp_bits == p.instr_exp_bits"
+  text: >-
+    Contractions and dot products whose operand type (bit width and exponent bits, from the
+    Problem's params) is the type the chosen instruction accepts (p.instr_*, bound by the chain);
+    the instruction domain is further filtered by the Target's HwFeatures.
+requires_hw: []
+relations:
+  - {type: requires, target: output_tiling, note: "instruction tiles subdivide an executor tile"}
+signature:
+  algorithm: "contraction lowered to fixed-shape compute instructions"
+  reuse: "register-level reuse inside an instruction tile"
+  storage: "fragments in registers"
+  boundary: null
+  resources: [tensor, fma]
+numeric_risk: "Instruction accumulation order and internal precision differ from a sequential FP32 sum; covered by the contract tolerance."
+expected_sass:
+  - {when: "instruction == 'mma_sync_m16n8k8_tf32'", must_contain: [HMMA.1688.F32.TF32], must_not_contain: []}
+  - {when: "instruction == 'mma_sync_m16n8k16_f16'", must_contain: [HMMA.16816.F32], must_not_contain: []}
+  - {when: "instruction == 'mma_sync_m16n8k16_bf16'", must_contain: [HMMA.16816.F32.BF16], must_not_contain: []}
+summary: >-
+  Lowers an executor's contraction to a specific compute instruction (mma.sync, wgmma, FMA). Fixes
+  instruction shape, operand source and accumulator type. Costs tensor FLOPs and instruction issue
+  per executor tile; Γ requires the operand type to match the instruction's.

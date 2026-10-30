@@ -6,6 +6,14 @@ params:
   - {name: operands, type: int, meaning: "number of tensors taking part in the contraction"}
   - {name: dtype_in, type: str, meaning: "element type of the operands"}
   - {name: dtype_acc, type: str, meaning: "element type of the accumulation"}
+  - {name: M, type: int, meaning: "rows of the contraction's output (per executor tile once tiled)"}
+  - {name: N, type: int, meaning: "columns of the contraction's output (per executor tile once tiled)"}
+  - {name: K, type: int, meaning: "length of the contracted dimension"}
+  - {name: operand_bits, type: int, meaning: "bit width of the operand type (numeric form of dtype_in, from the Problem)"}
+  - {name: operand_exp_bits, type: int, meaning: "exponent bits of the operand type (5 for f16, 8 for bf16)"}
+  - {name: instr_operand_bits, type: int, meaning: "bit width of the operand type the chosen lowering accepts (bound by the chain)"}
+  - {name: instr_exp_bits, type: int, meaning: "exponent bits of the operand type the chosen lowering accepts (bound by the chain)"}
+  - {name: operand_dtype_supported, type: bool, meaning: "the chosen lowering accepts the operand type (after any conversion step)"}
 description: >-
   A tensor contraction: products of operand elements summed over shared dimensions. It is a map
   (the products) followed by a reduce; instruction-level refinements (tensor-core MMA) act on the

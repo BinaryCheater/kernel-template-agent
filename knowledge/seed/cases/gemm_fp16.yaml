@@ -1,0 +1,38 @@
+# WP7 Case (M1): FP16 GEMM on GB10, one square and two non-square shapes.
+# Contract per docs/design/50 §3: FP16 rtol = atol = 1e-2 plus relative L2 error; input
+# distributions normal, zeros, extreme, adversarial (cancellation) and the one named by
+# reduction_partition's numeric risk; edge shapes of length 1, non-tile-multiple and maximum
+# length. Case.problem and Case.target are filled with record IDs when the records are written.
+problem:
+  name: gemm_fp16
+  reference_impl: "C = A @ B"
+  inputs:
+    - {name: A, shape: [M, K], dtype: f16, layout: row_major}
+    - {name: B, shape: [K, N], dtype: f16, layout: row_major}
+  outputs:
+    - {name: C, shape: [M, N], dtype: f16, layout: row_major}
+  params:
+    accumulate: f32
+    operand_bits: 16
+    operand_exp_bits: 5
+    min_work:
+      tensor: "2 * case.M * case.N * case.K"
+      dram: "(case.M * case.K + case.K * case.N + case.M * case.N) * 2"
+contract:
+  tolerances:
+    f16: {rtol: 0.01, atol: 0.01, rel_l2: 0.001}
+  input_dists: [normal, zeros, extreme, cancellation, large_dynamic_range]
+  edge_shapes:
+    - {M: 1, N: 1, K: 1}
+    - {M: 129, N: 193, K: 65}
+    - {M: 1, N: 4096, K: 4096}
+  timing_boundary: "single kernel launch; C = A @ B with A, B, C in device memory"
+case:
+  shape_dist:
+    - {shape: {M: 4096, N: 4096, K: 4096}, weight: 1.0}
+    - {shape: {M: 8192, N: 1024, K: 4096}, weight: 1.0}
+    - {shape: {M: 1024, N: 1024, K: 16384}, weight: 1.0}
+  objective: weighted_latency
+baseline:
+  library: "torch.matmul (cuBLAS)"
+  call: "lambda A, B, C: torch.matmul(A, B, out=C)"

@@ -7,6 +7,7 @@ from typing import Any
 
 from kta.core.errors import SchemaError
 from kta.core.expr import Expr, ExprError
+from kta.core.ids import is_record_id
 from kta.core.schemas.evaluation import Case
 from kta.core.schemas.knowledge import Chain, Template
 from kta.knowledge import pool
@@ -31,9 +32,18 @@ def case_views(case: Case) -> list[dict[str, Any]]:
 
 
 def scope_holds(
-    t: Template, case: Case, hw: Mapping[str, Any], params: Mapping[str, Any]
+    t: Template,
+    case: Case,
+    hw: Mapping[str, Any],
+    params: Mapping[str, Any],
+    bound: Mapping[str, Expr] | None = None,
+    assignment: Mapping[str, Any] | None = None,
 ) -> ScopeResult:
-    """Whether Γ of ``t`` holds; ``holds=None`` when a name it needs has no value."""
+    """Whether Γ of ``t`` holds; ``holds=None`` when a name it needs has no value.
+
+    ``bound`` maps ``p.*`` names to binding expressions over family variables, ``case.*``
+    and ``hw.*``; they are evaluated per shape with ``assignment`` (decision D286).
+    """
     try:
         expr = Expr.parse(t.scope.predicate, set())
     except ExprError as exc:
@@ -41,7 +51,10 @@ def scope_holds(
     unknown: list[str] = []
     for view in case_views(case):
         try:
-            value = expr.eval({}, hw=hw, p=params, case=view)
+            p = dict(params)
+            for name, e in (bound or {}).items():
+                p[name] = e.eval(dict(assignment or {}), hw=hw, case=view)
+            value = expr.eval({}, hw=hw, p=p, case=view)
         except ExprError as exc:
             unknown.append(str(exc))
             continue
@@ -56,11 +69,18 @@ def scope_holds(
 
 
 def problem_params(store: Store, case: Case) -> dict[str, Any]:
-    """Numeric and boolean parameters of the case's Problem (strings are descriptions)."""
-    hit = pool.find_by_name(store, "Problem", case.problem)
-    if hit is None:
-        return {}
-    params: dict[str, Any] = hit[1].body.get("params", {})
+    """Numeric and boolean parameters of the case's Problem (strings are descriptions).
+
+    ``Case.problem`` is a Problem record ID (as measure and checks require) or a name.
+    """
+    if is_record_id(case.problem) and store.exists(case.problem):
+        body = store.get(case.problem).body
+    else:
+        hit = pool.find_by_name(store, "Problem", case.problem)
+        if hit is None:
+            return {}
+        body = hit[1].body
+    params: dict[str, Any] = body.get("params", {})
     return {k: v for k, v in params.items() if isinstance(v, (int, float, bool))}
 
 
@@ -69,6 +89,23 @@ def item_params(base: Mapping[str, Any], bindings: Mapping[str, Any]) -> dict[st
     for key, value in bindings.items():
         if key.startswith(PARAM_PREFIX) and not isinstance(value, str):
             out[key[len(PARAM_PREFIX) :]] = value
+    return out
+
+
+def bound_params(
+    bindings: Mapping[str, Any], assignment: Mapping[str, Any] | None
+) -> dict[str, Expr]:
+    """``p.*`` bindings that are expressions, parsed over the assignment's variables;
+    empty without an assignment (Γ then sees only constant bindings)."""
+    if assignment is None:
+        return {}
+    out: dict[str, Expr] = {}
+    for key, value in bindings.items():
+        if key.startswith(PARAM_PREFIX) and isinstance(value, str):
+            try:
+                out[key[len(PARAM_PREFIX) :]] = Expr.parse(value, set(assignment))
+            except ExprError:
+                continue  # left unknown: scope_holds reports the missing name
     return out
 
 
@@ -93,11 +130,13 @@ def reuse_plan(
     case: Case,
     hw: Mapping[str, Any],
     params: Mapping[str, Any] | None = None,
+    assignment: Mapping[str, Any] | None = None,
 ) -> ReusePlan:
     """Evaluate Γ of every chain step on ``case``: keep / invalid / unknown, with reasons.
 
     ``p.*`` comes from the case's Problem params, then ``params``, then the item's own
-    ``p.<name>`` constant bindings.
+    ``p.<name>`` constant bindings, then (given an ``assignment`` of the family variables)
+    its expression bindings evaluated per shape.
     """
     record = store.get(chain_id)
     if record.kind != "Chain":
@@ -112,7 +151,7 @@ def reuse_plan(
             continue
         t = hit[1]
         p = item_params(base, item.bindings)
-        result = scope_holds(t, case, hw, p)
+        result = scope_holds(t, case, hw, p, bound_params(item.bindings, assignment), assignment)
         if result.holds is True:
             steps.append(ReuseStep(item.key, item.template, "keep", result.reason))
         elif result.holds is False:
