@@ -64,9 +64,8 @@ def _knowledge(value: Any) -> str:
 def arm_of(info: Mapping[str, Any]) -> Arm:
     """The arm from task bookkeeping (WP6 D373); no ``arm`` key means a normal pool run.
 
-    WP6 writes ``{"name", "knowledge", "snapshot", "condition", "protocol"}`` (wp/WP6 @
-    15d114a, change 8a9331d). A
-    condition without ``knowledge`` (an arm that varies something else, e.g. the model)
+    WP6 writes ``{"name", "knowledge", "snapshot", "condition", "protocol"}`` (wp/WP6
+    @ 15d114a, change 8a9331d). A condition without ``knowledge`` (an arm that varies something else, e.g. the model)
     is a pool arm. Also read: ``knowledge`` at the top level of the arm, and a plain arm
     name with its condition in ``info["arm_condition"]``.
     """
