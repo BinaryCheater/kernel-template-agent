@@ -2,15 +2,17 @@
 
 Date: 2026-10-31 (Asia/Singapore). Branch `sysdebug/1`.
 
-**Current scope (user clarification): system-function debugging, parameter-taskbook review and workflow supervision.** The previous GEMM loop is paused and blocked; no golden-path success, completed calibration or research acceptance is claimed. Source `90619e8` is deployed; no AgentRun exists. Functional controls v3: shortlist 8, 4 measured points including 1 random, solver 10 s. The taskbook now prioritises lifecycle rehearsal, separates tolerance meanings and correctly requires S3 for learning/summarization.
+**Current scope (user clarification): system-function debugging, parameter-taskbook review and workflow supervision.** The previous GEMM loop is paused and blocked; no golden-path success, completed calibration or research acceptance is claimed. Source `487a1b8` is deployed; no AgentRun exists. Functional controls v3: shortlist 8, 4 measured points including 1 random, solver 10 s. The taskbook now prioritises lifecycle rehearsal, separates tolerance meanings and correctly requires S3 for learning/summarization.
 
 System repairs since the historical checkpoint: current-round baseline identity/quietness; C/Gamma gates for control arms; per-shape current-loop evidence; failed compiler output archived without JSON masking; evaluation checkpoints and cooperative pause between candidates; protocol pinned within each measurement round; preserved progress on block; loop/state trace propagation and truthful failed spans; visible blocked/paused Case state. The numeric prototype made during the earlier diagnostic detour was not adopted. No kernel source or numeric tolerance was changed.
 
-Real expected-failure rehearsal: Report `5e2fb815…`, Build `73cd954f…`. Full code-stage gate: Report `ffc571c4…`, 753 non-GPU tests, 36 contracts, 23 pass / 1 warn / 0 fail. The baseline quiet path and interruption during an actual GPU candidate still require targeted real replay; unit checks are not that evidence. The WP24 namespace warning remains. New decisions: D650–D654.
+Real expected-failure rehearsal: Report `5e2fb815…`, Build `73cd954f…`. Full code-stage gate: Report `bdd8652e…`, 757 non-GPU tests, 36 contracts, 23 pass / 1 warn / 0 fail. The baseline quiet path and interruption during an actual GPU candidate still require targeted real replay; unit checks are not that evidence. The WP24 namespace warning remains. New decisions: D650–D654.
 
 **Historical checkpoint (before D649; later repair results below).**
 
 **Status at that checkpoint: initial diagnostics available for supervised visual inspection; Phase 1 BLOCKED.** This is not an accepted S0/S1 transition, completed calibration, or a research result. The runbook explicitly stops before Phase 2 when X6/X10 cannot be produced. The operator followed that boundary.
+
+Provider follow-up: Settings probes the actual agent host through Executor, resolves native CLIs and queries login status. On Spark HK, both Codex and Claude Code report logged in as dingyi. A separate Codex experimental home seeded with the experiment config reuses native login by symlink (Report `53d2eecb…`); credentials are absent from its archive and no model call was made. Native provider connection settings are inherited separately from personal instructions and sessions; profile overrides remain explicit. Harness versions are recorded with actual version/hash and drift flag, without an equality launch gate. Claude runtime remains NotSupported. Decisions D655–D656.
 
 ## What was done
 
@@ -38,10 +40,10 @@ Real expected-failure rehearsal: Report `5e2fb815…`, Build `73cd954f…`. Full
 
 ## Known issues
 
-- **Measurement policy blocks X6/X10.** `sm_clock_drop_frac = 1 − min(start,end clock)/rated maximum` measures distance below rated maximum, not an observed clock drop. Otherwise quiet attempts are rejected. A validated quiet-clock observable, an idle distribution and explicit margins are needed before retuning; this checkpoint does not choose them.
+- The original rated-maximum clock rejection was repaired by the observed within-window span policy; targeted library-baseline and interruption replay remain pending.
 - C1-MEM lacks compile/check peak RSS, a measured GPU peak and a defined margin. Existing caps remain labelled defaults.
 - Profile stores numeric metrics without their CSV units/availability. The real CSV supplies ns for duration and `n/a` for DRAM. Profiler access is verified; full metric coverage is not.
-- No completed active-agent X6 arm, accepted Measurement, calibrated HwModel, S0 GapDecomposition or real AgentRun exists. Credentials still await the runbook's user choice of copy vs link.
+- No completed active-agent X6 arm, accepted Measurement, calibrated HwModel, S0 GapDecomposition or real AgentRun exists. Native login reuse by symlink is now verified; no model request has been made.
 - Proof counterexamples and unsupported proof levels remain as WP24 expected. Seed GEMM candidates would be exploration; proof execution exit 0 is not assurance.
 - Calibration reasons are reachable through Record drawers but are raw JSON; there is no dedicated calibration summary page or `measurement_interfered` Inbox trigger. Cards supply the readable summary for the joint walkthrough.
 - Reproduction/ablation and the Phase-3 prerequisites are still separate work. No attempt was made to bypass them.
@@ -49,12 +51,14 @@ Real expected-failure rehearsal: Report `5e2fb815…`, Build `73cd954f…`. Full
 
 ## New decisions
 
+Current follow-up: D655 (native provider reuse), D656 (harness version as provenance).
+
 D645 (Docker GPU request), D646 (stored measurement controls), D647 (deployment source links), D648 (system diagnostics label scope). All are local reversible implementation repairs; no spec interface or acceptance criterion changed.
 
 ## Needed changes
 
-- Joint review of [questions 1–2](sysdebug/questions.md): decide and validate the quiet-clock observable and calibration margins before retrying X6/X10.
-- Choose copy vs link for the dedicated Codex login before S1; no credential operation was performed.
+- Finish targeted lifecycle/measurement replays and calibrate the named research thresholds; functional repairs do not establish calibration.
+- Before S1, align task output/tool contracts, settle actual resource use and repair the claimed model holdout. These backend audit findings remain open.
 - Check one proof counterexample and one rejected timing in the frontend, then review the remaining cards. The user owns any C-level method or stage decision.
 - No changes to other module interfaces were made. Corrected runbook CLI syntax for backend self-tests, solve-loop advancement and profile approval.
 
@@ -74,6 +78,38 @@ Verified Mac copy: `/Users/dingyi/kta-backups/spark-hk/SYSDEBUG1-20261031/handof
 - The remote store and services remain live. No periodic backup was scheduled.
 
 ## Gate output
+
+Latest source `487a1b8`, Report `bdd8652e3f90470b17067576f5a96c2ca1f6f7e2f19e551ad8b7e34964fb681b` (code regression, not SYSDEBUG stage acceptance):
+
+```
+gate WP24 --stage code: PASSED (23 pass, 1 warn, 0 fail)
+  PASS ruff format
+  PASS ruff check
+  PASS import layers
+  PASS residue
+  PASS test doubles
+  PASS error handling
+  PASS print
+  PASS subprocess outside Executor
+  PASS secrets
+  PASS acceptance lock — 7 locked files unchanged
+  PASS pyright
+  PASS unit tests — 757 passed
+  PASS contract tests — 36 passed
+  PASS fake coverage — 2 fake(s) covered
+  PASS registry (kta doctor, dev)
+  PASS delivery note
+  PASS fixture declarations — 1 declared
+  PASS decision log — 494 decisions
+  PASS skipped tests — none
+  PASS evidence — 5 claim(s)
+  PASS WP24 tests — 16 named tests passed
+  PASS WP24 spec, seed and pages — spec, z3 lock, seed outlines, pages
+  PASS web build — tsc + vite build of HEAD in a clean directory
+  WARN WP24 real checker runs — pending real run (code stage): ProofSummary with a level and a caught proof_canary Report in dev/WP24 (clean commit)
+```
+
+Historical gate output follows.
 
 Final-source run on Spark HK via Executor, Report `7d37eafbdf353f5ebc2b79397259cf49a1f918ee21fe545a317432afb971c57f`:
 

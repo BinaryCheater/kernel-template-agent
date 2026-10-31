@@ -505,5 +505,56 @@
     "started_at": "2026-10-31T14:21:07.013130Z",
     "output": "spark-hk:~/kta/runs/sysdebug1/gate-functional.out",
     "notes": "The warning is pending WP24 real acceptance in its own namespace. This is regression verification, not SYSDEBUG calibration or method acceptance."
+  },
+  {
+    "claim": "On the real Spark HK agent host, native Codex and Claude Code report logged in as dingyi; a separate Codex experimental home seeded with the experiment config reuses native auth by symlink and reports logged in. Credentials are absent from its archive. No model request was made.",
+    "command": "KTA_MODE=spark-hk KTA_ENV=dev KTA_WP=SYSDEBUG1 python ~/kta/runs/sysdebug1/provider-reuse-final.py (status-only Executor job)",
+    "git_commit": "487a1b8eefcb92008642fc6f66e325a54ae5e967",
+    "dirty": false,
+    "env": "dev",
+    "control_host": "spark-6951",
+    "workers": [
+      "spark-hk"
+    ],
+    "record_ids": [
+      "53d2eecb4762416f11c7624a2ed2896cc1de537b40284398936e067c8634ac7b"
+    ],
+    "blob_ids": [
+      "d102839274113ae6bbedfc991de58897b26c5310994c6f9ee64638ea6c27cc5f",
+      "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    ],
+    "env_manifests": [
+      "517cd2fe4c6aee5f2e21fa03dd23a221bb7ffafe2381a4906ca1ed34f26f40e8"
+    ],
+    "started_at": "2026-10-31T15:08:59.528472Z",
+    "requires_gpu": false,
+    "output": "spark-hk:~/kta/runs/sysdebug1/provider-reuse-final.out",
+    "notes": "Native provider login is real evidence. Custom connection inheritance, exclusion of personal context/secrets and harness drift use focused regression tests; the host uses the built-in provider. Claude runtime adapter is still NotSupported. No S1 task or statistical acceptance is claimed."
+  },
+  {
+    "claim": "Provider reuse and harness-version provenance repairs pass the full WP24 code-stage regression gate: 757 non-GPU tests, 36 contracts, 23 pass / 1 warn / 0 fail, no skipped tests.",
+    "command": "Executor CPU job in git-backed checkout: scripts/gate --stage code WP24",
+    "git_commit": "487a1b8eefcb92008642fc6f66e325a54ae5e967",
+    "dirty": false,
+    "env": "dev",
+    "control_host": "spark-6951",
+    "workers": [
+      "spark-hk"
+    ],
+    "record_ids": [
+      "bdd8652e3f90470b17067576f5a96c2ca1f6f7e2f19e551ad8b7e34964fb681b"
+    ],
+    "blob_ids": [
+      "4057118b86e7e58d2d1ba44b53f64dcdbdaf0a675c866386e783830eecd59d02",
+      "7664344e24588d2eea3d8be14d6bb5f28dcb9e8165448f09c7c7e000598ab06e",
+      "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    ],
+    "env_manifests": [
+      "517cd2fe4c6aee5f2e21fa03dd23a221bb7ffafe2381a4906ca1ed34f26f40e8"
+    ],
+    "started_at": "2026-10-31T15:11:16.077451Z",
+    "requires_gpu": false,
+    "output": "spark-hk:~/kta/runs/sysdebug1/gate-provider-final.out",
+    "notes": "Includes a real-Executor/fake-CLI version-drift test, and native/custom connection, credential-link and archive checks. The existing WP24 real-acceptance warning remains; this is regression coverage, not S1 acceptance."
   }
 ]
