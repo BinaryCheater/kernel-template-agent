@@ -92,3 +92,27 @@ Branch `wp/WP14`; delivery note `deliveries/WP14.md`; decisions D440–D454.
 - No real run (D320): no probe confirmed any GB10 declaration; `probed_on` is empty everywhere. Listed under "Pending real runs" in the delivery note.
 - Knobs (`MIN_REPLICATIONS`, `MIN_TARGETS_FOR_SCOPE`, `MIN_REPEATS_FOR_PATTERN`) are module constants until WP21's registry merges.
 - 23 (knowledge structure) and 21 §1 are not rewritten; 02 §2 stays the design source until the merge of 02 into the numbered documents.
+
+## 2026-10-31: merged work package WP20 (learning-loop runner, code stage)
+
+Branch `wp/WP20`; delivery note `deliveries/WP20.md`; decisions D560–D569.
+
+### Closes
+
+| Item | How |
+| --- | --- |
+| R15 (coverage part) | SOTA coverage in four levels; system-level features and language gaps counted apart (`kta.knowledge.sota`, coverage page) |
+| R16 | per-reference pipeline intake → decompose → admit → reproduce → ablate → cover: admit implemented (T2 done-check `admission`, `kta reference admit`), the other deterministic stages defined as dry-run plans (`kta reference plan`) |
+| R17 | cost tiers L0–L4 as data with named admission rules; performance core; source class and priority on references (Reference schema 2) |
+| R18 (mechanics) | ablation design generator on our own families (pairwise / fractional factorial) producing `Coupling` evidence; thresholds as table values awaiting the registry |
+| E13 | language gaps admitted at `proposed` and counted; the seven WP10a decompositions imported through admit into the store |
+| E14 (pool-growth part) | admission Reports per reference; coverage shows language gaps, system features and per-backend expressibility |
+| D-T29 | per-backend expressibility coverage and declared intent (confirmation pending compiled SASS) |
+| D-open-2, D-open-4, D-open-6, D-open-7 | definitions per D325: admit language gaps; worker deliverables into the store only; ε = 10 %; O12 protocol defined, not run |
+
+02 sections implemented: §8.1, §8.2 (system features counted apart), §8.3 (source classes, priority), §8.4 (tiers, performance core, ablation on our families), §8.5 (per-backend coverage), §8.6 (admit, plans).
+
+### Not done here
+
+- No real run (D320): no intake, reproduction, ablation or O12 run; `kta reference plan` only plans.
+- Thresholds (admit retries, ε, ablation limits, noise band) live in `src/kta/knowledge/learning.yaml` until WP21's registry merges.

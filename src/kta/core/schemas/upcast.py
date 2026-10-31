@@ -58,3 +58,11 @@ def reconstruction_v1(body: dict[str, Any]) -> dict[str, Any]:
     for tx in txs:
         tx["level"] = _level(tx.get("level"))
     return out
+
+
+def reference_v1(body: dict[str, Any]) -> dict[str, Any]:
+    """WP20: source_class (open code, which all v1 references were) and priority added."""
+    out = copy.deepcopy(body)
+    out.setdefault("source_class", "open_code")
+    out.setdefault("priority", None)
+    return out

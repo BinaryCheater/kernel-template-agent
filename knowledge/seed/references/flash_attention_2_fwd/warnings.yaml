@@ -1,0 +1,4 @@
+# Admission warnings of this reference, explained (WP20 admit step, D561).
+# Key: "<issue kind>@<file>:<where>".
+"constraint_false@chain.yaml:items.kv_rotation": >-
+  Partial match recorded as gap ux-06: one slot per operand refilled right after the barrier that follows its last read (S = 1, P = 1, beta = 1) gives one tile of lookahead; the lifetime obligation P <= S - 2 + beta cannot express two barriers per iteration with staggered refills (WP10a critique 3).

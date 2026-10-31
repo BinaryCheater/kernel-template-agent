@@ -14,12 +14,14 @@ import yaml
 from kta.core.schemas import Actor, Record
 from kta.core.schemas.knowledge import Family
 from kta.knowledge import load_family, propose_template
+from kta.knowledge.admission import report_body as admission_report
 from kta.knowledge.pool import find_template
 from kta.models.calibrate import save_model
 from kta.models.unit_model import UnitModel
 from kta.orchestrator.done_checks import (
     CheckInput,
     new_patterns,
+    t2_admission,
     t2_documents,
     t3_documents,
     t3_pool,
@@ -63,6 +65,9 @@ def _reconstruction(inp: CheckInput, actor: Actor) -> dict[str, Any]:
     if gap_ids:
         refs["gaps"] = gap_ids
     recon = _put(inp, actor, "Reconstruction", docs.reconstruction, refs=refs)
+    checker = Actor(type="checker", name="kta.knowledge.admission", task=inp.task_id)
+    body = admission_report(t2_admission(inp), recon, f"T2 {inp.task_id}")
+    _put(inp, checker, "Report", body, refs={"reference": reference, "card": inp.card_id})
     gaps = [{"id": g, "missing": inp.store.get(g).body["missing"]} for g in gap_ids]
     out: dict[str, Any] = {"reconstruction": recon, "chain": chain_id, "gaps": gaps}
     return out | {"patterns": pattern_ids} if pattern_ids else out

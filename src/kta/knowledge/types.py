@@ -8,7 +8,7 @@ from typing import Any, Literal
 
 from kta.core.schemas.knowledge import Chain, Family
 
-Severity = Literal["error", "warning"]
+Severity = Literal["error", "warning", "gap"]
 Verdict = Literal["keep", "invalid", "unknown"]
 
 
@@ -17,7 +17,9 @@ class Issue:
     """One finding of a validator.
 
     ``error`` issues make the object invalid; ``warning`` issues are hints that the
-    author must answer (``possible_duplicate`` is a warning, knowledge.md "查重是提示").
+    author must answer (``possible_duplicate`` is a warning, knowledge.md "查重是提示");
+    ``gap`` issues are expressibility gaps of the language (``kta.knowledge.learning``
+    ``admission`` table, D560): counted, never refusing the object.
     """
 
     kind: str
@@ -135,6 +137,9 @@ class CoverageReport:
     availability: dict[str, dict[str, Any]] = field(
         default_factory=lambda: dict[str, dict[str, Any]]()
     )
+    # Added by WP20 (D567): sota_levels, system_features, language_gaps, backends
+    # (kta.knowledge.sota.learning_coverage).
+    learning: dict[str, Any] = field(default_factory=lambda: dict[str, Any]())
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

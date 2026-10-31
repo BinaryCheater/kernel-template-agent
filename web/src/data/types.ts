@@ -385,6 +385,14 @@ export interface CoverageReport {
     gaps_by_attribution?: Record<string, number>;
     templates_missing?: unknown[];
   };
+  /** Learning-loop coverage (WP20 D567): SOTA levels 1-4, system features counted apart,
+   *  language gaps counted at admission, per-backend expressibility and intent fidelity. */
+  learning?: {
+    sota_levels: { level: number; name: string; meaning: string; measured_by: string; references: number; of: number; pending: string | null; step_rate?: number | null }[];
+    system_features: { total: number; by_feature: Record<string, number> };
+    language_gaps: { total: number; by_kind: Record<string, number>; by_reference: Record<string, number>; admitted_references: number };
+    backends: Record<string, { steps: number; expressible: number; rate: number | null; intent_declared: number; intent_confirmed: number | null; note: string }>;
+  };
 }
 
 export interface InboxItem {

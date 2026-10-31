@@ -30,4 +30,6 @@ Functions that read the pool take the `Store` as a parameter (D200). Validators 
 - `findings.py`: `findings` (Regime and Negative read as Findings; `prior` out of scope), `couplings`.
 - `ladder.py`, `promotion.py`: one status ladder with evidence rules; `promote`, `demote` (stale propagation), `review`.
 - `pooldiff.py`: `diff(store, a, b)` between two PoolSnapshots.
+- `learning.yaml`, `learning.py` (WP20): learning-loop tables (admission classes, system features, tiers L0–L4, source classes, priority, performance core, ablation, SOTA levels, backends, O12) and their readers.
+- `admission.py`: the admit step (`admit`, `admit_references`, `warnings.yaml`, `admission` Reports); `sota.py`: four-level SOTA coverage, system features, language gaps, per-backend expressibility; `ablation.py`: suspected pairs, designs, coupling estimates, proposed Couplings.
 - Retrieval with a target hides Templates whose Capabilities are not `yes`; `retrieve.unavailable_templates` and `CoverageReport.availability` count them.

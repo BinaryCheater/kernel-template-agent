@@ -108,7 +108,25 @@ gaps/*.yaml           # one file per Gap, read in file-name order
 patterns/*.yaml       # proposed Patterns (status proposed)
 templates/*.yaml      # Template drafts (spec/schemas.md §4.2, assurance declared;
                       # write the obligations, no proof needed; skill write-template)
+warnings.yaml         # your explanation of every admission warning (below)
 ```
+
+**Admission.** On submission the chain and your Template drafts are validated against
+the pool (done-check `admission`). Errors reject the submission and come back to you in
+this session; you have two retries. Every warning must be explained in `warnings.yaml`,
+one entry per warning key exactly as the rejection prints it:
+
+```yaml
+"constraint_false@chain.yaml:items.frag_stages": >-
+  Partial match recorded as gap ux-09: ...
+```
+
+Things the expression language cannot state yet (an unsupported construct, a `p.*` name
+no Pattern declares) are *language gaps*: they are counted and do not reject; write the
+expression you mean and say in the scope text what it intends. An unmatched transaction
+that is a system-level feature (host planner, merge kernel, page table, PDL, dispatch)
+takes `pattern_guess: system` unless its description names it; coverage counts these
+apart from scheduling moves.
 
 What happens to them after your submission is accepted:
 

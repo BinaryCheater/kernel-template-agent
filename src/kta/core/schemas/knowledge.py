@@ -203,11 +203,25 @@ class Family(Body):
 # ---- 4.5 Reference / Reconstruction --------------------------------------------
 
 
+class ReferencePriority(Body):
+    """Inputs of a reference's priority (02 §8.3, D564); the value is computed by
+    ``kta.knowledge.learning.priority``. ``reasons`` name rows of its ``boosts`` table."""
+
+    cases_affected: int = 0
+    gap_closable: float = 0.0  # fraction of the affected cases' gap it could close
+    uncertainty: float = 1.0  # 0 = we know what it does, 1 = we have no idea
+    reasons: list[str] = Field(default_factory=lambda: list[str]())
+
+
 class Reference(Body):
     name: str
     problem: str
     build: str
     runnable_on: list[str] = Field(default_factory=lambda: list[str]())
+    # Schema 2 (WP20): an open source-class name (kta/knowledge/learning.yaml
+    # ``source_classes``; unknown names count as ``other``) and the priority inputs.
+    source_class: str = "open_code"
+    priority: ReferencePriority | None = None
 
 
 class UnmatchedTx(Body):

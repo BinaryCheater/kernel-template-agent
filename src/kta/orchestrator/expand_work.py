@@ -73,7 +73,8 @@ def work_frozen(svc: Services, loop: Loop) -> Facts:
     reason = analysis_only(loop, ref)
     if reason is None:
         raise NotSupported(
-            f"building Reference {ref.name} at {revision[:12]} in its container (WP11)"
+            f"building Reference {ref.name} at {revision[:12]} in its container: intake jobs "
+            f"are defined (kta reference plan {loop.subject[:12]}), not run (D569)"
         )
     problem = rec.refs.get("problem")
     return {
@@ -189,11 +190,15 @@ def write_coverage(svc: Services, loop: Loop) -> str:
 def work_reconstructed(svc: Services, loop: Loop) -> Facts:
     if loop.data.get("analysis_only"):
         return {"analysis_only": True, "coverage": write_coverage(svc, loop)}
-    raise NotSupported("reproducing a reference from a family (WP11)")
+    raise NotSupported(
+        "reproducing the performance core from a family: planned (kta reference plan), not run"
+    )
 
 
 def work_ablate(svc: Services, loop: Loop) -> Facts:
-    raise NotSupported("ablating chain steps of a reproduced reference (WP11)")
+    raise NotSupported(
+        "ablating our family (kta.knowledge.ablation design): planned, not run (D566)"
+    )
 
 
 WORK: dict[str, Callable[[Services, Loop], Facts]] = {

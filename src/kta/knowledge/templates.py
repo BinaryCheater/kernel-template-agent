@@ -11,6 +11,7 @@ from kta.core.expr import Expr, ExprError
 from kta.core.schemas import Actor, Record
 from kta.core.schemas.knowledge import ExprSpec, RangeSpec, Template, VarSpec
 from kta.knowledge import pool
+from kta.knowledge.learning import classify
 from kta.knowledge.types import Issue, errors_of
 from kta.store.base import Store
 
@@ -252,7 +253,8 @@ def validate_template(
     """All issues of ``t`` against the pool in ``store``; no ``error`` issue means valid.
 
     ``hw`` is the hardware contract (HwModel.limits plus derived facts) that ``hw.*``
-    names are checked against; pass ``None`` or ``{}`` to skip that check.
+    names are checked against; pass ``None`` or ``{}`` to skip that check. Expressibility
+    gaps of the language come back with severity ``gap`` (D560): counted, not refusing.
     """
     t = Template.model_validate(t.model_dump())
     issues = _fields(t)
@@ -268,7 +270,7 @@ def validate_template(
     issues += _references(t, store)
     issues += _pattern_params(t, store)
     issues += duplicates(t, store)
-    return issues
+    return classify(issues)
 
 
 def propose_template(
