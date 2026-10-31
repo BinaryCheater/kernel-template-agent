@@ -66,6 +66,8 @@ margins distinct. Uncalibrated values stay labelled; functional inspection can p
 performance-acceptance calibration is complete. Discuss findings directly with the user;
 retain machine-readable evidence without requiring new decision cards for routine repairs.
 
+Run focused checks during repairs, quick checks before commits, and one batch regression once the repairs are stable. Additional full regression is justified by a new failure, not by every edit. At each handoff, report actual agent use: construction versus runtime roles, model/effort and selection rationale, outcomes/failures, session strategy and reliable resource figures; mark missing or cumulative usage explicitly.
+
 ## 1. Phase 1 — Calibration (unattended)
 
 **Purpose:** a trustworthy ruler and price list before anything is judged. **User attention:** read one summary table at the end.
@@ -86,7 +88,7 @@ These steps make no decisions.
    - `kta target probe`
    - `kta doctor`
    - `kta controls token`; never print it.
-3. **Credentials (user step).** Link or copy `~/.codex/auth.json` into `~/.config/kta/auth/codex/`. Ask the user which: a link shares the login with their interactive Codex; a copy avoids token-refresh conflicts. Then run Settings → System → Test for codex (direct, proxy `off`).
+3. **Provider reuse.** Use the agent-host user’s native provider/login by default (D655). New experimental homes link existing credentials and inherit connection settings separately from task context. No second login or KTA credential copy is needed.
 4. **Self-tests:**
    - `kta backend smoke`
    - `kta backend selftest lease`
@@ -140,7 +142,7 @@ These steps make no decisions.
 ### 2.2 S1: agent calls released one at a time
 
 1. **Profile:**
-   - `kta profile write codex-v2`
+   - `kta profile write codex-v3`
    - `kta profile approve <profile-id> --reason "SYSDEBUG-1 supervised trial"`
    - `kta agents env build sysdebug1 --profile <id>`
 2. **Stage.** `POST /controls`: set `release.stage` to `S1` and `budget.agent_instances` to `{start: 1, max: 1}`.
@@ -258,5 +260,5 @@ Do not fix these during the run; record them where they bite.
 - **Model and effort are per profile**, not per task type (D594).
 - **Reproduce and ablate are dry-run plans** for runnable references (D569). C3-X7 waits for them.
 - **The seed GEMM Templates reach no proof level** (WP24, D643). Candidates are `exploration`; that is expected.
-- **The eager torch baseline records no host readings** (D605).
+- **Library-baseline quietness and NVML helpers are repaired** (D650); targeted real replay of that path remains pending.
 - **No periodic backup.** Take one at the end of each phase with `kta store backup ~/kta/backups/<ts>` and pull it to the Mac.

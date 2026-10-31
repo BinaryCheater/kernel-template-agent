@@ -1,8 +1,14 @@
 # SYSDEBUG-1 initial debug checkpoint
 
-Date: 2026-10-31 (Asia/Singapore). Branch `sysdebug/1`.
+Date: 2026-11-01 (Asia/Singapore). Branch `sysdebug/1`.
 
-**Current scope (user clarification): system-function debugging, parameter-taskbook review and workflow supervision.** The previous GEMM loop is paused and blocked; no golden-path success, completed calibration or research acceptance is claimed. Source `487a1b8` is deployed; no AgentRun exists. Functional controls v3: shortlist 8, 4 measured points including 1 random, solver 10 s. The taskbook now prioritises lifecycle rehearsal, separates tolerance meanings and correctly requires S3 for learning/summarization.
+**Automated rehearsal update (2026-11-01):** task/tool contracts now use a versioned codex-v3 profile; actual task use is charged with replay-safe receipts, API tool-call caps are enforced, and T4 verification uses candidate-aligned frozen holdout data rather than visible training data. A missing holdout holds one task without starving the ready queue. Targeted repair tests passed before the final batch gate (769 non-GPU tests, 36 contracts; 23 pass / 1 warn / 0 fail). Main deployment and worker commits match; API/frontend are healthy. No kernel source or numeric tolerance changed.
+
+In dev/SYSDEBUG1_AUTO, real T3 tasks passed acceptance, rejection/escalation, correction/retry and cancellation rehearsals; a real Executor job was cancelled and its successor succeeded. Two bounded Codex tasks were accepted in 46.918 s and 33.078 s, the second resuming the first session. Saved archives contain tool events and no credential files. Reports `a8229fef…`, `1ccb99b6…`; evidence is in SYSDEBUG1_AUTO.evidence.json. The isolated environment ended at S0 with no task in flight. Its Mac snapshot is verified (database hash plus 99/99 objects).
+
+Agent use: four runtime attempts total. The inherited gpt-5.4 default was rejected by the account; gpt-6.1-sol then exposed an incompatible forced legacy sandbox mode. The final two gpt-6.1-sol / low-effort calls succeeded under native bubblewrap with no sandbox bypass or system changes. No new construction subagents were started for this automated batch. Model choice here tests workflow, not relative model quality. Real session token totals are cumulative on resume and tool_s remains uncalibrated; do not use these fields for per-task cost comparison.
+
+**Current scope (user clarification): system-function debugging, parameter-taskbook review and workflow supervision.** The previous GEMM loop is paused and blocked; no golden-path success, completed calibration or research acceptance is claimed. Source `e71d105` is deployed. Real AgentRuns now exist in the isolated SYSDEBUG1_AUTO test namespace; the main SYSDEBUG1 stage remains S0. Functional controls v3: shortlist 8, 4 measured points including 1 random, solver 10 s. The taskbook now prioritises lifecycle rehearsal, separates tolerance meanings and correctly requires S3 for learning/summarization.
 
 System repairs since the historical checkpoint: current-round baseline identity/quietness; C/Gamma gates for control arms; per-shape current-loop evidence; failed compiler output archived without JSON masking; evaluation checkpoints and cooperative pause between candidates; protocol pinned within each measurement round; preserved progress on block; loop/state trace propagation and truthful failed spans; visible blocked/paused Case state. The numeric prototype made during the earlier diagnostic detour was not adopted. No kernel source or numeric tolerance was changed.
 
@@ -43,7 +49,7 @@ Provider follow-up: Settings probes the actual agent host through Executor, reso
 - The original rated-maximum clock rejection was repaired by the observed within-window span policy; targeted library-baseline and interruption replay remain pending.
 - C1-MEM lacks compile/check peak RSS, a measured GPU peak and a defined margin. Existing caps remain labelled defaults.
 - Profile stores numeric metrics without their CSV units/availability. The real CSV supplies ns for duration and `n/a` for DRAM. Profiler access is verified; full metric coverage is not.
-- No completed active-agent X6 arm, accepted Measurement, calibrated HwModel, S0 GapDecomposition or real AgentRun exists. Native login reuse by symlink is now verified; no model request has been made.
+- Active-agent noise, spread-validated hardware interference and memory headroom remain pending. Idle noise and initial hardware peaks have real evidence; the full S0 measurement/gap/routing path is incomplete. Real agent start/resume is now verified separately in SYSDEBUG1_AUTO.
 - Proof counterexamples and unsupported proof levels remain as WP24 expected. Seed GEMM candidates would be exploration; proof execution exit 0 is not assurance.
 - Calibration reasons are reachable through Record drawers but are raw JSON; there is no dedicated calibration summary page or `measurement_interfered` Inbox trigger. Cards supply the readable summary for the joint walkthrough.
 - Reproduction/ablation and the Phase-3 prerequisites are still separate work. No attempt was made to bypass them.
@@ -51,14 +57,14 @@ Provider follow-up: Settings probes the actual agent host through Executor, reso
 
 ## New decisions
 
-Current follow-up: D655 (native provider reuse), D656 (harness version as provenance).
+Current follow-up: D655–D659 (provider reuse, harness provenance, actual-use accounting, holdout and versioned runtime contracts).
 
 D645 (Docker GPU request), D646 (stored measurement controls), D647 (deployment source links), D648 (system diagnostics label scope). All are local reversible implementation repairs; no spec interface or acceptance criterion changed.
 
 ## Needed changes
 
 - Finish targeted lifecycle/measurement replays and calibrate the named research thresholds; functional repairs do not establish calibration.
-- Before S1, align task output/tool contracts, settle actual resource use and repair the claimed model holdout. These backend audit findings remain open.
+- Contracts, settlement and independent holdout guards are repaired. Before broad GPU/agent trials, replay T1/T6 build/check tasks, whole-loop interruption/recovery and the library-baseline quiet path. GPU in-flight budget exhaustion remains unverified.
 - Check one proof counterexample and one rejected timing in the frontend, then review the remaining cards. The user owns any C-level method or stage decision.
 - No changes to other module interfaces were made. Corrected runbook CLI syntax for backend self-tests, solve-loop advancement and profile approval.
 
@@ -78,6 +84,37 @@ Verified Mac copy: `/Users/dingyi/kta-backups/spark-hk/SYSDEBUG1-20261031/handof
 - The remote store and services remain live. No periodic backup was scheduled.
 
 ## Gate output
+
+Latest automated batch, source `e71d105`, Report `806284ab…` in SYSDEBUG1_AUTO:
+
+```
+gate WP24 --stage code: PASSED (23 pass, 1 warn, 0 fail)
+  PASS ruff format
+  PASS ruff check
+  PASS import layers
+  PASS residue
+  PASS test doubles
+  PASS error handling
+  PASS print
+  PASS subprocess outside Executor
+  PASS secrets
+  PASS acceptance lock — 7 locked files unchanged
+  PASS pyright
+  PASS unit tests — 769 passed
+  PASS contract tests — 36 passed
+  PASS fake coverage — 2 fake(s) covered
+  PASS registry (kta doctor, dev)
+  PASS delivery note
+  PASS fixture declarations — 1 declared
+  PASS decision log — 497 decisions
+  PASS skipped tests — none
+  PASS evidence — 5 claim(s)
+  PASS WP24 tests — 16 named tests passed
+  PASS WP24 spec, seed and pages — spec, z3 lock, seed outlines, pages
+  PASS web build — tsc + vite build of HEAD in a clean directory
+  WARN WP24 real checker runs — pending real run (code stage): ProofSummary with a level and a caught proof_canary Report in dev/WP24 (clean commit)
+```
+
 
 Latest source `487a1b8`, Report `bdd8652e3f90470b17067576f5a96c2ca1f6f7e2f19e551ad8b7e34964fb681b` (code regression, not SYSDEBUG stage acceptance):
 
