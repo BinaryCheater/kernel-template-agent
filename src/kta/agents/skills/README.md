@@ -36,3 +36,5 @@ are in `codex-v2` (`kta.agents.profile.CODEX_V2`, D407); `codex-v1` is unchanged
 
 Editing a file here changes the hash: the change reaches workers only through a new
 profile version and a new batch.
+
+The `v3` directory holds versioned overrides for `use-kta`, `write-family`, `diagnose-model` and `write-microbench`. Profile codex-v3 selects these overrides; original v1/v2 skill assets stay unchanged.

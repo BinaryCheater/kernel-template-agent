@@ -229,3 +229,46 @@ def test_success_breaks_consecutive_failure_history() -> None:
         started_new=False,
     )
     assert after.failures == []
+
+
+def test_incomplete_model_task_does_not_stop_or_starve_the_agent_queue(svc: Services) -> None:
+    from kta.agents.profile import write_profile
+    from kta.cli.agent_runner import next_task
+    from kta.orchestrator import release
+    from kta.store import controls
+
+    snap = controls.ensure(svc.store, svc.ops, svc.ctx.clock.now())
+    controls.propose(
+        svc.store,
+        svc.ops,
+        {"release.stage": "S3"},
+        HUMAN,
+        "test scheduler",
+        svc.ctx.clock.now(),
+        snap.version_id,
+    )
+    profile = write_profile(svc.store, svc.ctx.clock.now(), CODEX_V3)
+    svc.ops.set_pointer("current_profile", None, profile)
+    q = _queue(svc)
+    ids, _ = model_inputs(svc)
+    bad = q.create(TaskRequest("T4", "no holdout", ids[:1]), None, "calibrate", priority=100)
+    good = q.create(TaskRequest("T3", "ready task", []), None, "calibrate", priority=1)
+    selected = next_task(q)
+    assert selected is not None and selected.id == good
+    reason = release.hold_reason(svc.ops, q.get(bad), q.controls())
+    assert reason is not None and "holdout" in reason
+    assert q.get(bad).attempts == 0
+
+
+def test_unattributed_native_cache_change_is_not_an_agent_write() -> None:
+    from kta.agents.compliance import from_report
+
+    findings = from_report(
+        {
+            "watch_changed": ["/home/user/.codex/models_cache.json", "/tmp/other"],
+            "exit": "ok",
+            "notes_changed": True,
+        },
+        notes_required=True,
+    )
+    assert len(findings) == 1 and "/tmp/other" in findings[0]["detail"]

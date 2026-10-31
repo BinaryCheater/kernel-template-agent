@@ -13,7 +13,7 @@ import re
 import shlex
 from collections import Counter
 from collections.abc import Iterable
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 from kta.agents.base import AgentEvent
@@ -129,6 +129,12 @@ def from_events(
 def from_report(report: dict[str, Any], notes_required: bool) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
     for path in report.get("watch_changed") or []:
+        watched = Path(path)
+        if watched.name == "models_cache.json" and watched.parent.name == ".codex":
+            # A shared CLI/daemon can refresh this cache concurrently. An mtime
+            # snapshot cannot attribute that write to this agent's commands.
+            # Confirmed out-of-workspace commands are still checked in from_events.
+            continue
         out.append(
             {
                 "kind": "write_outside_workspace",

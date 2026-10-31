@@ -32,6 +32,7 @@ from kta.core.schemas.process import TaskCard
 from kta.core.sysconfig import load as load_system
 from kta.orchestrator import control, processes, release
 from kta.orchestrator.budget import BudgetRefused
+from kta.orchestrator.model_checks import holdout
 from kta.orchestrator.pipeline import Services
 from kta.orchestrator.quotas import order_queued
 from kta.orchestrator.tasks import UNASSIGNED_PROFILE, TaskQueue
@@ -53,14 +54,24 @@ def next_task(q: TaskQueue) -> Task | None:
         queued, lambda t: str(q.info(t.id).get("process", "solve")), q.ops, controls
     )
     return next(
-        (
-            t
-            for t in ordered
-            if q.card(t).profile != UNASSIGNED_PROFILE
-            and release.hold_reason(q.ops, t, controls) is None
-        ),
+        (t for t in ordered if _prepared(q, t) and release.hold_reason(q.ops, t, controls) is None),
         None,
     )
+
+
+def _prepared(q: TaskQueue, task: Task) -> bool:
+    card = q.card(task)
+    if card.profile == UNASSIGNED_PROFILE:
+        return False
+    if card.type == "T4" and card.inputs:
+        try:
+            holdout(q.store, task.card_id)
+        except KtaError as exc:
+            reason = str(exc)
+            if q.info(task.id).get("agent_hold") != reason:
+                q.annotate(task.id, agent_hold=reason)
+            return False
+    return True
 
 
 class TrackingRunner:

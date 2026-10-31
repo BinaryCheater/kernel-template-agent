@@ -454,6 +454,9 @@ def _record(
     if state is not None and state.runs:
         refs["previous"] = state.runs[-1]
     blobs = {"prompt": deps.runner.put_blob(prompt.encode("utf-8"), "text/markdown")}
+    blobs["launch_report"] = deps.runner.put_blob(
+        json.dumps(launch.report, sort_keys=True).encode(), "application/json"
+    )  # retain raw watch observations even when they cannot be attributed as violations
     blobs.update(
         {k: v for k, v in (("stdout", launch.stdout), ("workspace", launch.workspace)) if v}
     )
