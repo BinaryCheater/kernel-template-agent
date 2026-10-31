@@ -10,9 +10,11 @@ Kept apart from specific.py (500-line limit); registered there.
 - The worker skill ``use-kta`` carries the access-discipline table rendered from
   ``core/access_discipline.yaml`` for the version the registry knob names.
 - The FormulationPlan and Pull kinds are registered; spec sections exist.
+- The MIP <-> L2 consistency check passes on the GEMM seed family and fails, naming the
+  effect, on the wrong-reservation-table fixture (named tests); its thresholds are the
+  registry knob ``model.mip_l2_check`` set by X11 (D551).
 
-No real-run check: WP19 is a code-stage WP (D320). The MIP <-> L2 consistency check waits
-for WP16 (D548) and is a WARN until then.
+No real-run check: WP19 is a code-stage WP (D320).
 """
 
 from __future__ import annotations
@@ -34,6 +36,8 @@ WP19_TESTS = (
     "test_task_md_starts_with_the_header",
     "test_pull_log_written_for_a_task_and_shown_on_release",
     "test_solve_selects_the_projection_arm",
+    "test_mip_l2_check_passes_on_the_gemm_seed_family",
+    "test_mip_l2_check_fails_naming_a_wrong_reservation_table",
 )
 SKILL = Path("src") / "kta" / "agents" / "skills" / "use-kta" / "SKILL.md"
 
@@ -74,9 +78,17 @@ def wp19(root: Path, passed: set[str]) -> list[CheckResult]:
         from_findings("WP19 tests", absent, f"{len(WP19_TESTS)} named tests passed"),
         from_findings("access discipline in the skill", _skill(root), "use-kta carries v1"),
         from_findings("WP19 kinds and spec", _kinds_and_spec(root), "kinds and sections exist"),
-        CheckResult(
-            "MIP <-> L2 consistency check",
-            "WARN",
-            "pending WP16 merge (D548): kta.solve.projection.consistency_check is the hook",
-        ),
+        from_findings("MIP <-> L2 thresholds set by X11", _x11(), "model.mip_l2_check in X11 sets"),
     ]
+
+
+def _x11() -> list[str]:
+    from kta.core.controls import definitions
+
+    defs = definitions()
+    knob = next((k for k in defs.knobs if k.id == "model.mip_l2_check"), None)
+    x11 = next((e for e in defs.experiments if e.id == "X11"), None)
+    if knob is None or x11 is None:
+        return ["knob model.mip_l2_check or experiment X11 is missing"]
+    bad = [] if "X11" in knob.set_by else ["model.mip_l2_check is not set_by X11"]
+    return bad + ([] if knob.id in x11.sets else ["X11 does not list model.mip_l2_check in sets"])

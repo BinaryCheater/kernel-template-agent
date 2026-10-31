@@ -139,9 +139,9 @@ experiments:
     design: sampled subspace of the GEMM family; distribution of rank correlation and of optimistic-bound violations
     arms: [GEMM family subspace sample]
     metrics: [rank correlation MIP vs L2, share of points where MIP > L2]
-    sets: []
+    sets: [model.mip_l2_check]
     profile_fields: []
-    sets_elsewhere: [MIP ↔ L2 check thresholds (registry knobs added by WP19 with the check)]
+    sets_elsewhere: []
     depends_on: [WP19 projection compiler, WP16 L2 simulator]
     step: 2
     method: run

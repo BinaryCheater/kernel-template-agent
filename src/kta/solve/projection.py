@@ -29,7 +29,7 @@ here so that the agent writes none of it:
 Efficiencies and interaction terms are relaxed (eff = 1, gamma dropped): the objective
 is L1's projection at peak, a lower bound of L1. ``projection_us`` recomputes it at a point
 (translation correctness is the compiler's, 02 §5.2). The MIP <-> L2 consistency check
-hooks in at ``consistency_check`` once WP16's simulator merges.
+is ``kta.solve.consistency`` (WP16's simulator on the other side).
 """
 
 from __future__ import annotations
@@ -689,10 +689,3 @@ def projection_us(
     compiled MIP's objective equals there (translation correctness)."""
     parts = price_parts(evaluate_effects(f, assignment, shape, mm.hw), mm)[0]
     return compose(parts).total_us
-
-
-def consistency_check(*_: Any, **__: Any) -> Any:
-    """MIP <-> L2 check (02 §5.2, WP17): sample the subspace, evaluate the projection and
-    L2, require rank correlation >= a registry threshold and MIP <= L2 on nearly all
-    points, and name the effect with the largest deviation. It needs WP16's simulator."""
-    raise NotSupported("the MIP <-> L2 consistency check needs the WP16 L2 simulator")

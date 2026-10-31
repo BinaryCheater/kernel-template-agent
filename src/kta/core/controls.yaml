@@ -1068,3 +1068,20 @@ knobs:
     editable: true
     accessor: task_header_max_lines
     consumer: kta.orchestrator.access.task_header (max_lines)
+
+  - id: model.mip_l2_check
+    row: MIP ↔ L2 check thresholds
+    section: "12 §7"
+    controls: the projection passes when Spearman rho(MIP, L2) >= rank_min and MIP > L2 on at most violation_max of the sampled feasible points (samples per shape)
+    type: mapping
+    fields: {rank_min: float, violation_max: float, samples: int}
+    value: {rank_min: 0.5, violation_max: 0.05, samples: 128}
+    min: 0
+    prevents: a projection that misranks or overestimates steering the solver unchecked
+    where: [orch]
+    status: default
+    source: "02 §5.2 (WP19 D551)"
+    set_by: [X11]
+    editable: true
+    accessor: mip_l2_check
+    consumer: kta.solve.consistency.consistency_check (rank_min, violation_max, samples)

@@ -252,3 +252,8 @@ Code stage (D320): no real runs, no experiments. Branch `wp/WP19`; decisions D54
 - Every `kta show/card/why/query` of a worker writes a Pull record.
 - TaskCard is schema 2 (optional `header`); old cards read unchanged.
 - `use-kta` changed, so its skill hash changes: the next approved AgentProfile carries the new version.
+
+## 2026-10-31: WP19 follow-up — the MIP ↔ L2 consistency check (WP17 part, after WP16)
+
+Branch `wp/WP19-check` from `integration`; decision D551 (supersedes D548). Closes D-T4 (code stage): `solve/consistency.py` compares the compiled projection with WP16's L2 on sampled feasible points (Spearman ρ, optimistic-bound share) and names the deviating effect. Knob `model.mip_l2_check` (12 §7, set by X11; X11 `sets` now lists it). On the GEMM seed: ρ 0.52–0.54, no violation; a fixture with a wrong reservation table (4× tensor per mma) fails naming `mma.mma`.
+
