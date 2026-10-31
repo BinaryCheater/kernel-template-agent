@@ -97,6 +97,18 @@ class Settings:
     task_steps: int
     solve_time_limit_s: float
     epsilon_rel: float  # expand: reproduction error allowed
+    # WP18 loop disciplines and routing (12 §3, §4)
+    improvement_band: Mapping[str, Any]  # use_measurement_ci, rel_of_t
+    mechanism_attribution: bool
+    null_round_limit: int
+    one_mechanism: int
+    exploration_k: int  # of top_k measured points, chosen at random (the random arm)
+    duplicate_rejection: bool
+    selection_controls: bool
+    accept: Mapping[str, Any]
+    case_to_knowledge: Mapping[str, Any]
+    to_user: Mapping[str, bool]
+    canary: Mapping[str, Any]
     controls: str | None = None
 
     @classmethod
@@ -123,6 +135,17 @@ class Settings:
             task_steps=c.tool_call_steps,
             solve_time_limit_s=c.solve_time_limit_s,
             epsilon_rel=c.reproduction_epsilon,
+            improvement_band=c.improvement_band,
+            mechanism_attribution=c.mechanism_attribution,
+            null_round_limit=c.null_round_limit,
+            one_mechanism=c.one_mechanism_per_round,
+            exploration_k=c.exploration_share["exploration_points"],
+            duplicate_rejection=c.duplicate_proposal_rejection,
+            selection_controls=c.selection_controls,
+            accept=c.accept,
+            case_to_knowledge=c.case_to_knowledge,
+            to_user=c.to_user,
+            canary=c.canary_rate,
             controls=c.version_id,
         )
 

@@ -35,6 +35,12 @@ Deterministic loops (solve, expand, learn, calibrate, maintain, experiment, summ
 - `Settings.of(controls)` replaces `Settings.from_config`; the runner and the task queue read the controls in force at each step (`kta.store.controls.ensure`) and record the version (loop data `controls`, TaskCard `refs.controls`).
 - `stages.yaml` + `release.py`: S0–S4; processes outside the stage skip ticks; the agent pool starts only admitted tasks; in S1 each attempt waits for a release.
 
+## Gap decomposition and routing (WP18)
+
+- `gap.py` + `routing.yaml`: per-round decomposition `T_meas − T_SOL = ε + δ + Δpre + L_rep + irreducible`, attribution order and the versioned routing table; `judge` writes a GapDecomposition per round (rules 1–6, terminal `closed`).
+- `disciplines.py`: mechanisms per round, credit beyond the band, null rounds, rollback to the incumbent. `canary.py`: planted faults per summarize batch. Selection arms in `solve_work.selection_arms`; duplicate submissions in `TaskQueue.check`.
+- See spec/modules/orchestrator-cli.md "WP18".
+
 ## Dependencies
 
 - May import: `core`, `store`, `targets`, `execution`, `backends`, `knowledge`, `models`, `measure`, `formulation`, `checks`, `solve`.

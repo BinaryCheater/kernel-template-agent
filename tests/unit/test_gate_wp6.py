@@ -10,7 +10,7 @@ import yaml
 from kta.core.config import repo_root
 from kta_gate.specific import WP6_MACHINES, WP6_TESTS, wp6
 
-RULE_TESTS = {f"test_judging_rule_{n}_x" for n in (1, 2, 3, 4)}
+RULE_TESTS = {f"test_judging_rule_{n}_x" for n in (1, 2, 3, 4, 5, 6)}
 PASSED = {f"tests.unit.test_orchestrator_step::{t}" for t in (*WP6_TESTS, *RULE_TESTS)}
 
 
@@ -35,7 +35,7 @@ def test_gate_wp6_fails_when_a_new_rule_appears(tmp_path: Path) -> None:
     root = _root(tmp_path)
     doc = yaml.safe_load((root / WP6_MACHINES).read_text(encoding="utf-8"))
     solve = next(m for m in doc["machines"] if m["id"] == "solve")
-    solve["transitions"].append({"from": "judging", "to": "accepted", "kind": "normal", "rule": 5})
+    solve["transitions"].append({"from": "judging", "to": "accepted", "kind": "normal", "rule": 7})
     (root / WP6_MACHINES).write_text(yaml.safe_dump(doc), encoding="utf-8")
     assert wp6(root, PASSED)[1].status == "FAIL"
 

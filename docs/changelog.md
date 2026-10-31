@@ -198,3 +198,29 @@ Code stage (D320): no real runs, no experiments. Branch `wp/WP16`; decisions D50
 ### Pending real runs
 
 The L3 simulator job on a CPU worker; the first measured RegressionSet and ModelVersion scored with L2; see `deliveries/WP16.md`.
+
+## Merged work package: WP18 gap decomposition, routing and loop disciplines
+
+Code stage (D320): no real runs, no experiments. Branch `wp/WP18`; decisions D520–D530.
+
+### Closes
+
+| Item | How |
+| --- | --- |
+| R6, E3 | per-round GapDecomposition record (`T_meas − T_SOL = ε + δ + Δpre + L_rep + irreducible`, attribution order D-T6, SOL bounds L_rep) and the versioned routing table `orchestrator/routing.yaml` replacing judging rules 1–4 with class routes (rules 1–6, terminal `closed`) |
+| E4, D-T13 | selection controls per solve: model points, random arm (exploration share) and copied assignment measured and recorded per bucket |
+| E6, D-T17 (canaries) | planted faults per summarize batch, rotating kinds; a missed canary is an inbox item |
+| D-T6, D-T11, D-T12 | attribution order; SOL as stopping criterion and L_rep bound; one mechanism per round (coupled groups once), hold-out with rollback, exploration budget |
+
+02 sections implemented: §1 P1, P6, P7; §6.1 (case-loop round: residual against SOL → attribute → one change → re-verify, else roll back); §9 (improvement band, null rounds, accept, escalation). 12 §3 and §4 knobs now consumed: improvement band, mechanism attribution, null-round limit, one mechanism per round, exploration share, duplicate-proposal rejection, selection controls, canary rate, accept, escalate case → knowledge, escalate → user (canary).
+
+### Behaviour that changes at merge
+
+- Judging accepts by 12 §4 (`escalation.accept`), not by `judging.explained_min`; a case without a reference accepts only near SOL (D522).
+- Of the 8 measured points per bucket, 2 are random feasible points and one more may be a copied assignment (D524).
+- An identical resubmission after a rejection is rejected without checks (D529).
+- New terminal solve state `closed`; the frontend counts it as finished.
+
+### Owed
+
+- WP19: `relaxed_pred_us` per bucket (model optimum with the plan's fixed variables opened) so Δpre is assessed. Not done here: level choice (`escalation.level_choice`), the template-assurance refusal, the budget reminder message to the agent.

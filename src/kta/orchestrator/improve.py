@@ -32,6 +32,7 @@ from typing import TYPE_CHECKING, Any
 from kta.core.ids import record_id
 from kta.core.schemas import Actor, Record
 from kta.core.schemas.process import Report
+from kta.orchestrator import canary
 from kta.orchestrator.pipeline import Services
 from kta.orchestrator.transition import TaskRequest
 
@@ -62,21 +63,57 @@ def collect(svc: Services, since: datetime | None, until: datetime) -> dict[str,
         for j in svc.store.query("Report", {"title": "judgement"}, order="created_at", limit=10000)
         if _in(j, since, until)
     ]
+    decs = [
+        d
+        for d in svc.store.query("GapDecomposition", None, order="created_at", limit=10000)
+        if _in(d, since, until)
+    ]
     count: Counter[str] = Counter({c: 0 for c in CLASSES})
     loss: dict[str, float] = {}
+    cases: dict[str, set[str]] = {}
     for g in gaps:
         count[str(g.body["attribution"])] += 1
+    for d in decs:  # WP18: the round's routed class (routing.yaml `improve`)
+        cls = str(d.body["route"].get("improve", "none"))
+        if cls == "none":
+            continue
+        count[cls] += 1
+        loss[cls] = loss.get(cls, 0.0) + _loss(d.body)
+        cases.setdefault(cls, set()).add(str(d.refs.get("case")))
+        if d.body["route"].get("escalate") == "knowledge":
+            cases.setdefault("escalated:" + cls, set()).add(str(d.refs.get("case")))
     for j in judgements:
+        if "gap_class" in j.body["data"]:  # counted through its GapDecomposition
+            continue
         cls = RULE_CLASS.get(int(j.body["data"].get("rule", 0)))
         if cls is None:
             continue
         count[cls] += 1
         loss[cls] = loss.get(cls, 0.0) + 1.0 - float(j.body["data"].get("explained_share", 0.0))
-    return {"gaps": gaps, "judgements": judgements, "count": dict(count), "loss": loss}
+    return {
+        "gaps": gaps,
+        "judgements": judgements,
+        "decompositions": decs,
+        "count": dict(count),
+        "loss": loss,
+        "cases": {k: sorted(v) for k, v in cases.items()},
+    }
+
+
+def _loss(body: dict[str, Any]) -> float:
+    """Share of T the routed class's term takes, averaged over buckets (1 for checks)."""
+    name = str(body["route"].get("name"))
+    shares = [
+        abs(float(b["terms"][name]["us"] or 0.0)) / float(b["t_meas_us"])
+        for b in body["buckets"]
+        if name in b.get("terms", {}) and float(b.get("t_meas_us") or 0.0) > 0
+    ]
+    return sum(shares) / len(shares) if shares else 1.0
 
 
 def _items(runner: Runner, batch: str, found: dict[str, Any]) -> list[dict[str, Any]]:
     items: list[dict[str, Any]] = []
+    same_cases = runner.settings.case_to_knowledge["same_residual_cases"]
     for cls, n in sorted(found["count"].items()):
         if not n:
             continue
@@ -91,6 +128,11 @@ def _items(runner: Runner, batch: str, found: dict[str, Any]) -> list[dict[str, 
             "loss": found["loss"].get(cls, 0.0),
             "tasks": [],
         }
+        many = len(found["cases"].get(cls, ())) >= int(same_cases)
+        if many or found["cases"].get("escalated:" + cls):
+            # 12 §4 escalate case -> knowledge: the knowledge loop owns this class now.
+            item["escalate"] = "knowledge"
+            item["cases"] = found["cases"].get(cls, [])
         if cls == "model":
             item["description"] = "model error: the calibrate process creates T4 diagnoses"
         elif kind == "knowledge":
@@ -120,6 +162,7 @@ def _t3s(runner: Runner, batch: str, found: dict[str, Any], cls: str) -> list[st
 def summarize(runner: Runner, batch: str, since: datetime | None, until: datetime) -> str:
     found = collect(runner.svc, since, until)
     items = _items(runner, batch, found)
+    canaries = canary.run(runner.svc, batch, found["decompositions"], runner.settings, until)
     body = Report(
         title=TITLE,
         subject=batch,
@@ -142,6 +185,10 @@ def summarize(runner: Runner, batch: str, since: datetime | None, until: datetim
         refs["gaps"] = [record_id(g) for g in found["gaps"]]
     if found["judgements"]:
         refs["judgements"] = [record_id(j) for j in found["judgements"]]
+    if found["decompositions"]:
+        refs["decompositions"] = [record_id(d) for d in found["decompositions"]]
+    if canaries:
+        refs["canaries"] = canaries
     tasks = [t for i in items for t in i["tasks"]]
     if tasks:
         body.data["tasks"] = tasks

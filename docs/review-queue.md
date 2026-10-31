@@ -767,3 +767,30 @@ Decisions made without the user that need review. Newest last. Each entry: quest
 - **Rationale:** a model version steers every case, so it should be stricter than the per-loop judging rule (0.5 / 0.3).
 - **Cost of changing later:** low: a controls version.
 
+## D520/D521 — Gap decomposition and the routing table (WP18)
+
+- **Question:** how `T_meas − T_SOL = ε + δ + Δpre + L_rep + irreducible` is computed from what the loop has, and how a class becomes the next action.
+- **Choice:** ε against the solver's best prediction; δ from the solve certificate (unbounded without one); Δpre and irreducible `not_assessed` until inputs exist; a versioned routing.yaml; escalating routes close the case (new terminal `closed`), and an uncertified solver escalates to you.
+- **Rationale:** every term is either computed or labelled, never silently zero; the routing is data, so changing it is a reviewed file version recorded with every round.
+- **Cost of changing later:** low: the table and the term formulas are local; stored decompositions keep the version they used.
+
+## D522/D523 — Accept rule (WP18)
+
+- **Question:** the 12 §4 accept rule needs a reference; what accepts a case with none, and what happens to `judging.explained_min`.
+- **Choice:** with no reference only a gap within the band of SOL accepts; "not worse" uses the band; `explained_min` is reported only.
+- **Rationale:** D-T11 makes SOL the stopping criterion; accepting a large known representational loss without a reference would stop where the gap is largest.
+- **Cost of changing later:** low: `escalation.accept.not_worse_than_strongest_reference: false` accepts on |ε| alone; the vacuous-reference reading is one line in `gap.accepts`. Behaviour change at merge: cases without a reference no longer accept at "80 % explained".
+
+## D524 — Selection controls as measured arms (WP18)
+
+- **Question:** what "model top-k vs copied assignment vs random k" measures and where the random points come from.
+- **Choice:** the exploration points are the random arm, drawn from the feasible space without the model; the copied arm is the newest Solution of the family on another case; both measured each round and recorded, not routed.
+- **Rationale:** one set of extra measurements serves both 12 §3 rows; drawing from the space (not the shortlist) tests the solver, not only the re-ranking.
+- **Cost of changing later:** low: `selection_arms` and `gap.selection`. GPU cost: 2 (+1) of 8 measured points per bucket per round.
+
+## D528 — Canaries (WP18)
+
+- **Question:** what a planted fault is at code stage and what counts as caught.
+- **Choice:** four faults on recorded decomposition inputs, one per batch, rotating; a miss is an inbox item until the kind is caught again.
+- **Rationale:** deterministic and cheap; it exercises exactly the decomposition and routing the case loop uses.
+- **Cost of changing later:** low to add kinds (routing.yaml + a `plant` key); a checker canary (planted wrong kernel) needs GPU runs and is listed as owed.

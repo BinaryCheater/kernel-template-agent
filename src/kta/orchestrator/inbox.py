@@ -12,7 +12,8 @@ from collections import Counter
 from dataclasses import asdict, dataclass
 from typing import Any
 
-from kta.orchestrator import budget
+from kta.core.ids import record_id
+from kta.orchestrator import budget, canary
 from kta.orchestrator.improve import pending_items
 from kta.orchestrator.pipeline import Services
 from kta.orchestrator.transition import Settings
@@ -64,7 +65,7 @@ def _loops(svc: Services) -> list[Item]:
     out: list[Item] = []
     for row in svc.ops.list_loops():
         d, name = row["data"], str(row["data"].get("name", row["subject"]))
-        if d.get("escalated"):
+        if d.get("escalated") in (True, "user"):  # "knowledge" goes to the summarize process
             out.append(
                 Item(
                     f"loop:{row['id']}",
@@ -174,6 +175,22 @@ def inbox(svc: Services) -> list[Item]:
         *_model_error(svc),
         *_budgets(svc),
         *_improvements(svc),
+        *_canaries(svc),
+    ]
+
+
+def _canaries(svc: Services) -> list[Item]:
+    """Missed canaries (12 §4 escalate -> user) until the kind is caught again."""
+    return [
+        Item(
+            f"canary:{r.body['data']['kind']}",
+            "canary_missed",
+            f"{r.body['data']['kind']}: expected {r.body['data']['expect']}, "
+            f"got {r.body['data'].get('got')}",
+            "Fix the decomposition or routing table, then wait for the next batch",
+            record_id(r),
+        )
+        for r in canary.missed(svc)
     ]
 
 

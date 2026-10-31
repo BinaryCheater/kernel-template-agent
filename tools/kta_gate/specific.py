@@ -34,6 +34,7 @@ from kta_gate.specific_wp11 import wp11
 from kta_gate.specific_wp14 import wp14
 from kta_gate.specific_wp15 import wp15
 from kta_gate.specific_wp16 import wp16
+from kta_gate.specific_wp18 import wp18
 from kta_gate.specific_wp20 import wp20
 from kta_gate.specific_wp21 import wp21
 
@@ -643,7 +644,7 @@ WP9A_TESTS = (
     "test_trace_window_includes_spans_started_before_it",
     "test_app_serves_every_spec_read_endpoint",
     "test_machine_is_well_formed[solve]",
-    "test_judging_rules_are_ordered_one_to_four",
+    "test_judging_rules_are_ordered_one_to_six",
 )
 WEB_FIXTURE = re.compile(r"kta:fixture|SAMPLE DATA")
 
@@ -732,6 +733,7 @@ SPECIFIC: dict[str, Callable[[Path, set[str]], list[CheckResult]]] = {
     "WP14": wp14,
     "WP15": wp15,
     "WP16": wp16,
+    "WP18": wp18,
     "WP21": wp21,
     "WP20": wp20,
 }

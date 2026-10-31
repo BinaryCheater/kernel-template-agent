@@ -1,0 +1,17 @@
+[
+  {
+    "claim": "Code stage (D320): the WP18 unit tests and the updated orchestrator tests pass on the control host. They show the per-round GapDecomposition (terms sum to the gap, SOL bounds L_rep, unassessed terms labelled, MIP gap bounds delta); the attribution order and versioned routing table replacing judging rules 1-4 (rules 5 and 6 close the case); the O5 fault-injection harness (degraded model -> epsilon, deleted template -> L_rep, capped solver -> delta, failed check -> correctness); the 12 §4 accept rule and escalations read from the controls registry; mechanism attribution with coupled groups, credit beyond the band, null rounds and rollback; random and copied selection arms; duplicate-submission rejection; canaries caught, missed (inbox) and no-base. Unit runs only; no GPU job and no store record (real runs paused, D320)",
+    "command": "uv run --frozen pytest -v tests/unit/test_wp18_gaps.py tests/unit/test_orchestrator_step.py tests/unit/test_orchestrator_machines.py tests/unit/test_gate_wp6.py tests/unit/test_orchestrator_wiring.py tests/unit/test_wp11_processes.py",
+    "git_commit": "28ad83d4ecc5ce61956947243f355b269f72d729",
+    "dirty": false,
+    "env": "dev",
+    "control_host": "Mac.lan",
+    "workers": [],
+    "record_ids": [],
+    "blob_ids": [],
+    "env_manifests": [],
+    "started_at": "2026-10-31T00:35:20Z",
+    "requires_gpu": false,
+    "output": "Mac.lan:~/kta-data/dev/WP18/evidence/pytest-28ad83d.txt"
+  }
+]

@@ -21,12 +21,21 @@ from kta.core.schemas.evaluation import Bound, Build, Measurement, Prediction
 from kta.core.schemas.evaluation import Candidate as CandidateBody
 from kta.formulation import assemble
 from kta.knowledge import nearest_chains, retrieve_families, retrieve_templates, reuse_plan
+from kta.knowledge.findings import couplings
 from kta.measure.baseline import measure_baseline
 from kta.models import bound, min_work
-from kta.orchestrator import pipeline
+from kta.orchestrator import disciplines, pipeline
 from kta.orchestrator.pipeline import Services, bucket_shape, case_view
 from kta.orchestrator.transition import Loop, Settings
-from kta.solve import Candidate, rerank, shape_buckets, solve
+from kta.solve import (
+    EXHAUSTIVE_LIMIT,
+    Candidate,
+    enumerate_space,
+    rerank,
+    shape_buckets,
+    solve,
+    space_size,
+)
 from kta.solve.records import record_solve
 
 ACTOR = Actor(type="tool", name="kta.orchestrator.solve_work")
@@ -125,7 +134,10 @@ def work_retrieving(svc: Services, loop: Loop) -> Facts:
 
     fams = allowed(retrieve_families(svc.store, cv.case, k=20, hw=hw.limits))[:5]
     if fams:
-        return {"families": [c.id for c in fams]}
+        ids = [c.id for c in fams]
+        # Rollback (D527): the incumbent's family goes first while it is still retrievable.
+        prefer = loop.data.get("prefer_family")
+        return {"families": sorted(ids, key=lambda i: i != prefer)}
     chains = allowed(nearest_chains(svc.store, cv.case, k=10))[:3]
     data: dict[str, Any] = {"nearest_chains": [asdict(c) for c in chains]}
     inputs = [cv.id]
@@ -160,7 +172,10 @@ def work_solving(svc: Services, loop: Loop) -> Facts:
     fp = pipeline.family_package(svc, family)
     f = assemble(fp, fp.chain, pipeline.templates_of(svc.store, fp), cv.case, hw.hw)
     out: dict[str, list[str]] = {}
+    solver: dict[str, dict[str, Any]] = {}
+    arms: dict[str, dict[str, list[str]]] = {}
     for b in loop.data["buckets"]:
+        rng = svc.ctx.rng(f"solve:{loop.id}")
         res = solve(
             f,
             cv.case,
@@ -169,10 +184,21 @@ def work_solving(svc: Services, loop: Loop) -> Facts:
             hw,
             shortlist=s.shortlist,
             time_limit_s=s.solve_time_limit_s,
-            rng=svc.ctx.rng(f"solve:{loop.id}"),
+            rng=rng,
         )
         recs = record_solve(svc.ctx, svc.store, res, ACTOR, cv.id, family, hw_id, model_id)
-        out[str(b["name"])] = recs.candidates
+        name = str(b["name"])
+        out[name] = recs.candidates
+        solver[name] = {
+            "method": res.method,
+            "model_optimal": res.model_optimal,
+            "exhaustive": res.exhaustive,
+            "mip_gap": res.mip_gap,
+            "top_pred_us": res.candidates[0].prediction.total if res.candidates else None,
+            "report": recs.report,
+        }
+        if recs.candidates:
+            arms[name] = selection_arms(svc, loop, s, f, hw, b, family, cv.id)
     empty = [name for name, ids in out.items() if not ids]
     return {
         "candidates": out,
@@ -180,7 +206,50 @@ def work_solving(svc: Services, loop: Loop) -> Facts:
         "families_tried": [family],
         "family": family,
         "model": model_id,
+        "solver": solver,
+        "arms": arms,
     }
+
+
+def selection_arms(
+    svc: Services, loop: Loop, s: Settings, f: Any, hw: Any, b: Any, family: str, case: str
+) -> dict[str, list[str]]:
+    """Candidate records of the control arms (12 §3 selection controls and exploration
+    share, D524): ``random`` = exploration_k feasible points drawn uniformly by reservoir
+    sampling over the enumerated space, chosen without the model; ``copied`` = the
+    assignment of the newest Solution of this family on another case."""
+    shape = bucket_shape(b)
+    rng = svc.ctx.rng(f"explore:{loop.id}:{b['name']}")
+    picked: list[dict[str, Any]] = []
+    seen = [0]
+
+    def visit(a: dict[str, Any]) -> None:
+        seen[0] += 1
+        if len(picked) < s.exploration_k:
+            picked.append(dict(a))
+        else:
+            j = rng.randrange(seen[0])
+            if j < s.exploration_k:
+                picked[j] = dict(a)
+
+    if s.exploration_k:
+        limit = None if space_size(f) < EXHAUSTIVE_LIMIT else EXHAUSTIVE_LIMIT
+        enumerate_space(f, shape, hw.hw, visit, max_nodes=limit, rng=rng)
+    now, refs = svc.ctx.clock.now(), {"case": case, "family": family}
+
+    def put(a: dict[str, Any], extra: Mapping[str, str]) -> str:
+        body = CandidateBody(assignment=a, bucket=str(b["name"]))
+        return svc.store.put(Record.new("Candidate", body, ACTOR, now, refs={**refs, **extra}))
+
+    arms = {"random": [put(a, {}) for a in picked], "copied": []}
+    if s.selection_controls:
+        sols = svc.store.query("Solution", {"refs.family": family}, order="-created_at", limit=50)
+        for sol in sols:
+            if sol.refs.get("case") != case:
+                origin = {"copied_from": record_id(sol)}
+                arms["copied"] = [put(dict(sol.body["assignment"]), origin)]
+                break
+    return arms
 
 
 def _candidate(svc: Services, cand_id: str) -> Candidate:
@@ -208,6 +277,8 @@ def work_building(svc: Services, loop: Loop) -> Facts:
     fp = pipeline.family_package(svc, family)
     top: dict[str, list[str]] = {}
     builds: dict[str, str] = {}
+    arms: dict[str, dict[str, str]] = {}
+    controls: Mapping[str, Mapping[str, list[str]]] = loop.data.get("arms") or {}
     for name, ids in loop.data["candidates"].items():
         shape = bucket_shape(_bucket(loop, name))
         cands = {cid: _candidate(svc, cid) for cid in ids}
@@ -218,9 +289,21 @@ def work_building(svc: Services, loop: Loop) -> Facts:
             by_key[c.key] = build
             if build.ok:
                 _sass(svc, loop, fp, module, c.assignment)
-        kept = {c.key for c in rerank(list(cands.values()), by_key, model, hw, k=s.top_k)}
+        extra = controls.get(name, {})
+        # The random arm takes exploration_k of the top_k measured points (12 §3).
+        k = s.top_k - len(extra.get("random", []))
+        kept = {c.key for c in rerank(list(cands.values()), by_key, model, hw, k=k)}
         top[name] = [cid for cid, c in cands.items() if c.key in kept]
-    return {"top": top, "builds": builds, "family": family}
+        arms[name] = {cid: "model" for cid in top[name]}
+        for arm, cids in extra.items():
+            for cid in cids:
+                a = CandidateBody.model_validate(svc.store.get(cid).body).assignment
+                build, module = pipeline.build(svc, pipeline.generate(fp, a, shape))
+                builds[cid] = module.build_id
+                if build.ok:
+                    top[name].append(cid)
+                    arms[name][cid] = arm
+    return {"top": top, "builds": builds, "family": family, "arm_of": arms}
 
 
 def _each_top(svc: Services, loop: Loop, fn: Callable[..., str]) -> dict[str, str]:
@@ -230,10 +313,10 @@ def _each_top(svc: Services, loop: Loop, fn: Callable[..., str]) -> dict[str, st
     for name, ids in loop.data["top"].items():
         shape = bucket_shape(_bucket(loop, name))
         for cid in ids:
-            c = _candidate(svc, cid)
-            gk = pipeline.generate(fp, c.assignment, shape)
+            a = CandidateBody.model_validate(svc.store.get(cid).body).assignment
+            gk = pipeline.generate(fp, a, shape)
             _, module = pipeline.build(svc, gk)
-            out[cid] = fn(cv, fp, gk, module, shape, c.assignment)
+            out[cid] = fn(cv, fp, gk, module, shape, a)
     return out
 
 
@@ -307,8 +390,16 @@ def work_judging(svc: Services, loop: Loop) -> Facts:
         bnd = Bound.model_validate(svc.store.get(d["bounds"][name]).body)
         failed = [[d["checks"][c], c] for c in ids if d["checks"].get(c) in d.get("failed", [])]
         rows = []
+        arm_of: Mapping[str, str] = d.get("arm_of", {}).get(name, {})
+        arms: dict[str, Any] = {"model": [], "random": [], "copied": []}
         for cid in ids:
             if cid not in d.get("measurements", {}):
+                continue
+            if arm_of.get(cid, "model") != "model":  # control arms carry no prediction
+                us = Measurement.model_validate(svc.store.get(d["measurements"][cid]).body)
+                arms[arm_of[cid]].append(us.median_us)
+                if arm_of[cid] == "copied":
+                    arms["copied_from"] = svc.store.get(cid).refs.get("copied_from")
                 continue
             pred = svc.store.query("Prediction", {"refs.candidate": cid}, limit=1)[0]
             meas = Measurement.model_validate(svc.store.get(d["measurements"][cid]).body)
@@ -327,7 +418,9 @@ def work_judging(svc: Services, loop: Loop) -> Facts:
                 }
             )
             continue
+        arms["model"] = [(r[2].total, r[3].median_us) for r in rows]
         cid, pid, pred, meas = min(rows, key=lambda r: r[3].median_us)
+        solver = dict(d.get("solver", {}).get(name, {}))
         units = [
             {"unit": u, "bound_us": bnd.per_unit_us.get(u), "predicted_us": t, "measured_us": None}
             for u, t in sorted(pred.per_unit.items())
@@ -348,10 +441,24 @@ def work_judging(svc: Services, loop: Loop) -> Facts:
                 "check": d["checks"][cid],
                 "bound": d["bounds"][name],
                 "prediction": pid,
+                "ci_us": (meas.ci_high_us - meas.ci_low_us) / 2,
+                "top_pred_us": solver.get("top_pred_us"),
+                "solver": solver,
+                "unpriced": dict(pred.unpriced),
+                "arms": arms,
+                "weight": float(_bucket(loop, name).get("weight", 1.0)),
             }
         )
     refs = svc.store.query("Reference", {"problem": cv.case.problem}, limit=5)
+    family = str(d["families"][0])
+    templates = [i.template for i in pipeline.family_package(svc, family).chain.items]
     return {
+        "basis": disciplines.basis(templates, family, model_id),
+        "couplings": [
+            [m.name for m in c.body.members]
+            for c in couplings(svc.store, target=cv.case.target)
+            if any(m.name in {t.split("@", 1)[0] for t in templates} for m in c.body.members)
+        ],
         "buckets": buckets,
         "references": [record_id(r) for r in refs],
         "family": str(d["families"][0]),

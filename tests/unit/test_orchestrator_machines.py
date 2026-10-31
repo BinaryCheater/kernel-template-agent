@@ -66,7 +66,7 @@ def test_machine_is_well_formed(machine: dict[str, Any]) -> None:
     assert seen == set(states)
 
 
-def test_judging_rules_are_ordered_one_to_four() -> None:
+def test_judging_rules_are_ordered_one_to_six() -> None:
     solve = next(m for m in _machines() if m["id"] == "solve")
     rules = [t["rule"] for t in solve["transitions"] if t["from"] == "judging"]
-    assert rules == [1, 2, 3, 4]
+    assert rules == [1, 2, 3, 4, 5, 6]

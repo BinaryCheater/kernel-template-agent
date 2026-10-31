@@ -52,12 +52,21 @@ def bucket(**over: Any) -> dict[str, Any]:
         "measurement": ID,
         "check": ID,
         "bound": ID,
+        "ci_us": 0.1,
+        "solver": {"method": "enumerate", "model_optimal": True, "exhaustive": True},
     }
     b.update(over)
     return b
 
 
-def judging(*buckets: dict[str, Any], references: list[str] | None = None) -> Loop:
+def space_loss(**over: Any) -> dict[str, Any]:
+    """A bucket whose model is accurate and solver certified, but whose representation
+    loses about half the time to SOL (gap class l_rep)."""
+    pairs = [(10.8, 11.0), (20.0, 21.0), (30.0, 31.0)]
+    return bucket(**{"pairs": pairs, "predicted_us": 10.8, "reference_us": 8.0, **over})
+
+
+def judging(*buckets: dict[str, Any], references: list[str] | None = None, **data: Any) -> Loop:
     facts = {
         "buckets": list(buckets),
         "references": references or [],
@@ -65,7 +74,7 @@ def judging(*buckets: dict[str, Any], references: list[str] | None = None) -> Lo
         "model": ID,
         "significance_rel": 0.012,
     }
-    return loop("solve", "judging", facts)
+    return loop("solve", "judging", facts, **data)
 
 
 def world(svc: Services, target: str = "test-gpu", hw: bool = True) -> dict[str, str]:
