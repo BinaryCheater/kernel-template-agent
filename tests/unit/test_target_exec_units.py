@@ -161,6 +161,24 @@ def test_container_command(tmp_path: Path) -> None:
     assert argv[-3:] == ["sha256:abc", "sh", "build.sh"]
 
 
+def test_gpu_container_does_not_require_a_named_runtime(tmp_path: Path) -> None:
+    argv = docker_argv(
+        "docker",
+        "sha256:abc",
+        "01ABC",
+        tmp_path,
+        ["python", "ref.py"],
+        {},
+        Path("/usr/local/cuda"),
+        "0",
+        None,
+    )
+    assert argv[argv.index("--gpus") + 1] == "device=0"
+    assert "--runtime" not in argv
+    assert "--privileged" not in argv
+    assert "--network" in argv and "none" in argv
+
+
 PTXAS = """\
 ptxas info    : 0 bytes gmem
 ptxas info    : Compiling entry function 'other' for 'sm_121a'

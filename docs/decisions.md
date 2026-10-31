@@ -479,6 +479,8 @@
 | D643 | Seed contract findings are reported, not repaired | default — needs user review: the checker finds K1 / K3 / K2 counterexamples in four seed Templates (preconditions over p.* only, Γ admitting negative sizes, padding vs "permutation", a warp-local wait). The seed Templates are left unchanged; proposed repairs are in the review queue and the delivery note | WP24 |
 | D644 | Supervision UX skill | User request 2026-10-31 to turn the HCI discussion into a skill; content is the assistant's: `.agents/skills/supervision-ux` (attention model, three cadences, eight questions per view or alert, inbox rules with uncalibrated ISA-18.2 starting budgets, measurement methods). `ui-ux-pro-max` is not vendored: only component hygiene rules are restated in our own words, and its `--design-system` output is not used for KTA (tried; it returned a landing-page pattern and serif fonts for an ops console). Change by editing the skill | HCI discussion |
 
+| D645 | Docker GPU runtime selection | SYSDEBUG-1: use Docker's GPU device request (`--gpus device=<id>`) without requiring a runtime named `nvidia`. On spark-hk the named runtime is absent while the same image with the GPU request works. Preserve network isolation, the worker uid and device selection; no daemon or system configuration change. Alternative: register the named runtime system-wide; unnecessary host change. Reversal is one argv change | SYSDEBUG-1 |
+
 ## 已确认
 
 | ID | 决策 | 选择 | 来源 |
