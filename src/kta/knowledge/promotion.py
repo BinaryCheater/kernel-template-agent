@@ -24,6 +24,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, cast
 
+from kta.core.controls import Controls
 from kta.core.errors import PermissionDenied
 from kta.core.schemas import Actor, EvidenceStatus, Record, RefValue
 from kta.core.schemas.process import Report, StatusChange
@@ -34,9 +35,6 @@ from kta.store.stale import propagate
 
 CHECKER = Actor(type="checker", name="knowledge.promotion")
 SYSTEM = Actor(type="system", name="knowledge.promotion")
-# Defaults (registry knobs once WP21 merges).
-MIN_TARGETS_FOR_SCOPE = 2  # a finding holding on this many Targets is proposed for Γ/regime
-MIN_REPEATS_FOR_PATTERN = 3  # gaps naming the same missing pattern/template guess
 
 
 @dataclass(frozen=True)
@@ -63,7 +61,12 @@ def _report(
 
 
 def promote(
-    store: SqliteStore, subject: str, to_status: str, evidence: list[str], now: datetime
+    store: SqliteStore,
+    subject: str,
+    to_status: str,
+    evidence: list[str],
+    now: datetime,
+    controls: Controls,
 ) -> str:
     """Promote ``subject`` one or more steps; returns the StatusChange ID.
 
@@ -72,7 +75,7 @@ def promote(
     """
     target = ladder.step_name(to_status)
     rec = store.get(subject)
-    problems = ladder.rule_problems(store, rec, target, evidence)
+    problems = ladder.rule_problems(store, rec, target, evidence, controls)
     if problems:
         raise PermissionDenied(f"cannot promote {subject[:12]} to {target}: " + "; ".join(problems))
     current = store.status(subject)[0]
@@ -81,7 +84,12 @@ def promote(
         "promotion",
         subject,
         f"{current} -> {target}",
-        {"from": current, "to": target, "evidence": sorted(set(evidence))},
+        {
+            "from": current,
+            "to": target,
+            "evidence": sorted(set(evidence)),
+            "controls_version": controls.version_id,
+        },
         {"evidence": sorted(set(evidence))} if evidence else {},
         now,
         CHECKER,
@@ -143,7 +151,7 @@ def _into_model(store: SqliteStore) -> list[dict[str, Any]]:
     return out
 
 
-def _into_scope(store: SqliteStore) -> list[dict[str, Any]]:
+def _into_scope(store: SqliteStore, min_targets: int) -> list[dict[str, Any]]:
     groups: dict[tuple[str, str, bool], set[str]] = defaultdict(set)
     members: dict[tuple[str, str, bool], list[str]] = defaultdict(list)
     for f in fnd.findings(store):
@@ -154,7 +162,7 @@ def _into_scope(store: SqliteStore) -> list[dict[str, Any]]:
         members[key].append(f.id)
     out: list[dict[str, Any]] = []
     for (subject, kind, holds), targets in sorted(groups.items()):
-        if len(targets) >= MIN_TARGETS_FOR_SCOPE:
+        if len(targets) >= min_targets:
             into = "structure_regime" if kind == "regime" else "template_scope"
             out.append(
                 {
@@ -169,7 +177,7 @@ def _into_scope(store: SqliteStore) -> list[dict[str, Any]]:
     return out
 
 
-def _new_patterns(store: SqliteStore) -> list[dict[str, Any]]:
+def _new_patterns(store: SqliteStore, min_repeats: int) -> list[dict[str, Any]]:
     counts: Counter[str] = Counter()
     for rec in pool.records(store, "Gap"):
         if rec.body.get("missing") in ("pattern", "template", "other"):
@@ -177,20 +185,23 @@ def _new_patterns(store: SqliteStore) -> list[dict[str, Any]]:
     return [
         {"pattern_guess": g, "gaps": n, "into": "new_pattern_or_template"}
         for g, n in sorted(counts.items())
-        if n >= MIN_REPEATS_FOR_PATTERN
+        if n >= min_repeats
     ]
 
 
-def review(store: SqliteStore, now: datetime) -> str:
-    """Write a Report ``promotion_review`` with every promotion candidate; returns its ID."""
-    data = {
+def review(store: SqliteStore, now: datetime, controls: Controls) -> str:
+    """Write a Report ``promotion_review`` with every promotion candidate; returns its ID.
+
+    Thresholds come from the controls knob ``knowledge.promotion_review``; the Report
+    records them and the controls version.
+    """
+    knob = controls.promotion_review
+    data: dict[str, Any] = {
         "into_model": _into_model(store),
-        "into_scope": _into_scope(store),
-        "new_patterns": _new_patterns(store),
-        "thresholds": {
-            "min_targets_for_scope": MIN_TARGETS_FOR_SCOPE,
-            "min_repeats_for_pattern": MIN_REPEATS_FOR_PATTERN,
-        },
+        "into_scope": _into_scope(store, knob["min_targets_for_scope"]),
+        "new_patterns": _new_patterns(store, knob["min_repeats_for_pattern"]),
+        "thresholds": dict(knob),
+        "controls_version": controls.version_id,
     }
-    n = sum(len(v) for k, v in data.items() if k != "thresholds")
+    n = sum(len(data[k]) for k in ("into_model", "into_scope", "new_patterns"))
     return _report(store, "promotion_review", "pool", f"{n} candidate(s)", data, {}, now, SYSTEM)

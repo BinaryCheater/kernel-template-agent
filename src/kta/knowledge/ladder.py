@@ -8,14 +8,15 @@ stored StatusChange stays valid; 02 §2's finding names are aliases:
 | step | alias | evidence rule |
 | --- | --- | --- |
 | proposed | observed, claimed | fields complete, with a source (on creation) |
-| reproduced | replicated | >= MIN_REPLICATIONS distinct real evidence records |
+| reproduced | replicated | >= n distinct real evidence records (knob finding_ladder) |
 | calibrated | explained | resolvable ``explained_by``, or a Report with ``ci_low``/``ci_high`` |
 | holdout_validated | — | a Report with ``data.holdout`` and ``data.agrees`` both true |
 
 Invalidation is not a step: counter-evidence demotes one step (``promotion.demote``),
 dependent records become ``stale``, and only a human rejects.
 
-Thresholds here are defaults until the controls registry (WP21) holds them.
+The replication count is the controls knob ``escalation.finding_ladder``
+(``replicate_min_independent``), passed in by the caller.
 """
 
 from __future__ import annotations
@@ -23,6 +24,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping
 from typing import Any
 
+from kta.core.controls import Controls
 from kta.core.schemas import Record
 from kta.store.base import Store
 
@@ -47,8 +49,6 @@ EVIDENCE_KINDS = frozenset(
         "Finding",
     }
 )
-# Default (registry knob once WP21 merges): distinct evidence records for "reproduced".
-MIN_REPLICATIONS = 2
 
 
 def step_name(name: str) -> str:
@@ -84,7 +84,7 @@ def _explained(store: Store, subject: Record) -> bool:
 
 
 def rule_problems(
-    store: Store, subject: Record, to_status: str, evidence: Iterable[str]
+    store: Store, subject: Record, to_status: str, evidence: Iterable[str], controls: Controls
 ) -> list[str]:
     """Why ``subject`` may not move to ``to_status`` with ``evidence``; [] means it may."""
     to_status = step_name(to_status)
@@ -96,10 +96,9 @@ def rule_problems(
     prior = subject.refs.get("evidence", [])
     cited += [prior] if isinstance(prior, str) else list(prior)
     recs, problems = evidence_records(store, cited)
-    if to_status == "reproduced" and len(recs) < MIN_REPLICATIONS:
-        problems.append(
-            f"reproduced needs {MIN_REPLICATIONS} real evidence records, has {len(recs)}"
-        )
+    need = controls.finding_ladder["replicate_min_independent"]
+    if to_status == "reproduced" and len(recs) < need:
+        problems.append(f"reproduced needs {need} real evidence records, has {len(recs)}")
     if to_status == "calibrated":
         ci = any("ci_low" in _report_data(r) and "ci_high" in _report_data(r) for r in recs)
         if not (_explained(store, subject) or ci):

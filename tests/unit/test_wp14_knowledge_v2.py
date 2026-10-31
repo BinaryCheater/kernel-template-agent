@@ -23,6 +23,7 @@ from kta.api.app import create_app
 from kta.api.common import Api, envelope
 from kta.core.config import repo_root
 from kta.core.context import Context
+from kta.core.controls import baseline
 from kta.core.errors import PermissionDenied
 from kta.core.ids import record_id
 from kta.core.schemas import Actor, Record
@@ -43,6 +44,7 @@ from storehelp import T0
 HUMAN = Actor(type="human", name="tester")
 TOOL = Actor(type="tool", name="test")
 REFERENCES = SEED / "references"
+CONTROLS = baseline()
 
 
 def _v1_template() -> dict[str, Any]:
@@ -305,19 +307,26 @@ def _evidence(store: SqliteStore, n: int, **data: Any) -> list[str]:
 def test_promotion_needs_the_evidence_of_its_step(store: SqliteStore, clock: ManualClock) -> None:
     fid = _finding(store, "claim", ["gb10"])
     with pytest.raises(PermissionDenied, match="needs 2 real evidence"):
-        promote(store, fid, "replicated", _evidence(store, 1), clock.now())
+        promote(store, fid, "replicated", _evidence(store, 1), clock.now(), CONTROLS)
     fixture = store.put(
         Record.new(
             "Report", {"title": "t", "subject": "s", "summary": "s"}, TOOL, T0, origin="fixture"
         )
     )
     with pytest.raises(PermissionDenied, match="origin fixture"):
-        promote(store, fid, "reproduced", [*_evidence(store, 1), fixture], clock.now())
-    promote(store, fid, "replicated", _evidence(store, 2), clock.now())
+        promote(store, fid, "reproduced", [*_evidence(store, 1), fixture], clock.now(), CONTROLS)
+    promote(store, fid, "replicated", _evidence(store, 2), clock.now(), CONTROLS)
     assert store.status(fid)[0] == "reproduced"
     with pytest.raises(PermissionDenied, match="explained_by"):
-        promote(store, fid, "explained", [], clock.now())
-    promote(store, fid, "calibrated", _evidence(store, 1, ci_low=0.1, ci_high=0.2), clock.now())
+        promote(store, fid, "explained", [], clock.now(), CONTROLS)
+    promote(
+        store,
+        fid,
+        "calibrated",
+        _evidence(store, 1, ci_low=0.1, ci_high=0.2),
+        clock.now(),
+        CONTROLS,
+    )
     with pytest.raises(PermissionDenied, match="hold-out"):
         promote(
             store,
@@ -325,9 +334,15 @@ def test_promotion_needs_the_evidence_of_its_step(store: SqliteStore, clock: Man
             "holdout_validated",
             _evidence(store, 1, holdout=True, agrees=False),
             clock.now(),
+            CONTROLS,
         )
     promote(
-        store, fid, "holdout_validated", _evidence(store, 1, holdout=True, agrees=True), clock.now()
+        store,
+        fid,
+        "holdout_validated",
+        _evidence(store, 1, holdout=True, agrees=True),
+        clock.now(),
+        CONTROLS,
     )
     assert store.status(fid)[0] == "holdout_validated"
 
@@ -338,12 +353,12 @@ def test_templates_keep_assurance_and_are_not_on_the_ladder(
     seed(ctx, store)
     tid = store.query("Template", limit=1)[0]
     with pytest.raises(PermissionDenied, match="assurance"):
-        promote(store, record_id(tid), "reproduced", _evidence(store, 2), clock.now())
+        promote(store, record_id(tid), "reproduced", _evidence(store, 2), clock.now(), CONTROLS)
 
 
 def test_demotion_steps_down_and_propagates_stale(store: SqliteStore, clock: ManualClock) -> None:
     fid = _finding(store, "claim", ["gb10"])
-    promote(store, fid, "reproduced", _evidence(store, 2), clock.now())
+    promote(store, fid, "reproduced", _evidence(store, 2), clock.now(), CONTROLS)
     dependent = _finding(store, "builds on it", ["gb10"], subject="other")
     # A record resting on the finding (refs.evidence) must be re-verified when it falls.
     rest = store.put(
@@ -410,7 +425,7 @@ def test_review_proposes_promotions_out_of_the_finding_layer(
 ) -> None:
     for target in ("gb10", "h100"):
         fid = _finding(store, f"holds on {target}", [target])
-        promote(store, fid, "reproduced", _evidence(store, 2), clock.now())
+        promote(store, fid, "reproduced", _evidence(store, 2), clock.now(), CONTROLS)
     for i in range(3):
         gap = {
             "missing": "pattern",
@@ -419,13 +434,19 @@ def test_review_proposes_promotions_out_of_the_finding_layer(
             "attribution": "space",
         }
         store.put(Record.new("Gap", gap, TOOL, T0))
-    data = store.get(review(store, clock.now())).body["data"]
+    data = store.get(review(store, clock.now(), CONTROLS)).body["data"]
     assert data["into_scope"][0]["targets"] == ["gb10", "h100"]
     assert data["into_scope"][0]["into"] == "structure_regime"
     assert data["new_patterns"] == [
         {"pattern_guess": "scan", "gaps": 3, "into": "new_pattern_or_template"}
     ]
     assert data["into_model"] == []
+    assert data["thresholds"] == {"min_targets_for_scope": 2, "min_repeats_for_pattern": 3}
+    stricter = CONTROLS.with_changes(
+        {"knowledge.promotion_review": {"min_targets_for_scope": 3, "min_repeats_for_pattern": 4}}
+    )
+    data = store.get(review(store, clock.now(), stricter)).body["data"]
+    assert data["into_scope"] == [] and data["new_patterns"] == []
 
 
 # ---- pool diff (D449) --------------------------------------------------------------
@@ -444,7 +465,7 @@ def test_pool_diff_between_two_snapshots(
     t2 = store.put(
         Record.new("Template", newer, HUMAN, clock.now(), refs={"previous": record_id(old)})
     )
-    promote(store, fid, "reproduced", _evidence(store, 2), clock.now())
+    promote(store, fid, "reproduced", _evidence(store, 2), clock.now(), CONTROLS)
     extra = store.put(
         Record.new(
             "Structure",
