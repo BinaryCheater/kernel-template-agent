@@ -13,5 +13,20 @@
     "started_at": "2026-10-31T00:33:51Z",
     "requires_gpu": false,
     "output": "Mac.lan:~/kta-data/dev/WP19/evidence/pytest-8c570a4.txt"
+  },
+  {
+    "claim": "Code stage (D320), follow-up after WP16: the MIP <-> L2 consistency check passes on the GEMM seed family (4096^3 and 1024x1024x16384, all 70 feasible points, no point with MIP > L2, Spearman rho 0.52-0.54 against WP16's L2) and fails, naming the transaction mma.mma, on a fixture whose projection model reserves 4x the tensor work per mma instruction. Unit runs only; no GPU job and no store record",
+    "command": "uv run --frozen pytest -v tests/unit/test_wp19_plan_projection.py",
+    "git_commit": "2dc4f4ab47349a1e93c8f7abbd93f0c5649145f7",
+    "dirty": false,
+    "env": "dev",
+    "control_host": "Mac.lan",
+    "workers": [],
+    "record_ids": [],
+    "blob_ids": [],
+    "env_manifests": [],
+    "started_at": "2026-10-31T00:43:43Z",
+    "requires_gpu": false,
+    "output": "Mac.lan:~/kta-data/dev/WP19/evidence/pytest-check-2dc4f4a.txt"
   }
 ]
