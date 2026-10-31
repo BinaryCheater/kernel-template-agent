@@ -20,7 +20,7 @@
  {
   "claim": "WP22 unit and contract tests pass at this commit: injection per policy (required gets all eight variables from the system configuration, off gets none, the runner's own HTTPS_PROXY is ignored), NO_PROXY always holds loopback and the API host, fail closed (a real launcher job on a local worker with the proxy down: no CLI process, no AgentRun, a Report, the breaker holds the next step, Inbox item), no credentials in records, System API read/write/Tests (a real trivial job on a local worker through the Executor), Mechanisms view; Part D: the workflow derived from machines.yaml, done checks and sessions.decide, a missing $placeholder refused in preview and on save, a draft written as a new profile version with a diff while the base stays unchanged, approval moving current_profile and building a verified batch that new tasks of that profile use. Internal checks, not acceptance",
   "command": "scripts/gate --stage code WP22",
-  "git_commit": "7caca44f8de992234ad69445cb47129cecdb3734",
+  "git_commit": "ec5bfc65ebccee6358069574db735d2d18490298",
   "dirty": false,
   "env": "dev",
   "control_host": "Mac.lan",
@@ -28,7 +28,7 @@
   "record_ids": [],
   "blob_ids": [],
   "env_manifests": [],
-  "started_at": "2026-10-31T07:02:52Z",
+  "started_at": "2026-10-31T07:20:00Z",
   "requires_gpu": false,
   "output": "deliveries/WP22.md section 'Gate output'"
  }
