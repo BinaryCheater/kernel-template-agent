@@ -15,16 +15,16 @@ from kta.core.schemas.hardware import Target
 from kta.measure import noise, protocol, selftest
 from kta.measure.profile import run_profile
 from kta.measure.runner import Measurer
+from kta.orchestrator.pipeline import Services
 from kta.store.base import Store
 
 
 def _setup(ctx: Context) -> tuple[Measurer, Any, Target, str]:
-    store: Store = resolve("store", ctx)
+    svc = Services.open(ctx)
     plugin = resolve("target", ctx)
     target_id = plugin.latest_target_id()
-    target = Target.model_validate(store.get(target_id).body)
-    m = Measurer(store, resolve("executor", ctx), ctx.clock, ctx.rng, ctx.seed)
-    return m, resolve("backend.cuda", ctx), target, target_id
+    target = Target.model_validate(svc.store.get(target_id).body)
+    return svc.measurer(), svc.backend("cuda"), target, target_id
 
 
 def _protocol_id(store: Store, name: str) -> str:
