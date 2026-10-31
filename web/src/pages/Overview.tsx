@@ -114,7 +114,7 @@ function TransitionTable({ def }: { def: MachineDef }) {
 
 function Intro({ a }: { a: ActiveRuns }) {
   const running = a.tasks.filter((t) => t.state === "running").length;
-  const solving = a.loops.filter((l) => l.machine === "solve" && l.state !== "accepted").length;
+  const solving = a.loops.filter((l) => l.machine === "solve" && !["accepted", "closed"].includes(l.state)).length;
   const learning = a.loops.filter((l) => l.machine === "expand" && l.state !== "covered").length;
   return (
     <div className="intro">

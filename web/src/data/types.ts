@@ -235,7 +235,7 @@ export interface Round {
   n: number;
   steps: RoundStep[];
   tasks: RoundTask[];
-  outcome?: { rule?: number | null; label: string; record: string } | null;
+  outcome?: { rule?: number | null; label: string; record: string; gap_class?: string | null; decomposition?: string | null } | null;
 }
 export interface BucketResult {
   bucket: string;

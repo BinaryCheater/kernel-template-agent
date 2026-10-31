@@ -141,3 +141,46 @@ cli/controls_cmds.py       kta controls show | history | token
 - Loop budget scope: `agent_min = rounds × max task wall budget / 60`, `gpu_min = case_factor × max task GPU budget / 60` (12 §1, D488).
 - The stage in force is the knob `release.stage` (default S0). A process outside the stage skips its ticks (`maintain` always runs). The agent pool (`next_task`, `step_once`) starts only a task the stage admits: its type in the stage, agent calls not `none`, and in a `gated` stage no other task leased or running and a release for exactly this attempt (`release:task:<id>` pointer + HumanAction `release_agent_call`). `kta task lease` (manual) is not gated.
 - `kta controls show` stores version 1 if none exists and prints the values in force and the stage; `kta controls history` lists versions; `kta controls token` creates the operator token file (mode 600) and never prints it.
+
+## WP18: gap decomposition, routing and loop disciplines (D520–D530)
+
+### Files
+
+```
+orchestrator/gap.py          decompose, classify, accepts, case_class, task_for, selection; routing() loads routing.yaml
+orchestrator/routing.yaml    versioned routing table: attribution order, class -> rule/to/task/escalate/improve, escalations, canaries
+orchestrator/disciplines.py  basis, mechanisms (coupled groups count once), credit (band, attribution, null rounds, rollback)
+orchestrator/canary.py       plant, classify_inputs, run (one kind per batch, rotating), missed
+```
+
+### Decomposition (02 §1 P7, §6.1)
+
+Per judged bucket, with `P1` the solver's best prediction (`solve` report, else the smallest measured prediction) and `Popt` the model optimum:
+
+| term | value | status when it cannot be computed |
+| --- | --- | --- |
+| ε | `T_meas − P1` | — |
+| δ | `P1 − Popt`: 0 if model-optimal; `mip_gap × P1` for a MIP | `unbounded` (no certificate) |
+| Δpre | `Popt − P_relaxed`, `P_relaxed` = model optimum with the plan's fixed variables opened | `not_assessed` (0; its share stays in L_rep) until WP19 supplies `relaxed_pred_us` |
+| L_rep | `P_relaxed − T_SOL − irreducible`; bounded by `P1 − T_SOL` | — |
+| irreducible | declared irreducible time (`irreducible_us`) | `not_assessed` (0) |
+
+`T_SOL` is the Bound record (L1 SOL under minimal work). The improvement band is `max(CI half-width, rel_of_t × T_meas)` (`guard.improvement_band`). The bucket class is the first entry of `order` whose term exceeds the band, or is `unbounded` while more than the band remains; ε also counts when the model is off (`judging.model_ranking`). The case class is the most upstream bucket class.
+
+### Judging (rules 1–6)
+
+In order: correctness (rule 1, T6); accept (rule 3) unless the model is off — `escalation.accept`: not worse than the strongest reference within the band and `|ε| < max_unexplained_rel × T`, or `gap − irreducible` within the band; with no reference only the second clause can accept (D522); the null-round limit (rule 6, `closed`); model error above `escalation.case_to_knowledge.topk_model_error_rel` after `calibrations_first` T4s (rule 5, `closed`, escalate knowledge); model off (rule 2, T4); else the class route of routing.yaml: ε → rule 2 T4; δ → rule 5 `closed`, escalate user; Δpre → rule 4 T1; L_rep → rule 4 T2 (T1 without a reference); irreducible or none not accepted → rule 5 `closed`, escalate user. `closed` is a terminal state; `escalated` = `user` raises the inbox item, `knowledge` is counted by the summarize process. Each judgement writes a GapDecomposition before the judgement Report, which links it as `refs.decomposition`.
+
+### Disciplines (12 §3)
+
+- Basis of a round: the family chain's templates, the family, the model version. Mechanisms = templates added/removed, a model change, a generator-only family change; templates of one Coupling changed together count once (`guard.one_mechanism_per_round`).
+- Credit: gain over the incumbent beyond the band, at least one named mechanism (`guard.mechanism_attribution`) and within the per-round limit. A round without credit is a null round (`guard.null_round_limit`).
+- Hold-out and rollback: the round's fresh measurement is the hold-out of the change that produced it; a regression beyond the band keeps the incumbent, records the mechanisms in `rolled_back_mechanisms`, blocks acceptance in that round, and retrieval prefers the incumbent's family next round (`prefer_family`). The model version is not rolled back (known issue).
+- Exploration and selection controls: of the `measured_points` k, `exploration_points` are the random arm, drawn uniformly (seeded reservoir) from the enumerated feasible space without the model; with `guard.selection_controls` the newest Solution of the same family on another case is the copied arm. Both are built, checked and measured like model points and recorded per bucket in `selection`; they do not route (D524).
+- Duplicate proposals: a submission whose files and blob hashes equal an earlier rejected attempt of the same task is rejected without running the done checks (outcome `duplicate_proposal`, `guard.duplicate_proposal_rejection`).
+- Canaries (`guard.canary_rate`): each summarize batch plants the next kind of routing.yaml `canaries` into the newest GapDecomposition's recorded inputs and re-classifies; verdict caught / missed / uninformative / no_base in a Report `canary`; a missed canary is an inbox item (`escalation.to_user.on_canary_missed`) until that kind is caught again.
+- The summarize process counts GapDecompositions by `route.improve` (judgements that carry `gap_class` are not counted twice) and marks an item `escalate: knowledge` when the class recurs in `same_residual_cases` distinct cases or a round escalated to knowledge.
+
+### Interface owed by WP19
+
+`relaxed_pred_us` per bucket in the judging facts: the model optimum of the FormulationPlan with its fixed variables (F3) opened, on the same model and bucket. Until then Δpre is `not_assessed`.

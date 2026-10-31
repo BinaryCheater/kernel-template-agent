@@ -7,6 +7,7 @@ span) lives in the ops pointer ``task:<id>``. Checks and acceptance write record
 
 from __future__ import annotations
 
+import hashlib
 import json
 import shutil
 from collections.abc import Collection, Mapping
@@ -46,6 +47,12 @@ class Verdict:
     state: str  # accepted | queued (retry) | escalated | suspended
     report_id: str
     outcomes: list[Outcome]
+
+
+def submission_digest(sub: Record) -> str:
+    """Content hash of a submission: its file names and blob hashes (12 §3)."""
+    pairs = sorted((str(k), str(v)) for k, v in sub.blobs.items())
+    return hashlib.sha256(json.dumps(pairs).encode()).hexdigest()[:16]
 
 
 class TaskQueue:
@@ -247,6 +254,12 @@ class TaskQueue:
             self._workdir(task_id, sub_id, sub),
         )
         outcomes: list[Outcome] = []
+        digest = submission_digest(sub)
+        rejected = list(self.info(task_id).get("rejected_digests", []))
+        if self.settings.duplicate_rejection and digest in rejected:
+            # 12 §3: identical (by hash) to a rejected attempt; no check is run again.
+            outcomes.append(Outcome("duplicate_proposal", False, [f"same as rejected {digest}"]))
+            return self._reject(task, sub_id, outcomes, "duplicate of a rejected submission")
         try:
             for name in card.done_checks:
                 outcomes.append(run_check(name, inp))
@@ -263,14 +276,19 @@ class TaskQueue:
             except ValueError as exc:  # SchemaError or pydantic validation of the outputs
                 outcomes.append(Outcome("outputs_written", False, [f"{exc}"]))
                 passed = False
-        report = self._report(task, sub_id, outcomes, "passed" if passed else "failed")
         if passed:
+            report = self._report(task, sub_id, outcomes, "passed")
             self._move(task, "accepted")
             self._finish(task_id, "accepted")
             return Verdict(task_id, "accepted", report, outcomes)
+        self._set_info(task_id, rejected_digests=[*rejected, digest])
+        return self._reject(task, sub_id, outcomes, "failed")
+
+    def _reject(self, task: Task, sub_id: str, outcomes: list[Outcome], summary: str) -> Verdict:
+        report = self._report(task, sub_id, outcomes, summary)
         self._move(task, "rejected")
-        self._set_info(task_id, last_rejection=report)
-        return Verdict(task_id, self._after_rejection(task_id), report, outcomes)
+        self._set_info(task.id, last_rejection=report)
+        return Verdict(task.id, self._after_rejection(task.id), report, outcomes)
 
     def _report(self, task: Task, sub_id: str, outcomes: list[Outcome], summary: str) -> str:
         data = {

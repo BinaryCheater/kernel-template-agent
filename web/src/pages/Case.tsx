@@ -115,7 +115,7 @@ function CaseBody({ c, m }: { c: CaseDetail; m: Machines }) {
           {c.rounds.map((r) => (
             <div key={r.n} className="round-note">
               <b>Round {r.n}</b>
-              {r.outcome ? <span> — {r.outcome.rule ? `rule ${r.outcome.rule}: ` : ""}<RecordLink id={r.outcome.record} label={r.outcome.label} /></span>
+              {r.outcome ? <span> — {r.outcome.rule ? `rule ${r.outcome.rule}: ` : ""}<RecordLink id={r.outcome.record} label={r.outcome.label} />{r.outcome.decomposition ? <> · <RecordLink id={r.outcome.decomposition} label="gap decomposition" /></> : null}</span>
                 : <span className="muted"> — {r.n < c.rounds.length ? "left the round in" : "in progress:"} {r.steps[r.steps.length - 1].state}{r.steps[r.steps.length - 1].note ? ` (${r.steps[r.steps.length - 1].note})` : ""}</span>}
             </div>
           ))}

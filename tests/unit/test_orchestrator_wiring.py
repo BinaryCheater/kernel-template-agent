@@ -100,10 +100,10 @@ def test_pause_blocks_leases_loops_and_process_ticks(svc: Services) -> None:
 def test_retry_note_and_last_rejection_reach_the_next_step(svc: Services) -> None:
     q = Operations(svc).queue
     task = q.create(TaskRequest("T3", "extract", []), None, "human")
-    for _ in range(3):  # three rejections: escalated
+    for i in range(3):  # three rejections: escalated (distinct, so none is a duplicate)
         q.lease(task, "agent:1")
         q.start(task, "agent:1")
-        q.submit(task, "agent:1", {"x.txt": b"x"}, "no sections", ALICE)
+        q.submit(task, "agent:1", {"x.txt": f"x{i}".encode()}, "no sections", ALICE)
         q.check(task)
     assert q.get(task).state == "escalated"
     Operations(svc).retry_task(task, "look at the delivery note headings", ALICE)

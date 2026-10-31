@@ -1,0 +1,93 @@
+# Gap routing table (WP18, D520-D522): gap class -> next action of the case loop.
+#
+# Source: docs/design/02 §1 P7, §6.1 (attribution order D-T6), 12 §4 (accept, escalation).
+# The case loop's judging state decomposes T_meas - T_SOL = eps + delta + dpre + L_rep +
+# irreducible per bucket (kta.orchestrator.gap), names the first class in `order` whose term is
+# significant (beyond the improvement band) or cannot be judged, and looks the class up here.
+# Thresholds are not in this file: they are knobs of the controls registry. Changing this
+# table is a new `version`; every GapDecomposition records the version and the file hash.
+#
+# Field meanings
+#   rule      the judging edge in machines.yaml (1-4 as before; 5 escalated; 6 null rounds)
+#   to        waiting (creates `task`), accepted, or closed (terminal, inbox item)
+#   task      the task type created; `if_no_reference` replaces it when the case has none
+#   goal      the task goal (the inputs are fixed by the class, see gap.task_for)
+#   escalate  none | user | knowledge (12 §4); closed routes always escalate
+#   improve   the improvement-loop class the summarize process counts (improve.CLASSES)
+
+version: 1
+
+order: [correctness, epsilon, delta, delta_pre, l_rep, irreducible]
+
+classes:
+  correctness:
+    rule: 1
+    to: waiting
+    task: T6
+    goal: "Fix the family: correctness checks failed"
+    escalate: none
+    improve: verification
+  epsilon:
+    rule: 2
+    to: waiting
+    task: T4
+    goal: "Diagnose the cost model: ranking or error off"
+    escalate: none
+    improve: model
+  delta:
+    rule: 5
+    to: closed
+    goal: "Solver result not certified (node budget or time limit): raise solve.time_limit_s or re-solve exhaustively"
+    escalate: user
+    improve: process
+  delta_pre:
+    rule: 4
+    to: waiting
+    task: T1
+    goal: "Open the fixed variables: the preconditions cost more than the band"
+    escalate: none
+    improve: space
+  l_rep:
+    rule: 4
+    to: waiting
+    task: T2
+    if_no_reference: T1
+    goal: "Decompose this reference to explain the gap"
+    goal_no_reference: "Extend the family: the representation loses against SOL"
+    escalate: none
+    improve: space
+  irreducible:
+    rule: 5
+    to: closed
+    goal: "Gap attributed to irreducible terms but not accepted: review the accept rule"
+    escalate: user
+    improve: other
+  none:
+    rule: 5
+    to: closed
+    goal: "Every term within the band but not accepted: the bound or the reference is inconsistent"
+    escalate: user
+    improve: other
+
+# Escalations that override the class route (12 §4).
+escalations:
+  model_after_calibration:   # escalation.case_to_knowledge.topk_model_error_rel
+    rule: 5
+    to: closed
+    goal: "Model error persists after calibration: the knowledge loop revises the model structure"
+    escalate: knowledge
+    improve: model
+  null_rounds:               # guard.null_round_limit
+    rule: 6
+    to: closed
+    goal: "Null-round limit: rounds add nothing and gain below the band"
+    escalate: user
+    improve: process
+
+# Canaries (D-T17, 12 §3 canary rate): planted faults on a real decomposition input, one kind
+# per batch in this order; the router must name `expect`. kta.orchestrator.canary applies them.
+canaries:
+  - {kind: degraded_model, expect: epsilon, plant: {scale_predictions: 0.5}}
+  - {kind: deleted_template, expect: l_rep, plant: {scale_all: 1.5, no_reference: true}}
+  - {kind: capped_solver, expect: delta, plant: {scale_all: 1.3, uncertify: true}}
+  - {kind: failed_check, expect: correctness, plant: {fail_check: true}}

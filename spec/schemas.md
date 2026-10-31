@@ -355,7 +355,16 @@ class Measurement: median_us: float; ci_low_us: float; ci_high_us: float; n: int
 class Profile:   metrics: dict[str, float]
 class Bound:     per_unit_us: dict[Unit, float]; bound_us: float; bottleneck: Unit
 class Solution:  bucket: str?; assignment: dict; pct_of_bound: float
+class GapDecomposition:                                # WP18 (D520): one per judged round; refs: case, family
+                 round: int; gap_class: str            # open: routing.yaml classes or "none"
+                 route: dict                           # name, rule, to, task, escalate, improve
+                 routing: str                          # "routing@<version>:<sha12>" of orchestrator/routing.yaml
+                 buckets: list[dict]                   # per bucket, see below
+                 discipline: dict                      # mechanisms, mechanism_count, gain_us, credited,
+                                                       # null_round, null_rounds, rolled_back, t_us, band_us, note
 ```
+
+GapDecomposition bucket item: `name`, `class`, `inputs` (what the decomposition read: `best_us`, `ci_us`, `predicted_us`, `top_pred_us`, `bound_us`, `reference_us`, `pairs`, `solver` {method, model_optimal, exhaustive, mip_gap}, optional `relaxed_pred_us`, `irreducible_us`, `unpriced`, `failed_checks` count), `terms` {`epsilon`, `delta`, `delta_pre`, `l_rep`, `irreducible`: {`us`, `status` ∈ value | bounded | unbounded | not_assessed, `note`}}, `t_meas_us`, `t_sol_us`, `gap_us`, `band_us`, `l_rep_bound_us` (= P1 − T_SOL), `model_off`, `accepted`, `rho`, `median_rel_error`, `selection` {model_best_us, model_top_e_us, random_best_us, random_n, copied_us, copied_from, model_beaten_by_random}. The terms sum to `gap_us` whenever none is `unbounded` (spec/modules/orchestrator-cli.md "WP18").
 
 ### 4.9 流程与审计
 

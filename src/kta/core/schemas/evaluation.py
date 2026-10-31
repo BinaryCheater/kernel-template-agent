@@ -93,6 +93,24 @@ class Bound(Body):
     bottleneck: Unit
 
 
+class GapDecomposition(Body):
+    """One round of the case loop decomposed and routed (WP18, D520; 02 §1 P7, §6.1).
+
+    ``buckets`` items: name, class, inputs (what the decomposition read; canaries replay
+    them), terms {epsilon, delta, delta_pre, l_rep, irreducible: {us, status, note}},
+    t_meas_us, t_sol_us, gap_us, band_us, l_rep_bound_us, accepted, selection.
+    ``route``: name, rule, to, task, escalate, improve. ``routing``: table version and hash.
+    ``discipline``: mechanisms, mechanism_count, gain_us, credited, null_round(s), rolled_back.
+    """
+
+    round: int
+    gap_class: str  # open: the routing table's classes, "none"
+    route: dict[str, Any]
+    routing: str
+    buckets: list[dict[str, Any]] = Field(default_factory=lambda: list[dict[str, Any]]())
+    discipline: dict[str, Any] = Field(default_factory=lambda: dict[str, Any]())
+
+
 class Solution(Body):
     bucket: str | None = None
     assignment: dict[str, Any] = Field(default_factory=lambda: dict[str, Any]())

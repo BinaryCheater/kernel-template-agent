@@ -119,6 +119,9 @@ KINDS: dict[str, KindSpec] = {
     "Profile": KindSpec(ev.Profile, required_refs=("env", "worker"), ref_kinds=_JOB),
     "Bound": KindSpec(ev.Bound),
     "Solution": KindSpec(ev.Solution),
+    "GapDecomposition": KindSpec(
+        ev.GapDecomposition, ref_kinds={"case": "Case", "family": "Family"}
+    ),
     # process and audit
     "StatusChange": KindSpec(pr.StatusChange),
     "TaskCard": KindSpec(pr.TaskCard),

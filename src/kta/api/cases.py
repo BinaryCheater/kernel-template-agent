@@ -175,6 +175,9 @@ def _rounds(api: Api, loop_id: str | None, case_id: str) -> list[dict[str, Any]]
                     "rule": body(api, out)["data"].get("rule"),
                     "label": body(api, out)["summary"],
                     "record": out,
+                    # WP18: the round's gap class and its GapDecomposition record.
+                    "gap_class": body(api, out)["data"].get("gap_class"),
+                    "decomposition": refs(api, out).get("decomposition"),
                 }
                 if out
                 else None,

@@ -377,7 +377,7 @@ knobs:
     set_by: [X6]
     editable: true
     accessor: improvement_band
-    consumer: pending WP18 (loop disciplines)
+    consumer: "orchestrator gap.band_us: judging (significance of each gap term, accept) and disciplines.credit (WP18)"
 
   - id: guard.mechanism_attribution
     row: mechanism attribution
@@ -392,7 +392,7 @@ knobs:
     set_by: []
     editable: true
     accessor: mechanism_attribution
-    consumer: pending WP18
+    consumer: "orchestrator disciplines.credit (WP18)"
 
   - id: guard.null_round_limit
     row: null-round limit
@@ -410,7 +410,7 @@ knobs:
     set_from: S1/S2 logs
     editable: true
     accessor: null_round_limit
-    consumer: pending WP18
+    consumer: "orchestrator solve_loop judging: rule 6 closes the case (WP18)"
 
   - id: guard.one_mechanism_per_round
     row: one mechanism per round
@@ -427,7 +427,7 @@ knobs:
     set_by: []
     editable: true
     accessor: one_mechanism_per_round
-    consumer: pending WP18
+    consumer: "orchestrator disciplines.credit; coupled groups count once (WP18)"
 
   - id: guard.exploration_share
     row: exploration share
@@ -445,7 +445,7 @@ knobs:
     set_by: [X8]
     editable: true
     accessor: exploration_share
-    consumer: orchestrator Settings.top_k = measured_points; exploration pending WP18
+    consumer: orchestrator Settings.top_k = measured_points; exploration_points = the random arm (solve_work.selection_arms, WP18)
 
   - id: guard.duplicate_proposal_rejection
     row: duplicate-proposal rejection
@@ -460,7 +460,7 @@ knobs:
     set_by: []
     editable: true
     accessor: duplicate_proposal_rejection
-    consumer: pending WP18
+    consumer: "orchestrator TaskQueue.check: identical resubmission rejected without checks (WP18)"
 
   - id: guard.completion_checks_fixed
     row: completion checks fixed
@@ -565,7 +565,7 @@ knobs:
     set_by: []
     editable: true
     accessor: selection_controls
-    consumer: pending WP18
+    consumer: "orchestrator solve_work.selection_arms (copied arm) and gap.selection, recorded per bucket in GapDecomposition (WP18)"
 
   - id: guard.canary_rate
     row: canary rate
@@ -582,7 +582,7 @@ knobs:
     set_by: []
     editable: true
     accessor: canary_rate
-    consumer: pending WP18 (canaries)
+    consumer: "orchestrator canary.run from the summarize process (WP18)"
 
   # ---- 12 §4 Escalation and reliability -------------------------------------------------------
   - id: escalation.accept
@@ -600,7 +600,7 @@ knobs:
     set_by: []
     editable: true
     accessor: accept
-    consumer: pending WP18 (gap decomposition and routing)
+    consumer: "orchestrator gap.accepts: judging rule 3 (WP18)"
 
   - id: escalation.case_to_knowledge
     row: escalate case → knowledge
@@ -618,7 +618,7 @@ knobs:
     set_from: S1/S2 logs
     editable: true
     accessor: case_to_knowledge
-    consumer: pending WP18
+    consumer: "orchestrator judging (model error after calibration) and improve.summarize (same class in n cases); on_no_applicable_template = the existing retrieving T1 (WP18)"
 
   - id: escalation.to_user
     row: escalate → user
@@ -634,7 +634,7 @@ knobs:
     set_by: []
     editable: true
     accessor: to_user
-    consumer: round limit in solve/expand loops; the rest pending WP18
+    consumer: "round limit in solve/expand loops; canary missed (canary, inbox); budget overrun = the existing BudgetExceeded block; claim or criterion change pending (WP18)"
 
   - id: escalation.finding_ladder
     row: finding ladder
@@ -774,7 +774,7 @@ knobs:
     set_by: []
     editable: true
     accessor: explained_min
-    consumer: solve loop judging rule 3
+    consumer: "reported in the judgement only; rule 3 reads escalation.accept since WP18 (D523)"
 
   - id: inbox.suspicious_result
     row: suspicious result

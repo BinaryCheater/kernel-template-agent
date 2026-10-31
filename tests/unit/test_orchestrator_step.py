@@ -12,7 +12,7 @@ from kta.orchestrator import machine, step
 from kta.orchestrator.machines import ANY_STATE
 from kta.orchestrator.solve_loop import bucket_metrics
 from kta.orchestrator.transition import Transition
-from orchesthelp import ID, bucket, ctx_with, judging, loop
+from orchesthelp import ID, bucket, ctx_with, judging, loop, space_loss
 
 EdgeKey = tuple[str, str, str, int | None]
 
@@ -73,8 +73,10 @@ def rule_loops() -> dict[str, Any]:
         "rule1": judging(bucket(failed_checks=[[ID, ID]])),
         "rule2": judging(bucket(pairs=[(10.0, 30.0), (20.0, 20.0), (30.0, 10.0)])),
         "rule3": judging(bucket()),
-        "rule4_t2": judging(bucket(reference_us=1.0, predicted_us=5.5), references=[ID]),
-        "rule4_t1": judging(bucket(reference_us=None, predicted_us=5.5)),
+        "rule4_t2": judging(space_loss(), references=[ID]),
+        "rule4_t1": judging(space_loss(reference_us=None)),
+        "rule5": judging(space_loss(solver={"method": "enumerate", "model_optimal": False})),
+        "rule6": judging(space_loss(), incumbent={"t_us": 11.0, "round": 1}, null_rounds=1),
     }
 
 
@@ -131,13 +133,16 @@ def test_judging_rule_3_criterion_met_accepts_with_solution(ctx: Context) -> Non
     t = _judged(ctx, "rule3")
     assert (t.to, t.rule, t.tasks) == ("accepted", 3, ())
     kinds = [d.kind for d in t.records]
-    assert kinds == ["Solution", "Report"]
-    assert t.records[1].links == {"solution": (0,)} and t.records[1].data_key == "judgement"
+    assert kinds == ["Solution", "GapDecomposition", "Report"]
+    assert t.records[2].links == {"solution": (0,), "decomposition": (1,)}
+    assert t.records[2].data_key == "judgement"
 
 
-def test_judging_rule_3_by_explained_gap_without_reference(ctx: Context) -> None:
-    lp = judging(bucket(reference_us=None, predicted_us=10.5, best_us=11.0, bound_us=5.0))
-    assert step(lp, ctx).rule == 3
+def test_judging_without_reference_accepts_only_an_explained_gap(ctx: Context) -> None:
+    # D522: no reference -> the reference clause fails; a gap within the band of SOL accepts.
+    near = bucket(reference_us=None, pairs=[(5.1, 5.2)], predicted_us=5.1, best_us=5.2)
+    assert step(judging(near), ctx).rule == 3
+    assert step(judging(space_loss(reference_us=None)), ctx).rule == 4
 
 
 def test_judging_rule_4_unexplained_creates_t2_with_a_reference(ctx: Context) -> None:
@@ -151,9 +156,11 @@ def test_judging_rule_4_unexplained_creates_t1_without_reference(ctx: Context) -
 
 
 def test_judging_thresholds_come_from_config(ctx: Context) -> None:
-    lp = judging(bucket(reference_us=None, predicted_us=8.0))  # explains 50% of the gap
-    assert step(lp, ctx).rule == 4
-    assert step(lp, ctx_with(ctx, {"judging.explained_min": 0.4})).rule == 3
+    lp = judging(bucket(pairs=[(8.0, 11.0)], predicted_us=8.0))  # eps = 27% of T
+    assert step(lp, ctx).rule == 2
+    accept = {"not_worse_than_strongest_reference": True, "max_unexplained_rel": 0.3,
+              "accept_if_fully_irreducible": True}  # fmt: skip
+    assert step(lp, ctx_with(ctx, {"escalation.accept": accept})).rule == 3
 
 
 def test_judgement_report_has_the_api_fields(ctx: Context) -> None:
@@ -267,3 +274,19 @@ def test_expand_missed_epsilon_writes_a_gap(ctx: Context) -> None:
 def test_terminal_states_hold(ctx: Context) -> None:
     assert step(loop("solve", "accepted"), ctx).to is None
     assert step(loop("expand", "covered"), ctx).to is None
+
+
+def test_judging_rule_5_uncertified_solver_closes_and_escalates(ctx: Context) -> None:
+    t = _judged(ctx, "rule5")
+    assert (t.to, t.rule, t.tasks) == ("closed", 5, ())
+    assert t.data["escalated"] == "user"
+    dec = t.records[-2].body
+    assert dec["gap_class"] == "delta" and dec["route"]["escalate"] == "user"
+    assert dec["buckets"][0]["terms"]["delta"]["status"] == "unbounded"
+
+
+def test_judging_rule_6_null_rounds_close_the_case(ctx: Context) -> None:
+    t = _judged(ctx, "rule6")
+    assert (t.to, t.rule) == ("closed", 6)
+    d = t.records[-2].body["discipline"]
+    assert d["null_rounds"] == 2 and d["credited"] is False
