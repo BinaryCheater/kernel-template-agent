@@ -480,3 +480,32 @@ Interpretation used by the implementation (D149, needs user review): checkers ma
 Refs of the WP14 kinds: Finding and Coupling `evidence` (records), `sources`; Coupling `family`; CapabilityDecl `target` (Target record, optional), `sources`; Capability `sources`.
 
 **One ladder for empirical knowledge (D446).** Finding, Coupling, Regime and Negative move along proposed → reproduced → calibrated → holdout_validated (02's names observed/claimed, replicated, explained are aliases). Evidence rules (`kta.knowledge.ladder`): reproduced needs ≥ 2 distinct real evidence records; calibrated a resolvable `explained_by` or a Report with `ci_low`/`ci_high`; holdout_validated a Report with `holdout` and `agrees` true. Templates keep assurance and are not on this ladder.
+
+### 4.11 Proof records (WP24; D631–D635)
+
+```python
+class Assumption:     name: str; statement: str; expr: str?      # expr over p.* / hw.* / case.* only
+class ObligationModel: obligation: str                            # an obligation name of the Template
+                       condition: Literal["initialisation", "step", "progress", "completion", "index"]
+                       model: str                                 # kta.checks.proof.models.MODELS (open table)
+                       params: dict; note: str?
+class ProofOutline:   template: str                               # "<name>@<version>"
+                      version: int = 1; relation: str; rank: str  # R and ρ (paper §4.1)
+                      assumes: list[Assumption]; guarantees: list[str]
+                      models: list[ObligationModel]; note: str?
+class Query:          sha256: str; result: str; seconds: float    # unsat | sat | unknown | enumerated
+class ProofResult:    subject: str; scope: Literal["template", "chain", "candidate"]
+                      condition: Literal["K1", "K2", "K3", "encoding", "composition", "candidate", "wp"]
+                      obligation: str; outcome: Literal["proved", "bounded", "counterexample", "unresolved"]
+                      domain: str; premises: dict[str, str]; premise_key: str
+                      queries: list[Query]; seconds: float
+                      counterexample: dict?; replay: dict?; reason: str; data: dict
+class ProofSummary:   subject: str; scope: ...; part: str = ""    # "step:<key>" for a chain step
+                      level: Literal["proved", "bounded"] | None
+                      checked: list[dict]; unchecked: list[dict]; gaps: list[str]
+                      premise_key: str; checker: str; solver: str
+```
+refs: ProofOutline `template` (required), `sources`, `previous`; ProofResult `subject` (required), `outline`, `reused`; ProofSummary `subject` (required), `results`, `steps` (chain step summaries).
+
+- `counterexample` is set only after the independent interpreter (`replay`) confirms the witness; an unconfirmed witness, a timeout, `unknown` or an unsupported construct is `unresolved`, never a proof.
+- Assurance `bounded` / `proved` of a Template, Family or Chain is read only from its newest live whole-subject ProofSummary (`kta.store.assurance.effective`, D634).

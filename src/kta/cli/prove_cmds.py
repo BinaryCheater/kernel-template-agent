@@ -6,6 +6,7 @@
     kta prove wp <name@version | id>                       weakest-precondition search
     kta prove drift                                        invalidate on changed premises
     kta prove status <id>                                  effective assurance and summary
+    kta prove canary [--pre EXPR]                          planted unsound Pre must be refuted
 
 Checker runs are CPU work on the control plane here; a heavy run can go to the compute
 host as a job like any other CPU job (they are deterministic and need only this package).
@@ -17,11 +18,14 @@ import argparse
 from typing import Any
 
 from kta.checks.proof import compose, records, wp
-from kta.checks.proof.prove import find_template, prove_template
+from kta.checks.proof.prove import CHECKER, find_template, outline_for, prove_template
+from kta.checks.proof.template import check_template
 from kta.cli.exec_cmds import ContextFactory, _out, command
 from kta.core.errors import ConfigError
 from kta.core.ids import record_id
 from kta.core.registry import resolve
+from kta.core.schemas import Record
+from kta.core.schemas.knowledge import Template
 from kta.models import load_machine
 from kta.store.assurance import effective, proof_summary
 from kta.store.sqlite import SqliteStore
@@ -149,6 +153,47 @@ def cmd_status(args: argparse.Namespace, make_ctx: ContextFactory) -> int:
     return 0
 
 
+CANARY_TEMPLATE = "shared_memory_tiling@1"
+CANARY_PRE = "P <= S - 1"  # paper §4.3: the barrier ignored; admits the race of Figure 7
+
+
+def cmd_canary(args: argparse.Namespace, make_ctx: ContextFactory) -> int:
+    """The checker's canary: the tiling Template with a planted unsound precondition, checked
+    in memory (nothing enters the pool); the outcome is a Report."""
+    with command(make_ctx, "prove", "kta prove canary") as ctx:
+        store = _store(ctx)
+        tid = find_template(store, CANARY_TEMPLATE)
+        t = Template.model_validate(store.get(tid).body)
+        found = outline_for(store, CANARY_TEMPLATE)
+        planted = wp.relaxed(t, t.preconditions[0].id, args.pre)
+        chk = check_template(planted, found[1] if found else None)
+        bad = [d for d in chk.drafts if d.outcome == "counterexample"]
+        caught = bool(bad) and all(
+            d.replay is not None and not d.replay.get("agrees", True) for d in bad
+        )
+        data = {
+            "template": CANARY_TEMPLATE,
+            "planted_pre": args.pre,
+            "caught": caught,
+            "counterexamples": [
+                {"obligation": d.obligation, "reason": d.reason, "counterexample": d.counterexample,
+                 "replay": {k: v for k, v in (d.replay or {}).items() if k != "trace"}}
+                for d in bad
+            ],
+            "outcomes": {f"{d.condition}:{d.obligation}": d.outcome for d in chk.drafts},
+            **records.versions(),
+        }  # fmt: skip
+        body = {
+            "title": "proof_canary",
+            "subject": tid,
+            "summary": f"planted {args.pre}: caught={caught}",
+            "data": data,
+        }
+        rid = store.put(Record.new("Report", body, CHECKER, ctx.clock.now()))
+    _out(args, {"report": rid, **data}, f"canary {'caught' if caught else 'MISSED'}: report {rid}")
+    return 0 if caught else 1
+
+
 def add_prove_commands(sub: Any, make_ctx: ContextFactory) -> None:
     prove = sub.add_parser("prove", help="Template proofs, composition and proof reuse (WP24)")
     psub = prove.add_subparsers(dest="prove_command", required=True)
@@ -174,3 +219,7 @@ def add_prove_commands(sub: Any, make_ctx: ContextFactory) -> None:
     add("drift", cmd_drift, "invalidate proofs whose premises changed")
     s = add("status", cmd_status, "effective assurance of a record")
     s.add_argument("id")
+    c = add(
+        "canary", cmd_canary, "a planted unsound precondition must give a replayed counterexample"
+    )
+    c.add_argument("--pre", default=CANARY_PRE)

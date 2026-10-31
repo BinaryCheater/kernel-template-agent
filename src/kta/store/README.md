@@ -30,3 +30,5 @@ Append-only evidence records, content-addressed blobs, operations tables (tasks,
 ## Backups and hand-over (WP23, D601)
 
 `backup.py`: `backup` (SQLite online backup, blobs, system configuration, manifest; `--handover` marks the store), `restore` (empty data directory, hash-checked), `check_owner` (the API and processes refuse a handed-over store). CLI `kta store backup|restore`.
+
+WP24 (D634): `assurance.py` `effective(store, id)`: declared / tested from StatusChanges, bounded / proved only from the newest live whole-subject ProofSummary; `proof_summary(store, id)`.
