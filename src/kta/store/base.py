@@ -122,7 +122,11 @@ class Ops(Protocol):
     def reserve(self, scope: str, amount: Mapping[str, float]) -> bool: ...
 
     def settle(
-        self, scope: str, reserved: Mapping[str, float], used: Mapping[str, float]
+        self,
+        scope: str,
+        reserved: Mapping[str, float],
+        used: Mapping[str, float],
+        receipt: str | None = None,
     ) -> None: ...
 
     def events(self, since: int) -> list[OpsEvent]: ...

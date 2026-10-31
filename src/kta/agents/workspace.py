@@ -72,9 +72,11 @@ def input_cards(store: Store, ids: list[str]) -> list[cards.InputCard]:
 def input_files(store: Store, ids: list[str]) -> dict[str, bytes]:
     """``inputs/<kind>-<id12>.json`` per input record, plus its blobs (trees unpacked)."""
     files: dict[str, bytes] = {}
+    index = []
     for rid in ids:
         rec = store.get(rid)
         stem = f"inputs/{rec.kind}-{rid[:12]}"
+        index.append({"id": rid, "kind": rec.kind, "file": stem + ".json"})
         files[f"{stem}.json"] = json.dumps(
             {"id": rid, "kind": rec.kind, "refs": rec.refs, "body": rec.body},
             indent=1,
@@ -90,6 +92,7 @@ def input_files(store: Store, ids: list[str]) -> dict[str, bytes]:
                     files[f"{stem}/{name}/{member}"] = content
             else:
                 files[f"{stem}/{name}"] = data
+    files["inputs/index.json"] = json.dumps(index, indent=1).encode()
     return files
 
 

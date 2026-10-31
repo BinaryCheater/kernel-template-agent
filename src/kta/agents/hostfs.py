@@ -11,6 +11,7 @@ import hashlib
 import io
 import json
 import os
+import re
 import shutil
 import tarfile
 from collections.abc import Iterable
@@ -82,6 +83,17 @@ def install_workspace(job_dir: Path, workspace: Path, names: list[str]) -> list[
     replaced wholesale so the agent cannot keep edits to skills between steps.
     """
     workspace.mkdir(parents=True, exist_ok=True)
+    incoming = job_dir / (BUNDLE_WORKSPACE + "TASK.md")
+    previous = workspace / "TASK.md"
+    if incoming.is_file() and previous.is_file():
+        before = re.search(r"Task `([^`]+)`", previous.read_text())
+        after = re.search(r"Task `([^`]+)`", incoming.read_text())
+        if before and after and before.group(1) != after.group(1):
+            # Prior outputs are already in the previous run's archive and git commit.
+            # A retry retains its draft; a different task starts clean.
+            for name in ("out", "inputs"):
+                if (workspace / name).is_dir():
+                    shutil.rmtree(workspace / name)
     (workspace / "out").mkdir(exist_ok=True)
     (workspace / "inputs").mkdir(exist_ok=True)
     for d in REPLACED_DIRS:

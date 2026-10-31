@@ -983,3 +983,5 @@ Decisions made without the user that need review. Newest last. Each entry: quest
 - **Choice:** not repaired; reported with replayed counterexamples. Proposed repairs: physical_storage and output_tiling move their p-only preconditions into Γ (K1); multi_buffer_rotation, physical_storage, shared_resource_binding bound their p.* in Γ (sizes ≥ 1, `S * p.size_bytes <= p.capacity_bytes` for some S, `p.wavefronts` as defined) (K3); async_transfer adds `complete_point != "before_read" or p.single_issuer` or drops `before_read`; shared_resource_binding restates `bijective_binding` as injectivity with an inverse on the image (padding).
 - **Rationale:** a seed change is a knowledge decision; new versions change chain references.
 - **Cost of changing later:** new Template versions plus chain bindings; the checker reruns in seconds.
+
+- D658 (SYSDEBUG-1): default candidate-hash holdout share is 20%, matching the existing fitter’s nominal share. Independent data is now mandatory for T4 acceptance. This fixes in-sample acceptance; research sample adequacy still needs calibration. Changing the partition affects newly created tasks; existing card refs remain immutable.

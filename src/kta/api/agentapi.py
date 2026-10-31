@@ -31,7 +31,7 @@ from pydantic import BaseModel, ConfigDict, ValidationError
 from kta.api.auth import bearer
 from kta.api.common import Api, controls
 from kta.checks.sass import sass_check
-from kta.core.errors import ConfigError, NotSupported, SchemaError
+from kta.core.errors import ConfigError, NotSupported, PermissionDenied, SchemaError
 from kta.core.ids import UlidFactory
 from kta.core.schemas import Actor
 from kta.core.schemas.evaluation import Case
@@ -121,10 +121,17 @@ def router(api: Api) -> APIRouter:
     r = APIRouter(prefix="/agent")
     svc = Services(api.ctx, api.store, api.ops)
 
+    def private(task: str, target: str) -> set[str]:
+        hidden = set(api.store.get(api.ops.task(task).card_id).refs.get("holdout", []))
+        if target in hidden:
+            raise PermissionDenied("Checker-owned model holdout is unavailable to the agent")
+        return hidden
+
     @contextmanager
     def call(name: str, authorization: str | None, parent: str | None) -> Generator[str]:
         """Verify the token, then run the call as a span of the agent's trace; yields the task."""
         task = api.orchestration.verify_task_token(bearer(authorization), api.now())
+        TaskQueue(api.ctx, api.store, api.ops, svc).consume_step(task)
         environ = {TRACE_PARENT_VAR: parent} if parent else {}
         tracer = new_tracer(api.ops, api.store.clock, UlidFactory(api.store.clock), environ)
         with tracing(tracer), span("cli", name, "process:api", task_id=task):
@@ -144,7 +151,9 @@ def router(api: Api) -> APIRouter:
         id: str, authorization: str | None = Auth, parent: str | None = Parent
     ) -> dict[str, Any]:  # pyright: ignore[reportUnusedFunction]
         with call(f"kta show {id[:12]}", authorization, parent) as task:
+            private(task, id)
             out = {"id": id, **api.store.get_json(id)}
+            out["refs"].pop("holdout", None)
             pull(task, "show", id, str(out.get("kind")))
             return out
 
@@ -153,6 +162,7 @@ def router(api: Api) -> APIRouter:
         id: str, authorization: str | None = Auth, parent: str | None = Parent
     ) -> dict[str, Any]:  # pyright: ignore[reportUnusedFunction]
         with call(f"kta card {id[:12]}", authorization, parent) as task:
+            private(task, id)
             c = card(api.store, id)
             pull(task, "card", id, c.kind)
             return {"id": c.id, "kind": c.kind, "name": c.name, "lines": c.lines}
@@ -165,9 +175,14 @@ def router(api: Api) -> APIRouter:
         parent: str | None = Parent,
     ) -> dict[str, Any]:
         with call(f"kta why {id[:12]}", authorization, parent) as task:
+            hidden = private(task, id)
             g = api.store.lineage(id, depth=depth)
             pull(task, "why", id, None)
-            return {"root": g.root, "nodes": g.nodes, "edges": g.edges}
+            return {
+                "root": g.root,
+                "nodes": {k: v for k, v in g.nodes.items() if k not in hidden},
+                "edges": [e for e in g.edges if e[0] not in hidden and e[2] not in hidden],
+            }
 
     @r.post("/query")
     def query(

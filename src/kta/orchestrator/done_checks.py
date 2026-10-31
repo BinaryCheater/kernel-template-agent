@@ -47,6 +47,7 @@ from kta.knowledge.pending import PendingView
 from kta.knowledge.pool import find_by_name, find_template, parse_template_ref
 from kta.models import load_model
 from kta.models.unit_model import UnitModel
+from kta.orchestrator.model_checks import holdout
 from kta.orchestrator.pipeline import Services
 from kta.store.base import Store
 
@@ -352,15 +353,6 @@ def template_validates(inp: CheckInput) -> Outcome:
     return out
 
 
-def _pairs(store: Store, ids: list[str]) -> list[tuple[Prediction, Measurement]]:
-    recs = [store.get(i) for i in ids]
-    preds = [Prediction.model_validate(r.body) for r in recs if r.kind == "Prediction"]
-    meas = [Measurement.model_validate(r.body) for r in recs if r.kind == "Measurement"]
-    if not preds or len(preds) != len(meas):
-        raise SchemaError("T4 inputs need (Prediction, Measurement) pairs after the model")
-    return list(zip(preds, meas, strict=True))
-
-
 def _median_error(model: UnitModel, pairs: list[tuple[Prediction, Measurement]]) -> float:
     errs = sorted(
         abs(model.total_us(p.per_unit, p.serial) - m.median_us) / m.median_us for p, m in pairs
@@ -375,7 +367,7 @@ def model_improves(inp: CheckInput) -> Outcome:
     if not path.is_file():
         return Outcome("model_holdout_improves", False, ["the submission has no model.json"])
     new = UnitModel.from_dict(yaml.safe_load(path.read_text(encoding="utf-8")))
-    pairs = _pairs(inp.store, inp.card.inputs[1:])
+    pairs = holdout(inp.store, inp.card_id)
     e_old, e_new = _median_error(old, pairs), _median_error(new, pairs)
     data = {"old_error": e_old, "new_error": e_new, "n": len(pairs)}
     ok = e_new < e_old

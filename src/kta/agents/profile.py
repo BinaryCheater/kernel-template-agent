@@ -68,6 +68,20 @@ class ProfileSpec:
 
 CODEX_V1 = ProfileSpec()
 CODEX_V2 = ProfileSpec(name="codex-v2", version=2, skills_by_type=SKILLS_BY_TYPE_V2)
+CODEX_V3 = ProfileSpec(name="codex-v3", version=3, skills_by_type=SKILLS_BY_TYPE_V2)
+SUPPORTED_COMMANDS = [
+    "show",
+    "card",
+    "query",
+    "why",
+    "instantiate",
+    "build",
+    "sass",
+    "validate-template",
+    "validate-family",
+    "note",
+    "submit",
+]
 CODEX_FLAGS = [
     "--json",
     "-c", 'sandbox_mode="workspace-write"',
@@ -122,20 +136,27 @@ def skill_description(text: str) -> str:
     raise ConfigError("skill without a description line in its front matter")
 
 
-def skill_ref(store: Store, name: str) -> str:
-    path = SKILLS / name / "SKILL.md"
+def skill_ref(store: Store, name: str, version: int = 1) -> str:
+    root = SKILLS / "v3" if version >= 3 and (SKILLS / "v3" / name).is_dir() else SKILLS
+    path = root / name / "SKILL.md"
     if not path.exists():
         raise ConfigError(f"runtime skill {name} has no {path}")
-    sha = store.put_blob(pack_dir(SKILLS / name), "application/gzip")
+    sha = store.put_blob(pack_dir(root / name), "application/gzip")
     return f"{name}@{sha}"
 
 
 def profile_body(store: Store, spec: ProfileSpec = CODEX_V1) -> AgentProfile:
     def blob(name: str, media: str = "text/markdown") -> str:
-        return store.put_blob((PROMPTS / name).read_bytes(), media)
+        root = (
+            PROMPTS / "v3" if spec.version >= 3 and (PROMPTS / "v3" / name).is_file() else PROMPTS
+        )
+        return store.put_blob((root / name).read_bytes(), media)
 
     by_type = spec.skills_by_type
-    refs = {n: skill_ref(store, n) for n in sorted({s for v in by_type.values() for s in v})}
+    refs = {
+        n: skill_ref(store, n, spec.version)
+        for n in sorted({s for v in by_type.values() for s in v})
+    }
     messages = {m: blob(f"msg-{m}.md") for m in MESSAGES}
     messages["notes_seed"] = blob("notes-seed.md")
     return AgentProfile(
@@ -154,7 +175,9 @@ def profile_body(store: Store, spec: ProfileSpec = CODEX_V1) -> AgentProfile:
         message_templates=messages,
         skills={t: [refs[s] for s in names] for t, names in by_type.items()},
         skill_bundles={ref: ref.partition("@")[2] for ref in refs.values()},
-        allowed_commands={t: list(AGENT_COMMANDS) for t in TASK_TYPES},
+        allowed_commands={
+            t: list(SUPPORTED_COMMANDS if spec.version >= 3 else AGENT_COMMANDS) for t in TASK_TYPES
+        },
         context_policy=dict(CONTEXT_POLICY),
         loop_policy=dict(LOOP_POLICY),
     )

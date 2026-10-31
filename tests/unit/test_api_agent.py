@@ -80,6 +80,31 @@ def test_show_query_and_why_as_the_task(api: Api, tmp_path: Path) -> None:
     assert all(c["lane"] == "process:api" and c["attrs"]["task_id"] == task for c in calls)
 
 
+def test_model_holdout_is_denied_and_not_exposed_in_lineage(api: Api, tmp_path: Path) -> None:
+    from test_sysdebug_tasks import model_inputs
+
+    from kta.orchestrator.pipeline import Services
+    from kta.orchestrator.tasks import TaskQueue
+    from kta.orchestrator.transition import TaskRequest
+
+    svc = Services(api.ctx, api.store, api.ops)
+    q = TaskQueue(api.ctx, api.store, api.ops, svc)
+    ids, _ = model_inputs(svc)
+    task = q.create(TaskRequest("T4", "privacy canary", ids), None, "calibrate")
+    q.lease(task, "agent:1")
+    q.start(task, "agent:1")
+    cid = q.get(task).card_id
+    hidden = api.store.get(cid).refs["holdout"]
+    auth, app = _auth(api, tmp_path, task), create_app(api)
+    for name in ("records", "cards", "why"):
+        status, _ = request(app, "GET", f"/agent/{name}/{hidden[0]}", None, auth)
+        assert status == 403
+    for name in ("records", "why"):
+        status, body = request(app, "GET", f"/agent/{name}/{cid}", None, auth)
+        assert status == 200
+        assert all(rid not in json.dumps(body) for rid in hidden)
+
+
 def test_validate_template_and_family(api: Api, tmp_path: Path) -> None:
     app = create_app(api)
     auth = _auth(api, tmp_path, _running(api))

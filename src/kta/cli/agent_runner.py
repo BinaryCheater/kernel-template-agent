@@ -24,7 +24,7 @@ from kta.agents.profile import approve_profile
 from kta.agents.runner import Deps, run_step
 from kta.agents.units import close_work_unit
 from kta.cli.exec_cmds import ContextFactory, _out, command
-from kta.core.errors import ConfigError, NotSupported
+from kta.core.errors import ConfigError, KtaError, NotSupported
 from kta.core.ids import UlidFactory
 from kta.core.jobs import Job, JobResult
 from kta.core.proxy import ProxyUnavailable
@@ -175,9 +175,14 @@ def step_once(
     except ProxyUnavailable as exc:
         # The CLI never started (fail closed); the attempt ends like an abandoned step.
         return {"task": task.id, "refused": str(exc), "verdict": q.abandon(task.id, str(exc))}
+    except KtaError as exc:
+        if q.get(task.id).state == "running":
+            q.abandon(task.id, str(exc))
+        raise
     finally:
         done.set()
         watcher.join()
+    q.reconcile_usage(task.id)
     after = q.get(task.id).state
     out: dict[str, Any] = {
         "task": task.id,

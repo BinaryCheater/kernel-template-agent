@@ -15,6 +15,7 @@ from fastapi import APIRouter, Header
 from kta.api.common import Api
 from kta.core.errors import ConfigError, PermissionDenied
 from kta.core.schemas import Record
+from kta.orchestrator.tasks import TaskQueue
 
 WRITER_TYPES = ("agent", "tool")
 
@@ -36,6 +37,7 @@ def write_record(api: Api, token: str, data: dict[str, Any]) -> str:
         raise PermissionDenied(f"a task may not write {rec.kind} records")
     if rec.origin != "real":
         raise ConfigError("records written through the API have origin real")
+    TaskQueue(api.ctx, api.store, api.ops).consume_step(task_id)
     return api.store.put(rec)
 
 

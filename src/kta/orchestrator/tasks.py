@@ -11,18 +11,19 @@ import hashlib
 import json
 import shutil
 from collections.abc import Collection, Mapping
+from contextlib import nullcontext
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from kta.core.context import Context
 from kta.core.controls import Controls
-from kta.core.errors import ConfigError, KtaError, PermissionDenied, SchemaError
+from kta.core.errors import BudgetExceeded, ConfigError, KtaError, PermissionDenied, SchemaError
 from kta.core.ids import UlidFactory
 from kta.core.schemas import Actor, Record, RefValue
 from kta.core.schemas.process import Submission, TaskCard
-from kta.core.trace import SpanStart
-from kta.orchestrator import budget, control, workunits
+from kta.core.trace import SpanStart, current_tracer, new_tracer, span, tracing
+from kta.orchestrator import budget, control, model_checks, task_usage, workunits
 from kta.orchestrator.done_checks import DONE_CHECKS, CheckInput, Outcome, run_check
 from kta.orchestrator.machines import Machine, machine
 from kta.orchestrator.outputs import write_outputs
@@ -130,11 +131,16 @@ class TaskQueue:
         loop_id = loop_id or f"human:{self.ids.new()}"
         unit = workunits.unit_for(loop_id, req.type, snap.work_unit_rule, self.ids.new())
         profile = self.ops.get_pointer(CURRENT_PROFILE) or UNASSIGNED_PROFILE
+        visible, held = (
+            model_checks.partition(self.store, req.inputs)
+            if req.type == "T4"
+            else (list(req.inputs), [])
+        )
         body = TaskCard.model_validate(
             {
                 "type": req.type,
                 "goal": req.goal,
-                "inputs": list(req.inputs),
+                "inputs": visible,
                 "done_checks": list(DONE_CHECKS[req.type]),
                 "budget": s.card_budget(req.type),
                 "profile": profile,
@@ -142,7 +148,9 @@ class TaskQueue:
                 **({"header": req.header.model_dump(mode="json")} if req.header else {}),
             }
         )
-        refs: dict[str, RefValue] = {"inputs": sorted(set(req.inputs))} if req.inputs else {}
+        refs: dict[str, RefValue] = {"inputs": sorted(set(visible))} if visible else {}
+        if held:
+            refs["holdout"] = held
         if req.header and req.header.plan:
             refs["plan"] = req.header.plan  # the default FormulationPlan the header shows
         if snap.version_id:
@@ -173,6 +181,8 @@ class TaskQueue:
     def lease(self, task_id: str, owner: str) -> Task:
         """queued -> leased, reserving the card budget; BudgetRefused keeps it queued."""
         task = self.get(task_id)
+        if task.card_type == "T4" and self.card(task).inputs:
+            model_checks.holdout(self.store, task.card_id)  # refuse before reserving or calling AI
         amount = budget.scope_amounts(self.card(task).budget)
         info = self.info(task_id)
         process = str(info.get("process", "solve"))
@@ -189,7 +199,10 @@ class TaskQueue:
         except ConfigError:
             budget.settle_chain(self.ops, scopes, amount, {})
             raise
-        self._set_info(task_id, reserved=amount, scopes=scopes)
+        charged = sorted(set(info.get("charged_scopes", [])) | set(scopes))
+        self._set_info(
+            task_id, reserved=amount, scopes=scopes, charged_scopes=charged, tool_calls=0
+        )
         return self.get(task_id)
 
     def start(self, task_id: str, owner: str) -> None:
@@ -197,6 +210,24 @@ class TaskQueue:
         if task.lease_owner != owner:
             raise ConfigError(f"task {task_id} is leased by {task.lease_owner}, not {owner}")
         self._move(task, "running", owner=owner, lease_s=self.settings.lease_s)
+
+    def consume_step(self, task_id: str) -> None:
+        """Enforce the per-attempt tool budget before starting an API operation."""
+        limit = self.card(self.get(task_id)).budget.get("steps")
+        if limit is None:
+            return
+        key = f"task:{task_id}"
+        while True:
+            old = self.ops.get_pointer(key)
+            info: dict[str, Any] = json.loads(old) if old else {}
+            count = int(info.get("tool_calls", 0))
+            if count >= int(limit):
+                raise BudgetExceeded(
+                    f"task tool budget exhausted ({count}/{limit}); end this attempt"
+                )
+            info["tool_calls"] = count + 1
+            if self.ops.set_pointer(key, old, json.dumps(info, sort_keys=True)):
+                return
 
     def submit(
         self, task_id: str, owner: str, files: Mapping[str, bytes], note: str, actor: Actor
@@ -239,6 +270,15 @@ class TaskQueue:
 
     def check(self, task_id: str) -> Verdict:
         """submitted -> checking -> accepted | rejected (-> queued | escalated) | suspended."""
+        trace = (
+            nullcontext()
+            if current_tracer()
+            else tracing(new_tracer(self.ops, self.ctx.clock, self.ids, {}))
+        )
+        with trace, span("task_check", f"check {task_id}", "process:checker", task_id=task_id):
+            return self._check(task_id)
+
+    def _check(self, task_id: str) -> Verdict:
         task = self.get(task_id)
         if task.state == "submitted":
             self._move(task, "checking")
@@ -426,11 +466,22 @@ class TaskQueue:
 
     def _settle(self, task_id: str) -> None:
         info = self.info(task_id)
-        if not info.get("scopes"):
-            return
-        # Human and CLI submissions run no agent, so they book no agent time (D268).
-        budget.settle_chain(self.ops, info["scopes"], info["reserved"], {})
-        self._set_info(task_id, scopes=[], reserved={})
+        self.reconcile_usage(task_id)
+        for scope in info.get("scopes", []):
+            self.ops.settle(
+                scope,
+                info["reserved"],
+                {},
+                receipt=f"task-release:{task_id}:{self.get(task_id).attempts}",
+            )
+        if info.get("scopes"):
+            self._set_info(task_id, scopes=[], reserved={})
+
+    def reconcile_usage(self, task_id: str) -> None:
+        """Book completed actual use; safe to replay after cancellation or process restart."""
+        task_usage.reconcile(
+            self.store, self.ops, task_id, self.info(task_id).get("charged_scopes", [])
+        )
 
     def _finish(self, task_id: str, state: str) -> None:
         self._settle(task_id)
