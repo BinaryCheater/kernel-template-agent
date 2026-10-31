@@ -24,6 +24,10 @@ from kta.api.common import (
     ref_one,
     refs,
 )
+from kta.api.common import (
+    record_ids as _ids,
+)
+from kta.orchestrator.control import paused_scope
 from kta.store.base import SpanRow
 
 # Lifecycle states (D265) of a task still being worked on, i.e. neither terminal nor waiting
@@ -87,6 +91,10 @@ def summary(api: Api, case_id: str) -> dict[str, Any]:
         "loop_id": loop.id if loop else None,
         "state": loop.state if loop else "not started",
         "round": data.get("round", 0),
+        "blocked": data.get("blocked"),
+        "paused": paused_scope(api.ops, [f"loop:{loop.id}", "process:solve", "global"]) is not None
+        if loop
+        else False,
         "bound_us": float(body(api, bound)["bound_us"]) if bound else None,
         "bound_record": bound,
         "best_us": best["us"] if best else None,
@@ -141,14 +149,6 @@ def _best_measured(api: Api, cand: str) -> float | None:
     build = latest(api, incoming(api, cand, "candidate", "Build"))
     meas = latest(api, incoming(api, build, "build", "Measurement")) if build else None
     return _measured_us(api, meas)
-
-
-def _ids(api: Api, kind: str) -> list[str]:
-    with api.store.db.read() as con:
-        rows = con.execute(
-            "SELECT id FROM records WHERE kind = ? ORDER BY created_at", (kind,)
-        ).fetchall()
-    return [r[0] for r in rows]
 
 
 def _rounds(api: Api, loop_id: str | None, case_id: str) -> list[dict[str, Any]]:

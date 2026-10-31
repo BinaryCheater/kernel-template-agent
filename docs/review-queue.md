@@ -1,5 +1,12 @@
 # Review queue
 
+## D653 — Evaluation recovery and truthful failure state
+
+- **Question:** Is a completed candidate check the right cooperative pause boundary for supervised debugging?
+- **Choice:** Checkpoint each completed check/measurement; retain results on a blocked step; resume unfinished work. Compile errors remain failed Build evidence, and tracing/frontend distinguish blocked, paused and unsuccessful work.
+- **Rationale:** The first system rehearsal hid completed checks behind an all-at-once state and masked a failed codegen job with JSONDecodeError. No acceptance rule or kernel implementation changes.
+- **Cost of changing later:** Low for the boundary; finer cancellation within a full check needs additional checkpoints. Autonomous engineering repair authorised by the user; no approval pause.
+
 ## D649 — Quiet clock rule v2
 
 User authorised autonomous repair. Keep stable workload clocks below rated maximum; reject sampled within-window variation, heat or throttling. New 50 ms polling interval remains an X6 default. Clock locking needs unavailable privileges; whole-kernel frequency rescaling confounds memory and launch costs. Reversible code/control change; real repeated measurements validate it. Review is informational and does not pause this repair.

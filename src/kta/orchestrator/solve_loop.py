@@ -43,6 +43,8 @@ def _wait(loop: Loop, rule: int | None, task: TaskRequest, note: str, **data: An
 def step(loop: Loop, ctx: Context) -> Transition:
     s = Settings.of(ctx.controls)
     f = loop.facts
+    if loop.state in ("checking", "measuring") and f.get("pending"):
+        return hold(loop, "evaluation paused; completed results checkpointed", **f)
     if loop.state in LINEAR:
         return Transition(loop.state, LINEAR[loop.state], "normal", data=dict(f))
     if loop.state == "retrieving":

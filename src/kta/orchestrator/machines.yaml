@@ -49,7 +49,7 @@ machines:
       - {id: solving, kind: step, work: orchestrator,
          does: Shortlist candidates with the pre-compile model (default 64)}
       - {id: building, kind: step, work: executor,
-         does: Compile in parallel, read feedback, check SASS, re-rank, keep top k (default 8)}
+         does: Compile the shortlist and collect feedback, read feedback, check SASS, re-rank, keep top k (default 8)}
       - {id: checking, kind: step, work: executor,
          does: Full correctness checks on the top k}
       - {id: measuring, kind: step, work: executor,

@@ -25,7 +25,7 @@ export function CaseList() {
         <tbody>{cases.data.map((c) => (
           <tr key={c.id} className="click" onClick={() => nav(`/cases/${c.id}`)}>
             <td><Link to={`/cases/${c.id}`}><b>{c.name}</b></Link><div className="mono small muted">{c.problem}</div></td>
-            <td><Chip tone={stateTone(solve, c.state)}>{c.state}</Chip></td>
+            <td><Chip tone={c.blocked ? "fail" : stateTone(solve, c.state)}>{c.blocked ? "blocked" : c.paused ? `paused · ${c.state}` : c.state}</Chip></td>
             <td><RoundDots rounds={c.rounds ?? []} max={maxRounds} /></td>
             <td><Spark values={(c.rounds ?? []).map((r) => r.pct_of_bound)} max={maxRounds} /></td>
             <td className="r num">{us(c.bound_us)}</td>
@@ -99,10 +99,11 @@ function CaseBody({ c, m }: { c: CaseDetail; m: Machines }) {
           <div className="ink2">{c.shapes} · objective {c.objective.replace("_", " ")} · <RecordLink id={c.record} label="case record" /></div>
         </div>
         <div className="row" style={{ marginLeft: "auto" }}>
-          <Chip tone={stateTone(m.machines.find((x) => x.id === "solve"), c.state)}>{c.state}</Chip>
+          <Chip tone={c.blocked ? "fail" : stateTone(m.machines.find((x) => x.id === "solve"), c.state)}>{c.blocked ? "blocked" : c.paused ? `paused · ${c.state}` : c.state}</Chip>
           <span className="small ink2">round {c.round} of 5</span>
         </div>
       </div>
+      {c.blocked && <div role="status" className="small"><b>Blocked in {c.blocked.state}: {c.blocked.error}.</b> {c.blocked.message}</div>}
       <div className="stats">
         <Stat label="Lower bound" value={fix1(c.bound_us)} unit="µs" record={c.bound_record} foot={c.buckets.length > 1 ? "see each shape below" : "theoretical, from the hardware model"} />
         <Stat label={strongest ? `Strongest reference · ${strongest.name}` : "Strongest reference"} value={fix1(strongest?.us)} unit={strongest ? "µs" : undefined} record={strongest?.record}

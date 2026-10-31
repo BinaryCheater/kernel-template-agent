@@ -187,6 +187,8 @@ export interface TraceInfo {
 // ---- GET /cases, /cases/{id}/timeline ----
 
 export interface CaseSummary {
+  blocked?: { error: string; message: string; state: string; at: string } | null;
+  paused?: boolean;
   id: string;
   name: string;
   problem: string;

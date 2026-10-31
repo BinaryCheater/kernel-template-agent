@@ -102,9 +102,13 @@ def new_tracer(
 @contextmanager
 def tracing(tracer: Tracer) -> Generator[Tracer]:
     token = _tracer.set(tracer)
+    parent = _current.get()
+    switched = _current.set(None) if parent and parent.trace_id != tracer.trace_id else None
     try:
         yield tracer
     finally:
+        if switched is not None:
+            _current.reset(switched)
         _tracer.reset(token)
 
 
@@ -155,4 +159,6 @@ def span(kind: str, name: str, lane: str, **attrs: Any) -> Generator[SpanHandle]
         raise
     finally:
         _current.reset(token)
+        if status == "ok" and handle.attrs.get("ok") is False:
+            status = "fail"
         tracer.sink.end_span(handle.span_id, tracer.clock.now(), status, handle.attrs)

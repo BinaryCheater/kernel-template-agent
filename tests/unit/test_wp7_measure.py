@@ -141,3 +141,13 @@ def test_replay_recomputes_a_measurement_from_its_blobs(ctx: Context, store: Sto
     mid = m.write_measurement(t, body, times, refs, case).id
     assert replay_measurement(store, mid, "subject") == []
     assert replay_measurement(store, mid, "other")  # another stream gives another CI
+
+
+def test_tilelang_codegen_metadata_does_not_escape_as_json_errors() -> None:
+    from kta.backends.tilelang import codegen_metadata
+
+    for raw in (b"", b"{", b"[]", b"null", b"\xff"):
+        data, error = codegen_metadata(raw)
+        assert data == {} and error and "gen.json" in error
+    data, error = codegen_metadata(b'{"params": ["A"], "block": 128}')
+    assert data["block"] == 128 and error is None

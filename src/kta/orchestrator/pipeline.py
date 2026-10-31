@@ -19,7 +19,7 @@ from kta.backends.base import Backend, BuiltModule, GeneratedKernel, LaunchSpec
 from kta.checks.base import Checker
 from kta.core.context import Context
 from kta.core.controls import Controls
-from kta.core.errors import NotSupported, SchemaError
+from kta.core.errors import CheckerError, NotSupported, SchemaError
 from kta.core.expr import Expr
 from kta.core.ids import record_id
 from kta.core.registry import resolve
@@ -234,7 +234,10 @@ def builder(
 
     def build_for(shape: dict[str, Any]) -> tuple[GeneratedKernel, BuiltModule]:
         gk = generate(fp, assignment, shape)
-        return gk, build(svc, gk)[1]
+        result, module = build(svc, gk)
+        if not result.ok:
+            raise CheckerError(f"check build {module.build_id} failed: {result.log_summary}")
+        return gk, module
 
     return build_for
 

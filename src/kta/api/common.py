@@ -184,3 +184,12 @@ def done_check_reports(api: Api, task_id: str) -> list[dict[str, Any]]:
             }
         )
     return out
+
+
+def record_ids(api: Api, kind: str) -> list[str]:
+    """Record IDs in creation order, for index views."""
+    with api.store.db.read() as con:
+        rows = con.execute(
+            "SELECT id FROM records WHERE kind = ? ORDER BY created_at", (kind,)
+        ).fetchall()
+    return [r[0] for r in rows]

@@ -72,3 +72,16 @@ def test_case_view_uses_round_links_and_keeps_baselines_in_their_bucket(tmp_path
     api.ops.put_loop(lp.id + "NEXT", lp.kind, lp.subject, "checking", {**d, "round": 2})
     assert cases.timeline(api, case["id"])["round"] == 2
     assert cases.timeline(api, case["id"])["state"] == "checking"
+
+    from kta.orchestrator import control
+
+    control.set_paused(api.ops, "loop:" + lp.id + "NEXT", True, "inspect", "test", api.now())
+    stopped = {
+        "error": "ConfigError",
+        "message": "metadata failed",
+        "state": "checking",
+        "at": "2026-10-30T14:30:00Z",
+    }
+    api.ops.put_loop(lp.id + "NEXT", lp.kind, lp.subject, "checking", {**d, "blocked": stopped})
+    visible = cases.timeline(api, case["id"])
+    assert visible["paused"] and visible["blocked"] == stopped

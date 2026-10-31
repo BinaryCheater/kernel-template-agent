@@ -14,8 +14,9 @@ from typing import Any, cast
 from kta.core.controls import Controls
 from kta.core.errors import ExecutionError, KtaError
 from kta.core.ids import UlidFactory
+from kta.core.logging import bind
 from kta.core.schemas import Actor, Record
-from kta.core.trace import SpanStart
+from kta.core.trace import SpanStart, Tracer, tracing
 from kta.orchestrator import budget, control, expand_work, solve_work
 from kta.orchestrator.inbox import inbox
 from kta.orchestrator.machines import machine
@@ -135,7 +136,9 @@ class Runner:
                 return None  # D364: a paused scope stops new steps; the state is kept
             snap = self.controls()
             svc = self.svc.with_controls(snap)
-            facts = self._work(loop, svc)
+            tracer = Tracer(svc.ops, svc.ctx.clock, loop.id, self.ids, loop.data.get("state_span"))
+            with tracing(tracer), bind(loop_id=loop.id):
+                facts = self._work(loop, svc)
             if facts is None:
                 return None
             t = step(replace(loop, facts=facts), svc.ctx)
@@ -160,7 +163,8 @@ class Runner:
             if exc.kind in ("infra", "timeout"):
                 n = int(loop.data.get("infra_failures", 0)) + 1
                 if n < Settings.of(svc.ctx.controls).infra_retries:
-                    self._put(loop, loop.state, {"infra_failures": n})
+                    fresh = loop_of(self.svc.ops.get_loop(loop.id))
+                    self._put(fresh, loop.state, {"infra_failures": n})
                     log.warning("loop %s %s: infra error %d: %s", loop.id, loop.state, n, exc)
                     return None
             self._block(loop, exc)
@@ -171,6 +175,7 @@ class Runner:
         return None
 
     def _block(self, loop: Loop, exc: Exception) -> None:
+        loop = loop_of(self.svc.ops.get_loop(loop.id))
         blocked = {
             "error": type(exc).__name__,
             "message": str(exc)[:2000],

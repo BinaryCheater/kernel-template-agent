@@ -99,12 +99,20 @@ class TileLangBackend:
         result: JobResult = ex.run(self._job(gk, target, flags, ex))
         gen: dict[str, object] = {}
         extra: dict[str, str] = {}
+        failure: str | None = None
         if "gen.json" in result.outputs:
-            gen = json.loads(ex.read_blob(result.outputs["gen.json"]))
             extra["codegen"] = result.outputs["gen.json"]
+            # A failed lowering leaves the redirected metadata file empty or partial.
+            # Preserve its compiler error as a failed Build instead of masking it with JSON errors.
+            if result.ok:
+                gen, failure = codegen_metadata(ex.read_blob(result.outputs["gen.json"]))
+        elif result.ok:
+            failure = "TileLang compile succeeded without gen.json metadata"
         if "kernel.cu" in result.outputs:
             extra["generated_source"] = result.outputs["kernel.cu"]
-        failure = launch_mismatch(gk, gen) if result.ok else None
+        if result.ok and failure is None:
+            failure = launch_mismatch(gk, gen)
+        extra["stdout"] = result.stdout_blob
         entry = str(gen.get("kernel_entry", gk.entry))
         dynamic = gen.get("dynamic_smem")
         return common.write_build(
@@ -119,3 +127,14 @@ class TileLangBackend:
             failure,
             dynamic_smem=dynamic if isinstance(dynamic, int) else 0,
         )
+
+
+def codegen_metadata(raw: bytes) -> tuple[dict[str, object], str | None]:
+    """Validate successful compiler output; malformed metadata is a failed build."""
+    try:
+        data = json.loads(raw)
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        return {}, f"TileLang malformed gen.json: {exc}"
+    if not isinstance(data, dict):
+        return {}, "TileLang gen.json must be an object"
+    return data, None
