@@ -21,9 +21,12 @@ backward_map: "Gathering the fragments of all lanes yields the shared-memory til
 obligations:
   - {name: lane_mapping, statement: "Lane l receives exactly the elements the consumer instruction assigns to lane l.", method: exhaustive}
   - {name: source_ready, statement: "The shared-memory tile is complete (its producing transfer finished and is visible) before the load.", method: test}
-cost:
-  - {unit: smem, work: "p.tile_bytes", overlap: overlappable}
-  - {unit: issue, work: "p.tile_bytes / 512", overlap: overlappable}
+effects:
+  transactions:
+    - {id: ldmatrix, pattern: transfer, kind: smem_access, count: "p.tile_bytes / 512",
+       amounts: {wavefronts: "4"}, note: "ldmatrix.x4: 512 B per warp, 4 wavefronts"}
+  storage: []
+  overlap: []
 scope:
   predicate: "True"
   text: "Register fragments for warp-level tensor-core instructions fed from shared memory."

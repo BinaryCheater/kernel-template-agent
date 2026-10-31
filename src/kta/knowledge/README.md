@@ -31,3 +31,6 @@ Functions that read the pool take the `Store` as a parameter (D200). Validators 
 - `ladder.py`, `promotion.py`: one status ladder with evidence rules; `promote`, `demote` (stale propagation), `review`.
 - `pooldiff.py`: `diff(store, a, b)` between two PoolSnapshots.
 - Retrieval with a target hides Templates whose Capabilities are not `yes`; `retrieve.unavailable_templates` and `CoverageReport.availability` count them.
+## WP15 (D460, D465)
+
+Effects validation (expressions, storage levels, `unpriced_operation_class` warning); seed import of `knowledge/seed/hardware/` (HwArch, HwModel); retrieval by resource through HwArch reservation tables.

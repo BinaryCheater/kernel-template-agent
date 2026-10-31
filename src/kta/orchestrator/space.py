@@ -37,11 +37,11 @@ def case_of(store: Store, card: TaskCard) -> CaseView:
 def points(
     svc: Services, fp: FamilyPackage, cv: CaseView
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
-    _, hw = svc.hw_model(cv.case.target)
-    f = assemble(fp, fp.chain, pipeline.templates_of(svc.store, fp), cv.case, hw.limits)
+    _, mm = svc.machine(cv.case.target)
+    f = assemble(fp, fp.chain, pipeline.templates_of(svc.store, fp), cv.case, mm.hw)
     shape = bucket_shape(shape_buckets(cv.case)[0])
     found: list[dict[str, Any]] = []
-    enumerate_space(f, shape, hw.limits, found.append, max_nodes=MAX_POINTS)
+    enumerate_space(f, shape, mm.hw, found.append, max_nodes=MAX_POINTS)
     return shape, found
 
 

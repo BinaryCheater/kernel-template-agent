@@ -17,11 +17,13 @@ from collections.abc import Mapping
 from typing import Any
 
 from kta.core.errors import NotSupported, SchemaError
+from kta.core.schemas.effects import LEGACY_KIND_PREFIX
 from kta.core.schemas.evaluation import Build, Case, Prediction
 from kta.core.schemas.hardware import HwModel
-from kta.formulation import Formulation, per_unit_work
+from kta.core.schemas.hwmodel import HwArch
+from kta.formulation import Formulation, per_unit_work, price_point, work_terms
 from kta.knowledge.types import FamilyPackage
-from kta.models import NoResidentCta, UnitModel
+from kta.models import MachineModel, NoResidentCta, UnitModel, machine
 from kta.solve.enumerate import enumerate_space, space_size
 from kta.solve.mip import NotExportable, solve_mip
 from kta.solve.result import Candidate, Method, SolveResult
@@ -54,10 +56,12 @@ def _bucket(shape_bucket: Mapping[str, Any]) -> tuple[dict[str, Any], str | None
     return dict(shape_bucket), None
 
 
-def _check_inputs(f: Formulation, shape: Mapping[str, Any], hw: HwModel) -> None:
-    missing_hw = sorted(f.hw_refs - set(hw.limits))
+def _check_inputs(f: Formulation, shape: Mapping[str, Any], hw: MachineModel) -> None:
+    missing_hw = sorted(f.hw_refs - set(hw.hw))
     if missing_hw:
-        raise NotSupported(f"HwModel {hw.target} v{hw.version} lacks hw.{', hw.'.join(missing_hw)}")
+        raise NotSupported(
+            f"HwModel {hw.target} v{hw.hw_version} lacks hw.{', hw.'.join(missing_hw)}"
+        )
     missing = sorted(f.case_refs - set(shape))
     if missing:
         raise SchemaError(f"shape {dict(shape)} lacks {missing} used by {f.family}")
@@ -89,25 +93,30 @@ def solve(
     case: Case,
     shape_bucket: dict[str, Any],
     model: UnitModel,
-    hw: HwModel,
+    hw: HwModel | MachineModel,
     shortlist: int = 64,
     time_limit_s: float = 60,
     rng: random.Random | None = None,
     max_nodes: int = DEFAULT_MAX_NODES,
+    arch: HwArch | None = None,
 ) -> SolveResult:
     """Candidates for one shape bucket, best predicted first.
 
     ``time_limit_s`` bounds the MIP; enumeration is bounded by ``max_nodes`` so that its
-    result does not depend on machine speed (decision D248).
+    result does not depend on machine speed (decision D248). Points are priced by L1 on
+    ``hw`` resolved on ``arch`` (D464); points that hit a no-launch wall are left out and
+    counted in the notes.
     """
     shape, name = _bucket(shape_bucket)
-    _check_inputs(f, shape, hw)
+    mm = machine(hw, arch)
+    _check_inputs(f, shape, mm)
     size = space_size(f)
     scope = {
         "family": f.family,
         "formulation": f.fingerprint,
         "model": model.version,
-        "hw_model": f"{hw.target}@{hw.version}",
+        "hw_model": f"{mm.target}@{mm.hw_version}",
+        "hw_arch": mm.arch,
         "case_problem": case.problem,
         "bucket": name,
         "shape": shape,
@@ -115,18 +124,37 @@ def solve(
     notes: list[str] = []
     best = _Shortlist(shortlist)
 
-    def predict(assignment: dict[str, Any]) -> Prediction:
-        over, serial = per_unit_work(f, assignment, shape, hw.limits)
-        return model.predict(over, serial, hw)
+    priced = _priced(f)
+    if priced and mm.arch is None:
+        raise NotSupported(
+            f"{f.family} declares effects; HwModel {mm.target}@{mm.hw_version} has no "
+            "architecture class to price them (D463)"
+        )
+    walled: list[int] = [0]
 
-    if size >= EXHAUSTIVE_LIMIT and f.linear and f.cost_linear:
+    def predict(assignment: dict[str, Any]) -> Prediction | None:
+        if not priced:
+            over, serial = per_unit_work(f, assignment, shape, mm.hw)
+            return model.predict(over, serial, mm)
         try:
-            out = solve_mip(f, shape, hw, model, shortlist, time_limit_s)
+            return model.predict_l1(price_point(f, assignment, shape, mm), mm)
+        except NoResidentCta:
+            walled[0] += 1
+            return None
+
+    def offer(assignment: dict[str, Any]) -> None:
+        p = predict(assignment)
+        if p is not None:
+            best.offer(assignment, p)
+
+    if size >= EXHAUSTIVE_LIMIT and f.linear and _terms_linear(f, mm):
+        try:
+            out = solve_mip(f, shape, mm, model, shortlist, time_limit_s)
         except NotExportable as exc:
             notes.append(f"MIP not used: {exc}")
         else:
             for a in out.assignments:
-                best.offer(a, predict(a))
+                offer(a)
             notes.append(f"MIP solves: {out.solves}, runtime {out.runtime_s:.3f} s")
             return _result(
                 best, name, "mip", size, len(out.assignments), 0, {}, False,
@@ -136,18 +164,32 @@ def solve(
     stats = enumerate_space(
         f,
         shape,
-        hw.limits,
-        lambda a: best.offer(a, predict(a)),
+        mm.hw,
+        offer,
         max_nodes=None if exhaustive_mode else max_nodes,
         rng=None if exhaustive_mode else rng,
     )
     if not stats.exhaustive:
         notes.append(f"node budget {max_nodes} spent; not exhaustive")
+    if walled[0]:
+        notes.append(f"{walled[0]} feasible points hit a no-launch wall of the hardware model")
     method: Method = "enumerate"
     return _result(
         best, name, method, size, stats.feasible, stats.pruned, stats.pruned_by,
         stats.exhaustive, stats.exhaustive, scope, notes, None, None,
     )  # fmt: skip
+
+
+def _priced(f: Formulation) -> bool:
+    """True when some transaction is priced by an operation class (not legacy cost)."""
+    return any(t.kind_var or not t.kind.startswith(LEGACY_KIND_PREFIX) for t in f.transactions)
+
+
+def _terms_linear(f: Formulation, mm: MachineModel) -> bool:
+    try:
+        return all(t.work.is_linear for t in work_terms(f, mm))
+    except NotSupported:
+        return False
 
 
 def _result(
@@ -195,7 +237,7 @@ def rerank(
     candidates: list[Candidate],
     builds: dict[str, Build],
     model: UnitModel,
-    hw: HwModel,
+    hw: HwModel | MachineModel,
     k: int = 8,
 ) -> list[Candidate]:
     """Re-predict built candidates with compile feedback; the best ``k`` that built.

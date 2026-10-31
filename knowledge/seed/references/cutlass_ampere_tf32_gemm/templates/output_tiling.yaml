@@ -23,8 +23,12 @@ backward_map: "The union of all tiles' outputs, placed at their tile origins, is
 obligations:
   - {name: coverage_exact_once, statement: "Every output point lies in exactly one tile; points of residue tiles beyond the problem bounds are not written.", method: exhaustive}
   - {name: index_map_bijective, statement: "The executor index -> tile origin map is injective on valid tiles and hits every tile.", method: exhaustive}
-cost:
-  - {unit: launch, work: "ceil_div(p.M, tile_m) * ceil_div(p.N, tile_n)", overlap: serial}
+effects:
+  transactions:
+    - {id: ctas, pattern: launch, kind: cta_launch,
+       count: "ceil_div(p.M, tile_m) * ceil_div(p.N, tile_n)"}
+  storage: []
+  overlap: []
 scope:
   predicate: "True"
   text: "Any operator whose outputs are independent given the inputs (GEMM outputs, attention rows, normalization rows)."

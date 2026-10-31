@@ -1,0 +1,17 @@
+[
+  {
+    "claim": "Code stage (D320): the WP15 unit tests and the locked WP5 acceptance tests pass on the control host. They show every seed Template declaring effects; a schema-1 cost record upcast on read with its stored body and ID unchanged; the GEMM seed chain priced by L1 on the seeded GB10 class and instance (sm12x@1, gb10@1) with per-resource SOL below busy time and the unmodelled launch resource reported; a peak change in the instance data and a wall change in the class data altering the prediction without code changes; unpriced operation classes and unmodelled resources counted, not free; pair and recurrence bounds; MIP rows equal to L1 amounts; regression-set validation and a ModelVersion record; interference job definitions; the seed migration's idempotence. Unit runs only; no GPU job and no store record (real runs paused, D320)",
+    "command": "uv run --frozen pytest -v tests/unit/test_wp15_effects_hwmodel.py tests/unit/test_formulation_solve_unit.py tests/unit/test_wp7_family.py tests/unit/test_knowledge_use.py tests/unit/test_knowledge_pool.py tests/acceptance/WP5",
+    "git_commit": "b4b1da62d0c404311f545fafd758bcd1531b27eb",
+    "dirty": false,
+    "env": "dev",
+    "control_host": "Mac.lan",
+    "workers": [],
+    "record_ids": [],
+    "blob_ids": [],
+    "env_manifests": [],
+    "started_at": "2026-10-30T23:30:34Z",
+    "requires_gpu": false,
+    "output": "Mac.lan:~/kta-data/dev/WP15/evidence/pytest-b4b1da6.txt"
+  }
+]

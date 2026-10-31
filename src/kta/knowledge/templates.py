@@ -9,6 +9,7 @@ from kta.core.context import Context
 from kta.core.errors import SchemaError
 from kta.core.expr import Expr, ExprError
 from kta.core.schemas import Actor, Record
+from kta.core.schemas.effects import LEGACY_KIND_PREFIX
 from kta.core.schemas.knowledge import ExprSpec, RangeSpec, Template, VarSpec
 from kta.knowledge import pool
 from kta.knowledge.types import Issue, errors_of
@@ -107,11 +108,72 @@ def _expressions(t: Template, hw: Mapping[str, Any] | None) -> list[Issue]:
         issues += check_expr(spec.expr, declared, f"{group}.{spec.id}", hw)[1]
         if not spec.meaning.strip():
             issues.append(Issue("missing_field", "meaning is empty", f"{group}.{spec.id}"))
-    for i, term in enumerate(t.cost):
-        issues += check_expr(term.work, declared, f"cost[{i}].work", hw)[1]
+    for where, src in _effect_exprs(t):
+        issues += check_expr(src, declared, where, hw)[1]
     # Γ ranges over pattern/workload parameters and the hardware contract, not over X.
     issues += check_expr(t.scope.predicate, set(), "scope.predicate", hw)[1]
     return issues
+
+
+def _effect_exprs(t: Template) -> list[tuple[str, str]]:
+    """(where, source) of every expression in the effects (D460)."""
+    e = t.effects
+    out: list[tuple[str, str]] = []
+    for tx in e.transactions:
+        w = f"effects.transactions.{tx.id}"
+        out += [(f"{w}.count", tx.count)] + [(f"{w}.amounts.{k}", v) for k, v in tx.amounts.items()]
+        out += [(f"{w}.when", tx.when)] if tx.when else []
+    for st in e.storage:
+        w = f"effects.storage.{st.id}"
+        out += [(f"{w}.bytes", st.bytes)] + ([(f"{w}.when", st.when)] if st.when else [])
+    for i, o in enumerate(e.overlap):
+        w = f"effects.overlap[{i}]"
+        out += [(f"{w}.{k}", v) for k, v in (("when", o.when), ("inflight", o.inflight),
+                                              ("trips", o.trips)) if v]  # fmt: skip
+    return out
+
+
+def _storage_levels(t: Template) -> list[Issue]:
+    """A storage level naming a variable must name one with string values (D460)."""
+    variables = {v.name: v for v in t.variables}
+    issues: list[Issue] = []
+    for st in t.effects.storage:
+        v = variables.get(st.level)
+        if v is not None and (
+            isinstance(v.domain, RangeSpec) or not all(isinstance(x, str) for x in v.domain)
+        ):
+            issues.append(
+                Issue("bad_storage_level", f"{st.level} is not a level-valued variable",
+                      f"effects.storage.{st.id}")
+            )  # fmt: skip
+    return issues
+
+
+def unpriced_kinds(t: Template, store: Store) -> list[Issue]:
+    """Transaction kinds no architecture class in the store prices (warning, D465).
+
+    Legacy ``unit:<u>`` kinds are priced by the resource of that name. A kind chosen by a
+    variable is not checked here (its domain may name instructions other targets have);
+    L1 counts the chosen class when it is unpriced. Without any HwArch in the store
+    nothing is reported (there is nothing to price against).
+    """
+    chosen = {v.name for v in t.variables}
+    archs = store.query("HwArch", limit=200)
+    if not archs:
+        return []
+    known = {str(o["name"]) for r in archs for o in r.body.get("operation_classes", [])}
+    return [
+        Issue(
+            "unpriced_operation_class",
+            f"no HwArch has an operation class {tx.kind!r}; L1 counts it as unpriced",
+            f"effects.transactions.{tx.id}",
+            "warning",
+        )
+        for tx in t.effects.transactions
+        if not tx.kind.startswith((LEGACY_KIND_PREFIX, "p."))
+        and tx.kind not in chosen
+        and tx.kind not in known
+    ]
 
 
 def _same_as(t: Template) -> list[Issue]:
@@ -147,7 +209,7 @@ def _all_exprs(t: Template) -> list[tuple[str, str, set[str]]]:
     out = [(f"variables.{v.name}.when", v.when, xs) for v in t.variables if v.when]
     out += [(f"constraints.{c.id}", c.expr, xs) for c in t.constraints]
     out += [(f"preconditions.{c.id}", c.expr, xs) for c in t.preconditions]
-    out += [(f"cost[{i}].work", c.work, xs) for i, c in enumerate(t.cost)]
+    out += [(where, src, xs) for where, src in _effect_exprs(t)]
     out += [("scope.predicate", t.scope.predicate, set())]
     return out
 
@@ -222,8 +284,8 @@ def _requires(requires: list[str], store: Store) -> list[Issue]:
 
 
 def duplicates(t: Template, store: Store) -> list[Issue]:
-    """Same refines, same object type, same variable names and cost units (21 §1.3)."""
-    sig = (t.refines, t.object.type, {v.name for v in t.variables}, {c.unit for c in t.cost})
+    """Same refines, same object type, same variable names and effect kinds (21 §1.3)."""
+    sig = (t.refines, t.object.type, {v.name for v in t.variables}, _kinds(t))
     issues: list[Issue] = []
     for _, other in pool.templates(store):
         if other.name == t.name:
@@ -232,18 +294,22 @@ def duplicates(t: Template, store: Store) -> list[Issue]:
             other.refines,
             other.object.type,
             {v.name for v in other.variables},
-            {c.unit for c in other.cost},
+            _kinds(other),
         )
         if osig == sig:
             issues.append(
                 Issue(
                     "possible_duplicate",
-                    f"same refines/object/variables/cost units as {other.name}@{other.version}",
+                    f"same refines/object/variables/effect kinds as {other.name}@{other.version}",
                     "",
                     "warning",
                 )
             )
     return issues
+
+
+def _kinds(t: Template) -> set[str]:
+    return {tx.kind for tx in t.effects.transactions}
 
 
 def validate_template(
@@ -265,7 +331,9 @@ def validate_template(
     issues += _unique([o.name for o in t.obligations], "duplicate_obligation", "obligations")
     issues += _expressions(t, hw)
     issues += _same_as(t)
+    issues += _storage_levels(t)
     issues += _references(t, store)
+    issues += unpriced_kinds(t, store)
     issues += _pattern_params(t, store)
     issues += duplicates(t, store)
     return issues

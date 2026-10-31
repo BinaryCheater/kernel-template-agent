@@ -24,8 +24,11 @@ obligations:
   - {name: exactly_once, statement: "Every tile index in [0, total) is processed by exactly one CTA iteration; indices >= total end the loop.", method: exhaustive}
   - {name: counter_reset, statement: "The global counter starts from the value the decode expects for every launch (reset by the host or a preceding kernel).", method: test}
   - {name: broadcast_order, statement: "All roles of a CTA read the same tile index for the same iteration (smem slot protected by the full/empty named barriers).", method: exhaustive}
-cost:
-  - {unit: launch, work: "grid", overlap: serial}
+effects:
+  transactions:
+    - {id: ctas, pattern: launch, kind: cta_launch, count: "grid"}
+  storage: []
+  overlap: []
 scope:
   predicate: "True"
   text: "Grids of independent tiles, especially with unequal tile costs (causal attention) or when the epilogue of one tile should overlap the prologue of the next."

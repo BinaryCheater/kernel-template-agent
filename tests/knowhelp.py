@@ -43,6 +43,8 @@ def template(seed_name: str, **changes: Any) -> Template:
     body = template_body(seed_name)
     if "requires_hw" in changes:
         changes["requires"] = changes.pop("requires_hw")
+    if "cost" in changes:
+        body.pop("effects", None)  # a schema-1 cost override replaces the seed's effects
     body.update(changes)
     return Template.model_validate(body)
 

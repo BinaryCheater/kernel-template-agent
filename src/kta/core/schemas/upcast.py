@@ -16,6 +16,7 @@ import copy
 from collections.abc import Callable
 from typing import Any
 
+from kta.core.schemas.effects import upcast_template_body
 from kta.core.schemas.levels import map_level
 
 Upcaster = Callable[[dict[str, Any]], dict[str, Any]]
@@ -58,3 +59,13 @@ def reconstruction_v1(body: dict[str, Any]) -> dict[str, Any]:
     for tx in txs:
         tx["level"] = _level(tx.get("level"))
     return out
+
+
+def template_v2_effects(body: dict[str, Any]) -> dict[str, Any]:
+    """Template 2 -> 3 (WP15, D461): schema-1 ``cost`` becomes ``effects``."""
+    return upcast_template_body(body)
+
+
+def identity(body: dict[str, Any]) -> dict[str, Any]:
+    """A version step that only added optional fields (HwModel 2, Prediction 2; D461)."""
+    return body

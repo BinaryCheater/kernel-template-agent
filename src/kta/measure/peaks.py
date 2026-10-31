@@ -8,7 +8,9 @@ worker) and writes, all with origin ``real``:
 - one HwFact per unit: ``quantity = "peak_<unit>"``, method ``measured``, value = work /
   median time, CI from the time CI, refs to the Measurement and the Target;
 - one HwModel: those peaks, plus ``limits`` = the Target's ``hw.*`` facts and the model
-  assumptions below; refs to the facts and measurements.
+  assumptions below; refs to the facts and measurements. When the store holds an HwModel
+  of the target on an architecture class (the seed's documented instance), the new one is
+  that instance with the measured peaks and every value's provenance (D463).
 
 ``MODEL_ASSUMPTIONS`` are ``hw.*`` values the seed Templates read that no device query or
 documentation gives; each is stated with its reason in the HwModel's ``assumptions`` blob.
@@ -29,6 +31,7 @@ from kta.core.jobs import JobRunner
 from kta.core.schemas import Actor, Record
 from kta.core.schemas.evaluation import Case, Contract, Problem, TensorSpec
 from kta.core.schemas.hardware import HwFact, HwModel, Target
+from kta.core.schemas.hwmodel import Provenance
 from kta.measure.peak_kernels import PeakKernel, kernels
 from kta.measure.runner import Measurer
 from kta.store.base import Store
@@ -45,6 +48,9 @@ MODEL_ASSUMPTIONS: dict[str, tuple[int, str]] = {
     "smem_banks": (32, "CUDA C++ Programming Guide: shared memory has 32 banks"),
     "smem_bank_bytes": (4, "CUDA C++ Programming Guide: successive 32-bit words map to banks"),
 }
+
+
+DEVICE_SOURCE = "the Target's hw.* facts (CUDA device attributes and documented constants)"
 
 
 @dataclass(frozen=True)
@@ -151,12 +157,16 @@ def measure_peaks(
         for unit, work in sorted(k.work(k.shape).items()):
             peaks[unit], facts[unit] = _fact(m.store, m.clock, unit, work, meas, refs)
     assumptions = {k: {"value": v, "reason": why} for k, (v, why) in MODEL_ASSUMPTIONS.items()}
+    version = next_version(m.store, target.name)
     body = HwModel(
         target=target.name,
-        version=next_version(m.store, target.name),
+        version=version,
         peaks=peaks,  # type: ignore[arg-type]  # keys are Unit names, validated by the model
         limits={**limits, **{k: v for k, (v, _) in MODEL_ASSUMPTIONS.items()}},
     )
+    base = class_instance(m.store, target.name)
+    if base is not None:
+        body = on_class(base[1], body, facts, version)
     blob = m.ex.put_blob(json.dumps(assumptions, sort_keys=True).encode(), "application/json")
     refs: dict[str, str | list[str]] = {
         "target": target_id,
@@ -164,10 +174,47 @@ def measure_peaks(
         "measurements": sorted(measurements.values()),
         "protocol": protocol_id,
     }
+    if base is not None:
+        arch = m.store.get(base[0]).refs.get("arch")
+        refs |= {"previous_instance": base[0], **({"arch": arch} if arch else {})}
     rec = Record.new("HwModel", body, ACTOR, m.clock.now(), refs=refs, blobs={"assumptions": blob})
     hid = m.store.put(rec)
     log.info("HwModel %s v%d: %s", target.name, body.version, hid[:12])
     return PeakResult(hid, peaks, facts, measurements)
+
+
+def class_instance(store: Store, target: str) -> tuple[str, HwModel] | None:
+    """The newest HwModel of ``target`` that is on an architecture class (D463)."""
+    for rec in store.query("HwModel", {"target": target}, order="-created_at", limit=200):
+        hw = HwModel.model_validate(rec.body)
+        if hw.arch is not None:
+            return record_id(rec), hw
+    return None
+
+
+def on_class(base: HwModel, measured: HwModel, facts: dict[str, str], version: int) -> HwModel:
+    """``base`` (an instance on its class) with the measured peaks and the Target's limits.
+
+    Provenance (D463): measured peaks point to their HwFact; limits from the Target are
+    device attributes; the model assumptions keep the reason they are stated with.
+    """
+    prov = dict(base.provenance)
+    for unit, fact in facts.items():
+        prov[f"peaks.{unit}"] = Provenance(status="measured", source="kta.measure.peaks", fact=fact)
+    for name in measured.limits:
+        if name in MODEL_ASSUMPTIONS:
+            why = MODEL_ASSUMPTIONS[name][1]
+            prov[f"limits.{name}"] = Provenance(status="default", source=why)
+        elif f"limits.{name}" not in prov or name not in base.limits:
+            prov[f"limits.{name}"] = Provenance(status="documented", source=DEVICE_SOURCE)
+    return base.model_copy(
+        update={
+            "version": version,
+            "peaks": {**base.peaks, **measured.peaks},
+            "limits": {**base.limits, **measured.limits},
+            "provenance": prov,
+        }
+    )
 
 
 def load_hwmodel(store: Store, hwmodel_id: str) -> HwModel:

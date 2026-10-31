@@ -52,6 +52,7 @@ items:
       p.size_bytes: "(BM + BN) * BK * 2"
       p.capacity_bytes: "hw.smem_per_cta"
       p.iterations: KT
+      p.warps: "threads // 32"
       p.instances: "ceil_div(case.M, BM) * ceil_div(case.N, BN)"
     after: [ab_async]
     code_markers: [ab_stages]

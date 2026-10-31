@@ -36,3 +36,7 @@ Measurement harness and versioned measurement protocols; comparisons and profile
 
 - May import: `core`, `store`, `targets`, `execution`, `backends`, `knowledge`, `models`.
 - Enforced by import-linter (`pyproject.toml`, `[tool.importlinter]`).
+
+## WP15 (D463, D469)
+
+`measure_peaks` attaches measured peaks to the target's class instance with provenance. `interference.py`: pairwise interference microbenchmark definitions (`plan`, `kernel`), `measure_pair` (pending real run), `cell`, `empty_matrix`.

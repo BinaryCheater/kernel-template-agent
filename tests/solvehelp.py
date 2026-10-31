@@ -1,7 +1,9 @@
 """Builders for formulation/solve/model tests: the GEMM test family over the seed
-Templates, a small linear family, and a test HwModel.
+Templates, a small linear family, and test HwModels.
 
-The HwModel numbers are test values, not GB10 facts.
+``TEST_HW`` is a schema-1 HwModel (peaks only, prices legacy cost terms). ``TEST_ARCH`` is
+the seed architecture class (knowledge/seed/hardware) and ``TEST_HW2`` a chip instance on
+it whose numbers are test values, not GB10 facts.
 """
 
 from __future__ import annotations
@@ -9,15 +11,19 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+import yaml
+
 from knowhelp import seed, template
 from kta.core.config import repo_root
 from kta.core.context import Context
 from kta.core.schemas.evaluation import Case
 from kta.core.schemas.hardware import HwModel
+from kta.core.schemas.hwmodel import HwArch
 from kta.core.schemas.knowledge import Chain, Family, Template
 from kta.formulation import Formulation, assemble
 from kta.knowledge import FamilyPackage, load_family
 from kta.knowledge.pool import find_template
+from kta.models import MachineModel
 from kta.store.base import Store
 
 GEMM_DIR = repo_root() / "tests" / "acceptance" / "WP5" / "gemm_family"
@@ -38,6 +44,43 @@ TEST_HW = HwModel(
         "regs_per_sm": 65536,
     },
 )
+
+
+TEST_ARCH = HwArch.model_validate(
+    yaml.safe_load(
+        (repo_root() / "knowledge" / "seed" / "hardware" / "arch_sm12x.yaml").read_text("utf-8")
+    )
+)
+_PARAMS: dict[str, int | float] = {
+    "sm_count": 4,
+    "smsp_per_sm": 4,
+    "sm_clock_hz": 1.0e9,
+    "dram_bytes_per_s": 2.5e11,
+    "l2_bytes_per_s": 1.0e12,
+    "smem_bytes_per_s_per_sm": 1.28e11,
+    "smem_wavefront_bytes": 128,
+    "fp32_flops_per_s_per_sm": 5.0e12,
+    "tensor_fp16_flops_per_s": 2.0e14,
+    "tensor_bf16_flops_per_s": 2.0e14,
+    "tensor_tf32_flops_per_s": 1.0e14,
+    "sfu_ops_per_cycle_per_sm": 16,
+    "kernel_launch_s": 2.0e-6,
+    "dram_latency_ns": 300.0,
+    "l2_latency_ns": 150.0,
+    "async_copy_latency_s": 2.5e-7,
+    "tma_latency_s": 5.0e-7,
+    "mma_latency_cycles": 32,
+    "barrier_latency_cycles": 40,
+}
+_LIMITS = {**TEST_HW.limits, **_PARAMS}
+TEST_HW2 = HwModel(
+    target="test-gpu",
+    version=2,
+    arch=TEST_ARCH.ref,
+    limits=_LIMITS,
+    provenance={f"limits.{k}": {"status": "default", "source": "test value"} for k in _LIMITS},  # type: ignore[arg-type]  # validated into Provenance
+)
+TEST_MM = MachineModel.build(TEST_HW2, TEST_ARCH)
 
 
 def case(*shapes: dict[str, int]) -> Case:

@@ -21,8 +21,12 @@ backward_map: "Materialize the intermediate tile and run the consumer on it: the
 obligations:
   - {name: same_values, statement: "The consumer reads exactly the producer's values for its tile (no partial or stale values).", method: test}
   - {name: no_cross_tile_dependency, statement: "No consumer output depends on intermediate values of another tile, unless an online/rescalable combination step accounts for it.", method: test}
-cost:
-  - {unit: dram, work: "p.producer_input_bytes + p.consumer_extra_input_bytes + p.output_bytes", overlap: overlappable}
+effects:
+  transactions:
+    - {id: traffic, pattern: transfer, kind: dram_stream, count: "1",
+       amounts: {bytes: "p.producer_input_bytes + p.consumer_extra_input_bytes + p.output_bytes"}}
+  storage: []
+  overlap: []
 scope:
   predicate: "True"
   text: "Producer-consumer pairs where the consumer can be applied tile-locally; for row reductions over the tiled dimension the reduction must be rescalable."

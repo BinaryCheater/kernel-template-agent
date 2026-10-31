@@ -9,7 +9,7 @@ import random
 import pytest
 
 from kta.core.context import Context
-from kta.core.errors import SchemaError
+from kta.core.errors import NotSupported, SchemaError
 from kta.core.schemas import Actor
 from kta.core.schemas.evaluation import Build
 from kta.formulation import assemble, cost_breakdown, per_unit_work, violated
@@ -17,7 +17,7 @@ from kta.models import UnitModel
 from kta.models.unit_model import Interaction
 from kta.solve import enumerate_space, record_solve, rerank, shape_buckets, solve, space_size
 from kta.store.base import Store
-from solvehelp import TEST_HW, case, gemm, linear_family
+from solvehelp import TEST_ARCH, TEST_HW, TEST_HW2, TEST_MM, case, gemm, linear_family
 
 SHAPE = {"M": 512, "N": 512, "K": 512}
 MODEL = UnitModel(target=TEST_HW.target)
@@ -44,20 +44,41 @@ def test_work_sums_per_unit_and_diagnostics_name_sources(ctx: Context, store: St
     _, _, f = gemm(ctx, store)
     point = {"BM": 128, "BN": 128, "BK": 32, "S": 3, "P": 0, "KT": 16, "mech": "instruction"}
     point |= {"gran": 16, "swz": "identity", "threads": 128}
-    over, serial = per_unit_work(f, point, SHAPE, TEST_HW.limits)
-    tiles = 16  # (512 / 128)^2
-    assert over["issue"] == (128 + 128) * 32 * 2 / 16 * 16 * tiles
-    assert serial == {"issue": 16 * tiles, "dram": (128 + 128) * 32 * 2 * 16 * tiles}
-    rows = cost_breakdown(f, point, SHAPE, TEST_HW.limits)
-    assert {r["source"] for r in rows} == {"k_split", "ab_async", "ab_stages", "ab_swizzle"}
+    over, serial = per_unit_work(f, point, SHAPE, TEST_MM)
+    tiles, tile_bytes = 16, (128 + 128) * 32 * 2  # (512 / 128)^2 tiles; one A/B k-tile pair
+    # cp.async moves every k-tile pair from L2 (the operand traffic is declared once, D460)
+    assert over["l2"] == tile_bytes * 16 * tiles
+    accesses = 2 * 16 * tiles * tile_bytes // 512
+    barriers = 16 * 2 * tiles  # leading + trailing barrier per k-tile, one instruction per warp
+    assert over["issue"] == over["l2"] / 512 + barriers * 4 + accesses
+    assert over["smem"] == accesses * 4 * 2  # identity map: 4 wavefronts, twice
+    assert serial == {}  # P = 0 serialises transfer and contract in L1 (a pair bound)
+    with pytest.raises(NotSupported, match="hardware model"):
+        per_unit_work(f, point, SHAPE, TEST_HW.limits)
+    rows = cost_breakdown(f, point, SHAPE, TEST_MM)
+    assert {r["source"] for r in rows} == {"ab_async", "ab_stages", "ab_swizzle"}
     bad = {**point, "P": 3, "KT": 15}
     labels = {c.label for c in violated(f, bad, SHAPE, TEST_HW.limits)}
     assert labels == {"ab_stages:c_lifetime", "k_split:c_cover", "ab_swizzle:c_min_wavefronts"}
 
 
+def test_effects_without_architecture_class_are_refused(ctx: Context, store: Store) -> None:
+    _, _, f = gemm(ctx, store)
+    with pytest.raises(NotSupported, match="architecture class"):
+        solve(f, case(SHAPE), SHAPE, MODEL, TEST_HW)
+
+
 def test_gemm_solve_is_exhaustive_and_accounts_for_every_point(ctx: Context, store: Store) -> None:
     _, _, f = gemm(ctx, store)
-    r = solve(f, case(SHAPE), {"name": "s0", "shape": SHAPE}, MODEL, TEST_HW, shortlist=16)
+    r = solve(
+        f,
+        case(SHAPE),
+        {"name": "s0", "shape": SHAPE},
+        MODEL,
+        TEST_HW2,
+        arch=TEST_ARCH,
+        shortlist=16,
+    )
     assert r.method == "enumerate" and r.exhaustive and r.model_optimal
     assert r.feasible + r.pruned == r.space_size == space_size(f)
     # identity bank mapping is excluded by the performance assumption of step 5
@@ -69,6 +90,7 @@ def test_gemm_solve_is_exhaustive_and_accounts_for_every_point(ctx: Context, sto
         assert a["KT"] == math.ceil(512 / a["BK"]) and a["swz"] == "xor_swizzle"
         assert violated(f, a, SHAPE, TEST_HW.limits) == []
         assert c.bucket == "s0" and c.prediction.model == MODEL.version
+        assert c.prediction.total > 0 and c.prediction.unpriced == {}
     assert r.scope["model"] == MODEL.version and r.scope["family"] == "gemm_seed5_test@1"
 
 
@@ -89,7 +111,9 @@ def test_interval_pruning_agrees_with_brute_force() -> None:
 
 def test_budgeted_sampling_is_not_exhaustive(ctx: Context, store: Store) -> None:
     _, _, f = gemm(ctx, store)
-    r = solve(f, case(SHAPE), SHAPE, MODEL, TEST_HW, rng=random.Random(1), max_nodes=300)
+    r = solve(
+        f, case(SHAPE), SHAPE, MODEL, TEST_HW2, arch=TEST_ARCH, rng=random.Random(1), max_nodes=300
+    )
     assert not r.exhaustive and not r.model_optimal
     assert any("node budget" in n for n in r.notes)
 
@@ -118,14 +142,14 @@ def test_menus_too_large_for_mip_fall_back_to_enumeration() -> None:
 
 def test_rerank_uses_compile_feedback_and_drops_failed_builds(ctx: Context, store: Store) -> None:
     _, _, f = gemm(ctx, store)
-    r = solve(f, case(SHAPE), SHAPE, MODEL, TEST_HW, shortlist=4)
+    r = solve(f, case(SHAPE), SHAPE, MODEL, TEST_HW2, arch=TEST_ARCH, shortlist=4)
     a, b, c, d = r.candidates
     builds = {
         a.key: Build(ok=True, regs=255, spills=0, smem=60000, log_summary="ok"),
         b.key: Build(ok=True, regs=32, spills=0, smem=8192, log_summary="ok"),
         c.key: Build(ok=False, log_summary="ptxas error"),
     }
-    out = rerank(r.candidates, builds, MODEL, TEST_HW, k=8)
+    out = rerank(r.candidates, builds, MODEL, TEST_MM, k=8)
     assert [x.key for x in out] == [b.key, a.key]  # a is starved of occupancy, c failed, d unbuilt
     assert out[1].prediction.total > a.prediction.total
     assert d.key not in {x.key for x in out}
@@ -133,7 +157,7 @@ def test_rerank_uses_compile_feedback_and_drops_failed_builds(ctx: Context, stor
 
 def test_record_solve_writes_candidates_predictions_and_report(ctx: Context, store: Store) -> None:
     _, _, f = gemm(ctx, store)
-    r = solve(f, case(SHAPE), SHAPE, MODEL, TEST_HW, shortlist=3)
+    r = solve(f, case(SHAPE), SHAPE, MODEL, TEST_HW2, arch=TEST_ARCH, shortlist=3)
     recs = record_solve(ctx, store, r, Actor(type="tool", name="kta solve"))
     assert len(recs.candidates) == len(recs.predictions) == 3
     pred = store.get(recs.predictions[0])

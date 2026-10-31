@@ -19,6 +19,7 @@ from kta_wp7 import records as r
 from kta_wp7.faults import WRONG_GLUE, wrong_legality
 from kta_wp7.pipeline import Generator, sass_for, templates_of
 from kta_wp7.reuse import EXPECTED_INVALID, run_reuse
+from solvehelp import TEST_ARCH, TEST_HW2
 
 # Device limits as WP2's probe reports them for GB10, plus the model assumptions.
 LIMITS: dict[str, int | float] = {
@@ -33,20 +34,28 @@ LIMITS: dict[str, int | float] = {
     "smem_banks": 32,
     "smem_bank_bytes": 4,
 }
-# Illustrative peaks for unit tests (not GB10 measurements).
+# Illustrative peaks for unit tests (not GB10 measurements), as measured overrides on the
+# seed architecture class; the class's other parameters are solvehelp's test values.
+_PEAKS = {
+    "tensor": 1.0e14,
+    "issue": 4.6e11,
+    "l2": 2.0e12,
+    "dram": 2.5e11,
+    "smem": 1.15e11,
+    "fma": 1.47e13,
+    "launch": 2.0e9,
+}
+_ALL = {**TEST_HW2.limits, **LIMITS}
 HW = HwModel(
     target="test-gpu",
     version=1,
-    peaks={
-        "tensor": 1.0e14,
-        "issue": 4.6e11,
-        "l2": 2.0e12,
-        "dram": 2.5e11,
-        "smem": 1.15e11,
-        "fma": 1.47e13,
-        "launch": 2.0e9,
-    },
-    limits=LIMITS,
+    arch=TEST_ARCH.ref,
+    peaks=_PEAKS,
+    limits=_ALL,
+    provenance={
+        **{f"limits.{k}": {"status": "default", "source": "test value"} for k in _ALL},
+        **{f"peaks.{k}": {"status": "default", "source": "test value"} for k in _PEAKS},
+    },  # type: ignore[arg-type]  # validated into Provenance
 )
 SHAPES = [{"M": 4096, "N": 4096, "K": 4096}, {"M": 1024, "N": 1024, "K": 16384}]
 
@@ -67,7 +76,8 @@ def _solve(ctx: Context, store: Store, wrong: bool = False, bucket: int = 0) -> 
         fp = wrong_legality(fp)
     f = assemble(fp, fp.chain, templates_of(store, fp), _case(), LIMITS)
     b = {"name": f"s{bucket}", "shape": SHAPES[bucket], "weight": 1.0}
-    return solve(f, _case(), b, UnitModel(target="test-gpu"), HW, rng=random.Random(0))
+    model = UnitModel(target="test-gpu")
+    return solve(f, _case(), b, model, HW, rng=random.Random(0), arch=TEST_ARCH)
 
 
 def test_family_validates_with_full_markers(ctx: Context, store: Store) -> None:
@@ -100,10 +110,14 @@ def test_formulation_costs_contraction_and_traffic(ctx: Context, store: Store) -
     assert res.exhaustive
     best = res.candidates[0].prediction
     assert {"tensor", "l2", "dram", "issue", "smem"} <= set(best.per_unit)
-    assert best.serial > 0  # launch slots are serial
+    assert best.serial > 0  # the kernel launch is serial
+    assert best.unpriced == {}  # launch has a measured peak here: everything is priced
     totals = [c.prediction.total for c in res.candidates]
-    # Distinct predictions among the shortlist: the WP5 issue (top 8 tie) is gone.
-    assert len({round(t, 6) for t in totals[:16]}) > 1
+    # The contraction and the operand traffic are priced (the WP5 issue): the 4096^3 case
+    # is tensor-bound, and configurations at that bound tie in L1 (a steady-state bound,
+    # D464); the shortlist still separates them from worse ones.
+    assert max(best.per_unit, key=lambda u: best.per_unit[u]) == "tensor"
+    assert len({round(t, 6) for t in totals}) > 1
     assert all(c.assignment["split"] == 1 for c in res.candidates)
     assert res.pruned_by.get("glue:g_no_combine", 0) > 0
 

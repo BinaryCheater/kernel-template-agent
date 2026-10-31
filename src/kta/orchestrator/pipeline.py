@@ -31,7 +31,7 @@ from kta.knowledge import FamilyPackage, load_family, seed_dir
 from kta.knowledge.pool import find_template
 from kta.knowledge.realisations import expected_sass
 from kta.measure.runner import Measurer
-from kta.models import MODEL_SUBJECT, UnitModel, load_model, save_model
+from kta.models import MODEL_SUBJECT, MachineModel, UnitModel, load_machine, load_model, save_model
 from kta.store.base import Store
 from kta.store.sqlite_ops import SqliteOps
 
@@ -77,6 +77,11 @@ class Services:
             raise NotSupported(f"no HwModel record for target {target} (peaks are measured)")
         rec = found[0]
         return record_id(rec), HwModel.model_validate(rec.body)
+
+    def machine(self, target: str) -> tuple[str, MachineModel]:
+        """The newest HwModel of ``target`` resolved on its HwArch (D463)."""
+        hw_id, _ = self.hw_model(target)
+        return hw_id, load_machine(self.store, hw_id)
 
     def unit_model(self, target: str) -> tuple[str, UnitModel]:
         """The newest model version; an uncalibrated default is saved when none exists."""

@@ -4,11 +4,16 @@ Reconstruction, Structure, Finding, Coupling, Gap, and the legacy Regime and Neg
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from kta.core.schemas.common import Binding, Body, ChangeKind, Level, Unit, VarKind, VarRole
+from kta.core.schemas.effects import (
+    LEGACY_KIND_PREFIX,
+    Effects,
+    upcast_template_body,
+)
 
 # ---- 4.1 Pattern ---------------------------------------------------------------
 
@@ -76,6 +81,8 @@ class Obligation(Body):
 
 
 class CostTerm(Body):
+    """Schema-1 cost term; kept as the read-only legacy view ``Template.cost`` (D461)."""
+
     unit: Unit
     work: str
     overlap: Literal["overlappable", "serial"] = "overlappable"
@@ -122,7 +129,7 @@ class Template(Body):
     backward_map: str
     backward_map_fn: str | None = None
     obligations: list[Obligation] = Field(default_factory=lambda: list[Obligation]())
-    cost: list[CostTerm] = Field(default_factory=lambda: list[CostTerm]())
+    effects: Effects = Field(default_factory=Effects)
     scope: ScopeSpec
     # Abstract capabilities (Capability names) the mechanism needs (D-T8, D442).
     requires: list[str] = Field(default_factory=lambda: list[str]())
@@ -133,6 +140,34 @@ class Template(Body):
     numeric_risk: str | None = None
     summary: str
     example_code: str | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _upcast(cls, data: object) -> object:
+        # Schema-1 bodies carry ``cost``; read them as effects (D461).
+        if not isinstance(data, dict):
+            return data
+        body = cast(dict[str, Any], data)
+        return upcast_template_body(body) if "cost" in body else body
+
+    @property
+    def cost(self) -> list[CostTerm]:
+        """Legacy view: the transactions of ``unit:<u>`` classes as schema-1 cost terms,
+        in order (empty for a Template written with effects)."""
+        serial = {
+            o.between[0]
+            for o in self.effects.overlap
+            if len(o.between) == 1 and o.when is not None and o.when.strip() == "False"
+        }
+        return [
+            CostTerm(
+                unit=t.kind[len(LEGACY_KIND_PREFIX) :],
+                work=t.count,
+                overlap="serial" if t.id in serial else "overlappable",
+            )
+            for t in self.effects.transactions
+            if t.kind.startswith(LEGACY_KIND_PREFIX)
+        ]
 
 
 class IsaRange(Body):

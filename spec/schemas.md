@@ -31,6 +31,7 @@ class Record:
 - `origin` 必填。只有 `real` 的记录能进入正式结论。
 - `refs` 中的每个 ID 必须已存在于存储中，否则写入失败。
 - 由作业产生的记录（Build、Check、Measurement、Profile）和 AgentRun，`refs` 中必须有 `env`（EnvManifest）；作业产生的记录另有 `worker`（Worker）。
+- (D461) WP15 appends to D440's mechanism: Template 3 (`template_v2_effects`: `cost` → `effects`; the Template model also upcasts a `cost` body itself), HwModel 2 (class + instance fields, all optional), Prediction 2 (`bounds`, `unpriced`); both of the latter are identity steps.
 
 ## 2. 通用取值
 
@@ -57,6 +58,7 @@ Unit           = str      # 硬件单元名，取自 Target 的单元表，例�
 - 不允许：其他函数调用、下标、lambda、推导式、import。
 - String literals (added by D97): only as operands of `==` / `!=`, and as elements of a non-empty literal list on the right of `in` / `not in` (e.g. `mechanism == "cp.async"`, `level in ["smem", "reg"]`). Ordering comparisons and arithmetic on strings are not allowed; any comparison with a string literal is non-linear.
 - 解析时检查：所有自由变量都在声明的变量、`hw`、`p`、`case` 之中。
+- (D462) Hardware-model expressions (spec §4.6.1) use the same language with other attribute roots: `hw.<name>` (instance values), `tx.<name>` (per-transaction amounts, in reservation tables), `f.<name>` (features such as `f.residency`, in efficiency and `applies_when`), `tbl.<name>` (table terms, looked up before evaluation). `Expr.parse(src, declared, roots)` and `Expr.eval(..., extra={root: scope})`; Template expressions keep the roots `hw`, `p`, `case`.
 - **线性子集**：只含加减、常数乘、比较、`and` 的表达式被标记为线性，可以导出到 MIP；其余由枚举求解器处理。
 
 ## 4. 知识对象
@@ -93,7 +95,7 @@ class Template:
     program: ProgramSpec            # P
     backward_map: str               # π：文字说明；可选 python 函数路径 backward_map_fn
     obligations: list[Obligation]   # Σ
-    cost: list[CostTerm]            # Ĵ
+    effects: Effects                # Ĵ, in the transaction vocabulary only (D460; was cost: list[CostTerm], schema 1)
     scope: ScopeSpec                # Γ
     requires: list[str]             # Capability names (abstract; D442). Was requires_hw (HwFeature names) in schema 1
     probed_on: list[str]            # Target names where a family using it compiled and ran (D445); [] = unprobed
@@ -114,7 +116,7 @@ class ExprSpec:     id: str; expr: str; meaning: str
 class ProgramSpec:  description: str                  # the abstract program; code lives in Realisations (D443)
 class Obligation:   name: str; statement: str
                     method: Literal["test", "exhaustive", "smt", "proof", "unspecified"]
-class CostTerm:     unit: Unit; work: str                 # 表达式：该单元上的工作量（字节、FLOP、次数）
+class CostTerm:     unit: Unit; work: str                 # schema 1 only; Template.cost is now a read-only legacy view
                     overlap: Literal["overlappable", "serial"] = "overlappable"
 class ScopeSpec:    predicate: str                        # 表达式，可引用 p.*、hw.*、case.*
                     text: str
@@ -145,6 +147,33 @@ class Realisation:
 class IsaRange:     family: str; min: str?; max: str?          # inclusive, e.g. family "sm", min "80"
 ```
 refs: `template` (required, Template), `sources`, `previous`. A schema-1 Template's `program.fragments` and `expected_sass` are read back as one legacy realisation (backend `any`, no record) by `kta.knowledge.realisations`.
+#### 4.2.1 Effects (D460, D461; docs/design/02 §3)
+
+```python
+class Effects:
+    transactions: list[TxEffect]
+    storage: list[StorageEffect]
+    overlap: list[OverlapEffect]
+    upcast_from: str?               # "cost" when produced from a schema-1 cost list
+class TxEffect:      id: str; pattern: str          # transaction pattern (open table)
+                     kind: str                      # operation class of the hardware model (open; unknown -> unpriced)
+                     kind_map: dict[str, str]       # when kind names a variable / p.*: binding value -> class
+                     count: str                     # expression; transactions per instance of the refined transaction
+                     amounts: dict[str, str]        # per transaction: bytes, flops, wavefronts, ops, warps, ...
+                     src: str?; dst: str?           # storage levels of a transfer
+                     when: str?; note: str?         # the transactions exist only when `when` holds
+class StorageEffect: id: str; level: str            # level name, or a variable / p.* whose binding names it
+                     scope: str = "cta"; bytes: str; when: str?; note: str?
+class OverlapEffect: between: list[str]             # 1-2 selectors: a local tx id, "pattern:<p>", "kind:<k>"
+                     when: str?                     # they overlap while it holds (always when absent), serialise otherwise
+                     inflight: str?; trips: str?    # with both: recurrence bound trips * (lat_a + lat_b) / inflight
+                     note: str?
+```
+
+- No hardware number appears in effects. Ids are unique within a Template; a one-selector overlap means "with everything else" (`when: "False"` makes a transaction serial).
+- **Declared once** (D460): each physical transaction is declared by the step that performs it (operand traffic by the transfer step, the contraction by the instruction-selection step, compulsory DRAM traffic and launches by the tiling step). A coarser step does not repeat what a finer step declares.
+- Chain bindings rewrite effects like constraints; `p.instances` multiplies every `count` (not storage, which is per executor instance).
+- Upcast of schema 1: cost term `i` becomes `{id: cost<i>, pattern: other, kind: "unit:<unit>", count: <work>}`, and a `serial` term adds `{between: [cost<i>], when: "False"}`. The built-in `unit:<u>` class reserves one unit of resource `u` per count, so an upcast Template prices exactly as before.
 
 ### 4.3 Chain（组合链）
 
@@ -229,7 +258,61 @@ class EnvManifest: role: Literal["control", "worker"]; host: str; os: str; arch:
                   image_digest: str?; commit: str; dirty: bool; lock_mismatches: list[str]
 class HwModel:    target: str; version: int; peaks: dict[Unit, float]; limits: dict[str, int | float]
                   # limits 即表达式中的 hw.*，例如 smem_per_cta、regs_per_thread、max_threads_per_cta
+                  # schema 2 (D463): the chip instance of the hardware model
+                  arch: str?                              # "<HwArch name>@<version>"; absent = schema-1 flat model
+                  provenance: dict[str, Provenance]       # "peaks.<r>" / "limits.<name>" -> source; every value when arch is set
+                  tables: list[TableSpec]; efficiency: list[EfficiencySpec]; interactions: list[InteractionSpec]
+                  # peaks = measured chip-level amount/s per resource; they override the class's peak expressions
 ```
+refs (HwModel): `arch` (HwArch), `previous_instance` (HwModel), plus WP7's `target`, `facts`, `measurements`, `protocol`.
+
+#### 4.6.1 Declarative hardware model (D462–D465, D469–D471; docs/design/02 §4)
+
+```python
+ValueStatus = Literal["measured", "documented", "default"]
+class Provenance:     status: ValueStatus; source: str; fact: str?        # fact = HwFact record ID
+class HwArch:         name: str; version: int; description: str           # the architecture class
+                      scopes: dict[str, str]                               # scope -> instance count over hw.* (chip, sm, smsp, ...)
+                      params: list[str]                                    # hw.* names every instance must give
+                      resources: list[ResourceSpec]; walls: list[WallSpec]
+                      operation_classes: list[OperationClass]; tables: list[TableSpec]
+                      efficiency: list[EfficiencySpec]; interactions: list[InteractionSpec]
+                      composition: CompositionSpec
+class ResourceSpec:   name: str; kind: str; scope: str; amount: str        # kind: throughput | capacity | latency (open)
+                      peak: str?                                           # amount/s per scope instance over hw.*; absent = unmodelled
+                      latency_cycles: str?; max_inflight: str?; ncu: list[str]; source: str
+class WallSpec:       name: str; kind: str; level: str; scope: str; limit: str; reserved: str?
+                      cliff: str                                           # no_launch | spill | lower_occupancy | other (open)
+                      per: str?; source: str
+class OperationClass: name: str; patterns: list[str]                       # name = TxEffect.kind
+                      reservation: list[ReservationRow]                    # at least one row
+                      latency_cycles: str?; serial: bool = False; sass: list[str]; source: str
+class ReservationRow: resource: str; amount: str; latency_cycles: str?     # amount over tx.*, hw.*, tbl.*
+class TableSpec:      name: str; keys: list[str]; rows: list[list[float]]  # keys: "tx.x" / "f.x" / "hw.x"; row = keys..., value
+                      lookup: Literal["exact", "floor"] = "exact"; source: str
+class EfficiencySpec: resource: str; expr: str; features: list[str]        # expr over f.*, tbl.*, hw.*, value in (0, 1]
+                      status: ValueStatus; source: str; fit_data: list[str]; holdout_error: float?
+class InteractionSpec: name: str; resources: list[str]; gamma: float        # adds gamma * min(busy_a, busy_b)
+                      applies_when: str = "True"; evidence: list[str]; status: ValueStatus; source: str
+class CompositionSpec: rule: Literal["steady_state_max"]; clock_hz: str = "hw.sm_clock_hz"; note: str
+class ModelVersion:   target: str; label: str; hw_model: str; arch: str?   # immutable model version (02 §4 Maintenance)
+                      simulators: dict[str, str]                           # fidelity level -> code commit
+                      change: Literal["initial", "adapter_fix", "machine_model_change"]; reason: str
+                      results: list[RegressionResult]; summary: dict[str, float]; admitted: bool?
+class RegressionResult: kernel: str; predicted_us: list[float]; measured_us: list[float]
+                      rank_correlation: float?; error_by_resource: dict[str, float]
+class RegressionSet:  name: str; version: int; target: str; min_configurations: int = 2   # >= 2: ranking needs several
+                      cases: list[RegressionCase]
+class RegressionCase: kernel: str; shape: dict; configurations: list[dict]; measurements: list[str]; holdout: bool = False
+# artefact (blob) schema, not a record kind:
+class InterferenceMatrix: target: str; arch: str?; protocol: str?; classes: list[str]; cells: list[InterferenceCell]
+class InterferenceCell: a: str; b: str; status: Literal["measured", "declared_independent", "unmeasured"]
+                      alone_a_s: float?; alone_b_s: float?; together_s: float?; slowdown: float?; measurements: list[str]; note: str?
+```
+
+- HwArch validation refuses duplicate names, a reservation, efficiency or interaction naming an undeclared resource, a resource scope not in `scopes`, and any expression outside its roots (scopes, peaks, limits, latencies: `hw`; reservation amounts: `hw`, `tx`, `tbl`; efficiency and `applies_when`: `hw`, `f`, `tbl`).
+- Unmodelled = infinite capacity (D465): a resource without a peak, or an operation class without a reservation table, costs no time and is reported (`L1Result.unmodelled`, `L1Result.unpriced`, `Prediction.unpriced`).
+- refs: HwArch `previous`, `sources`; ModelVersion `hw_model`, `arch`, `regression_set`, `previous`; RegressionSet `previous`.
 
 ### 4.7 其他知识
 
@@ -263,6 +346,8 @@ class Case:      problem: str; shape_dist: list[dict]  # 每项 {"shape": {...},
                  objective: Literal["weighted_latency", "max_normalized_latency"]; target: str
 class Candidate: assignment: dict; bucket: str?
 class Prediction: per_unit: dict[Unit, float]; serial: float; total: float; model: str
+                 bounds: dict[str, float]               # schema 2 (D464): L1 pair/recurrence bounds in us
+                 unpriced: dict[str, float]             # schema 2 (D465): class or "resource:<r>" -> amount L1 could not price
 class Build:     ok: bool; regs: int?; spills: int?; smem: int?; log_summary: str
 class Check:     passed: bool; failures: list[dict]    # 每项：检查名、输入分布、形状、最大误差等；不含隐藏形状本身
 class Measurement: median_us: float; ci_low_us: float; ci_high_us: float; n: int

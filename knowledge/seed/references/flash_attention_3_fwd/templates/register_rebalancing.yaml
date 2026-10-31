@@ -22,7 +22,10 @@ backward_map: "Ignore the reallocation: every warp keeps the launch-time budget,
 obligations:
   - {name: fits, statement: "Each role's live registers fit its budget (no spills introduced by the compiler).", method: test}
   - {name: alloc_after_dealloc, statement: "Allocation by consumers can be satisfied after the producer's deallocation (sum within the file, all warps of a warpgroup execute it).", method: test}
-cost: []
+effects:
+  transactions: []
+  storage: []
+  overlap: []
 scope:
   predicate: "True"
   text: "Warp-specialized kernels on GPUs with setmaxnreg (sm_90a)."

@@ -24,8 +24,12 @@ obligations:
   - {name: same_sequence, statement: "Producer and consumers visit the same tiles and stages in the same order.", method: test}
   - {name: handshake_complete, statement: "Every stage the producer fills is consumed and released exactly once, and the producer waits for release before refilling.", method: exhaustive}
   - {name: no_deadlock, statement: "With the declared barrier arrival counts, neither role waits forever, including at the tail where the producer finishes first.", method: exhaustive}
-cost:
-  - {unit: issue, work: "p.tiles * p.loads_per_tile", overlap: overlappable}
+effects:
+  transactions:
+    - {id: producer, pattern: transfer, kind: warp_instruction,
+       count: "p.tiles * p.loads_per_tile"}
+  storage: []
+  overlap: []
 scope:
   predicate: "True"
   text: "Kernels whose loads can be issued asynchronously by a few threads (TMA, cp.async with mbarrier) so that compute warps never stall on address generation."

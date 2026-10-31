@@ -24,8 +24,11 @@ obligations:
   - {name: exact_cover, statement: "Every element of work appears in exactly one unit, and units with validity false do no visible work.", method: exhaustive}
   - {name: consistent_offsets, statement: "Output offsets (o_indptr) agree with the units, so the later combine finds every partial.", method: exhaustive}
   - {name: grid_bound, statement: "With grid_sizing = padded_upper_bound the number of valid units never exceeds the launched grid.", method: test}
-cost:
-  - {unit: launch, work: "p.planner_launches", overlap: serial}
+effects:
+  transactions:
+    - {id: planner, pattern: launch, kind: kernel_launch, count: "p.planner_launches"}
+  storage: []
+  overlap: []
 scope:
   predicate: "True"
   text: "Work whose partition depends on runtime data: ragged sequence lengths, variable split counts, MoE routing."

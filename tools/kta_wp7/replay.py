@@ -29,12 +29,12 @@ from kta.core.context import Context
 from kta.core.ids import record_id
 from kta.core.schemas import Record
 from kta.core.schemas.evaluation import Build, Prediction
-from kta.core.schemas.hardware import HwModel
 from kta.core.schemas.process import Report
 from kta.formulation import assemble
 from kta.knowledge import FamilyPackage, load_family
 from kta.measure import stats
 from kta.measure.protocol import load_params
+from kta.models import MachineModel, load_machine
 from kta.models.calibrate import load_model
 from kta.solve import rerank, solve
 from kta.solve.result import Candidate
@@ -105,12 +105,12 @@ def replay_bucket(
     fp: FamilyPackage,
     ids: CaseIds,
     row: dict[str, Any],
-    hw: HwModel,
+    hw: MachineModel,
     model_id: str,
 ) -> list[str]:
     model = load_model(store, model_id)
     report = store.get(row["solve_report"]).body["data"]
-    f = assemble(fp, fp.chain, templates_of(store, fp), ids.body, hw.limits)
+    f = assemble(fp, fp.chain, templates_of(store, fp), ids.body, hw.hw)
     bucket = {"name": row["bucket"], "shape": row["shape"], "weight": 1.0}
     r = solve(
         f, ids.body, bucket, model, hw, shortlist=len(report["candidate_ids"]), rng=random.Random(0)
@@ -158,7 +158,7 @@ def run_replay(ctx: Context, store: Store, ids: CaseIds, topk_id: str | None = N
             raise LookupError("no wp7_topk Report to replay")
         topk_id = record_id(found[0])
     data = store.get(topk_id).body["data"]
-    hw = HwModel.model_validate(store.get(data["hw_model"]).body)
+    hw = load_machine(store, data["hw_model"])
     diffs: dict[str, list[str]] = {}
     with tempfile.TemporaryDirectory(prefix="kta-wp7-replay-") as tmp:
         fp = materialize(store, data["family"], Path(tmp))
