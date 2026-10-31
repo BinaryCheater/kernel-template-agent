@@ -13,7 +13,6 @@ import pytest
 from test_wp15_effects_hwmodel import FAMILY, SHAPE, gb10, gemm_case, gemm_formulation
 
 from kta.core.context import Context
-from kta.core.errors import NotSupported
 from kta.core.schemas import Actor
 from kta.models import MachineModel
 from kta.solve import projection
@@ -67,9 +66,41 @@ def test_outer_enumeration_and_its_limit(ctx: Context, store: Store, mm: Machine
     assert small.outer and any("outer" in n for n in small.notes)
 
 
-def test_consistency_check_waits_for_l2() -> None:
-    with pytest.raises(NotSupported, match="WP16"):
-        projection.consistency_check()
+def test_mip_l2_check_passes_on_the_gemm_seed_family(
+    ctx: Context, store: Store, mm: MachineModel
+) -> None:
+    from kta.core.controls import baseline
+    from kta.solve.consistency import consistency_check
+
+    f = gemm_formulation(ctx, store, mm)
+    knob = baseline().mip_l2_check
+    for shape in (SHAPE, {"M": 1024, "N": 1024, "K": 16384}):
+        r = consistency_check(f, shape, mm, **knob)
+        assert r.passed and r.points >= 2 and r.violations == 0, r.summary()
+        assert r.ratio_min is not None and r.ratio_min >= 1.0  # MIP <= L2 everywhere
+        assert r.worst_effect is None
+
+
+def test_mip_l2_check_fails_naming_a_wrong_reservation_table(
+    ctx: Context, store: Store, mm: MachineModel
+) -> None:
+    from kta.solve.consistency import consistency_check
+
+    arch, hw = gb10()
+    # Fixture: the projection's model reserves 4x the tensor work per mma instruction
+    # (a deliberately wrong reservation table); the simulator runs the seed model.
+    ops = []
+    for o in arch.operation_classes:
+        if o.name == "mma_sync_m16n8k16_f16":
+            rows = [r.model_copy(update={"amount": f"4 * ({r.amount})"}) if r.resource == "tensor"
+                    else r for r in o.reservation]  # fmt: skip
+            o = o.model_copy(update={"reservation": rows})
+        ops.append(o)
+    wrong = MachineModel.build(hw, arch.model_copy(update={"operation_classes": ops}))
+    f = gemm_formulation(ctx, store, mm)
+    r = consistency_check(f, SHAPE, wrong, l2_mm=mm)
+    assert not r.passed and r.violation_share > 0.05, r.summary()
+    assert r.worst_effect == "mma.mma", r.summary()  # the chain item's contraction
 
 
 # ---- FormulationPlan -------------------------------------------------------------------

@@ -822,3 +822,10 @@ Decisions made without the user that need review. Newest last. Each entry: quest
 - **Rationale:** tabulation is exact for the effects (translation correctness is testable point by point); keeping the default avoids changing locked acceptance before X11 and WP16 have spoken.
 - **Cost of changing later:** low for limits (knobs); low to flip the default (one argument), after the MIP ↔ L2 check exists.
 
+## D551 — MIP ↔ L2 consistency check (WP19 / WP17)
+
+- **Question:** how to sample, what passes, and what "the effect with the largest deviation" is, when the projection and the simulator share one hardware model.
+- **Choice:** all feasible points up to 128 (seeded sample above), Spearman ρ ≥ 0.5 and MIP > L2 on ≤ 5 % of points (knob `model.mip_l2_check`, set by X11); on failure the transaction whose priced time differs most between the projection's and the simulator's model, else the simulator's largest idle category on its bottleneck.
+- **Rationale:** on the GEMM seed every point satisfies MIP ≤ L2 but ρ is only 0.52–0.54 (shallow pipelines: L2 > L1 by the recurrence, WP16 known issue), so the default threshold passes narrowly; X11 has to set it from the measured distribution.
+- **Cost of changing later:** low: knob values; the naming rule is one function.
+

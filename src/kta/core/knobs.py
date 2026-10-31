@@ -270,3 +270,7 @@ class Knobs(ABC):
     @property
     def task_header_max_lines(self) -> int:
         return int(self.value("session.task_header_max_lines"))
+
+    @property
+    def mip_l2_check(self) -> dict[str, Any]:
+        return self._map("model.mip_l2_check")

@@ -238,7 +238,6 @@ def menus_of(f, shape, hw, fixed=None, menus=None) -> dict[var, list]   # F4; ra
 def outer_vars(f, mm, shape, menus, outer=None, table_max=TABLE_MAX) -> (set[var], reasons)
 def atoms(f, mm, shape, menus, fixed) -> list[Atom]   # rule, row, source, support, value(...), linear?
 def projection_us(f, assignment, shape, mm) -> float  # compose(price_parts(...)) at eff = 1
-def consistency_check(...)                            # MIP <-> L2 hook: NotSupported until WP16 merges
 ```
 
 - Rules: ResMII `T >= busy_r` per resource (epigraph max); pair bound `T >= u_a + u_b`,
@@ -260,10 +259,16 @@ def consistency_check(...)                            # MIP <-> L2 hook: NotSupp
   plan's inputs, or `plan_inputs(plan, f)`); the shortlist is re-priced by L1 as before. The
   previous MIP export (`solve/mip.py`, hand / agent-written formulation) stays the default
   of `solve` and is labelled the comparison arm of D-T1 (note "formulation arm: ...").
-- MIP <-> L2 check (pending WP16): sample the subspace, evaluate `projection_us` and L2,
-  require Spearman rho >= threshold and MIP <= L2 on at least a share of points; a failure
-  names the effect (atom source) with the largest deviation. Thresholds become registry
-  knobs with `set_by: [X11]` when the check is added.
+- MIP <-> L2 check (`solve/consistency.py`, D551): `consistency_check(f, shape, mm, *,
+  l2_mm=None, rank_min, violation_max, samples, seed=0) -> ConsistencyResult` (points, rho,
+  violations, violation_share, passed, worst_effect, deviation_us per transaction,
+  ratio_min/max of L2/MIP, notes). Feasible points are enumerated and sampled (seeded); each
+  is evaluated by `projection_us` (= the MIP objective) and `models.l2.simulate`; it passes
+  when Spearman rho >= rank_min and MIP > L2 on at most violation_max of the points. A
+  failure names the transaction whose time differs most between the projection's and the
+  simulator's pricing, else `schedule:<bottleneck>:<idle category>` where L2 exceeds the
+  projection most. `l2_mm` (the simulator's model) defaults to `mm`. Knob
+  `model.mip_l2_check` {rank_min 0.5, violation_max 0.05, samples 128}, set by X11.
 
 ### FormulationPlan and chains (WP19; docs/design/02 §5.3, §5.5; D541–D543)
 

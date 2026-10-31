@@ -101,3 +101,4 @@ Thresholds that the code already used and that govern the loops, plus the D325 d
 | chain enumerator depth | steps of one enumerated chain | 12 steps | an unbounded grammar expansion | orch | default (02 §5.2–5.5, WP19) | — |
 | chain enumerator budget | derivation nodes the enumerator expands before it stops (reported not exhaustive) | 2000 nodes | an enumeration that never ends on a large pool | orch | default (02 §5.2–5.5, WP19) | — |
 | task header lines | lines of the one-screen case header (case, bound, gap, default plan, budget, situation) | 24 lines | a header that no longer fits one screen | orch | default (02 §5.2–5.5, WP19) | — |
+| MIP ↔ L2 check thresholds | the projection passes when Spearman ρ(MIP, L2) ≥ rank_min and MIP > L2 on at most violation_max of the sampled feasible points | ρ 0.5, violations 5 %, 128 samples per shape | a projection that misranks or overestimates steering the solver unchecked | orch | default (02 §5.2, WP19) | X11 |
