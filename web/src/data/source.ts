@@ -4,7 +4,7 @@
 import type {
   ActionLogEntry, ActiveRuns, AgentsView, BlobText, Capability, CaseDetail, CaseIndexRow, CoverageReport,
   FamilyDetail, FamilySummary, ImprovementsView, InboxItem, Machines, Meta, PoolDiff, PoolView, RecordEnvelope,
-  Quotas, Residual, ResultDetail, Snapshot, Span, TaskDetail, TraceInfo, ExperimentProtocol,
+  ModelTimeline, Quotas, Residual, ResultDetail, Scoreboard, Snapshot, Span, TaskDetail, TraceInfo, ExperimentProtocol,
   ControlsView, ControlsVersionRow, ReleaseView,
 } from "./types";
 
@@ -82,6 +82,8 @@ export const api = {
   experiments: async () => (await get<{ protocols: ExperimentProtocol[] }>("/experiments")).protocols,
   improvements: () => get<ImprovementsView>("/improvements"),
   residuals: (model?: string) => get<Residual[]>("/model/residuals", { model }),
+  scoreboard: (target?: string) => get<Scoreboard>("/model/scoreboard", { target }),
+  modelTimeline: (id: string, kernel: string) => get<ModelTimeline>(`/model/versions/${id}/timeline`, { kernel }),
   quotas: () => get<Quotas>("/quotas"),
   verifyBatch: (batch: string) => post<Record<string, unknown>>(`/agents/batches/${enc(batch)}/verify`),
   // WP21

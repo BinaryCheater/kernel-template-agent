@@ -716,3 +716,81 @@ export interface ReleaseView {
   in_flight: string[];
   held: HeldCall[];
 }
+
+// ---- GET /model/scoreboard, /model/versions/{id}/timeline (WP16, D511) ----
+
+export interface RegressionRow {
+  kernel: string;
+  predicted_us: number[];
+  measured_us: number[];
+  rank_correlation: number | null;
+  error_by_resource: Record<string, number>;
+  holdout: boolean;
+  predictions: string[];
+  measurements: string[];
+}
+
+export interface ModelVersionRow {
+  id: string;
+  label: string;
+  target: string;
+  hw_model: string;
+  arch: string | null;
+  simulators: Record<string, string>;
+  change: string;
+  reason: string;
+  admitted: boolean | null;
+  summary: Record<string, number>;
+  results: RegressionRow[];
+  origin: string;
+  created_at: string;
+  previous: string | null;
+}
+
+export interface Scoreboard {
+  versions: ModelVersionRow[];
+  error_keys: string[];
+  fixture: boolean;
+}
+
+export interface L2Interval {
+  resource: string;
+  start_us: number;
+  end_us: number;
+  phase: string;
+  utilisation: number;
+}
+
+export interface L2Wave {
+  index: number;
+  kind: string;
+  ctas: number;
+  start_us: number;
+  end_us: number;
+}
+
+export interface TimelineConfig {
+  index: number;
+  prediction: string | null;
+  measurement: string | null;
+  configuration: Record<string, unknown> | null;
+  predicted_us: number;
+  measured_us: number;
+  waves: L2Wave[];
+  intervals: Record<string, L2Interval[]>;
+  busy_us: Record<string, number>;
+  idle_us: Record<string, Record<string, number>>;
+  bottleneck: string | null;
+  origin: string;
+}
+
+export interface ModelTimeline {
+  version: string;
+  label: string;
+  kernel: string;
+  rank_correlation: number | null;
+  error_by_resource: Record<string, number>;
+  holdout: boolean;
+  origin: string;
+  configurations: TimelineConfig[];
+}

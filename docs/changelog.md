@@ -145,3 +145,33 @@ Code stage (D320): no real runs, no experiments. Branch `wp/WP21`; decisions D48
 
 - WP18 and WP19 add their knobs as registry rows (spec/modules/core-store.md "Adding a knob"); WP19 fills the pull log and plan the Release page already shows as "not recorded yet".
 - Owed real run: a hand-stepped S1 run with a real agent (deliveries/WP21.md "Pending real runs").
+
+## 2026-10-31: merged work package WP16 (transaction-level simulator, what-if, regression scoreboard)
+
+Code stage (D320): no real runs, no experiments. Branch `wp/WP16`; decisions D500–D512.
+
+### Closes
+
+| Item | How |
+| --- | --- |
+| R3 (L2) | `kta.models.l2.simulate`: per-CTA transaction graph on the declarative hardware model, waves, idle attribution; deterministic, versioned (`l2:<SIM_VERSION>:<MachineModel.version>`) |
+| R5 | total, per-resource busy, occupancy timeline (waves and busy intervals), stall reasons, idle by other unit / data / sync / prologue-epilogue-tail / wall |
+| E9 | what-if: move a wall or peak in memory, re-simulate, shadow price (`kta.models.whatif`) |
+| E10 (adapter only) | `ExternalSassSimulator`: the research simulator as an Executor job; NotSupported until run for real |
+| E11 | metrics named as ncu names them (D505) |
+| E14 (scoreboard part) | regression scoring (Spearman, error per resource), admission knob, `/model/scoreboard` API + web page on FIXTURE data |
+
+02 sections implemented: §4 L2 and L3 rows of "Four fidelity levels", "Sustained saturation and walls" (idle attribution, shadow price), "Maintenance as a software artefact" (regression cases, scoreboard, per-kernel predicted timeline, admission); §5.1 checked: L1 is the steady-state limit of L2 on a resource-bound loop, and L2 exceeds L1 by the recurrence on shallow pipelines (L1 counts latencies only).
+
+### Files changed outside code
+
+- `spec/modules/formulation-solve-models.md` (L2; what-if, L3, scoreboard), `spec/schemas.md` (RegressionResult fields), `spec/modules/api-web.md` (model views), `spec/gate.md` (WP16), `docs/design/12-agent-controls.md` (§7 row "model-version admission", X10 sets it).
+
+### Next for construction
+
+- WP19's MIP ↔ L2 consistency check can call `kta.models.l2.simulate` on `formulation.evaluate_effects(...)`; note the recurrence gap above when choosing its thresholds (X11).
+
+### Pending real runs
+
+The L3 simulator job on a CPU worker; the first measured RegressionSet and ModelVersion scored with L2; see `deliveries/WP16.md`.
+

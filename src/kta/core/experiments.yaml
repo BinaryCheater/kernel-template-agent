@@ -126,7 +126,7 @@ experiments:
     design: GB10 peak and pairwise interference microbenchmarks (A alone, B alone, A+B) per instruction class (D-T15)
     arms: [per resource (peaks), per instruction-class pair (interference)]
     metrics: [sustained peak per resource, slowdown of A+B vs A and B alone]
-    sets: []
+    sets: [model.version_admission]
     profile_fields: []
     sets_elsewhere: [HwModel resources (02 §4), HwModel interactions (02 §4)]
     depends_on: [X6]

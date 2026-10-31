@@ -717,3 +717,25 @@ Decisions made without the user that need review. Newest last. Each entry: quest
 - **Choice:** the token guards `POST /controls` and `POST /release` only; `/actions/*` are unchanged.
 - **Rationale:** follow the workplan without widening the change; the inconsistency is visible here.
 - **Cost of changing later:** low: `check_operator` can guard the other write endpoints; the web page already sends the header.
+
+## D500/D501 — How L2 builds and runs the per-CTA graph (WP16)
+
+- **Question:** effects are whole-kernel counts and templates do not declare a per-CTA graph; how does L2 get one, and how are many CTAs simulated cheaply?
+- **Choice:** divide by CTA count and loop trips; phases from the loop overlap statement, then by pattern; resident CTAs run in lockstep as one aggregated graph per wave, waves in sequence.
+- **Rationale:** no schema change, a few ms per point, busy time equal to L1's, so "L1 = steady-state limit of L2" holds by construction on resource-bound loops.
+- **Cost of changing later:** medium: an explicit per-CTA graph in effects (or CTA skew and inter-wave overlap) changes `l2graph.py` and bumps `SIM_VERSION`; stored l2_simulation Reports keep their model string.
+
+## D503 — Idle attribution rules (WP16)
+
+- **Question:** 02 §4 names five idle causes but not how to assign a gap to one.
+- **Choice:** walk the binding dependency of the op that ends the gap (latency of a load = data, of a sync = sync, producer busy = other unit, wave start / drain / tail = prologue-epilogue-tail); wall idle = what relaxing the binding residency wall removes.
+- **Rationale:** deterministic, explains each microsecond once, and ties "wall" to its shadow price.
+- **Cost of changing later:** low: one function (`_explain`) and the wall step; the categories are a tuple.
+
+## D509 — Model-version admission thresholds (WP16)
+
+- **Question:** when is a new hardware-model version admitted after hold-out regression?
+- **Choice:** knob `model.version_admission` {rank_min 0.7, rel_error_max 0.25}, set_by X10.
+- **Rationale:** a model version steers every case, so it should be stricter than the per-loop judging rule (0.5 / 0.3).
+- **Cost of changing later:** low: a controls version.
+

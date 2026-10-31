@@ -230,3 +230,7 @@ class Knobs(ABC):
     @property
     def release_stage(self) -> str:
         return str(self.value("release.stage"))
+
+    @property
+    def version_admission(self) -> dict[str, float]:
+        return {k: float(v) for k, v in self._map("model.version_admission").items()}

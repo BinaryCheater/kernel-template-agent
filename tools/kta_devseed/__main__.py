@@ -17,6 +17,7 @@ from kta.core.context import Context, data_dir_for
 from kta.core.registry import build_registry
 from kta.store import open_ops, open_store
 from kta_devseed.knowledge import Seeder, seed_knowledge
+from kta_devseed.models import seed_models
 from kta_devseed.supervision import seed_supervision
 from kta_devseed.world import WINDOW_MIN, SeedClock, seed_world
 
@@ -57,6 +58,7 @@ def main(argv: list[str] | None = None) -> int:
     ops = open_ops(ctx)
     seed_world(seeder, ops, end)
     seed_supervision(seeder, ops, data_dir)
+    seed_models(seeder)
     with store.db.read() as con:
         real = con.execute("SELECT COUNT(*) FROM records WHERE origin != 'fixture'").fetchone()[0]
     if real:

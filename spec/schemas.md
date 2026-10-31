@@ -300,7 +300,8 @@ class ModelVersion:   target: str; label: str; hw_model: str; arch: str?   # imm
                       change: Literal["initial", "adapter_fix", "machine_model_change"]; reason: str
                       results: list[RegressionResult]; summary: dict[str, float]; admitted: bool?
 class RegressionResult: kernel: str; predicted_us: list[float]; measured_us: list[float]
-                      rank_correlation: float?; error_by_resource: dict[str, float]
+                      rank_correlation: float?; error_by_resource: dict[str, float]   # "total" | <resource> (D507)
+                      holdout: bool = False; predictions: list[str]; measurements: list[str]   # per configuration, "" = none (D507)
 class RegressionSet:  name: str; version: int; target: str; min_configurations: int = 2   # >= 2: ranking needs several
                       cases: list[RegressionCase]
 class RegressionCase: kernel: str; shape: dict; configurations: list[dict]; measurements: list[str]; holdout: bool = False

@@ -8,7 +8,7 @@ from typing import Any
 
 from fastapi import APIRouter, Query
 
-from kta.api import cases, opsread, pool, runs, trace
+from kta.api import cases, modelview, opsread, pool, runs, trace
 from kta.api.common import Api, envelope, iso, machines_view
 from kta.core.errors import ConfigError
 from kta.core.ids import record_id
@@ -103,6 +103,14 @@ def router(api: Api) -> APIRouter:
     @r.get("/model/residuals")
     def residuals(model: str | None = None) -> list[dict[str, Any]]:  # pyright: ignore[reportUnusedFunction]
         return pool.residuals(api, model)
+
+    @r.get("/model/scoreboard")
+    def model_scoreboard(target: str | None = None) -> dict[str, Any]:  # pyright: ignore[reportUnusedFunction]
+        return modelview.scoreboard(api, target)
+
+    @r.get("/model/versions/{id}/timeline")
+    def model_timeline(id: str, kernel: str) -> dict[str, Any]:  # pyright: ignore[reportUnusedFunction]
+        return modelview.timeline(api, id, kernel)
 
     @r.get("/runs/active")
     def active() -> dict[str, Any]:  # pyright: ignore[reportUnusedFunction]

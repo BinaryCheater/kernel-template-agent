@@ -265,6 +265,11 @@ class RegressionResult(Body):
     measured_us: list[float]
     rank_correlation: float | None = None
     error_by_resource: dict[str, float] = Field(default_factory=lambda: dict[str, float]())
+    # WP16 (D507): "total" and per-resource median relative error; hold-out flag; one
+    # predicted-timeline Report ID and one Measurement ID per configuration ("" = none).
+    holdout: bool = False
+    predictions: list[str] = Field(default_factory=lambda: list[str]())
+    measurements: list[str] = Field(default_factory=lambda: list[str]())
 
 
 class ModelVersion(Body):
