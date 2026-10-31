@@ -348,12 +348,10 @@ def step(job: Path, spec: LaunchSpec) -> dict[str, Any]:
     notes_before = _notes_sha(ws, spec)
     report["pre_commit"] = commit_workspace(ws, f"before {spec.mode} {spec.run}")
     cli = cli_identity(argv)
-    if spec.expect_version and spec.expect_version not in str(cli["version"]):
-        return {
-            **report,
-            "exit": "refused",
-            "error": f"CLI is {cli['version']}, profile fixes {spec.expect_version}",
-        }
+    cli["profile_version"] = spec.expect_version
+    cli["version_match"] = (
+        spec.expect_version in str(cli["version"]) if spec.expect_version else None
+    )
     mf = hostfs.manifest(
         spec=json.loads(spec.to_json()),
         workspace=ws,

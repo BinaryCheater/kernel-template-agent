@@ -12,6 +12,7 @@ import io
 import json
 import sys
 import tarfile
+from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -78,8 +79,8 @@ def parts(actx: Context) -> tuple[SqliteStore, SqliteOps, JobExecutor]:
     return store, ops, JobExecutor(actx, store, ops, code_state().commit)
 
 
-def _profile_and_batch(actx: Context, store: SqliteStore) -> str:
-    profile = write_profile(store, datetime.now(UTC), TEST_PROFILE)
+def _profile_and_batch(actx: Context, store: SqliteStore, spec: ProfileSpec = TEST_PROFILE) -> str:
+    profile = write_profile(store, datetime.now(UTC), spec)
     batches.build(store, actx.data_dir, "b1", profile, code_state().commit)
     return profile
 
@@ -110,6 +111,21 @@ def _members(store: SqliteStore, blob: str) -> dict[str, bytes]:
             if f is not None:
                 out[m.name] = f.read()
     return out
+
+
+def test_harness_version_drift_is_recorded_without_refusing_run(actx: Context, parts) -> None:
+    store, ops, ex = parts
+    profile = _profile_and_batch(actx, store, replace(TEST_PROFILE, cli_version="other-reference"))
+    tracer = new_tracer(ops, actx.clock, UlidFactory(actx.clock), {})
+    with tracing(tracer):
+        first = run_step(
+            actx, _task(store, ops, profile), deps=Deps(store, ops, ex, agents_config(actx))
+        )
+    assert first.launch.exit == "ok", first.launch.report
+    manifest = json.loads(store.blob_path(first.run.context_manifest).read_bytes())
+    assert manifest["cli"]["profile_version"] == "other-reference"
+    assert manifest["cli"]["version_match"] is False
+    assert first.run.cli_version == manifest["cli"]["version"]
 
 
 def test_start_resume_violation_and_close(actx: Context, parts, tmp_path: Path) -> None:

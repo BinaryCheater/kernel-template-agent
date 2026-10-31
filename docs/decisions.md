@@ -495,6 +495,8 @@
 
 | D655 | Native provider reuse with experimental isolation | User requested: reuse the host user's configured provider and login; experiments may keep separate environments. Claim: a new experiment works without another login while retaining controlled task context. Given: native Codex/Claude status on Spark HK reports logged in as dingyi. Scope: Codex runtime, both CLI status probes; Claude runtime remains unsupported. Import only connection/auth configuration once per home, profile overrides win; use native auth unless explicitly overridden. Missing CLI/status is unknown, not logged out; source hash and key names expose drift without storing secrets. Repair by correcting the override or constructing a new home; knobs are codex_cmd, auth_dir and inherit_provider. Alternative: another KTA credential/config store adds setup drift; importing the whole home adds uncontrolled instructions and sessions. Reversal is a host-config change plus new experimental home; no account or system changes required | SYSDEBUG-1 |
 
+| D656 | Harness version as provenance | User requested: record the installed harness version without making exact equality a startup prerequisite. Preserve the profile reference, actual version/hash and match flag in the context manifest; AgentRun records actual version. Actual command, event and session failures still surface. Alternative: refusing every update wastes debugging time and requires otherwise unnecessary profile changes. Scope: runtime launch; changing this back is local, with no data migration | SYSDEBUG-1 |
+
 ## 已确认
 
 | ID | 决策 | 选择 | 来源 |
