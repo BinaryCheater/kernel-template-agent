@@ -31,6 +31,7 @@ from kta.core.schemas import Actor, Record
 from kta.core.schemas.knowledge import Chain, ChainItem, Family, Template, VarSpec
 from kta.store.sqlite import SqliteStore
 
+from . import interp
 from . import records as rc
 from .encode import Sym, Translator, Unsupported, declare, domain_values, free, infer
 from .prove import CHECKER, Proved, find_template, outline_for, prove_template
@@ -319,8 +320,25 @@ def _feasibility(bound: list[tuple[str, Space]], feasible: Any, timeout_ms: int)
             continue
         d.add(q.record())
         if q.result == "sat":
-            d.outcome, d.counterexample = "counterexample", sp.decode(q.model)
-            d.reason = f"a feasible design leaves the scope of {key}"
+            point = sp.decode(q.model)
+            # the interpreter re-evaluates the step's Γ and C at the witness
+            ok, values = interp.confirm(
+                point,
+                {
+                    sp.template.scope.predicate: False,
+                    **{c.expr: True for c in sp.template.constraints},
+                },
+            )
+            d.replay = {"interpreter": "kta.core.expr", "agrees": ok, **values}
+            unbound = sorted(k for k in sp.free if k.startswith("p."))
+            if ok:
+                d.outcome, d.counterexample = "counterexample", point
+                d.reason = f"a feasible design leaves the scope of {key}" + (
+                    f" (p.* the chain leaves unbound: {unbound})" if unbound else ""
+                )
+            else:
+                d.outcome, d.data["witness"] = "unresolved", point
+                d.reason = "solver witness not confirmed by the independent interpreter"
         elif q.result == "unknown":
             d.outcome, d.reason = "unresolved", q.reason
         out.append(d)

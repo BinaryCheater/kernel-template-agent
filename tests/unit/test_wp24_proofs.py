@@ -318,6 +318,11 @@ def test_chain_steps_are_checked_under_their_bindings(ctx: Context, store: Sqlit
     assert steps["step:tiles"]["level"] == "bounded"
     assert steps["step:ab_stages"]["level"] == "bounded"
     assert p.level is None and any("ab_async" in g for g in p.gaps)
+    mma = next(
+        store.get(r).body for r in p.results if store.get(r).body["obligation"] == "feasible:mma"
+    )
+    assert mma["outcome"] == "counterexample" and mma["replay"]["agrees"]
+    assert "p.operand_bits" in mma["reason"]  # the chain never binds the workload's operand type
 
 
 def test_candidate_check_in_c_and_gamma() -> None:
