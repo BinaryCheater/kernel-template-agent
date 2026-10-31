@@ -356,7 +356,7 @@ def work_checking(svc: Services, loop: Loop) -> Facts:
 def work_measuring(svc: Services, loop: Loop) -> Facts:
     round_ = int(loop.data.get("round", 1))
     if loop.data.get("measurement_round") != round_:
-        updates = {
+        updates: dict[str, Any] = {
             "protocol": svc.protocol()[0],
             "measurement_round": round_,
             "measurements": {},
