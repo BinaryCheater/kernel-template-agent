@@ -1,0 +1,48 @@
+[
+  {
+    "git_commit": "0e5d617fe2ed99bb40fe3f1ee3555802e011d945",
+    "dirty": false,
+    "env": "dev",
+    "control_host": "Mac.lan",
+    "workers": [],
+    "record_ids": [],
+    "blob_ids": [],
+    "env_manifests": [],
+    "requires_gpu": false,
+    "claim": "WP20 tests (seven WP10a decompositions admitted with 63 counted language gaps and the three constraint_false warnings explained; an unexplained warning refuses the batch and writes nothing; language-gap table; system features, tiers, priority, performance core; ablation pairwise design finds the planted coupling and writes a Coupling with evidence; fractional design shows no coupling on a multiplicative response; dry-run plan; a T2 rejected by admission is retried in the same fake-Codex session, whose prompt carries the rejection, and then accepted) plus the expand replay of all seven references, the task-queue, knowledge-pool and locked WP1/WP4 acceptance tests: 78 passed. Code stage (D320): test stores, fake CLI, no real run.",
+    "command": "uv run --frozen pytest -v tests/unit/test_wp20_learning.py tests/unit/test_expand_replay.py tests/unit/test_expand_cli.py tests/unit/test_orchestrator_tasks.py tests/unit/test_knowledge_pool.py tests/acceptance/WP4 tests/acceptance/WP1",
+    "started_at": "2026-10-31T00:03:38Z",
+    "output": "Mac.lan:~/kta-data/dev/WP20-code-0e5d617/evidence/pytest-0e5d617.txt"
+  },
+  {
+    "git_commit": "0e5d617fe2ed99bb40fe3f1ee3555802e011d945",
+    "dirty": false,
+    "env": "dev",
+    "control_host": "Mac.lan",
+    "workers": [],
+    "record_ids": [],
+    "blob_ids": [],
+    "env_manifests": [],
+    "requires_gpu": false,
+    "claim": "The seven WP10a decompositions import through the admit step into a fresh dev store (not into knowledge/seed/): kta init (seed 58 records, 52 HwFeatures) then kta reference admit knowledge/seed/references wrote 7 Source, 6 Problem, 7 Reference, 3 Pattern, 55 Gap, 30 Template, 17 Realisation, 7 Chain, 7 Reconstruction and one admission Report per reference; 63 language gaps counted; kta coverage shows the learning section (four SOTA levels, system features, language gaps, backends). No measurement involved.",
+    "command": "KTA_ENV=dev KTA_WP=WP20-code-0e5d617 KTA_DATA=~/kta-data uv run --frozen kta init && ... kta reference admit knowledge/seed/references && ... kta coverage",
+    "started_at": "2026-10-31T00:03:54Z",
+    "output": "Mac.lan:~/kta-data/dev/WP20-code-0e5d617/evidence/admit-0e5d617.txt",
+    "notes": "dev store ~/kta-data/dev/WP20-code-0e5d617 holds import and admission records only (seed data)"
+  },
+  {
+    "git_commit": "0e5d617fe2ed99bb40fe3f1ee3555802e011d945",
+    "dirty": false,
+    "env": "dev",
+    "control_host": "Mac.lan",
+    "workers": [],
+    "record_ids": [],
+    "blob_ids": [],
+    "env_manifests": [],
+    "requires_gpu": false,
+    "claim": "Dry-run learning-loop plan of cutlass_ampere_tf32_gemm on gb10 from that store: tiers L0, L1, L2; intake planned with 8 jobs; decompose and admit are the T2 task; reproduce planned (needs the performance core); ablate not applicable (L3 not entered); cover planned. Nothing was submitted.",
+    "command": "KTA_ENV=dev KTA_WP=WP20-code-0e5d617 KTA_DATA=~/kta-data uv run --frozen kta reference plan cfb311fa38025bd6bf95b37c59d2082162e8c4df6dcabc75073a62098c5fa914 --target gb10",
+    "started_at": "2026-10-31T00:04:16Z",
+    "output": "Mac.lan:~/kta-data/dev/WP20-code-0e5d617/evidence/plan-0e5d617.txt"
+  }
+]
