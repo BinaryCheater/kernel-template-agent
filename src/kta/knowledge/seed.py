@@ -9,6 +9,7 @@ Layout of the seed directory (decision D204); every YAML file holds one record b
     targets/<t>/*.yaml      CapabilityDecl  one per (target, capability) (D442)
     templates/*.yaml        Template        refs.sources = all seed Sources
     realisations/*.yaml     Realisation     refs.template by name@version (D443)
+    proofs/*.yaml           ProofOutline    refs.template by name@version (WP24, D631)
     references/<ref>/       one decomposed reference (WP10a layout, refs implied, D100);
                             its realisations/ as above
 
@@ -56,6 +57,7 @@ IDENTITY: dict[str, tuple[str, ...]] = {
     "Capability": ("name",),
     "CapabilityDecl": ("target", "capability"),
     "Realisation": ("template", "backend"),
+    "ProofOutline": ("template", "version"),
     "HwArch": ("name", "version"),
     "HwModel": ("target", "version"),
     "Gap": ("description",),
@@ -203,19 +205,24 @@ def import_seed(
     for p in _yamls(root / "templates"):
         batch.add("Template", p, {"sources": sources})
     _add_realisations(batch, root / "realisations", sources)
+    _add_by_template(batch, "ProofOutline", root / "proofs", sources)
     _hardware(batch, root / "hardware")
     return batch.commit()
 
 
 def _add_realisations(batch: _Batch, directory: Path, sources: list[str]) -> None:
     """Realisations reference their Template (``template: name@version``) by record ID."""
+    _add_by_template(batch, "Realisation", directory, sources)
+
+
+def _add_by_template(batch: _Batch, kind: str, directory: Path, sources: list[str]) -> None:
     for p in _yamls(directory):
         refs: dict[str, RefValue] = {"sources": sources} if sources else {}
         tid = _template_id(batch, str(_body(p).get("template", "")))
         if tid is None:
             batch.issues.append(Issue("unknown_template", "Template not in the store", str(p)))
             continue
-        batch.add("Realisation", p, {**refs, "template": tid})
+        batch.add(kind, p, {**refs, "template": tid})
 
 
 def _template_id(batch: _Batch, ref: str) -> str | None:

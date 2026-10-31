@@ -1,0 +1,15 @@
+template: async_transfer@1
+version: 1
+relation: "the coarse atomic write happens at the transfer's completion; issue and flight are internal fine steps"
+rank: "pieces not yet issued or completed, plus reads not yet executed"
+assumes: []
+guarantees: []
+models:
+  - {obligation: readiness, condition: step, model: async_readiness,
+     params: {complete_point: complete_point, warps: 2,
+              waits: {before_read: own, wait_group_then_barrier: all, barrier_wait: all, compiler_pipelined: null}}}
+note: >-
+  What each complete_point waits for is this outline's reading of the program: before_read waits
+  for the reader's own pieces (no barrier), the barrier variants for every piece; compiler_pipelined
+  is decided by the compiler and not modelled. no_overwrite_in_flight is owned by
+  multi_buffer_rotation in a chain; mechanism_available is a capability question (requires).

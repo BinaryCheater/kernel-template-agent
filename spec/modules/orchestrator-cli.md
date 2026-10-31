@@ -214,3 +214,9 @@ In order: correctness (rule 1, T6); accept (rule 3) unless the model is off — 
 - `orchestrator/work_units.yaml` + `workunits.py`: `roles()`, `role_of(type)`, `unit_for(loop_id, type, rule, task_key)`, `loop_of(work_unit)`. `TaskQueue.create` writes the card's `work_unit` by `session.work_unit_rule` (default `<loop>:<role>`); the ops `tasks.work_unit` column keeps the loop ID.
 - `solve_work.work_solving` holds the host lock shared around the MIP solve when `[host] lock_dir` is set (long-run mode).
 - CLI: `kta store backup <dir> [--handover <to>]`, `kta store restore <dir>` (`kta.store.backup`); `kta process start` and the API refuse a handed-over store.
+
+## WP24: candidate gate and Δpre (D638, D639)
+
+- `orchestrator/proofgate.py`: `candidate_gate(svc, family_id, fp, templates, hw, bucket, ids) -> (kept, results, claims)` runs in `work_solving` after `record_solve`: violating candidates are dropped and recorded; facts `proof_gate[bucket] = {checks, claims, dropped}`.
+- `relaxed_prediction(...)`: with every chain step whose newest live `wp` ProofResult says "stronger" relaxed, re-solves the bucket; `solver[bucket].relaxed_pred_us` and `delta_pre_note` reach the judged bucket, and `gap.decompose` turns them into Δpre (`value`, or `not_assessed` with the note).
+- CLI: `kta prove ...` (see measure-check.md WP24).

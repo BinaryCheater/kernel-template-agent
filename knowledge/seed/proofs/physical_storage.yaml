@@ -1,0 +1,12 @@
+template: physical_storage@1
+version: 1
+relation: "while its occupancy lasts, a buffer holds exactly the logical value it stands for"
+rank: "writes and reads of the values not yet executed"
+assumes:
+  - {name: nonnegative_separation, statement: "delta is a separation between events (Pattern store: delta)", expr: "p.delta >= 0"}
+guarantees: []
+models:
+  - {obligation: lifetime, condition: step, model: event_order,
+     params: {last_read: p.last_read, next_write: p.next_write}}
+  - {obligation: capacity, condition: step, model: resident_capacity,
+     params: {size: p.size_bytes, copies: p.copies, capacity: p.capacity_bytes}}

@@ -930,3 +930,45 @@ Decisions made without the user that need review. Newest last. Each entry: quest
 - **Choice:** not changed (system change, needs you); spark-hk registers without `backend.tilelang`, CUDA builds work.
 - **Rationale:** AGENTS.md: system-level changes on remote machines wait for the user.
 - **Cost of changing later:** `sudo usermod -aG docker dingyi` (or rootless Docker), then `docker/build` and `kta worker register spark-hk`.
+
+## D634 — Assurance only from proof records (WP24)
+
+- **Question:** the store's StatusChange rules let any checker write `to_assurance: proved`; WP24 says levels come only from proof records.
+- **Choice:** readers (`kta.store.assurance.effective`) take bounded / proved only from the newest live ProofSummary; StatusChange claims of bounded / proved are ignored. The raw fold is unchanged because WP1's locked acceptance test writes such a StatusChange.
+- **Rationale:** a level must point at premises that can go stale; StatusChanges only move up.
+- **Cost of changing later:** low: refuse bounded / proved StatusChanges in the store once WP1's test is unlocked.
+
+## D635 — Bounded models give `bounded`, not `proved` (WP24)
+
+- **Question:** the paper calls the tiling template proved, with schedule conditions on a two-warp, five-phase event model.
+- **Choice:** KTA labels any result on a bounded model `bounded` (22 §6: "bounded formal check"), so the tiling template is `bounded`; index conditions over every extent are `proved`.
+- **Rationale:** the level name should say what the domain is; the stated domain is recorded either way.
+- **Cost of changing later:** one rule in `kta.checks.proof.template` and the models' outcome.
+
+## D636 — K2 local conditions reported, not enforced (WP24)
+
+- **Question:** paper §4.1 has four local conditions; the seed Σ do not name all four for each step.
+- **Choice:** K2 = the Template's own obligations; the covered conditions are shown.
+- **Rationale:** enforcing would leave every seed Template without a level for a reason no checker run can change.
+- **Cost of changing later:** low in code; needs Σ revisions (new Template versions) to be useful.
+
+## D640 — Composition semantics and default case domain (WP24)
+
+- **Question:** what "π maps feasible to feasible" and "compatible assumptions" mean in KTA's chain terms, and which case domain a family claim covers.
+- **Choice:** Γ of each step holds on every feasible family design and case; assumptions discharged by bindings, guaranteed below, or declared; `kta prove family` defaults to M, N, K ≥ 1 and the Target's hardware values.
+- **Rationale:** these are the checks the records can support today.
+- **Cost of changing later:** local to `kta.checks.proof.compose`.
+
+## D641 — Encoding-implies-C at the Template level (WP24)
+
+- **Question:** paper §2.2 asks that the solver's encoding imply C.
+- **Choice:** not proved; the candidate gate re-evaluates C on every chosen point.
+- **Rationale:** the MIP projection's auxiliary variables are not translated to SMT.
+- **Cost of changing later:** medium: translate `kta.solve.mip` / projection rows to Z3.
+
+## D643 — Seed contract findings (WP24)
+
+- **Question:** the checker refutes parts of four seed contracts. Repair them?
+- **Choice:** not repaired; reported with replayed counterexamples. Proposed repairs: physical_storage and output_tiling move their p-only preconditions into Γ (K1); multi_buffer_rotation, physical_storage, shared_resource_binding bound their p.* in Γ (sizes ≥ 1, `S * p.size_bytes <= p.capacity_bytes` for some S, `p.wavefronts` as defined) (K3); async_transfer adds `complete_point != "before_read" or p.single_issuer` or drops `before_read`; shared_resource_binding restates `bijective_binding` as injectivity with an inverse on the image (padding).
+- **Rationale:** a seed change is a knowledge decision; new versions change chain references.
+- **Cost of changing later:** new Template versions plus chain bindings; the checker reruns in seconds.

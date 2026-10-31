@@ -130,3 +130,23 @@ measured HwFacts from Measurements taken by `Measurer.measure`; `SUITE` maps nam
 - `measure/quiet.py`: `read_counters(gpu)` (worker side, /proc + NVML), `assess(timing, thresholds) -> QuietVerdict(interfered, verified, reasons, observed)`. `bench.py` writes `host_pre`, `host_start`, `host_end` into `timing.json`; `Nvml.load()` adds utilisation, memory and compute processes.
 - `Measurer(..., thresholds=None)` (controls `measure.quiet_thresholds`): an interfered timing job is a Report `measurement_interfered` and is rerun up to `max_requeues` times; never a Measurement. Exhausted → `HostNotQuiet` (ExecutionError kind infra). Measurement `clocks` adds `quiet` and `interfered_attempts`.
 - `measure/batching.py`: `MeasureWindow(ex, worker, device, holder).run(items, fn)` runs the items inside one `quiet_lease` (host lock exclusive once per window).
+
+## WP24: verification in the loop (D630–D643)
+
+`kta.checks.proof` (layer 6; imports core and store only, not knowledge). Trusted base: the condition builder (`encode.py`, `space.py`, the models), the replay interpreters, and Z3.
+
+```python
+check_template(t, outline, *, restrict=None, attrs=None, menus=None, extra=None, ns="", timeout_ms=5000,
+               conditions=("K1", "K2", "K3"), skip=None) -> TemplateCheck   # drafts, unchecked, level, gaps
+prove_template(store, template_id, now, *, subject=None, scope="template", part="", restrict=..., reuse=True) -> Proved
+prove_family(store, family_id, now, *, case_domain=(), declared=(), hw=None) -> Proved      # Theorem 1
+wp.search(t, outline) -> WeakestPre; wp.record_search(store, template_id, now); wp.relaxed(t, pre_id, weaker) -> Template
+check_candidate(steps, assignment, case, hw) -> CandidateCheck; record_candidate(store, cid, family_id, chk, ...)
+records.drift(store, now, current=None) -> invalidated IDs; records.invalidate(store, node, reason, now)
+```
+
+- **K1** `∀p∈Γ, x∈X: C ⇒ Pre` per precondition; a `same_as` link is reported confirmed only when the checker proves the equivalence. **K3** `∀p∈Γ ∃x: C` (inline disjunction for |X| ≤ 2048, else a quantified query; a witness is replayed by enumerating X up to 200 000 points). Assumptions naming a design variable are refused; Γ ∧ assumptions must be satisfiable.
+- **K2** through the outline's models (`MODELS`): `tile_index` (coverage, exact-once, no-phantom, injective origin for every extent, tile symbolic or per value), `slot_rotation` / `slot_progress` (bounded event model of W warps × KT = max(phases, S+P+2) phases; readiness, lifetime, progress, completion by token replay), `partition_index`, `event_order`, `resident_capacity`, `async_readiness`, `bank_map`, `queue_progress`. Outcome capped by the obligation's method (D635).
+- **Stated domain** per result; arithmetic is symbolic (product tokens); FP rounding, schedules beyond the bounded model and generator code vs Template are not covered (they stay `tested`).
+- CLI `kta prove template|all|family|wp|drift|status` (`kta.cli.prove_cmds`).
+- Acceptance tests: `tests/unit/test_wp24_proofs.py`.

@@ -296,6 +296,7 @@ export interface ResultDetail {
   verdict: string | null;
   missing: string[];
   judgement: string | null;
+  assurance: ResultAssurance;
 }
 
 // ---- GET /families/{id}/chain ----
@@ -565,6 +566,25 @@ export interface PoolPattern extends PoolEnv { name: string; level: number; cate
 export interface PoolTemplate extends PoolEnv {
   name: string; version: number; level_from: number; level_to: number; change: string; refines: string; produces: string[];
   summary: string; requires: string[]; probed_on: string[]; variables: number; constraints: number; obligations: number;
+  proof: TemplateProof;
+}
+
+// ---- WP24: proof records (ProofSummary / ProofResult) ----
+
+/** proved | bounded | counterexample | unresolved (checker outcomes), unchecked, never checked */
+export type ProofStatus = string;
+export interface ProofObligation { name: string; method: string; status: ProofStatus; domain: string; result: string | null; reused: boolean; reason: string }
+export interface ProofCondition { condition: string; name: string; status: ProofStatus; domain: string; result: string; reason: string }
+export interface TemplateProof {
+  summary: string | null; level: "proved" | "bounded" | null; live: boolean | null; last_run: string | null;
+  checker: string | null; solver: string | null; obligations: ProofObligation[]; contract: ProofCondition[]; gaps: string[];
+}
+export interface ResultAssurance {
+  family: { summary: string | null; level: string | null; gaps: string[] };
+  steps: { step: string; template: string; assurance: string; in_chain: { summary: string; level: string | null; gaps: number } | null }[];
+  candidate: { result: string; outcome: string; claims: string; reason: string } | null;
+  code_level: { check: string; record: string | null; status: string }[];
+  not_covered: string[];
 }
 export interface PoolStructure extends PoolEnv { name: string; effect: string; description: string; evidence_needed: string; confirmed_by: string | null }
 export interface PoolGap extends PoolEnv { missing: string; description: string; level: number | null; pattern_guess: string | null; attribution: string; refs: Record<string, string | string[]> }
@@ -578,6 +598,8 @@ export interface PoolView {
   references: PoolReference[];
   counts: Record<string, number>;
   other_patterns: number;
+  /** effective assurance of the Templates in view (WP24: bounded / proved only from proof records) */
+  assurance: Record<"declared" | "tested" | "bounded" | "proved", number>;
 }
 
 // ---- GET /experiments, /improvements ----

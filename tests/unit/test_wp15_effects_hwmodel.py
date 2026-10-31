@@ -79,7 +79,7 @@ def gemm_formulation(ctx: Context, store: Store, mm: MachineModel) -> Any:
 
 def test_every_seed_template_validates_with_effects(ctx: Context, store: Store) -> None:
     files = [*SEED.glob("templates/*.yaml"), *SEED.glob("references/*/templates/*.yaml")]
-    assert len(files) == 37
+    assert len(files) == 38  # + shared_memory_tiling (WP24, D637)
     for path in files:
         body = _yaml(path)
         assert "cost" not in body and "effects" in body, path

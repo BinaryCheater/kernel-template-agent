@@ -209,3 +209,10 @@ Web page **Workflow** (`/workflow`, "How does an agent task run, and what config
 - `/pipeline` shows the stage table, held loops and two charts (`PipelineStages.tsx`); the lane filter adds `host`.
 - `GET /workflow` → `session.work_units` {rule, rules, roles, example, source}; the session node lists `session.work_unit_rule`.
 - `POST /system/proxy/test {provider}` for a provider whose policy is `off` runs a direct TCP + TLS check of its hosts (no model call).
+
+## WP24: assurance and proofs (D634)
+
+- `GET /pool` → each Template has `proof` {summary, level, live, last_run, checker, solver, obligations: every obligation of Σ with status proved | bounded | counterexample | unresolved | unchecked | never checked, domain, result, reused, reason; contract: K1 / K3 rows; gaps}; the view has `assurance` {declared, tested, bounded, proved} over the Templates in view (effective assurance).
+- `GET /proofs/{id}`: the subject's effective assurance, ProofSummaries and ProofResults, newest first.
+- `GET /lineage/{solution}` → `result.assurance` {family (composition summary, level, gaps), steps (effective assurance, level in this chain), candidate (gate outcome and claims), code_level (numeric tests, SASS intent, sanitizer, canaries), not_covered}.
+- Web: Pool shows the assurance strip and an obligations column (expandable, unchecked listed); Result has a "Proved vs tested" panel.

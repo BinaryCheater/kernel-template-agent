@@ -188,3 +188,10 @@ propose_couplings(store, design, estimates, *, family_id, target, workload, evid
 A coupled pair (|joint/product − 1| > noise band) becomes a Coupling record (`basis: measured`, `refs.family`, `refs.evidence` = the run measurements), status `proposed`.
 
 **Reference schema 2.** `source_class` (open name, default `open_code`) and `priority` (`ReferencePriority`); schema-1 records upcast with those defaults (`kta.core.schemas.upcast.reference_v1`).
+
+## WP24: proof outlines in the seed (D631, D634, D637)
+
+- `knowledge/seed/proofs/*.yaml`: ProofOutline records (refs.template by name@version), imported by `import_seed`; identity (template, version).
+- `knowledge/seed/templates/shared_memory_tiling.yaml`: the paper's Listing 1 (`shared_memory_tiling@1`).
+- `pool.status_of(store, rid)` reads the effective assurance (`kta.store.assurance.effective`) on the SQLite store: bounded / proved only from live proof records.
+- A T3 workspace may hold `proof.yaml` next to `template.yaml`; it becomes a ProofOutline of the new Template (`orchestrator.outputs`).

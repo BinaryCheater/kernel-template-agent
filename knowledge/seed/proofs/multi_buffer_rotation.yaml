@@ -1,0 +1,14 @@
+template: multi_buffer_rotation@1
+version: 1
+relation: >-
+  slot (u mod S) holds generation u from the completion of its load until the last read of u;
+  the coarse single buffer holds generation p while phase p consumes it.
+rank: "loads, barriers and consumptions not yet executed"
+assumes: []
+guarantees: []
+models:
+  - {obligation: generation_correctness, condition: step, model: slot_rotation,
+     params: {S: S, P: P, beta: beta, warps: 2, phases: 5}}
+  - {obligation: progress, condition: progress, model: slot_progress,
+     params: {S: S, P: P, beta: beta, warps: 2, phases: 5}}
+note: "Event model of paper Appendix A over the declared domains S 1..8, P 0..7."

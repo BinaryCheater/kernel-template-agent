@@ -1,0 +1,14 @@
+template: reduction_partition@1
+version: 1
+relation: "the combined partial results of the groups equal the full sum over the indices consumed so far"
+rank: "reduction indices not yet added to a partial result, plus partials not yet combined"
+assumes:
+  - {name: positive_length, statement: "a reduction has at least one element (Pattern reduce: length)", expr: "p.length >= 1"}
+guarantees: []
+models:
+  - {obligation: exact_once, condition: completion, model: partition_index,
+     params: {groups: num_groups, size: group_size, assignment: assignment, length: p.length,
+              mapping: {contiguous_sequential: contiguous, contiguous_parallel: contiguous,
+                        contiguous_ranges: contiguous, strided_threads: strided, strided_warps: strided},
+              bounds: {length: 24, groups: 8, size: 8}}}
+note: "runtime_balanced has no static index function; combine_complete is a schedule property left to tests."

@@ -6,7 +6,7 @@ from typing import Any
 
 from fastapi import APIRouter
 
-from kta.api import agentsview, runs, studies, taskview
+from kta.api import agentsview, proofview, runs, studies, taskview
 from kta.api.common import Api
 from kta.store.sqlite import RecordNotFound
 
@@ -39,6 +39,11 @@ def router(api: Api) -> APIRouter:
     @r.get("/pool")
     def pool(snapshot: str | None = None) -> dict[str, Any]:  # pyright: ignore[reportUnusedFunction]
         return studies.pool(api, snapshot)
+
+    @r.get("/proofs/{id}")
+    def proofs(id: str) -> dict[str, Any]:  # pyright: ignore[reportUnusedFunction]
+        api.store.get(id)  # 404 for an unknown record
+        return proofview.proofs_of(api, id)
 
     @r.get("/experiments")
     def experiments() -> dict[str, Any]:  # pyright: ignore[reportUnusedFunction]

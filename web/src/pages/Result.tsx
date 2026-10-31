@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Link, useParams } from "react-router";
 import { api } from "../data/source";
-import type { ResultDetail } from "../data/types";
+import type { ResultAssurance, ResultDetail } from "../data/types";
 import { useApi } from "../data/useApi";
 import { AXIS, EChart, TOOLTIP, type EOption } from "../components/EChart";
 import { Chip, Loading, Panel, RecordLink, Stat } from "../components/ui";
@@ -83,6 +83,7 @@ function ResultBody({ r }: { r: ResultDetail }) {
               <div className="row small"><span>{pct(r.explained_share)} explained</span><span className="muted" style={{ marginLeft: "auto" }}>{pct(1 - r.explained_share)} unexplained</span></div>
             </div>)}
           </Panel>
+          <ProvedVsTested a={r.assurance} />
           <details className="panel" style={{ padding: "4px 12px" }}>
             <summary>Why each link is required (docs/design/30 §1)</summary>
             <p className="small ink2">A result is only trusted when every link exists as a record with origin <span className="mono">real</span>. Agents can propose; only checkers write
@@ -109,4 +110,28 @@ function UnitChart({ r }: { r: ResultDetail }) {
     ].map((s) => ({ type: "bar", name: s.name, data: r.units.map((u) => u[s.key]), itemStyle: { color: s.color, borderRadius: [0, 4, 4, 0] }, barMaxWidth: 12, barGap: "25%" })),
   }) as EOption, [r]);
   return <EChart option={option} height={Math.max(150, r.units.length * 64 + 50)} />;
+}
+
+/** WP24: which parts of this result are proved (Template level) and which are tested (code level). */
+function ProvedVsTested({ a }: { a: ResultAssurance | undefined }) {
+  if (!a) return null;
+  return (
+    <Panel title="Proved vs tested" sub="Template-level proofs cover the formulation; the generated code is covered by tests">
+      <div className="small"><b>Template level</b> · chain composition (Theorem 1): <Chip tone={wordTone(a.family.level ?? "unresolved")}>{a.family.level ?? "not proved"}</Chip> <RecordLink id={a.family.summary} /></div>
+      <table className="t small">
+        <tbody>{a.steps.map((s) => (
+          <tr key={s.step}><td className="mono">{s.step}</td><td className="mono ink2">{s.template}</td><td><Chip tone={wordTone(s.assurance)}>{s.assurance}</Chip></td>
+            <td>{s.in_chain ? <>in this chain: <Chip tone={wordTone(s.in_chain.level ?? "unresolved")}>{s.in_chain.level ?? "no level"}</Chip>{s.in_chain.gaps > 0 && <span className="muted"> {s.in_chain.gaps} gap(s)</span>} <RecordLink id={s.in_chain.summary} /></> : <span className="muted">not checked in this chain</span>}</td></tr>
+        ))}</tbody>
+      </table>
+      {a.family.gaps.length > 0 && <details className="small"><summary>{a.family.gaps.length} gap(s) between this chain and a proof</summary><ul>{a.family.gaps.map((g) => <li key={g}>{g}</li>)}</ul></details>}
+      <div className="small" style={{ marginTop: 6 }}>Candidate check (C and Γ at the assignment): {a.candidate ? <><Chip tone={wordTone(a.candidate.outcome === "proved" ? "passed" : "failed")}>{a.candidate.outcome === "proved" ? "passed" : "failed"}</Chip> claims <Chip tone={wordTone(a.candidate.claims)}>{a.candidate.claims}</Chip> <RecordLink id={a.candidate.result} /></> : <span className="muted">no check recorded</span>}</div>
+      {a.candidate?.claims === "exploration" && <div className="missing">This result comes from a chain without a proved or bounded composition: it is exploration and is not used in correctness claims.</div>}
+      <div className="small" style={{ marginTop: 6 }}><b>Code level</b> (tested, never proved)</div>
+      <table className="t small"><tbody>{a.code_level.map((c) => (
+        <tr key={c.check}><td>{c.check}</td><td><Chip tone={wordTone(c.status)}>{c.status}</Chip></td><td><RecordLink id={c.record} /></td></tr>
+      ))}</tbody></table>
+      <details className="small"><summary>Not covered by any proof</summary><ul>{a.not_covered.map((n) => <li key={n}>{n}</li>)}</ul></details>
+    </Panel>
+  );
 }

@@ -20,6 +20,7 @@ from kta.core.schemas import hwmodel as hm
 from kta.core.schemas import knowledge as kn
 from kta.core.schemas import plan as pl
 from kta.core.schemas import process as pr
+from kta.core.schemas import proof as pf
 from kta.core.schemas import upcast as up
 
 
@@ -146,6 +147,22 @@ KINDS: dict[str, KindSpec] = {
         pl.FormulationPlan, ref_kinds={"case": "Case", "default": "FormulationPlan"}
     ),
     "Pull": KindSpec(pl.Pull),
+    # verification in the loop (WP24, D631, D632)
+    "ProofOutline": KindSpec(
+        pf.ProofOutline,
+        required_refs=("template",),
+        ref_kinds={"template": "Template", "sources": "Source", "previous": "ProofOutline"},
+    ),
+    "ProofResult": KindSpec(
+        pf.ProofResult,
+        required_refs=("subject",),
+        ref_kinds={"outline": "ProofOutline", "reused": "ProofResult"},
+    ),
+    "ProofSummary": KindSpec(
+        pf.ProofSummary,
+        required_refs=("subject",),
+        ref_kinds={"results": "ProofResult", "steps": "ProofSummary"},
+    ),
 }
 
 

@@ -4,7 +4,7 @@ Layer 6. Specification: [spec/modules/measure-check.md](../../../spec/modules/me
 
 ## Responsibility
 
-Independent checkers: numeric correctness, sanitizer, anti-cheat, SASS expectations, space verification. Must not import `knowledge` (a checker may not reuse the generator's logic).
+Independent checkers: numeric correctness, sanitizer, anti-cheat, SASS expectations, space verification, and (WP24) Template proofs: K1–K3, composition, per-candidate checks, proof records with reuse and invalidation, weakest preconditions. Must not import `knowledge` (a checker may not reuse the generator's logic).
 
 ## Public interface
 
@@ -25,6 +25,7 @@ Independent checkers: numeric correctness, sanitizer, anti-cheat, SASS expectati
 | `full.py` | `full_check`, `verify_space` |
 | `inputs.py` | adversarial input distributions (incl. `large_dynamic_range`, D289) |
 | `selftest.py` | correct GEMM and three faulty variants (acceptance) |
+| `proof/` | WP24 checker: `encode.py`/`space.py` condition builder (Z3), `interp.py` replay, `contract.py` K1/K3, `models/` K2 models, `template.py`, `prove.py`, `compose.py` (Theorem 1), `candidate.py`, `wp.py`, `records.py` (premises, reuse, invalidation), `smt.py` |
 
 ## Dependencies
 

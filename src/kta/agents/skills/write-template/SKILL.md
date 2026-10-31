@@ -43,6 +43,16 @@ citation is not admitted.
 
 The Template's assurance is `declared`: you assert it; checkers raise it later.
 
+9. **Proof outline (optional, `proof.yaml` next to `template.yaml`).** The proof side Σ
+   of paper §4.1: `relation` (R between fine and coarse states), `rank` (ρ, the work
+   left), `assumes` (environment assumptions; an `expr` may name only `p.*`, `hw.*`,
+   `case.*`, never a design variable), `guarantees`, and `models`: for each obligation the
+   checker model that discharges it (`kta.checks.proof.models`: `tile_index`,
+   `slot_rotation`, `slot_progress`, `partition_index`, `event_order`,
+   `resident_capacity`, `async_readiness`, `bank_map`, `queue_progress`) with its
+   parameters. See `knowledge/seed/proofs/` for examples. The outline sets no level:
+   only `kta prove` results do, and an unproved statement never becomes an assumption.
+
 ## Granularity
 
 - One step, one new object. If a code region changes several transactions at once,

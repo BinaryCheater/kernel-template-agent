@@ -372,7 +372,8 @@ def _gap_draft(
 
 
 INPUT_KEYS = ("best_us", "ci_us", "predicted_us", "top_pred_us", "bound_us", "reference_us",
-              "pairs", "solver", "relaxed_pred_us", "irreducible_us", "unpriced")  # fmt: skip
+              "pairs", "solver", "relaxed_pred_us", "delta_pre_note", "irreducible_us",
+              "unpriced")  # fmt: skip
 
 
 def _bucket_body(x: Mapping[str, Any], b: Mapping[str, Any]) -> dict[str, Any]:
