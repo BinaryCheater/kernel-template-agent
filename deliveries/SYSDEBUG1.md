@@ -98,3 +98,7 @@ gate WP24 --stage code: PASSED (22 pass, 2 warn, 0 fail)
 ```
 
 Skipped test: `tests.contract.test_codex_cli_contract::test_real_cli_lists_every_adapter_option` (CLI absent from the gate job's PATH). Separate explicit-path help-only contract run passed 3 tests. The other warning is WP24's own pending real acceptance namespace, not a hidden SYSDEBUG pass.
+
+## Clock-rule repair (D649; later follow-up)
+
+User authorised autonomous mechanism repair. Design check: (1) verify observed operating stability; (2) support reproducible wall-time comparison; (3) evidence is stable 2515 MHz versus rated 3003 MHz, with no throttle flags; sampling every 50 ms is still a default; (4) applies to event-timed worker jobs, with no claim of continuous in-kernel observation; (5) can miss changes between samples or perturb launch gaps; (6) raw samples, rule version, clock span, temperature/throttle flags and group variance expose failures; (7) keep the 15% limit, add a versioned polling interval; (8) requeue unstable attempts and compare repeated real timings, never rewrite historical verdicts; (9) operator proceeds under user authorisation, with clock locking and whole-kernel cycle rescaling considered and declined for this host. Unit regressions cover stable low clocks, an interior dip, heat and throttling; real noise validation follows from a clean commit. Wall-time remains primary.

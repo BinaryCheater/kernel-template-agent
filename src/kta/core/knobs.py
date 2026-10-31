@@ -281,6 +281,10 @@ class Knobs(ABC):
         return self._map("measure.quiet_thresholds")
 
     @property
+    def clock_sample_ms(self) -> float:
+        return float(self.value("measure.clock_sample_ms"))
+
+    @property
     def unified_memory_cap(self) -> dict[str, float]:
         return {k: float(v) for k, v in self._map("execution.unified_memory_cap").items()}
 

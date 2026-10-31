@@ -219,6 +219,42 @@ def test_assess_marks_other_cpu_and_gpu_activity() -> None:
     assert quiet.assess({"times_ms": []}, th).verified is False
 
 
+def test_stable_operating_clock_below_rated_maximum_is_not_interference() -> None:
+    data = timing(False)
+    for key in ("host_start", "host_end"):
+        data[key]["gpu"].update(sm_mhz=2515, sm_max_mhz=3003)
+    data["clock_samples"] = [{"sm_mhz": 2515, "throttle_reasons": 0, "temp_c": 47}]
+    verdict = quiet.assess(data, baseline().quiet_thresholds)
+    assert not verdict.interfered
+    assert verdict.observed["clock_rule"] == "observed_window_span_v2"
+    assert verdict.observed["sm_clock_drop_frac"] == 0
+    assert verdict.observed["sm_clock_below_max_frac"] == pytest.approx(0.1625)
+
+
+def test_clock_dip_between_identical_endpoints_is_rejected() -> None:
+    data = timing(False)
+    data["clock_samples"] = [{"sm_mhz": 1200, "throttle_reasons": 0, "temp_c": 50}]
+    verdict = quiet.assess(data, baseline().quiet_thresholds)
+    assert verdict.interfered
+    assert verdict.observed["sm_clock_drop_frac"] == 0.5
+    assert any("sm_clock_drop_frac" in reason for reason in verdict.reasons)
+
+
+@pytest.mark.parametrize(
+    "sample",
+    [
+        {"sm_mhz": 2400, "throttle_reasons": 4, "temp_c": 50},
+        {"sm_mhz": 2400, "throttle_reasons": 0, "temp_c": 90},
+    ],
+)
+def test_transient_throttling_or_heat_between_endpoints_is_rejected(sample: dict[str, Any]) -> None:
+    data = timing(False)
+    data["clock_samples"] = [sample]
+    verdict = quiet.assess(data, baseline().quiet_thresholds)
+    assert verdict.interfered
+    assert any("throttle" in reason or "temp_c" in reason for reason in verdict.reasons)
+
+
 def test_parse_proc_counters() -> None:
     busy, total = quiet.parse_stat("cpu  100 0 50 800 50 0 0 0 0 0\ncpu0 1 2 3 4\n")
     assert (busy, total) == (150, 1000)

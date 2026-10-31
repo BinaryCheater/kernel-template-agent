@@ -1,5 +1,9 @@
 # Review queue
 
+## D649 — Quiet clock rule v2
+
+User authorised autonomous repair. Keep stable workload clocks below rated maximum; reject sampled within-window variation, heat or throttling. New 50 ms polling interval remains an X6 default. Clock locking needs unavailable privileges; whole-kernel frequency rescaling confounds memory and launch costs. Reversible code/control change; real repeated measurements validate it. Review is informational and does not pause this repair.
+
 Decisions made without the user that need review. Newest last. Each entry: question, choice made, rationale, cost of changing it later, link to the decision ID.
 
 (empty)
