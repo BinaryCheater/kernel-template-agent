@@ -1,0 +1,17 @@
+[
+  {
+    "claim": "Code stage (D320): the WP16 unit tests, the WP15 unit tests and the API view tests pass on the control host. They show the real seed GEMM formulation simulated at L2 on the seeded GB10 class and instance (sm12x@1, gb10@1) for all three Case shapes, with waves, busy intervals, per-resource busy equal to L1's, idle attributed to the five categories, ncu-named metrics and deterministic output; L1 as the steady-state limit of L2 on a loop-dominated fixture (gap 0.06 % at 2048 trips) and L2 above L1 by the recurrence on a shallow pipeline; a non-zero shadow price and wall idle on a walled fixture; peak what-if, unknown names refused, no-launch infeasible, unpriced classes carried; the L3 adapter's Executor job and NotSupported; Spearman, scoring and admission; the scoreboard and timeline endpoints on fixture data marked fixture. Unit runs only; no GPU job and no store record (real runs paused, D320)",
+    "command": "uv run --frozen pytest -v tests/unit/test_wp16_l2_scoreboard.py tests/unit/test_wp15_effects_hwmodel.py tests/unit/test_api_views.py",
+    "git_commit": "f06d558857a98fa9963bb968e9bf1ecd0e0bd725",
+    "dirty": false,
+    "env": "dev",
+    "control_host": "Mac.lan",
+    "workers": [],
+    "record_ids": [],
+    "blob_ids": [],
+    "env_manifests": [],
+    "started_at": "2026-10-31T00:32:55Z",
+    "requires_gpu": false,
+    "output": "Mac.lan:~/kta-data/dev/WP16/evidence/pytest-f06d558.txt"
+  }
+]
