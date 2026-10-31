@@ -4,7 +4,7 @@
 
 KTA is a research system for designing high-performance GPU kernels with LLM agents. Instead of asking a strong model to write each kernel from scratch, KTA makes the expert's knowledge explicit — as refined *Templates*, *Chains* of them, a declarative *hardware model*, and scoped *Findings* — and lets a deterministic pipeline search over it. The agent is called only where something is genuinely missing, and what it contributes is kept, checked and reused.
 
-> **Status (2026-10-31): research prototype, code stage.** The planned system is written and passes its code-stage gates; **nothing has been run for real yet** (no GPU measurements, no autonomous agent runs). Every real run the code owes is listed in its work package's delivery note. Fixture data in the UI is labelled as such. See [Status and roadmap](#status-and-roadmap).
+> **Status (2026-10-31): research prototype, code stage.** The planned system, including the design-v2 mechanisms, is written and passes its code-stage gates. Apart from the infrastructure checks of the first work packages, **nothing has been run for real yet**: no kernel solved end to end on the GPU, no autonomous agent run, no experiment. Every real run the code owes is listed in its work package's delivery note. Fixture data in the UI is labelled as such. See [Status and roadmap](#status-and-roadmap).
 
 ---
 
@@ -182,7 +182,7 @@ scripts/gate --stage code WP15
 | | State |
 | --- | --- |
 | Rounds 1–3 (WP0–WP13): infrastructure, knowledge, models and solve, orchestrator, agents, API and frontend, decomposition of 7 references | merged; WP0–WP5 passed the full gate with real runs, later WPs at code stage |
-| Round 4 (WP14–WP21): knowledge model v2, template effects and the declarative hardware model, transaction-level simulator, projection compiler, gap routing, FormulationPlan and access discipline, learning-loop runner, controls registry and staged release | in construction |
+| Round 4 (WP14–WP21): knowledge model v2, template effects and the declarative hardware model, transaction-level simulator, projection compiler, gap routing, FormulationPlan and access discipline, learning-loop runner, controls registry and staged release | merged at code stage (not yet run for real) |
 | S0 golden path (GEMM on GB10, no agent) | next real run |
 | Small parameter experiments X1–X12, then the main experiments | after S0; see `docs/design/02-design-notes.md` §11 for the order |
 
