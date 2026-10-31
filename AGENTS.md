@@ -53,6 +53,10 @@
 
 - LLM provider 的 API key 只放在控制面所在机器的 `~/.config/kta/secrets.env`。不得写进代码、记录、日志、提示、交付说明。
 
+## Progress list (Claude Code desktop only)
+
+If you run in the Claude Code desktop app and have the task-list tool (`mcp__ccd_turn__update_plan`), advance it as each step starts (`{"advance": true}` alongside that step's first call), not only at the end; the user watches it. Other runtimes (Codex, pi, …) do not have this tool: ignore this section.
+
 ## 交付
 
 1. 运行 `scripts/gate <WP>`，必须全部通过。
