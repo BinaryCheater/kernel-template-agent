@@ -15,8 +15,6 @@ from typing import Any
 from kta.core.errors import ConfigError
 from kta.core.schemas.process import TaskCard
 
-STEP_HEADER_MAX_CHARS = 6000  # "one page" (agents.md); overridden by context_policy
-
 
 @dataclass(frozen=True)
 class InputCard:
@@ -90,7 +88,7 @@ def task_md(
     retry: RetryNote | None,
     policy: dict[str, Any],
 ) -> str:
-    k = int(policy.get("cards_k", 5))
+    k = int(policy["cards_k"])
     previous = ""
     if retry is not None and retry.failures:
         previous = "\n## Previous attempt was rejected\n\n" + _bullets(
@@ -104,14 +102,14 @@ def task_md(
             "card_id": card_id,
             "goal": card.goal,
             "done_checks": _bullets([f"`{c}`" for c in card.done_checks]),
-            "inputs": _inputs(cards[:k], int(policy.get("card_max_lines", 5))),
+            "inputs": _inputs(cards[:k], int(policy["card_max_lines"])),
             "budget": _budget(card.budget, used),
             "skills": _bullets([f"`{s}` (`.agents/skills/{s}/SKILL.md`)" for s in skills]),
             "commands": " ".join(f"`kta {c}`" for c in commands) or "(none)",
             "previous": previous,
         },
     )
-    limit = int(policy.get("step_header_max_chars", STEP_HEADER_MAX_CHARS))
+    limit = int(policy["step_header_max_chars"])  # session.step_header_size
     if len(out) > limit:
         raise ConfigError(f"TASK.md is {len(out)} chars, above step_header_max_chars={limit}")
     return out

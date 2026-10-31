@@ -74,6 +74,8 @@ CODEX_FLAGS = [
     "-c", 'approval_policy="never"',
     "-c", 'web_search="disabled"',
 ]  # fmt: skip
+# The policies as recorded in codex-v1/v2 (record content must not change, or write_profile
+# refuses the existing version). Runs read these knobs from the controls registry (WP21, D483).
 CONTEXT_POLICY: dict[str, Any] = {
     "cards_k": 5,
     "card_max_lines": 5,

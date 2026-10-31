@@ -37,7 +37,7 @@ machines:
     summary: One instance per Case. Finds, builds, checks and measures candidates from the pool,
       then judges the result against the bound and the references.
     limits:
-      max_rounds: 5
+      max_rounds: budget.rounds_per_case_loop   # a controls knob (WP21): the value is the version in force
       on_exhausted: escalate   # the instance stays in its state and an inbox item is raised
     states:
       - {id: new, kind: step, work: orchestrator, initial: true,
@@ -160,7 +160,7 @@ machines:
     summary: Every agent task (T1-T6) goes through this lifecycle. Agents only submit
       proposals; the fixed done-checks decide acceptance.
     limits:
-      max_retries: 2
+      max_retries: budget.retries_per_task   # a controls knob (WP21)
     states:
       - {id: created, kind: step, work: orchestrator, initial: true,
          does: Task card written as an immutable record}

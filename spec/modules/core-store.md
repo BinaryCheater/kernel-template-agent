@@ -138,3 +138,60 @@ Additions made in WP1 (D146, D152): `Store.put_many(records)` (one transaction),
 - `Expr.parse(src, declared, roots=("hw", "p", "case"))` and `Expr.eval(env, hw, p, case, extra=None)`: the hardware model's expressions use the roots `hw`, `tx`, `f`, `tbl` (spec/schemas.md §3).
 - New kinds: HwArch, ModelVersion, RegressionSet (core/schemas/hwmodel.py); Template 2, HwModel 2, Prediction 2.
 
+## Controls registry (WP21, D480, D481)
+
+Every knob of docs/design/12-agent-controls.md lives in one versioned registry. Code reads knob values only through it; no module keeps its own default for a knob.
+
+### Files
+
+```
+core/controls.yaml     knob definitions: id, row (the "Knob" cell of 12), section, controls, type,
+                       value (initial), prevents, where, status, source, set_by, editable,
+                       accessor, consumer, unit, choices / fields / min / max / sum_max
+core/experiments.yaml  X1–X12 (02 §11): question, design, arms, metrics, sets (knob ids),
+                       profile_fields, sets_elsewhere (values outside the registry, e.g. HwModel),
+                       depends_on, step (02 §11 order 1–6), method (run | logs),
+                       status (defined | approved | running | done)
+core/controls.py       definitions(), coerce(), Controls (snapshot), baseline(), upgrade()
+core/knobs.py          Knobs: one typed property per knob (mixed into Controls)
+store/controls.py      ControlsVersion records and the pointer controls:current
+```
+
+### Interface
+
+```python
+# kta.core.controls (layer 0: every module may read it)
+definitions() -> Definitions          # knobs, experiments, task_types, hash; validated on load
+class Controls(Knobs):                # frozen snapshot
+    values: Mapping[str, Any]; version: int; version_id: str | None; definitions_hash: str
+    def value(knob_id) -> Any                          # a copy
+    def with_changes(changes, allow_locked=False) -> Controls   # validated proposal, version_id None
+    def diff(other) -> list[Change]
+    <accessor>: typed property per knob (e.g. rounds_per_case_loop -> int, task_wall_s -> dict)
+baseline() -> Controls                # the definitions' initial values, not stored
+upgrade(stored_values) -> (values, added, dropped)
+
+Context.controls: Controls            # snapshot read by pure code; default baseline()
+
+# kta.store.controls (layer 1)
+current(store, ops) -> Controls       # read only; version_id None when nothing (or not all) stored
+ensure(store, ops, at) -> Controls    # writes version 1, or a system upgrade when knobs were added/dropped
+propose(store, ops, changes, author, reason, at, expected) -> Controls
+history(store, limit) -> list[(id, Record)]
+```
+
+### Rules
+
+- A value change is a new ControlsVersion (spec/schemas.md §4.10) written by a named human with a reason; `expected` must be the version the author read (None = the values in force were not stored yet), else ConfigError. Invariant knobs (`editable: false`) are refused (PermissionDenied). Invalid values are ConfigError.
+- `value` in `controls.yaml` only seeds version 1 and knobs added later; editing it does not change a stored value.
+- Runs record the version they used: `refs.controls` on TaskCard, AgentRun (one version) and ExperimentRun (the list the loop ran under); loop data `controls` (last step) and `controls_seen`.
+- Entry points that hold a store call `ensure` (Services.open, the runner per step, the task queue, the agent runner per step, each process tick); GET endpoints call `current` and write nothing.
+
+### Adding a knob (WP18, WP19 and later)
+
+1. Add a row to `core/controls.yaml` (with the failure it prevents, `where`, `status`, `set_by`, `set_from: S1/S2 logs` when it is revised from logs rather than by an experiment; `consumer` names the code that reads it). WP19 adds the MIP ↔ L2 thresholds with `set_by: [X11]` and lists them in X11's `sets` (moving them out of `sets_elsewhere`).
+2. Add one typed property with the row's `accessor` name to `core/knobs.py`.
+3. Add the row to docs/design/12-agent-controls.md (with its `set_by` cell); if an X experiment sets it, list the knob in that experiment's `sets`.
+4. Read it through `ctx.controls.<accessor>` (pure code) or `kta.store.controls.ensure(...)`.<accessor>.
+
+`test_registry_holds_every_row_of_12_with_set_by` and `test_every_knob_has_one_typed_accessor` fail until the three places agree. On the first run after the change, `ensure` writes a system version that adds the knob with its initial value and keeps every stored value.

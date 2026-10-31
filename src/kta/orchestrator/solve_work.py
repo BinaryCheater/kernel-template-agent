@@ -152,7 +152,7 @@ def work_retrieving(svc: Services, loop: Loop) -> Facts:
 
 
 def work_solving(svc: Services, loop: Loop) -> Facts:
-    s = Settings.from_config(svc.ctx.config)
+    s = Settings.of(svc.ctx.controls)
     cv = case_view(svc.store, loop.subject)
     hw_id, hw = svc.machine(cv.case.target)
     model_id, model = svc.unit_model(cv.case.target)
@@ -200,7 +200,7 @@ def _sass(svc: Services, loop: Loop, fp: Any, module: Any, assignment: dict[str,
 
 
 def work_building(svc: Services, loop: Loop) -> Facts:
-    s = Settings.from_config(svc.ctx.config)
+    s = Settings.of(svc.ctx.controls)
     cv = case_view(svc.store, loop.subject)
     _, hw = svc.machine(cv.case.target)
     _, model = svc.unit_model(cv.case.target)

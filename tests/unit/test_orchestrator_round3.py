@@ -25,7 +25,7 @@ from kta.orchestrator.tasks import CURRENT_PROFILE, TaskQueue
 from kta.orchestrator.transition import TaskRequest
 from kta.store.sqlite import SqliteStore
 from kta.store.sqlite_ops import SqliteOps
-from orchesthelp import world
+from orchesthelp import set_controls, world
 from storehelp import T0
 
 HUMAN = Actor(type="human", name="test")
@@ -129,6 +129,7 @@ class Result:
 
 def _queue(svc: Services) -> TaskQueue:
     svc.ops.set_pointer(CURRENT_PROFILE, None, "f" * 64)
+    set_controls(svc.store, svc.ops, {"release.stage": "S4"})  # agent calls run (WP21)
     return TaskQueue(svc.ctx, svc.store, svc.ops, svc)
 
 

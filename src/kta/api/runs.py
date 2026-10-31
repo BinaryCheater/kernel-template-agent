@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 from typing import Any
 
 from kta.api import opsread
-from kta.api.common import Api, body, config_int, done_check_reports, iso, machine_limit
+from kta.api.common import Api, body, controls, done_check_reports, iso, machine_limit
 from kta.orchestrator import quotas
 from kta.store.base import SpanRow
 
@@ -47,7 +47,7 @@ def task_view(api: Api, t: opsread.TaskRow, sessions: dict[str, SpanRow]) -> dic
         "created_at": iso(t.created_at),
         "state_since": iso(t.updated_at),
         "retries": max(0, t.attempts - 1),
-        "max_retries": machine_limit("task", "max_retries", 2),
+        "max_retries": machine_limit(api, "task", "max_retries"),
         "budget_wall_s": float(card.get("budget", {}).get("wall_s", 0)),
         "used_wall_s": (now - started).total_seconds() if started else 0.0,
         "queue_s": ((started or now) - t.created_at).total_seconds(),
@@ -65,7 +65,7 @@ def loop_view(api: Api, row: opsread.LoopRow) -> dict[str, Any]:
         "subject_name": d.get("name") or _subject_name(api, row.subject),
         "state": row.state,
         "round": d.get("round"),
-        "max_rounds": machine_limit(row.kind, "max_rounds", 0) or None,
+        "max_rounds": machine_limit(api, row.kind, "max_rounds"),
         "started_at": d.get("started_at") or iso(row.updated_at),
         "state_since": d.get("state_since") or iso(row.updated_at),
         "waiting_on": d.get("waiting_on"),
@@ -255,7 +255,7 @@ def active(api: Api) -> dict[str, Any]:
     finished = _finished(api, tasks, loops, now)
     return {
         "as_of": iso(now),
-        "agent_slots": [f"agent:{i + 1}" for i in range(config_int(api, "agents", "slots"))],
+        "agent_slots": [f"agent:{i + 1}" for i in range(controls(api).agent_instances["start"])],
         "loops": loops,
         "tasks": live,
         "jobs": jobs,
@@ -303,7 +303,7 @@ def _finished(
 
 def quota_view(api: Api) -> dict[str, Any]:
     """GET /quotas: process shares configured and in force (WP11 D401, as ``kta quotas``)."""
-    base = quotas.shares(api.config)
+    base = quotas.shares(controls(api))
     active = quotas.active_experiments(api.ops)
     return {
         "configured": base,

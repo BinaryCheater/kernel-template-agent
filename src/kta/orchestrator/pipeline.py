@@ -11,13 +11,14 @@ from __future__ import annotations
 import importlib.util
 import shutil
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, cast
 
 from kta.backends.base import Backend, BuiltModule, GeneratedKernel, LaunchSpec
 from kta.checks.base import Checker
 from kta.core.context import Context
+from kta.core.controls import Controls
 from kta.core.errors import NotSupported, SchemaError
 from kta.core.expr import Expr
 from kta.core.ids import record_id
@@ -32,6 +33,7 @@ from kta.knowledge.pool import find_template
 from kta.knowledge.realisations import expected_sass
 from kta.measure.runner import Measurer
 from kta.models import MODEL_SUBJECT, MachineModel, UnitModel, load_machine, load_model, save_model
+from kta.store import controls as controls_store
 from kta.store.base import Store
 from kta.store.sqlite_ops import SqliteOps
 
@@ -47,7 +49,17 @@ class Services:
 
     @classmethod
     def open(cls, ctx: Context) -> Services:
-        return cls(ctx, resolve("store", ctx), resolve("ops", ctx))
+        """Services of a command or process, with the stored controls version in force."""
+        svc = cls(ctx, resolve("store", ctx), resolve("ops", ctx))
+        return svc.with_controls(controls_store.ensure(svc.store, svc.ops, ctx.clock.now()))
+
+    def with_controls(self, controls: Controls) -> Services:
+        """The same services with ``ctx.controls`` = ``controls`` (the executor is kept)."""
+        if controls == self.ctx.controls:
+            return self
+        out = Services(replace(self.ctx, controls=controls), self.store, self.ops)
+        out._executor = self._executor
+        return out
 
     @property
     def executor(self) -> JobExecutor:

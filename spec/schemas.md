@@ -387,6 +387,7 @@ class AgentProfile:                                   # 控制 agent 行为的�
     allowed_commands: dict[str, list[str]]   # 任务类型 → 允许的 kta 子命令
     context_policy: dict                  # cards_k、card_max_lines、tool_output_max_chars、step_header_max_chars、notes_required
     loop_policy: dict                     # max_retries、reset_context_ratio、reset_on_repeat_failure、idle_s、各任务类型的预算
+                                          # WP21 (D483): both kept as recorded; runs read these knobs from the controls registry
 class Submission:   files: list[str]; note: str          # 交付说明
 class HumanAction:  action: str; reason: str
 class PoolSnapshot: members: list[str]; note: str
@@ -403,8 +404,12 @@ class Protocol:      name: str; version: int; type: Literal["measurement", "expe
                      description: str; params: dict
 class ExperimentRun: name: str; condition: str; seed: int?; params: dict; note: str
 class Report:        title: str; subject: str; summary: str; data: dict
+class ControlsVersion:  version: int (>= 1); definitions_hash: str   # WP21, D481
+                     values: dict              # knob id -> value, every knob of the definitions
+                     changes: list[dict]       # {knob, old, new} against refs.previous
+                     reason: str               # required; the actor is the author
 ```
-refs: Report may have `env` (EnvManifest). Template's `backward_map_fn: str?` (python function path) is a field of its own.
+refs: Report may have `env` (EnvManifest). ControlsVersion has `previous` (ControlsVersion) except version 1. TaskCard and AgentRun may have `controls` (the ControlsVersion the card's budget / the step used), ExperimentRun `controls` (a list: the versions its loop ran under) (WP21). Template's `backward_map_fn: str?` (python function path) is a field of its own.
 
 推进规则（`kta.store.status`）：
 

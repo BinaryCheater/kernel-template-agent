@@ -18,6 +18,10 @@ HTTP API (read and operation endpoints) for the web frontend; holds the single s
   token endpoints `/agent/*` for the agent commands in client mode, D352)
 - WP9b read views: `views.py` routes to `taskview.py`, `agentsview.py`, `studies.py`
 
+## Settings and release (WP21)
+
+- `controls.py`: `GET/POST /controls`, `GET /controls/versions`, `GET/POST /release`; writes need the operator token (`X-KTA-Operator-Token`, `[api] operator_token_file`).
+
 ## Dependencies
 
 - May import: `core`, `store`, `targets`, `execution`, `backends`, `knowledge`, `models`, `measure`, `formulation`, `checks`, `solve`, `orchestrator`, `agents`.

@@ -130,3 +130,19 @@ class Report(Body):
     subject: str
     summary: str
     data: dict[str, Any] = Field(default_factory=lambda: dict[str, Any]())
+
+
+class ControlsVersion(Body):
+    """One version of the controls registry's values (WP21, D481).
+
+    ``values`` holds every knob of the definitions ``definitions_hash`` names; ``changes``
+    lists what differs from the previous version (``refs.previous``). The actor is the
+    author (a human for settings-page writes, the system for version 1 and for definition
+    upgrades); ``reason`` is required. Runs record the version they used in ``refs.controls``.
+    """
+
+    version: int = Field(ge=1)
+    definitions_hash: str
+    values: dict[str, Any]
+    changes: list[dict[str, Any]] = Field(default_factory=lambda: list[dict[str, Any]]())
+    reason: str = Field(min_length=1)

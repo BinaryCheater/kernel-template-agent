@@ -42,8 +42,7 @@ pools = { cpu = 16 }
 # Runtime agents (spec/modules/agents.md, decision D300): agent CLIs run as Executor jobs
 # in the `agent` pool of this worker; workspaces and CLI homes live in its data directory.
 [agents]
-# Concurrent agent slots (docs/design/11 §2, default 2); the frontend draws one lane per slot.
-slots = 2
+# Concurrent agent slots are the controls knob budget.agent_instances (settings page, D483).
 worker = "spark"
 pool = "agent"
 batch = ""                          # default batch: kta agents env build <batch> --profile <id>

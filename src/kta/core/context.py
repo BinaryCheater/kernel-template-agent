@@ -1,7 +1,7 @@
 """Context object: the only way dependencies reach code (spec/conventions.md §3.1).
 
-WP0 provides environment, configuration, data directory, registry, clock and rng.
-Later work packages add store, ops, executor and target.
+WP0 provides environment, configuration, data directory, registry, clock and rng;
+WP21 adds the controls snapshot. Store, ops and executor are resolved from the registry.
 """
 
 from __future__ import annotations
@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Literal, Protocol
 
 from kta.core.config import Config
+from kta.core.controls import Controls, baseline
 from kta.core.errors import ConfigError
 from kta.core.registry import Registry
 
@@ -66,6 +67,9 @@ class Context:
     clock: Clock = field(default_factory=SystemClock)
     seed: int = 0
     process: str = "kta"
+    # The controls snapshot pure code reads (WP21, D482). Entry points that hold a store
+    # replace it with the stored version in force (kta.store.controls.ensure).
+    controls: Controls = field(default_factory=baseline)
 
     def rng(self, name: str) -> random.Random:
         """Independent, reproducible stream per name; record the seed where it is used."""

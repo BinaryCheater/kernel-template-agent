@@ -84,8 +84,9 @@ def cmd_calibrate_hw(args: argparse.Namespace, make_ctx: ContextFactory) -> int:
 
 def cmd_quotas(args: argparse.Namespace, make_ctx: ContextFactory) -> int:
     ctx = make_ctx("quotas")
-    ops = Services.open(ctx).ops
-    base = quotas.shares(ctx.config)
+    svc = Services.open(ctx)
+    ops = svc.ops
+    base = quotas.shares(svc.ctx.controls)
     active = quotas.active_experiments(ops)
     in_force = quotas.effective(base, bool(active))
     text = "\n".join(
