@@ -22,3 +22,7 @@ The only path to compute: jobs submitted to local or ssh workers (pull: protocol
 ## WP22 (D589)
 
 `Job.requires["worker"]` restricts placement to the named worker; only the settings page's worker Test uses it.
+
+## WP23 (D603, D607)
+
+`hostpolicy.py`: host-lock mode per job and the unified-memory cap. Workers with `host_lock` run cpu/gpu-shared jobs under the lock shared and self-leased exclusive jobs exclusive; `quiet_lease` holds it exclusive through the worker command `hold`; waits are `lock_wait` spans on `host:<worker>`. `Transport.popen` for long-lived worker commands.

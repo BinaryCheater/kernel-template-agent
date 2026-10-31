@@ -341,6 +341,8 @@ Decisions made without the user that need review. Newest last. Each entry: quest
 - **Cost of changing later:** low: one function in `tools/kta_gate/specific.py`.
 ## D300 / D301 — Where the agent CLI runs, and how its `kta` reaches the store
 
+- **Superseded (WP23, D600):** agent CLIs run with the control plane — the Mac in dev mode, spark-hk in long-run mode. D301 (task token, `KTA_API`) still holds.
+
 - **Question:** spec/modules/agents.md puts the agent process on the control-plane machine, while the WP8 acceptance names spark's user-level Codex directory and DGX OS GPU permissions, and conventions §6 sends all computation through the Executor. With the control plane on the Mac and the agent on spark, the agent's `kta` calls have no direct path to the store.
 - **Choice:** the CLI runs as an Executor job (pool `agent`) on the worker named by `[agents] worker` (spark), started by `kta.agents.launch`; workspace and CLI home live in that host's data directory. The agent-side `kta` authenticates with `KTA_TASK_TOKEN` and talks to the control-plane API at `KTA_API`; the API verifies the token with `kta.agents.guard.verify_task_token`. Setting `[agents] worker` to a `local` worker runs agents on the control host instead, where `kta` can open the store directly.
 - **Rationale:** keeps the agent's shell commands (and fan noise) off the Mac, matches the acceptance items, and gives every agent process the Executor's timeout, process-group kill and output transfer by hash.
@@ -859,6 +861,8 @@ Decisions made without the user that need review. Newest last. Each entry: quest
 
 ## D592 — Agent CLIs on spark cannot reach the Mac's Clash (WP22)
 
+- **Superseded (WP23, D600):** the user chose option (a) in substance: in dev mode agent CLIs run on the Mac (worker `mac`, pool agent), so the loopback proxy is the Mac's Clash; in long-run mode on spark-hk the policy is `off`.
+
 - **Question:** `[agents] worker = spark`, but the user's proxy is Clash on the Mac (127.0.0.1:7897). Which host's loopback does the injected proxy mean?
 - **Choice:** none rewritten; the preflight runs on the agent host and refuses the start until the user decides.
 - **Options:** (a) run agent CLIs on a `local` worker on the Mac (matches "the agent runner runs on the Mac"); (b) a proxy on spark and an override; (c) `ssh -R 7897:127.0.0.1:7897 spark` (a transport change).
@@ -877,3 +881,52 @@ Decisions made without the user that need review. Newest last. Each entry: quest
 - **Choice:** approval builds `<name>-v<version>`; the runner uses it for new work units of tasks without their own batch when the configured batch is from another profile.
 - **Rationale:** new tasks pick up the approved profile without editing config/kta.toml; running work units keep their batch.
 - **Cost of changing later:** low (one branch in `open_batch`).
+
+## D600 — `config/kta.toml` next to the mode files (WP23)
+
+- **Question:** the two modes live in `config/modes/dev-mac.toml` and `config/modes/spark-hk.toml`, selected by `KTA_MODE`. What should happen to `config/kta.toml` (still `[workers.spark]`, `[agents] worker = "spark"`)?
+- **Choice:** left unchanged, so the services running on the Mac from other checkouts keep their configuration; without `KTA_MODE` the old default applies.
+- **Rationale:** the user asked to keep everything on the Mac running and untouched.
+- **Cost of changing later:** low: replace `kta.toml` by a copy of `dev-mac.toml`, or make `KTA_MODE` required.
+
+## D605 — Eager baselines without host counters (WP23)
+
+- **Question:** `measure/scripts/torch_bench.py` runs in a container without the `kta` package, so it records no host readings; its timings come back `verified: false` and are counted.
+- **Choice:** counted but marked unverified (`clocks.quiet.verified = false`); the thresholds apply only where readings exist.
+- **Rationale:** refusing them would stop the eager comparison; copying the /proc reader into the script duplicates code.
+- **Cost of changing later:** low: inline the reader into `torch_bench.py` (about 40 lines), or refuse unverified timings.
+
+## D605 — Quiet-host threshold values (WP23)
+
+- **Question:** what counts as "not quiet" on GB10 before X6 has run.
+- **Choice:** other CPU > 0.5 cores (during the loop or between warm-up start and loop start), load1 > 8 (load1 lags a minute, so it is loose), memory in use > 96 GB, GPU > 5 % busy or another compute process before warm-up, > 85 °C, SM clock > 15 % under max, throttle mask 0xEC; 3 requeues, then `HostNotQuiet`.
+- **Rationale:** placeholders that catch a running compile or agent CLI; X6 (agents idle vs active) sets them.
+- **Cost of changing later:** none: one controls version.
+
+## D609 — Backup destination and schedule (WP23)
+
+- **Question:** spark-hk cannot resolve `slai`. Where do periodic backups go, and how often?
+- **Choice:** one manual backup pulled to the Mac (`~/kta-backups/spark-hk/20261031T082234Z`). No schedule yet.
+- **Rationale:** the Mac is not always on, so a push from spark-hk would fail; a pull from the Mac when it is on works, or an ssh alias to slai on spark-hk (needs your ssh key decision).
+- **Cost of changing later:** low: a maintain-tick job or a cron entry on the Mac running `kta store backup` over ssh plus rsync.
+
+## D613 — Agent task order and unblocking (WP23)
+
+- **Question:** stage dequeue prefers loops that unblock waiting loops; the agent pool still orders queued tasks by process quota, priority and age.
+- **Choice:** unchanged for agent tasks.
+- **Rationale:** the quota order is a WP11/WP21 rule; an unblock key there changes how processes share agent time.
+- **Cost of changing later:** low: one more sort key in `quotas.order_queued`.
+
+## D615 — Work units of loops started before WP23
+
+- **Question:** loops created before the role split have cards whose work unit is the loop ID (one session for all roles).
+- **Choice:** they keep that session; new tasks open `<loop>:<role>` units. No migration.
+- **Rationale:** history is immutable; there are no real agent sessions yet, so the mix is empty in practice.
+- **Cost of changing later:** low.
+
+## D619 — TileLang on spark-hk needs Docker access (WP23)
+
+- **Question:** the TileLang backend builds in the worker image; on spark-hk the user is not in the `docker` group.
+- **Choice:** not changed (system change, needs you); spark-hk registers without `backend.tilelang`, CUDA builds work.
+- **Rationale:** AGENTS.md: system-level changes on remote machines wait for the user.
+- **Cost of changing later:** `sudo usermod -aG docker dingyi` (or rootless Docker), then `docker/build` and `kta worker register spark-hk`.

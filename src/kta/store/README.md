@@ -26,3 +26,7 @@ Append-only evidence records, content-addressed blobs, operations tables (tasks,
 ## Demotion (WP14, D448)
 
 `status.py`: actor `system` may move a record down the promotion ladder (never up); `stale.propagate` is what the knowledge promotion engine calls after a demotion.
+
+## Backups and hand-over (WP23, D601)
+
+`backup.py`: `backup` (SQLite online backup, blobs, system configuration, manifest; `--handover` marks the store), `restore` (empty data directory, hash-checked), `check_owner` (the API and processes refuse a handed-over store). CLI `kta store backup|restore`.

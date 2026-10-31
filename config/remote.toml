@@ -3,6 +3,13 @@
 # `root` is the project directory on the host; everything KTA installs there stays inside it.
 # `path` is prepended to PATH because remote shells are non-interactive.
 
+# The compute host of both modes (WP23, D600): project directory ~/kta, uv in ~/kta/.uv.
+[hosts.spark-hk]
+ssh = "spark-hk"
+root = "~/kta"
+path = ["~/kta/.uv/bin", "/usr/local/cuda/bin"]
+
+# Former default worker (spark-b6d9); its records stay valid history.
 [hosts.spark]
 ssh = "spark"
 root = "~/kta-work"

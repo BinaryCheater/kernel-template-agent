@@ -207,3 +207,10 @@ In order: correctness (rule 1, T6); accept (rule 3) unless the model is off — 
   the gate checks they are identical for the version `session.access_discipline_version`
   names.
 
+
+## WP23: stage queues, work units, store hand-over (D601, D610–D615)
+
+- `orchestrator/stage_queues.yaml` + `stagequeue.py`: stages by loop state; `plan(rows, capacity, window, now, open_windows=0, kinds=("solve",), process="solve") -> Plan(advance, window, held, depth)` (pure; backpressure, unblock-first order, measurement windows). `solve_tick` advances `plan.advance`, measures `plan.window` in one `MeasureWindow` when `[measure] window_worker` is set, writes `deferred` on held loops and an ops event `stages` per tick. Capacities: knob `pipeline.stage_capacity`; windows: `measure.batch_window`.
+- `orchestrator/work_units.yaml` + `workunits.py`: `roles()`, `role_of(type)`, `unit_for(loop_id, type, rule, task_key)`, `loop_of(work_unit)`. `TaskQueue.create` writes the card's `work_unit` by `session.work_unit_rule` (default `<loop>:<role>`); the ops `tasks.work_unit` column keeps the loop ID.
+- `solve_work.work_solving` holds the host lock shared around the MIP solve when `[host] lock_dir` is set (long-run mode).
+- CLI: `kta store backup <dir> [--handover <to>]`, `kta store restore <dir>` (`kta.store.backup`); `kta process start` and the API refuse a handed-over store.

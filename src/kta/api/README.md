@@ -35,3 +35,5 @@ HTTP API (read and operation endpoints) for the web frontend; holds the single s
 
 `system.py`: `GET/POST /system`, `POST /system/proxy/test`, `POST /system/workers/{name}/test` (Settings → System). `mechanisms.py`: `GET /mechanisms` (the Mechanisms page: learning stages, FormulationPlan diffs, selection arms, canaries, what-if).
 `workflow.py` (Part D, D593–D597): `GET /workflow`, `/workflow/diff`, `POST /workflow/preview`, `/workflow/drafts`, `/workflow/drafts/{id}/approve` (the Workflow page).
+
+`stageview.py` (WP23, D612): `GET /trace/stages`, the stage efficiency timeline on the Pipeline page. `/workflow` shows the work-unit rule (D614); the proxy Test checks `off` providers directly (D617).
