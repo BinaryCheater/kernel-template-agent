@@ -14,6 +14,12 @@ models/fit.py          拟合算法（D244）
 models/machine.py      MachineModel: HwModel (instance) resolved on its HwArch (class) (D463)
 models/l1.py           L1: steady-state pricing of evaluated effects (D464, D465, D471)
 models/stored.py       load_arch / load_machine / latest_machine from the store
+models/l2graph.py      L2 graph and one wave on FIFO resources (D500–D503)
+models/l2.py           L2: waves, idle attribution, ncu metrics, wall attribution (D501–D505)
+models/whatif.py       what-if runs and the l2_simulation / what_if Reports (D504)
+models/base.py         L3Simulator protocol (D506)
+models/l3.py           ExternalSassSimulator: the external SASS-level simulator as an Executor job (D506)
+models/regression.py   regression scoring, admission and the scoreboard (D507–D510)
 ```
 
 ### Hardware model and L1 (WP15; docs/design/02 §4, §5.1)
@@ -50,11 +56,75 @@ def sol_us(min_work, mm) -> dict[resource, us]                           # per-r
 ```
 
 - **L1 composition** (rule `steady_state_max`): every transaction reserves `count * amount` on each resource of its class's reservation table; `busy_r = use_r / (rate_r * eff_r)` over overlappable transactions; a two-selector overlap that does not hold adds the pair bound `t(G_a) + t(G_b)`; one that holds with `inflight` and `trips` adds `trips * (lat(G_a) + lat(G_b)) / inflight` with `lat(G)` the smallest class latency in the group (optimistic, D464); serial classes (and one-selector overlaps that do not hold) add their time. Total = max of the bounds + serial + interactions. Each term is a lower bound of the steady state; the projection is these terms.
-- **For WP16 (L2):** L2 consumes `EvalEffects` (per CTA, before aggregation by `p.instances` when it needs it) and `MachineModel` (resources, op classes, latencies, walls, tables); it must reproduce `price_parts` as its steady-state limit on loop-dominated fixtures (WP16 acceptance). Its outputs use `Resource.ncu` names.
+- **For WP16 (L2, done; see below):** L2 consumes `EvalEffects` (per CTA, before aggregation by `p.instances` when it needs it) and `MachineModel` (resources, op classes, latencies, walls, tables); it must reproduce `price_parts` as its steady-state limit on loop-dominated fixtures (WP16 acceptance). Its outputs use `Resource.ncu` names.
 - **For WP17 (MIP):** the compiler reads `Formulation.transactions/storage/overlaps` (expressions over family variables) and `MachineModel`; `formulation.work_terms(f, mm)` already gives every resource-use row as an expression (count × reservation amount, `tx.*` substituted; table terms raise NotSupported). Pair and recurrence bounds and walls are WP17's additions (epigraph max, `II >= lat/S` menus, integer ceil); today's `solve_mip` relaxes them and re-prices its shortlist with L1.
 - **Unpriced** (D465): unknown classes and resources without a peak cost no time and are reported in `L1Result.unpriced/unmodelled` and `Prediction.unpriced`; `solve` refuses a formulation with priced effects on a flat (class-less) HwModel (NotSupported).
 - `bound(case, shape, hw, work, arch=None)` is the per-resource SOL (`sol_us`); a resource of the minimum work without a peak raises NotSupported. `unit_time_us(unit, work, hw, arch=None)`; `hw` may be an HwModel or a MachineModel everywhere in models, formulation and solve.
 - `UnitModel` is the calibration layer (D466): `total_us` delegates to `compose`; `predict_l1(result, mm, feedback=None)` uses its fitted `eff_u` where it has one and the hardware model's declared efficiency elsewhere, and raises `NoResidentCta` on a no-launch wall. `Prediction.bounds` are taken as fixed by refits.
+
+### L2 transaction-level simulator (WP16; docs/design/02 §4, D500–D505)
+
+```python
+# models/l2graph.py + models/l2.py
+def simulate(effects: EvalEffects, mm: MachineModel, features=None, attribute_walls=True) -> L2Result
+def moved(mm, peaks: {resource: rate/s} = None, walls: {wall: limit} = None) -> MachineModel   # KeyError on unknown names
+def build_graph(effects, l1: L1Result, mm, eff) -> Graph       # phases, per-CTA-per-trip resource time, ctas, trips, inflight
+class L2Result:
+    total_us; feasible; bottleneck; l1_total_us; model        # model = "l2:<SIM_VERSION>:<MachineModel.version>"
+    busy_us: {resource: us}                                     # equals L1's busy_r (same work, eff applied)
+    idle_us: {resource: {category: us}}                         # busy + sum(idle) = total for every resource
+    stalls: {ncu warp-stall name: us}                           # the bottleneck's idle categories (STALL_NCU)
+    metrics: {ncu metric: value}                                # gpu__time_duration.sum (ns), launch__grid_size,
+                                                                # sm__cycles_elapsed.max, <counter>, <counter>.pct_of_peak_sustained_elapsed
+    waves: (WaveSpan(index, kind full|tail, ctas, start_us, end_us), ...)    # the occupancy timeline
+    intervals: {"full"|"tail": (Interval(resource, start_us, end_us, phase, utilisation), ...)}  # wave-local, merged
+    ctas; trips; inflight; residency; prefix_us; interaction_us; walls; unpriced; unmodelled; notes
+    def summary() -> dict                                       # what an l2_simulation Report stores
+```
+
+- **Graph** (D500): effects are whole-kernel counts; each transaction is divided by the CTA count (`cta_launch` transactions, pattern `launch`) and by `trips` of the loop statement (the first two-selector overlap with `trips`). Phases: `prefix` (serial classes and one-selector non-overlaps, = L1's additive term), `load` (the loop statement's first group, else pattern `transfer`), `sync` (pattern `sync`), `compute` (the second group, else pattern `contract`, and every other pattern), `epilogue` (patterns `store`, `reduce`; once per CTA). Edges: load_i → sync_i → compute_i after the producer's class latency (max over the phase's transactions); compute_i → load_{i+inflight} (slot reuse); `inflight` is the statement's, 1 when it does not hold, 2 (noted) when it holds without one. Without a loop statement: one trip (noted).
+- **Waves** (D501, D502): the CTAs resident at once (`residency` from the `lower_occupancy` wall × `scope_counts.sm`; all CTAs when no wall applies, noted) run in lockstep: one wave is the graph with every amount × resident CTAs, booked in topological order on FIFO resources, each resource independently (`start_r = max(ready, free_r)`). SM- and SMSP-scoped resources of a partial (tail) wave run at the occupied SM share; the unused share counts as tail idle. Waves follow each other; full waves are simulated once and repeated.
+- **Idle attribution** (D503): a gap on a resource ends when an op becomes ready; it is explained by walking that op's binding dependency backwards: the producer's latency (`data` for a load, `sync` for a sync, `other_unit` otherwise), the producer's own busy time (`other_unit`; `sync` for a sync) and the producer's wait for its resources (`other_unit`), until the wave start (`prologue_epilogue_tail`). Drain to the wave end, the serial prefix and the whole tail wave are `prologue_epilogue_tail`; L1's interaction term is `other_unit`.
+- **Walls** (D504): a `no_launch` wall gives `feasible = False` (total ∞), never a cost. When the residency wall binds (more CTAs than fit at once), `simulate` re-simulates with that wall moved to fit one more CTA per SM; the idle that move removes is moved into category `wall` (taken from `data`, then `prologue_epilogue_tail`, `other_unit`, `sync`).
+- **Limits** (L1 obligation O-a): `total_us >= l1_total_us`; on a loop-dominated, resource-bound kernel `total_us / l1_total_us → 1` as trips grow. With shallow pipelines L2 exceeds L1 by the recurrence: L1's recurrence counts latencies only, L2's cycle also holds the producers' busy time.
+- Deterministic (no clock, no randomness); `SIM_VERSION` changes with any semantic change. Speed: one booking per phase and trip; 4096³ GEMM (1024 CTAs, 128 trips) takes a few ms.
+
+### What-if, L3 and the regression scoreboard (WP16; D504, D506–D511)
+
+```python
+# models/whatif.py
+def what_if(effects, mm, peaks=None, walls=None, features=None) -> WhatIf
+class WhatIf: peaks; walls; base: L2Result; moved: L2Result
+    shadow_price_us: float | None      # idle of the base bottleneck removed by the move; None if either side cannot launch
+    delta_total_us: float | None
+def record_l2(store, result, actor, now, refs) -> str        # Report title "l2_simulation", data = L2Result.summary()
+def record_what_if(store, w, actor, now, refs) -> str        # Report title "what_if"
+
+# models/base.py + models/l3.py
+class L3Simulator(Protocol):
+    def job(cubin_sha256, launch) -> Job
+    def simulate(cubin_sha256, launch) -> L3Result           # L3Result(total_us, sm_us, bus_us, model)
+class ExternalSassSimulator(bundle_dir, upstream_dir, timeout_s=600)
+    # the research repository's kernel-lab/exports/gb10-simulator-calibration-20261020-v2, never imported:
+    # job() is a "shell" Job on the cpu pool running tools/simulate.py with the cubin as input;
+    # simulate() raises NotSupported until that job has run for real (pending real run)
+
+# models/regression.py
+Observation(kernel, configuration, predicted_us, measured_us, predicted_busy_us, measured_busy_us, holdout, prediction, measurement)
+def spearman(xs, ys) -> float | None                   # average ranks on ties; None with < 2 points or a constant side
+def results(observations) -> list[RegressionResult]     # per kernel: rho, error_by_resource["total" | <resource>] = median |p - m| / m
+def summarise(results) -> {rank_correlation_mean, error_median:<key>, holdout_...}
+def admit(summary, thresholds) -> bool | None           # thresholds = ctx.controls.version_admission; None without hold-out cases
+def observe(store, regression_set_id, mm, predict) -> list[Observation]
+    # Measurement.median_us per configuration; measured busy = <counter>.pct_of_peak_sustained_elapsed / 100 × measured time
+    # from the newest Profile of the measurement's build; NotSupported for a case without measurements
+def record_version(store, body: ModelVersion, actor, now, refs, origin="real") -> str
+def scoreboard(store, target=None) -> list[dict]         # every ModelVersion with its numbers and origin, oldest first
+```
+
+- The shadow price on a fixed chip separates scheduling problems from hardware limits; in co-design it is what relaxing the wall buys. The moved model exists only in memory and its `version` differs; no hardware-model record changes.
+- `model.version_admission` (controls registry, `{rank_min: 0.7, rel_error_max: 0.25}`, default, set by X10) decides `ModelVersion.admitted` from the hold-out cases.
+- Views: `GET /model/scoreboard`, `GET /model/versions/{id}/timeline?kernel=` (spec/modules/api-web.md) and the web page `/model/scoreboard`. Fixture data for the page comes from `scripts/seed-dev` (`tools/kta_devseed/models.py`, origin fixture, marked FIXTURE).
 
 ### 接口
 

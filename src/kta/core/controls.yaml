@@ -967,3 +967,20 @@ knobs:
     editable: true
     accessor: release_stage
     consumer: kta.orchestrator.release (processes, task lease, S1 gate)
+
+  - id: model.version_admission
+    row: model-version admission
+    section: "12 §7"
+    controls: hold-out regression decision of a hardware-model version — mean Spearman rho >= rank_min and median relative error of the total <= rel_error_max
+    type: mapping
+    fields: {rank_min: float, rel_error_max: float}
+    value: {rank_min: 0.7, rel_error_max: 0.25}
+    min: 0
+    prevents: a model change that misranks the hold-out kernels being admitted
+    where: [orch, ui]
+    status: default
+    source: "D509"
+    set_by: [X10]
+    editable: true
+    accessor: version_admission
+    consumer: kta.models.regression.admit (ModelVersion.admitted)

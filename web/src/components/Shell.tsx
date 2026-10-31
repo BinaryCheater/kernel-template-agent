@@ -27,7 +27,7 @@ export const useSnapshot = () => useContext(SnapshotContext);
 const NAV: { group: string; items: { to: string; label: string; later?: boolean; badge?: "inbox" }[] }[] = [
   { group: "Watch", items: [{ to: "/", label: "Overview" }, { to: "/running", label: "Running" }, { to: "/pipeline", label: "Pipeline" }] },
   { group: "Understand", items: [{ to: "/cases", label: "Cases" }, { to: "/families", label: "Families" }, { to: "/pool", label: "Pool" },
-    { to: "/coverage", label: "Coverage" }, { to: "/model", label: "Model" }] },
+    { to: "/coverage", label: "Coverage" }, { to: "/model", label: "Model" }, { to: "/model/scoreboard", label: "Scoreboard" }] },
   { group: "Intervene", items: [{ to: "/inbox", label: "Inbox", badge: "inbox" }, { to: "/operations", label: "Operations" },
     { to: "/experiments", label: "Experiments" }, { to: "/improvement", label: "Improvement" }, { to: "/agents", label: "Agents" },
     { to: "/release", label: "Release" }, { to: "/settings", label: "Settings" }] },
@@ -60,7 +60,7 @@ export function Shell({ pages, children }: { pages: PageMeta[]; children: ReactN
             <div className="navgroup" key={g.group}>
               <div className="caption">{g.group}</div>
               {g.items.map((it) => (
-                <NavLink key={it.to} to={it.to} end={it.to === "/"} className={({ isActive }) => (it.later ? "disabled" : isActive ? "active" : "")}
+                <NavLink key={it.to} to={it.to} end={it.to === "/" || it.to === "/model"} className={({ isActive }) => (it.later ? "disabled" : isActive ? "active" : "")}
                   title={it.later ? "Planned for WP9b" : undefined}>
                   <span>{it.label}</span>
                   {it.badge === "inbox" && active.data ? <span className="badge human">{active.data.inbox_count}</span> : it.later ? <span className="later">WP9b</span> : null}

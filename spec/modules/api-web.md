@@ -28,6 +28,8 @@ GET /families/{id}/chain                组合链及每步的卡片
 GET /pool/diff?a=&b=                    PoolDiff between two PoolSnapshots (D449)
 GET /coverage?snapshot=                 CoverageReport
 GET /model/residuals?model=             预测对实测
+GET /model/scoreboard?target=           ModelVersion rows: rank correlation and error per resource, origin (D511)
+GET /model/versions/{id}/timeline?kernel=  per configuration: L2 predicted waves/intervals and the measured time (D511)
 GET /runs/active                        正在运行的循环、任务、作业、租约
 GET /budget                             各层预算
 GET /inbox                              待处理事项
@@ -150,6 +152,8 @@ TypeScript、React、Vite、ECharts。独立目录 `web/`。
 - Record bodies served by the API are in the current schema: `common.body` upcasts; `GET /records/{id}` of an upcast record adds `stored_body` and `upcast_from`.
 - `/pool` template rows carry `requires` (Capabilities) and `probed_on` instead of `requires_hw`.
 - Web page `/pool/diff` ("What did the pool gain, lose or change between two snapshots?"): two snapshot pickers (default: the last two), status moves first, then new versions, added and removed records, member counts. Levels are shown 1–7 (`LEVELS`, `LEVEL_NAMES` in `web/src/components/format.ts`).
+- `GET /model/scoreboard?target=` (`kta.api.modelview`, D511): `{versions: [ModelVersion rows from kta.models.regression.scoreboard, each with origin and previous], error_keys, fixture}`. `GET /model/versions/{id}/timeline?kernel=`: the version's RegressionResult for that kernel with, per configuration, the stored `l2_simulation` Report's waves, intervals, busy and idle time next to the measured time; 404 when the record is not a ModelVersion or has no result for the kernel.
+- Web page `/model/scoreboard` ("Which hardware-model version ranks the measured kernels best, and where does it err?"): scoreboard table (one row per version × kernel: change, hardware model, origin chip — FIXTURE for non-real —, admitted, ρ, median error per key), then for the selected version and kernel each configuration's first-wave L2 busy intervals per resource (colour = phase, opacity = utilisation) and the predicted and measured totals. The measured side has no per-resource timeline until L4 in-kernel timestamps exist.
 ## WP21: settings and release (D486)
 
 Endpoints (`kta.api.controls`). Reading is open; writing needs the operator token in header `X-KTA-Operator-Token` (the content of `[api] operator_token_file`, default `~/.config/kta/operator-token`, created by `kta controls token`); a missing file or wrong token is 403.

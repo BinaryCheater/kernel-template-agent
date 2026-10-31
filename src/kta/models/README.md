@@ -1,6 +1,6 @@
 # kta.models
 
-Layer 4. Specification: [spec/modules/formulation-solve-models.md](../../../spec/modules/formulation-solve-models.md). Built by: WP5.
+Layer 4. Specification: [spec/modules/formulation-solve-models.md](../../../spec/modules/formulation-solve-models.md). Built by: WP5; L1 and the declarative model WP15; L2, what-if, L3 adapter and regression WP16.
 
 ## Responsibility
 
@@ -10,6 +10,7 @@ The declarative hardware model resolved to numbers (`MachineModel`: HwModel inst
 
 - `MachineModel.build(hw, arch=None)`; `load_arch`, `load_machine(store, hw_id)`, `latest_machine(store, target)` (D463).
 - L1 (`l1.py`, D464/D465): `EvalTx`, `EvalStorage`, `EvalOverlap`, `EvalEffects` → `price(effects, mm, features=None) -> L1Result` (busy, bounds, walls, `unpriced`, `unmodelled`, `prediction()`); `price_parts`, `compose`, `check_walls`, `sol_us`. Unmodelled resources and unpriced classes cost no time and are reported. This is the interface WP16 (L2) and WP17 (MIP) consume (spec/modules/formulation-solve-models.md "Hardware model and L1").
+- L2 (`l2.py`, `l2graph.py`, WP16, D500–D505): `simulate(effects, mm, features=None) -> L2Result` (total, per-resource busy and idle by category, ncu-named metrics and stalls, waves and busy intervals, notes); `moved(mm, peaks, walls)`. What-if (`whatif.py`, D504): `what_if(...) -> WhatIf` with the shadow price; `record_l2`, `record_what_if` write Reports. L3 (`base.py`, `l3.py`, D506): `L3Simulator`, `ExternalSassSimulator` (an Executor job; `simulate` raises NotSupported until run for real). Regression (`regression.py`, D507–D510): `spearman`, `results`, `summarise`, `admit`, `observe`, `record_version`, `scoreboard`.
 - `bound(..., arch=None)` and `unit_time_us(..., arch=None)` accept an HwModel or a MachineModel; `UnitModel.predict_l1(result, mm, feedback=None)` (D466).
 
 - `bound(case, shape, hw, work) -> Bound`; `min_work(problem, shape)` reads `Problem.params["min_work"]` (D243).
