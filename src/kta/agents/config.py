@@ -5,7 +5,7 @@
 worker = "spark"                    # Executor worker that runs agent CLIs (D300)
 pool = "agent"                      # its pool for agent jobs ([workers.<w>] pools)
 batch = ""                          # default batch (kta agents env build <batch> --profile <id>)
-agent_user = "kta-agent"            # system user of config+user isolation (D09)
+agent_user = ""                     # optional system user (D09); empty = own account (D602)
 token_key_file = "~/.config/kta/task-token.key"   # on the control host
 api_url = ""                        # KTA_API given to the agent-side kta (WP6/WP9)
 secrets_file = "~/.config/kta/secrets.env"

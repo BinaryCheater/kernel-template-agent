@@ -1,0 +1,17 @@
+# Work units by role (WP23, D614; user decision 2026-10-31). Data, not code.
+#
+# A work unit is what shares one agent session and workspace (spec/modules/agents.md). Solving,
+# learning and calibrating never share an agent context, so inside one case loop the tasks are
+# split by role: a kernel writer (T1, T6) never diagnoses the model it could blame (T4, T5),
+# and knowledge work (T2, T3) has its own unit. The controls knob session.work_unit_rule picks
+# the rule in force (set by X3):
+#   step       every task is its own unit (a fresh session every step)
+#   case       every task of the loop shares the loop's unit (the rule before WP23)
+#   case_role  <loop id>:<role>, the role from the table below
+# A task type the table does not name gets role `other` (counted, never silently merged).
+# Tasks created without a loop are their own unit `human:<id>` under every rule (D278, D365).
+format: 1
+roles:
+  kernel: [T1, T6]
+  model: [T4, T5]
+  knowledge: [T2, T3]

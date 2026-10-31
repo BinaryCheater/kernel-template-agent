@@ -124,3 +124,9 @@ measured HwFacts from Measurements taken by `Measurer.measure`; `SUITE` maps nam
 
 - `measure_peaks` attaches the new HwModel to the architecture class when the store holds an instance of the target on one (`class_instance`, `on_class`): the instance with the measured peaks, every value's provenance (peaks `measured` with their HwFact, Target limits `documented`, model assumptions `default`), `refs.arch` and `refs.previous_instance`. Without such an instance it writes the schema-1 flat model as before.
 - `kta.measure.interference`: pairwise interference microbenchmarks over operation classes (`PROBES`: ffma, mufu, mma_sync_m16n8k16_f16, smem_access, global_load, warp_shuffle). `plan(classes)` gives three `InterferenceJob`s per unordered pair (A alone, B alone, A+B interleaved) as `PeakKernel`s; `measure_pair` runs them through the Measurer (pending real run, D320); `cell` and `empty_matrix` build the `InterferenceMatrix` artefact (spec/schemas.md §4.6.1) and its coverage. A class without a probe raises NotSupported.
+
+## WP23: quiet host and measurement windows (D605, D608)
+
+- `measure/quiet.py`: `read_counters(gpu)` (worker side, /proc + NVML), `assess(timing, thresholds) -> QuietVerdict(interfered, verified, reasons, observed)`. `bench.py` writes `host_pre`, `host_start`, `host_end` into `timing.json`; `Nvml.load()` adds utilisation, memory and compute processes.
+- `Measurer(..., thresholds=None)` (controls `measure.quiet_thresholds`): an interfered timing job is a Report `measurement_interfered` and is rerun up to `max_requeues` times; never a Measurement. Exhausted → `HostNotQuiet` (ExecutionError kind infra). Measurement `clocks` adds `quiet` and `interfered_attempts`.
+- `measure/batching.py`: `MeasureWindow(ex, worker, device, holder).run(items, fn)` runs the items inside one `quiet_lease` (host lock exclusive once per window).

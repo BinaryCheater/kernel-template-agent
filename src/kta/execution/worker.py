@@ -11,11 +11,19 @@ write JSON (or a blob stream) on stdout:
   get   <sha>...        stdout: blob stream of cached blobs
   run                   stdin: {"job_id", "job", "spec", "device"} -> JobResult fields
   cancel <job_id>       stop that job's process group (and container) -> {"stopped": bool}
+  hold <dir> exclusive <holder> <wait_s> <max_s>
+                        hold the host lock for a measurement window (kta.core.hostlock)
   serve                 the ``kta worker`` pull daemon (not implemented: NotSupported)
 
 The GPU-exclusive lease is enforced by the Executor that dispatches to this worker
 (``kta.execution.executor``); the worker enforces timeouts, process groups and the
 GPU health check after a timeout or cancel.
+
+Host lock (WP23, D603): a ``run`` request may carry ``host_lock`` = {dir, mode, wait_s,
+max_s, holder}. With mode ``shared`` or ``exclusive`` the job runs inside the host's
+readers–writer lock (``kta.core.hostlock``), whose wait is reported back as
+``host_lock.wait_s``; mode ``held`` means a ``hold`` process of the same Executor holds
+the lock exclusive for this job's measurement window, so the job takes nothing.
 
 Cancel (decision D421): ``cancel`` first writes a marker ``<root>/cancel/<job_id>``,
 then kills the process group named in the job directory's ``.pgid`` file. ``run``
@@ -41,6 +49,7 @@ from typing import Any
 
 from kta.core.context import data_dir_for, parse_env
 from kta.core.errors import ExecutionError, KtaError, NotSupported
+from kta.core.hostlock import HostLock, hold
 from kta.core.jobs import ErrorKind, Job
 from kta.execution import sandbox
 from kta.execution.blobs import WorkerCache, read_frames, write_frames
@@ -298,6 +307,34 @@ def run_job(
         marker.unlink(missing_ok=True)
 
 
+def run_locked(
+    job: Job,
+    job_id: str,
+    spec: WorkerSpec,
+    device: str | None,
+    dirs: WorkerDirs,
+    lock: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """``run_job`` inside the host lock the request names (WP23)."""
+    mode = (lock or {}).get("mode")
+    if not lock or not lock.get("dir") or mode in (None, "held"):
+        out = run_job(job, job_id, spec, device, dirs)
+        out["host_lock"] = {"mode": mode or "none", "wait_s": 0.0}
+        return out
+    host = HostLock(Path(str(lock["dir"])).expanduser())
+    holder = str(lock.get("holder") or f"job:{job_id}")
+    if mode == "shared":
+        ctx = host.shared(holder, float(lock["wait_s"]))
+    elif mode == "exclusive":
+        ctx = host.exclusive(holder, float(lock["wait_s"]), float(lock["max_s"]))
+    else:
+        raise ExecutionError("infra", f"unknown host lock mode {mode!r}")
+    with ctx as grant:
+        out = run_job(job, job_id, spec, device, dirs)
+    out["host_lock"] = {"mode": mode, "wait_s": round(grant.wait_s, 6)}
+    return out
+
+
 def _emit(data: Any) -> None:
     """A reply on stdout: the worker protocol's channel to the control plane."""
     sys.stdout.write(json.dumps(data, sort_keys=True) + "\n")  # kta:allowed protocol reply
@@ -313,7 +350,9 @@ def _fail(message: str, code: int) -> int:
 def main(argv: list[str] | None = None) -> int:
     args = sys.argv[1:] if argv is None else argv
     if not args:
-        return _fail("usage: python -m kta.execution.worker info|has|put|get|run|cancel|serve", 2)
+        return _fail(
+            "usage: python -m kta.execution.worker info|has|put|get|run|cancel|hold|serve", 2
+        )
     cmd, rest = args[0], args[1:]
     try:
         if cmd == "serve":
@@ -335,9 +374,17 @@ def main(argv: list[str] | None = None) -> int:
             req = json.loads(sys.stdin.read())
             job = Job.from_dict(req["job"])
             spec = WorkerSpec.from_dict(req["spec"])
-            _emit(run_job(job, req["job_id"], spec, req.get("device"), dirs))
+            device, lock = req.get("device"), req.get("host_lock")
+            _emit(run_locked(job, req["job_id"], spec, device, dirs, lock))
         elif cmd == "cancel":
             _emit({"stopped": cancel_job(rest[0], dirs)})
+        elif cmd == "hold":
+            directory, mode, holder, wait_s, max_s = rest
+            if mode != "exclusive":
+                return _fail("hold: only exclusive windows are held for another process", 2)
+            return hold(
+                Path(directory).expanduser(), "exclusive", holder, float(wait_s), float(max_s)
+            )
         else:
             return _fail(f"unknown worker command {cmd!r}", 2)
     except NotSupported as exc:

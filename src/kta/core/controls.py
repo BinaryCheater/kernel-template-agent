@@ -30,7 +30,7 @@ FIELD_TYPES = ("int", "float", "bool", "str", "list_str")
 WHERE = ("profile", "orch", "protocol", "ui", "gate", "knowledge")
 STATUSES = ("spec", "default", "set")
 EXPERIMENT_STATUSES = ("defined", "approved", "running", "done")
-SET_FROM = ("", "S1/S2 logs")  # 02 §11 step 5: revised from logs, no dedicated experiment
+SET_FROM = ("", "S1/S2 logs", "S0 data")  # 02 §11 step 5; S0 data: WP23 D607
 
 
 @dataclass(frozen=True)

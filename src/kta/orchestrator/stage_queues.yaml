@@ -1,0 +1,49 @@
+# Pipeline stages with work-in-progress limits (docs/design/11 §4.3, WP23 D610). Data, not code.
+#
+# A stage holds the loop instances whose state is listed under it (per machine kind). Its
+# capacity is the controls knob pipeline.stage_capacity (field = stage id; set by X12). The
+# solve process advances a loop in stage S only while the next stage in this list is below
+# its capacity (backpressure): upstream stops starting new items when downstream is full.
+# `analyse` comes last: judging (which creates agent tasks) is held while the agent stage is
+# full, and a loop that finished waiting resumes wherever its task sends it.
+# `ready_to_measure` collects loops waiting for a measurement window; `measure` counts open
+# windows (`window: true`), each one exclusive host-lock hold amortised over up to
+# measure.batch_window.max_items loops. States not listed (terminal ones) are
+# outside the pipeline and never held; `intake` (no capacity of its own: nothing is upstream of
+# it) holds new and bounded loops while `generate` is full. Unknown states of a new machine version are counted
+# under `other` by the Pipeline view rather than silently dropped.
+format: 1
+stages:
+  - id: intake
+    does: normalise the case and compute its bound before it enters the pipeline
+    pool: control
+    states: {solve: [new, bounded]}
+  - id: generate
+    does: retrieval and the pre-compile solve (shortlist)
+    pool: cpu
+    states: {solve: [retrieving, solving]}
+  - id: build
+    does: compile the shortlist, read feedback and SASS; freeze and build references
+    pool: cpu
+    states: {solve: [building], expand: [frozen, reconstructed]}
+  - id: check
+    does: full correctness checks on the top k
+    pool: gpu-shared
+    states: {solve: [checking]}
+  - id: ready_to_measure
+    does: checked candidates waiting for an exclusive measurement window
+    pool: gpu-exclusive
+    states: {solve: [measuring], expand: [measured, reproduced, ablated]}
+  - id: measure
+    does: open exclusive measurement windows (host lock exclusive)
+    pool: gpu-exclusive
+    window: true
+    states: {}
+  - id: judge
+    does: gap decomposition, disciplines and routing; learning outputs
+    pool: control
+    states: {solve: [judging]}
+  - id: analyse
+    does: agent work a loop waits for (T1–T6 tasks; reference decomposition)
+    pool: agent
+    states: {solve: [waiting], expand: [analyzing, gap]}

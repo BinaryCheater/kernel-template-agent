@@ -142,12 +142,15 @@ current_span_id() -> str | None
 
 控制面和计算资源可以在不同的机器、不同的集群。代码中不得假设它们在同一台机器上，也不得假设有共享文件系统。
 
-| 角色 | 职责 | 第一阶段默认位置 |
+| 角色 | 职责 | 默认位置（WP23, D600） |
 | --- | --- | --- |
-| 控制面 | API、存储、编排器、agent 运行器 | 开发时在本机；正式运行时在任意一台常驻机器，由配置决定 |
-| GPU worker | 检查、测量、profile、microbenchmark；可兼做编译 | spark |
-| CPU worker | 编译、CPU 侧检查、求解 | spark 或 slai |
-| 前端 | 浏览器 | 本机，经 HTTP 访问控制面 |
+| 控制面 | API、存储、编排器、agent 运行器 | dev mode: the Mac; long-run mode: spark-hk (`KTA_MODE`, `config/modes/*.toml`) |
+| 计算主机 | 编译、检查、求解作业、模拟、测量、profile、microbenchmark: every CPU and GPU job | spark-hk (GB10, unified memory) in both modes; worker `ssh` in dev, `local` in long-run |
+| agent CLI | Codex, Claude Code | with the control plane: Mac through Clash (dev), spark-hk direct (long-run) |
+| 备份 | store backups | slai, or the Mac when spark-hk cannot reach slai |
+| 前端 | 浏览器 | 本机，经 HTTP 访问控制面（long-run: through `ssh -L`） |
+
+The old `spark` (spark-b6d9) is no longer the default worker; its records stay valid history. One control plane writes a store at a time; switching modes moves the store (`kta store backup --handover`, `kta store restore`). On a unified-memory compute host every heavy activity holds the host readers–writer lock shared and measurements hold it exclusive (`[workers.<w>] host_lock`, the same path in every mode; docs/design/11 §5).
 
 规则：
 
@@ -161,7 +164,7 @@ current_span_id() -> str | None
 - **产物按 hash 传输。** 作业的输入和输出都是产物，传输后校验 sha256；worker 本地有产物缓存。
 - **GPU 独占租约按 GPU 设备计**（worker 名＋设备号），由该 worker 执行。
 - **每个作业的结果记录**：worker 名、主机、设备、环境清单 ID（§7）、代码 commit。
-- **凭据**：`ssh` 方式使用用户已有的 ssh 配置别名（spark、slai）；`pull` 方式的 worker 使用控制面签发的 worker 令牌。凭据不进 git、记录和日志。
+- **凭据**：`ssh` 方式使用用户已有的 ssh 配置别名（spark-hk、slai；历史上 spark）；`pull` 方式的 worker 使用控制面签发的 worker 令牌。凭据不进 git、记录和日志。
 - 远端的手工操作（施工中调试用）统一用 `scripts/remote-run`，不在业务代码中直接调用 ssh。
 
 ## 7. 运行环境自包含

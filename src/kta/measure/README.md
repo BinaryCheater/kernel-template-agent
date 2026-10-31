@@ -40,3 +40,7 @@ Measurement harness and versioned measurement protocols; comparisons and profile
 ## WP15 (D463, D469)
 
 `measure_peaks` attaches measured peaks to the target's class instance with provenance. `interference.py`: pairwise interference microbenchmark definitions (`plan`, `kernel`), `measure_pair` (pending real run), `cell`, `empty_matrix`.
+
+## WP23 (D605, D608)
+
+`quiet.py`: host readings of timing jobs and the quiet-host verdict; `Measurer` reruns interfered jobs (Report `measurement_interfered`) and never records them as Measurements (`HostNotQuiet` when every attempt is interfered). `batching.py`: `MeasureWindow`, one exclusive window for several measurements.

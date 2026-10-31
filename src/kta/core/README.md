@@ -47,3 +47,7 @@ Schema upcasts: Template v3 step `cost` → `effects` on WP14's `KindSpec.upcast
 ## WP22 (D580–D586)
 
 `sysconfig.py`: the system configuration (`<data dir>/system/config.json`; proxy override, per-provider policy and preflight hosts, per-worker intake proxy), revisioned, separate from the controls registry. `proxy.py`: detection (scutil → environment → Clash default), the injected variables and NO_PROXY, the preflight (port, CONNECT/SOCKS5, TLS) and `ProxyUnavailable`. `secrets.py` gained the `proxy_userinfo` pattern.
+
+## WP23 (D600, D603)
+
+`config.py`: `KTA_MODE` selects `config/modes/<mode>.toml`. `hostlock.py`: the host readers–writer lock (flock, writer preference, bounded wait and hold), `heavy()` for in-process heavy work on the compute host, `python -m kta.core.hostlock hold`. Knobs `measure.quiet_thresholds`, `execution.unified_memory_cap`, `measure.batch_window`, `pipeline.stage_capacity`, `session.work_unit_rule`.

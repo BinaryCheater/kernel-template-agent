@@ -1,0 +1,62 @@
+# Mode "dev-mac" (WP23, D600): the control plane (API, store, orchestrator) and the agent CLIs
+# run on the Mac; every CPU and GPU job runs on the one compute host spark-hk over ssh.
+# Select it with KTA_MODE=dev-mac (or KTA_CONFIG=config/modes/dev-mac.toml). See
+# docs/design/11 §1.1 for the topology and how to switch modes (the store follows the
+# control plane: one control plane per store at a time).
+
+[impl]
+
+[toolchain]
+cuda_home = "/usr/local/cuda"
+
+[api]
+host = "127.0.0.1"
+port = 7310
+
+[knowledge]
+seed_dir = "knowledge/seed"
+
+[executor]
+queue_timeout_s = 3600
+
+# The compute host. host_lock is the same directory in every mode, so the dev control plane
+# here and a long-run control plane on spark-hk exclude each other's measurements (D603).
+[workers.spark-hk]
+transport = "ssh"
+ssh = "spark-hk"
+root = "~/kta"
+path = ["~/kta/.uv/bin", "/usr/local/cuda/bin"]
+env = { UV_CACHE_DIR = "~/kta/.uv/cache", UV_PYTHON_INSTALL_DIR = "~/kta/.uv/python" }
+cuda_home = "/usr/local/cuda"
+host_lock = "~/kta/hostlock"
+unified_memory = true
+pools = { cpu = 18, "gpu-shared" = 2, "gpu-exclusive" = 1 }
+
+# The Mac itself, only for agent CLIs: they reach OpenAI/Anthropic through the local Clash
+# (WP22 proxy policy `required`). No compute pool here.
+[workers.mac]
+transport = "local"
+pools = { agent = 2 }
+
+[agents]
+worker = "mac"
+pool = "agent"
+batch = ""
+agent_user = ""                     # optional (D602): empty = the user's own account
+token_key_file = "~/.config/kta/task-token.key"
+api_url = "http://127.0.0.1:7310"
+secrets_file = "~/.config/kta/secrets.env"
+watch = ["~/.codex", "~"]
+
+[agents.hosts.mac]
+codex_cmd = ["/Users/dingyi/.local/bin/codex"]
+auth_dir = "~/.config/kta/auth/codex"
+nvidia_smi = "nvidia-smi"
+
+# Measurement windows (D608): ready candidates are measured in one exclusive window here.
+[measure]
+window_worker = "spark-hk"
+window_device = "0"
+
+# [host] is absent: the control plane is not on the compute host, so its in-process solves
+# take no host lock (they do not share the compute host's memory).

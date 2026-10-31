@@ -206,12 +206,27 @@ def proxy_test(api: Api, b: ProxyTestBody) -> dict[str, Any]:
     clears that provider's breaker (D585). A failed Test does not trip it: launches do."""
     cfg = sysconfig.load(api.data_dir)
     required = [n for n, p in cfg.providers.items() if p.proxy == "required"]
-    names = [b.provider] if b.provider else required
+    names = [b.provider] if b.provider else required  # an off provider is tested by name
     found = proxy.resolve(cfg.proxy.override)
     out: dict[str, Any] = {"proxy": found.to_dict(), "from": "control host", "results": {}}
     for name in names:
-        if name not in required:  # an `off` provider is never proxied: nothing to test
-            out["results"][name] = {"ok": True, "skipped": "policy off", "hosts": []}
+        if name not in required:
+            # An `off` provider is never proxied: check its hosts directly (D617), or skip
+            # when it names none (pi, the DeepSeek harness).
+            hosts = cfg.provider(name).check_hosts
+            if not hosts:
+                out["results"][name] = {"ok": True, "skipped": "policy off", "hosts": []}
+                continue
+            res = proxy.direct_check(hosts)
+            data = {**res, "from": "control host", "source": "direct", "trigger": "settings test"}
+            body = Report(
+                title=proxyplan.REPORT_TITLE,
+                subject=name,
+                summary=f"{name}: direct check {'passed' if res['ok'] else 'failed'} (policy off)",
+                data=data,
+            )
+            rid = api.store.put(Record.new("Report", body, TEST_ACTOR, api.now()))
+            out["results"][name] = {**res, "report": rid}
             continue
         res = proxy.preflight(found.endpoint, cfg.provider(name).check_hosts)
         data = {**res, "from": "control host", "source": found.source, "trigger": "settings test"}

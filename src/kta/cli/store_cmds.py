@@ -15,7 +15,7 @@ from kta.core.doctor import cuda_home
 from kta.core.envmanifest import collect_manifest
 from kta.core.registry import resolve
 from kta.core.schemas import Record
-from kta.store import bench, transfer
+from kta.store import backup, bench, transfer
 
 # Synthetic records get fixed timestamps so a re-run produces the same records (and IDs).
 SYNTHETIC_START = datetime(2026, 1, 1, tzinfo=UTC)
@@ -58,6 +58,30 @@ def cmd_import(args: argparse.Namespace, make_ctx: ContextFactory) -> int:
     return 0
 
 
+def cmd_backup(args: argparse.Namespace, make_ctx: ContextFactory) -> int:
+    ctx = make_ctx("store-backup")
+    out = backup.backup(ctx.data_dir, Path(args.dest), ctx.clock.now(), args.handover)
+    if args.json:
+        emit_json(out)
+    else:
+        handed = f"; handed over to {args.handover}" if args.handover else ""
+        emit_text(
+            f"backup of {ctx.data_dir} in {args.dest}: {out['blobs']} blobs "
+            f"({out['blobs_copied']} copied), db {out['db_sha256'][:12]}{handed}"
+        )
+    return 0
+
+
+def cmd_restore(args: argparse.Namespace, make_ctx: ContextFactory) -> int:
+    ctx = make_ctx("store-restore")
+    out = backup.restore(Path(args.src), ctx.data_dir)
+    if args.json:
+        emit_json(out)
+    else:
+        emit_text(f"restored {args.src} into {ctx.data_dir}")
+    return 0
+
+
 def add_store_commands(
     sub: argparse._SubParsersAction[argparse.ArgumentParser], make_ctx: ContextFactory
 ) -> None:
@@ -83,3 +107,14 @@ def add_store_commands(
     i.add_argument("bundle")
     i.add_argument("--json", action="store_true")
     i.set_defaults(func=lambda a: cmd_import(a, make_ctx))
+
+    bk = cmds.add_parser("backup", help="consistent copy of this store (WP23); --handover to move")
+    bk.add_argument("dest")
+    bk.add_argument("--handover", help="mark this store as handed over to that control plane")
+    bk.add_argument("--json", action="store_true")
+    bk.set_defaults(func=lambda a: cmd_backup(a, make_ctx))
+
+    rs = cmds.add_parser("restore", help="restore a backup into this (empty) data directory")
+    rs.add_argument("src")
+    rs.add_argument("--json", action="store_true")
+    rs.set_defaults(func=lambda a: cmd_restore(a, make_ctx))

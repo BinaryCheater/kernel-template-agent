@@ -1,0 +1,57 @@
+# Mode "spark-hk" (long-run, WP23, D600): everything runs on spark-hk — API, store,
+# orchestrator, agent CLIs and every job (workers are `local`). Agents reach the providers
+# directly (no proxy): the providers' proxy policy is `off` in this host's system
+# configuration (<KTA_DATA>/<env>/system/config.json, written through Settings → System).
+# Select it on spark-hk with KTA_MODE=spark-hk. The Mac reaches the API through
+#   ssh -N -L 7310:127.0.0.1:7310 spark-hk      (ProxyJump hk-relay in ~/.ssh/config)
+
+[impl]
+
+[toolchain]
+cuda_home = "/usr/local/cuda"
+
+[api]
+host = "127.0.0.1"
+port = 7310
+
+[knowledge]
+seed_dir = "knowledge/seed"
+
+[executor]
+queue_timeout_s = 3600
+
+[workers.spark-hk]
+transport = "local"
+cuda_home = "/usr/local/cuda"
+host_lock = "~/kta/hostlock"
+unified_memory = true
+pools = { cpu = 18, "gpu-shared" = 2, "gpu-exclusive" = 1, agent = 2 }
+
+[agents]
+worker = "spark-hk"
+pool = "agent"
+batch = ""
+agent_user = ""                     # optional (D602): empty = the user's own account
+token_key_file = "~/.config/kta/task-token.key"
+api_url = "http://127.0.0.1:7310"
+secrets_file = "~/.config/kta/secrets.env"
+watch = ["~/.codex", "~"]
+
+[agents.hosts.spark-hk]
+codex_cmd = ["/home/dingyi/.local/bin/codex"]
+auth_dir = "~/.config/kta/auth/codex"
+nvidia_smi = "nvidia-smi"
+
+[measure]
+window_worker = "spark-hk"
+window_device = "0"
+
+# The control plane runs on the compute host: its in-process MIP solves (and L2 runs)
+# take the host lock shared (D604).
+[host]
+name = "spark-hk"
+lock_dir = "~/kta/hostlock"
+shared_wait_s = 3600
+
+# Backups (D609): snapshots go to the Mac (pulled over ssh) or to slai when reachable;
+# see docs/design/11 §1.1 "Switching modes and backups".

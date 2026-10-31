@@ -202,3 +202,10 @@ Web: **Settings** has two tabs (`?tab=system`): "Research controls" (the WP21 pa
 
 Web page **Workflow** (`/workflow`, "How does an agent task run, and what configures each step?"): profile bar (version selector, diff against the version in force), task-type tabs, the pipeline (created by → task card → prompt assembly → session → agent run → done checks → accept / retry / escalate) and an editor for the selected node with a live TASK.md preview; a draft bar saves and approves.
 
+
+## WP23: stage timeline and work units (D612, D614, D617)
+
+- `GET /trace/stages?from&to&bucket_s` (`kta.api.stageview`): buckets; per stage `depth` (time-averaged), `entries`, `throughput_per_h`, `mean_wait_s`; `gpu_busy`; `host_lock` {waits, wait_s}; `now` {stages: id, does, pool, depth, capacity, window; held: loop, kind, state, reason}. All derived from spans and loop data.
+- `/pipeline` shows the stage table, held loops and two charts (`PipelineStages.tsx`); the lane filter adds `host`.
+- `GET /workflow` → `session.work_units` {rule, rules, roles, example, source}; the session node lists `session.work_unit_rule`.
+- `POST /system/proxy/test {provider}` for a provider whose policy is `off` runs a direct TCP + TLS check of its hosts (no model call).

@@ -1,0 +1,97 @@
+[
+ {
+  "git_commit": "4b95c5ce619396dbd1a8d90a00d925e2f31daac3",
+  "dirty": false,
+  "env": "dev",
+  "control_host": "spark-6951 (spark-hk)",
+  "workers": [
+   "spark-hk"
+  ],
+  "blob_ids": [],
+  "requires_gpu": false,
+  "claim": "Long-run mode deployed on spark-hk without pushing: code by git bundle at 4b95c5c in ~/kta/src/<commit>, project-local uv 0.11.2 + Python 3.12.13 + Node 26.12.1, `kta init` created a new store dev/WP23 under KTA_DATA=~/kta/data, worker spark-hk registered over the local transport (gpu=sm_121, cuda 13.0, cpus 20) and `kta doctor` OK",
+  "command": ". ~/kta/kta-env.sh (KTA_MODE=spark-hk KTA_ENV=dev KTA_WP=WP23); kta init; kta worker register spark-hk; kta doctor",
+  "record_ids": [
+   "91323b213e42d4f699284c813f8df80a82f41424acb79bd2615624caca9ebb92"
+  ],
+  "env_manifests": [
+   "d4c788befe9c32154bfbe4b713ac6b9dadf7703d94e48ecd94f5cb8330caee23"
+  ],
+  "started_at": "2026-10-31T08:15:00Z",
+  "notes": "The first deployment at e3c37d5 registered 9617bbea\u2026/f7a38133\u2026; the API was then moved to 4b95c5c (adds the direct provider check)."
+ },
+ {
+  "git_commit": "4b95c5ce619396dbd1a8d90a00d925e2f31daac3",
+  "dirty": false,
+  "env": "dev",
+  "control_host": "spark-6951 (spark-hk)",
+  "workers": [
+   "spark-hk"
+  ],
+  "blob_ids": [],
+  "requires_gpu": false,
+  "claim": "Proxy policy off for codex and claude_code in spark-hk's system configuration (revision 1, through POST /system with the operator token), then the Settings \u2192 System provider Tests: direct TCP + TLS 1.3 from spark-hk to chatgpt.com:443, api.openai.com:443 and api.anthropic.com:443 all passed; no model call",
+  "command": "POST /system {providers: {codex: {proxy: off}, claude_code: {proxy: off}}}; POST /system/proxy/test {provider: codex|claude_code}",
+  "record_ids": [
+   "6bc641ef6b87f969201400f010e82e776b927300cf21c41aae943919d0f36d5e",
+   "92b57ccf52bc2c00085c7c6dde5e67bbb1441f0801086726af21707b5efcd32d",
+   "5c930611609c267e739b170b093563d658a77cd7c3e2ed8ea30e55c3d272b770"
+  ],
+  "env_manifests": [],
+  "started_at": "2026-10-31T08:21:25Z"
+ },
+ {
+  "git_commit": "4b95c5ce619396dbd1a8d90a00d925e2f31daac3",
+  "dirty": false,
+  "env": "dev",
+  "control_host": "spark-6951 (spark-hk)",
+  "workers": [
+   "spark-hk"
+  ],
+  "blob_ids": [],
+  "requires_gpu": false,
+  "claim": "Real host-lock exclusion on spark-hk across processes: while `python -m kta.core.hostlock hold ~/kta/hostlock exclusive` (another process, standing in for another control plane's measurement) held the lock for ~6 s, the System worker Test's job (Executor, local transport, host lock shared) waited 4.902 s, recorded as a lock_wait span on lane host:spark-hk; without the holder the same job waited 0.00014 s",
+  "command": "(sleep 6 | python -m kta.core.hostlock hold ~/kta/hostlock exclusive --holder wp23-evidence-measurement) & POST /system/workers/spark-hk/test",
+  "record_ids": [],
+  "env_manifests": [
+   "d4c788befe9c32154bfbe4b713ac6b9dadf7703d94e48ecd94f5cb8330caee23"
+  ],
+  "started_at": "2026-10-31T08:21:37Z",
+  "notes": "Evidence is in the ops spans table (jobs 01M68GS775AEZERPAMRJXWC8JR and 01M68GSKKQ1S8R69KQDGFDMEFW), not in records; no GPU job ran."
+ },
+ {
+  "git_commit": "4b95c5ce619396dbd1a8d90a00d925e2f31daac3",
+  "dirty": false,
+  "env": "dev",
+  "control_host": "spark-6951 (spark-hk)",
+  "workers": [
+   "spark-hk"
+  ],
+  "blob_ids": [],
+  "requires_gpu": false,
+  "claim": "Mac access to long-run mode through ssh -L (local 17310 \u2192 API 7310, 14173 \u2192 web preview 4173): /pipeline shows the stage-queue panel and /workflow shows the work-unit rule case_role with the role table, served from spark-hk",
+  "command": "ssh -f -N -L 17310:127.0.0.1:7310 -L 14173:127.0.0.1:4173 spark-hk; open http://127.0.0.1:14173/pipeline and /workflow",
+  "record_ids": [
+   "cdc2af53c2d25c214ff3be61927ec35222a655ad621aa8c49dfdf4077fc3506a"
+  ],
+  "env_manifests": [],
+  "started_at": "2026-10-31T08:22:00Z",
+  "notes": "The AgentProfile codex-v2 record was written (kta profile write codex-v2) so /workflow can render on the fresh store; it is not approved as current."
+ },
+ {
+  "git_commit": "4b95c5ce619396dbd1a8d90a00d925e2f31daac3",
+  "dirty": false,
+  "env": "dev",
+  "control_host": "spark-6951 (spark-hk)",
+  "workers": [
+   "spark-hk"
+  ],
+  "blob_ids": [],
+  "requires_gpu": false,
+  "claim": "One backup of the spark-hk store: kta store backup on spark-hk (23 blobs, db sha256 d490cfb2\u2026), pulled to the Mac with rsync into ~/kta-backups/spark-hk/20261031T082234Z; hashes match the manifest and a restore into an empty scratch directory succeeded. spark-hk cannot resolve slai, so the Mac is the backup target",
+  "command": "kta store backup ~/kta/backups/20261031T082234Z; rsync -a spark-hk:kta/backups/20261031T082234Z/ ~/kta-backups/spark-hk/20261031T082234Z/; kta.store.backup.restore(...)",
+  "record_ids": [],
+  "env_manifests": [],
+  "started_at": "2026-10-31T08:22:34Z"
+ }
+]

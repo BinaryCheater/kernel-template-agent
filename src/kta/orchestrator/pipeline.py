@@ -74,7 +74,9 @@ class Services:
 
     def measurer(self) -> Measurer:
         c = self.ctx
-        return Measurer(self.store, self.executor, c.clock, c.rng, c.seed)
+        return Measurer(
+            self.store, self.executor, c.clock, c.rng, c.seed, c.controls.quiet_thresholds
+        )
 
     def backend(self, name: str) -> Backend:
         return resolve(f"backend.{name}", self.ctx)

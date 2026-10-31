@@ -91,7 +91,8 @@ def test_experiments_x1_to_x12_are_defined_with_the_knobs_they_set() -> None:
     sets = {e.id: set(e.sets) for e in defs.experiments}
     assert sets["X5"] == {"budget.retries_per_task"}
     assert sets["X7"] == {"learning.reproduction_epsilon"}
-    assert "budget.task_wall_s" in sets["X9"] and sets["X12"] == {"budget.agent_instances"}
+    assert "budget.task_wall_s" in sets["X9"]
+    assert sets["X12"] == {"budget.agent_instances", "pipeline.stage_capacity"}  # WP23 D610
     by_id = {e.id: e for e in defs.experiments}
     assert by_id["X9"].method == "logs" and by_id["X10"].sets_elsewhere
     assert [by_id[x].step for x in ("X6", "X10", "X11", "X7", "X1")] == [1, 1, 2, 3, 4]

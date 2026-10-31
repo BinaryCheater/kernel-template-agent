@@ -10,7 +10,9 @@ Steps, all re-runnable:
   5. register: `kta worker register <name>` on this control plane, which probes the worker
      through the Executor transport and writes its EnvManifest and Worker records.
 
-The worker comes from [workers.<name>] in config/kta.toml; only ssh workers are deployed.
+The worker comes from [workers.<name>] of the configuration in force (KTA_CONFIG, else
+KTA_MODE -> config/modes/<mode>.toml, else config/kta.toml; WP23 D600); only ssh workers
+are deployed.
 """
 
 from __future__ import annotations
@@ -21,6 +23,7 @@ import subprocess
 import sys
 import tomllib
 
+from kta.core.config import default_config_path
 from kta_remote.__main__ import ROOT, Host, _git, _prelude, cmd_sync, ssh
 
 UV_VERSION = "0.11.2"
@@ -51,9 +54,10 @@ def main(argv: list[str]) -> int:
     if len(argv) != 1:
         sys.exit("usage: scripts/worker-setup <worker>   (a [workers.<name>] in config/kta.toml)")
     name = argv[0]
-    workers = tomllib.loads((ROOT / "config" / "kta.toml").read_text(encoding="utf-8"))["workers"]
+    cfg_path = default_config_path()
+    workers = tomllib.loads(cfg_path.read_text(encoding="utf-8"))["workers"]
     if name not in workers:
-        sys.exit(f"worker-setup: no [workers.{name}] in config/kta.toml")
+        sys.exit(f"worker-setup: no [workers.{name}] in {cfg_path}")
     w = workers[name]
     if w.get("transport") != "ssh":
         sys.exit(

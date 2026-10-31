@@ -195,3 +195,10 @@ history(store, limit) -> list[(id, Record)]
 4. Read it through `ctx.controls.<accessor>` (pure code) or `kta.store.controls.ensure(...)`.<accessor>.
 
 `test_registry_holds_every_row_of_12_with_set_by` and `test_every_knob_has_one_typed_accessor` fail until the three places agree. On the first run after the change, `ensure` writes a system version that adds the knob with its initial value and keeps every stored value.
+
+## WP23 (D600, D601, D603, D607)
+
+- `kta.core.config`: `KTA_MODE` selects `config/modes/<mode>.toml` (after `KTA_CONFIG`).
+- `kta.core.hostlock`: `HostLock(dir).shared(holder, wait_s)`, `.exclusive(holder, wait_s, max_hold_s, on_waiting=None)`, `.holder()`; `heavy(host_section, what)`; `HostLockTimeout` (ExecutionError infra); `python -m kta.core.hostlock hold`.
+- Controls: knobs `measure.quiet_thresholds`, `execution.unified_memory_cap`, `measure.batch_window`, `pipeline.stage_capacity`, `session.work_unit_rule`; `set_from` may be `S0 data`.
+- `kta.store.backup`: `backup(data_dir, dest, now, handover_to=None)`, `restore(src, data_dir)`, `check_owner(data_dir)`.

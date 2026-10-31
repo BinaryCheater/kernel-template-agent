@@ -12,6 +12,14 @@ jobs drain. It is also held in the ops ``locks`` table, so two control-plane pro
 never measure on one GPU at once. A lease older than ``max_s`` is force-released and
 the release is written to ``ops_events``.
 
+Host lock (WP23, D603): on a worker with ``host_lock`` (a unified-memory compute host)
+every cpu and gpu-shared job runs inside the host's readers–writer lock taken shared, a
+self-leased gpu-exclusive job takes it exclusive, and ``quiet_lease`` holds it exclusive
+for the whole window through a ``hold`` process on the worker, so control planes of
+other processes or modes drain too (``kta.execution.hostpolicy``). Lock waits are
+``lock_wait`` spans on lane ``host:<worker>``. cpu jobs on a ``unified_memory`` worker are
+also limited by the memory cap of the controls knob ``execution.unified_memory_cap``.
+
 ``cancel`` (decision D420) takes a queued job out of the queue and stops a running one
 on its worker through the ``cancel`` worker command (process group, container); either
 way ``wait`` then raises ``ExecutionError("cancelled")``.
@@ -27,7 +35,7 @@ import time
 from collections.abc import Generator
 from contextlib import contextmanager, nullcontext
 from dataclasses import dataclass, field, replace
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 from kta.core.context import Context
@@ -36,7 +44,8 @@ from kta.core.ids import UlidFactory
 from kta.core.jobs import GPU_POOLS, Job, JobResult
 from kta.core.logging import bind
 from kta.core.trace import SpanStart, current_span_id, current_tracer, new_tracer, span, tracing
-from kta.execution.base import WorkerClient, WorkerConfig
+from kta.execution import hostpolicy
+from kta.execution.base import HeldHostLock, WorkerClient, WorkerConfig
 from kta.execution.registry import (
     Registration,
     client_for,
@@ -71,6 +80,8 @@ class _Worker:
     running: dict[str, int] = field(default_factory=lambda: dict[str, int]())
     leases: dict[str, _Lease] = field(default_factory=lambda: dict[str, _Lease]())
     waiting_exclusive: dict[str, int] = field(default_factory=lambda: dict[str, int]())
+    held: dict[str, HeldHostLock] = field(default_factory=lambda: dict[str, HeldHostLock]())
+    mem_gb: float = 0.0  # reserved by running cpu jobs (unified-memory cap)
 
     @property
     def name(self) -> str:
@@ -92,6 +103,7 @@ class _Slot:
     pool: str
     device: str | None
     lease_owner: str | None = None  # set when this job took the lease itself
+    mem_gb: float = 0.0
 
 
 @dataclass
@@ -119,6 +131,8 @@ class JobExecutor:
         self.cond = threading.Condition()
         self.jobs: dict[str, _Pending] = {}
         self.queue_timeout_s = float(ctx.config.section("executor").get("queue_timeout_s", 3600))
+        self.mem_cap = ctx.controls.unified_memory_cap
+        self.exclusive_wait_s = float(ctx.controls.batch_window["exclusive_wait_s"])
         self.workers: list[_Worker] = []
         for config in worker_configs(ctx).values():
             reg = latest_registration(store, config.name)
@@ -243,15 +257,32 @@ class JobExecutor:
                 w.waiting_exclusive[device] -= 1
         token = _lease_holder.set(holder)
         try:
-            with (
-                self._tracing(),
-                span("lock_hold", f"gpu lease {worker}:{device}", f"gpu:{worker}", holder=holder),
-            ):
-                yield
+            with self._tracing():
+                self._hold_host(w, device, holder, max_s)
+                with span(
+                    "lock_hold", f"gpu lease {worker}:{device}", f"gpu:{worker}", holder=holder
+                ):
+                    yield
         finally:
             _lease_holder.reset(token)
+            self._release_host(w, device)
             with self.cond:
                 self._release_lease(w, device, holder, forced=False)
+
+    def _hold_host(self, w: _Worker, device: str, holder: str, max_s: int) -> None:
+        """The host lock exclusive for the window (other control planes drain too)."""
+        if not w.config.host_lock:
+            return
+        with span("lock_wait", f"host lock {w.name} for {holder}", f"host:{w.name}") as sp:
+            held = w.client.hold(holder, self.exclusive_wait_s, max_s)
+            sp.set(wait_s=held.acquire(), mode="exclusive", holder=holder)
+        w.held[device] = held
+
+    def _release_host(self, w: _Worker, device: str) -> None:
+        held = w.held.pop(device, None)
+        if held is not None and held.release():
+            log.warning("host lock window on %s ended by its max hold", w.name)
+            self.ops.record_event("locks", f"host:{w.name}", {"forced_release": True})
 
     # ---- leases ------------------------------------------------------------------
 
@@ -337,7 +368,12 @@ class JobExecutor:
             device = w.reg.worker.devices[0] if pool in GPU_POOLS and w.reg.worker.devices else None
             if pool in GPU_POOLS and device is None:
                 continue
-            return _Slot(w, pool, device)
+            blocked = hostpolicy.mem_blocks(w.config, p.job, w.mem_gb, self.mem_cap)
+            if blocked is not None:
+                p.deferred_by = blocked
+                continue
+            mem = hostpolicy.job_mem_gb(p.job, self.mem_cap) if pool == "cpu" else 0.0
+            return _Slot(w, pool, device, mem_gb=mem)
         return None
 
     def _acquire_slot(self, p: _Pending) -> _Slot:
@@ -354,6 +390,7 @@ class JobExecutor:
                     slot = self._place(p)
                     if slot is not None:
                         slot.worker.running[slot.pool] = slot.worker.running.get(slot.pool, 0) + 1
+                        slot.worker.mem_gb += slot.mem_gb
                         p.slot = slot
                         return slot
                     if p.deferred_by and p.deferred_by != logged:
@@ -386,6 +423,7 @@ class JobExecutor:
     def _free_slot(self, slot: _Slot) -> None:
         with self.cond:
             slot.worker.running[slot.pool] -= 1
+            slot.worker.mem_gb -= slot.mem_gb
             if slot.lease_owner is not None and slot.device is not None:
                 self._release_lease(slot.worker, slot.device, slot.lease_owner, forced=False)
             self.cond.notify_all()
@@ -465,9 +503,12 @@ class JobExecutor:
         if p.cancelled:
             raise ExecutionError("cancelled", f"job {p.job_id} cancelled before it started")
         log.info("job %s start on %s pool %s device %s", p.job_id, w.name, slot.pool, slot.device)
+        lock = self._lock_request(w, p, slot)
         try:
             self._upload(w.client, job)
-            raw = w.client.run(p.job_id, job, slot.device)
+            started = self.ctx.clock.now()
+            raw = w.client.run(p.job_id, job, slot.device, lock)
+            self._lock_span(w, p, raw.get("host_lock"), started)
             self._download(w.client, raw)
         except NotSupported:
             raise
@@ -503,6 +544,43 @@ class JobExecutor:
             job_id=p.job_id,
             worker_name=w.name,
         )
+
+    def _lock_request(self, w: _Worker, p: _Pending, slot: _Slot) -> dict[str, Any] | None:
+        own = p.holder is not None and any(
+            lease.holder == p.holder and dev in w.held for dev, lease in w.leases.items()
+        )
+        mode = hostpolicy.host_mode(p.job, own, slot.lease_owner is not None)
+        return hostpolicy.lock_request(
+            w.config,
+            mode,
+            f"job:{p.job_id}",
+            self.queue_timeout_s,
+            self.exclusive_wait_s,
+            LEASE_MAX_S,
+        )
+
+    def _lock_span(
+        self, w: _Worker, p: _Pending, got: dict[str, Any] | None, started: datetime
+    ) -> None:
+        """A lock_wait span for the time the job waited for the host lock on its worker."""
+        if not got or not float(got.get("wait_s") or 0.0):
+            return
+        tracer = current_tracer()
+        if tracer is None:
+            raise ConfigError("executor threads run with a bound tracer")
+        start = SpanStart(
+            tracer.ids.new(),
+            current_span_id() or tracer.root_parent,
+            tracer.trace_id,
+            "lock_wait",
+            f"host:{w.name}",
+            f"host lock {got['mode']} for {p.job.kind} {p.job_id}",
+            started,
+            {"job_id": p.job_id, "mode": got["mode"], "wait_s": got["wait_s"]},
+        )
+        tracer.sink.start_span(start)
+        end = started + timedelta(seconds=float(got["wait_s"]))
+        tracer.sink.end_span(start.span_id, end, "ok", {})
 
     def _infra_result(self, slot: _Slot, p: _Pending, queue_s: float, message: str) -> JobResult:
         empty = self.store.put_blob(b"", "text/plain")

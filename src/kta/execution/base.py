@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from contextlib import AbstractContextManager
 from dataclasses import dataclass, field
 from typing import Any, Literal, Protocol
@@ -47,6 +48,10 @@ class Transport(Protocol):
         """The command's stdout; raises ExecutionError (infra) or NotSupported."""
         ...
 
+    def popen(self, args: list[str]) -> subprocess.Popen[bytes]:
+        """The command started with pipes, for long-lived commands (``hold``, WP23)."""
+        ...
+
 
 @dataclass(frozen=True)
 class WorkerConfig:
@@ -62,6 +67,10 @@ class WorkerConfig:
     image: str | None = None
     pools: dict[str, int] = field(default_factory=lambda: {"cpu": 1})
     nvidia_smi: str = "nvidia-smi"
+    # WP23 (D603, D607): the host readers–writer lock directory on that host (same path in
+    # every mode, so control planes share it) and whether CPU and GPU share memory.
+    host_lock: str | None = None
+    unified_memory: bool = False
 
     @property
     def spec(self) -> WorkerSpec:
@@ -116,22 +125,77 @@ class WorkerClient:
             raise ExecutionError("infra", f"{self.config.name}: missing blobs in transfer")
         return got
 
-    def run(self, job_id: str, job: Job, device: str | None) -> dict[str, Any]:
+    def run(
+        self,
+        job_id: str,
+        job: Job,
+        device: str | None,
+        host_lock: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         payload = {
             "job_id": job_id,
             "job": job.to_dict(),
             "spec": self.config.spec.to_dict(),
             "device": device,
+            "host_lock": host_lock,
         }
-        return self._json(["run"], payload, job.timeout_s + RUN_MARGIN_S)
+        wait = float(host_lock["wait_s"]) if host_lock and host_lock.get("dir") else 0.0
+        return self._json(["run"], payload, job.timeout_s + RUN_MARGIN_S + wait)
 
     def cancel(self, job_id: str) -> bool:
         """Stop a job this worker is running (or about to run); True if a process died."""
         return bool(self._json(["cancel", job_id], timeout_s=CANCEL_TIMEOUT_S)["stopped"])
 
+    def hold(self, holder: str, wait_s: float, max_s: float) -> HeldHostLock:
+        """Take the host lock exclusive on the worker's host for a measurement window."""
+        if not self.config.host_lock:
+            raise ConfigError(f"[workers.{self.config.name}] has no host_lock")
+        args = ["hold", self.config.host_lock, "exclusive", holder, str(wait_s), str(max_s)]
+        return HeldHostLock(self.config.name, self.transport.popen(args))
+
+
+class HeldHostLock:
+    """A ``hold`` process on the worker; ``acquire`` waits for its grant, ``release``
+    closes its stdin (the worker side then drops the lock)."""
+
+    def __init__(self, worker: str, proc: subprocess.Popen[bytes]) -> None:
+        self.worker, self.proc = worker, proc
+        self.wait_s = 0.0
+
+    def _line(self) -> dict[str, Any]:
+        out = self.proc.stdout
+        raw = out.readline() if out is not None else b""
+        if not raw:
+            err = self.proc.stderr.read().decode("utf-8", "replace") if self.proc.stderr else ""
+            raise ExecutionError("infra", f"{self.worker}: host lock hold ended: {err[-500:]}")
+        return json.loads(raw.decode("utf-8"))
+
+    def acquire(self) -> float:
+        while True:
+            msg = self._line()
+            if msg["state"] == "acquired":
+                self.wait_s = float(msg["wait_s"])
+                return self.wait_s
+            if msg["state"] == "timeout":
+                self.release()
+                raise ExecutionError("infra", f"{self.worker}: {msg['error']}")
+
+    def release(self) -> bool:
+        """True when the worker side reported the window was force-ended at max_s."""
+        if self.proc.stdin is not None and not self.proc.stdin.closed:
+            self.proc.stdin.close()
+        forced = False
+        if self.proc.stdout is not None:
+            for raw in self.proc.stdout:
+                msg = json.loads(raw.decode("utf-8"))
+                forced = forced or bool(msg.get("forced"))
+        self.proc.wait(timeout=60)
+        return forced
+
 
 __all__ = [
     "Executor",
+    "HeldHostLock",
     "Job",
     "JobResult",
     "JobRunner",

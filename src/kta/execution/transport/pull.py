@@ -5,6 +5,7 @@ Phase 1 does not implement it (conventions §6); the protocol is in ``pull.md``.
 
 from __future__ import annotations
 
+import subprocess
 from typing import Literal
 
 from kta.core.errors import NotSupported
@@ -24,3 +25,6 @@ class PullTransport:
             f"worker {self.config.name}: the pull transport is specified in "
             "kta/execution/transport/pull.md but not implemented in phase 1"
         )
+
+    def popen(self, args: list[str]) -> subprocess.Popen[bytes]:
+        raise NotSupported(f"worker {self.config.name}: the pull transport (phase 1)")

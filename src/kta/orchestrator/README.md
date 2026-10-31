@@ -53,3 +53,7 @@ Deterministic loops (solve, expand, learn, calibrate, maintain, experiment, summ
 ## WP22 (D585)
 
 `inbox.py`: item `proxy:<provider>` while that provider's proxy breaker (ops pointer `proxy:status:<provider>`) is tripped.
+
+## WP23 (D610–D615)
+
+`stage_queues.yaml` + `stagequeue.py`: stages with WIP limits, backpressure, unblock-first order and measurement windows, used by `solve_tick`. `work_units.yaml` + `workunits.py`: the card work unit `<loop>:<role>` (knob `session.work_unit_rule`).

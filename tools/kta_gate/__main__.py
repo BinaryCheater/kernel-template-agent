@@ -14,7 +14,7 @@ from kta_gate.result import CheckResult
 ROOT = Path(__file__).resolve().parents[2]
 WP_NAME = (
     "WP0 WP1 WP2 WP3 WP4 WP5 WP6 WP7 WP8 WP9a WP9b WP10a WP10b WP11 WP12 WP13 "
-    "WP14 WP15 WP16 WP17 WP18 WP19 WP20 WP21 WP22"
+    "WP14 WP15 WP16 WP17 WP18 WP19 WP20 WP21 WP22 WP23"
 ).split()
 
 

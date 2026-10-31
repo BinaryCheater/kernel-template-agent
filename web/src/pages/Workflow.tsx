@@ -112,6 +112,10 @@ function Pipeline({ w, tt, node, item, select, changes }: {
         <Node id="session" title="Session: new or resume" active={node === "session"} onClick={() => select("session", null)} edited={edited(["message:new_session", "message:human_note"])}>
           <ol style={{ margin: "2px 0", paddingLeft: 18 }}>{w.session.rules.map((r, i) => <li key={i}><Chip tone={r.mode === "resume" ? "ok" : "idle"}>{r.mode}</Chip> {r.reason}</li>)}</ol>
           <div>{t("message:new_session", "session", "new-session message")}{t("message:human_note", "session", "human note")}</div>
+          <div className="small" data-testid="work-unit-rule">
+            work unit: <Chip tone="ok">{w.session.work_units.rule}</Chip> {w.session.work_units.rules[w.session.work_units.rule]}
+            <div className="muted">{Object.entries(w.session.work_units.roles).map(([r, ts]) => `${r}: ${ts.join(", ")}`).join(" · ")}</div>
+          </div>
         </Node>
         <Arrow />
         <Node id="run" title="Agent run" active={node === "run"} onClick={() => select("run", { kind: "field", key: "model" })}
@@ -152,7 +156,7 @@ function Editor({ w, tt, node, item, changes, setChanges }: {
         <ul className="small">{w.invariants.map((v) => <li key={v.what}>{v.what} <span className="mono muted">{v.source}</span></li>)}</ul>
       </Panel>}
       {knobs.length > 0 && <KnobEditor w={w} knobs={knobs} />}
-      {node === "session" && <div className="small muted">Rules read from <span className="mono">{w.session.source}</span>, in order; the first that applies decides.</div>}
+      {node === "session" && <div className="small muted">Rules read from <span className="mono">{w.session.source}</span>, in order; the first that applies decides. Work units: <span className="mono">{w.session.work_units.source}</span>, rule = knob session.work_unit_rule; e.g. {Object.entries(w.session.work_units.example).map(([t, u]) => `${t} → ${u}`).join(", ")}.</div>}
     </div>
   );
 }

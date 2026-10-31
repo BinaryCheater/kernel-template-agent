@@ -274,3 +274,24 @@ class Knobs(ABC):
     @property
     def mip_l2_check(self) -> dict[str, Any]:
         return self._map("model.mip_l2_check")
+
+    # WP23
+    @property
+    def quiet_thresholds(self) -> dict[str, Any]:
+        return self._map("measure.quiet_thresholds")
+
+    @property
+    def unified_memory_cap(self) -> dict[str, float]:
+        return {k: float(v) for k, v in self._map("execution.unified_memory_cap").items()}
+
+    @property
+    def batch_window(self) -> dict[str, Any]:
+        return self._map("measure.batch_window")
+
+    @property
+    def stage_capacity(self) -> dict[str, int]:
+        return {k: int(v) for k, v in self._map("pipeline.stage_capacity").items()}
+
+    @property
+    def work_unit_rule(self) -> str:
+        return str(self.value("session.work_unit_rule"))

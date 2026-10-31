@@ -1085,3 +1085,91 @@ knobs:
     editable: true
     accessor: mip_l2_check
     consumer: kta.solve.consistency.consistency_check (rank_min, violation_max, samples)
+
+  # ---- WP23: measurement exclusivity, stage queues, work units (D600–D629) -------------------
+  - id: measure.quiet_thresholds
+    row: quiet-host thresholds
+    section: "12 §7"
+    controls: a measurement is interfered (requeued, never counted) when other processes use more than other_cpu_cores_max cores during the loop or before it, load1 or memory in use exceed their limits, the GPU was busy or held other compute processes before warm-up, it ran hotter than temp_c_max, its SM clock dropped by more than sm_clock_drop_max of the maximum, or a forbidden throttle reason was set; at most max_requeues reruns
+    type: mapping
+    fields: {other_cpu_cores_max: float, load1_max: float, mem_used_gb_max: float, gpu_util_pct_pre_max: float, other_gpu_procs_max: int, temp_c_max: float, sm_clock_drop_max: float, throttle_forbidden_mask: int, max_requeues: int}
+    value: {other_cpu_cores_max: 0.5, load1_max: 8.0, mem_used_gb_max: 96.0, gpu_util_pct_pre_max: 5.0, other_gpu_procs_max: 0, temp_c_max: 85.0, sm_clock_drop_max: 0.15, throttle_forbidden_mask: 236, max_requeues: 3}
+    min: 0
+    prevents: timing noise from other work on a unified-memory host counted as a result
+    where: [protocol, orch]
+    status: default
+    source: "11 §5 (WP23 D605); mask 0xEC = SW power cap, HW slowdown, SW/HW thermal, power brake"
+    set_by: [X6]
+    editable: true
+    accessor: quiet_thresholds
+    consumer: kta.measure.runner.Measurer (quiet.assess per timing job)
+
+  - id: execution.unified_memory_cap
+    row: unified-memory cap for CPU jobs
+    section: "12 §7"
+    controls: total memory limit of concurrently running cpu-pool jobs on a unified-memory worker (cpu_jobs_gb); a job without mem_limit_mb counts job_default_gb
+    type: mapping
+    fields: {cpu_jobs_gb: float, job_default_gb: float}
+    value: {cpu_jobs_gb: 48.0, job_default_gb: 4.0}
+    min: 0
+    unit: GB
+    prevents: concurrent compiles exhausting the memory the GPU shares
+    where: [orch]
+    status: default
+    source: "11 §2 memory row (WP23 D607); to be set from S0 data"
+    set_by: []
+    set_from: S0 data
+    editable: true
+    accessor: unified_memory_cap
+    consumer: kta.execution.executor (placement of cpu jobs on workers with unified_memory)
+
+  - id: measure.batch_window
+    row: measurement batching window
+    section: "12 §7"
+    controls: ready-to-measure candidates collected for up to window_s (at most max_items) and measured in one exclusive window; the exclusive host lock waits at most exclusive_wait_s
+    type: mapping
+    fields: {window_s: float, max_items: int, exclusive_wait_s: float}
+    value: {window_s: 30.0, max_items: 8, exclusive_wait_s: 900.0}
+    min: 0
+    prevents: one drain of the host per candidate
+    where: [orch]
+    status: default
+    source: "11 §4.2 (WP23 D608)"
+    set_by: []
+    editable: true
+    accessor: batch_window
+    consumer: kta.measure.batching.MeasureWindow; kta.execution.executor quiet_lease
+
+  - id: pipeline.stage_capacity
+    row: stage queue capacities
+    section: "12 §7"
+    controls: work-in-progress limit of each pipeline stage (orchestrator/stage_queues.yaml); an upstream stage starts no new item while its downstream stage is full
+    type: mapping
+    fields: {analyse: int, generate: int, build: int, check: int, ready_to_measure: int, measure: int, judge: int}
+    value: {analyse: 4, generate: 4, build: 6, check: 4, ready_to_measure: 8, measure: 1, judge: 4}
+    min: 1
+    unit: items
+    prevents: work piling up in front of the exclusive measurement stage
+    where: [orch, ui]
+    status: default
+    source: "11 §4.3 (WP23 D610)"
+    set_by: [X12]
+    editable: true
+    accessor: stage_capacity
+    consumer: kta.orchestrator.stagequeue (admission and backpressure in the solve process)
+
+  - id: session.work_unit_rule
+    row: work-unit rule
+    section: "12 §7"
+    controls: what shares an agent session in a case loop - step (every task its own unit), case (all tasks of the loop) or case_role (the loop split by role, orchestrator/work_units.yaml)
+    type: enum
+    choices: [step, case, case_role]
+    value: case_role
+    prevents: a kernel writer blaming the model in a session that also diagnoses it
+    where: [orch]
+    status: spec
+    source: "user decision 2026-10-31 (WP23 D614)"
+    set_by: [X3]
+    editable: true
+    accessor: work_unit_rule
+    consumer: kta.orchestrator.tasks.TaskQueue.create (TaskCard.work_unit)

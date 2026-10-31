@@ -213,3 +213,9 @@ Codex and Claude Code do not read the macOS system proxy. The user requires both
 - `kta.agents.drafts`: `check` (placeholders per renderer, `PLACEHOLDERS`), `write_draft(store, base, Changes, author, at)` (a new AgentProfile version with `refs.base`; never changes the base or the pointer), `diff`, `batch_for` (batch `<name>-v<version>`), `render_task` (preview through `cards.task_md`).
 - `batches.profile_batch(profile)`; `runner.open_batch` falls back to the card's profile batch when the task has no batch, the configured batch was built from another profile and the work unit has no session (D595).
 
+
+## WP23: where agents run, isolation, work units (D600, D602, D614)
+
+- D300 and D592 are superseded: agent CLIs run with the control plane — worker `mac` (local, pool agent) in dev mode with proxy policy `required`, worker `spark-hk` (local) in long-run mode with policy `off` in that host's system configuration.
+- `[agents] agent_user` is optional: empty runs the CLI under the agent host's own account, confined by the CLI's sandbox, the isolated home and the workspace limits (profile isolation `config+user` no longer refuses without it).
+- A work unit is `<loop>:<role>` by default (kernel T1/T6, model T4/T5, knowledge T2/T3; `kta.orchestrator.workunits`), so solving, model diagnosis and knowledge work never share a session within a case; sessions, workspaces and homes are keyed by it as before.

@@ -39,7 +39,7 @@ from kta.core.errors import ConfigError
 from kta.core.ids import record_id
 from kta.core.schemas.process import AgentProfile, TaskCard
 from kta.core.sysconfig import load as load_system
-from kta.orchestrator import done_checks
+from kta.orchestrator import done_checks, workunits
 from kta.store import code_state
 
 Reason = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
@@ -52,8 +52,8 @@ NODE_KNOBS: dict[str, tuple[str, ...]] = {
         "session.task_header_max_lines", "session.access_discipline_version",
         "session.notes_required_sections",
     ),
-    "session": ("session.resume_scope", "session.fresh_session_threshold",
-                "session.same_failure_rule"),
+    "session": ("session.resume_scope", "session.work_unit_rule",
+                "session.fresh_session_threshold", "session.same_failure_rule"),
     "run": ("budget.hard_cap_factor", "budget.no_response_timeout_s", "budget.lease_s",
             "budget.agent_instances"),
     "retry": ("budget.retries_per_task", "budget.user_attention_cap"),
@@ -78,6 +78,23 @@ def _text(node: ast.expr) -> str:
             for v in node.values
         )
     return ast.unparse(node)
+
+
+def work_unit_view(api: Api) -> dict[str, Any]:
+    """The work-unit rule in force and the role table (WP23, D614)."""
+    rule = controls(api).work_unit_rule
+    example = {t: workunits.unit_for("<loop>", t, rule, "<task>") for t in ("T1", "T4", "T2")}
+    return {
+        "rule": rule,
+        "rules": {
+            "step": "every task its own unit (fresh session every step)",
+            "case": "all tasks of a loop share the loop's unit",
+            "case_role": "<loop>:<role> — kernel, model and knowledge work never share a session",
+        },
+        "roles": {r: list(types) for r, types in workunits.roles().items()},
+        "example": example,
+        "source": "kta/orchestrator/work_units.yaml",
+    }
 
 
 def session_rules() -> list[dict[str, str]]:
@@ -223,7 +240,8 @@ def workflow_view(api: Api, profile: str | None) -> dict[str, Any]:
         ],
         "lifecycle": {"states": task_machine["states"], "transitions": task_machine["transitions"],
                       "limits": task_machine.get("limits", {})},
-        "session": {"rules": session_rules(), "source": _src(sessions.decide)},
+        "session": {"rules": session_rules(), "source": _src(sessions.decide),
+                    "work_units": work_unit_view(api)},
         "templates": templates(api, p),
         "skills": skills_view(api, p),
         "knobs": knobs(api),
