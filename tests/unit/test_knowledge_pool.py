@@ -42,6 +42,8 @@ def test_seed_import_is_idempotent(ctx: Context, store: Store) -> None:
         "CapabilityDecl": 16,
         "Template": 7,
         "Realisation": 1,
+        "HwArch": 1,
+        "HwModel": 1,
     }
     assert first.warnings == []
     again = seed(ctx, store)

@@ -2,8 +2,9 @@
 #
 # Everything here is data, read by kta.knowledge.learning. Tables are open: an entry not
 # listed falls into `other` and is counted, never refused (AGENTS.md principle 1).
-# Values marked `knob` are defaults waiting for the controls registry (WP21); each names
-# the failure it prevents. Changing this file changes behaviour without code changes.
+# Thresholds are not here: they are knobs of the controls registry (src/kta/core/controls.yaml:
+# budget.retries_per_task, learning.reproduction_epsilon, learning.ablation_*,
+# learning.coupling_noise_band). Changing this file changes behaviour without code changes.
 
 version: 1
 
@@ -75,8 +76,7 @@ priority:
 
 # ---- performance core (02 §8.4, D565) ---------------------------------------------------
 performance_core:
-  epsilon_rel: 0.10   # knob: reproduction error allowed on the reference's own configuration
-                      # (prevents calling a slower generator "reproduced"); Settings.epsilon_rel
+  # ε: knob learning.reproduction_epsilon (controls registry)
   includes: [one configuration (dtype, code path), the hot loop and its pipeline]
   host_inputs: fixed  # host planners are replaced by fixed inputs
   excludes: system_features  # by declaration; the system_features table above
@@ -85,9 +85,8 @@ performance_core:
 
 # ---- ablation on our own families (02 §8.4, D566) ---------------------------------------
 ablation:
-  pairwise_max_runs: 32   # knob: above this, a fractional factorial screens instead
-  max_runs: 64            # knob: hard cap per family (prevents GPU-time blow-up)
-  noise_band_rel: 0.05    # knob: coupling when |joint / product - 1| exceeds this
+  # run limits and noise band: knobs learning.ablation_pairwise_max_runs,
+  # learning.ablation_max_runs, learning.coupling_noise_band (controls registry)
   repeats: 3              # measurements per run (median used)
   suspects: [shared_variable, template_relation, shared_resource]
 
@@ -118,15 +117,6 @@ o12:
     level: highest SOTA level reached (3 when ratio >= 1 - epsilon, 4 when ratio > 1 + noise band)
   budget: per-case task budgets of the solve loop; no extra agent time
   status: defined, not run (code stage, D320)
-
-# ---- knobs owed to the controls registry (WP21) -----------------------------------------
-# admit retries: the task queue's max_retries (2) is the "<= 2 retries" of 02 §8.6.
-knobs:
-  - {name: admit.max_retries, value: 2, where: kta.orchestrator.transition.Settings.max_retries}
-  - {name: reproduce.epsilon_rel, value: 0.10, where: performance_core.epsilon_rel / Settings.epsilon_rel}
-  - {name: ablation.pairwise_max_runs, value: 32, where: ablation.pairwise_max_runs}
-  - {name: ablation.max_runs, value: 64, where: ablation.max_runs}
-  - {name: ablation.noise_band_rel, value: 0.05, where: ablation.noise_band_rel}
 
 # ---- backends as realisations (02 §8.5, D-T29, D567) --------------------------------------
 # Expressibility coverage is counted for each of these plus any backend a record names.

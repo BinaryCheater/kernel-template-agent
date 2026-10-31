@@ -92,6 +92,59 @@ Branch `wp/WP14`; delivery note `deliveries/WP14.md`; decisions D440–D454.
 - No real run (D320): no probe confirmed any GB10 declaration; `probed_on` is empty everywhere. Listed under "Pending real runs" in the delivery note.
 - Knobs (`MIN_REPLICATIONS`, `MIN_TARGETS_FOR_SCOPE`, `MIN_REPEATS_FOR_PATTERN`) are module constants until WP21's registry merges.
 - 23 (knowledge structure) and 21 §1 are not rewritten; 02 §2 stays the design source until the merge of 02 into the numbered documents.
+## 2026-10-31: merged work package WP15 (Template effects and the declarative hardware model)
+
+Code stage (D320), branch `wp/WP15`; decisions D460–D474 (D325 (5) answers D-open-5 for now: R2 and R3 land before the golden path).
+
+### Closes
+
+| Item | How | Status |
+| --- | --- | --- |
+| R2, E2, D-T2 | Template `cost` → `effects` (transactions, storage, overlap) in schema, loader, validators, formulation and all 37 seed Templates (`scripts/migrations/WP15_effects.py`); schema-1 records upcast on read | code stage |
+| R3 (data and L1), E1, D-T3, D-T10 | `HwArch` (class) + `HwModel` schema 2 (instance) as declarative data with per-value provenance; restricted expression language (roots `hw`, `tx`, `f`, `tbl`) and table terms; L1 steady-state pricing; `bound` and the UnitModel rebuilt on it | code stage |
+| R5 (schema and job definitions), D-T14, D-T15 | interference microbenchmark definitions (A, B, A+B per pair), `InterferenceMatrix` artefact schema with coverage; unmodelled = infinite capacity, reported | code stage; runs pending |
+| R8 (record schemas), R9 | `ModelVersion` and `RegressionSet` (several configurations per kernel) as immutable records | schema only |
+| WP5 known issue | contraction and operand traffic declared once (instruction selection, transfer step) and priced by the model | code stage |
+
+### 02 sections implemented
+
+§3 (effects; the granularity statistics are not built), §4 (resources, walls with cliffs, operation classes, efficiency, interactions, composition, completeness as counted coverage; L2/L3 and maintenance views are WP16), §5.1 (L1 = the projection's terms; the MIP compiler is WP17). The interface WP16 and WP17 consume is in `spec/modules/formulation-solve-models.md` "Hardware model and L1".
+
+### Pending real runs
+
+`kta.measure.peaks` on the GB10 worker (measured peaks attach to `gb10` on `sm12x@1`), the interference pairs, and a first regression set with a `ModelVersion`; see `deliveries/WP15.md`.
+
+## 2026-10-31: merged work package WP21 (controls registry and staged release)
+
+Code stage (D320): no real runs, no experiments. Branch `wp/WP21`; decisions D480–D489.
+
+### Closes
+
+| Item | How |
+| --- | --- |
+| R9 (staged release part) | S0–S4 as orchestrator configuration (`orchestrator/stages.yaml`), stage = knob `release.stage` (default S0); S1 gates each agent call until you release it; exit criteria on the Release page |
+| R11 | one versioned controls registry (`core/controls.yaml`, ControlsVersion records); code reads knobs only from it; settings page `/settings` edits only these values (operator token, author and reason per version) |
+| R12 | X1–X12 defined (`core/experiments.yaml`: arms, metrics, knobs set, 02 §11 order, run or logs; X10–X12 per D328); every row of 12 names its `set_by` experiment or "S1/S2 logs" (D490) |
+| D-T22, D-T23, D-T25, D-T28 | implemented as the defaults they are |
+| D-open-6 (values) | scope v1 and ε = 10 % are registry values (`learning.scope`, `learning.reproduction_epsilon`), status default |
+
+02 sections implemented: §6.3 (staged release), §11 (system-parameter experiments, definitions only); §9 thresholds now live in the registry.
+
+### Files changed outside code
+
+- `docs/design/12-agent-controls.md`: a `set_by` column on every row (next step 7 above), an "Implemented" paragraph, §5 wording, and a new §7 with the thresholds the code already used (shortlist, solver time limit, judging rules 2–3, inbox thresholds, infra retries), the D325 defaults and the release stage (D482).
+- `spec/`: core-store.md "Controls registry" (including how to add a knob), schemas.md (ControlsVersion, `refs.controls`), orchestrator-cli.md, agents.md, api-web.md, gate.md "WP21".
+
+### Behaviour that changes at merge
+
+- A fresh store is in **S0**: the agent pool starts no task and the learn, experiment and summarize processes skip their ticks until you write a controls version with `release.stage` S1 or later (Release page).
+- `[orchestrator]` config is no longer read; `[budget.quotas]` and `[agents] slots` are refused (use the knobs `budget.process_quotas`, `budget.agent_instances`).
+- Task wall budgets follow 12 (T4 45 min, T5 30 min, T6 30 min).
+
+### Next for construction
+
+- WP18 and WP19 add their knobs as registry rows (spec/modules/core-store.md "Adding a knob"); WP19 fills the pull log and plan the Release page already shows as "not recorded yet".
+- Owed real run: a hand-stepped S1 run with a real agent (deliveries/WP21.md "Pending real runs").
 
 ## 2026-10-31: merged work package WP20 (learning-loop runner, code stage)
 
@@ -115,4 +168,4 @@ Branch `wp/WP20`; delivery note `deliveries/WP20.md`; decisions D560–D569.
 ### Not done here
 
 - No real run (D320): no intake, reproduction, ablation or O12 run; `kta reference plan` only plans.
-- Thresholds (admit retries, ε, ablation limits, noise band) live in `src/kta/knowledge/learning.yaml` until WP21's registry merges.
+- Thresholds read the controls registry: `budget.retries_per_task`, `learning.reproduction_epsilon`, and the new `learning.ablation_pairwise_max_runs`, `learning.ablation_max_runs`, `learning.coupling_noise_band`.

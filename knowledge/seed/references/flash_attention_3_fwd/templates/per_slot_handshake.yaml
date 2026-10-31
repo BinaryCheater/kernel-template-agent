@@ -23,8 +23,11 @@ obligations:
   - {name: generation, statement: "A consumer that waits on full[slot] with phase p reads the generation written in round p, never an older or newer one.", method: exhaustive}
   - {name: arrival_count, statement: "Each barrier's expected arrival count (or transaction bytes) equals what is actually delivered per round.", method: test}
   - {name: progress, statement: "No wait is unsatisfiable, including the producer tail (producer_tail) and early-exit tiles.", method: exhaustive}
-cost:
-  - {unit: issue, work: "4 * p.tiles", overlap: overlappable}
+effects:
+  transactions:
+    - {id: handshake, pattern: sync, kind: mbarrier_sync, count: "4 * p.tiles"}
+  storage: []
+  overlap: []
 scope:
   predicate: "True"
   text: "Buffer rings shared by different warps (warp specialization) or filled by an asynchronous copy engine."

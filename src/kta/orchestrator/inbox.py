@@ -16,9 +16,7 @@ from kta.orchestrator import budget
 from kta.orchestrator.improve import pending_items
 from kta.orchestrator.pipeline import Services
 from kta.orchestrator.transition import Settings
-
-REPEAT_FAILURES = 3
-BUDGET_WARN = 0.8
+from kta.store import controls as controls_store
 
 
 @dataclass(frozen=True)
@@ -101,6 +99,7 @@ def _loops(svc: Services) -> list[Item]:
 
 
 def _repeated_failures(svc: Services) -> list[Item]:
+    repeat = controls_store.current(svc.store, svc.ops).repeat_failures
     by_check: Counter[str] = Counter()
     for rec in svc.store.query("Report", {"title": "done_checks"}, limit=5000):
         for c in rec.body["data"].get("checks", []):
@@ -114,18 +113,19 @@ def _repeated_failures(svc: Services) -> list[Item]:
             "Check the checker and the failing samples",
         )
         for name, n in sorted(by_check.items())
-        if n >= REPEAT_FAILURES
+        if n >= repeat
     ]
 
 
 def _model_error(svc: Services) -> list[Item]:
-    recent = svc.store.query("Report", {"title": "judgement"}, order="-created_at", limit=3)
-    if len(recent) == REPEAT_FAILURES and all(r.body["data"]["rule"] == 2 for r in recent):
+    repeat = controls_store.current(svc.store, svc.ops).repeat_failures
+    recent = svc.store.query("Report", {"title": "judgement"}, order="-created_at", limit=repeat)
+    if len(recent) == repeat and all(r.body["data"]["rule"] == 2 for r in recent):
         return [
             Item(
                 "model:error",
                 "Model error large repeatedly",
-                "last 3 judgements rule 2",
+                f"last {repeat} judgements rule 2",
                 "Start a model diagnosis (T4)",
             )
         ]
@@ -133,6 +133,7 @@ def _model_error(svc: Services) -> list[Item]:
 
 
 def _budgets(svc: Services) -> list[Item]:
+    warn = controls_store.current(svc.store, svc.ops).budget_warn
     out: list[Item] = []
     for scope in ("global", *(f"process:{p}" for p in ("solve", "learn", "maintain"))):
         if not budget.has_scope(svc.ops, scope):
@@ -140,11 +141,11 @@ def _budgets(svc: Services) -> list[Item]:
         v = budget.view(svc.ops, scope)
         for key, limit in v["limit"].items():
             spent = v["used"].get(key, 0.0) + v["reserved"].get(key, 0.0)
-            if limit > 0 and spent >= BUDGET_WARN * limit:
+            if limit > 0 and spent >= warn * limit:
                 out.append(
                     Item(
                         f"budget:{scope}:{key}",
-                        "Budget at 80%",
+                        f"Budget at {warn:.0%}",
                         f"{scope} {key} {spent:.1f}/{limit:.1f}",
                         "Raise it or stop",
                     )
@@ -177,4 +178,5 @@ def inbox(svc: Services) -> list[Item]:
 
 
 def at_attention_limit(svc: Services) -> bool:
-    return len(inbox(svc)) >= Settings.from_config(svc.ctx.config).attention_limit
+    limit = Settings.of(controls_store.current(svc.store, svc.ops)).attention_limit
+    return len(inbox(svc)) >= limit

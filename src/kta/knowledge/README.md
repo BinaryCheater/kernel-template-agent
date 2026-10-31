@@ -33,3 +33,6 @@ Functions that read the pool take the `Store` as a parameter (D200). Validators 
 - `learning.yaml`, `learning.py` (WP20): learning-loop tables (admission classes, system features, tiers L0–L4, source classes, priority, performance core, ablation, SOTA levels, backends, O12) and their readers.
 - `admission.py`: the admit step (`admit`, `admit_references`, `warnings.yaml`, `admission` Reports); `sota.py`: four-level SOTA coverage, system features, language gaps, per-backend expressibility; `ablation.py`: suspected pairs, designs, coupling estimates, proposed Couplings.
 - Retrieval with a target hides Templates whose Capabilities are not `yes`; `retrieve.unavailable_templates` and `CoverageReport.availability` count them.
+## WP15 (D460, D465)
+
+Effects validation (expressions, storage levels, `unpriced_operation_class` warning); seed import of `knowledge/seed/hardware/` (HwArch, HwModel); retrieval by resource through HwArch reservation tables.

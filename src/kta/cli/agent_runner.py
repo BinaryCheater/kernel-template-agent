@@ -26,7 +26,7 @@ from kta.cli.exec_cmds import ContextFactory, _out, command
 from kta.core.errors import ConfigError, NotSupported
 from kta.core.ids import UlidFactory
 from kta.core.jobs import Job, JobResult
-from kta.orchestrator import control, processes
+from kta.orchestrator import control, processes, release
 from kta.orchestrator.budget import BudgetRefused
 from kta.orchestrator.pipeline import Services
 from kta.orchestrator.quotas import order_queued
@@ -40,13 +40,23 @@ CANCEL_POLL_S = 5.0
 
 
 def next_task(q: TaskQueue) -> Task | None:
-    """The first queued agent task with an approved profile (D366), in the agent pool's
-    order: your tasks first, then by process quota load, priority and age (D372)."""
+    """The first queued agent task with an approved profile (D366) that the release stage
+    lets start (WP21, D485), in the agent pool's order: your tasks first, then by process
+    quota load, priority and age (D372). Held tasks stay queued (``release.held_calls``)."""
+    controls = q.controls()
     queued = [t for t in q.ops.list_tasks(states=("queued",)) if t.card_type in AGENT_TYPES]
     ordered = order_queued(
-        queued, lambda t: str(q.info(t.id).get("process", "solve")), q.ops, q.ctx.config
+        queued, lambda t: str(q.info(t.id).get("process", "solve")), q.ops, controls
     )
-    return next((t for t in ordered if q.card(t).profile != UNASSIGNED_PROFILE), None)
+    return next(
+        (
+            t
+            for t in ordered
+            if q.card(t).profile != UNASSIGNED_PROFILE
+            and release.hold_reason(q.ops, t, controls) is None
+        ),
+        None,
+    )
 
 
 class TrackingRunner:
@@ -124,6 +134,7 @@ def step_once(
         return {"task": None}
     owner = f"agent:{slot}"
     try:
+        release.admit(q.ops, q.get(task.id), q.controls())  # re-checked just before the lease
         q.lease(task.id, owner)
     except (BudgetRefused, control.Paused) as exc:
         return {"task": task.id, "skipped": str(exc)}
@@ -164,6 +175,9 @@ def step_once(
 def cmd_runner_start(args: argparse.Namespace, make_ctx: ContextFactory) -> int:
     with command(make_ctx, NAME, f"kta runner start --slot {args.slot}") as ctx:
         svc = Services.open(ctx)
+        top = svc.ctx.controls.agent_instances["max"]
+        if not 1 <= args.slot <= top:
+            raise ConfigError(f"slot {args.slot}: budget.agent_instances allows slots 1..{top}")
         q = TaskQueue(ctx, svc.store, svc.ops, svc)
         started = ctx.clock.now()
         holder = f"{NAME}:{UlidFactory(ctx.clock).new()}"

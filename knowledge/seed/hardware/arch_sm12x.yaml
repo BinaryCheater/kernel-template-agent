@@ -1,0 +1,228 @@
+# HwArch: the architecture class of GB10 (compute capability 12.x), decisions D463, D467.
+# Structure only: every number an instance supplies is a hw.* name in `params`. Peak
+# expressions are per scope instance; a measured chip-level peak in HwModel.peaks
+# overrides them. `launch` has no documented peak: it is unmodelled (infinite capacity)
+# and L1 reports its use (D465).
+name: sm12x
+version: 1
+description: >-
+  NVIDIA compute capability 12.x (GB10 / DGX Spark): SMs with four sub-partitions, a
+  tensor pipe executing mma.sync, shared memory in 32 banks, an L2 shared by all SMs and
+  LPDDR5X unified with the CPU. First version, seeded from documented values (WP15).
+scopes:
+  chip: "1"
+  sm: "hw.sm_count"
+  smsp: "hw.sm_count * hw.smsp_per_sm"
+params:
+  - sm_count
+  - smsp_per_sm
+  - sm_clock_hz
+  - dram_bytes_per_s
+  - l2_bytes_per_s
+  - smem_bytes_per_s_per_sm
+  - smem_wavefront_bytes
+  - fp32_flops_per_s_per_sm
+  - tensor_fp16_flops_per_s
+  - tensor_bf16_flops_per_s
+  - tensor_tf32_flops_per_s
+  - sfu_ops_per_cycle_per_sm
+  - kernel_launch_s
+  - dram_latency_ns
+  - l2_latency_ns
+  - async_copy_latency_s
+  - tma_latency_s
+  - mma_latency_cycles
+  - barrier_latency_cycles
+  - smem_per_cta
+  - smem_per_sm
+  - smem_reserved_per_cta
+resources:
+  - {name: dram, kind: throughput, scope: chip, amount: bytes, peak: "hw.dram_bytes_per_s",
+     latency_cycles: "hw.dram_latency_ns * hw.sm_clock_hz / 1e9", ncu: [dram__bytes.sum],
+     source: "LPDDR5X bandwidth; value in the instance"}
+  - {name: l2, kind: throughput, scope: chip, amount: bytes, peak: "hw.l2_bytes_per_s",
+     latency_cycles: "hw.l2_latency_ns * hw.sm_clock_hz / 1e9", ncu: [lts__t_bytes.sum],
+     source: "L2 read bandwidth; value in the instance"}
+  - {name: smem, kind: throughput, scope: sm, amount: wavefronts,
+     peak: "hw.smem_bytes_per_s_per_sm / hw.smem_wavefront_bytes",
+     ncu: [l1tex__data_pipe_lsu_wavefronts_mem_shared.sum],
+     source: "shared-memory wavefronts (128 bytes each), as WP7's peak_smem counts them"}
+  - {name: tensor, kind: throughput, scope: chip, amount: fp16_flops, peak: "hw.tensor_fp16_flops_per_s",
+     ncu: [sm__inst_executed_pipe_tensor.sum],
+     source: "tensor pipe in FP16-equivalent FLOPs; other precisions reserve it at their rate ratio (D-T15)"}
+  - {name: fma, kind: throughput, scope: sm, amount: fmas, peak: "hw.fp32_flops_per_s_per_sm / 2",
+     ncu: [smsp__sass_thread_inst_executed_op_ffma_pred_on.sum],
+     source: "FP32 FMA pipe (2 FLOPs per FMA)"}
+  - {name: issue, kind: throughput, scope: smsp, amount: warp_instructions, peak: "hw.sm_clock_hz",
+     ncu: [smsp__inst_executed.sum],
+     source: "one warp instruction per sub-partition scheduler per cycle"}
+  - {name: sfu, kind: throughput, scope: sm, amount: ops, peak: "hw.sfu_ops_per_cycle_per_sm * hw.sm_clock_hz",
+     ncu: [smsp__inst_executed_pipe_xu.sum], source: "special-function unit (MUFU)"}
+  - {name: launch, kind: throughput, scope: chip, amount: ctas, ncu: [sm__ctas_launched.sum],
+     source: "CTA dispatch rate: not documented, not measured yet (WP7 peak_launch measures it)"}
+  - {name: host_launch, kind: latency, scope: chip, amount: kernels, peak: "1 / hw.kernel_launch_s",
+     source: "one kernel launch costs kernel_launch_s, not overlapped"}
+walls:
+  - {name: smem_per_cta, kind: legality, level: smem, scope: cta, limit: "hw.smem_per_cta",
+     cliff: no_launch, source: "CUDA device attribute max_shared_memory_per_block_optin"}
+  - {name: smem_per_sm, kind: capacity, level: smem, scope: cta, limit: "hw.smem_per_sm",
+     reserved: "hw.smem_reserved_per_cta", cliff: lower_occupancy, per: sm,
+     source: "CUDA device attributes max_shared_memory_per_multiprocessor, reserved_shared_memory_per_block"}
+  - {name: regs_per_thread, kind: capacity, level: reg, scope: thread, limit: "255 * 4",
+     cliff: spill, source: "CUDA C++ Programming Guide: 255 registers per thread"}
+tables:
+  - name: bank_conflict_penalty
+    keys: [tx.stride_words]
+    lookup: floor
+    rows: [[1, 1.0], [2, 1.009], [4, 1.926], [8, 3.849], [16, 7.637], [32, 15.273]]
+    source: >-
+      AI-Infra-Co-Design calibration/spark-6951/contract.yaml bank_conflict_penalty (file sha256
+      3bbaabaa34bcc6ef..., local clone commit e755cbad, 2026-10-15); measured upstream on
+      spark-6951, not by KTA
+operation_classes:
+  - {name: dram_stream, patterns: [transfer], reservation: [{resource: dram, amount: "tx.bytes"}],
+     latency_cycles: "hw.dram_latency_ns * hw.sm_clock_hz / 1e9",
+     source: "compulsory DRAM traffic of a kernel: bytes read plus written"}
+  - name: cp_async_16
+    patterns: [transfer]
+    reservation:
+      - {resource: l2, amount: "tx.bytes"}
+      - {resource: issue, amount: "tx.bytes / 512"}
+    latency_cycles: "hw.async_copy_latency_s * hw.sm_clock_hz"
+    sass: [LDGSTS]
+    source: >-
+      cp.async.cg, 16 B per thread (512 B per warp instruction) from L2 into shared memory; the
+      shared-memory side is priced by the access transactions of shared_resource_binding (D460)
+  - name: tma_bulk
+    patterns: [transfer]
+    reservation:
+      - {resource: l2, amount: "tx.bytes"}
+      - {resource: issue, amount: "1"}
+    latency_cycles: "hw.tma_latency_s * hw.sm_clock_hz"
+    sass: [UBLKCP, UTMALDG]
+    source: "one bulk (TMA) copy instruction of tx.bytes from L2 into shared memory"
+  - name: global_load
+    patterns: [transfer]
+    reservation:
+      - {resource: l2, amount: "tx.bytes"}
+      - {resource: issue, amount: "tx.bytes / (32 * tx.vector_bytes)"}
+    latency_cycles: "hw.l2_latency_ns * hw.sm_clock_hz / 1e9"
+    sass: [LDG]
+    source: "ld.global of tx.bytes in tx.vector_bytes pieces per thread"
+  - name: global_store
+    patterns: [transfer, store]
+    reservation:
+      - {resource: l2, amount: "tx.bytes"}
+      - {resource: issue, amount: "tx.bytes / (32 * tx.vector_bytes)"}
+    sass: [STG]
+    source: "st.global of tx.bytes in tx.vector_bytes pieces per thread"
+  - name: l2_traffic
+    patterns: [transfer, reduce]
+    reservation:
+      - {resource: l2, amount: "tx.bytes"}
+    source: "aggregate L2 traffic whose instructions are not declared"
+  - name: smem_access
+    patterns: [access, transfer]
+    reservation:
+      - {resource: smem, amount: "tx.wavefronts"}
+      - {resource: issue, amount: "1"}
+    sass: [LDS, STS, LDSM]
+    source: "one warp-wide shared-memory instruction taking tx.wavefronts wavefronts"
+  - name: smem_access_strided
+    patterns: [access]
+    reservation:
+      - {resource: smem, amount: "tx.wavefronts * tbl.bank_conflict_penalty"}
+      - {resource: issue, amount: "1"}
+    sass: [LDS, STS]
+    source: "a shared-memory instruction with a word stride; penalty from the bank-conflict table"
+  - name: mma_sync_m16n8k16_f16
+    patterns: [contract]
+    reservation:
+      - {resource: tensor, amount: "tx.flops"}
+      - {resource: issue, amount: "1"}
+    latency_cycles: "hw.mma_latency_cycles"
+    sass: [HMMA]
+    source: "mma.sync m16n8k16 FP16 x FP16 + FP32: one warp instruction of tx.flops FLOPs"
+  - name: mma_sync_m16n8k16_bf16
+    patterns: [contract]
+    reservation:
+      - {resource: tensor, amount: "tx.flops * hw.tensor_fp16_flops_per_s / hw.tensor_bf16_flops_per_s"}
+      - {resource: issue, amount: "1"}
+    latency_cycles: "hw.mma_latency_cycles"
+    sass: [HMMA]
+    source: "mma.sync m16n8k16 BF16; shares the tensor pipe with FP16 at the rate ratio (D-T15)"
+  - name: mma_sync_m16n8k8_tf32
+    patterns: [contract]
+    reservation:
+      - {resource: tensor, amount: "tx.flops * hw.tensor_fp16_flops_per_s / hw.tensor_tf32_flops_per_s"}
+      - {resource: issue, amount: "1"}
+    latency_cycles: "hw.mma_latency_cycles"
+    sass: [HMMA]
+    source: "mma.sync m16n8k8 TF32; shares the tensor pipe with FP16 at the rate ratio (D-T15)"
+  - name: tensor_flops
+    patterns: [contract, reduce]
+    reservation:
+      - {resource: tensor, amount: "tx.flops"}
+    source: "aggregate FP16-equivalent tensor work whose instructions are not declared"
+  - name: fma_f32
+    patterns: [contract]
+    reservation:
+      - {resource: fma, amount: "tx.flops / 2"}
+      - {resource: issue, amount: "tx.flops / 64"}
+    sass: [FFMA]
+    source: "a contraction lowered to scalar FP32 FMA: one thread FMA per transaction of 2 FLOPs"
+  - name: ffma
+    patterns: [map, reduce, contract]
+    reservation:
+      - {resource: fma, amount: "tx.ops"}
+      - {resource: issue, amount: "tx.ops / 32"}
+    sass: [FFMA, FADD, FMUL]
+    source: "FP32 FMA-pipe operations, per thread; 32 per warp instruction"
+  - name: mufu
+    patterns: [map]
+    reservation:
+      - {resource: sfu, amount: "tx.ops"}
+      - {resource: issue, amount: "tx.ops / 32"}
+    sass: [MUFU]
+    source: "special-function operations (exp2, rcp, ...), per thread"
+  - name: warp_instruction
+    patterns: [other, access, transfer, sync]
+    reservation:
+      - {resource: issue, amount: "1"}
+    source: "one warp instruction of control or address work (predicates, index arithmetic)"
+  - name: mbarrier_sync
+    patterns: [sync]
+    reservation:
+      - {resource: issue, amount: "1"}
+    sass: [SYNCS]
+    source: "one mbarrier arrive or wait instruction"
+  - name: warp_shuffle
+    patterns: [reduce, transfer]
+    reservation:
+      - {resource: issue, amount: "1"}
+    sass: [SHFL]
+    source: "one warp shuffle instruction"
+  - name: cta_barrier
+    patterns: [sync]
+    reservation:
+      - {resource: issue, amount: "tx.warps"}
+    latency_cycles: "hw.barrier_latency_cycles"
+    sass: [BAR]
+    source: "bar.sync of one CTA: one instruction per warp"
+  - name: cta_launch
+    patterns: [launch]
+    reservation:
+      - {resource: launch, amount: "1"}
+    source: "dispatch of one CTA of the grid"
+  - name: kernel_launch
+    patterns: [launch]
+    reservation:
+      - {resource: host_launch, amount: "1"}
+    serial: true
+    source: "one kernel launch from the host"
+efficiency: []
+interactions: []
+composition:
+  rule: steady_state_max
+  clock_hz: "hw.sm_clock_hz"
+  note: "L1: max over resource busy times and pair/recurrence bounds, plus serial terms"

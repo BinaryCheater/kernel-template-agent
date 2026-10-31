@@ -642,12 +642,88 @@ Decisions made without the user that need review. Newest last. Each entry: quest
 - **Choice:** documented values with the source in each note; `warpgroup_mma` and `tensor_memory` `no`; `cluster_multicast` and `register_reallocation` `unknown` until probed; others `yes`.
 - **Rationale:** the PTX ISA target requirements decide wgmma and tcgen05; multicast benefit and setmaxnreg on sm_121 are not documented clearly enough to assert.
 - **Cost of changing later:** low: a new CapabilityDecl record (newest wins); a probe can also infer support.
+## D460 — Template effects schema (transactions, storage, overlap)
+
+- **Question:** how `cost` becomes `effects` (02 §3 sketch only).
+- **Choice:** transactions name operation classes of the hardware model and carry per-transaction amounts; storage per executor scope; overlap between selectors with `when`, `inflight`, `trips`. Each physical transaction is declared once by the step that performs it.
+- **Rationale:** no hardware number in templates (D-T2); "declared once" removes the WP5 missing-contraction issue without chain-wide transaction identities.
+- **Cost of changing later:** medium: schema, the 37 seed Templates (one migration script), formulation blocks.
+
+## D461 — Schema upcasts on read
+
+- **Question:** records are immutable but the Template body changes.
+- **Choice:** `KindSpec.upcasts` chain; stored bodies and IDs untouched; Template 1→2 maps cost terms to legacy `unit:<u>` transactions priced exactly as before.
+- **Rationale:** one mechanism for every kind (WP14's Template change can register the next step).
+- **Cost of changing later:** low; merging with WP14 needs one decision on version numbers (2→3 or one combined 2).
+
+## D463 — HwModel split into class and instance
+
+- **Question:** where structure (resources, operation classes) and numbers (peaks, limits) live.
+- **Choice:** `HwArch` record for the class, `HwModel` schema 2 for the instance with per-value provenance; measured peaks override documented expressions.
+- **Rationale:** D-T10 structure reuse; every value points to its source (R3).
+- **Cost of changing later:** low–medium: consumers use `MachineModel`, not the records.
+
+## D464 — L1 composition rule
+
+- **Question:** how per-resource times, overlap statements and latencies combine (02 §5.1 gives ResMII/RecMII).
+- **Choice:** max over busy times, pair bounds and recurrence bounds, plus serial and interaction terms; recurrence per executor with the smallest latency per group (optimistic).
+- **Rationale:** each term is a lower bound of the steady state, so L1 ≤ L2 can be checked (WP16/WP17).
+- **Cost of changing later:** low: one function (`kta.models.l1.compose`).
+
+## D466 — UnitModel stays the calibration layer over L1
+
+- **Question:** "one parameter table" (R1) vs the existing fitted UnitModel versions used by the orchestrator and T4 tasks.
+- **Choice:** keep UnitModel's fitted eff/interactions as an overlay on the declared efficiency; composition is L1's.
+- **Rationale:** no change to T4 outputs, calibration records or WP6; avoids two fitting paths now.
+- **Cost of changing later:** medium: fold fitted values into HwModel instance versions with ModelVersion records (WP16 maintenance).
+
+## D468 — Seed Templates migrated in place, versions kept
+
+- **Question:** new content under the same `name@version` vs bumping versions.
+- **Choice:** in place; a pre-WP15 store conflicts on re-import.
+- **Rationale:** D325(5): no real data; avoids 147 chain-reference edits colliding with WP14.
+- **Cost of changing later:** medium: bump versions and chain refs if a store with real seed records ever needs both.
+
+## D474 — Upstream calibration contract as documented values
+
+- **Question:** the GB10 instance needs numbers before KTA measures any.
+- **Choice:** upstream-measured values labelled `documented`, with hash and commit; three placeholders `default`; CTA dispatch rate unmodelled.
+- **Rationale:** honest labelling; KTA's own protocol has not run (D320).
+- **Cost of changing later:** low: the first `kta.measure.peaks` run supersedes them with `measured` peaks.
+## D480/D481 — Controls registry and its versions (WP21)
+
+- **Question:** where the knobs of docs/design/12 live, how a value change is versioned, and how runs record it.
+- **Choice:** definitions as package data in `kta.core` (layer 0) with typed accessors; values in force as ControlsVersion records + pointer `controls:current`; `refs.controls` on TaskCard, AgentRun, ExperimentRun; system versions when knobs are added.
+- **Rationale:** one place for every knob that every layer can read; versions are evidence (immutable, with author and reason), so "which values did this run use" is a record lookup.
+- **Cost of changing later:** medium: a different store for values touches `kta.store.controls` and the API; records already written keep their `refs.controls`.
+
+## D482/D483 — Code reads knobs only from the registry (WP21)
+
+- **Question:** the code had its own defaults (orchestrator `Settings`, AgentProfile policies, inbox constants, `[budget.quotas]`, `[agents] slots`), some differing from 12 (T4–T6 wall budgets).
+- **Choice:** all read from the registry; 12's values win (T4 45 min, T5/T6 30 min); config keys that held knobs are refused with a pointer; thresholds that were not rows of 12 became rows (12 §7, a new section in the user's design document).
+- **Rationale:** the user asked for "one tunable table"; two sources would let them disagree silently.
+- **Cost of changing later:** low for values (a controls version); medium to move a knob back to configuration.
+
+## D485 — Staged release defaults to S0 (WP21)
+
+- **Question:** which stage a fresh store starts in, and where the gate sits.
+- **Choice:** S0 (no agent calls) until the user writes a controls version changing `release.stage`; the gate is in the agent pool; manual `kta task lease` is not gated.
+- **Rationale:** 01 §3 "no stage opens until we understand and have debugged the previous one"; a merged code base must not start spending agent time on its own.
+- **Cost of changing later:** low: the knob's initial value, or `stages.yaml`. Note for merge: after this lands, `kta runner start` takes no task until the stage is S1 or later.
+
+## D486 — Operator token only for settings writes (WP21)
+
+- **Question:** the workplan asks for an operator token on settings writes, while design/30 §4 says one user and no login, and `/actions/*` have no token.
+- **Choice:** the token guards `POST /controls` and `POST /release` only; `/actions/*` are unchanged.
+- **Rationale:** follow the workplan without widening the change; the inconsistency is visible here.
+- **Cost of changing later:** low: `check_operator` can guard the other write endpoints; the web page already sends the header.
+
 
 ## D560 — Language gaps admitted, not refused (WP20)
 
 - **Question:** D-open-2: what the admit step does with something the expression language cannot state.
 - **Choice:** a third Issue severity `gap`, assigned by the `admission` table in `src/kta/knowledge/learning.yaml`; gaps are counted and the record is admitted at `proposed`. Rows today: `bad_expression` for unsupported constructs (typos stay errors) and `undeclared_pattern_param`.
-- **Rationale:** 02 §8.6 asks to count language gaps instead of refusing; `p.*` has no declared vocabulary (WP10a critique 7), so each use of a new `p.*` name is a vocabulary gap. The 63 such issues on the WP10a references would otherwise be 63 warnings to explain.
+- **Rationale:** 02 §8.6 asks to count language gaps instead of refusing; `p.*` has no declared vocabulary (WP10a critique 7), so each use of a new `p.*` name is a vocabulary gap. The 61 such issues on the WP10a references (63 before WP15's effects) would otherwise be warnings to explain.
 - **Cost of changing later:** low: one table row moves `undeclared_pattern_param` back to `warning`; typos in `p.*` names would then need explanations again.
 
 ## D561 — Admission rejects unexplained warnings (WP20)

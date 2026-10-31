@@ -13,6 +13,7 @@ from collections.abc import Mapping, Sequence
 from typing import Any
 
 from kta.core.config import Config
+from kta.core.controls import Controls
 from kta.core.errors import BudgetExceeded, ConfigError
 from kta.store.sqlite_ops import SqliteOps
 
@@ -66,22 +67,21 @@ def ensure_scope(ops: SqliteOps, scope: str, limit: Mapping[str, float]) -> None
         ops.set_budget(scope, limit)
 
 
-# Default process quotas of docs/design/11 §3.1.
-QUOTAS = {"experiment": 0.5, "solve": 0.25, "learn": 0.15, "calibrate": 0.05, "maintain": 0.05}
-
-
-def configure_scopes(ops: SqliteOps, config: Config) -> None:
+def configure_scopes(ops: SqliteOps, config: Config, controls: Controls) -> None:
     """Global and process scopes from ``[budget]`` (``agent_min``, ``gpu_min`` per period).
 
     Without a ``[budget]`` section no limit is set and reservations at these levels are
-    skipped. Existing limits are replaced, so the configuration stays the source.
+    skipped. Existing limits are replaced, so the configuration stays the source of the
+    global amounts; the process shares are the controls knob ``budget.process_quotas``.
     """
     section = config.section("budget")
+    if "quotas" in section:
+        raise ConfigError("[budget.quotas] moved to the controls knob budget.process_quotas (D482)")
     limit = {k: float(v) for k, v in section.items() if k in ("agent_min", "gpu_min")}
     if not limit:
         return
     ops.set_budget("global", limit)
-    for process, share in QUOTAS.items():
+    for process, share in controls.process_quotas.items():
         ops.set_budget(f"process:{process}", {k: v * share for k, v in limit.items()})
 
 

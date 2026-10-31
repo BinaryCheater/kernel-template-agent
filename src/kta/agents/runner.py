@@ -20,7 +20,7 @@ from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
-from kta.agents import arms, cards, compliance, guard, sessions, workspace
+from kta.agents import arms, cards, compliance, guard, policy, sessions, workspace
 from kta.agents.adapters.base import StepPlan
 from kta.agents.adapters.codex import CREDENTIAL_FILES, CodexAdapter
 from kta.agents.adapters.codex_session import usage_of
@@ -30,6 +30,7 @@ from kta.agents.batches import BatchRoot
 from kta.agents.config import AgentsConfig, agents_config
 from kta.agents.launchspec import BUNDLE_BATCH, BUNDLE_WORKSPACE, AuthSpec, LaunchSpec
 from kta.core.context import Context
+from kta.core.controls import Controls
 from kta.core.errors import ConfigError, NotSupported
 from kta.core.ids import UlidFactory, sha256_hex
 from kta.core.jobs import JobRunner
@@ -37,10 +38,8 @@ from kta.core.registry import resolve
 from kta.core.schemas import Actor, Record
 from kta.core.schemas.process import AgentProfile, AgentRun, TaskCard
 from kta.core.trace import child_environ, span
+from kta.store import controls as controls_store
 from kta.store.base import Ops, Store, Task
-
-RENEW_EVERY_S = 300
-LEASE_S = 1800  # docs/design/10 §4.3 default lease
 
 
 @dataclass(frozen=True)
@@ -88,12 +87,13 @@ def _put_files(runner: JobRunner, prefix: str, files: dict[str, bytes]) -> dict[
     }
 
 
-def _limits(card: TaskCard, profile: AgentProfile) -> Limits:
-    loop = profile.loop_policy
-    wall = card.budget.get("wall_s") or dict(loop.get("wall_s", {})).get(card.type)
+def _limits(card: TaskCard, controls: Controls) -> Limits:
+    """The card's wall budget (fixed when the card was written), else the controls' value
+    for its type; the idle cut-off is the controls' no-response timeout."""
+    wall = card.budget.get("wall_s") or controls.task_wall_s.get(card.type)
     if not wall:
-        raise ConfigError(f"no wall budget for {card.type} in the card or the profile")
-    return Limits(wall_s=int(wall), idle_s=int(loop.get("idle_s", 600)))
+        raise ConfigError(f"no wall budget for {card.type} in the card or the controls")
+    return Limits(wall_s=int(wall), idle_s=controls.no_response_timeout_s)
 
 
 def _env(ctx: Context, deps: Deps, token: str, task: Task) -> dict[str, str]:
@@ -158,10 +158,10 @@ def _spec(
     )
 
 
-def _renewing(ops: Ops, task: Task, stop: threading.Event) -> None:
+def _renewing(ops: Ops, task: Task, stop: threading.Event, lease_s: int) -> None:
     owner = task.lease_owner or "agent-runner"
-    while not stop.wait(RENEW_EVERY_S):
-        ops.renew(task.id, owner, LEASE_S)
+    while not stop.wait(lease_s / 6):  # renewed well inside the lease (budget.lease_s)
+        ops.renew(task.id, owner, lease_s)
 
 
 def _tar_hashes(data: bytes) -> dict[str, str]:
@@ -192,11 +192,12 @@ def violations_of(
     profile: AgentProfile,
     card: TaskCard,
     arm: Arm,
+    controls: Controls,
 ) -> list[dict[str, Any]]:
     allowed = arms.commands(arm, profile.allowed_commands.get(card.type, []))
     report = launch.report
     out = compliance.from_events(events, str(report.get("workspace", "")), allowed)
-    out += compliance.from_report(report, bool(profile.context_policy.get("notes_required", True)))
+    out += compliance.from_report(report, bool(controls.notes_required_sections))
     if launch.manifest and launch.workspace:
         mf = json.loads(deps.runner.read_blob(launch.manifest))
         after = _tar_hashes(deps.runner.read_blob(launch.workspace))
@@ -237,6 +238,7 @@ def _plan(
     retry: cards.RetryNote | None,
     batch: BatchRoot,
     arm: Arm,
+    controls: Controls,
 ) -> tuple[StepPlan, Limits]:
     """Bundle, launch spec and job inputs of one step."""
     bundle = workspace.build(
@@ -248,15 +250,17 @@ def _plan(
         card_body=card,
         used={},
         retry=retry,
+        policy=policy.context_policy(controls),
         arm=arm,
     )
-    limits = _limits(card, profile)
+    limits = _limits(card, controls)
     spec = _spec(ctx, deps, task, card, profile, run, bundle, batch.root.name, arm)
     inputs = {
         **_put_files(deps.runner, BUNDLE_WORKSPACE, bundle.workspace),
         **_put_files(deps.runner, BUNDLE_BATCH, bundle.batch),
     }
-    return StepPlan(spec, inputs, {"pool": deps.config.pool}, hard_cap_s=3 * limits.wall_s), limits
+    cap = int(controls.hard_cap_factor * limits.wall_s)  # budget.hard_cap_factor
+    return StepPlan(spec, inputs, {"pool": deps.config.pool}, hard_cap_s=cap), limits
 
 
 def open_batch(
@@ -302,6 +306,7 @@ def run_step(
     card = TaskCard.model_validate(deps.store.get(task.card_id).body)
     profile = AgentProfile.model_validate(deps.store.get(card.profile).body)
     run = UlidFactory(ctx.clock).new()
+    controls = controls_store.ensure(deps.store, deps.ops, ctx.clock.now())
     state, raw = sessions.load(deps.ops, card.work_unit)
     if state is not None and state.worker and state.worker != deps.config.worker:
         raise ConfigError(
@@ -310,16 +315,21 @@ def run_step(
     info = arms.task_info(deps.ops, task.id)
     root = open_batch(ctx, deps, card, state, batch or info.get("batch"))
     arm = arms.arm_of(info)
-    plan, limits = _plan(ctx, deps, task, card, profile, run, retry, root, arm)
+    plan, limits = _plan(ctx, deps, task, card, profile, run, retry, root, arm, controls)
     adapter = adapter_for(profile, deps, plan)
     decision = sessions.decide(
-        state, adapter.supports_resume, profile.loop_policy, retry.signature if retry else None
+        state,
+        adapter.supports_resume,
+        policy.loop_policy(controls),
+        retry.signature if retry else None,
     )
     key = guard.ensure_key(Path(deps.config.token_key_file))
     token = guard.issue_token(key, task.id, ctx.clock.now() + timedelta(seconds=plan.hard_cap_s))
     prompt = _prompt(root, decision.mode, card, task, retry, note)
     stop = threading.Event()
-    renewer = threading.Thread(target=_renewing, args=(deps.ops, task, stop), daemon=True)
+    renewer = threading.Thread(
+        target=_renewing, args=(deps.ops, task, stop, controls.lease_s), daemon=True
+    )
     with span(
         "agent_session",
         f"{card.type} {card.work_unit}",
@@ -338,8 +348,9 @@ def run_step(
         assert launch is not None
         sp.set(session=launch.session, exit=launch.exit, worker=launch.worker)
     return _record(
-        ctx, deps, task, card, profile, launch, events, prompt, state, raw, decision, retry, arm
-    )
+        ctx, deps, task, card, profile, launch, events, prompt, state, raw, decision, retry, arm,
+        controls,
+    )  # fmt: skip
 
 
 def _launch(
@@ -366,6 +377,7 @@ def _agent_run(
     launch: Launch,
     events: list[AgentEvent],
     arm: Arm,
+    controls: Controls,
 ) -> AgentRun:
     usage = usage_of(events)
     return AgentRun(
@@ -381,7 +393,7 @@ def _agent_run(
         queue_s=launch.queue_s,
         exit=launch.exit,
         context_manifest=launch.manifest,
-        violations=violations_of(deps, launch, events, profile, card, arm),
+        violations=violations_of(deps, launch, events, profile, card, arm, controls),
         arm=arm.to_dict(),
     )
 
@@ -400,9 +412,10 @@ def _record(
     decision: sessions.Decision,
     retry: cards.RetryNote | None,
     arm: Arm,
+    controls: Controls,
 ) -> StepResult:
     usage = usage_of(events)
-    body = _agent_run(deps, card, profile, launch, events, arm)
+    body = _agent_run(deps, card, profile, launch, events, arm, controls)
     refs: dict[str, Any] = {
         "env": launch.env_manifest,
         "worker": launch.worker,
@@ -411,6 +424,8 @@ def _record(
     }
     if arm.snapshot:
         refs["snapshot"] = arm.snapshot
+    if controls.version_id:
+        refs["controls"] = controls.version_id  # the knob values this step ran under (WP21)
     if state is not None and state.runs:
         refs["previous"] = state.runs[-1]
     blobs = {"prompt": deps.runner.put_blob(prompt.encode("utf-8"), "text/markdown")}

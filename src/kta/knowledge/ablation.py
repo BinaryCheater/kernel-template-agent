@@ -20,8 +20,10 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from typing import Any, Literal
 
+from kta.core.controls import baseline
 from kta.core.errors import ConfigError
 from kta.core.expr import Expr, ExprError
+from kta.core.knobs import Knobs
 from kta.core.schemas import Actor, Record
 from kta.core.schemas.knowledge import (
     Chain,
@@ -32,7 +34,6 @@ from kta.core.schemas.knowledge import (
     Scope,
     Template,
 )
-from kta.knowledge.learning import ablation_settings
 from kta.store.base import Store
 
 Level = Literal[0, 1]  # 0 = toggled off, 1 = as in the family
@@ -147,16 +148,17 @@ def _off(names: Sequence[str]) -> dict[str, Level]:
     return {n: 0 for n in names}
 
 
-def design(fs: Sequence[Factor], pairs: Sequence[Pair]) -> Design:
-    """Runs for the factors in suspected pairs (the others stay as in the family)."""
-    s = ablation_settings()
+def design(fs: Sequence[Factor], pairs: Sequence[Pair], controls: Knobs | None = None) -> Design:
+    """Runs for the factors in suspected pairs (the others stay as in the family); run
+    limits are the knobs ``learning.ablation_*`` (default: the registry baseline)."""
+    c = controls or baseline()
     involved = [f for f in fs if any(f.name in (p.a, p.b) for p in pairs)]
     names = [f.name for f in involved]
     pairwise = 1 + len(names) + len(pairs)
-    if pairwise <= int(s["pairwise_max_runs"]):
+    if pairwise <= c.ablation_pairwise_max_runs:
         runs = [_off([]), *(_off([n]) for n in names), *(_off([p.a, p.b]) for p in pairs)]
         return Design("pairwise", involved, list(pairs), runs)
-    runs, aliases = _fractional(names, int(s["max_runs"]))
+    runs, aliases = _fractional(names, c.ablation_max_runs)
     return Design("fractional", involved, list(pairs), runs, aliases)
 
 
@@ -167,11 +169,16 @@ class Estimate:
     coupled: bool
 
 
-def estimate(d: Design, times: Sequence[float], noise_band: float | None = None) -> list[Estimate]:
+def estimate(
+    d: Design,
+    times: Sequence[float],
+    noise_band: float | None = None,
+    controls: Knobs | None = None,
+) -> list[Estimate]:
     """Coupling estimates from one median time per run, in ``d.runs`` order."""
     if len(times) != len(d.runs) or any(t <= 0 for t in times):
         raise ConfigError("one positive time per design run is needed")
-    band = float(ablation_settings()["noise_band_rel"]) if noise_band is None else noise_band
+    band = (controls or baseline()).coupling_noise_band if noise_band is None else noise_band
     out: list[Estimate] = []
     for p in d.pairs:
         if d.mode == "pairwise":
@@ -201,10 +208,11 @@ def propose_couplings(
     evidence: list[str],
     actor: Actor,
     now: datetime,
+    controls: Knobs | None = None,
 ) -> list[str]:
     """Write a proposed Coupling per coupled pair, with the run measurements as evidence."""
     kinds = {f.name: f for f in d.factors}
-    band = float(ablation_settings()["noise_band_rel"])
+    band = (controls or baseline()).coupling_noise_band
     ids: list[str] = []
     for e in estimates:
         if not e.coupled:

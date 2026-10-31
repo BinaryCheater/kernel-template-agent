@@ -168,7 +168,7 @@ def write_coverage(svc: Services, loop: Loop) -> str:
     name = str(loop.data.get("name", loop.subject[:12]))
     sid = pool_snapshot(svc, f"after the expand loop of {name}", actor)
     stream = "coverage"
-    rep = coverage_report(svc.store, sid, svc.ctx.rng(stream))
+    rep = coverage_report(svc.store, sid, svc.ctx.rng(stream), controls=svc.ctx.controls)
     states = {str(r["subject"]): str(r["state"]) for r in svc.ops.list_loops("expand")}
     states[loop.subject] = "covered"
     page = coverage_page(rep, states, _trend(svc))

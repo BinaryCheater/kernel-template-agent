@@ -15,6 +15,8 @@ import { Pool } from "./pages/Pool";
 import { PoolDiff } from "./pages/PoolDiff";
 import { Model } from "./pages/Model";
 import { Experiments, Improvement } from "./pages/Studies";
+import { Settings } from "./pages/Settings";
+import { Release } from "./pages/Release";
 
 const PAGES: PageMeta[] = [
   { path: "/", title: "Overview", question: "What does the system do, and what is it doing now?" },
@@ -35,6 +37,8 @@ const PAGES: PageMeta[] = [
   { path: "/experiments", title: "Experiments", question: "How far are the experiments, and what do they conclude?" },
   { path: "/improvement", title: "Improvement", question: "Is the system getting better, and where does it fall short?" },
   { path: "/agents", title: "Agents", question: "What controls the worker agents: skills, profile versions, batch environments?" },
+  { path: "/settings", title: "Settings", question: "Which control values are in force, what does each prevent, and who changed them?" },
+  { path: "/release", title: "Release", question: "Which release stage is open, and which agent calls wait for me?" },
 ];
 
 export function App() {
@@ -59,6 +63,8 @@ export function App() {
         <Route path="/experiments" element={<Experiments />} />
         <Route path="/improvement" element={<Improvement />} />
         <Route path="/agents" element={<Agents />} />
+        <Route path="/settings" element={<Settings />} />
+        <Route path="/release" element={<Release />} />
         <Route path="*" element={<div className="empty">No such page.</div>} />
       </Routes>
     </Shell>

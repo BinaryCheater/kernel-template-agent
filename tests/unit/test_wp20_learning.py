@@ -68,7 +68,7 @@ FAKE = Path(__file__).resolve().parents[1] / "fakes" / "fake_codex.py"
 def _admit_seven(ctx: Context, store: Store) -> dict[str, str]:
     pool(ctx, store)
     result, reports = admit_references(ctx, store, REFERENCES, CODE)
-    assert result.counts["Reconstruction"] == 7 and len(result.language_gaps) == 63
+    assert result.counts["Reconstruction"] == 7 and len(result.language_gaps) == 61
     return reports
 
 
@@ -79,7 +79,7 @@ def test_seven_decompositions_admitted_with_counted_language_gaps(
     data = {k: store.get(v).body["data"] for k, v in reports.items()}
     assert all(d["admitted"] and not d["errors"] for d in data.values())
     gaps = {k: d["counts"]["language_gaps"] for k, d in data.items()}
-    assert gaps["cutlass_ampere_tf32_gemm"] == 21 and gaps["vllm_rms_norm"] == 0
+    assert gaps["cutlass_ampere_tf32_gemm"] == 19 and gaps["vllm_rms_norm"] == 0
     explained = [w for d in data.values() for w in d["warnings"]]
     assert len(explained) == 3 and all(w["explanation"] for w in explained)
     # Admitted at proposed: no StatusChange moved any imported Template.
@@ -93,7 +93,7 @@ def test_seven_decompositions_admitted_with_counted_language_gaps(
     assert levels["reproducible"]["pending"] and levels["surpassed"]["pending"]
     sys_f = page["learning"]["system_features"]
     assert sys_f["total"] == 9 and sys_f["by_feature"]["dispatch"] == 5
-    assert page["learning"]["language_gaps"]["total"] == 63
+    assert page["learning"]["language_gaps"]["total"] == 61
     tl = page["learning"]["backends"]["tilelang"]
     assert tl["steps"] == 135 and tl["expressible"] == 0 and tl["intent_confirmed"] is None
 
@@ -319,7 +319,7 @@ def test_t2_admission_rejection_goes_back_to_the_same_session(actx: Context) -> 
     assert adm.failures == [
         "warning constraint_false@chain.yaml:items.frag_stages is not explained in warnings.yaml"
     ]
-    assert adm.data["counts"]["language_gaps"] == 21
+    assert adm.data["counts"]["language_gaps"] == 19
 
     q.lease(task, owner)
     q.start(task, owner)

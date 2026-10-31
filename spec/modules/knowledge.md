@@ -136,6 +136,13 @@ def diff(store, a: str, b: str) -> PoolDiff                    # pooldiff: added
 - **Ladder and engine.** One status ladder for empirical knowledge with evidence rules (D446); `promote` (checker), `demote` (system, one step, then `kta.store.stale.propagate`), `review` proposes promotions into the hardware model, a Template's Γ or a Structure's regime, and new Patterns. Thresholds `MIN_REPLICATIONS = 2`, `MIN_TARGETS_FOR_SCOPE = 2`, `MIN_REPEATS_FOR_PATTERN = 3` are module defaults until the controls registry (WP21) holds them.
 - **Seed layout additions.** `capabilities/*.yaml` (Capability), `targets/<target>/*.yaml` (CapabilityDecl), `realisations/*.yaml` and `references/<ref>/realisations/*.yaml` (Realisation, refs.template resolved from `template: name@version`). Seed migrations are scripts under `scripts/migrations/` recorded in `knowledge/seed/migrations.yaml` (D450).
 - **SASS checks** take expectations from realisations on the family's backend (`orchestrator.pipeline.chain_sass`, D453).
+## WP15 implementation notes (D460, D465, D468)
+
+- Templates declare `effects` (spec/schemas.md §4.2.1) instead of `cost`; a schema-1 `cost` body upcasts on read (D461). `validate_template` checks every effects expression like a constraint, refuses a storage level naming a non-level variable (`bad_storage_level`), and warns `unpriced_operation_class` for a literal transaction kind that no HwArch in the store prices (kinds chosen by a variable are counted by L1 instead). Duplicate detection compares transaction kinds instead of cost units.
+- `import_seed` also imports `knowledge/seed/hardware/`: `arch_*.yaml` as HwArch, `model_*.yaml` as HwModel with `refs.arch` (identity `(name, version)` and `(target, version)`); an instance naming an unknown class is an `unknown_arch` issue.
+- `retrieve_templates(unit=...)` matches a resource through the signature, legacy cost units, or the reservation tables (of every stored HwArch) of the Template's transaction kinds.
+- Seed migration: `scripts/migrations/WP15_effects.py` (idempotent, `--check`) rewrote the `cost:` block of all 37 seed Templates in place, keeping versions (D468). Pattern `sync` gained the parameter `warps`.
+
 
 ## WP20 learning-loop runner (D560–D569)
 
@@ -148,8 +155,8 @@ Data: `src/kta/knowledge/learning.yaml` (version 1), read by `kta.knowledge.lear
 | `tiers` | L0–L4 with work, cost, yield and the admission rule name | `tiers(ReferenceFacts)`, `TIER_RULES` |
 | `source_classes` | open_code, closed_library, paper, vendor_doc, other → pipeline stages | `source_class`, `stages` |
 | `priority` | boost per reason | `priority(ReferencePriority)` = cases × gap closable × uncertainty × Π(1 + boost) |
-| `performance_core` | ε (0.10), what is included, host inputs fixed, system features excluded | `performance_core(...)` → `PerformanceCore` |
-| `ablation` | pairwise run limit (32), max runs (64), noise band (0.05), suspects | `kta.knowledge.ablation` |
+| `performance_core` | what is included (ε is the knob `learning.reproduction_epsilon`), host inputs fixed, system features excluded | `performance_core(...)` → `PerformanceCore` |
+| `ablation` | suspect kinds, repeats (run limits and noise band are knobs `learning.ablation_pairwise_max_runs`, `learning.ablation_max_runs`, `learning.coupling_noise_band`) | `kta.knowledge.ablation` |
 | `sota_levels`, `backends`, `o12` | the four coverage levels, backends counted for expressibility, the O12 protocol (defined, not run) | `kta.knowledge.sota`, `o12_protocol` |
 
 **Issue severities.** `Issue.severity` is `error`, `warning` or `gap`. `validate_template` and `validate_chain` return issues through `classify`: an expressibility gap of the expression language or its vocabulary has severity `gap` (D560); `errors_of` ignores it, so the object is admitted (status `proposed`). Today `bad_expression` for an unsupported construct (not a typo) and `undeclared_pattern_param` are gaps.
@@ -173,8 +180,8 @@ A reference directory (the decompose-kernel layout) may hold `warnings.yaml` map
 ```python
 factors(family, chain) -> list[Factor]                 # chain steps and variables with ≥ 2 values
 suspected_pairs(factors, family, chain, templates) -> list[Pair]   # shared_variable | template_relation | shared_resource
-design(factors, pairs) -> Design                       # pairwise (base, singles, pairs) or fractional 2^(k-p)
-estimate(design, times, noise_band=None) -> list[Estimate]          # joint / product of single effects
+design(factors, pairs, controls=None) -> Design                       # pairwise (base, singles, pairs) or fractional 2^(k-p)
+estimate(design, times, noise_band=None, controls=None) -> list[Estimate]          # joint / product of single effects
 propose_couplings(store, design, estimates, *, family_id, target, workload, evidence, actor, now) -> list[str]
 ```
 

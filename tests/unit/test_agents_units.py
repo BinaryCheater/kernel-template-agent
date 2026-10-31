@@ -19,7 +19,9 @@ from kta.agents.base import AgentEvent
 from kta.agents.cards import RetryNote, prefix, task_md
 from kta.agents.launch import data_root
 from kta.agents.launchspec import LaunchSpec
+from kta.agents.policy import context_policy, loop_policy
 from kta.agents.profile import CODEX_FLAGS, pack_dir, unpack
+from kta.core.controls import baseline
 from kta.core.errors import ConfigError, PermissionDenied
 from kta.core.schemas.process import TaskCard
 
@@ -79,13 +81,13 @@ def _state(**kw) -> sessions.SessionState:
         (_state(), False, None, "start", "cannot resume"),
         (_state(last_exit="idle"), True, None, "start", "abnormally"),
         (_state(context_ratio=0.7), True, None, "start", "context"),
-        (_state(failures=["f"]), True, "f", "start", "twice"),
+        (_state(failures=["f"]), True, "f", "start", "2 times"),
         (_state(failures=["g"]), True, "f", "resume", "continue"),
         (_state(context_ratio=0.5), True, None, "resume", "continue"),
     ],
 )
 def test_session_rules(state, resume, failure, mode, reason) -> None:
-    d = sessions.decide(state, resume, {"reset_context_ratio": 0.6}, failure)
+    d = sessions.decide(state, resume, loop_policy(baseline()), failure)
     assert d.mode == mode and reason in d.reason
 
 
@@ -438,7 +440,7 @@ def test_prefix_is_byte_identical_and_task_md_is_bounded() -> None:
         commands=["show"],
         used={},
         retry=RetryNote([("validate_family", "missing marker")]),
-        policy={},
+        policy=context_policy(baseline()),
     )
     assert "missing marker" in md and "`kta show`" in md and "$" not in md
     with pytest.raises(ConfigError, match="step_header_max_chars"):
@@ -452,7 +454,7 @@ def test_prefix_is_byte_identical_and_task_md_is_bounded() -> None:
             commands=[],
             used={},
             retry=None,
-            policy={"step_header_max_chars": 100},
+            policy={**context_policy(baseline()), "step_header_max_chars": 100},
         )
 
 

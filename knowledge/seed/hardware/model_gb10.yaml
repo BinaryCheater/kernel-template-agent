@@ -1,0 +1,205 @@
+# HwModel (chip instance) of GB10 on the sm12x@1 class, decisions D463, D467.
+# No value here was measured by KTA: `documented` values come from device attributes, the
+# CUDA guide or the upstream calibration contract (cited per value); `default` values are
+# placeholders with their reason. `peaks` is empty until kta.measure.peaks runs (pending
+# real run); measured peaks then override the class's peak expressions.
+target: gb10
+version: 1
+arch: sm12x@1
+peaks: {}
+limits:
+  sm_count: 48
+  smsp_per_sm: 4
+  sm_clock_hz: 2476000000.0
+  dram_bytes_per_s: 235358003500.0
+  l2_bytes_per_s: 1021754980000.0
+  smem_bytes_per_s_per_sm: 154051677000.0
+  smem_wavefront_bytes: 128
+  fp32_flops_per_s_per_sm: 589725877000.0
+  tensor_fp16_flops_per_s: 91931818450000.0
+  tensor_bf16_flops_per_s: 95036924500000.0
+  tensor_tf32_flops_per_s: 40102098250000.0
+  sfu_ops_per_cycle_per_sm: 16
+  kernel_launch_s: 2.0162399999999997e-06
+  dram_latency_ns: 299.823761
+  l2_latency_ns: 135.5118415
+  async_copy_latency_s: 2.52728081e-07
+  tma_latency_s: 5.002463815e-07
+  mma_latency_cycles: 32
+  barrier_latency_cycles: 38
+  smem_per_cta: 101376
+  smem_per_sm: 102400
+  smem_reserved_per_cta: 1024
+  max_ctas_per_sm: 24
+  max_threads_per_sm: 1536
+  max_threads_per_cta: 1024
+  regs_per_sm: 65536
+  regs_per_thread: 255
+  warp_size: 32
+  l2_bytes: 25165824
+  smem_banks: 32
+  smem_bank_bytes: 4
+  smem_queue_depth: 1
+provenance:
+  limits.sm_count:
+    status: documented
+    source: 'CUDA device attribute of GB10 (upstream contract.yaml lists the same value); KTA''s WP2 probe
+      records it as an HwFact: multiprocessor_count'
+    fact: null
+  limits.smsp_per_sm:
+    status: documented
+    source: 'CUDA C++ Programming Guide: four warp schedulers per SM; upstream issue_model ''four schedulers'''
+    fact: null
+  limits.sm_clock_hz:
+    status: documented
+    source: 'AI-Infra-Co-Design calibration/spark-6951/contract.yaml (file sha256 3bbaabaa34bcc6ef...,
+      local clone commit e755cbad, 2026-10-15): measured upstream on spark-6951, not by KTA: clock_hz_sustained'
+    fact: null
+  limits.dram_bytes_per_s:
+    status: documented
+    source: 'AI-Infra-Co-Design calibration/spark-6951/contract.yaml (file sha256 3bbaabaa34bcc6ef...,
+      local clone commit e755cbad, 2026-10-15): measured upstream on spark-6951, not by KTA: dram_bytes_per_s
+      (datasheet 273e9)'
+    fact: null
+  limits.l2_bytes_per_s:
+    status: documented
+    source: 'AI-Infra-Co-Design calibration/spark-6951/contract.yaml (file sha256 3bbaabaa34bcc6ef...,
+      local clone commit e755cbad, 2026-10-15): measured upstream on spark-6951, not by KTA: l2_bytes_per_s'
+    fact: null
+  limits.smem_bytes_per_s_per_sm:
+    status: documented
+    source: 'AI-Infra-Co-Design calibration/spark-6951/contract.yaml (file sha256 3bbaabaa34bcc6ef...,
+      local clone commit e755cbad, 2026-10-15): measured upstream on spark-6951, not by KTA: smem_bytes_per_s_per_sm'
+    fact: null
+  limits.smem_wavefront_bytes:
+    status: documented
+    source: 'Nsight Compute: a shared-memory wavefront is 128 bytes (as kta.measure.peak_kernels counts
+      them)'
+    fact: null
+  limits.fp32_flops_per_s_per_sm:
+    status: documented
+    source: 'AI-Infra-Co-Design calibration/spark-6951/contract.yaml (file sha256 3bbaabaa34bcc6ef...,
+      local clone commit e755cbad, 2026-10-15): measured upstream on spark-6951, not by KTA: fp32_flops_per_s_per_sm'
+    fact: null
+  limits.tensor_fp16_flops_per_s:
+    status: documented
+    source: 'AI-Infra-Co-Design calibration/spark-6951/contract.yaml (file sha256 3bbaabaa34bcc6ef...,
+      local clone commit e755cbad, 2026-10-15): measured upstream on spark-6951, not by KTA: tensor_flops_per_s_chip.fp16'
+    fact: null
+  limits.tensor_bf16_flops_per_s:
+    status: documented
+    source: 'AI-Infra-Co-Design calibration/spark-6951/contract.yaml (file sha256 3bbaabaa34bcc6ef...,
+      local clone commit e755cbad, 2026-10-15): measured upstream on spark-6951, not by KTA: tensor_flops_per_s_chip.bf16'
+    fact: null
+  limits.tensor_tf32_flops_per_s:
+    status: documented
+    source: 'AI-Infra-Co-Design calibration/spark-6951/contract.yaml (file sha256 3bbaabaa34bcc6ef...,
+      local clone commit e755cbad, 2026-10-15): measured upstream on spark-6951, not by KTA: tensor_flops_per_s_chip.tf32'
+    fact: null
+  limits.sfu_ops_per_cycle_per_sm:
+    status: default
+    source: not measured; 16 results per SM per cycle as the CUDA guide's throughput table gives for recent
+      compute capabilities
+    fact: null
+  limits.kernel_launch_s:
+    status: documented
+    source: 'AI-Infra-Co-Design calibration/spark-6951/contract.yaml (file sha256 3bbaabaa34bcc6ef...,
+      local clone commit e755cbad, 2026-10-15): measured upstream on spark-6951, not by KTA: launch_s'
+    fact: null
+  limits.dram_latency_ns:
+    status: documented
+    source: 'AI-Infra-Co-Design calibration/spark-6951/contract.yaml (file sha256 3bbaabaa34bcc6ef...,
+      local clone commit e755cbad, 2026-10-15): measured upstream on spark-6951, not by KTA: latency_ns.dram'
+    fact: null
+  limits.l2_latency_ns:
+    status: documented
+    source: 'AI-Infra-Co-Design calibration/spark-6951/contract.yaml (file sha256 3bbaabaa34bcc6ef...,
+      local clone commit e755cbad, 2026-10-15): measured upstream on spark-6951, not by KTA: latency_ns.l2'
+    fact: null
+  limits.async_copy_latency_s:
+    status: documented
+    source: 'AI-Infra-Co-Design calibration/spark-6951/contract.yaml (file sha256 3bbaabaa34bcc6ef...,
+      local clone commit e755cbad, 2026-10-15): measured upstream on spark-6951, not by KTA: async_copy_latency_s
+      at 4096 bytes'
+    fact: null
+  limits.tma_latency_s:
+    status: documented
+    source: 'AI-Infra-Co-Design calibration/spark-6951/contract.yaml (file sha256 3bbaabaa34bcc6ef...,
+      local clone commit e755cbad, 2026-10-15): measured upstream on spark-6951, not by KTA: tma_bulk_latency_s
+      at 16384 bytes'
+    fact: null
+  limits.mma_latency_cycles:
+    status: default
+    source: not measured; order of magnitude of published mma.sync latencies on recent NVIDIA GPUs
+    fact: null
+  limits.barrier_latency_cycles:
+    status: documented
+    source: 'AI-Infra-Co-Design calibration/spark-6951/contract.yaml (file sha256 3bbaabaa34bcc6ef...,
+      local clone commit e755cbad, 2026-10-15): measured upstream on spark-6951, not by KTA: barrier_s
+      at 256 threads (1.515e-8 s) times sm_clock_hz, rounded'
+    fact: null
+  limits.smem_per_cta:
+    status: documented
+    source: 'CUDA device attribute of GB10 (upstream contract.yaml lists the same value); KTA''s WP2 probe
+      records it as an HwFact: max_shared_memory_per_block_optin'
+    fact: null
+  limits.smem_per_sm:
+    status: documented
+    source: 'CUDA device attribute of GB10 (upstream contract.yaml lists the same value); KTA''s WP2 probe
+      records it as an HwFact: max_shared_memory_per_multiprocessor'
+    fact: null
+  limits.smem_reserved_per_cta:
+    status: documented
+    source: 'CUDA C++ Programming Guide, technical specifications per compute capability (12.x): 1 KB
+      of shared memory reserved per block'
+    fact: null
+  limits.max_ctas_per_sm:
+    status: documented
+    source: 'CUDA device attribute of GB10 (upstream contract.yaml lists the same value); KTA''s WP2 probe
+      records it as an HwFact: max_blocks_per_multiprocessor'
+    fact: null
+  limits.max_threads_per_sm:
+    status: documented
+    source: 'CUDA C++ Programming Guide, technical specifications per compute capability (12.x): maximum
+      resident threads per SM'
+    fact: null
+  limits.max_threads_per_cta:
+    status: documented
+    source: 'CUDA device attribute of GB10 (upstream contract.yaml lists the same value); KTA''s WP2 probe
+      records it as an HwFact: max_threads_per_block'
+    fact: null
+  limits.regs_per_sm:
+    status: documented
+    source: 'CUDA device attribute of GB10 (upstream contract.yaml lists the same value); KTA''s WP2 probe
+      records it as an HwFact: max_registers_per_multiprocessor'
+    fact: null
+  limits.regs_per_thread:
+    status: documented
+    source: CUDA C++ Programming Guide, technical specifications per compute capability (12.x)
+    fact: null
+  limits.warp_size:
+    status: documented
+    source: 'CUDA device attribute of GB10 (upstream contract.yaml lists the same value); KTA''s WP2 probe
+      records it as an HwFact: warp_size'
+    fact: null
+  limits.l2_bytes:
+    status: documented
+    source: 'CUDA device attribute of GB10 (upstream contract.yaml lists the same value); KTA''s WP2 probe
+      records it as an HwFact: l2_cache_size'
+    fact: null
+  limits.smem_banks:
+    status: documented
+    source: 'CUDA C++ Programming Guide: shared memory has 32 banks'
+    fact: null
+  limits.smem_bank_bytes:
+    status: documented
+    source: 'CUDA C++ Programming Guide: successive 32-bit words map to banks'
+    fact: null
+  limits.smem_queue_depth:
+    status: default
+    source: shared_resource_binding@1 fixes it as a chip variable; GB10 documents no value (kta.measure.peaks
+      MODEL_ASSUMPTIONS)
+    fact: null
+tables: []
+efficiency: []
+interactions: []

@@ -10,14 +10,23 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from kta.core.errors import SchemaError
 from kta.core.expr import Expr, ExprError
 from kta.core.schemas.evaluation import Case
 from kta.core.schemas.knowledge import Chain, Template, VarSpec
-from kta.formulation.blocks import Block, BoundCost, BoundExpr, build_block, fingerprint
+from kta.formulation.blocks import (
+    Block,
+    BoundCost,
+    BoundExpr,
+    BoundOverlap,
+    BoundStorage,
+    BoundTx,
+    build_block,
+    fingerprint,
+)
 from kta.knowledge.types import FamilyPackage
 
 GLUE = "glue"
@@ -28,9 +37,9 @@ class Formulation:
     family: str  # "<name>@<version>"
     variables: dict[str, VarSpec]  # family variables
     constraints: list[BoundExpr]  # every item's constraints and preconditions, then glue
-    cost_terms: list[BoundCost]
+    cost_terms: list[BoundCost]  # legacy unit:<u> transactions (schema-1 cost, D461)
     linear: bool  # every constraint is in the linear subset
-    cost_linear: bool  # every cost term is linear in the family variables
+    cost_linear: bool  # every legacy cost term is linear in the family variables
     blocks: dict[str, Block]
     reused: tuple[str, ...]  # item keys whose block came from ``previous``
     runtime_vars: tuple[str, ...]  # dispatch variables (per shape bucket)
@@ -38,6 +47,9 @@ class Formulation:
     case_refs: frozenset[str]  # case.* names (shape values) it reads
     missing_hw: tuple[str, ...]  # hw.* names absent from the hw contract given to assemble
     fingerprint: str
+    transactions: list[BoundTx] = field(default_factory=lambda: list[BoundTx]())
+    storage: list[BoundStorage] = field(default_factory=lambda: list[BoundStorage]())
+    overlaps: list[BoundOverlap] = field(default_factory=lambda: list[BoundOverlap]())
 
     def constraint(self, label: str) -> BoundExpr:
         return next(c for c in self.constraints if c.label == label)
@@ -97,7 +109,7 @@ def assemble(
         raise SchemaError("cannot assemble formulation: " + " | ".join(errors))
     constraints = [c for b in blocks.values() for c in b.constraints] + _glue(family_vars, family)
     costs = [c for b in blocks.values() for c in b.cost_terms]
-    exprs = [c.expr for c in constraints] + [c.work for c in costs]
+    exprs = [c.expr for c in constraints] + [e for b in blocks.values() for e in b.exprs()]
     hw_refs = _refs(exprs, "hw")
     digest = hashlib.sha256(
         json.dumps(
@@ -107,6 +119,7 @@ def assemble(
                 [v.model_dump(mode="json") for v in fam.variables],
                 [c.expr.src for c in constraints],
                 [(c.unit, c.overlap, c.work.src) for c in costs],
+                [_effects_key(b) for b in blocks.values()],
             ],
             sort_keys=True,
         ).encode()
@@ -125,36 +138,19 @@ def assemble(
         case_refs=_refs(exprs, "case"),
         missing_hw=tuple(sorted(hw_refs - set(hw))),
         fingerprint=digest[:16],
+        transactions=[t for b in blocks.values() for t in b.transactions],
+        storage=[s for b in blocks.values() for s in b.storage],
+        overlaps=[o for b in blocks.values() for o in b.overlaps],
     )
 
 
-def per_unit_work(
-    f: Formulation, assignment: Mapping[str, Any], shape: Mapping[str, Any], hw: Mapping[str, Any]
-) -> tuple[dict[str, float], dict[str, float]]:
-    """Work per unit, summed over cost terms: (overlappable, serial) (decision D240)."""
-    over: dict[str, float] = {}
-    serial: dict[str, float] = {}
-    for term in f.cost_terms:
-        value = float(term.work.eval(assignment, hw=hw, case=shape))
-        target = serial if term.overlap == "serial" else over
-        target[term.unit] = target.get(term.unit, 0.0) + value
-    return over, serial
-
-
-def cost_breakdown(
-    f: Formulation, assignment: Mapping[str, Any], shape: Mapping[str, Any], hw: Mapping[str, Any]
-) -> list[dict[str, Any]]:
-    """Each cost term's work with its source, for "which step's cost term is off"."""
+def _effects_key(b: Block) -> list[object]:
     return [
-        {
-            "source": t.source,
-            "index": t.index,
-            "unit": t.unit,
-            "overlap": t.overlap,
-            "work": float(t.work.eval(assignment, hw=hw, case=shape)),
-        }
-        for t in f.cost_terms
-    ]
+        [(t.id, t.pattern, t.kind, t.count.src, sorted((k, v.src) for k, v in t.amounts.items()))
+         for t in b.transactions],
+        [(s.id, s.level, s.scope, s.bytes.src) for s in b.storage],
+        [(o.between, o.when.src if o.when else None) for o in b.overlaps],
+    ]  # fmt: skip
 
 
 def violated(

@@ -150,3 +150,20 @@ TypeScript、React、Vite、ECharts。独立目录 `web/`。
 - Record bodies served by the API are in the current schema: `common.body` upcasts; `GET /records/{id}` of an upcast record adds `stored_body` and `upcast_from`.
 - `/pool` template rows carry `requires` (Capabilities) and `probed_on` instead of `requires_hw`.
 - Web page `/pool/diff` ("What did the pool gain, lose or change between two snapshots?"): two snapshot pickers (default: the last two), status moves first, then new versions, added and removed records, member counts. Levels are shown 1–7 (`LEVELS`, `LEVEL_NAMES` in `web/src/components/format.ts`).
+## WP21: settings and release (D486)
+
+Endpoints (`kta.api.controls`). Reading is open; writing needs the operator token in header `X-KTA-Operator-Token` (the content of `[api] operator_token_file`, default `~/.config/kta/operator-token`, created by `kta controls token`); a missing file or wrong token is 403.
+
+| Endpoint | Returns / does |
+| --- | --- |
+| `GET /controls` | `version` {id, version, stored, definitions_hash, stored_under_hash}; `knobs` (definition + `value` in force + `initial`); `experiments` (X1–X12); `write` {header, token_configured} |
+| `GET /controls/versions?limit=` | stored versions newest first: id, version, at, author, author_type, reason, changes, previous |
+| `POST /controls` {expected, changes, reason} | a new ControlsVersion by `[api] operator` plus a HumanAction `set_controls` (refs.controls); 400 on an invalid value, a stale `expected` or a blank reason; 403 on an invariant knob |
+| `GET /release` | the stage in force, all stages with exit criteria, the controls version, tasks in flight, queued agent tasks with hold reason, card body, pull log and plan (null with a note until WP19) |
+| `POST /release` {task, reason} | releases the next attempt of a held task (gated stage only; 400 otherwise) |
+
+`POST /write/record` (task token) refuses ControlsVersion records like HumanAction and StatusChange: only a human writes controls versions.
+
+`GET /machines` replaces limits that name a knob with the value in force and adds `limit_controls`; `GET /runs/active` takes `agent_slots` from `budget.agent_instances.start`; `GET /quotas` reads `budget.process_quotas`.
+
+Web pages: **Settings** (`/settings`): every knob grouped by 12's sections with value, prevents, where, status and set_by; editable values become one version with a reason; invariants are shown read-only; version history; X1–X12 in 02 §11 order. **Release** (`/release`): stage table with exit criteria, a stage change (a controls version), and each held agent call with its card, pull log and plan and a release button in a gated stage. The operator token is typed into the page and kept in the tab's sessionStorage only.

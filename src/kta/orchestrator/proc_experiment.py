@@ -174,6 +174,8 @@ def _write_run(runner: Runner, spec: ExperimentSpec, key: str, loop_id: str) -> 
         refs["judgement"] = str(judgement)
     if solutions:
         refs["solutions"] = solutions
+    if d.get("controls_seen"):
+        refs["controls"] = [str(v) for v in d["controls_seen"]]  # versions the run used (WP21)
     return svc.store.put(Record.new("ExperimentRun", body, ACTOR, runner.ctx.clock.now(), refs))
 
 
@@ -283,6 +285,6 @@ def experiment_tick(runner: Runner) -> ProcReport:
         if get_state(svc.ops, f"experiment:{pid}").get("status") == "running":
             running.append(pid)
     if quotas.set_active_experiments(svc.ops, running):
-        shares = quotas.apply_quotas(svc.ops, runner.ctx.config)
+        shares = quotas.apply_quotas(svc.ops, runner.controls())
         rep.add("quotas", *(f"{k}={v:.3f}" for k, v in sorted(shares.items())))
     return rep

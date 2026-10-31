@@ -15,6 +15,7 @@ from collections.abc import Mapping, Sequence
 from typing import Any, get_args
 
 from kta.core.errors import SchemaError
+from kta.core.knobs import Knobs
 from kta.core.schemas import Record
 from kta.core.schemas.common import Assurance, Level
 from kta.core.schemas.knowledge import Gap
@@ -240,6 +241,7 @@ def coverage_report(
     snapshot_id: str | None,
     rng: random.Random,
     targets: list[str] | None = None,
+    controls: Knobs | None = None,
 ) -> CoverageReport:
     """All coverage quantities of 21 §2 for a PoolSnapshot (``None``: the whole store).
 
@@ -304,7 +306,7 @@ def coverage_report(
         availability=_availability(
             store, templates, known_targets(store) if targets is None else targets
         ),
-        learning=learning_coverage(store, recons, refs, members),
+        learning=learning_coverage(store, recons, refs, members, controls),
     )
 
 

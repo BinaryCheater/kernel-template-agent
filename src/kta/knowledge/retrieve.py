@@ -130,13 +130,14 @@ def retrieve_templates(
     )
     p = {**(problem_params(store, case) if case else {}), **(params or {})}
     counts = reuse_counts(store)
+    reserved = reserved_resources(store) if unit is not None else {}
     ranked: list[tuple[tuple[Any, ...], Card]] = []
     for rid, t in pool.templates(store):
         if not pool.usable(store, rid):
             continue
         if pattern is not None and t.refines != pattern:
             continue
-        if unit is not None and unit not in {c.unit for c in t.cost} | set(t.signature.resources):
+        if unit is not None and unit not in _resources(t, reserved):
             continue
         if text_ids is not None and rid not in text_ids:
             continue
@@ -285,3 +286,23 @@ def card(store: Store, record_id: str) -> Card:
         if key in body and body[key] and len(lines) < CARD_MAX_LINES:
             lines.append(f"{key}: {_first_sentence(str(body[key]))}")
     return Card(record_id, rec.kind, title[:80], lines, status, assurance)
+
+
+def reserved_resources(store: Store) -> dict[str, set[str]]:
+    """Operation class -> resources its reservation table uses, over every HwArch in the
+    store (D460: a Template names transaction kinds; the hardware model names resources)."""
+    out: dict[str, set[str]] = {}
+    for rec in store.query("HwArch", limit=200):
+        for op in rec.body.get("operation_classes", []):
+            out.setdefault(str(op["name"]), set()).update(
+                str(row["resource"]) for row in op.get("reservation", [])
+            )
+    return out
+
+
+def _resources(t: Template, reserved: Mapping[str, set[str]]) -> set[str]:
+    units = {c.unit for c in t.cost} | set(t.signature.resources)
+    for tx in t.effects.transactions:
+        for kind in [tx.kind, *tx.kind_map.values()]:
+            units |= reserved.get(kind, set())
+    return units

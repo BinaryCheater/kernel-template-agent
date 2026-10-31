@@ -23,11 +23,17 @@ END = datetime(2026, 10, 30, 14, 30, tzinfo=UTC)
 TEST_ACTOR = Actor(type="system", name="test")
 
 
-def seeded_api(tmp: Path, config: dict[str, Any] | None = None, wired: bool = True) -> Api:
+def seeded_api(
+    tmp: Path,
+    config: dict[str, Any] | None = None,
+    wired: bool = True,
+    sections: dict[str, Any] | None = None,
+) -> Api:
+    """``config`` is the ``[agents]`` section; ``sections`` adds other top-level sections."""
     clock = SeedClock(END - timedelta(minutes=WINDOW_MIN + 60))
     ctx = Context(
         env="test",
-        config=config_from_mapping({"agents": {"slots": 2, **(config or {})}}),
+        config=config_from_mapping({"agents": dict(config or {}), **(sections or {})}),
         data_dir=tmp,
         registry=Registry(),
         clock=clock,

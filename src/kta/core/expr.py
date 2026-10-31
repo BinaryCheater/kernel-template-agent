@@ -3,7 +3,9 @@
 A subset of Python expressions, parsed with ``ast`` and interpreted here; Python's
 ``eval`` is never used. Free names must be declared variables; ``hw.<name>``,
 ``p.<name>`` and ``case.<name>`` read the hardware contract, pattern/workload
-parameters and the case.
+parameters and the case. The hardware model's expressions use other attribute roots
+(``tx``, ``f``, ``tbl``; decision D462): a caller passes ``roots`` to ``parse`` and the
+matching scopes to ``eval``.
 
 String literals may appear only as operands of ``==``/``!=`` and as elements of the
 literal list on the right of ``in``/``not in`` (for named mechanisms, levels and
@@ -84,17 +86,19 @@ _EQUALITY = (ast.Eq, ast.NotEq)
 _MEMBERSHIP = (ast.In, ast.NotIn)
 
 
-def _attr_ref(node: ast.Attribute) -> str:
-    if not isinstance(node.value, ast.Name) or node.value.id not in ROOTS:
-        raise ExprError("attribute access is only allowed as hw.<name>, p.<name>, case.<name>")
+def _attr_ref(node: ast.Attribute, roots: tuple[str, ...]) -> str:
+    if not isinstance(node.value, ast.Name) or node.value.id not in roots:
+        allowed = ", ".join(f"{r}.<name>" for r in roots)
+        raise ExprError(f"attribute access is only allowed as {allowed}")
     return f"{node.value.id}.{node.attr}"
 
 
 class _Checker:
     """Validates the allowed node set and collects names."""
 
-    def __init__(self, declared: set[str]) -> None:
+    def __init__(self, declared: set[str], roots: tuple[str, ...] = ROOTS) -> None:
         self.declared = declared
+        self.roots = roots
         self.vars: set[str] = set()
         self.attrs: set[str] = set()
 
@@ -109,13 +113,13 @@ class _Checker:
                         "(strings only in ==, != and `in [...]`)"
                     )
             case ast.Name(id=name):
-                if name in FUNCTIONS or name in ROOTS:
+                if name in FUNCTIONS or name in self.roots:
                     raise ExprError(f"{name!r} cannot be used as a value")
                 if name not in self.declared:
                     raise ExprError(f"undeclared variable {name!r}")
                 self.vars.add(name)
             case ast.Attribute():
-                self.attrs.add(_attr_ref(node))
+                self.attrs.add(_attr_ref(node, self.roots))
             case ast.BinOp(left=left, op=op, right=right):
                 if type(op) not in _BINOPS:
                     raise ExprError(f"operator {type(op).__name__} is not allowed")
@@ -216,14 +220,14 @@ class Expr:
     _tree: ast.expr
 
     @staticmethod
-    def parse(src: str, declared: set[str]) -> Expr:
+    def parse(src: str, declared: set[str], roots: tuple[str, ...] = ROOTS) -> Expr:
         if len(src) > MAX_SOURCE_CHARS:
             raise ExprError(f"expression longer than {MAX_SOURCE_CHARS} characters")
         try:
             tree = ast.parse(src.strip(), mode="eval").body
         except SyntaxError as exc:
             raise ExprError(f"syntax error in {src!r}: {exc.msg}") from exc
-        checker = _Checker(declared)
+        checker = _Checker(declared, roots)
         checker.visit(tree)
         return Expr(
             src=src,
@@ -239,8 +243,11 @@ class Expr:
         hw: Mapping[str, Any] | None = None,
         p: Mapping[str, Any] | None = None,
         case: Mapping[str, Any] | None = None,
+        extra: Mapping[str, Mapping[str, Any]] | None = None,
     ) -> Any:
+        """``extra`` gives the scopes of roots other than hw, p and case."""
         scopes: dict[str, Mapping[str, Any]] = {"hw": hw or {}, "p": p or {}, "case": case or {}}
+        scopes.update(extra or {})
         try:
             return _Evaluator(env, scopes).run(self._tree)
         except ExprError:
@@ -263,7 +270,7 @@ class _Evaluator:
                     raise ExprError(f"no value for variable {name!r}")
                 return self.env[name]
             case ast.Attribute(value=ast.Name(id=root), attr=attr):
-                scope = self.scopes[root]
+                scope = self.scopes.get(root, {})
                 if attr not in scope:
                     raise ExprError(f"no value for {root}.{attr}")
                 return scope[attr]

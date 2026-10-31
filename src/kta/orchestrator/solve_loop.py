@@ -40,7 +40,7 @@ def _wait(loop: Loop, rule: int | None, task: TaskRequest, note: str, **data: An
 
 
 def step(loop: Loop, ctx: Context) -> Transition:
-    s = Settings.from_config(ctx.config)
+    s = Settings.of(ctx.controls)
     f = loop.facts
     if loop.state in LINEAR:
         return Transition(loop.state, LINEAR[loop.state], "normal", data=dict(f))

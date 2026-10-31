@@ -19,8 +19,11 @@ program:
 backward_map: "Substitute the identity exp(y) = exp2(y * log2 e) (exact) or the library function for the approximation; equality holds up to the declared ulp error."
 obligations:
   - {name: error_bound, statement: "The rewritten function stays within the declared ulp error of the original on the admitted input range.", method: test}
-cost:
-  - {unit: sfu, work: "p.elements", overlap: overlappable}
+effects:
+  transactions:
+    - {id: exp2, pattern: map, kind: mufu, count: "p.elements", amounts: {ops: "1"}}
+  storage: []
+  overlap: []
 scope:
   predicate: "True"
   text: "Elementwise transcendental functions inside kernels whose contract tolerates approximation (softmax, normalization, activation functions)."

@@ -16,6 +16,8 @@ from collections import Counter
 from collections.abc import Mapping
 from typing import Any
 
+from kta.core.controls import baseline
+from kta.core.knobs import Knobs
 from kta.core.schemas import Record
 from kta.knowledge import pool
 from kta.knowledge.admission import latest_admissions
@@ -41,10 +43,14 @@ def _chains(store: Store, recons: list[tuple[str, Record]]) -> list[list[dict[st
 
 
 def sota_levels(
-    store: Store, recons: list[tuple[str, Record]], refs: list[dict[str, Any]]
+    store: Store,
+    recons: list[tuple[str, Record]],
+    refs: list[dict[str, Any]],
+    controls: Knobs | None = None,
 ) -> list[dict[str, Any]]:
-    """One row per level: references at that level or above, of all decomposed ones."""
-    eps = float(tables()["performance_core"]["epsilon_rel"])
+    """One row per level: references at that level or above, of all decomposed ones; ε is
+    the knob ``learning.reproduction_epsilon``."""
+    eps = (controls or baseline()).reproduction_epsilon
     n = len(refs)
     steps = sum(int(r["total"]) for r in refs)
     matched = sum(int(r["matched"]) for r in refs)
@@ -162,9 +168,10 @@ def learning_coverage(
     recons: list[tuple[str, Record]],
     refs: list[dict[str, Any]],
     members: set[str] | None,
+    controls: Knobs | None = None,
 ) -> dict[str, Any]:
     return {
-        "sota_levels": sota_levels(store, recons, refs),
+        "sota_levels": sota_levels(store, recons, refs, controls),
         "system_features": system_features(recons),
         "language_gaps": language_gaps(store, refs),
         "backends": backends(store, recons, members),

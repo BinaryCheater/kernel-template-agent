@@ -28,13 +28,12 @@ from kta.checks.selftest import CUBLAS_SO, build_shared_library
 from kta.core.errors import ExecutionError
 from kta.core.registry import resolve
 from kta.core.schemas import Record
-from kta.core.schemas.hardware import HwModel
 from kta.core.schemas.knowledge import ExprSpec
 from kta.core.schemas.process import Report
 from kta.formulation import assemble
 from kta.knowledge import FamilyPackage
 from kta.measure.selftest import gemm_kernel
-from kta.models import UnitModel
+from kta.models import MachineModel, UnitModel
 from kta.solve import record_solve, solve
 from kta_wp7.pipeline import Env, Generator, builder, templates_of
 from kta_wp7.records import ACTOR, CaseIds
@@ -102,7 +101,7 @@ def racy_legality(
     fp: FamilyPackage,
     gen: Generator,
     refs: dict[str, str],
-    hw: HwModel,
+    hw: MachineModel,
     model: UnitModel,
 ) -> tuple[Checked, dict[str, Any]]:
     """Solve the bucket with the correct and with the injected glue; check the racy pick."""
@@ -111,7 +110,7 @@ def racy_legality(
     info: dict[str, Any] = {"bucket": bucket, "wrong_glue": WRONG_GLUE}
     racy: dict[str, Any] = {}
     for label, family in (("correct", fp), ("injected", wrong_legality(fp))):
-        f = assemble(family, family.chain, templates, ids.body, hw.limits)
+        f = assemble(family, family.chain, templates, ids.body, hw.hw)
         r = solve(
             f, ids.body, bucket, model, hw, shortlist=64, rng=e.ctx.rng(f"wp7.faults.{label}")
         )
@@ -180,7 +179,7 @@ def run_faults(
     ids: CaseIds,
     fp: FamilyPackage,
     refs: dict[str, str],
-    hw: HwModel,
+    hw: MachineModel,
     model: UnitModel,
 ) -> str:
     gen = Generator(fp)

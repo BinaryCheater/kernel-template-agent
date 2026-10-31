@@ -20,8 +20,12 @@ program:
 backward_map: "Any permutation of independent tiles computes the same outputs; the order is erased."
 obligations:
   - {name: permutation, statement: "The launch index -> tile map is a bijection onto valid tiles (extra launch indices exit).", method: exhaustive}
-cost:
-  - {unit: l2, work: "p.operand_bytes * p.tiles / group", overlap: overlappable}
+effects:
+  transactions:
+    - {id: operand_reads, pattern: transfer, kind: l2_traffic, count: "1",
+       amounts: {bytes: "p.operand_bytes * p.tiles / group"}}
+  storage: []
+  overlap: []
 scope:
   predicate: "True"
   text: "Grids of independent tiles that reuse operands across tiles."

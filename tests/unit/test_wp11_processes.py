@@ -54,23 +54,23 @@ def _put(svc: Services, kind: str, body: dict[str, Any], **refs: Any) -> str:
 
 
 def test_experiment_quota_is_redistributed_when_no_batch_runs(ctx: Context) -> None:
-    base = quotas.shares(ctx.config)
+    base = quotas.shares(ctx.controls)
     assert base["experiment"] == 0.5 and quotas.effective(base, True) == base
     idle = quotas.effective(base, False)
     assert idle["experiment"] == 0.0
     assert idle["solve"] == pytest.approx(0.5) and idle["learn"] == pytest.approx(0.3)
     assert sum(idle.values()) == pytest.approx(sum(base.values()))
     with pytest.raises(ConfigError):
-        quotas.shares(_ctx(ctx, budget={"quotas": {"solve": 0.9}}).config)
+        ctx.controls.with_changes({"budget.process_quotas": {**base, "solve": 0.9}})
 
 
 def test_apply_quotas_follows_running_experiments(ctx: Context, ops: SqliteOps) -> None:
     ops.set_budget("global", {"agent_min": 1000.0})
-    quotas.apply_quotas(ops, ctx.config)
+    quotas.apply_quotas(ops, ctx.controls)
     assert ops.budget("process:experiment")["limit"]["agent_min"] == 0.0
     assert ops.budget("process:solve")["limit"]["agent_min"] == pytest.approx(500.0)
     assert quotas.set_active_experiments(ops, ["p1"])
-    quotas.apply_quotas(ops, ctx.config)
+    quotas.apply_quotas(ops, ctx.controls)
     assert ops.budget("process:experiment")["limit"]["agent_min"] == pytest.approx(500.0)
     assert ops.budget("process:solve")["limit"]["agent_min"] == pytest.approx(250.0)
     assert not quotas.set_active_experiments(ops, ["p1"])
@@ -96,7 +96,7 @@ def test_budget_period_rolls_over_with_a_report(
 
 def test_queued_tasks_take_turns_by_quota(ctx: Context, ops: SqliteOps) -> None:
     ops.set_budget("global", {"agent_min": 1000.0})
-    quotas.apply_quotas(ops, ctx.config)
+    quotas.apply_quotas(ops, ctx.controls)
     ops.settle("process:solve", {}, {"agent_min": 100.0})  # solve has used 100 / 0.5
     tasks = [
         Task("01A", "c", "T1", "queued", 0, None, None, 0, "a"),
@@ -105,7 +105,7 @@ def test_queued_tasks_take_turns_by_quota(ctx: Context, ops: SqliteOps) -> None:
         Task("01D", "c", "T4", "queued", 0, None, None, 0, "d"),
     ]
     proc = {"01A": "solve", "01B": "learn", "01C": "human", "01D": "learn"}
-    order = quotas.order_queued(tasks, lambda t: proc[t.id], ops, ctx.config)
+    order = quotas.order_queued(tasks, lambda t: proc[t.id], ops, ctx.controls)
     assert [t.id for t in order] == ["01C", "01B", "01D", "01A"]
 
 

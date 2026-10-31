@@ -31,8 +31,14 @@ backward_map: >-
 obligations:
   - {name: exact_once, statement: "Every reduction index k is assigned to exactly one group (the assignment is a partition of 0..length-1).", method: exhaustive}
   - {name: combine_complete, statement: "The combine reads every group's partial result exactly once and none before it is final.", method: test}
-cost:
-  - {unit: fma, work: "(num_groups - 1) * p.outputs", overlap: overlappable}
+effects:
+  transactions:
+    # Combining the groups' partial results; a sequential sum into one accumulator
+    # needs no combine step.
+    - {id: combine, pattern: reduce, kind: ffma, count: "(num_groups - 1) * p.outputs",
+       amounts: {ops: "1"}, when: "assignment != 'contiguous_sequential'"}
+  storage: []
+  overlap: []
 scope:
   predicate: "p.assoc and p.comm"
   text: >-

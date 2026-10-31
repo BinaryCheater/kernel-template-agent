@@ -28,7 +28,7 @@ from kta.core.context import Context
 from kta.core.ids import record_id
 from kta.core.registry import resolve
 from kta.measure.peaks import measure_peaks
-from kta.models import UnitModel
+from kta.models import UnitModel, load_machine
 from kta.models.calibrate import MODEL_SUBJECT, load_model, save_model
 from kta.store.base import Store
 from kta_wp7 import records as r
@@ -70,8 +70,8 @@ def _refs(ctx: Context) -> dict[str, Any]:
     ids = _setup(ctx)
     store: Store = resolve("store", ctx)
     target, _ = r.target(ctx)
-    hw_id, hw = r.latest_hwmodel(store, target.name)
-    return {**ids, "hw_model": hw_id, "hw": hw}
+    hw_id, _ = r.latest_hwmodel(store, target.name)
+    return {**ids, "hw_model": hw_id, "hw": load_machine(store, hw_id)}
 
 
 def step_peaks(ctx: Context) -> dict[str, Any]:
@@ -121,7 +121,7 @@ def step_reuse(ctx: Context) -> dict[str, Any]:
     store: Store = resolve("store", ctx)
     cases = {"bf16": bf16, "fp16": fp16}
     best = best_measured(store)
-    rid = run_reuse(store, ctx.clock, refs["chain"], cases, refs["hw"].limits, best)
+    rid = run_reuse(store, ctx.clock, refs["chain"], cases, refs["hw"].hw, best)
     return {"report": rid, "summary": store.get(rid).body["summary"]}
 
 

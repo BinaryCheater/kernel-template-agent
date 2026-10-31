@@ -17,7 +17,7 @@ from kta.orchestrator.runner import Runner
 from kta.orchestrator.tasks import TaskQueue
 from kta.store.sqlite import SqliteStore
 from kta.store.sqlite_ops import SqliteOps
-from orchesthelp import ctx_with, world
+from orchesthelp import set_controls, world
 
 
 @pytest.fixture
@@ -85,8 +85,10 @@ def test_missing_hw_model_blocks_and_raises_an_inbox_item(svc: Services) -> None
 
 def test_attention_limit_defers_task_creation(svc: Services, ctx: Context) -> None:
     w = world(svc)
-    limited = Services(ctx_with(ctx, attention_limit=0), svc.store, svc.ops)
-    r = Runner(limited, "test")
+    set_controls(
+        svc.store, svc.ops, {"budget.user_attention_cap": {"pending": 0, "review_shown": 5}}
+    )
+    r = Runner(svc, "test")
     loop_id = r.start("solve", w["case"], "c")
     _run(r, loop_id, 3)
     row = svc.ops.get_loop(loop_id)

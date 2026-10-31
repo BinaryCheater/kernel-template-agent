@@ -125,6 +125,25 @@ Additive; WP6's signatures are unchanged except where stated.
 - CLI (`cli/process_cmds.py`): `kta learn add|backlog`, `kta improve run [--label] [--now]`,
   `kta experiment status`, `kta calibrate hw`, `kta quotas`, `kta profile write codex-v1|codex-v2`.
 
+## WP21: controls and staged release (D482, D485, D487, D488)
+
+### Files
+
+```
+orchestrator/stages.yaml   S0–S4 (02 §6.3): processes, task_types, agent_calls (none | gated | automatic), exit
+orchestrator/release.py    stages(), stage_of(controls), process_allowed, hold_reason, admit (raises Held),
+                           release_call (one attempt), held_calls
+cli/controls_cmds.py       kta controls show | history | token
+```
+
+### Behaviour
+
+- `Settings` (transition.py) is a view of a controls snapshot: `Settings.of(controls)`; it has no defaults of its own. The `[orchestrator]` configuration section is no longer read; `[budget.quotas]` and `[agents] slots` are refused with a pointer to their knobs (`budget.process_quotas`, `budget.agent_instances`). `machines.yaml` limits name their knobs (`max_rounds: budget.rounds_per_case_loop`); the API shows the value in force.
+- The runner reads the controls in force at each `start` and `advance` (`kta.store.controls.ensure`), runs the state's work and `step` with that snapshot in `ctx.controls`, and stores its ID in the loop data. A new TaskCard's budget is `Settings.card_budget(type)` and its `refs.controls` the version.
+- Loop budget scope: `agent_min = rounds × max task wall budget / 60`, `gpu_min = case_factor × max task GPU budget / 60` (12 §1, D488).
+- The stage in force is the knob `release.stage` (default S0). A process outside the stage skips its ticks (`maintain` always runs). The agent pool (`next_task`, `step_once`) starts only a task the stage admits: its type in the stage, agent calls not `none`, and in a `gated` stage no other task leased or running and a release for exactly this attempt (`release:task:<id>` pointer + HumanAction `release_agent_call`). `kta task lease` (manual) is not gated.
+- `kta controls show` stores version 1 if none exists and prints the values in force and the stage; `kta controls history` lists versions; `kta controls token` creates the operator token file (mode 600) and never prints it.
+
 ## WP20 learning-loop runner (D560–D569)
 
 - **Admission done-check.** T2 runs `admission` last (`done_checks.t2_admission`): the chain and the Template drafts the pool lacks are validated against the pool plus those drafts and the submitted Patterns. An error or an unexplained warning rejects the T2; the queue's existing retry path (`max_retries` = 2, then `escalated`) returns the failures to the same work-unit session as a `RetryNote`, and `sessions.decide` resumes that session unless the same failure repeats. The T2 writer also writes the `admission` Report.

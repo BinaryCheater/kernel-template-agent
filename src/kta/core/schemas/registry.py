@@ -16,6 +16,7 @@ from pydantic import BaseModel, ValidationError
 from kta.core.errors import SchemaError
 from kta.core.schemas import evaluation as ev
 from kta.core.schemas import hardware as hw
+from kta.core.schemas import hwmodel as hm
 from kta.core.schemas import knowledge as kn
 from kta.core.schemas import process as pr
 from kta.core.schemas import upcast as up
@@ -51,7 +52,7 @@ KINDS: dict[str, KindSpec] = {
     "Template": KindSpec(
         kn.Template,
         ref_kinds={"previous": "Template", "sources": "Source"},
-        upcasters=(up.template_v1,),
+        upcasters=(up.template_v1, up.template_v2_effects),  # 3: cost -> effects (D461)
     ),
     "Realisation": KindSpec(
         kn.Realisation,
@@ -93,13 +94,29 @@ KINDS: dict[str, KindSpec] = {
     "HwFact": KindSpec(hw.HwFact),
     "Worker": KindSpec(hw.Worker),
     "EnvManifest": KindSpec(hw.EnvManifest),
-    "HwModel": KindSpec(hw.HwModel),
+    # 2: architecture class + chip instance (D463); schema-1 bodies are valid as they are.
+    "HwModel": KindSpec(
+        hw.HwModel,
+        ref_kinds={"arch": "HwArch", "previous_instance": "HwModel"},
+        upcasters=(up.identity,),
+    ),
+    "HwArch": KindSpec(hm.HwArch, ref_kinds={"previous": "HwArch", "sources": "Source"}),
+    "ModelVersion": KindSpec(
+        hm.ModelVersion,
+        ref_kinds={
+            "hw_model": "HwModel",
+            "arch": "HwArch",
+            "regression_set": "RegressionSet",
+            "previous": "ModelVersion",
+        },
+    ),
+    "RegressionSet": KindSpec(hm.RegressionSet, ref_kinds={"previous": "RegressionSet"}),
     # solving and evaluation
     "Problem": KindSpec(ev.Problem),
     "Contract": KindSpec(ev.Contract),
     "Case": KindSpec(ev.Case),
     "Candidate": KindSpec(ev.Candidate),
-    "Prediction": KindSpec(ev.Prediction),
+    "Prediction": KindSpec(ev.Prediction, upcasters=(up.identity,)),  # 2: bounds, unpriced
     "Build": KindSpec(ev.Build, required_refs=("env", "worker"), ref_kinds=_JOB),
     "Check": KindSpec(ev.Check, required_refs=("env", "worker"), ref_kinds=_JOB),
     "Measurement": KindSpec(ev.Measurement, required_refs=("env", "worker"), ref_kinds=_JOB),
@@ -118,6 +135,7 @@ KINDS: dict[str, KindSpec] = {
     "Protocol": KindSpec(pr.Protocol),
     "ExperimentRun": KindSpec(pr.ExperimentRun),
     "Report": KindSpec(pr.Report, ref_kinds=_ENV),
+    "ControlsVersion": KindSpec(pr.ControlsVersion, ref_kinds={"previous": "ControlsVersion"}),
 }
 
 

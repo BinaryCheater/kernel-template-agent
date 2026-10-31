@@ -62,7 +62,7 @@ def reverify_bound(svc: Services, record: str) -> str:
             continue
         bucket = next(b for b in row["data"]["buckets"] if str(b["name"]) == names[0])
         cv = case_view(svc.store, str(row["subject"]))
-        hw_id, hw = svc.hw_model(cv.case.target)
+        hw_id, hw = svc.machine(cv.case.target)
         shape = bucket_shape(bucket)
         new = bound(cv.case, shape, hw, min_work(cv.problem, shape))
         new_id = svc.store.put(

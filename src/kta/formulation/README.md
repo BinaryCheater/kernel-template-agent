@@ -18,3 +18,8 @@ Assemble a formulation (variables, constraints, cost blocks) from a chain's item
 
 - May import: `core`, `store`, `targets`, `execution`, `backends`, `knowledge`, `models`.
 - Enforced by import-linter (`pyproject.toml`, `[tool.importlinter]`).
+
+## WP15 (D460, D464)
+
+Blocks bind Template `effects` (transactions, storage, overlap) like constraints; `Formulation.transactions/storage/overlaps`. `pricing.py`: `evaluate_effects`, `price_point` (L1), `per_unit_work` (legacy terms without a hardware model, other transactions through a MachineModel), `work_terms` (MIP rows), `cost_breakdown`. `cost_terms` holds only legacy `unit:<u>` transactions.
+

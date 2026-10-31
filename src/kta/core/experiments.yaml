@@ -1,0 +1,160 @@
+# System-parameter experiments X1–X12 (docs/design/02-design-notes.md §11, D-T28; WP21, D484, D490).
+#
+# Definitions only: none has run. Each names the controls-registry knobs it sets (`sets`, ids in
+# controls.yaml), the AgentProfile fields it sets (`profile_fields`) and values that live outside
+# the registry (`sets_elsewhere`, e.g. HwModel data). A knob's `set_by` and an experiment's `sets`
+# must agree (checked on load). `step` is the order of 02 §11 (1 no agent, GPU minutes; 2 no
+# GPU; 3 references; 4 small agent spend in S1/S2; 5 read from S1/S2 logs; 6 claims). `method`:
+# run (a dedicated experiment) or logs (revised from S1/S2 logs, no dedicated run).
+# When an experiment runs, it becomes a frozen Protocol record (docs/design/50) and the value it
+# chooses is written as a new controls version whose reason names the ExperimentRun; the knob's
+# status then becomes `set`.
+
+format: 1
+
+experiments:
+  - id: X1
+    question: which model per task type
+    design: strong vs weak model on the same T1/T2/T3 tasks, same cards and budgets; include a cheap tier
+    arms: [strong model, weak model, cheap tier]
+    metrics: [admitted results per agent-hour, rejection rate, wall time per task type]
+    sets: [budget.task_wall_s, budget.gpu_s, budget.tool_call_steps]
+    profile_fields: [model]
+    depends_on: [S1 or S2 runs of T1/T2/T3]
+    step: 4
+    method: run
+    status: defined
+
+  - id: X2
+    question: reasoning effort
+    design: two effort levels on the same tasks
+    arms: [effort low/medium, effort high]
+    metrics: [admitted results per agent-hour, rejection rate, tokens]
+    sets: []
+    profile_fields: [reasoning_effort]
+    depends_on: [X1]
+    step: 4
+    method: run
+    status: defined
+
+  - id: X3
+    question: resume vs fresh session
+    design: O11 — two arms on the same work units; also tests the 60 % context threshold
+    arms: [resume within work unit, fresh session every step]
+    metrics: [tokens, latency, outcome, rounds stuck]
+    sets: [session.resume_scope]
+    profile_fields: []
+    depends_on: [O11, X5]
+    step: 4
+    method: run
+    status: defined
+
+  - id: X4
+    question: access discipline vs dump vs free browsing
+    design: O10 — three arms; row ablation of the discipline table; also header size
+    arms: [access discipline, dump everything, free browsing]
+    metrics: [pulls per task, admitted results, tokens, missed relevant cards]
+    sets: [session.access_discipline_version]
+    profile_fields: []
+    depends_on: [O10, WP19 pull log, X3]
+    step: 4
+    method: run
+    status: defined
+
+  - id: X5
+    question: retries on rejected tasks
+    design: 2 vs 3 retries on rejected tasks
+    arms: [2 retries, 3 retries]
+    metrics: [marginal acceptance of the extra retry, agent-hours per acceptance]
+    sets: [budget.retries_per_task]
+    profile_fields: []
+    depends_on: [X2]
+    step: 4
+    method: run
+    status: defined
+
+  - id: X6
+    question: improvement band
+    design: measured noise of the measurement protocol per kernel class (repeated measurements of fixed kernels)
+    arms: [per kernel class]
+    metrics: [CI of the median, run-to-run spread]
+    sets: [guard.improvement_band, learning.coupling_noise_band]
+    profile_fields: []
+    depends_on: []
+    step: 1
+    method: run
+    status: defined
+
+  - id: X7
+    question: L2 reproduction tolerance ε
+    design: distribution of reproduction error over the 7 decomposed references
+    arms: [one per reference]
+    metrics: [relative reproduction error per reference and step]
+    sets: [learning.reproduction_epsilon]
+    profile_fields: []
+    depends_on: [L1 measure + SASS census on the seven references, L2 reproduction attempts]
+    step: 3
+    method: run
+    status: defined
+
+  - id: X8
+    question: measured points k and exploration share
+    design: vary k and the exploration share on a fixed case set; O3 rank correlation from the same data
+    arms: ["k in {4, 8, 16} x exploration share in {0, 2/8, 4/8}"]
+    metrics: [rank correlation, hit rate of the best candidate]
+    sets: [guard.exploration_share, solve.shortlist]
+    profile_fields: []
+    depends_on: [X6, X10, S0 golden path]
+    step: 1
+    method: run
+    status: defined
+
+  - id: X9
+    question: task wall-clock budgets
+    design: completion-time distribution per task type, read from S1/S2 logs (no dedicated run)
+    arms: [per task type]
+    metrics: [completion time quantiles, share cut off by the budget]
+    sets: [budget.task_wall_s]
+    profile_fields: []
+    depends_on: [S1, S2 runs]
+    step: 5
+    method: logs
+    status: defined
+
+  - id: X10
+    question: hardware-model instance values
+    design: GB10 peak and pairwise interference microbenchmarks (A alone, B alone, A+B) per instruction class (D-T15)
+    arms: [per resource (peaks), per instruction-class pair (interference)]
+    metrics: [sustained peak per resource, slowdown of A+B vs A and B alone]
+    sets: []
+    profile_fields: []
+    sets_elsewhere: [HwModel resources (02 §4), HwModel interactions (02 §4)]
+    depends_on: [X6]
+    step: 1
+    method: run
+    status: defined
+
+  - id: X11
+    question: MIP ↔ L2 acceptance thresholds
+    design: sampled subspace of the GEMM family; distribution of rank correlation and of optimistic-bound violations
+    arms: [GEMM family subspace sample]
+    metrics: [rank correlation MIP vs L2, share of points where MIP > L2]
+    sets: []
+    profile_fields: []
+    sets_elsewhere: [MIP ↔ L2 check thresholds (registry knobs added by WP19 with the check)]
+    depends_on: [WP19 projection compiler, WP16 L2 simulator]
+    step: 2
+    method: run
+    status: defined
+
+  - id: X12
+    question: concurrent agent instances
+    design: 2 vs 4 instances on one batch
+    arms: [2 instances, 4 instances]
+    metrics: [throughput, GPU queue wait, rate-limit hits]
+    sets: [budget.agent_instances]
+    profile_fields: []
+    depends_on: [X4]
+    step: 4
+    method: run
+    status: defined

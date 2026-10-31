@@ -20,6 +20,12 @@ Schemas (pydantic models per record kind), content-hash IDs, the expression lang
 - `load_config(path)` (WP0)
 - `jobs`: `Job`, `JobResult`, `JobRunner` (structural submit/wait/run/read_blob/put_blob), `DEFAULT_POOL` (WP2, D180, D183); `trace.current_tracer()` (WP2, D192)
 
+## Controls registry (WP21)
+
+- `controls.yaml`, `experiments.yaml`: the knobs of docs/design/12 and X1–X9 (definitions, initial values).
+- `controls.py`: `definitions()`, `Controls` snapshot (`with_changes`, `diff`), `baseline()`, `upgrade()`; `knobs.py`: one typed accessor per knob.
+- `Context.controls`: the snapshot pure code reads. How to add a knob: spec/modules/core-store.md "Controls registry".
+
 ## Dependencies
 
 - May import: none (bottom layer).
@@ -30,3 +36,6 @@ Schemas (pydantic models per record kind), content-hash IDs, the expression lang
 - `schemas/upcast.py` and `KindSpec.upcasters`: old stored bodies are upcast on read; `Record.stored_body` / `to_json_dict()` keep the stored form (the ID), `Record.body` is the current shape.
 - `schemas/levels.py`: levels 1–7 and the versioned mapping `paper-0to5@1` from the paper's 0–5.
 - New kinds: Capability, CapabilityDecl (hardware), Realisation, Finding, Coupling (knowledge); Regime and Negative are legacy (`legacy_of = "Finding"`).
+## WP15 (D461, D462)
+
+Schema upcasts: Template v3 step `cost` → `effects` on WP14's `KindSpec.upcasters` (D440, D461); expression roots for the hardware model (`Expr.parse(..., roots)`, `eval(..., extra=)`); schemas `effects.py` and `hwmodel.py` (HwArch, ModelVersion, RegressionSet, InterferenceMatrix).

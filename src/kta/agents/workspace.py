@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
+from typing import Any
 
 from kta.agents import arms, cards
 from kta.agents.arms import NO_ARM, Arm
@@ -102,6 +103,7 @@ def build(
     card_body: TaskCard,
     used: dict[str, float],
     retry: cards.RetryNote | None,
+    policy: dict[str, Any],
     arm: Arm = NO_ARM,
 ) -> Bundle:
     """Workspace files; templates and skills come only from the verified batch root (D322),
@@ -138,7 +140,7 @@ def build(
         commands=arms.commands(arm, profile.allowed_commands.get(t, [])),
         used=used,
         retry=retry,
-        policy=profile.context_policy,
+        policy=policy,
     ).encode()
     if "notes_seed" in profile.message_templates:
         ws["NOTES.md"] = batch.text("msg-notes_seed.md").encode()

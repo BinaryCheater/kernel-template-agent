@@ -7,11 +7,54 @@
 ### 文件
 
 ```
-models/bound.py        理论下界
-models/unit_model.py   按单元的成本模型（编译前、编译后）
+models/bound.py        理论下界（per-resource SOL on the hardware model, D464）
+models/unit_model.py   按单元的成本模型（编译前、编译后）; the calibration layer over L1 (D466)
 models/calibrate.py    校准
 models/fit.py          拟合算法（D244）
+models/machine.py      MachineModel: HwModel (instance) resolved on its HwArch (class) (D463)
+models/l1.py           L1: steady-state pricing of evaluated effects (D464, D465, D471)
+models/stored.py       load_arch / load_machine / latest_machine from the store
 ```
+
+### Hardware model and L1 (WP15; docs/design/02 §4, §5.1)
+
+The hardware model is declarative data (spec/schemas.md §4.6.1): an architecture class `HwArch` and a chip instance `HwModel` whose every value has a `Provenance`. `MachineModel.build` is the only place where it becomes numbers. Templates declare `effects` (§4.2.1); the formulation binds them; L1 prices them. The same three objects are the interface of L2 (WP16) and of the projection compiler (WP17):
+
+```python
+class MachineModel:                                    # frozen; models/machine.py
+    target: str; hw_version: int; arch: str | None
+    hw: Mapping[str, Any]                              # the hw.* values (= HwModel.limits)
+    resources: Mapping[str, Resource]                  # rate (chip-level amount/s at peak, None = unmodelled), latency_s, ncu, status, source
+    op_classes: Mapping[str, OpClass]                  # rows: (resource, amount Expr), latency_s, serial
+    walls: tuple[Wall, ...]; tables; efficiency; interactions; clock_hz; scope_counts
+    @staticmethod
+    def build(hw: HwModel, arch: HwArch | None = None) -> MachineModel   # arch None: schema-1 flat model
+    def op_class(kind: str) -> OpClass | None          # "unit:<u>" is the built-in legacy class
+    def rate(resource) -> float | None; def time_s(resource, amount) -> float | None
+    def evaluate(expr, tx=None, f=None) -> float       # resolves tbl.* first
+    def efficiency_of(resource, features) -> float     # declared efficiency, 1 when none
+    version: str                                       # identity of everything that changes a price
+
+# models/l1.py: evaluated effects (numbers, no expressions) — what L2 consumes too
+EvalTx(source, id, pattern, kind, count, amounts);  EvalStorage(source, id, level, scope, bytes)
+EvalOverlap(source, between, holds, inflight, trips);  EvalEffects(txs, storage, overlaps)
+
+def price_parts(effects, mm) -> (Parts, unpriced, unmodelled, per_tx)   # peak-time vectors, eff = 1
+class Parts: busy_peak_us; serial_peak_us; pairs_peak_us; recurrence_us
+def compose(parts, eff=None, interactions=(), serial_coef=1.0, serial_const_us=0.0) -> Composed
+    # total = max(max_r busy_r / eff_r, pair bounds, recurrences) + serial + sum gamma * min(busy_a, busy_b)
+def check_walls(storage, mm) -> tuple[WallCheck, ...]                   # no_launch -> infeasible; lower_occupancy -> residency
+def price(effects, mm, features=None) -> L1Result                       # parts + composed + walls + unpriced + unmodelled
+class L1Result: feasible; complete; total_us; residency; prediction() -> Prediction
+def sol_us(min_work, mm) -> dict[resource, us]                           # per-resource speed of light
+```
+
+- **L1 composition** (rule `steady_state_max`): every transaction reserves `count * amount` on each resource of its class's reservation table; `busy_r = use_r / (rate_r * eff_r)` over overlappable transactions; a two-selector overlap that does not hold adds the pair bound `t(G_a) + t(G_b)`; one that holds with `inflight` and `trips` adds `trips * (lat(G_a) + lat(G_b)) / inflight` with `lat(G)` the smallest class latency in the group (optimistic, D464); serial classes (and one-selector overlaps that do not hold) add their time. Total = max of the bounds + serial + interactions. Each term is a lower bound of the steady state; the projection is these terms.
+- **For WP16 (L2):** L2 consumes `EvalEffects` (per CTA, before aggregation by `p.instances` when it needs it) and `MachineModel` (resources, op classes, latencies, walls, tables); it must reproduce `price_parts` as its steady-state limit on loop-dominated fixtures (WP16 acceptance). Its outputs use `Resource.ncu` names.
+- **For WP17 (MIP):** the compiler reads `Formulation.transactions/storage/overlaps` (expressions over family variables) and `MachineModel`; `formulation.work_terms(f, mm)` already gives every resource-use row as an expression (count × reservation amount, `tx.*` substituted; table terms raise NotSupported). Pair and recurrence bounds and walls are WP17's additions (epigraph max, `II >= lat/S` menus, integer ceil); today's `solve_mip` relaxes them and re-prices its shortlist with L1.
+- **Unpriced** (D465): unknown classes and resources without a peak cost no time and are reported in `L1Result.unpriced/unmodelled` and `Prediction.unpriced`; `solve` refuses a formulation with priced effects on a flat (class-less) HwModel (NotSupported).
+- `bound(case, shape, hw, work, arch=None)` is the per-resource SOL (`sol_us`); a resource of the minimum work without a peak raises NotSupported. `unit_time_us(unit, work, hw, arch=None)`; `hw` may be an HwModel or a MachineModel everywhere in models, formulation and solve.
+- `UnitModel` is the calibration layer (D466): `total_us` delegates to `compose`; `predict_l1(result, mm, feedback=None)` uses its fitted `eff_u` where it has one and the hardware model's declared efficiency elsewhere, and raises `NoResidentCta` on a no-launch wall. `Prediction.bounds` are taken as fixed by refits.
 
 ### 接口
 
@@ -56,8 +99,16 @@ class Formulation:
     linear: bool                           # 全部约束都属线性子集
 def assemble(family: FamilyPackage, chain: Chain, templates: dict[str, Template], case: Case, hw: dict,
              previous: Formulation | None = None) -> Formulation      # previous: reuse unchanged blocks
-def per_unit_work(f: Formulation, assignment: dict, shape: dict, hw: dict) -> tuple[dict[Unit, float], dict[Unit, float]]
+def per_unit_work(f: Formulation, assignment: dict, shape: dict, hw: dict | MachineModel) -> tuple[dict[Unit, float], dict[Unit, float]]
     # 同一单元的工作量相加；serial 项单独相加，按单元分开（D240）
+    # (D460) legacy unit:<u> terms need only hw.*; other transactions need a MachineModel
+# (D460, D464) formulation/pricing.py:
+Formulation.transactions: list[BoundTx]; .storage: list[BoundStorage]; .overlaps: list[BoundOverlap]
+Formulation.cost_terms                                 # only the legacy unit:<u> transactions (schema-1 cost)
+def evaluate_effects(f, assignment, shape, hw: dict) -> EvalEffects
+def price_point(f, assignment, shape, mm: MachineModel, features=None) -> L1Result
+def work_terms(f, mm) -> list[BoundCost]               # MIP rows: count x reservation amount per resource
+def cost_breakdown(f, assignment, shape, hw | MachineModel) -> list[dict]   # legacy terms + per-transaction times
     # Binding semantics of chain items, including p.* and the reserved p.instances: D246, D247
 ```
 
@@ -80,9 +131,12 @@ solve/select.py      短名单选择（编译前）与重排（编译后）
 ### 接口
 
 ```python
-def solve(f: Formulation, case: Case, shape_bucket: dict, model: UnitModel, hw: HwModel,
+def solve(f: Formulation, case: Case, shape_bucket: dict, model: UnitModel, hw: HwModel | MachineModel,
           shortlist: int = 64, time_limit_s: float = 60,
-          rng: random.Random | None = None, max_nodes: int = 2_000_000) -> SolveResult
+          rng: random.Random | None = None, max_nodes: int = 2_000_000,
+          arch: HwArch | None = None) -> SolveResult
+    # (D464) points are priced by L1 (model.predict_l1); points on a no-launch wall are dropped
+    # and counted in notes; priced effects on a class-less HwModel raise NotSupported
     # (D248) time_limit_s bounds the MIP; enumeration is bounded by max_nodes; rng shuffles
     # the value order of a budgeted (non-exhaustive) enumeration
     # SolveResult：candidates（按预测排序，每个带 Prediction）、方法（enumerate/mip）、

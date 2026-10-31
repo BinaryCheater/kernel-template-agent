@@ -18,7 +18,9 @@ from typing import Any, Literal, cast
 
 import yaml
 
+from kta.core.controls import baseline
 from kta.core.errors import ConfigError
+from kta.core.knobs import Knobs
 from kta.core.schemas.knowledge import ReferencePriority
 from kta.knowledge.types import Issue
 
@@ -166,9 +168,11 @@ def performance_core(
     chain: Mapping[str, Any],
     configuration: Mapping[str, Any],
     tolerance: str,
+    controls: Knobs | None = None,
 ) -> PerformanceCore:
     """The performance core of a decomposed reference: every chain item, with the
-    system features of its unmatched transactions excluded by declaration."""
+    system features of its unmatched transactions excluded by declaration; ε is the knob
+    ``learning.reproduction_epsilon`` of ``controls`` (default: the registry baseline)."""
     spec = tables()["performance_core"]
     excluded: dict[str, list[str]] = {}
     for tx in reconstruction.get("unmatched_transactions", []):
@@ -182,7 +186,7 @@ def performance_core(
         host_inputs=str(spec["host_inputs"]),
         excluded=excluded,
         tolerance=tolerance,
-        epsilon_rel=float(spec["epsilon_rel"]),
+        epsilon_rel=(controls or baseline()).reproduction_epsilon,
         note=str(spec["note"]),
     )
 
@@ -211,4 +215,5 @@ def o12_protocol() -> dict[str, Any]:
 
 
 def ablation_settings() -> dict[str, Any]:
+    """Non-threshold ablation settings (suspect kinds, repeats); thresholds are knobs."""
     return dict(tables()["ablation"])

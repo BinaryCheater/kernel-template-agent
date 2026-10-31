@@ -36,6 +36,10 @@ job program is `python -m kta.agents.launch`, the only file here that starts pro
 - WP11: `profile.CODEX_V2` (adds `diagnose-model`, `write-microbench`); `batch_port.BatchEnvs`,
   registered as interface `batch_envs` for the experiment process.
 
+## Controls (WP21)
+
+- `policy.py`: context and loop policy from the controls snapshot; the runner records the version in `AgentRun.refs.controls`. AgentProfile policies of codex-v1/v2 are kept as recorded and no longer drive a run.
+
 ## Dependencies
 
 - May import: `core`, `store`, `targets`, `execution`, `backends`, `knowledge`, `models`, `measure`, `formulation`, `checks`, `solve`, `orchestrator`.

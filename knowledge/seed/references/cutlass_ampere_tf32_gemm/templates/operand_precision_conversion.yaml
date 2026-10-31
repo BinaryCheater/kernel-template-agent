@@ -23,8 +23,12 @@ backward_map: "Read the converted operand as the exact operand; the step is an a
 obligations:
   - {name: error_bound, statement: "|D - D_exact| stays within the contract tolerance for the admitted input distributions, given K and the rounding of to_dtype.", method: test}
   - {name: convert_once, statement: "Each operand element is converted exactly once per use and with the declared rounding mode.", method: test}
-cost:
-  - {unit: fma, work: "p.M * p.K + p.K * p.N", overlap: overlappable}
+effects:
+  transactions:
+    - {id: convert, pattern: map, kind: ffma, count: "p.M * p.K + p.K * p.N",
+       amounts: {ops: "1"}}
+  storage: []
+  overlap: []
 scope:
   predicate: "True"
   text: "Contractions whose contract tolerates lower-precision operands (TF32 GEMM, FP16 P in attention, FP8 inputs)."

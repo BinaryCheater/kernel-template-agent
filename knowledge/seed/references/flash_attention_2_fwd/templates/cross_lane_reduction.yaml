@@ -22,8 +22,11 @@ backward_map: "Every lane's final value equals the combine of all lanes' partial
 obligations:
   - {name: group_complete, statement: "Each exchange stays within the lane group and the mask includes every participating lane.", method: exhaustive}
   - {name: convergence, statement: "All participating lanes execute every exchange (no divergent exit before the shuffle).", method: test}
-cost:
-  - {unit: issue, work: "p.reductions * log2(lanes)", overlap: overlappable}
+effects:
+  transactions:
+    - {id: shuffle, pattern: reduce, kind: warp_shuffle, count: "p.reductions * log2(lanes)"}
+  storage: []
+  overlap: []
 scope:
   predicate: "True"
   text: "Reductions whose partials sit in registers of lanes of the same warp (row max/sum in MMA fragment layouts, dot products split over lanes)."

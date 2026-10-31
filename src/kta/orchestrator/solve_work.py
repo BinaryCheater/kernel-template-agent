@@ -57,7 +57,7 @@ def work_new(svc: Services, loop: Loop) -> Facts:
 
 def work_bounded(svc: Services, loop: Loop) -> Facts:
     cv = case_view(svc.store, loop.subject)
-    hw_id, hw = svc.hw_model(cv.case.target)
+    hw_id, hw = svc.machine(cv.case.target)
     buckets = shape_buckets(cv.case)
     bounds: dict[str, str] = {}
     for b in buckets:
@@ -152,13 +152,13 @@ def work_retrieving(svc: Services, loop: Loop) -> Facts:
 
 
 def work_solving(svc: Services, loop: Loop) -> Facts:
-    s = Settings.from_config(svc.ctx.config)
+    s = Settings.of(svc.ctx.controls)
     cv = case_view(svc.store, loop.subject)
-    hw_id, hw = svc.hw_model(cv.case.target)
+    hw_id, hw = svc.machine(cv.case.target)
     model_id, model = svc.unit_model(cv.case.target)
     family = str(loop.data["families"][0])
     fp = pipeline.family_package(svc, family)
-    f = assemble(fp, fp.chain, pipeline.templates_of(svc.store, fp), cv.case, hw.limits)
+    f = assemble(fp, fp.chain, pipeline.templates_of(svc.store, fp), cv.case, hw.hw)
     out: dict[str, list[str]] = {}
     for b in loop.data["buckets"]:
         res = solve(
@@ -200,9 +200,9 @@ def _sass(svc: Services, loop: Loop, fp: Any, module: Any, assignment: dict[str,
 
 
 def work_building(svc: Services, loop: Loop) -> Facts:
-    s = Settings.from_config(svc.ctx.config)
+    s = Settings.of(svc.ctx.controls)
     cv = case_view(svc.store, loop.subject)
-    _, hw = svc.hw_model(cv.case.target)
+    _, hw = svc.machine(cv.case.target)
     _, model = svc.unit_model(cv.case.target)
     family = str(loop.data["families"][0])
     fp = pipeline.family_package(svc, family)
