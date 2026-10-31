@@ -34,6 +34,7 @@ from kta.core.trace import new_tracer, tracing
 from kta.execution.executor import JobExecutor
 from kta.execution.registry import register, worker_configs
 from kta.store import CodeState, SqliteOps, SqliteStore, code_state, open_ops, open_store
+from proxyhelp import direct
 
 FAKE = Path(__file__).resolve().parents[1] / "fakes" / "fake_codex.py"
 TEST_PROFILE = ProfileSpec(name="codex-test", isolation="config")
@@ -63,6 +64,7 @@ def actx(tmp_path: Path) -> Context:
             },
         },
     }
+    direct(tmp_path / "d")  # codex goes direct in these tests: no network (WP22)
     return Context(
         env="test", config=config_from_mapping(config), data_dir=tmp_path / "d", registry=Registry()
     )

@@ -18,3 +18,7 @@ The only path to compute: jobs submitted to local or ssh workers (pull: protocol
 
 - May import: `core`, `store`, `targets`.
 - Enforced by import-linter (`pyproject.toml`, `[tool.importlinter]`).
+
+## WP22 (D589)
+
+`Job.requires["worker"]` restricts placement to the named worker; only the settings page's worker Test uses it.

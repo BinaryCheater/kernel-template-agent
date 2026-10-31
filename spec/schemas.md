@@ -420,6 +420,7 @@ class AgentRun:     session: str; profile: str; cli_version: str; model: str
                     context_manifest: str             # blob：本次运行全部上下文来源及其 hash（agents.md）
                     violations: list[dict]            # 越权尝试、未允许的命令、工作区外写入等
                     arm: dict                         # experiment arm: name, knowledge (zero | text | pool), snapshot (D430)
+                    proxy: dict?                      # WP22 (D586): used, policy, scheme, host, port, source, no_proxy, preflight; never credentials
 class AgentProfile:                                   # 控制 agent 行为的全部设置（agents.md §受控配置）
     name: str; version: int
     provider: Literal["codex", "claude_code", "pi", "deepseek_harness"]; cli_version: str
@@ -459,7 +460,7 @@ class ControlsVersion:  version: int (>= 1); definitions_hash: str   # WP21, D48
                      changes: list[dict]       # {knob, old, new} against refs.previous
                      reason: str               # required; the actor is the author
 ```
-refs: Report may have `env` (EnvManifest). ControlsVersion has `previous` (ControlsVersion) except version 1. TaskCard and AgentRun may have `controls` (the ControlsVersion the card's budget / the step used), ExperimentRun `controls` (a list: the versions its loop ran under) (WP21). Template's `backward_map_fn: str?` (python function path) is a field of its own.
+refs: Report may have `env` (EnvManifest). ControlsVersion has `previous` (ControlsVersion) except version 1. AgentProfile may have `base` (the profile a draft was edited from, WP22 D594). TaskCard and AgentRun may have `controls` (the ControlsVersion the card's budget / the step used), ExperimentRun `controls` (a list: the versions its loop ran under) (WP21). Template's `backward_map_fn: str?` (python function path) is a field of its own.
 
 推进规则（`kta.store.status`）：
 

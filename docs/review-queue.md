@@ -829,3 +829,51 @@ Decisions made without the user that need review. Newest last. Each entry: quest
 - **Rationale:** on the GEMM seed every point satisfies MIP ≤ L2 but ρ is only 0.52–0.54 (shallow pipelines: L2 > L1 by the recurrence, WP16 known issue), so the default threshold passes narrowly; X11 has to set it from the measured distribution.
 - **Cost of changing later:** low: knob values; the naming rule is one function.
 
+## D580 — System configuration store (WP22)
+
+- **Question:** where infrastructure settings (agent proxy, per-provider policy, worker intake proxy) live, given that the controls registry is for versioned research knobs.
+- **Choice:** a revisioned JSON file `<data dir>/system/config.json`, written only by `POST /system` with the operator token and a reason; each write leaves a HumanAction `set_system`.
+- **Rationale:** separate from runs and experiments; simple to inspect; the audit trail is an ordinary record shown in the action log.
+- **Cost of changing later:** low: one module (`kta.core.sysconfig`) reads and writes it.
+
+## D584 — Fail-closed preflight and what happens to the task (WP22)
+
+- **Question:** where to check the proxy and what a failed check does to the task.
+- **Choice:** the launcher checks on the agent host just before the CLI would start (port, CONNECT, TLS; one retry per host); on failure the CLI never starts, a Report is written, the breaker trips and `kta runner` abandons the attempt (counted like any abandoned step).
+- **Rationale:** only the host the CLI runs on can prove the proxy works for it; counting the attempt keeps the task state machine unchanged.
+- **Cost of changing later:** low: returning the task to `queued` without counting needs one new transition in machines.yaml.
+
+## D585 — Proxy breaker (WP22)
+
+- **Question:** how to stop every queued task of a provider from failing one after another while the proxy is down.
+- **Choice:** ops pointer `proxy:status:<provider>`; a failed launch trips it; tasks of that provider are not leased; the Inbox lists it; a passing Settings Test clears it.
+- **Rationale:** one visible item instead of a burst of abandoned attempts; the user decides when to retry.
+- **Cost of changing later:** low (one pointer, two call sites).
+
+## D589 — Executor requirement `worker` (WP22)
+
+- **Question:** the worker Test must run a job on one named worker, while conventions §6 select workers by capability.
+- **Choice:** `requires["worker"]` restricts placement to that worker; only the Test uses it.
+- **Rationale:** a diagnostic of one machine is about that machine; no business job names a worker.
+- **Cost of changing later:** trivial; or replace it by a per-worker `name` label at registration.
+
+## D592 — Agent CLIs on spark cannot reach the Mac's Clash (WP22)
+
+- **Question:** `[agents] worker = spark`, but the user's proxy is Clash on the Mac (127.0.0.1:7897). Which host's loopback does the injected proxy mean?
+- **Choice:** none rewritten; the preflight runs on the agent host and refuses the start until the user decides.
+- **Options:** (a) run agent CLIs on a `local` worker on the Mac (matches "the agent runner runs on the Mac"); (b) a proxy on spark and an override; (c) `ssh -R 7897:127.0.0.1:7897 spark` (a transport change).
+- **Cost of changing later:** (a) is a config change ([workers.local] with pool `agent`, `[agents] worker = "local"`, `[agents.hosts.local] codex_cmd`); (b) and (c) touch remote setup, which needs the user.
+
+## D594 — Profile edits from the workflow page are draft versions (WP22)
+
+- **Question:** how to make every part of the agent configuration editable from the frontend while runs stay reproducible.
+- **Choice:** an edit writes a new AgentProfile version (refs.base, operator as author); approval moves `current_profile`. Model and effort stay profile-wide; cli_flags, isolation, auth, allowed commands and the skill list per type are not editable here.
+- **Rationale:** profile records are immutable and referenced by runs; a per-task-type model needs an AgentProfile schema change (a field `model_by_type`), which is better decided by you.
+- **Cost of changing later:** low for more editable fields (one entry in `EDITABLE_FIELDS`); a schema bump with upcast for per-type models.
+
+## D595 — Batch of an approved draft (WP22)
+
+- **Question:** batches are built per profile, and the runner refused tasks whose card named another profile than the configured batch, so an approved draft could never run.
+- **Choice:** approval builds `<name>-v<version>`; the runner uses it for new work units of tasks without their own batch when the configured batch is from another profile.
+- **Rationale:** new tasks pick up the approved profile without editing config/kta.toml; running work units keep their batch.
+- **Cost of changing later:** low (one branch in `open_batch`).

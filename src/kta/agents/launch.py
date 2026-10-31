@@ -23,7 +23,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from kta.agents import hostfs
+from kta.agents import guard, hostfs, proxyplan
 from kta.agents.adapters import codex_session
 from kta.agents.launchspec import (
     HOME,
@@ -39,7 +39,8 @@ from kta.agents.launchspec import (
     WORKSPACE,
     LaunchSpec,
 )
-from kta.core.errors import ConfigError, KtaError
+from kta.core.errors import ConfigError, KtaError, PermissionDenied
+from kta.core.proxy import USERINFO_SECRET
 
 POLL_S = 1.0
 LOCK_FILE = "env.lock.json"  # kta.agents.batches.LOCK
@@ -297,6 +298,18 @@ def _batch_root(job: Path, spec: LaunchSpec) -> Path:
     return data_root(job) / "batches" / spec.batch
 
 
+def _proxy_gate(spec: LaunchSpec) -> proxyplan.HostCheck:
+    """The preflight on this host; credentials come from this host's secrets.env only."""
+    userinfo = None
+    if spec.proxy and spec.proxy.get("credentials"):
+        try:
+            found = guard.api_key_env(USERINFO_SECRET, Path(str(spec.proxy["secrets_file"])))
+            userinfo = found[USERINFO_SECRET]
+        except PermissionDenied:
+            userinfo = None  # host_check refuses the start and says what is missing
+    return proxyplan.host_check(spec.proxy, dict(spec.env), userinfo)
+
+
 def unit_dirs(job: Path, spec: LaunchSpec) -> tuple[Path, Path]:
     """Workspace and CLI home of the work unit inside its batch root."""
     root = _batch_root(job, spec)
@@ -319,9 +332,14 @@ def step(job: Path, spec: LaunchSpec) -> dict[str, Any]:
     upward = hostfs.upward_agents_md(ws)
     if upward:
         return {**report, "exit": "refused", "error": f"AGENTS.md above the workspace: {upward}"}
+    gate = _proxy_gate(spec)
+    report["proxy"] = gate.report
+    if not gate.ok:
+        # Fail closed (D584): the CLI is not started, nothing goes direct.
+        return {**report, "exit": "refused", "error": f"proxy: {gate.report.get('error')}"}
     created, creds, auth_dir = _prepare(job, spec, ws, home)
     argv = [_sub(a, home, ws) for a in spec.argv]
-    env = {k: _sub(v, home, ws) for k, v in spec.env.items()}
+    env = {k: _sub(v, home, ws) for k, v in {**spec.env, **gate.env}.items()}
     notes_before = _notes_sha(ws, spec)
     report["pre_commit"] = commit_workspace(ws, f"before {spec.mode} {spec.run}")
     cli = cli_identity(argv)
@@ -339,7 +357,7 @@ def step(job: Path, spec: LaunchSpec) -> dict[str, Any]:
         credentials=creds,
         cli=cli,
         env=env,
-        secret_env=spec.secret_env,
+        secret_env=[*spec.secret_env, *gate.secret],
         host_home=Path.home(),
     )
     hostfs.write_json(out / OUT_MANIFEST, mf)

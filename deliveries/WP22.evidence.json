@@ -1,0 +1,35 @@
+[
+ {
+  "claim": "Real proxy auto-detect and fail-closed preflight against the local Clash on the control host, no model call: GET /system detected http://127.0.0.1:7897 from scutil --proxy (HTTPSEnable=1); POST /system/proxy/test tunnelled CONNECT + TLS 1.3 through it to chatgpt.com:443 and api.openai.com:443 (codex) and api.anthropic.com:443 (claude_code), all passed; one Report proxy_preflight per provider, origin real, data.source = scutil",
+  "command": "KTA_ENV=dev KTA_WP=WP22 KTA_DATA=/Users/dingyi/kta-data KTA_CONFIG=<scratch copy of config/kta.toml with [api] port 7323> scripts/api; curl http://127.0.0.1:7323/system; curl -X POST -d '{}' http://127.0.0.1:7323/system/proxy/test",
+  "git_commit": "7caca44f8de992234ad69445cb47129cecdb3734",
+  "dirty": false,
+  "env": "dev",
+  "control_host": "Mac.lan",
+  "workers": [],
+  "record_ids": [
+   "279307becfc51c33c03e47355690b7225926ca42e2786ae9dbc6d6b18b620c43",
+   "05f042817bda88b92ce71e0316396fdf02dcc249d7eea5053703a05357ceef1a"
+  ],
+  "blob_ids": [],
+  "env_manifests": [],
+  "started_at": "2026-10-31T07:02:52Z",
+  "requires_gpu": false,
+  "notes": "The same run also wrote 34cf2310… (pi, policy off, nothing to check, ok false); the commit after it skips off providers in the Test and writes no Report for them. An agent launch through the proxy (AgentRun.proxy.used) is a pending real run: agent CLIs are configured to run on spark (D592)."
+ },
+ {
+  "claim": "WP22 unit and contract tests pass at this commit: injection per policy (required gets all eight variables from the system configuration, off gets none, the runner's own HTTPS_PROXY is ignored), NO_PROXY always holds loopback and the API host, fail closed (a real launcher job on a local worker with the proxy down: no CLI process, no AgentRun, a Report, the breaker holds the next step, Inbox item), no credentials in records, System API read/write/Tests (a real trivial job on a local worker through the Executor), Mechanisms view; Part D: the workflow derived from machines.yaml, done checks and sessions.decide, a missing $placeholder refused in preview and on save, a draft written as a new profile version with a diff while the base stays unchanged, approval moving current_profile and building a verified batch that new tasks of that profile use. Internal checks, not acceptance",
+  "command": "scripts/gate --stage code WP22",
+  "git_commit": "ec5bfc65ebccee6358069574db735d2d18490298",
+  "dirty": false,
+  "env": "dev",
+  "control_host": "Mac.lan",
+  "workers": [],
+  "record_ids": [],
+  "blob_ids": [],
+  "env_manifests": [],
+  "started_at": "2026-10-31T07:20:00Z",
+  "requires_gpu": false,
+  "output": "deliveries/WP22.md section 'Gate output'"
+ }
+]

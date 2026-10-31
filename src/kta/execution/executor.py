@@ -301,11 +301,14 @@ class JobExecutor:
     # ---- scheduling --------------------------------------------------------------
 
     def _candidates(self, job: Job) -> list[_Worker]:
-        needs = {k: v for k, v in job.requires.items() if k != "pool"}
+        # ``worker`` names one worker: only the settings page's worker Test uses it (D589).
+        named = job.requires.get("worker")
+        needs = {k: v for k, v in job.requires.items() if k not in ("pool", "worker")}
         return [
             w
             for w in self.workers
-            if label_matches(w.reg.worker.labels, needs)
+            if (named is None or w.name == named)
+            and label_matches(w.reg.worker.labels, needs)
             and w.limit(job.pool) > 0
             and (w.healthy or not job.uses_gpu)
         ]

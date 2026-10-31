@@ -5,7 +5,8 @@ import type {
   ActionLogEntry, ActiveRuns, AgentsView, BlobText, Capability, CaseDetail, CaseIndexRow, CoverageReport,
   FamilyDetail, FamilySummary, ImprovementsView, InboxItem, Machines, Meta, PoolDiff, PoolView, RecordEnvelope,
   ModelTimeline, Quotas, Residual, ResultDetail, Scoreboard, Snapshot, Span, TaskDetail, TraceInfo, ExperimentProtocol,
-  ControlsView, ControlsVersionRow, ReleaseView,
+  ControlsView, ControlsVersionRow, ReleaseView, SystemView, ProxyTestResult, WorkerTestResult, MechanismsView,
+  WorkflowView, WfChanges, WfPreview, WfDiff,
 } from "./types";
 
 const BASE = "/api";
@@ -94,6 +95,21 @@ export const api = {
     post<{ id: string; version: number; action: string }>("/controls", { expected, changes, reason }, operator()),
   releaseCall: (task: string, reason: string) =>
     post<{ task: string; attempt: number; action: string }>("/release", { task, reason }, operator()),
+  // WP22
+  system: () => get<SystemView>("/system"),
+  setSystem: (expected: number, changes: Record<string, unknown>, reason: string) =>
+    post<{ revision: number; action: string }>("/system", { expected, changes, reason }, operator()),
+  proxyTest: (provider?: string) => post<ProxyTestResult>("/system/proxy/test", provider ? { provider } : {}),
+  workerTest: (name: string) => post<WorkerTestResult>(`/system/workers/${enc(name)}/test`),
+  mechanisms: () => get<MechanismsView>("/mechanisms"),
+  workflow: (profile?: string) => get<WorkflowView>("/workflow", { profile }),
+  workflowDiff: (a: string, b: string) => get<WfDiff[]>("/workflow/diff", { a, b }),
+  workflowPreview: (base: string, changes: WfChanges, task_type: string, card?: string) =>
+    post<WfPreview>("/workflow/preview", { base, changes, task_type, card: card || null }),
+  saveDraft: (base: string, changes: WfChanges, reason: string) =>
+    post<{ id: string; warnings: string[]; diff: WfDiff[]; action: string }>("/workflow/drafts", { base, changes, reason }, operator()),
+  approveDraft: (id: string, reason: string) =>
+    post<{ action: string; current: string; batch: string }>(`/workflow/drafts/${enc(id)}/approve`, { reason }, operator()),
 };
 
 /** Operation name (GET /actions/capabilities) -> endpoint call. Bodies follow spec/modules/api-web.md. */

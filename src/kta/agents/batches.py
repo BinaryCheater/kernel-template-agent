@@ -55,6 +55,11 @@ def check_name(batch: str) -> None:
         raise ConfigError(f"batch name {batch!r} must be one plain path component")
 
 
+def profile_batch(profile: AgentProfile) -> str:
+    """The batch root named after a profile version (WP22, D595): ``<name>-v<version>``."""
+    return f"{profile.name}-v{profile.version}"
+
+
 def template_files(store: Store, profile: AgentProfile) -> dict[str, bytes]:
     """Every template file of a batch, by path relative to the batch root (records only)."""
 

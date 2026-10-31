@@ -20,7 +20,17 @@ from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
-from kta.agents import arms, cards, compliance, guard, policy, sessions, workspace
+from kta.agents import (
+    arms,
+    batches,
+    cards,
+    compliance,
+    guard,
+    policy,
+    proxyplan,
+    sessions,
+    workspace,
+)
 from kta.agents.adapters.base import StepPlan
 from kta.agents.adapters.codex import CREDENTIAL_FILES, CodexAdapter
 from kta.agents.adapters.codex_session import usage_of
@@ -29,6 +39,7 @@ from kta.agents.base import AgentEvent, Launch, Limits
 from kta.agents.batches import BatchRoot
 from kta.agents.config import AgentsConfig, agents_config
 from kta.agents.launchspec import BUNDLE_BATCH, BUNDLE_WORKSPACE, AuthSpec, LaunchSpec
+from kta.agents.proxyplan import ProxyPlan
 from kta.core.context import Context
 from kta.core.controls import Controls
 from kta.core.errors import ConfigError, NotSupported
@@ -96,7 +107,7 @@ def _limits(card: TaskCard, controls: Controls) -> Limits:
     return Limits(wall_s=int(wall), idle_s=controls.no_response_timeout_s)
 
 
-def _env(ctx: Context, deps: Deps, token: str, task: Task) -> dict[str, str]:
+def _env(ctx: Context, deps: Deps, token: str, task: Task, px: ProxyPlan) -> dict[str, str]:
     values = {
         guard.TOKEN_VAR: token,
         "KTA_TASK": task.id,
@@ -110,7 +121,7 @@ def _env(ctx: Context, deps: Deps, token: str, task: Task) -> dict[str, str]:
         values["KTA_API"] = deps.config.api_url
     if ctx.env == "dev" and os.environ.get("KTA_WP"):
         values["KTA_WP"] = os.environ["KTA_WP"]
-    return guard.agent_env(values, ["{kta_bin}"])
+    return guard.agent_env(values, ["{kta_bin}"], px.env)
 
 
 def _spec(
@@ -123,6 +134,7 @@ def _spec(
     bundle: workspace.Bundle,
     batch: str,
     arm: Arm,
+    px: ProxyPlan,
 ) -> LaunchSpec:
     run_as = None
     if profile.isolation == "config+user":
@@ -155,6 +167,7 @@ def _spec(
         nvidia_smi=host.nvidia_smi,
         watch=list(deps.config.watch),
         expect_version=profile.cli_version,
+        proxy=px.spec(deps.config.secrets_file),
     )
 
 
@@ -239,6 +252,7 @@ def _plan(
     batch: BatchRoot,
     arm: Arm,
     controls: Controls,
+    px: ProxyPlan,
 ) -> tuple[StepPlan, Limits]:
     """Bundle, launch spec and job inputs of one step."""
     bundle = workspace.build(
@@ -254,7 +268,7 @@ def _plan(
         arm=arm,
     )
     limits = _limits(card, controls)
-    spec = _spec(ctx, deps, task, card, profile, run, bundle, batch.root.name, arm)
+    spec = _spec(ctx, deps, task, card, profile, run, bundle, batch.root.name, arm, px)
     inputs = {
         **_put_files(deps.runner, BUNDLE_WORKSPACE, bundle.workspace),
         **_put_files(deps.runner, BUNDLE_BATCH, bundle.batch),
@@ -266,13 +280,21 @@ def _plan(
 def open_batch(
     ctx: Context, deps: Deps, card: TaskCard, state: sessions.SessionState | None, name: str | None
 ) -> BatchRoot:
-    """The verified batch root of this step; a work unit never changes batch."""
+    """The verified batch root of this step; a work unit never changes batch.
+
+    Without an explicit batch, a configured batch built from another profile gives way to
+    the card's own profile batch ``<name>-v<version>`` when it exists (D595)."""
+    explicit = name is not None
     name = name or deps.config.batch
     if not name:
         raise ConfigError("no batch: pass batch= or set [agents] batch (kta agents env build)")
     if state is not None and state.batch and state.batch != name:
         raise ConfigError(f"work unit {card.work_unit} belongs to batch {state.batch}, not {name}")
     root = BatchRoot.open(deps.store, ctx.data_dir, name)
+    if root.lock["profile"] != card.profile and not explicit and state is None:
+        own = batches.profile_batch(AgentProfile.model_validate(deps.store.get(card.profile).body))
+        if (batches.batches_root(ctx.data_dir) / own).exists():
+            name, root = own, BatchRoot.open(deps.store, ctx.data_dir, own)
     if root.lock["profile"] != card.profile:
         raise ConfigError(
             f"batch {name} is built from profile {root.lock['profile']}, not the card's"
@@ -315,7 +337,8 @@ def run_step(
     info = arms.task_info(deps.ops, task.id)
     root = open_batch(ctx, deps, card, state, batch or info.get("batch"))
     arm = arms.arm_of(info)
-    plan, limits = _plan(ctx, deps, task, card, profile, run, retry, root, arm, controls)
+    px = proxyplan.for_step(ctx.data_dir, deps.ops, profile.provider, deps.config.api_url)
+    plan, limits = _plan(ctx, deps, task, card, profile, run, retry, root, arm, controls, px)
     adapter = adapter_for(profile, deps, plan)
     decision = sessions.decide(
         state,
@@ -338,7 +361,7 @@ def run_step(
         run=run,
         mode=decision.mode,
     ) as sp:
-        env = _env(ctx, deps, token, task)
+        env = _env(ctx, deps, token, task, px)
         renewer.start()
         try:
             events = _launch(adapter, decision, state, prompt, card, env, limits)
@@ -347,6 +370,8 @@ def run_step(
         launch = adapter.last_launch()
         assert launch is not None
         sp.set(session=launch.session, exit=launch.exit, worker=launch.worker)
+    now = ctx.clock.now()
+    proxyplan.outcome(deps.store, deps.ops, px, launch.exit, launch.report, now, task.id)
     return _record(
         ctx, deps, task, card, profile, launch, events, prompt, state, raw, decision, retry, arm,
         controls,
@@ -395,6 +420,7 @@ def _agent_run(
         context_manifest=launch.manifest,
         violations=violations_of(deps, launch, events, profile, card, arm, controls),
         arm=arm.to_dict(),
+        proxy=launch.report.get("proxy"),
     )
 
 

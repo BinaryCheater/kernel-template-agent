@@ -49,3 +49,7 @@ Deterministic loops (solve, expand, learn, calibrate, maintain, experiment, summ
 ## WP19 (D544, D545)
 
 `access.py`: `task_header` / `situation_of` (the one-screen case header), `record_pull`, `pull_log`, `pull_stats`, `plan_view`; `TaskRequest.header` goes into the card.
+
+## WP22 (D585)
+
+`inbox.py`: item `proxy:<provider>` while that provider's proxy breaker (ops pointer `proxy:status:<provider>`) is tripped.
