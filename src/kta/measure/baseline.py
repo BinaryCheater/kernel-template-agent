@@ -18,7 +18,7 @@ from importlib import resources
 from typing import Any
 
 from kta.core.context import Clock
-from kta.core.errors import ConfigError, ExecutionError
+from kta.core.errors import ConfigError
 from kta.core.ids import canonical_json, record_id
 from kta.core.jobs import Job
 from kta.core.schemas import Actor, Record
@@ -73,6 +73,12 @@ def _job(
     sets = [jobs.random_inputs(problem, shape, "normal", rng) for _ in range(params.min_input_sets)]
     script = resources.files("kta.measure.scripts").joinpath(SCRIPT).read_bytes()
     job_inputs = {SCRIPT: m.ex.put_blob(script, "text/x-python")}
+    # Container baselines use the exact host-counter/NVML implementation of kernel jobs.
+    for package in ("kta", "kta/core", "kta/measure"):
+        job_inputs[f"{package}/__init__.py"] = m.ex.put_blob(b"", "text/x-python")
+    for module in ("core/errors.py", "measure/nvml.py", "measure/quiet.py"):
+        raw_helper = resources.files("kta").joinpath(module).read_bytes()
+        job_inputs[f"kta/{module}"] = m.ex.put_blob(raw_helper, "text/x-python")
     files: list[dict[str, str]] = []
     for i, data in enumerate(sets):
         entry: dict[str, str] = {}
@@ -91,6 +97,7 @@ def _job(
         "outputs": [t.name for t in problem.outputs],
         "inputs": files,
         **{k: getattr(params, k) for k in SETTINGS},
+        "clock_sample_ms": m.clock_sample_ms,
     }
     raw = json.dumps(spec, sort_keys=True).encode()
     job_inputs["spec.json"] = m.ex.put_blob(raw, "application/json")
@@ -128,17 +135,12 @@ def measure_baseline(
         raise ConfigError(f"{baseline_id[:12]} is not a baseline Report")
     baseline: dict[str, Any] = rec.body["data"]
     job, meta = _job(m, baseline, case, shape, protocol_id)
-    result = m.ex.run(job)
-    if not result.ok or "timing.json" not in result.outputs:
-        stderr = m.ex.read_blob(result.stderr_blob).decode("utf-8", "replace")[-2000:]
-        raise ExecutionError(
-            "nonzero" if result.error_kind == "none" else result.error_kind,
-            f"baseline job {result.job_id} failed: {stderr}",
-        )
-    timing = json.loads(m.ex.read_blob(result.outputs["timing.json"]))
+    result, timing, verdict, interfered = m._run_quiet(job)
     meta["job_id"] = result.job_id
     params_blob = m.ex.put_blob(json.dumps(meta, sort_keys=True).encode(), "application/json")
-    t = Timed(result, timing, params_blob, load_params(m.store, protocol_id))
+    t = Timed(
+        result, timing, params_blob, load_params(m.store, protocol_id), verdict, tuple(interfered)
+    )
     body, times_us = m.measurement_body(t, 0, baseline_id, protocol_id)
     body.clocks["library_versions"] = timing.get("versions", {})
     refs: dict[str, str | list[str]] = {

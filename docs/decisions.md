@@ -484,6 +484,8 @@
 | D648 | Scope of system diagnostics labels | SYSDEBUG-1: label the detected proxy as an endpoint for required providers, and a failed CLI PATH probe as "not found on PATH". Spark HK uses proxy-off policies and a configured absolute Codex command which passed its real help contract. Alternative: keep labels implying a proxy is used or the CLI is absent; these contradict the actual scope of the probes. No settings or probe logic changed | SYSDEBUG-1 |
 | D649 | Quiet clock rule v2 | default — needs user review: autonomous mechanism repair authorised by the user. Reject the observed within-window clock span over the existing 15% limit, not distance below rated maximum; poll between timed launches every 50 ms (versioned control); include sampled heat/throttling. Preserve raw data and historical verdicts; report real wall-time without cycle rescaling. Alternative: lock clocks (root unavailable, supported-clock list N/A on Spark HK) or rescale all kernels by SM frequency (invalid for memory/launch costs). Validate stable-low clocks, transient faults and real repeated timings | SYSDEBUG-1 |
 
+| D650 | Baseline evidence identity and quietness | SYSDEBUG-1: judge each bucket against its current-round baseline Measurement, validating case, baseline, protocol and recorded shape; refuse a missing or mismatched baseline. Library jobs ship the same NVML and quiet helpers, sample clocks at the configured interval and share interference rejection/requeues with kernel timing. Alternative: newest case-wide baseline and unverified host readings; these allow cross-shape ratios and unequal measurement conditions. Existing records remain unchanged; no acceptance threshold changed | SYSDEBUG-1 |
+
 ## 已确认
 
 | ID | 决策 | 选择 | 来源 |

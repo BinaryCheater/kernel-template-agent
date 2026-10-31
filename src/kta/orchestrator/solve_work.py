@@ -27,6 +27,7 @@ from kta.measure.baseline import measure_baseline
 from kta.models import bound, min_work
 from kta.orchestrator import disciplines, pipeline, proofgate
 from kta.orchestrator.pipeline import Services, bucket_shape, case_view
+from kta.orchestrator.solve_baseline import baseline_us
 from kta.orchestrator.transition import Loop, Settings
 from kta.solve import (
     EXHAUSTIVE_LIMIT,
@@ -387,18 +388,6 @@ def work_measuring(svc: Services, loop: Loop) -> Facts:
     return {"measurements": measured, "protocol": protocol_id, "baseline_measurements": baselines}
 
 
-def _baseline_us(svc: Services, case_id: str, baseline: str | None) -> float | None:
-    if baseline is None:
-        return None
-    found = svc.store.query(
-        "Measurement",
-        {"refs.case": case_id, "refs.baseline": baseline},
-        order="-created_at",
-        limit=1,
-    )
-    return float(found[0].body["median_us"]) if found else None
-
-
 def work_judging(svc: Services, loop: Loop) -> Facts:
     cv = case_view(svc.store, loop.subject)
     _, sig = svc.protocol()
@@ -454,7 +443,9 @@ def work_judging(svc: Services, loop: Loop) -> Facts:
                 "best_us": meas.median_us,
                 "predicted_us": pred.total,
                 "bound_us": bnd.bound_us,
-                "reference_us": _baseline_us(svc, cv.id, cv.baseline),
+                "reference_us": baseline_us(
+                    svc.store, loop, name, bucket_shape(_bucket(loop, name)), cv.baseline
+                ),
                 "units": units,
                 "assignment": CandidateBody.model_validate(svc.store.get(cid).body).assignment,
                 "measurement": d["measurements"][cid],
