@@ -486,6 +486,8 @@
 
 | D650 | Baseline evidence identity and quietness | SYSDEBUG-1: judge each bucket against its current-round baseline Measurement, validating case, baseline, protocol and recorded shape; refuse a missing or mismatched baseline. Library jobs ship the same NVML and quiet helpers, sample clocks at the configured interval and share interference rejection/requeues with kernel timing. Alternative: newest case-wide baseline and unverified host readings; these allow cross-shape ratios and unequal measurement conditions. Existing records remain unchanged; no acceptance threshold changed | SYSDEBUG-1 |
 
+| D651 | Candidate gate for selection controls | SYSDEBUG-1: random and copied candidates use the same C/Gamma check as model candidates before build; repeat the guard before GPU execution to cover already-built rounds. Reuse identical live candidate checks. Alternative: leave controls outside the proof gate; that permits infeasible copied points and makes the claimed pipeline incomplete. No routing threshold or exploration assurance changed | SYSDEBUG-1 |
+
 ## 已确认
 
 | ID | 决策 | 选择 | 来源 |

@@ -317,7 +317,7 @@ def work_building(svc: Services, loop: Loop) -> Facts:
         top[name] = [cid for cid, c in cands.items() if c.key in kept]
         arms[name] = {cid: "model" for cid in top[name]}
         for arm, cids in extra.items():
-            for cid in cids:
+            for cid in proofgate.control_gate(svc, family, fp, hw, _bucket(loop, name), cids):
                 a = CandidateBody.model_validate(svc.store.get(cid).body).assignment
                 build, module = pipeline.build(svc, pipeline.generate(fp, a, shape))
                 builds[cid] = module.build_id
@@ -329,10 +329,17 @@ def work_building(svc: Services, loop: Loop) -> Facts:
 
 def _each_top(svc: Services, loop: Loop, fn: Callable[..., str]) -> dict[str, str]:
     cv = case_view(svc.store, loop.subject)
-    fp = pipeline.family_package(svc, str(loop.data["families"][0]))
+    family = str(loop.data["families"][0])
+    fp = pipeline.family_package(svc, family)
+    _, hw = svc.machine(cv.case.target)
     out: dict[str, str] = {}
     for name, ids in loop.data["top"].items():
         shape = bucket_shape(_bucket(loop, name))
+        controls = [
+            c for c in ids if loop.data.get("arm_of", {}).get(name, {}).get(c, "model") != "model"
+        ]
+        if proofgate.control_gate(svc, family, fp, hw, _bucket(loop, name), controls) != controls:
+            raise SchemaError(f"bucket {name}: control candidate failed C/Gamma before execution")
         for cid in ids:
             a = CandidateBody.model_validate(svc.store.get(cid).body).assignment
             gk = pipeline.generate(fp, a, shape)

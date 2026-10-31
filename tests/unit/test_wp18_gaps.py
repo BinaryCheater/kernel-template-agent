@@ -13,7 +13,7 @@ import pytest
 
 from kta.core.context import Context
 from kta.core.schemas import Record
-from kta.orchestrator import canary, disciplines, gap, step
+from kta.orchestrator import canary, disciplines, gap, proofgate, step
 from kta.orchestrator.improve import summarize
 from kta.orchestrator.inbox import inbox
 from kta.orchestrator.pipeline import Services
@@ -191,6 +191,37 @@ def test_selection_arms_draw_random_feasible_points_and_copy_a_solution(svc: Ser
     again = selection_arms(svc, lp, s, f, TEST_MM, b, fam, w["case"])
     same = [svc.store.get(c).body["assignment"] for c in again["random"]]
     assert same == [svc.store.get(c).body["assignment"] for c in arms["random"]]  # seeded
+
+
+def test_control_candidates_get_a_reusable_gate_and_reject_an_oversized_stage(
+    svc: Services,
+) -> None:
+    w = world(svc)
+    fp, _, f = gemm(svc.ctx, svc.store)
+    now = svc.ctx.clock.now()
+    fam = svc.store.put(Record.new("Family", fp.family, HUMAN, now))
+    b = {"name": "s0", "shape": {"M": 512, "N": 512, "K": 512}, "weight": 1.0}
+    lp = Loop("L1", "solve", w["case"], "solving", {})
+    arms = selection_arms(svc, lp, Settings.of(svc.ctx.controls), f, TEST_MM, b, fam, w["case"])
+    good = arms["random"]
+    assert proofgate.control_gate(svc, fam, fp, TEST_MM, b, good) == good
+    before = svc.store.query("ProofResult", {"condition": "candidate"}, limit=100)
+    assert len(before) == len(good)
+    assert proofgate.control_gate(svc, fam, fp, TEST_MM, b, good) == good
+    assert svc.store.query("ProofResult", {"condition": "candidate"}, limit=100) == before
+    original = svc.store.get(good[0])
+    bad = svc.store.put(
+        Record.new(
+            "Candidate",
+            {**original.body, "assignment": {**original.body["assignment"], "S": 100000}},
+            HUMAN,
+            now,
+            refs=dict(original.refs),
+        )
+    )
+    assert proofgate.control_gate(svc, fam, fp, TEST_MM, b, [bad]) == []
+    result = svc.store.query("ProofResult", {"subject": bad}, limit=1)[0]
+    assert result.body["outcome"] == "counterexample"
 
 
 # ---- duplicate proposals and canaries ------------------------------------------------
