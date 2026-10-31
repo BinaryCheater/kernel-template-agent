@@ -69,3 +69,11 @@ def template_v2_effects(body: dict[str, Any]) -> dict[str, Any]:
 def identity(body: dict[str, Any]) -> dict[str, Any]:
     """A version step that only added optional fields (HwModel 2, Prediction 2; D461)."""
     return body
+
+
+def reference_v1(body: dict[str, Any]) -> dict[str, Any]:
+    """WP20: source_class (open code, which all v1 references were) and priority added."""
+    out = copy.deepcopy(body)
+    out.setdefault("source_class", "open_code")
+    out.setdefault("priority", None)
+    return out

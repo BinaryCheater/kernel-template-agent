@@ -8,6 +8,7 @@ from kta.core.errors import SchemaError
 from kta.core.expr import Expr, ExprError
 from kta.core.schemas.knowledge import Chain, ChainItem, RangeSpec, Template, VarSpec
 from kta.knowledge import pool
+from kta.knowledge.learning import classify
 from kta.knowledge.types import Issue
 from kta.store.base import Store
 
@@ -152,4 +153,4 @@ def validate_chain(ch: Chain, store: Store) -> list[Issue]:
             issues += _bindings(item, hit[1]) + _constant_checks(item, hit[1])
     issues += _dag(ch)
     issues += _relations(ch, {ref: t for ref, (_, t) in found.items()})
-    return issues
+    return classify(issues)

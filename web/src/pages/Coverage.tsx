@@ -33,6 +33,7 @@ function CoverageBody({ c, m, label }: { c: CoverageReport; m: Machines; label: 
         <div className="small ink2">All estimates below hold only for this population of sources. Snapshot <b>{label}</b> · <RecordLink id={c.record} label="coverage report record" /></div>
       </div>
       <DirectTest c={c} />
+      <Learning c={c} />
 
       <div className="grid" style={{ gridTemplateColumns: "minmax(0, 1.5fr) minmax(0, 1fr)", alignItems: "start" }}>
         <Panel primary title="Discovery curve" sub="sources decomposed vs distinct Templates found; flattening toward the Chao1 estimate means saturation for this kind of source">
@@ -209,5 +210,45 @@ function GapsByMissing({ c }: { c: CoverageReport }) {
           <div className="row wrap" style={{ marginTop: 6 }}>{attribution.filter(([, n]) => n).map(([k, n]) => <span key={k} className="tag">{k} {n}</span>)}</div></div>}
       </div>
     </Panel>
+  );
+}
+
+/** SOTA coverage in four levels, system features and language gaps counted apart, and
+ *  per-backend expressibility (WP20 D567, docs/design/02 §8.1, §8.2, §8.5). */
+function Learning({ c }: { c: CoverageReport }) {
+  const l = c.learning;
+  if (!l) return null;
+  return (
+    <div className="grid" style={{ gridTemplateColumns: "minmax(0, 1.4fr) minmax(0, 1fr)", alignItems: "start" }}>
+      <Panel title="State of the art in four levels" sub="expressible → reproducible → reachable blind → surpassed; a level counts only with its evidence">
+        <table className="t">
+          <thead><tr><th>level</th><th>references</th><th>measured by</th></tr></thead>
+          <tbody>{l.sota_levels.map((r) => (
+            <tr key={r.level}>
+              <td><b>{r.level}</b> {r.name}<div className="small ink2">{r.meaning}</div></td>
+              <td className="num">{r.pending ? <Chip tone="waiting">pending</Chip> : `${r.references} / ${r.of}`}
+                {r.step_rate != null && <div className="small muted">{pct(r.step_rate)} of steps matched</div>}</td>
+              <td className="small ink2">{r.pending ?? r.measured_by}</td>
+            </tr>
+          ))}</tbody>
+        </table>
+      </Panel>
+      <Panel title="Counted apart" sub="not scheduling moves, so coverage does not count them as matched or missing">
+        <div className="row wrap" style={{ gap: 28 }}>
+          <div><div className="caption">System-level features</div><div className="hero num">{l.system_features.total}</div>
+            <div className="row wrap">{Object.entries(l.system_features.by_feature).filter(([, n]) => n).map(([k, n]) => <span key={k} className="tag">{k.replaceAll("_", " ")} {n}</span>)}</div></div>
+          <div><div className="caption">Language gaps (admitted as proposed)</div><div className="hero num">{l.language_gaps.total}</div>
+            <div className="row wrap">{Object.entries(l.language_gaps.by_kind).map(([k, n]) => <span key={k} className="tag">{k.replaceAll("_", " ")} {n}</span>)}</div></div>
+        </div>
+        <table className="t compact" style={{ marginTop: 12 }}>
+          <thead><tr><th>backend</th><th>steps with code</th><th>SASS intent declared</th></tr></thead>
+          <tbody>{Object.entries(l.backends).map(([b, r]) => (
+            <tr key={b} title={r.note}><td className="mono">{b}</td>
+              <td className="num">{r.expressible} / {r.steps} <span className="small muted">{pct(r.rate)}</span></td>
+              <td className="num">{r.intent_declared}{r.intent_confirmed == null && <span className="small muted"> (unconfirmed)</span>}</td></tr>
+          ))}</tbody>
+        </table>
+      </Panel>
+    </div>
   );
 }

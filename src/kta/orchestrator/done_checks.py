@@ -8,7 +8,8 @@ rejecting it (docs/design/10 §7). Submission layouts are fixed per type:
 - T2: the decompose-kernel skill's layout: ``chain.yaml`` (Chain body),
   ``reconstruction.yaml`` (Reconstruction body), ``gaps/*.yaml`` (one Gap body per file,
   in file-name order) and ``patterns/*.yaml`` (proposed Patterns); ``templates/`` holds
-  drafts the T3 tasks start from (D381).
+  drafts the T3 tasks start from (D381); ``warnings.yaml`` explains admission warnings
+  (check ``admission``, D561).
   The single-file form, ``reconstruction.yaml`` with keys ``chain``, ``reconstruction`` and
   ``gaps``, is also read.
 - T3: ``template.yaml`` with ``template`` (Template body), ``sources`` (Source IDs) and
@@ -34,7 +35,14 @@ from kta.core.schemas import Record
 from kta.core.schemas.evaluation import Measurement, Prediction
 from kta.core.schemas.knowledge import Chain, Gap, Pattern, Reconstruction, Template
 from kta.core.schemas.process import TaskCard
-from kta.knowledge import errors_of, load_family, validate_family, validate_template
+from kta.knowledge import (
+    errors_of,
+    load_family,
+    validate_chain,
+    validate_family,
+    validate_template,
+)
+from kta.knowledge.admission import EXPLANATIONS, Admission, admit, load_explanations
 from kta.knowledge.pending import PendingView
 from kta.knowledge.pool import find_by_name, find_template, parse_template_ref
 from kta.models import load_model
@@ -233,6 +241,30 @@ def gaps_match_unmatched(inp: CheckInput) -> Outcome:
     return Outcome("gaps_match_unmatched", not failures, failures)
 
 
+def t2_admission(inp: CheckInput) -> Admission:
+    """The admit step on a T2 deliverable (02 §8.6, D561): its chain and the Template
+    drafts the pool lacks, validated against the pool plus the drafts and new Patterns;
+    warnings must be explained in ``warnings.yaml``, language gaps are counted."""
+    docs = t2_documents(inp.workdir)
+    now, actor = inp.ctx.clock.now(), inp.submission.actor
+    drafts = [
+        (f"templates/{p.name}", Template.model_validate(read_yaml(p)))
+        for p in sorted((inp.workdir / "templates").glob("*.yaml"))
+    ]
+    new = [(f, t) for f, t in drafts if find_template(inp.store, f"{t.name}@{t.version}") is None]
+    pending = [Record.new("Pattern", p, actor, now) for p in new_patterns(inp.store, docs.patterns)]
+    pending += [Record.new("Template", t, actor, now) for _, t in new]
+    view = PendingView(inp.store, pending) if pending else inp.store
+    pairs = [("chain.yaml", i) for i in validate_chain(docs.chain, view)]
+    pairs += [(f, i) for f, t in new for i in validate_template(t, view)]
+    return admit(pairs, load_explanations(inp.workdir / EXPLANATIONS))
+
+
+def admission(inp: CheckInput) -> Outcome:
+    a = t2_admission(inp)
+    return Outcome("admission", a.admitted, a.failures(), a.to_dict())
+
+
 def t3_documents(inp: CheckInput) -> tuple[Template, list[Pattern], dict[str, Any]]:
     doc = read_yaml(inp.workdir / "template.yaml")
     raw: list[Any] = list(doc.get("patterns") or [])
@@ -369,6 +401,7 @@ CHECKS: Mapping[str, Callable[[CheckInput], Outcome]] = {
     "reconstruction_fields": reconstruction_complete,
     "matched_templates_exist": matched_templates_exist,
     "gaps_match_unmatched": gaps_match_unmatched,
+    "admission": admission,
     "validate_template": template_validates,
     "template_fills_chain": template_fills_chain,
     "model_holdout_improves": model_improves,
@@ -381,6 +414,7 @@ DONE_CHECKS: Mapping[str, tuple[str, ...]] = {
         "reconstruction_fields",
         "matched_templates_exist",
         "gaps_match_unmatched",
+        "admission",
     ),
     "T3": ("delivery_note", "validate_template", "template_fills_chain"),
     "T4": ("delivery_note", "model_holdout_improves"),

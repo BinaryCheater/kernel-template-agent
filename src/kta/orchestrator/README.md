@@ -13,6 +13,7 @@ Deterministic loops (solve, expand, learn, calibrate, maintain, experiment, summ
   machines (D96); `Machine.edge(...)` refuses any transition the YAML does not list.
 - `solve_loop.py`, `expand_loop.py`: the pure transition functions; `judge` applies rules 1-4 (D263).
 - `solve_work.py`, `expand_work.py`: each state's work through the lower modules, returning facts.
+- `learning_plan.py` (WP20): dry-run plans of a reference's intake → decompose → admit → reproduce → ablate → cover (D569).
 - `runner.py`: `Runner.start(kind, subject, name)`, `Runner.advance(loop_id)` (loop lock, spans, record
   drafts, tasks; failures block the instance, D264).
 - `tasks.py`: `TaskQueue` (create, lease with budget reservation, start, submit, check, recheck, retry,

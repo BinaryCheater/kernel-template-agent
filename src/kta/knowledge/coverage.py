@@ -15,11 +15,14 @@ from collections.abc import Mapping, Sequence
 from typing import Any, get_args
 
 from kta.core.errors import SchemaError
+from kta.core.knobs import Knobs
 from kta.core.schemas import Record
 from kta.core.schemas.common import Assurance, Level
 from kta.core.schemas.knowledge import Gap
 from kta.knowledge import pool
 from kta.knowledge.capabilities import availability, target_capabilities
+from kta.knowledge.sota import PENDING as LEARNING_PENDING
+from kta.knowledge.sota import learning_coverage, page_fields
 from kta.knowledge.types import CoverageReport
 from kta.store.base import Store
 
@@ -238,6 +241,7 @@ def coverage_report(
     snapshot_id: str | None,
     rng: random.Random,
     targets: list[str] | None = None,
+    controls: Knobs | None = None,
 ) -> CoverageReport:
     """All coverage quantities of 21 §2 for a PoolSnapshot (``None``: the whole store).
 
@@ -302,6 +306,7 @@ def coverage_report(
         availability=_availability(
             store, templates, known_targets(store) if targets is None else targets
         ),
+        learning=learning_coverage(store, recons, refs, members, controls),
     )
 
 
@@ -379,5 +384,6 @@ def coverage_page(
             "unmatched_by_kind": rep.unmatched_by_pattern,
             "assurance": rep.assurance,
         },
-        "pending": rep.pending,
+        "pending": {**rep.pending, **LEARNING_PENDING},
+        "learning": page_fields(rep.learning) if rep.learning else {},
     }

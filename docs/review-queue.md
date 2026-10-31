@@ -717,3 +717,32 @@ Decisions made without the user that need review. Newest last. Each entry: quest
 - **Choice:** the token guards `POST /controls` and `POST /release` only; `/actions/*` are unchanged.
 - **Rationale:** follow the workplan without widening the change; the inconsistency is visible here.
 - **Cost of changing later:** low: `check_operator` can guard the other write endpoints; the web page already sends the header.
+
+
+## D560 — Language gaps admitted, not refused (WP20)
+
+- **Question:** D-open-2: what the admit step does with something the expression language cannot state.
+- **Choice:** a third Issue severity `gap`, assigned by the `admission` table in `src/kta/knowledge/learning.yaml`; gaps are counted and the record is admitted at `proposed`. Rows today: `bad_expression` for unsupported constructs (typos stay errors) and `undeclared_pattern_param`.
+- **Rationale:** 02 §8.6 asks to count language gaps instead of refusing; `p.*` has no declared vocabulary (WP10a critique 7), so each use of a new `p.*` name is a vocabulary gap. The 61 such issues on the WP10a references (63 before WP15's effects) would otherwise be warnings to explain.
+- **Cost of changing later:** low: one table row moves `undeclared_pattern_param` back to `warning`; typos in `p.*` names would then need explanations again.
+
+## D561 — Admission rejects unexplained warnings (WP20)
+
+- **Question:** how "warnings must be explained" is checked, and where the explanation lives.
+- **Choice:** `warnings.yaml` at the root of the reference directory, keyed `<kind>@<file>:<where>`; an unexplained warning rejects the T2 (back to the same session, ≤ 2 retries) or refuses an import batch. `kta init --references` keeps returning warnings without refusing. The three WP10a `constraint_false` warnings are explained in new seed files.
+- **Rationale:** a stable key the agent can copy from the rejection text; explanations stay with the deliverable, so a later reader sees why a chain violates an obligation.
+- **Cost of changing later:** low: the key format is in `admission.warning_key`; the T2 check and the import share `admit`.
+
+## D563 — System-level features by keyword table (WP20)
+
+- **Question:** how coverage tells system-level features (02 §8.2) from scheduling moves in existing records without a schema change.
+- **Choice:** regex table over unmatched-transaction descriptions plus `pattern_guess: system`; the decompose-kernel skill asks workers for the latter.
+- **Rationale:** the 55 WP10a unmatched transactions are prose; a field on UnmatchedTx would need Reconstruction schema 3 and re-decomposition.
+- **Cost of changing later:** medium: an explicit field (schema bump, upcast) and a migration of the seven references.
+
+## D566 — Ablation design and coupling threshold (WP20)
+
+- **Question:** which pairs to test, which design, and when a pair counts as coupled (02 §8.4).
+- **Choice:** suspected pairs from glue constraints, Template relations and shared `signature.resources`; pairwise design up to 32 runs, else a 2-level fractional factorial ≤ 64 runs; coupled when |joint / product − 1| > 0.05 (registry knobs once WP21 merges).
+- **Rationale:** cheap enough to run on every reproduced family; 5 % sits above the measurement noise band we expect but is not calibrated (X6 sets the noise band).
+- **Cost of changing later:** low: table values; the resource suspect could read WP15 effects instead of `signature.resources`.

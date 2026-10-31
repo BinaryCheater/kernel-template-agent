@@ -63,7 +63,11 @@ KINDS: dict[str, KindSpec] = {
     "Family": KindSpec(
         kn.Family, ref_kinds={"chain": "Chain", "previous": "Family", "problem": "Problem"}
     ),
-    "Reference": KindSpec(kn.Reference, ref_kinds={"source": "Source", "problem": "Problem"}),
+    "Reference": KindSpec(
+        kn.Reference,
+        ref_kinds={"source": "Source", "problem": "Problem"},
+        upcasters=(up.reference_v1,),
+    ),
     "Reconstruction": KindSpec(
         kn.Reconstruction,
         ref_kinds={

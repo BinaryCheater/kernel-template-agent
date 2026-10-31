@@ -21,7 +21,7 @@ so importing twice writes nothing new; the same key with different content is an
 from __future__ import annotations
 
 import re
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -78,6 +78,8 @@ class ImportResult:
     written: list[str] = field(default_factory=lambda: list[str]())
     reused: list[str] = field(default_factory=lambda: list[str]())
     warnings: list[Issue] = field(default_factory=lambda: list[Issue]())
+    # Expressibility gaps of the language (severity ``gap``, D560): counted, not refused.
+    language_gaps: list[Issue] = field(default_factory=lambda: list[Issue]())
     counts: dict[str, int] = field(default_factory=lambda: dict[str, int]())
 
 
@@ -161,10 +163,16 @@ class _Batch:
                 found = validate_realisation(Realisation.model_validate(rec.body), view)
             for i in found:
                 issue = Issue(i.kind, i.message, f"{where}: {i.where}", i.severity)
-                (self.issues if i.severity == "error" else self.result.warnings).append(issue)
+                {
+                    "error": self.issues,
+                    "warning": self.result.warnings,
+                    "gap": self.result.language_gaps,
+                }[i.severity].append(issue)
 
-    def commit(self) -> ImportResult:
+    def commit(self, admit: Callable[[ImportResult], list[Issue]] | None = None) -> ImportResult:
         self.validate()
+        if admit is not None:  # the admit step's extra refusals (kta.knowledge.admission)
+            self.issues += admit(self.result)
         if errors_of(self.issues):
             raise SeedError(self.name, self.issues)
         self.result.written = self.store.put_many(self.records) if self.records else []
@@ -292,9 +300,17 @@ def import_hw_catalog(
 
 
 def import_references(
-    ctx: Context, store: Store, references: Path, code: CodeState | None = None
+    ctx: Context,
+    store: Store,
+    references: Path,
+    code: CodeState | None = None,
+    admit: Callable[[ImportResult], list[Issue]] | None = None,
 ) -> ImportResult:
-    """Import every reference decomposition (WP10a layout) as one batch, in pool order."""
+    """Import every reference decomposition (WP10a layout) as one batch, in pool order.
+
+    ``admit`` (``kta.knowledge.admission.admit_references``) sees the validated batch
+    and returns further refusing issues (unexplained warnings) before anything is written.
+    """
     batch = _Batch("references", store, _actor(code or code_state()), ctx.clock.now())
     refs = reference_order(references)
     per: dict[Path, dict[str, Any]] = {}
@@ -324,4 +340,4 @@ def import_references(
         links: dict[str, RefValue] = {"gaps": per[ref]["gaps"]} if per[ref]["gaps"] else {}
         links |= {k: v for k, v in (("reference", per[ref]["reference"]), ("chain", chain)) if v}
         batch.add("Reconstruction", ref / "reconstruction.yaml", links)
-    return batch.commit()
+    return batch.commit(admit)

@@ -1,0 +1,127 @@
+# Learning-loop tables (docs/design/02 §8, docs/design/21, docs/design/24; WP20).
+#
+# Everything here is data, read by kta.knowledge.learning. Tables are open: an entry not
+# listed falls into `other` and is counted, never refused (AGENTS.md principle 1).
+# Thresholds are not here: they are knobs of the controls registry (src/kta/core/controls.yaml:
+# budget.retries_per_task, learning.reproduction_epsilon, learning.ablation_*,
+# learning.coupling_noise_band). Changing this file changes behaviour without code changes.
+
+version: 1
+
+# ---- admit: how a validator Issue is treated (02 §8.6, D-open-2, D560) -------------------
+# class: error    -> the submission is rejected and returned to the same session
+#        warning  -> must be explained in warnings.yaml (key: "<kind>@<file>:<where>")
+#        language_gap -> an expressibility gap of the expression language or its
+#                    vocabulary: counted, the record is admitted at `proposed`
+# An Issue kind not listed keeps its validator severity (error or warning).
+admission:
+  - kind: bad_expression
+    # Constructs the restricted language does not have; typos (undeclared names, syntax
+    # errors) stay errors.
+    message: "not allowed|only the functions|attribute access is only|cannot be chained|`in` lists may only|`in` needs|only < <= > >= == != in"
+    class: language_gap
+    why: the expression language cannot state the condition (D216 string class was the first)
+  - kind: undeclared_pattern_param
+    class: language_gap
+    why: p.* has no declared vocabulary (WP10a critique 7); the name is used, not declared
+
+# ---- system-level features (02 §8.2): counted apart from scheduling moves (D563) --------
+# An unmatched transaction is a system feature when its pattern_guess is `system` or its
+# description matches one of these patterns (case-insensitive regular expressions).
+system_features:
+  host_planner: ["host (chooses|computes|plans)", "planner"]
+  merge_kernel: ["separate (persistent )?kernel", "merge kernel"]
+  page_table: ["page table"]
+  pdl: ["griddepcontrol", "programmatic dependent launch", "\\bPDL\\b"]
+  dispatch: ["chosen at launch", "chosen from", "come from tuned", "select among", "selected at launch", "dispatch"]
+
+# ---- cost tiers L0-L4 (02 §8.4, D562) -----------------------------------------------------
+# enter: the admission rule, one of the named predicates of kta.knowledge.learning.TIER_RULES
+tiers:
+  - {id: L0, name: analysis, work: chain and gaps from source, cost: agent hours, no GPU,
+     yields: [chain, gaps, candidate templates], enter: selected}
+  - {id: L1, name: measure, work: run under our protocol; SASS instruction census,
+     cost: GPU minutes, deterministic, yields: [baseline, instruction coverage],
+     enter: runnable_on_target}
+  - {id: L2, name: reproduce, work: our family reproduces its performance core,
+     cost: generator work (the expensive step), yields: [a Family that solves our cases],
+     enter: unreproduced_step_or_strongest_baseline}
+  - {id: L3, name: ablate, work: toggle steps and variables in our family,
+     cost: GPU seconds x toggles, automatic,
+     yields: [effective steps, coupling groups, negatives, calibration data], enter: reproduced}
+  - {id: L4, name: blind, work: case only, full loop, cost: expensive,
+     yields: [reachability and surpass evidence], enter: evaluation_set}
+
+# ---- source classes (02 §8.3, D564) -----------------------------------------------------
+# stages: which pipeline stages apply (intake, decompose, admit, reproduce, ablate, cover)
+source_classes:
+  open_code: {examples: "CUTLASS, FlashAttention, FlashInfer, Marlin, vLLM/SGLang, DeepGEMM",
+              yields: [chains, realisations, baselines], stages: [intake, decompose, admit, reproduce, ablate, cover]}
+  closed_library: {examples: "cuBLAS, cuDNN", yields: [baselines, SASS instruction families],
+                   stages: [intake, cover]}
+  paper: {examples: "arXiv kernel-optimisation work", yields: [candidate templates, claimed regimes],
+          stages: [decompose, admit, cover], note: "enters as claimed; no code -> does not enter search"}
+  vendor_doc: {examples: "PTX ISA, programming guides", yields: [capabilities, wall values],
+               stages: [admit, cover]}
+  other: {examples: "", yields: [], stages: [decompose, admit, cover]}
+
+# ---- priority of references (02 §8.3, D564) ---------------------------------------------
+# value = cases_affected x gap_closable x uncertainty, times (1 + boost) per reason present.
+priority:
+  boosts:
+    strongest_baseline: 1.0      # strongest baseline for an in-scope case
+    sass_we_cannot_generate: 1.0 # SASS uses instruction families we cannot generate
+    unreproduced_step: 0.5       # chain has steps no family has reproduced
+    rising_class: 0.5            # its source class's discovery curve still rises
+
+# ---- performance core (02 §8.4, D565) ---------------------------------------------------
+performance_core:
+  # ε: knob learning.reproduction_epsilon (controls registry)
+  includes: [one configuration (dtype, code path), the hot loop and its pipeline]
+  host_inputs: fixed  # host planners are replaced by fixed inputs
+  excludes: system_features  # by declaration; the system_features table above
+  correctness: reference tolerance  # the reference's own documented tolerance
+  note: within epsilon on the reference's own configuration; not a drop-in replacement
+
+# ---- ablation on our own families (02 §8.4, D566) ---------------------------------------
+ablation:
+  # run limits and noise band: knobs learning.ablation_pairwise_max_runs,
+  # learning.ablation_max_runs, learning.coupling_noise_band (controls registry)
+  repeats: 3              # measurements per run (median used)
+  suspects: [shared_variable, template_relation, shared_resource]
+
+# ---- SOTA coverage levels (02 §8.1, D567) -----------------------------------------------
+sota_levels:
+  - {level: 1, name: expressible, meaning: the SOTA kernel is a point of our space,
+     measured_by: reconstruction match rate}
+  - {level: 2, name: reproducible, meaning: our chain reproduces its performance within epsilon,
+     measured_by: reproduction error}
+  - {level: 3, name: reachable, meaning: the blind loop finds that chain or an equally good one,
+     measured_by: O12 blind reconstruction}
+  - {level: 4, name: surpassed, meaning: the blind result beats the reference under the same contract,
+     measured_by: O12 blind reconstruction}
+
+# ---- O12 blind reconstruction (01 §6, D-open-7, D568): defined, not run -----------------
+o12:
+  id: O12
+  claim: SOTA is reachable blind (coverage levels 3 and 4)
+  evaluation_set: references with a reproduced performance core (level 2) held out of the pool snapshot
+  given: [the Case (problem, shapes, dtype, contract), the pool snapshot without the reference's Reconstruction and the Templates only it proposed]
+  withheld: [the reference source, its chain, its Gaps, its measurements]
+  arms:
+    - {id: blind, does: full solve loop from the case}
+    - {id: reference_chain, does: solve with the reference chain given (upper control)}
+  metrics:
+    chain_distance: edit distance between the blind chain and the reference chain (Template names, order-free multiset)
+    performance_ratio: reference time / blind time under the same Protocol (> 1 means surpassed)
+    level: highest SOTA level reached (3 when ratio >= 1 - epsilon, 4 when ratio > 1 + noise band)
+  budget: per-case task budgets of the solve loop; no extra agent time
+  status: defined, not run (code stage, D320)
+
+# ---- backends as realisations (02 §8.5, D-T29, D567) --------------------------------------
+# Expressibility coverage is counted for each of these plus any backend a record names.
+backends:
+  tilelang: primary on GB10; its compiler makes level-5 decisions implicitly (check intent vs SASS)
+  cuda: CUDA C++ with inline PTX, the escape hatch for level-5 steps
+  cute_dsl: limited value on GB10; evaluated only if a target needs it
+  triton: prototypes and controls

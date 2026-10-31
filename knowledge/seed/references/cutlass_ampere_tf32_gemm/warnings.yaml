@@ -1,0 +1,4 @@
+# Admission warnings of this reference, explained (WP20 admit step, D561).
+# Key: "<issue kind>@<file>:<where>".
+"constraint_false@chain.yaml:items.frag_stages": >-
+  Partial match recorded as gap ux-09: register double buffering (S = 2, P = 1, beta = 0) is correct without a barrier because registers are private, but multi_buffer_rotation's single lifetime obligation P <= S - 2 + beta assumes one trailing barrier per iteration and asynchronous writers (WP10a critique 3). The binding is what the code does; the obligation is too coarse.

@@ -33,6 +33,7 @@ from kta_gate.specific_wp10b import wp10b
 from kta_gate.specific_wp11 import wp11
 from kta_gate.specific_wp14 import wp14
 from kta_gate.specific_wp15 import wp15
+from kta_gate.specific_wp20 import wp20
 from kta_gate.specific_wp21 import wp21
 
 MODULES = (
@@ -730,6 +731,7 @@ SPECIFIC: dict[str, Callable[[Path, set[str]], list[CheckResult]]] = {
     "WP14": wp14,
     "WP15": wp15,
     "WP21": wp21,
+    "WP20": wp20,
 }
 
 

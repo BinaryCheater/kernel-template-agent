@@ -232,5 +232,17 @@ class Knobs(ABC):
         return self._map("learning.scope")
 
     @property
+    def ablation_pairwise_max_runs(self) -> int:
+        return int(self.value("learning.ablation_pairwise_max_runs"))
+
+    @property
+    def ablation_max_runs(self) -> int:
+        return int(self.value("learning.ablation_max_runs"))
+
+    @property
+    def coupling_noise_band(self) -> float:
+        return float(self.value("learning.coupling_noise_band"))
+
+    @property
     def release_stage(self) -> str:
         return str(self.value("release.stage"))

@@ -52,7 +52,7 @@ loop-data updates, task requests and record drafts. The files are those listed a
 | 类型 | 完成检查 |
 | --- | --- |
 | T1 | `validate_family` 无错误；`verify_space` 通过；交付说明完整 |
-| T2 | Reconstruction 字段完整；`matched` 的链项都引用已有 Template；`unmatched_transactions` 与 Gap 一一对应；交付说明完整 （计数规则与提交格式见 D380、D381） |
+| T2 | Reconstruction 字段完整；`matched` 的链项都引用已有 Template；`unmatched_transactions` 与 Gap 一一对应；交付说明完整 （计数规则与提交格式见 D380、D381）；`admission`: the chain and the pool-missing Template drafts validate without errors, every warning is explained in `warnings.yaml`, language gaps are counted (D561) |
 | T3 | `validate_template` 无错误（`possible_duplicate` 须在交付说明中解释）；交付说明完整 ；扩展循环的 T3 须交付链中点名、池中尚无的 Template（`template_fills_chain`，D382、D383） |
 | T4 | 新模型版本在留出点上的误差低于旧版本 |
 | T5 | microbenchmark 重复 5 次，变异系数低于噪声底的 2 倍 |
@@ -81,6 +81,8 @@ kta expand <reference>           启动扩展循环
 kta process start|stop <名>      控制进程
 kta task list|show|cancel|retry
 kta coverage [--snapshot <id>]   打印覆盖报告摘要
+kta reference plan <id> [--target gb10]   learning-loop plan of a Reference (dry run, D569)
+kta reference admit <dir>        import reference directories through admit (D561)
 kta export <snapshot> <dir>      导出快照为可浏览目录
 ```
 
@@ -141,3 +143,8 @@ cli/controls_cmds.py       kta controls show | history | token
 - Loop budget scope: `agent_min = rounds × max task wall budget / 60`, `gpu_min = case_factor × max task GPU budget / 60` (12 §1, D488).
 - The stage in force is the knob `release.stage` (default S0). A process outside the stage skips its ticks (`maintain` always runs). The agent pool (`next_task`, `step_once`) starts only a task the stage admits: its type in the stage, agent calls not `none`, and in a `gated` stage no other task leased or running and a release for exactly this attempt (`release:task:<id>` pointer + HumanAction `release_agent_call`). `kta task lease` (manual) is not gated.
 - `kta controls show` stores version 1 if none exists and prints the values in force and the stage; `kta controls history` lists versions; `kta controls token` creates the operator token file (mode 600) and never prints it.
+
+## WP20 learning-loop runner (D560–D569)
+
+- **Admission done-check.** T2 runs `admission` last (`done_checks.t2_admission`): the chain and the Template drafts the pool lacks are validated against the pool plus those drafts and the submitted Patterns. An error or an unexplained warning rejects the T2; the queue's existing retry path (`max_retries` = 2, then `escalated`) returns the failures to the same work-unit session as a `RetryNote`, and `sessions.decide` resumes that session unless the same failure repeats. The T2 writer also writes the `admission` Report.
+- **Plans** (`kta.orchestrator.learning_plan`, D569). `plan(store, reference_id, target, facts=None, core=None, ablation=None, family=None) -> Plan` lists the stages intake → decompose → admit → reproduce → ablate → cover with status `planned`, `task` or `not applicable` (by source class and tier). Intake holds Executor `Job`s (clone, checkout at the revision, license, tree hash, build in the container, run, SASS dump, profile); reproduce and ablate hold variant runs through the solve pipeline path (`generate`, `build`, `full_check`, `measure`). `dry_run` is always true: nothing is submitted (D320). The expand loop's `frozen`, `reconstructed` and `reproduced` work still raise NotSupported for runnable references and name the plan.

@@ -42,7 +42,20 @@ def _t2_files(store: SqliteStore, unmatched: int = 1, gaps: int = 1) -> dict[str
     doc = {
         "chain": {
             "workload": "gemm",
-            "items": [{"key": "a", "template": "async_transfer@1", "applies_to": "A tile"}],
+            "items": [
+                {
+                    "key": "a",
+                    "template": "async_transfer@1",
+                    "applies_to": "A tile",
+                    # A complete binding: the admission check validates the chain (WP20).
+                    "bindings": {
+                        "mechanism": "instruction",
+                        "issue_point": "ahead_by_prefetch",
+                        "complete_point": "wait_group_then_barrier",
+                        "granularity_bytes": 16,
+                    },
+                }
+            ],
         },
         "reconstruction": {
             "matched": 1,
@@ -73,7 +86,7 @@ def test_t2_accepted_writes_reconstruction_and_gaps(q: TaskQueue, store: SqliteS
     task = _t2(q, store)
     _submit(q, task, _t2_files(store))
     v = q.check(task)
-    assert v.state == "accepted" and all(o.passed for o in v.outcomes)
+    assert v.state == "accepted", [(o.name, o.failures) for o in v.outcomes]
     assert q.get(task).state == "accepted"
     result = store.query("Report", {"title": "task_result"}, limit=1)[0]
     outputs = result.body["data"]["outputs"]

@@ -78,7 +78,7 @@ experiments:
     design: measured noise of the measurement protocol per kernel class (repeated measurements of fixed kernels)
     arms: [per kernel class]
     metrics: [CI of the median, run-to-run spread]
-    sets: [guard.improvement_band]
+    sets: [guard.improvement_band, learning.coupling_noise_band]
     profile_fields: []
     depends_on: []
     step: 1

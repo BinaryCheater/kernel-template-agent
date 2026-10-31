@@ -26,7 +26,7 @@ class Record:
 ```
 
 - (D141) In Python the field `schema` is `Record.schema_` (JSON alias `schema`); the stored JSON uses `schema`. (D144) The body is stored normalized (every default filled in) and `created_at` in UTC before hashing. (D140) `Store.put` fills `actor.commit`/`actor.dirty` from its code state when absent and keeps them when present.
-- (D440) **Schema versions and upcast.** A kind's `schema` is `1 + len(upcasters)` (`kta.core.schemas.registry.KindSpec`); `upcasters[n-1]` maps a stored body of version n to n+1. A record stored under an older version is read with its stored body kept for hashing (`Record.to_json_dict()`, `Record.stored_body`) and its `body` upcast to the current shape; `schema_` stays the stored version and `Record.upcast` is true. A version newer than the code is refused. Stored records are never rewritten. Current versions changed by WP14: Pattern 2, Template 2, Gap 2, Reconstruction 2 (levels 0–5 → 1–7; Template also `requires_hw` → `requires`, `probed_on` added, `program.fragments` and `expected_sass` moved to Realisation).
+- (D440) **Schema versions and upcast.** A kind's `schema` is `1 + len(upcasters)` (`kta.core.schemas.registry.KindSpec`); `upcasters[n-1]` maps a stored body of version n to n+1. A record stored under an older version is read with its stored body kept for hashing (`Record.to_json_dict()`, `Record.stored_body`) and its `body` upcast to the current shape; `schema_` stays the stored version and `Record.upcast` is true. A version newer than the code is refused. Stored records are never rewritten. Reference 2 (WP20): `source_class` and `priority` added with defaults (D564). Current versions changed by WP14: Pattern 2, Template 2, Gap 2, Reconstruction 2 (levels 0–5 → 1–7; Template also `requires_hw` → `requires`, `probed_on` added, `program.fragments` and `expected_sass` moved to Realisation).
 - **ID** = `sha256(canonical_json(record))` 的十六进制。`canonical_json`：键排序、无多余空白、UTF-8、datetime 用 ISO 8601、浮点用 `repr`。
 - `origin` 必填。只有 `real` 的记录能进入正式结论。
 - `refs` 中的每个 ID 必须已存在于存储中，否则写入失败。
@@ -225,6 +225,8 @@ README.md          # 一页以内
 class Reference:
     name: str; problem: str; build: str     # 构建方式（命令或脚本）
     runnable_on: list[str]                  # Target 名；空表示仅分析
+    source_class: str = "open_code"         # schema 2 (WP20): open name, learning.yaml source_classes
+    priority: ReferencePriority?            # schema 2: cases_affected, gap_closable, uncertainty, reasons
 class Reconstruction:
     matched: int; total: int                # 匹配的链项数 / 全部步骤数
     unmatched_transactions: list[UnmatchedTx]

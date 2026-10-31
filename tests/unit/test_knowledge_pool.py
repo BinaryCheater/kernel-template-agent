@@ -207,10 +207,11 @@ def test_chain_may_bind_pattern_parameters(ctx: Context, store: Store) -> None:
     assert [i.kind for i in validate_chain(bound, store)] == ["constraint_false"]  # 4*16K > 32K
 
 
-def test_undeclared_pattern_parameter_is_a_warning(ctx: Context, store: Store) -> None:
+def test_undeclared_pattern_parameter_is_a_counted_language_gap(ctx: Context, store: Store) -> None:
+    """Not an error; since WP20 a language gap (D560): counted and listed, not refusing."""
     seed(ctx, store)
     t = template("multi_buffer_rotation", scope={"predicate": "p.iteratons >= 1", "text": "t"})
     issues = validate_template(t, store)
     typo = [i for i in issues if i.kind == "undeclared_pattern_param"]
-    assert [(i.where, i.severity) for i in typo] == [("scope.predicate", "warning")]
+    assert [(i.where, i.severity) for i in typo] == [("scope.predicate", "gap")]
     assert errors_of(issues) == []

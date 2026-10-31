@@ -16,8 +16,9 @@ from kta.core.registry import resolve
 from kta.core.schemas import Actor, Record, RefValue
 from kta.core.schemas.hardware import Target
 from kta.knowledge import coverage_report, render_text_knowledge, seed_dir
+from kta.knowledge.admission import admit_references
 from kta.measure.baseline import ensure_baseline
-from kta.orchestrator import budget, processes
+from kta.orchestrator import budget, learning_plan, processes
 from kta.orchestrator.inbox import inbox
 from kta.orchestrator.machines import machine
 from kta.orchestrator.pipeline import Services
@@ -107,6 +108,36 @@ def cmd_reference_add(args: argparse.Namespace, make_ctx: ContextFactory) -> int
         ref = svc.store.put(Record.new("Reference", body, actor, now, refs=refs))
     data = {"reference": ref, "source": src, "problem": refs.get("problem")}
     _out(args, data, f"reference {ref}\nsource {src}\nproblem {refs.get('problem') or '-'}")
+    return 0
+
+
+def cmd_reference_plan(args: argparse.Namespace, make_ctx: ContextFactory) -> int:
+    """The learning-loop plan of one Reference (dry run: nothing is submitted, D569)."""
+    with command(make_ctx, "reference-plan", f"kta reference plan {args.reference}") as ctx:
+        svc = Services.open(ctx)
+        p = learning_plan.plan(svc.store, args.reference, args.target)
+    lines = [f"{p.reference} on {p.target}: tiers {', '.join(p.tiers)} (dry run)"]
+    lines += [
+        f"  {s.name:<9} {s.status:<14} {s.why} ({len(s.jobs) + len(s.runs)})" for s in p.stages
+    ]
+    _out(args, p.to_dict(), "\n".join(lines))
+    return 0
+
+
+def cmd_reference_admit(args: argparse.Namespace, make_ctx: ContextFactory) -> int:
+    """Import reference directories through the admit step into the store (D561)."""
+    root = Path(args.directory)
+    with command(make_ctx, "reference-admit", f"kta reference admit {root}") as ctx:
+        svc = Services.open(ctx)
+        result, reports = admit_references(ctx, svc.store, root)
+    data = {
+        "counts": result.counts,
+        "language_gaps": len(result.language_gaps),
+        "admission": reports,
+    }
+    gaps = len(result.language_gaps)
+    text = f"admitted {len(reports)} references: {result.counts}; language gaps {gaps}"
+    _out(args, data, text)
     return 0
 
 
@@ -284,12 +315,19 @@ def add_loop_commands(
         "new Problem/Contract/Case from YAML",
     ).add_argument("file")
     ref = sub.add_parser("reference", help="reference implementations")
+    rc = ref.add_subparsers(dest="reference_command", required=True)
     parser(
-        ref.add_subparsers(dest="reference_command", required=True),
+        rc,
         "add",
         cmd_reference_add,
         "new Source/Reference from YAML",
     ).add_argument("file")
+    pl = parser(rc, "plan", cmd_reference_plan, "learning-loop plan of a Reference (dry run)")
+    pl.add_argument("reference", help="Reference ID")
+    pl.add_argument("--target", default="gb10")
+    parser(
+        rc, "admit", cmd_reference_admit, "import reference directories through admit"
+    ).add_argument("directory")
     for kind, verb in (("solve", "solve"), ("expand", "expand")):
         p = parser(sub, verb, lambda a, m, k=kind: _start(a, m, k), f"start the {kind} loop")
         p.add_argument("subject", help="Case ID" if kind == "solve" else "Reference ID")

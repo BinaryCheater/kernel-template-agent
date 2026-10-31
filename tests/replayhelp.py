@@ -63,6 +63,8 @@ def references(ctx: Context, store: Store) -> dict[str, str]:
 def t2_files(ref: str) -> dict[str, bytes]:
     d = REFERENCES / ref
     files = {name: (d / name).read_bytes() for name in T2_FILES}
+    if (d / "warnings.yaml").is_file():  # admission warnings explained (D561)
+        files["warnings.yaml"] = (d / "warnings.yaml").read_bytes()
     for sub in T2_DIRS:
         files |= {f"{sub}/{p.name}": p.read_bytes() for p in sorted((d / sub).glob("*.yaml"))}
     return files

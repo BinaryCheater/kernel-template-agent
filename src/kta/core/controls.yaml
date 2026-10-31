@@ -901,6 +901,57 @@ knobs:
     accessor: learning_scope
     consumer: pending WP20 (learning-loop runner, coverage)
 
+  - id: learning.ablation_pairwise_max_runs
+    row: ablation pairwise run limit
+    section: "12 §7"
+    controls: largest pairwise ablation design (base, singles, pairs); above it a fractional factorial screens
+    type: int
+    value: 32
+    min: 1
+    unit: runs
+    prevents: pairwise designs growing quadratically with the suspected pairs
+    where: [orch]
+    status: default
+    source: "02 §8.4, D566"
+    set_by: []
+    editable: true
+    accessor: ablation_pairwise_max_runs
+    consumer: kta.knowledge.ablation.design
+
+  - id: learning.ablation_max_runs
+    row: ablation run cap
+    section: "12 §7"
+    controls: most runs one ablation design of a family may have
+    type: int
+    value: 64
+    min: 2
+    unit: runs
+    prevents: GPU time blowing up on families with many factors
+    where: [orch]
+    status: default
+    source: "02 §8.4, D566"
+    set_by: []
+    editable: true
+    accessor: ablation_max_runs
+    consumer: kta.knowledge.ablation.design
+
+  - id: learning.coupling_noise_band
+    row: coupling noise band
+    section: "12 §7"
+    controls: a pair is coupled when its joint effect deviates from the product of single effects by more than this
+    type: float
+    value: 0.05
+    min: 0.0
+    unit: fraction
+    prevents: measurement noise recorded as coupling / real coupling missed
+    where: [orch]
+    status: default
+    source: "02 §8.4, D566"
+    set_by: [X6]
+    editable: true
+    accessor: coupling_noise_band
+    consumer: kta.knowledge.ablation.estimate, propose_couplings
+
   - id: release.stage
     row: release stage
     section: "12 §7"

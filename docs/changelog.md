@@ -145,3 +145,27 @@ Code stage (D320): no real runs, no experiments. Branch `wp/WP21`; decisions D48
 
 - WP18 and WP19 add their knobs as registry rows (spec/modules/core-store.md "Adding a knob"); WP19 fills the pull log and plan the Release page already shows as "not recorded yet".
 - Owed real run: a hand-stepped S1 run with a real agent (deliveries/WP21.md "Pending real runs").
+
+## 2026-10-31: merged work package WP20 (learning-loop runner, code stage)
+
+Branch `wp/WP20`; delivery note `deliveries/WP20.md`; decisions D560–D569.
+
+### Closes
+
+| Item | How |
+| --- | --- |
+| R15 (coverage part) | SOTA coverage in four levels; system-level features and language gaps counted apart (`kta.knowledge.sota`, coverage page) |
+| R16 | per-reference pipeline intake → decompose → admit → reproduce → ablate → cover: admit implemented (T2 done-check `admission`, `kta reference admit`), the other deterministic stages defined as dry-run plans (`kta reference plan`) |
+| R17 | cost tiers L0–L4 as data with named admission rules; performance core; source class and priority on references (Reference schema 2) |
+| R18 (mechanics) | ablation design generator on our own families (pairwise / fractional factorial) producing `Coupling` evidence; thresholds as table values awaiting the registry |
+| E13 | language gaps admitted at `proposed` and counted; the seven WP10a decompositions imported through admit into the store |
+| E14 (pool-growth part) | admission Reports per reference; coverage shows language gaps, system features and per-backend expressibility |
+| D-T29 | per-backend expressibility coverage and declared intent (confirmation pending compiled SASS) |
+| D-open-2, D-open-4, D-open-6, D-open-7 | definitions per D325: admit language gaps; worker deliverables into the store only; ε = 10 %; O12 protocol defined, not run |
+
+02 sections implemented: §8.1, §8.2 (system features counted apart), §8.3 (source classes, priority), §8.4 (tiers, performance core, ablation on our families), §8.5 (per-backend coverage), §8.6 (admit, plans).
+
+### Not done here
+
+- No real run (D320): no intake, reproduction, ablation or O12 run; `kta reference plan` only plans.
+- Thresholds read the controls registry: `budget.retries_per_task`, `learning.reproduction_epsilon`, and the new `learning.ablation_pairwise_max_runs`, `learning.ablation_max_runs`, `learning.coupling_noise_band`.

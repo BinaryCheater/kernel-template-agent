@@ -142,3 +142,49 @@ def diff(store, a: str, b: str) -> PoolDiff                    # pooldiff: added
 - `import_seed` also imports `knowledge/seed/hardware/`: `arch_*.yaml` as HwArch, `model_*.yaml` as HwModel with `refs.arch` (identity `(name, version)` and `(target, version)`); an instance naming an unknown class is an `unknown_arch` issue.
 - `retrieve_templates(unit=...)` matches a resource through the signature, legacy cost units, or the reservation tables (of every stored HwArch) of the Template's transaction kinds.
 - Seed migration: `scripts/migrations/WP15_effects.py` (idempotent, `--check`) rewrote the `cost:` block of all 37 seed Templates in place, keeping versions (D468). Pattern `sync` gained the parameter `warps`.
+
+
+## WP20 learning-loop runner (D560–D569)
+
+Data: `src/kta/knowledge/learning.yaml` (version 1), read by `kta.knowledge.learning`. Every table is open; an unlisted name counts as `other`.
+
+| Table | Content | Reader |
+| --- | --- | --- |
+| `admission` | Issue kind (+ optional message regex) → `error` / `warning` / `language_gap` | `issue_class`, `classify` |
+| `system_features` | feature → regexes over unmatched-transaction descriptions; `pattern_guess: system` also counts | `system_feature` |
+| `tiers` | L0–L4 with work, cost, yield and the admission rule name | `tiers(ReferenceFacts)`, `TIER_RULES` |
+| `source_classes` | open_code, closed_library, paper, vendor_doc, other → pipeline stages | `source_class`, `stages` |
+| `priority` | boost per reason | `priority(ReferencePriority)` = cases × gap closable × uncertainty × Π(1 + boost) |
+| `performance_core` | what is included (ε is the knob `learning.reproduction_epsilon`), host inputs fixed, system features excluded | `performance_core(...)` → `PerformanceCore` |
+| `ablation` | suspect kinds, repeats (run limits and noise band are knobs `learning.ablation_pairwise_max_runs`, `learning.ablation_max_runs`, `learning.coupling_noise_band`) | `kta.knowledge.ablation` |
+| `sota_levels`, `backends`, `o12` | the four coverage levels, backends counted for expressibility, the O12 protocol (defined, not run) | `kta.knowledge.sota`, `o12_protocol` |
+
+**Issue severities.** `Issue.severity` is `error`, `warning` or `gap`. `validate_template` and `validate_chain` return issues through `classify`: an expressibility gap of the expression language or its vocabulary has severity `gap` (D560); `errors_of` ignores it, so the object is admitted (status `proposed`). Today `bad_expression` for an unsupported construct (not a typo) and `undeclared_pattern_param` are gaps.
+
+**Admit** (`kta.knowledge.admission`, D561).
+
+```python
+warning_key(issue, file) -> str                        # "<kind>@<file>:<where>"
+load_explanations(path) -> dict[str, str]              # warnings.yaml
+admit(pairs: Iterable[(file, Issue)], explanations) -> Admission   # errors, warnings, language_gaps
+admit_references(ctx, store, root, code=None) -> (ImportResult, {reference name: Report ID})
+latest_admissions(store, reference_ids) -> {reference ID: admission data}
+```
+
+A reference directory (the decompose-kernel layout) may hold `warnings.yaml` mapping warning keys to explanations. `Admission.admitted` is false when there is an error or an unexplained warning. `admit_references` runs `import_references(..., admit=...)`: errors or unexplained warnings refuse the whole batch before anything is written; language gaps are counted. Each admitted reference gets a Report `title: admission` (`subject`: its Reconstruction, `refs.reference`, `data`: `Admission.to_dict()`). `ImportResult.language_gaps` lists the gap issues of a batch.
+
+**Coverage additions** (`kta.knowledge.sota`, D567). `CoverageReport.learning` and the page's `learning` field hold `sota_levels` (one row per level: references at that level or above, `of`, `pending` reason; level 1 also `step_rate`), `system_features` (`total`, `by_feature`), `language_gaps` (`total`, `by_kind`, `by_reference`, from the latest admission Report per reference), and `backends` (per backend: `steps`, `expressible` = steps whose Template has code on that backend from a Realisation with code markers or fragments or a Family chain item with code markers, `rate`, `intent_declared` = steps with SASS expectations on it or `any`, `intent_confirmed` = null until compiled SASS exists). Level 2 counts Reconstructions with `reproduction_error ≤ ε`; levels 3–4 count Reports `title: o12` (`data.reference`, `data.level`).
+
+**Ablation** (`kta.knowledge.ablation`, D566).
+
+```python
+factors(family, chain) -> list[Factor]                 # chain steps and variables with ≥ 2 values
+suspected_pairs(factors, family, chain, templates) -> list[Pair]   # shared_variable | template_relation | shared_resource
+design(factors, pairs, controls=None) -> Design                       # pairwise (base, singles, pairs) or fractional 2^(k-p)
+estimate(design, times, noise_band=None, controls=None) -> list[Estimate]          # joint / product of single effects
+propose_couplings(store, design, estimates, *, family_id, target, workload, evidence, actor, now) -> list[str]
+```
+
+A coupled pair (|joint/product − 1| > noise band) becomes a Coupling record (`basis: measured`, `refs.family`, `refs.evidence` = the run measurements), status `proposed`.
+
+**Reference schema 2.** `source_class` (open name, default `open_code`) and `priority` (`ReferencePriority`); schema-1 records upcast with those defaults (`kta.core.schemas.upcast.reference_v1`).

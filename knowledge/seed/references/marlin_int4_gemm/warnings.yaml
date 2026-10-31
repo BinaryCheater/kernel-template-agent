@@ -1,0 +1,4 @@
+# Admission warnings of this reference, explained (WP20 admit step, D561).
+# Key: "<issue kind>@<file>:<where>".
+"constraint_false@chain.yaml:items.frag_stages": >-
+  Partial match recorded as gap ux-06 (same finding as cutlass_ampere_tf32_gemm ux-09): register fragments double-buffered by k % 2 without barriers; the lifetime obligation P <= S - 2 + beta is too coarse for private register buffers (WP10a critique 3).

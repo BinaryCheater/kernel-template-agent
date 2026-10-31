@@ -143,3 +143,11 @@
   - knowledge/seed/references/flash_attention_3_fwd/templates/cluster_multicast.yaml
   - knowledge/seed/references/flash_attention_3_fwd/templates/cache_eviction_hint.yaml
   - knowledge/seed/references/marlin_int4_gemm/templates/fused_dequantization.yaml
+- id: WP20-warnings
+  at: '2026-10-31T12:00:00+00:00'
+  note: 'added warnings.yaml (admission explanations of the constraint_false warnings, D561); no existing
+    file changed'
+  files:
+  - knowledge/seed/references/cutlass_ampere_tf32_gemm/warnings.yaml
+  - knowledge/seed/references/flash_attention_2_fwd/warnings.yaml
+  - knowledge/seed/references/marlin_int4_gemm/warnings.yaml
