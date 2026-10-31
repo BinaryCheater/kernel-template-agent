@@ -8,3 +8,4 @@
 | `write-delivery` | 交付说明和证据清单的写法 | WP0 |
 | `remote-run` | 同步代码到 spark、在远端运行、后台运行与查看日志、查询远端 dev 存储 | WP0 写通用部分，WP2 补全数据目录和环境 |
 | `design-interrogation` | 设计或修改任何机制、流程、spec 前后必做的一遍追问：九个问题、对抗性二审、三种必须产出（决策台账、待证义务、控制项） | 设计讨论（2026-10-31） |
+| `supervision-ux` | Design and review the frontend as a supervision interface: awareness levels, three cadences (interrupt / digest / on demand), eight questions per view or alert, inbox rules, and how to measure the interface (question register, walkthrough, fault-injection drill, bypass log) | HCI discussion (2026-10-31) |

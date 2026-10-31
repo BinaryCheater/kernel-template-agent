@@ -1,233 +1,246 @@
-# System debug run 1 (SYSDEBUG-1): first end-to-end run on spark-hk
+# System debug and trial run (SYSDEBUG-1)
 
-**For:** an AI operator (Codex) driving KTA on behalf of the user. **Goal:** the first real end-to-end run of the system, in a few hours, with as little human attention as possible, ending in one written report the user can read in ten minutes.
+**For:** the AI operator (Codex) that drives KTA, the AI reviewer that checks its work, and the user who decides.
+**Goal:** get KTA running for real in three phases:
+1. unattended calibration;
+2. joint debugging under the user's supervision, until the user understands the system and accepts the method;
+3. automatic runs that the user accepts or rejects on data about stable, continuous operation.
 
-This is a debugging run, not an experiment. Its value is in finding out where the system breaks and recording real numbers. Nothing here is a research result, and passing a phase is not user acceptance.
-
----
-
-## 0. Rules for the operator
-
-1. **Read first:** `AGENTS.md`, `spec/conventions.md` §5–§7 and §10, `docs/design/11-processes-resources-concurrency.md` §1.1, and the README "How a case is solved". Skim the rest only when a step fails.
-2. **Where it runs.** Everything runs on **spark-hk** in long-run mode (`KTA_MODE=spark-hk`): control plane, agent CLIs, CPU and GPU jobs. The Mac is only for the browser, through the existing tunnel `http://127.0.0.1:14173` (frontend) and `127.0.0.1:17310` (API).
-   - Why not locally: every job would cross the slow hk-relay link (about 1 MB/s, 2.6 s per new ssh connection), and Mac-side agents would need the Clash proxy.
-   - Run long commands on spark-hk inside `tmux` (session `sysdebug`), so a dropped ssh connection does not kill them.
-3. **Time boxes.** Each phase has one. When a phase fails:
-   - at most **two fix attempts, 20 minutes in total**, and only if the fix is local and obvious (a config value, a missing record, a one-line bug);
-   - otherwise record the failure with its first error and move to the next phase that does not depend on it.
-   - Never spend more than 30 minutes stuck in one place.
-4. **Code fixes** go on branch `sysdebug/1` in the KTA repo, with commit format `SYSDEBUG-1: <summary>`. Each fix is listed in the report. No push, no merge, and no changes to spec interfaces (list them under "needed changes" instead).
-5. **Forbidden:**
-   - sudo or system configuration changes on any machine;
-   - deleting or overwriting existing data directories (always create a new one);
-   - fixtures or fake results presented as real (conventions §10);
-   - editing records by hand;
-   - spending beyond the agent budget in §6.
-6. **Credentials.** Never print, copy into logs or commit tokens or `auth.json` contents. The credential step (P0.6) is done by the user, or by you only with the user's explicit go-ahead in chat.
-7. **Record as you go.** Write each phase's outcome into the report (§8) as soon as the phase ends, not at the end of the run. Record IDs, not prose, are the evidence.
+Nothing here is a research result. Passing a check is not user acceptance: only the user's decision on a card is.
 
 ---
 
-## 1. What the run should show
+## 0. Roles, cards and rules
 
-| Phase | Question | Agent spend | Time box |
+### Roles
+
+| Role | Who | Does | Never does |
 | --- | --- | --- | --- |
-| P0 | Is spark-hk at the current main commit, with a fresh store, and are the API and frontend up? | none | 40 min |
-| P1 | Do the infrastructure self-tests pass on the real GPU, and what is the noise band? | none | 30 min |
-| P2 | **S0 golden path:** does one FP16 GEMM case go solve → build → check → measure → gap decomposition, with no agent? | none | 60 min |
-| P3 | **S1, one hand-released agent step:** does one agent task run, get checked and get recorded, on the subscription login? | 1–2 tasks | 45 min |
-| P4 | **Learning, analysis only:** does one small reference go through decompose (T2) → admit? | 1–2 tasks | 45 min |
-| P5 | **S2-lite:** does a case loop route its gap to an agent task automatically, within a small budget? | ≤ 3 tasks | 45 min |
-| P6 | Write the report | none | 20 min |
+| Operator | Codex, in a tmux session on spark-hk | runs the steps, fixes small local faults, writes a card per decision point | decides a C-level point; edits records by hand; spends beyond the budget |
+| Reviewer | a separate AI session that did not run the step (another Codex session, or Claude) | checks each card against the records: data complete, rule applied as written, numbers traceable to record IDs, nothing presented as real that is not | runs experiments; changes the data |
+| User | — | decides B and C cards, supervises phase 2, accepts phase 3 | reads raw logs (the cards point to them when needed) |
 
-P1 and P2 are the core. If P2 cannot reach a measured kernel, still try P3 and P4: they do not depend on it.
+### Decision levels
+
+- **A, agent decides:** the operator applies the card's rule and the reviewer confirms. The value takes effect and appears as one line in the phase summary table.
+- **B, user glances:** the reviewer's recommendation takes effect unless the user vetoes it.
+- **C, convince the user:** nothing takes effect until the user decides. The card must contain the data, a chart link in the frontend, and the alternative.
+
+### Card format
+
+One screen, in `deliveries/sysdebug/cards/<id>.md`:
+
+```
+# <ID> <question>                         level A|B|C   status proposed|reviewed|decided
+Data:      what was measured, n, where (record IDs, frontend link)
+Rule:      the decision rule fixed before the run (from this runbook)
+Result:    the value / verdict the rule gives
+If wrong:  what goes wrong downstream if this value is off
+Reviewer:  agrees / disagrees, and why (one or two lines)
+Decision:  (user, for B/C) value, date
+```
+
+The phase summary is a table of cards, one line each. The user reads summaries and B/C cards, nothing else.
+
+### Rules for the operator
+
+1. **Read first:** `AGENTS.md`, `spec/conventions.md` §5–§7 and §10, `docs/design/11-processes-resources-concurrency.md` §1.1, and the README sections "How a case is solved" and "How the system learns".
+2. **Where it runs.** Everything runs on spark-hk in long-run mode (`KTA_MODE=spark-hk`): control plane, agent CLIs, CPU and GPU jobs. The user watches from the Mac through the existing tunnel: frontend `http://127.0.0.1:14173`, API `127.0.0.1:17310`. Run long commands in tmux.
+3. **When a step fails:** at most two fix attempts, 20 minutes in total, and only if the fix is local and obvious. Otherwise write the failure (symptom, first error, record IDs) on the phase's card and continue with the next independent step.
+4. **Code fixes** go on branch `sysdebug/1`, with commit format `SYSDEBUG-1: <summary>`. No push, no merge, no spec interface changes (list those as needed changes).
+5. **Forbidden:** sudo or system changes; deleting or overwriting data directories; fixtures or fake results presented as real; editing records by hand; printing or committing credentials.
 
 ---
 
-## 2. P0 — Deploy the current main to spark-hk (no agent)
+## 1. Phase 1 — Calibration (unattended)
 
-Facts as of 2026-10-31:
-- spark-hk runs WP23's long-run deployment at commit `4b95c5c`:
-  - code in `~/kta/src/<commit>`; environment in `~/kta/kta-env.sh` (it sets `KTA_SRC` and `KTA_WP=WP23`);
-  - services via `~/kta/longrun.sh start|stop|status`: the API on 7310, the web preview on 127.0.0.1:4173 and on the Tailscale IP;
-  - the store in `~/kta/data/dev/WP23`, which is fresh and holds no user data.
-- GitHub `main` is now `0c6dc48` (WP22–WP24 merged).
-- The docker group is active, and the image `kta-worker:tilelang-0.1.15` is built on spark-hk.
+**Purpose:** a trustworthy ruler and price list before anything is judged. **User attention:** read one summary table at the end.
 
-Steps:
-1. **Get the code.** Clone `main` from GitHub on spark-hk into `~/kta/src/<commit>` (the repo is public), or use a git bundle from the Mac as WP23 did. Then `uv sync --frozen` and `npm ci && npm run build` in `web/`, with the caches under `~/kta` (see `kta-env.sh`).
-2. **Environment.** Write `~/kta/kta-env-sysdebug.sh`: a copy of `kta-env.sh` with `KTA_SRC` pointing at the new commit and **`KTA_WP=SYSDEBUG1`**, so the store is the new `dev/SYSDEBUG1`. Leave the old file and the old store untouched.
-3. **Services.**
-   - Stop the old services (`longrun.sh stop`; the old store holds nothing the user needs).
-   - Point `longrun.sh` at the new env file and start it.
-   - Check `curl 127.0.0.1:7310/meta`, and the Mac's `http://127.0.0.1:14173`.
-4. **Store and worker.**
-   - `kta init`
-   - `kta worker register spark-hk`. The labels must include `backend.tilelang=0.1.15` and `gpu=sm_121`.
+### 1.1 Setup steps
+
+These steps make no decisions.
+
+1. **Deploy the current `main` to spark-hk** (as WP23 did):
+   - code in `~/kta/src/<commit>`, with `uv sync --frozen` and a web build;
+   - a new env file `~/kta/kta-env-sysdebug.sh` with `KTA_WP=SYSDEBUG1`, so the store is the new `dev/SYSDEBUG1`;
+   - point `longrun.sh` at it.
+
+   The old store `dev/WP23` holds nothing the user needs. Leave it on disk.
+2. **Initialise:**
+   - `kta init --references`
+   - `kta worker register spark-hk`. The labels must include `backend.tilelang` and `gpu=sm_121`.
    - `kta target probe`
    - `kta doctor`
-5. **Operator token.**
-   - `kta controls token`; the file lands in `~/.config/kta/operator-token`, so do not print it.
-   - Every `POST /controls` and `POST /release` below sends it as the header `X-KTA-Operator-Token`.
-6. **Credentials (user step).** KTA links `auth.json` from `~/.config/kta/auth/codex/` into each work unit's isolated CLI home. spark-hk already has a Codex login in `~/.codex/auth.json`. Ask the user which of two options to use:
-   - **(a) share the login:** `mkdir -p -m 700 ~/.config/kta/auth/codex && ln -s ~/.codex/auth.json ~/.config/kta/auth/codex/auth.json`;
-   - **(b) a separate copy:** `cp` instead of `ln -s`, then `chmod 600`. Use this if token-refresh conflicts with the user's interactive Codex show up.
+   - `kta controls token`; never print it.
+3. **Credentials (user step).** Link or copy `~/.codex/auth.json` into `~/.config/kta/auth/codex/`. Ask the user which: a link shares the login with their interactive Codex; a copy avoids token-refresh conflicts. Then run Settings → System → Test for codex (direct, proxy `off`).
+4. **Self-tests:**
+   - `kta backend smoke`
+   - `kta backend selftest`
+   - `kta measure protocol`
+   - `kta check selftest`: all three planted faults must be caught.
+   - `kta prove all`
+   - `kta prove canary`: the canary must be caught.
 
-   Then run the Settings → System → Test for codex. It should pass by direct TLS, with proxy policy `off`.
-7. **Pass:** `kta doctor` is OK, the worker is healthy with TileLang, the API and frontend are reachable from the Mac, and the codex connectivity test passes.
+### 1.2 Decision points
 
----
+| Card | Question | Data | Rule | If wrong | Level |
+| --- | --- | --- | --- | --- | --- |
+| **C1-X6** | How big a difference is a real improvement (noise band)? | `kta measure noise --kernel all`, repeated with agents idle and with one agent CLI active; CV per kernel, clocks, quiet verdicts | band = max(2 × CV over groups, protocol floor); if idle and active differ by more than 1 CV, record that agents must pause during measurement windows | too narrow: noise accepted as gains; too wide: real gains ignored and cases close early | A |
+| **C1-X10** | What are GB10's peaks and pairwise interferences? | `kta calibrate hw` (peaks and microbenchmarks), interference pairs A, B, A+B | values with their spread go into a new HwModel version; a peak whose spread exceeds the band is flagged | SOL too optimistic: gaps never close; too pessimistic: cases stop early | A |
+| **C1-QUIET** | When is the host quiet enough to measure? | host snapshots around every measurement above; one deliberate concurrent compile during a window | thresholds = idle distribution + margin; the deliberate compile must be flagged `interfered` | unexplained timing noise, or good measurements thrown away | A |
+| **C1-MEM** | How much memory may concurrent CPU jobs use on the unified-memory host? | peak RSS of the compile and check jobs above, GPU memory during measurement | cap = total − measurement peak − margin | jobs killed, or the GPU starved during measurement | A |
+| **C1-X11** | When do the MIP and the L2 simulator agree enough? | `kta`'s MIP ↔ L2 consistency check on the GEMM family; distribution of Spearman ρ and of bound violations over sampled subspaces | threshold below the observed distribution's lower tail; bound violations must stay at 0 on a correct table | a wrong model passes unnoticed, or false alarms on every run | A |
 
-## 3. P1 — Infrastructure self-tests on the GPU (no agent)
-
-Run each of these and record its output and record IDs:
-1. `kta backend smoke` (vector add) and `kta backend selftest` (executor behaviour).
-2. `kta measure protocol` (writes or finds the Protocol record).
-3. `kta check selftest`: one correct GEMM plus three faulty variants. All three faults must be caught.
-4. `kta measure noise --kernel all`. This is the first data for **X6, the noise band**. Record the CV per kernel, the SM clocks and the quiet-host verdicts (WP23). If a measurement is marked `interfered`, record what interfered.
-5. `kta prove all` and `kta prove canary`. These are CPU-only; the canary must be caught.
-6. Look at the Pipeline page and confirm the GPU-exclusive windows and host-lock waits appear.
-
-**Pass:** all of the above succeed, and the noise CV is recorded. If the noise is above 3 %, write that down: every later comparison depends on it.
+**Phase 1 summary:** `deliveries/sysdebug/phase1.md`. It holds the five card lines, the self-test outcomes and any failures. **Exit:** all self-tests pass and the five cards are reviewed. If C1-X6 or C1-X10 cannot be produced, stop and report: phase 2 needs both.
 
 ---
 
-## 4. P2 — S0 golden path: one FP16 GEMM case, no agent
+## 2. Phase 2 — Joint debugging (the user supervises)
 
-The release stage of a fresh store is S0 (no agent calls). Do not change it in this phase.
+**Purpose:** one real round of everything, slowly and visibly. By the end, the user understands the system and accepts or corrects the method.
 
-Known prerequisites, from WP6, WP7 and WP11:
-- a measurement Protocol (P1.2);
-- a measured HwModel for gb10;
-- the GEMM family's Chain and Family records;
-- the case itself.
+**User attention:**
+- the user is present for steps 2.2 and 2.3 (the agent calls are released one at a time);
+- a method walkthrough at the end;
+- four C cards.
 
-The construction tool `PYTHONPATH=tools uv run python -m kta_wp7 setup`, followed by `... peaks`, wrote these in WP7. If it insists on `KTA_WP=WP7`, look for the equivalent `kta` commands first: `kta calibrate hw` for peaks, `kta prove family --from-dir knowledge/seed/families/gemm_fp16_tilelang --target gb10` for the Chain and Family records. Record which path worked.
+### 2.1 S0: one case, no agent
 
-1. `kta case add gemm_fp16`, the seed case: one square and two non-square shapes plus edge shapes.
-2. `kta calibrate hw`, or the `kta_wp7 peaks` step. This also gives the first **X10** numbers, the GB10 peaks. Record them.
-3. `kta solve <case-id> --steps 1` repeatedly, or `kta process start solve --ticks N` in tmux. After each step, `kta loop show <loop>` shows the state.
-4. Follow it through to the end:
-   - SOL bound;
+1. `kta case add gemm_fp16`. Build the HwModel from C1-X10. Build the GEMM family's Chain and Family records, with `kta prove family --from-dir knowledge/seed/families/gemm_fp16_tilelang --target gb10` or the WP7 setup tool (record which).
+2. `kta solve <case> --steps 1`, repeated until the loop judges.
+3. Check each stage on the frontend:
+   - SOL;
    - chain retrieval;
-   - solve, with its shortlist;
-   - candidate proof gate (WP24; expect `claims: exploration` for the seed family);
+   - solve and its shortlist;
+   - candidate proof gate (expect `exploration`);
    - build;
-   - SASS intent check;
-   - correctness on the top-k;
-   - measurement under the exclusive host lock, with a quiet verdict;
+   - SASS intent;
+   - correctness;
+   - measurement under the host lock;
    - gap decomposition;
-   - judgement.
-5. Record:
-   - the best measured time per shape;
-   - the torch / cuBLAS baseline time;
-   - T_SOL;
-   - each gap term (ε, δ, Δpre, L_rep, irreducible), or why it is `not_assessed`;
-   - the routing decision;
-   - the selection-arm results (model top-k vs random vs copied);
-   - wall-clock time per stage, from the Pipeline page.
+   - routing.
+4. **Pass:** a correct kernel is measured for at least one shape, and a GapDecomposition exists. It does not matter whether the kernel is fast.
 
-**Pass:** at least one correct kernel is measured for at least one shape, and a GapDecomposition record exists. It does not matter whether the kernel is fast.
+### 2.2 S1: agent calls released one at a time
 
----
-
-## 5. P3 — S1: one hand-released agent step
-
-1. **Agent profile:**
+1. **Profile:**
    - `kta profile write codex-v2`
-   - `kta profile approve --reason "SYSDEBUG-1" <profile-id>`
-   - `kta agents env build sysdebug1 --profile <profile-id>`
+   - `kta profile approve`
+   - `kta agents env build sysdebug1 --profile <id>`
+2. **Stage.** `POST /controls`: set `release.stage` to `S1` and `budget.agent_instances` to `{start: 1, max: 1}`.
+3. Start `kta runner start --slot 1 --batch sysdebug1`.
+4. **Release one task of each role.** The user reads the card, the header and the plan on the Release page and releases it:
+   - **kernel**: the T1 or T6 that S0 routed, or a hand-made `kta task create T6` for a failing shape;
+   - **model**: a T4 on S0's largest prediction error, or a T5 for a missing hardware fact;
+   - **knowledge**: step 2.3.
+5. For each task, record:
+   - AgentRun, session and work unit (expect `<loop>:<role>`);
+   - wall time and tokens, if recorded;
+   - done checks;
+   - retries, and whether each went back to the same session;
+   - what the agent pulled (pull log).
 
-   The model is `gpt-5.4` at effort `medium`; leave it as is.
-2. **Move the store to S1** with `POST /controls`, body `{"expected": <current version id from GET /controls>, "changes": {"release.stage": "S1", "budget.agent_instances": {"start": 1, "max": 1}}, "reason": "SYSDEBUG-1 P3"}`. You can also use the Settings page.
-3. **Create one small task.** Pick the cheapest one the system offers, preferring this order:
-   - if P2 routed a T4 or T6, use that task;
-   - otherwise `kta task create T5 --goal "<one microbenchmark the hardware model lacks, from the inbox or the P2 gap>"`.
-4. **Start one runner slot** in tmux: `kta runner start --slot 1 --batch sysdebug1`. In S1, every agent call waits for a release.
-5. **Release it.** Read the task card, the header and the plan on the Release page, then `POST /release` with `{"task": "<task id>", "reason": "SYSDEBUG-1 read card"}`. You may release it yourself: the user delegated this for SYSDEBUG-1.
-6. Watch the Workflow, Task and Inbox pages. Record:
-   - AgentRun ID, session ID, wall time, token usage if recorded, `proxy.used` (expected false);
-   - done-check results;
-   - retries, and whether a rejection went back to the same session;
-   - the work unit name. It should be `<loop>:<role>` (WP23).
-7. **Pass:** one AgentRun is recorded end to end (accepted or rejected with a reason), and its workspace, session archive and checks are inspectable.
+### 2.3 Knowledge intake, analysis only
 
----
-
-## 6. P4 — Learning, analysis only (T2 → admit)
-
-**Who does reproduction.** Reproduction is a deterministic stage of the learn process: build our Family for the reference's chain, then measure it against the reference baseline within ε. Agents only fill gaps:
-- T2 decomposes the reference into a chain;
-- T3 writes a missing Template;
-- T1 (the kernel role) writes or extends the family generator code the reproduction needs.
-
-In the current code, the reproduce and ablate stages of a runnable reference still raise `NotSupported` (they are dry-run plans, D569). So this run tests analysis only: L0, intake planning, decompose, admit.
-
-1. Pick the smallest reference: `vllm_rms_norm` from the seed (`kta init --references` imports the seed decompositions; or `kta reference add` with its YAML).
-2. `kta learn add <reference>`, then `kta expand <reference> --analysis-only "SYSDEBUG-1: reproduce not wired"`. This creates a T2.
-3. Release the T2 as in P3. Observe the admission done-check:
-   - errors and unexplained warnings go back to the same session (≤ 2 retries);
-   - language gaps are counted, not refused.
-4. Record:
+1. `kta learn add vllm_rms_norm`, then `kta expand <ref> --analysis-only "SYSDEBUG-1"`. This creates a T2; release it.
+2. Record:
    - the admission Report;
-   - the number of retries;
+   - retries;
    - Gaps created;
-   - any T3 created (do not release more than one);
-   - the learning-plan stages on the Mechanisms page.
-5. **Pass:** the T2 ends accepted or escalated with a readable reason, and the admission Report exists.
+   - at most one T3, released.
+3. Reproduction is a deterministic stage of the learn process: our family against the reference baseline, within ε. Agents only fill gaps: T2 decomposes, T3 adds Templates, T1 writes the family code. Reproduce and ablate are still dry-run plans for runnable references (D569). Record this as a gap; do not work around it.
+
+### 2.4 Decision points
+
+| Card | Question | Data | Rule | If wrong | Level |
+| --- | --- | --- | --- | --- | --- |
+| **C2-O3** | Does the model rank candidates well enough to be worth using? | predicted vs measured on every measured point of 2.1, plus the selection arms (model top-k vs random vs copied) | ρ ≥ 0.5 and model top-k beats random → model guides search; otherwise k and the exploration share go up (measurement-led search) and model work is prioritised | the solver is noise and GPU time is wasted, or a good model is ignored | **C** |
+| **C2-O5** | Does gap attribution name the right cause? | fault injection on recorded inputs: degrade the model, delete a Template, cap the solver; the canaries | each injected fault routes to its class; a miss is a blocking defect | model faults sent to kernel writers, knowledge gaps sent to tuning: agent time wasted | **C** |
+| **C2-X8** | How many points to measure per round, and what exploration share? | hit rate of the best point vs k, from 2.1 | the smallest k that reaches the best point in all observed buckets, plus the exploration share given by C2-O3 | best points missed, or GPU time wasted | A |
+| **C2-METHOD** | Does the system work the way the user expects? | the method walkthrough (below) | the user's judgement | everything later builds on a wrong method | **C** |
+| **C2-S2** | May the system run on its own (S1 → S2)? | in 2.2, could the user predict each agent's behaviour from its card and the access discipline? | the user's judgement | loss of control, or needless hand-holding | **C** |
+
+### 2.5 Method walkthrough
+
+This is the checkpoint before phase 3.
+
+The reviewer writes `deliveries/sysdebug/method.md`: for the S0 case and each released task, what happened at each step, why (the record that caused it), and what it produced. Two pages at most, each step with a frontend link.
+
+The coordinator walks the user through it on the frontend. The user decides C2-METHOD. If the method is wrong, change it here, before any tuning.
+
+**Phase 2 summary:** `deliveries/sysdebug/phase2.md`: card lines, failures and fixes, open questions. **Exit:** C2-METHOD and C2-S2 decided by the user.
 
 ---
 
-## 7. P5 — S2-lite: one automatic case loop
+## 3. Phase 3 — Automatic runs and acceptance
 
-Only if P2 and P3 passed.
-1. `POST /controls`: set `release.stage` to `S2` and keep `budget.agent_instances` at 1. Also lower `budget.rounds_per_case_loop` to 3.
-2. Create the BF16 case (`kta case add gemm_bf16`). Run `kta process start solve` and `kta runner start --slot 1` in tmux.
-3. **Hard stop:** after 3 agent tasks, or 45 minutes, whichever comes first. Stop with `kta process stop solve` and `kta runner stop`.
-4. Record:
-   - each round's gap class and the route taken;
-   - which task types were created;
-   - acceptances and rejections;
-   - two-null-round closes;
-   - escalations to the inbox;
-   - stage-queue depths and waits (Pipeline);
-   - total agent time and GPU time.
+**Purpose:**
+- the system runs on its own;
+- three loops turn in parallel;
+- parameters are tuned from logs;
+- the user accepts or rejects continuous, stable operation on data.
 
-### Agent budget for the whole run
+**Prerequisites:** these do not exist yet; build them in a separate work package, in parallel with phases 1–2.
+1. An **output ledger page**, plus a **batch digest**: one screen per batch saying what was learned, how the model moved, which formulation changed, which agent configuration changed, and where each case's performance stands.
+2. **Model-trust adaptive measurement:** k and the exploration share follow C2-O3's rule automatically, round by round.
+3. **The reviewer as a process:** it reads batch logs, writes cards, and proposes skill and prompt changes as draft profile versions (WP22 workflow; the user approves).
+4. **The pi adapter**, with the user's DeepSeek v4.1 flash configuration on spark-hk, so X1 can include a cheap tier.
 
-At most **6 agent tasks**, at most **2 hours of total agent wall time**, and no more than 1 concurrent agent. pi, claude_code and the deepseek harness are **not usable yet**: their adapters raise `NotSupported` (only the Codex adapter exists; see §9).
+### 3.1 The three loops
+
+None of them blocks another; they meet only through records.
+
+| Loop | Validated by | Produces |
+| --- | --- | --- |
+| Knowledge | measurement only (compiles, correct, reproduces within ε) | Templates, chains and families, Findings, couplings, proofs |
+| Model | every measurement is a predicted-vs-measured point | HwModel versions, calibration set, scoreboard deltas |
+| Formulation | ranking quality of each plan | FormulationPlans; the ones that rank better become family defaults |
+
+An inaccurate model costs extra measurements; it never stops knowledge work or changes what counts as correct.
+
+### 3.2 Run
+
+1. `release.stage` S2. Agent instances start at 1 and rise to 2 after a clean batch.
+2. A handful of cases: GEMM FP16 and BF16 shapes, then one other kernel class once the GEMM batch is clean.
+3. References keep flowing through analysis and admission.
+4. Batches of about 2 hours, each ending in a digest and the cards below.
+
+### 3.3 Decision points
+
+| Card | Question | Data | Rule | If wrong | Level |
+| --- | --- | --- | --- | --- | --- |
+| **C3-X5** | How many retries per task? | marginal acceptance of retry 2 vs 3 | keep the retry only while it adds accepted tasks per agent-hour | stuck tasks, or tasks killed that would have passed | A |
+| **C3-X9** | Task wall-clock budgets per type | completion-time distribution per task type | p90 + margin | runaway tasks, or premature kills | A |
+| **C3-X12** | Concurrent agents and stage capacities | throughput, GPU queue wait, rate-limit hits, stage depths | the largest setting with no rate limits and GPU idle under 20 % | GPU idles, or work goes stale in queues | A |
+| **C3-X2** | Reasoning effort | two effort levels on the same tasks | the lower one unless acceptance drops beyond the band | money wasted, or quality lost | B |
+| **C3-X3** | Resume scope and work-unit rule | tokens per accepted task, acceptance, model-blame share (3 arms) | the cheapest arm with no acceptance loss and no blame skew | context blow-ups, or biased diagnoses | B |
+| **C3-X4** | How agents get knowledge (discipline vs dump vs browse) | acceptance and tokens per arm | the best acceptance per token | agents starved or flooded | B |
+| **C3-X7** | Reproduction tolerance ε | reproduction error over the references (once reproduce is wired) | separates known-correct from planted-wrong decompositions | wrong decompositions admitted as knowledge | B |
+| **C3-X1** | Which model per task type, including a cheap tier | the same tasks per model: acceptance, cost per accepted task | the cheapest model within the band of the best, per task type | cost ten times too high, or quality collapses | **C** |
+| **C3-KNOW** | Is accumulated knowledge usable? | leave-one-out: learn from 6 references, blind-solve the 7th's case, with and without the pool | the pool must beat no-pool beyond the band | the knowledge base grows but does not help | **C** |
+| **C3-ACCEPT** | When is a case done, and when does it escalate? | case closings vs remaining gap, escalations per batch | the user's judgement on the observed trade-off | stopping too early (performance lost) or too late (money burned) | **C** |
+
+### 3.4 Acceptance
+
+This is the user's decision, on data from at least three consecutive batches:
+
+- **Continuity:** hours of unattended operation, and interruptions with their causes.
+- **Throughput:** tasks per hour, GPU utilisation, queue waits per stage.
+- **Cost:** agent time and tokens per accepted task, and GPU time per measured point.
+- **Progress:** the gap-closed share of the case set (gap within the band of SOL, or explained) over time, and outputs per batch from the ledger.
+- **Control:** escalations per batch (should fall), budget overruns (should be zero), canaries missed (zero).
+
+**Phase 3 summary:** `deliveries/sysdebug/phase3.md`: the acceptance data above, card lines, and the reviewer's verdict. The user decides whether the system may run continuously.
 
 ---
 
-## 8. P6 — The report (the only thing the user must read)
+## 4. Known gaps
 
-Write `deliveries/SYSDEBUG-1.md` (English) and commit it on `sysdebug/1`. Keep the first screen short.
+Do not fix these during the run; record them where they bite.
 
-```
-# SYSDEBUG-1 report
-## Verdict (5 lines max)
-What works end to end now; the first thing that blocks; what the user must decide.
-## Phase table
-| Phase | Pass/Fail/Skipped | Time spent | Key record IDs | First error (if any) |
-## Numbers measured (real, spark-hk, commit <sha>)
-noise CV per kernel (X6 input); GB10 peaks (X10 input); per shape: best kernel time, baseline time,
-T_SOL, gap terms; agent: tasks, wall time, tokens if recorded, retries; stage wall-clock times.
-## Failures and fixes
-For each: symptom, root cause (or best guess, labelled), fix commit or "not fixed", how to reproduce.
-## Decisions for the user (each one question, options, recommendation, cost of changing later)
-## Observations about the design (what felt wrong, slow or unclear in the flow) — max 10 bullets
-## What was not exercised and why
-```
-
-Also `deliveries/SYSDEBUG-1.evidence.json`: record IDs per phase, commit, data directory, and the worker EnvManifest ID.
-
----
-
-## 9. Known gaps to expect (do not try to fix them in this run)
-
-- **Only the Codex adapter is implemented.** pi (with the user's DeepSeek v4.1 flash configuration under `~/.pi/agent/` on spark-hk), claude_code and the deepseek harness raise `NotSupported`. Model-choice experiments (X1) that include a cheap tier need the pi adapter first: list it as a needed change if it matters.
+- **Only the Codex adapter exists.** pi, claude_code and the deepseek harness raise `NotSupported`. The pi adapter is a phase-3 prerequisite.
 - **Model and effort are per profile**, not per task type (D594).
-- **Reproduce and ablate are dry-run plans** for runnable references (D569).
-- **The seed GEMM Templates do not reach a proof level** (WP24, D643). Candidates are therefore `exploration`, and that is expected.
-- **The eager torch baseline records no host readings** (D605). Its timings are unverified.
-- **No periodic backup**: take one at the end with `kta store backup ~/kta/backups/<ts>`.
+- **Reproduce and ablate are dry-run plans** for runnable references (D569). C3-X7 waits for them.
+- **The seed GEMM Templates reach no proof level** (WP24, D643). Candidates are `exploration`; that is expected.
+- **The eager torch baseline records no host readings** (D605).
+- **No periodic backup.** Take one at the end of each phase with `kta store backup ~/kta/backups/<ts>` and pull it to the Mac.

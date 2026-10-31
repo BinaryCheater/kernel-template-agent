@@ -477,6 +477,7 @@
 | D641 | Encoding implies C | default — needs user review: not checked at the Template level (KTA's MIP encoding with auxiliary variables is not translated to SMT); every chosen candidate's C is re-evaluated by the candidate gate instead, which catches an encoding that admitted a point outside C | WP24 |
 | D642 | Where the checker runs | The checker runs in-process on the control plane (CPU; the whole seed in about 5 s, the family composition under 1 s). No Executor job type was added; a heavy run can be wrapped as a CPU job later | WP24 |
 | D643 | Seed contract findings are reported, not repaired | default — needs user review: the checker finds K1 / K3 / K2 counterexamples in four seed Templates (preconditions over p.* only, Γ admitting negative sizes, padding vs "permutation", a warp-local wait). The seed Templates are left unchanged; proposed repairs are in the review queue and the delivery note | WP24 |
+| D644 | Supervision UX skill | User request 2026-10-31 to turn the HCI discussion into a skill; content is the assistant's: `.agents/skills/supervision-ux` (attention model, three cadences, eight questions per view or alert, inbox rules with uncalibrated ISA-18.2 starting budgets, measurement methods). `ui-ux-pro-max` is not vendored: only component hygiene rules are restated in our own words, and its `--design-system` output is not used for KTA (tried; it returned a landing-page pattern and serif fonts for an ops console). Change by editing the skill | HCI discussion |
 
 ## 已确认
 
