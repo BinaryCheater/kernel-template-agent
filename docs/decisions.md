@@ -488,6 +488,8 @@
 
 | D651 | Candidate gate for selection controls | SYSDEBUG-1: random and copied candidates use the same C/Gamma check as model candidates before build; repeat the guard before GPU execution to cover already-built rounds. Reuse identical live candidate checks. Alternative: leave controls outside the proof gate; that permits infeasible copied points and makes the claimed pipeline incomplete. No routing threshold or exploration assurance changed | SYSDEBUG-1 |
 
+| D652 | Real round evidence in Case views | SYSDEBUG-1: resolve cached builds, full checks and measurements from the current loop maps; group candidates and library baselines by bucket, expose evidence links and exploration claims, and default to selected points once selection exists. Do not present one bucket bound or the fastest differently shaped baseline as a case-wide figure; show per-shape results. Baseline Reports use their title when no name exists. Alternative: legacy edge-only lookup and mixed-shape summaries; these hide real results and misstate progress. View-only repair, no scientific acceptance changed | SYSDEBUG-1 |
+
 ## 已确认
 
 | ID | 决策 | 选择 | 来源 |

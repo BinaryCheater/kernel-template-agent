@@ -246,6 +246,14 @@ export interface BucketResult {
 }
 export interface Candidate {
   rank: number;
+  bucket?: string;
+  arm?: string;
+  selected?: boolean;
+  build_record?: string | null;
+  check_record?: string | null;
+  measurement_record?: string | null;
+  proof_record?: string | null;
+  claims?: string | null;
   assignment: Record<string, number | string>;
   predicted_us: number | null;
   measured_us?: number | null;

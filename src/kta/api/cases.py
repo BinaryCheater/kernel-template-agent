@@ -69,12 +69,15 @@ def summary(api: Api, case_id: str) -> dict[str, Any]:
     case = body(api, case_id)
     loop = _loop_for(api, case_id)
     bound = latest(api, incoming(api, case_id, "case", "Bound"))
+    if loop and len(loop.data.get("bounds", {})) > 1:
+        bound = None  # A single bucket bound cannot stand for the whole case.
     best = _best(api, case_id)
     data = loop.data if loop else {}
     return {
         "id": case_id,
         "record": case_id,
-        "name": data.get("name") or case["problem"],
+        "name": (data.get("name") if data.get("name") != case_id[:12] else None)
+        or body(api, case["problem"]).get("name", case["problem"]),
         "problem": case["problem"],
         "loop_id": loop.id if loop else None,
         "state": loop.state if loop else "not started",
@@ -206,15 +209,51 @@ def _round_task(api: Api, t: opsread.TaskRow) -> dict[str, Any]:
 
 
 def _candidates(api: Api, case_id: str) -> list[dict[str, Any]]:
+    loop = _loop_for(api, case_id)
+    d = loop.data if loop else {}
+    current = {c for ids in d.get("candidates", {}).values() for c in ids}
+    current.update(c for arms in d.get("arms", {}).values() for ids in arms.values() for c in ids)
+    selected = {c for ids in d.get("top", {}).values() for c in ids}
     out = []
     for cand in incoming(api, case_id, "case", "Candidate"):
+        if current and cand not in current:
+            continue
         pred = latest(api, incoming(api, cand, "candidate", "Prediction"))
-        build = latest(api, incoming(api, cand, "candidate", "Build"))
-        meas = latest(api, incoming(api, build, "build", "Measurement")) if build else None
-        checks = [c for c in incoming(api, build, "build", "Check")] if build else []
+        build = d.get("builds", {}).get(cand) or latest(
+            api, incoming(api, cand, "candidate", "Build")
+        )
+        meas = d.get("measurements", {}).get(cand)
+        chk = d.get("checks", {}).get(cand)
+        checks = (
+            [chk]
+            if chk
+            else ([] if current else incoming(api, build, "build", "Check") if build else [])
+        )
+        if not current and build:
+            meas = latest(api, incoming(api, build, "build", "Measurement"))
+        proofs = [
+            r
+            for r in incoming(api, cand, "subject", "ProofResult")
+            if body(api, r)["condition"] == "candidate"
+        ]
+        proof = latest(api, proofs)
+        bucket = body(api, cand)["bucket"]
+        arm = d.get("arm_of", {}).get(bucket, {}).get(cand)
+        if arm is None:
+            arm = next(
+                (a for a, ids in d.get("arms", {}).get(bucket, {}).items() if cand in ids), "model"
+            )
         out.append(
             {
                 "assignment": body(api, cand)["assignment"],
+                "bucket": bucket,
+                "arm": arm,
+                "selected": cand in selected,
+                "build_record": build,
+                "check_record": chk,
+                "measurement_record": meas,
+                "proof_record": proof,
+                "claims": body(api, proof)["data"].get("claims") if proof else None,
                 "record": cand,
                 "predicted_us": float(body(api, pred)["total"]) if pred else None,
                 "measured_us": _measured_us(api, meas),
@@ -222,18 +261,35 @@ def _candidates(api: Api, case_id: str) -> list[dict[str, Any]]:
                 "check_passed": all(body(api, c)["passed"] for c in checks) if checks else None,
             }
         )
-    out.sort(key=lambda c: (c["predicted_us"] is None, c["predicted_us"] or 0))
+    out.sort(
+        key=lambda c: (
+            c["bucket"],
+            not c["selected"],
+            c["predicted_us"] is None,
+            c["predicted_us"] or 0,
+        )
+    )
     return [{"rank": i + 1, **c} for i, c in enumerate(out)]
 
 
 def _references(api: Api, case_id: str) -> list[dict[str, Any]]:
     out = []
+    loop = _loop_for(api, case_id)
+    current = loop.data.get("baseline_measurements", {}) if loop else {}
+    names = {mid: name for name, mid in current.items()}
     for m in incoming(api, case_id, "case", "Measurement"):
+        if current and m not in names:
+            continue
         base = ref_one(api, m, "baseline")
         if base is None:
             continue
         out.append(
-            {"name": body(api, base)["name"], "us": float(body(api, m)["median_us"]), "record": m}
+            {
+                "name": body(api, base).get("name") or body(api, base).get("title", "baseline"),
+                "us": float(body(api, m)["median_us"]),
+                "record": m,
+                "bucket": names.get(m),
+            }
         )
     return sorted(out, key=lambda r: r["us"])
 
@@ -243,8 +299,26 @@ def timeline(api: Api, case_id: str) -> dict[str, Any]:
     case = body(api, case_id)
     refs_ = _references(api, case_id)
     best = _best(api, case_id)
+    candidates = _candidates(api, case_id)
     buckets = []
-    for sol in incoming(api, case_id, "case", "Solution"):
+    loop = _loop_for(api, case_id)
+    d = loop.data if loop else {}
+    for name, bound in d.get("bounds", {}).items():
+        measured = [
+            r["measured_us"]
+            for r in candidates
+            if r["bucket"] == name and r["measured_us"] is not None and r["check_passed"]
+        ]
+        buckets.append(
+            {
+                "bucket": name,
+                "bound_us": float(body(api, bound)["bound_us"]),
+                "best_us": min(measured) if measured else None,
+                "references": {r["name"]: r["us"] for r in refs_ if r.get("bucket") == name},
+                "solution": None,
+            }
+        )
+    for sol in [] if buckets else incoming(api, case_id, "case", "Solution"):
         b = body(api, sol)
         bound = ref_one(api, sol, "bound")
         buckets.append(
@@ -276,7 +350,7 @@ def timeline(api: Api, case_id: str) -> dict[str, Any]:
         "best": best,
         "rounds": _rounds(api, s["loop_id"], case_id),
         "buckets": buckets,
-        "candidates": _candidates(api, case_id),
+        "candidates": candidates,
         "gaps": [{"id": g, "description": body(api, g)["description"]} for g in gaps],
     }
 

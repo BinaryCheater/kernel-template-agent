@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { api } from "../data/source";
 import type { CaseDetail, CaseRoundProgress, Machines } from "../data/types";
@@ -85,7 +85,10 @@ export function CasePage() {
 }
 
 function CaseBody({ c, m }: { c: CaseDetail; m: Machines }) {
-  const strongest = [...c.references].sort((a, b) => a.us - b.us)[0];
+  const strongest = c.buckets.length <= 1 ? [...c.references].sort((a, b) => a.us - b.us)[0] : undefined;
+  const [showAll, setShowAll] = useState(false);
+  const hasSelected = c.candidates.some((x) => x.selected);
+  const candidates = hasSelected && !showAll ? c.candidates.filter((x) => x.selected) : c.candidates;
   const allTasks = c.rounds.flatMap((r) => r.tasks);
   return (
     <div className="stack">
@@ -101,10 +104,10 @@ function CaseBody({ c, m }: { c: CaseDetail; m: Machines }) {
         </div>
       </div>
       <div className="stats">
-        <Stat label="Lower bound" value={fix1(c.bound_us)} unit="µs" record={c.bound_record} foot="theoretical, from the hardware model" />
+        <Stat label="Lower bound" value={fix1(c.bound_us)} unit="µs" record={c.bound_record} foot={c.buckets.length > 1 ? "see each shape below" : "theoretical, from the hardware model"} />
         <Stat label={strongest ? `Strongest reference · ${strongest.name}` : "Strongest reference"} value={fix1(strongest?.us)} unit={strongest ? "µs" : undefined} record={strongest?.record}
-          foot={c.references.length > 1 ? `${c.references.length} references measured` : "measured under measure-v1"} />
-        <Stat label="Best result" value={fix1(c.best?.us)} unit={c.best ? "µs" : undefined} record={c.best?.record}
+          foot={c.buckets.length > 1 ? "compare within each shape below" : strongest ? "library measurement; open record for protocol" : "no baseline measurement yet"} />
+        <Stat label="Best accepted bucket" value={fix1(c.best?.us)} unit={c.best ? "µs" : undefined} record={c.best?.record}
           foot={c.best ? <Link to={`/results/${c.best.solution}`}>why this holds →</Link> : "no measured result yet"} />
         <Stat label="% of bound" value={pct(c.pct_of_bound)} foot={c.best?.us && strongest ? `${(strongest.us / c.best.us).toFixed(2)}× vs strongest reference` : "—"} />
       </div>
@@ -126,16 +129,20 @@ function CaseBody({ c, m }: { c: CaseDetail; m: Machines }) {
         <Panel title="Per shape bucket" sub="latency, lower is better; the bound is the floor">
           <BucketChart c={c} />
         </Panel>
-        <Panel title="Candidates of the last round" sub="pre-compile prediction vs measurement">
+        <Panel title="Candidates of the current round" sub="grouped by shape; exploration is not a proof of kernel correctness">
+          {hasSelected && <label className="small"><input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} /> Show all shortlisted candidates ({c.candidates.length}); unchecked shows selected points ({c.candidates.filter((x) => x.selected).length})</label>}
           <table className="t">
-            <thead><tr><th>#</th><th>assignment</th><th className="r">predicted</th><th className="r">measured</th><th>check</th></tr></thead>
-            <tbody>{c.candidates.map((x) => (
+            <thead><tr><th>shape / arm</th><th>assignment / evidence</th><th className="r">predicted</th><th className="r">measured</th><th>check</th></tr></thead>
+            <tbody>{candidates.map((x) => (
               <tr key={x.rank}>
-                <td className="num">{x.rank}</td>
-                <td className="mono small"><RecordLink id={x.record} label={Object.entries(x.assignment).map(([k, v]) => `${k}=${v}`).join(" ")} /></td>
+                <td className="small">{x.bucket ?? "—"}<div className="muted">{x.arm ?? "model"}</div></td>
+                <td className="mono small"><RecordLink id={x.record} label={Object.entries(x.assignment).map(([k, v]) => `${k}=${v}`).join(" ")} /><div className="row small">
+                  {x.build_record && <RecordLink id={x.build_record} label={x.build_ok ? "built" : "build failed"} />}
+                  {x.proof_record && <RecordLink id={x.proof_record} label={x.claims ?? "candidate gate"} />}
+                </div></td>
                 <td className="r num">{us(x.predicted_us)}</td>
-                <td className="r num">{x.measured_us ? us(x.measured_us) : <span className="muted">pending</span>}</td>
-                <td>{x.check_passed == null ? <span className="muted small">—</span> : <Chip tone={x.check_passed ? "ok" : "fail"}>{x.check_passed ? "passed" : "failed"}</Chip>}</td>
+                <td className="r num">{x.measured_us != null ? <RecordLink id={x.measurement_record} label={us(x.measured_us)} /> : <span className="muted">{x.selected ? "pending" : "not selected"}</span>}</td>
+                <td>{x.check_passed == null ? <span className="muted small">—</span> : <RecordLink id={x.check_record} label={x.check_passed ? "passed" : "failed"} />}</td>
               </tr>
             ))}</tbody>
           </table>
@@ -144,7 +151,7 @@ function CaseBody({ c, m }: { c: CaseDetail; m: Machines }) {
 
       <div className="grid" style={{ gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", alignItems: "start" }}>
         <Panel title="Tasks this case created" sub={`${allTasks.length} task(s)`}>
-          {allTasks.length === 0 ? <div className="empty">None — every round found legal Templates and was judged without help.</div> : (
+          {allTasks.length === 0 ? <div className="empty">No task has been created. See the timeline for the current stage.</div> : (
             <table className="t">
               <thead><tr><th>task</th><th>created</th><th>state</th><th>rejections</th><th>card</th></tr></thead>
               <tbody>{allTasks.map((t) => (
