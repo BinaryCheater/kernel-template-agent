@@ -53,6 +53,31 @@ Exit codes: 0 ok, 1 check did not pass, 2 usage error, 3 not supported, 4 infras
 error (retry later; it does not count against you), 5 permission denied (do not retry
 around it).
 
+## Case tasks: the header and the access discipline
+
+A case-loop task's `TASK.md` starts with a one-screen header: the case, its bound, the last
+round's gap decomposition, the default FormulationPlan with its score, the budget, and the
+**situation** you are in. Fetch what the situation's row says, decide what it says, and
+cite the records you used in your plan. Fetching outside the row is allowed: every `kta
+show`, `card`, `why`, `query` and `src` is logged against your task with the row it
+matched (or none), and the table is revised from those logs.
+
+<!-- access-discipline:begin -->
+Access discipline **v1** (your `TASK.md` header names the situation).
+
+| Situation (id) | Fetch | Decide |
+| --- | --- | --- |
+| start (`start`) | nearest chain with each step's Γ evaluated | most steps hold → start from it, fetch alternatives for failing steps; else diagnostic retrieval |
+| diagnostic retrieval (`diagnostic`) | bottleneck unit → patterns → templates ranked by evidence (top N cards) | moves that address the dominant transactions |
+| each open variable (`open_variable`) | findings that pin it; the wall bounding it | fix with citation, or keep the menu |
+| MIP too large (`mip_too_large`) | structure table, regimes for this workload/chip | move outward or decompose, citing the structure |
+| non-algebraic effect (`non_algebraic`) | tabulated effects for the operations involved | use the table or request one over ≤ 2 variables |
+| last round was ε (`eps`) | nothing from the space | hand to model diagnosis |
+| last round was L_rep with an idle resource (`idle_resource`) | templates reducing or overlapping that resource; references with such a step | open a dimension or add a step |
+| bottleneck blocked by a wall (`wall`) | shadow price; templates reducing the walled resource | change the move or record a co-design finding |
+| stop (`stop`) | — | every non-default decision cites evidence, or budget reached |
+<!-- access-discipline:end -->
+
 ## Working rhythm
 
 1. Read `TASK.md`, then `NOTES.md`. Write your plan into `NOTES.md` before you start.

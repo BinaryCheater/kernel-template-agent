@@ -153,6 +153,76 @@ def record_solve(ctx, store, result, actor, case_id=None, family_id=None, hw_mod
 - 求解结果写 Prediction 记录。"模型内最优"只在已穷尽或 MIP gap 为 0 时才可以声称，并写明适用范围：这个族、这个 formulation、这个模型版本。
 - 每个形状桶分别求解；分发规则由族的 DispatchSpec 给出。
 
+### Projection compiler (WP17 inside WP19; docs/design/02 §5.1, §5.2; D546, D547, D548)
+
+`solve/projection.py` compiles a formulation's bound effects, a FormulationPlan's fixed
+values / menus / outer variables and the `MachineModel` into the MIP of L1's projection at
+peak (eff = 1, interaction terms dropped: a lower bound of L1). The agent writes none of it.
+
+```python
+def compile_and_solve(f, shape, mm, *, fixed=None, menus=None, outer=(), shortlist=16,
+                      time_limit_s=60.0, table_max=TABLE_MAX, outer_max=OUTER_MAX) -> ProjectionOutcome
+    # assignments (objective order across outer points), objective_us, status, first_optimal,
+    # outer, outer_points, menus (sizes), rules (uses per rule), notes (why each variable went outward)
+def menus_of(f, shape, hw, fixed=None, menus=None) -> dict[var, list]   # F4; ranges > MENU_MAX narrowed by their constraints
+def outer_vars(f, mm, shape, menus, outer=None, table_max=TABLE_MAX) -> (set[var], reasons)
+def atoms(f, mm, shape, menus, fixed) -> list[Atom]   # rule, row, source, support, value(...), linear?
+def projection_us(f, assignment, shape, mm) -> float  # compose(price_parts(...)) at eff = 1
+def consistency_check(...)                            # MIP <-> L2 hook: NotSupported until WP16 merges
+```
+
+- Rules: ResMII `T >= busy_r` per resource (epigraph max); pair bound `T >= u_a + u_b`,
+  `u_g >= t_g,r`; RecMII `T >= trips (lat_a + lat_b) / inflight`; serial time in the
+  objective (constants as offset); walls as linear rows over storage atoms (lower_occupancy:
+  `bytes + reserved <= limit`, residency >= 1); constraints as linear rows, else as no-good
+  rows over their tabulated infeasible combinations.
+- Encoding: one-hot menus; an atom over one variable is linear in its menu; over k >= 2
+  variables a joint table with linked indicators (menu product, table term; `tbl.*`,
+  `min`, `ceil` evaluated in the table); a combination where an atom is undefined (e.g.
+  `ceil_div` by zero: no CTA fits) is excluded; an atom over more than `table_max` entries
+  takes the linear path when its expression is linear up to `ceil` (integer column
+  `n >= L`), else its largest-menu variable moves outward. A two-selector overlap whose
+  truth depends on a variable and a `kind:` selector over a variable class move their
+  variables outward. More than `outer_max` outer points: NotExportable.
+- Translation correctness: at every returned point the objective equals `projection_us`
+  (test). Knobs: `formulation.table_max_entries`, `formulation.outer_max_points`.
+- `solve(..., projection={...})` takes this arm (method `projection`; `{}` = the default
+  plan's inputs, or `plan_inputs(plan, f)`); the shortlist is re-priced by L1 as before. The
+  previous MIP export (`solve/mip.py`, hand / agent-written formulation) stays the default
+  of `solve` and is labelled the comparison arm of D-T1 (note "formulation arm: ...").
+- MIP <-> L2 check (pending WP16): sample the subspace, evaluate `projection_us` and L2,
+  require Spearman rho >= threshold and MIP <= L2 on at least a share of points; a failure
+  names the effect (atom source) with the largest deviation. Thresholds become registry
+  knobs with `set_by: [X11]` when the check is added.
+
+### FormulationPlan and chains (WP19; docs/design/02 §5.3, §5.5; D541–D543)
+
+```python
+# solve/plan.py
+def default_plan(fp, f, mm, shape, chain_source="family") -> FormulationPlan   # D541
+def plan_inputs(plan, f) -> {"fixed", "menus", "outer"}                          # for compile_and_solve
+def diff_plans(default, plan) -> list[PlanChange]     # section, key, default, plan, cited
+def score_plan(plan, default, f, mm, shape, require_citation=True, solve=True) -> PlanScore
+    # changes, uncited, complete (02 §5.4 stop rule), open_dims, space vs default_space,
+    # bound_us vs default_bound_us (projection optimum, same chain only)
+def record_plan(store, plan, actor, at, case=None, default=None) -> record ID
+# solve/chains.py
+def start_symbols(templates) -> list[(pattern, level)]
+def enumerate_chains(store, case, start, mm, sol_us, incumbent_us=None, max_steps, max_chains,
+                     target=None) -> ChainEnumeration   # chains, counts, rules, missing, filtered, best, coverage()
+def composition_stats(chains, templates) -> dict; def composition_view(store) -> dict
+```
+
+- Grammar (D542): a symbol is (pattern, level); a Template rewrites `(refines, level_from)`
+  into `(p, level_to)` for each produced pattern. A legal chain refines every start symbol
+  at least once; produced symbols may stay unrefined; newest usable version per name;
+  capability filter on the target, Γ false drops a step (unknown kept and counted),
+  `excludes`/`requires` relations. Bound: max SOL of the minimal work over the resources the
+  chain's operation classes reach (a minimal-work resource not reached: unbounded, counted);
+  bound > incumbent: pruned. Knobs `formulation.chain_max_steps`, `chain_max_expansions`.
+- Composition statistics are a derived view (co-occurrence, order, conditional frequency
+  "pattern@level -> Template") over Chain records; `GET /composition`.
+
 ## 验收
 
 - 单元测试：拼装后约束的来源正确；绑定常量后变量被移除；枚举与 MIP 在同一个小线性问题上给出相同最优点。

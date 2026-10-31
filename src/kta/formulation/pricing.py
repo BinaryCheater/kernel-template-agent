@@ -169,7 +169,7 @@ class _TxSubst(ast.NodeTransformer):
         return node
 
 
-def _row_term(t: BoundTx, resource: str, amount: Expr, serial: bool, f: Formulation) -> BoundCost:
+def row_term(t: BoundTx, resource: str, amount: Expr, serial: bool, f: Formulation) -> BoundCost:
     where = f"{t.key} ({t.kind}) on {resource}"
     tree = _TxSubst(t.amounts, where).visit(ast.parse(amount.src.strip(), mode="eval").body)
     count = ast.parse(t.count.src.strip(), mode="eval").body
@@ -202,5 +202,5 @@ def work_terms(f: Formulation, mm: MachineModel) -> list[BoundCost]:
         if op is None or op.legacy:
             continue
         serial = op.serial or t.key in serial_ids
-        out += [_row_term(t, row.resource, row.amount, serial, f) for row in op.rows]
+        out += [row_term(t, row.resource, row.amount, serial, f) for row in op.rows]
     return out

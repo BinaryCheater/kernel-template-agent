@@ -344,7 +344,7 @@ knobs:
     set_by: [X4]
     editable: true
     accessor: access_discipline_version
-    consumer: pending WP19 (the versioned access-discipline table)
+    consumer: kta.api.agentapi pull log; kta.core.access (access_discipline.yaml)
 
   - id: session.notes_required_sections
     row: "`NOTES.md` required sections"
@@ -550,7 +550,7 @@ knobs:
     set_by: []
     editable: true
     accessor: evidence_citation_in_plans
-    consumer: pending WP19
+    consumer: kta.solve.plan.score_plan (require_citation)
 
   - id: guard.selection_controls
     row: selection controls
@@ -898,3 +898,88 @@ knobs:
     editable: true
     accessor: release_stage
     consumer: kta.orchestrator.release (processes, task lease, S1 gate)
+
+  - id: formulation.table_max_entries
+    row: projection table size
+    section: "12 §7"
+    controls: joint-menu entries above which an effect is not tabulated (linear path or outer enumeration)
+    type: int
+    value: 4096
+    min: 1
+    unit: entries
+    prevents: an exploding MIP from one large table
+    where: [orch]
+    status: default
+    source: "02 §5.2–5.5 (WP19)"
+    set_by: []
+    editable: true
+    accessor: table_max_entries
+    consumer: kta.solve.projection.compile_and_solve (table_max)
+
+  - id: formulation.outer_max_points
+    row: outer enumeration limit
+    section: "12 §7"
+    controls: outer points the projection compiler may enumerate before it refuses (NotExportable)
+    type: int
+    value: 256
+    min: 1
+    unit: points
+    prevents: an outer loop silently turning into full enumeration
+    where: [orch]
+    status: default
+    source: "02 §5.2–5.5 (WP19)"
+    set_by: []
+    editable: true
+    accessor: outer_max_points
+    consumer: kta.solve.projection.compile_and_solve (outer_max)
+
+  - id: formulation.chain_max_steps
+    row: chain enumerator depth
+    section: "12 §7"
+    controls: steps of one enumerated chain
+    type: int
+    value: 12
+    min: 1
+    unit: steps
+    prevents: an unbounded grammar expansion
+    where: [orch]
+    status: default
+    source: "02 §5.2–5.5 (WP19)"
+    set_by: []
+    editable: true
+    accessor: chain_max_steps
+    consumer: kta.solve.chains.enumerate_chains (max_steps)
+
+  - id: formulation.chain_max_expansions
+    row: chain enumerator budget
+    section: "12 §7"
+    controls: derivation nodes the enumerator expands before it stops (reported not exhaustive)
+    type: int
+    value: 2000
+    min: 1
+    unit: nodes
+    prevents: an enumeration that never ends on a large pool
+    where: [orch]
+    status: default
+    source: "02 §5.2–5.5 (WP19)"
+    set_by: []
+    editable: true
+    accessor: chain_max_expansions
+    consumer: kta.solve.chains.enumerate_chains (max_chains)
+
+  - id: session.task_header_max_lines
+    row: task header lines
+    section: "12 §7"
+    controls: lines of the one-screen case header (case, bound, gap, default plan, budget, situation)
+    type: int
+    value: 24
+    min: 1
+    unit: lines
+    prevents: a header that no longer fits one screen
+    where: [orch]
+    status: default
+    source: "02 §5.2–5.5 (WP19)"
+    set_by: []
+    editable: true
+    accessor: task_header_max_lines
+    consumer: kta.orchestrator.access.task_header (max_lines)

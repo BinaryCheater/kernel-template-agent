@@ -9,6 +9,7 @@ from typing import Any, Literal
 from pydantic import Field, model_validator
 
 from kta.core.schemas.common import Assurance, Body, EvidenceStatus
+from kta.core.schemas.plan import TaskHeader
 
 
 class StatusChange(Body):
@@ -32,6 +33,7 @@ class TaskCard(Body):
     budget: dict[str, Any] = Field(default_factory=lambda: dict[str, Any]())
     profile: str  # AgentProfile record ID
     work_unit: str
+    header: TaskHeader | None = None  # case-loop tasks: the one-screen header (WP19)
 
 
 class AgentRun(Body):

@@ -18,6 +18,7 @@ from kta.core.schemas import evaluation as ev
 from kta.core.schemas import hardware as hw
 from kta.core.schemas import hwmodel as hm
 from kta.core.schemas import knowledge as kn
+from kta.core.schemas import plan as pl
 from kta.core.schemas import process as pr
 from kta.core.schemas import upcast as up
 
@@ -121,7 +122,9 @@ KINDS: dict[str, KindSpec] = {
     "Solution": KindSpec(ev.Solution),
     # process and audit
     "StatusChange": KindSpec(pr.StatusChange),
-    "TaskCard": KindSpec(pr.TaskCard),
+    "TaskCard": KindSpec(  # 2: header (WP19)
+        pr.TaskCard, upcasters=(up.identity,), ref_kinds={"plan": "FormulationPlan"}
+    ),
     "AgentRun": KindSpec(pr.AgentRun, required_refs=("env",), ref_kinds=_ENV),
     "AgentProfile": KindSpec(pr.AgentProfile),
     "Submission": KindSpec(pr.Submission),
@@ -132,6 +135,10 @@ KINDS: dict[str, KindSpec] = {
     "ExperimentRun": KindSpec(pr.ExperimentRun),
     "Report": KindSpec(pr.Report, ref_kinds=_ENV),
     "ControlsVersion": KindSpec(pr.ControlsVersion, ref_kinds={"previous": "ControlsVersion"}),
+    "FormulationPlan": KindSpec(
+        pl.FormulationPlan, ref_kinds={"case": "Case", "default": "FormulationPlan"}
+    ),
+    "Pull": KindSpec(pl.Pull),
 }
 
 

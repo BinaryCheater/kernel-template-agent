@@ -230,3 +230,23 @@ class Knobs(ABC):
     @property
     def release_stage(self) -> str:
         return str(self.value("release.stage"))
+
+    @property
+    def table_max_entries(self) -> int:
+        return int(self.value("formulation.table_max_entries"))
+
+    @property
+    def outer_max_points(self) -> int:
+        return int(self.value("formulation.outer_max_points"))
+
+    @property
+    def chain_max_steps(self) -> int:
+        return int(self.value("formulation.chain_max_steps"))
+
+    @property
+    def chain_max_expansions(self) -> int:
+        return int(self.value("formulation.chain_max_expansions"))
+
+    @property
+    def task_header_max_lines(self) -> int:
+        return int(self.value("session.task_header_max_lines"))

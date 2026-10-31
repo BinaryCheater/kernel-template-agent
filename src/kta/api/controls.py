@@ -21,16 +21,17 @@ from kta.api.common import Api, controls, iso
 from kta.core.controls import definitions
 from kta.core.errors import ConfigError, PermissionDenied
 from kta.core.schemas.process import TaskCard
-from kta.orchestrator import release
+from kta.orchestrator import access, release
+from kta.solve.chains import composition_view
 from kta.store import controls as controls_store
 
 TOKEN_HEADER = "X-KTA-Operator-Token"
 DEFAULT_TOKEN_FILE = "~/.config/kta/operator-token"
 AGENT_TYPES = ("T1", "T2", "T3", "T4", "T5", "T6")
 Reason = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
-# What a held call's reader is shown besides the card; both arrive with WP19.
-PULL_LOG_NOTE = "pull logs are recorded from WP19 (access discipline); none exist yet"
-PLAN_NOTE = "FormulationPlan records arrive with WP19; none exist yet"
+# What a held call's reader is shown besides the card (WP19): its pull log and its plan.
+PULL_LOG_NOTE = "no pulls logged for this task yet (it has not run)"
+PLAN_NOTE = "the task's card names no FormulationPlan (no case header)"
 
 
 class ControlsBody(BaseModel):
@@ -110,12 +111,14 @@ def write_controls(api: Api, b: ControlsBody) -> dict[str, Any]:
 
 def _held_detail(api: Api, row: dict[str, Any]) -> dict[str, Any]:
     card = TaskCard.model_validate(api.store.get(str(row["card"])).body)
+    log = access.pull_log(api.store, str(row["task"]))
+    plan = card.header.plan if card.header else None
     return {
         **row,
         "card_body": card.model_dump(mode="json"),
-        "pull_log": None,
+        "pull_log": log if log["pulls"] else None,
         "pull_log_note": PULL_LOG_NOTE,
-        "plan": None,
+        "plan": access.plan_view(api.store, plan) if plan else None,
         "plan_note": PLAN_NOTE,
     }
 
@@ -174,5 +177,18 @@ def router(api: Api) -> APIRouter:
     ) -> dict[str, Any]:
         check_operator(api, token)
         return write_release(api, b)
+
+    # WP19 views: pull logs (per task and across tasks), plans, composition statistics.
+    @r.get("/pulls")
+    def get_pulls(task: str | None = None) -> dict[str, Any]:  # pyright: ignore[reportUnusedFunction]
+        return access.pull_log(api.store, task) if task else access.pull_stats(api.store)
+
+    @r.get("/plans/{id}")
+    def get_plan(id: str) -> dict[str, Any]:  # pyright: ignore[reportUnusedFunction]
+        return access.plan_view(api.store, id)
+
+    @r.get("/composition")
+    def get_composition() -> dict[str, Any]:  # pyright: ignore[reportUnusedFunction]
+        return composition_view(api.store)
 
     return r

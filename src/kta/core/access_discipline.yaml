@@ -1,0 +1,53 @@
+# Access discipline (docs/design/02 §5.4, D-T20; WP19 D544): situation -> fetch -> decide.
+# The worker skill use-kta carries this table rendered (kta.core.access.render); the knob
+# session.access_discipline_version names the version in force. Pulls outside the row of
+# the task's situation are allowed and logged (Pull records); the table is revised from
+# the logs (a new version here, never an edit of an old one: versions below are append-only).
+versions:
+  v1:
+    rows:
+      - id: start
+        situation: start
+        fetch: nearest chain with each step's Γ evaluated
+        pulls: [query chain, query pool, card Chain, show Chain, card Family, show Family]
+        decide: most steps hold → start from it, fetch alternatives for failing steps; else diagnostic retrieval
+      - id: diagnostic
+        situation: diagnostic retrieval
+        fetch: bottleneck unit → patterns → templates ranked by evidence (top N cards)
+        pulls: [query tmpl, card Template, show Template, card Pattern, show Pattern]
+        decide: moves that address the dominant transactions
+      - id: open_variable
+        situation: each open variable
+        fetch: findings that pin it; the wall bounding it
+        pulls: [show Finding, card Finding, show Coupling, why, show HwModel, show HwArch]
+        decide: fix with citation, or keep the menu
+      - id: mip_too_large
+        situation: MIP too large
+        fetch: structure table, regimes for this workload/chip
+        pulls: [show Structure, card Structure, show Finding, card Finding]
+        decide: move outward or decompose, citing the structure
+      - id: non_algebraic
+        situation: non-algebraic effect
+        fetch: tabulated effects for the operations involved
+        pulls: [show HwArch, show HwModel, show Template]
+        decide: use the table or request one over ≤ 2 variables
+      - id: eps
+        situation: last round was ε
+        fetch: nothing from the space
+        pulls: []
+        decide: hand to model diagnosis
+      - id: idle_resource
+        situation: last round was L_rep with an idle resource
+        fetch: templates reducing or overlapping that resource; references with such a step
+        pulls: [query tmpl, card Template, show Template, show Reference, card Reference, src, show Chain]
+        decide: open a dimension or add a step
+      - id: wall
+        situation: bottleneck blocked by a wall
+        fetch: shadow price; templates reducing the walled resource
+        pulls: [query tmpl, card Template, show Template, show HwArch]
+        decide: change the move or record a co-design finding
+      - id: stop
+        situation: stop
+        fetch: "—"
+        pulls: []
+        decide: every non-default decision cites evidence, or budget reached

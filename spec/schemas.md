@@ -357,12 +357,51 @@ class Bound:     per_unit_us: dict[Unit, float]; bound_us: float; bottleneck: Un
 class Solution:  bucket: str?; assignment: dict; pct_of_bound: float
 ```
 
+#### 4.8.1 FormulationPlan, TaskHeader, Pull (WP19; docs/design/02 §5.3, §5.4; D540, D541, D545)
+
+The plan is the structured product of the formulation decisions F1–F7 (D-T18); the
+deterministic default is the same object with `author: default` (D-T19). The interface WP18
+reads for δ / Δpre attribution is stable: `variables[*].status` (which dimensions were open,
+fixed or outer), `chain` and `citations`; `refs.default` names the default plan the plan is
+diffed against.
+
+```python
+class Citation:      structure: str?          # a Structure name (paper Table 1)
+                     evidence: list[str]      # record IDs (Finding, Measurement, Coupling, ...)
+class PlanStep:      key: str; template: str; applies_to: str = ""        # F1
+class PlanBinding:   item: str; var: str; to: int | str | bool            # F2
+class VarStatus:     name: str; status: Literal["open", "fixed", "outer"] = "open"   # F3
+                     value: int | str | bool?   # the fixed value
+                     menu: list[int | str | bool]?   # F4; None = the declared domain
+                     structure: str?; evidence: list[str]                   # its citation
+class TableTerm:     effect: str; over: list[str]; by: Literal["compiler", "agent"]   # F5
+class GlueSpec:      id: str; expr: str; why: str                           # F6
+class DispatchPlan:  runtime_vars: list[str]; buckets: list[dict]           # F6 (default one bucket)
+class FormulationPlan:
+    family: str                               # "<name>@<version>"
+    author: Literal["default", "agent", "human"]
+    chain_source: str                         # family | retrieved:<chain id> | enumerated | agent
+    chain: list[PlanStep]; bindings: list[PlanBinding]; variables: list[VarStatus]
+    table_terms: list[TableTerm]; glue: list[GlueSpec]; dispatch: DispatchPlan
+    generator: str?                           # F7: record / blob ID; None = no new generator
+    citations: dict[str, Citation]            # chain, bindings, table_terms, glue, dispatch, generator
+class TaskHeader:    text: str; situation: str; discipline: str; case: str?; plan: str?
+class Pull:          task: str; command: str; target: str; kind: str?
+                     situation: str            # the header's situation, "" without a header
+                     row: str?                 # the access-discipline row allowing it; None = outside
+                     discipline: str           # table version
+```
+refs: FormulationPlan may have `case` (Case) and `default` (FormulationPlan). TaskCard may have
+`plan` (FormulationPlan, the default plan its header shows).
+
+
 ### 4.9 流程与审计
 
 ```python
 class StatusChange: subject: str; to_status: EvidenceStatus | None; to_assurance: Assurance | None; reason: str
 class TaskCard:     type: Literal["T1", "T2", "T3", "T4", "T5", "T6"]; goal: str; inputs: list[str]
                     done_checks: list[str]; budget: dict; profile: str; work_unit: str   # profile：AgentProfile 记录 ID
+                    header: TaskHeader?   # schema 2 (WP19): case-loop tasks; TASK.md starts with header.text
 class AgentRun:     session: str; profile: str; cli_version: str; model: str
                     tokens_in: int?; tokens_out: int?           # 会话中带有用量时由解析器填写；否则为空
                     session_archive: str                      # blob：该会话的会话文件与 CLI 输出（不含凭据）

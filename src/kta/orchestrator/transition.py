@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from kta.core.controls import Controls
+from kta.core.schemas.plan import TaskHeader
 
 HOLD = "hold"  # not a machines.yaml kind: the instance stays where it is
 
@@ -32,6 +33,7 @@ class TaskRequest:
     type: str  # T1-T6
     goal: str
     inputs: list[str]  # record IDs; the first is the main subject
+    header: TaskHeader | None = None  # case-loop tasks: the one-screen header (WP19)
 
 
 @dataclass(frozen=True)

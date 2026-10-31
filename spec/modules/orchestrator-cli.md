@@ -141,3 +141,21 @@ cli/controls_cmds.py       kta controls show | history | token
 - Loop budget scope: `agent_min = rounds × max task wall budget / 60`, `gpu_min = case_factor × max task GPU budget / 60` (12 §1, D488).
 - The stage in force is the knob `release.stage` (default S0). A process outside the stage skips its ticks (`maintain` always runs). The agent pool (`next_task`, `step_once`) starts only a task the stage admits: its type in the stage, agent calls not `none`, and in a `gated` stage no other task leased or running and a release for exactly this attempt (`release:task:<id>` pointer + HumanAction `release_agent_call`). `kta task lease` (manual) is not gated.
 - `kta controls show` stores version 1 if none exists and prints the values in force and the stage; `kta controls history` lists versions; `kta controls token` creates the operator token file (mode 600) and never prints it.
+
+## WP19: access discipline, task header, pull log (D544, D545)
+
+- `orchestrator/access.py`: `situation_of(gap)` (none → `start`, ε → `eps`, wall → `wall`,
+  L_rep with an idle resource → `idle_resource`, `stop`, else `diagnostic`);
+  `task_header(case, case_id, bound_us, bottleneck, gap, plan_id, score, budget,
+  discipline, max_lines)` → `TaskHeader` (ConfigError above `session.task_header_max_lines`,
+  lines clipped at 100 columns); `record_pull`, `pull_log(store, task)`, `pull_stats(store)`,
+  `plan_view(store, plan_id)`, `card_header(store, card_id)`.
+- `TaskRequest.header` (optional): `TaskQueue.create` writes it into the card and refs the
+  header's plan. The gap mapping is WP18's decomposition (components eps, delta, dpre,
+  l_rep, irreducible in us, plus `class` and `idle`).
+- The table itself is data: `core/access_discipline.yaml` (versions append-only),
+  `core/access.py` (`table(version)`, `Table.classify(command, kind, situation)`,
+  `render(table)`). The worker skill `use-kta` carries `render(table(v))` between markers;
+  the gate checks they are identical for the version `session.access_discipline_version`
+  names.
+

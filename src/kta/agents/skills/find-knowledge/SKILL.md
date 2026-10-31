@@ -12,6 +12,9 @@ through `kta query` and `kta show`; every lookup is recorded, so look up what yo
 
 ## Search in this order
 
+In a case task, the situation in your `TASK.md` header and the access-discipline table in
+`use-kta` say what to fetch first; every fetch is logged with the row it matched.
+
 1. **Nearest chain.** `kta query chain --near <case or family>`. A chain that already
    solves a close workload is the cheapest start: you change only the steps whose
    conditions fail in your case.

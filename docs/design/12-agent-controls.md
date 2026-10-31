@@ -91,3 +91,8 @@ Thresholds that the code already used and that govern the loops, plus the D325 d
 | reproduction tolerance ε | relative error allowed when reproducing a reference's performance core from its chain | 10 % | a wrong decomposition passing as reproduced, or a right one refused for noise | orch, UI | default (02 §8.4, D325) | X7 |
 | learning scope | workloads, target and knowledge in scope; out-of-scope features counted separately | v1 of 01 §7 | learning drifting to features we cannot use or compare | orch, UI | default (01 §7, D325) | — |
 | release stage | which processes and task types may run and whether agent calls are gated (`stages.yaml`, 02 §6.3) | S0 | opening a stage before the previous one is understood | orch, UI | spec (02 §6.3) | — |
+| projection table size | joint-menu entries above which an effect is not tabulated (linear path or outer enumeration) | 4096 entries | an exploding MIP from one large table | orch | default (02 §5.2–5.5, WP19) | — |
+| outer enumeration limit | outer points the projection compiler may enumerate before it refuses (NotExportable) | 256 points | an outer loop silently turning into full enumeration | orch | default (02 §5.2–5.5, WP19) | — |
+| chain enumerator depth | steps of one enumerated chain | 12 steps | an unbounded grammar expansion | orch | default (02 §5.2–5.5, WP19) | — |
+| chain enumerator budget | derivation nodes the enumerator expands before it stops (reported not exhaustive) | 2000 nodes | an enumeration that never ends on a large pool | orch | default (02 §5.2–5.5, WP19) | — |
+| task header lines | lines of the one-screen case header (case, bound, gap, default plan, budget, situation) | 24 lines | a header that no longer fits one screen | orch | default (02 §5.2–5.5, WP19) | — |

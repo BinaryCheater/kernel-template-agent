@@ -717,3 +717,32 @@ Decisions made without the user that need review. Newest last. Each entry: quest
 - **Choice:** the token guards `POST /controls` and `POST /release` only; `/actions/*` are unchanged.
 - **Rationale:** follow the workplan without widening the change; the inconsistency is visible here.
 - **Cost of changing later:** low: `check_operator` can guard the other write endpoints; the web page already sends the header.
+
+## D540/D541 — FormulationPlan and its default (WP19)
+
+- **Question:** 02 §5.3 names F1–F7 but not the record shape, nor what "default" means for a family that already declares glue and dispatch.
+- **Choice:** one record kind with a section per F-decision and citations per variable (structure + evidence) and per other section; the default takes the family's chain, bindings, glue and dispatch, all variables open (compiler-chosen outer), declared menus, compiler table terms, no new generator.
+- **Rationale:** a plan must be diffable against the same object (D-T19); the family's existing glue is not a new decision of the agent.
+- **Cost of changing later:** medium: records are immutable; a new shape needs a schema version and an upcast; WP18 reads `variables[*].status`.
+
+## D542 — Chain grammar and bound (WP19)
+
+- **Question:** 02 §5.5 says "the population is a grammar" without fixing the grammar, and "SOL under minimal work" without saying how an abstract chain (no bindings) reaches the work.
+- **Choice:** symbols (pattern, level), Template = rewrite rule, every start symbol refined once; bound = max SOL over the resources the chain's operation classes reach, unbounded when a minimal-work resource is not reached.
+- **Rationale:** smallest grammar that derives the seed chain from the seed Templates; the bound is honest (no fallback rate invented).
+- **Cost of changing later:** low: one module (`solve/chains.py`); counts expose missing rules.
+
+## D544/D545 — Access discipline as data and the pull log (WP19)
+
+- **Question:** where the versioned table lives, how a pull is matched to it, and when a pull is logged.
+- **Choice:** YAML in `kta.core` rendered into `use-kta`; each row lists machine-readable pulls (`query chain`, `show Finding`, …); a pull is in-table only when it matches the row of the task's situation; one Pull record per fetch at the agent API, before the result.
+- **Rationale:** the table is revised from logs (02 §6.2), so the matching must be mechanical; records keep the evidence immutable.
+- **Cost of changing later:** low: a new table version; old Pull records keep their version.
+
+## D546/D547 — Projection compiler encoding and the default arm (WP19 / WP17)
+
+- **Question:** 02 §5.2 lists the encoding rules but not how to choose between them, and whether the compiled MIP replaces the existing hand-formulation export.
+- **Choice:** tabulate every atom over its open variables up to 4096 entries (one-hot, menu product, table term), linear-with-integer-ceil above that, else outer enumeration (≤ 256 points); eff = 1, interactions dropped; `solve` keeps the old path by default and takes the projection with `projection=`.
+- **Rationale:** tabulation is exact for the effects (translation correctness is testable point by point); keeping the default avoids changing locked acceptance before X11 and WP16 have spoken.
+- **Cost of changing later:** low for limits (knobs); low to flip the default (one argument), after the MIP ↔ L2 check exists.
+

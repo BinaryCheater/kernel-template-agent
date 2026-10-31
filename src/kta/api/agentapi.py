@@ -29,7 +29,7 @@ from fastapi import APIRouter, Header, Query
 from pydantic import BaseModel, ConfigDict, ValidationError
 
 from kta.api.auth import bearer
-from kta.api.common import Api
+from kta.api.common import Api, controls
 from kta.checks.sass import sass_check
 from kta.core.errors import ConfigError, NotSupported, SchemaError
 from kta.core.ids import UlidFactory
@@ -46,6 +46,7 @@ from kta.knowledge import (
     validate_family,
     validate_template,
 )
+from kta.orchestrator import access
 from kta.orchestrator.pipeline import (
     Services,
     build,
@@ -129,6 +130,12 @@ def router(api: Api) -> APIRouter:
         with tracing(tracer), span("cli", name, "process:api", task_id=task):
             yield task
 
+    def pull(task: str, command: str, target: str, kind: str | None) -> None:
+        """Log a knowledge fetch against the task's access discipline (WP19, D545)."""
+        header = access.card_header(api.store, api.ops.task(task).card_id)
+        version = controls(api).access_discipline_version
+        access.record_pull(api.store, task, header, version, command, target, kind, api.now())
+
     Auth = Header(None)
     Parent = Header(None, alias="X-KTA-Trace-Parent")
 
@@ -136,15 +143,18 @@ def router(api: Api) -> APIRouter:
     def show(
         id: str, authorization: str | None = Auth, parent: str | None = Parent
     ) -> dict[str, Any]:  # pyright: ignore[reportUnusedFunction]
-        with call(f"kta show {id[:12]}", authorization, parent):
-            return {"id": id, **api.store.get_json(id)}
+        with call(f"kta show {id[:12]}", authorization, parent) as task:
+            out = {"id": id, **api.store.get_json(id)}
+            pull(task, "show", id, str(out.get("kind")))
+            return out
 
     @r.get("/cards/{id}")
     def get_card(
         id: str, authorization: str | None = Auth, parent: str | None = Parent
     ) -> dict[str, Any]:  # pyright: ignore[reportUnusedFunction]
-        with call(f"kta card {id[:12]}", authorization, parent):
+        with call(f"kta card {id[:12]}", authorization, parent) as task:
             c = card(api.store, id)
+            pull(task, "card", id, c.kind)
             return {"id": c.id, "kind": c.kind, "name": c.name, "lines": c.lines}
 
     @r.get("/why/{id}")
@@ -154,15 +164,19 @@ def router(api: Api) -> APIRouter:
         authorization: str | None = Auth,
         parent: str | None = Parent,
     ) -> dict[str, Any]:
-        with call(f"kta why {id[:12]}", authorization, parent):
+        with call(f"kta why {id[:12]}", authorization, parent) as task:
             g = api.store.lineage(id, depth=depth)
+            pull(task, "why", id, None)
             return {"root": g.root, "nodes": g.nodes, "edges": g.edges}
 
     @r.post("/query")
     def query(
         b: QueryBody, authorization: str | None = Auth, parent: str | None = Parent
     ) -> dict[str, Any]:  # pyright: ignore[reportUnusedFunction]
-        with call(f"kta query {b.what} {b.term or b.case or ''}"[:80], authorization, parent):
+        with call(
+            f"kta query {b.what} {b.term or b.case or ''}"[:80], authorization, parent
+        ) as task:
+            pull(task, f"query {b.what}", b.term or b.case or "", None)
             if b.what == "tmpl":
                 cards = retrieve_templates(api.store, text=b.term, k=b.k)
             else:
