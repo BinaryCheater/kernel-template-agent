@@ -1,0 +1,22 @@
+template: shared_memory_tiling@1
+version: 1
+relation: >-
+  slot (u mod S) holds A[:,u], B[u,:] from the completion of its load until the last read of
+  k-tile u; the coarse C[i,j] holds the sum of the products whose k-tiles were consumed.
+rank: "loads, barriers and computes not yet executed"
+assumes: []
+guarantees: []
+models:
+  - {obligation: coverage, condition: completion, model: tile_index,
+     params: {dims: [{tile: Tm}, {tile: Tn}, {tile: Tk}], properties: [coverage], grid: ceil, guard: true}}
+  - {obligation: exact_once, condition: completion, model: tile_index,
+     params: {dims: [{tile: Tm}, {tile: Tn}, {tile: Tk}], properties: [exact_once], grid: ceil, guard: true}}
+  - {obligation: no_phantom, condition: step, model: tile_index,
+     params: {dims: [{tile: Tm}, {tile: Tn}, {tile: Tk}], properties: [no_phantom], grid: ceil, guard: true}}
+  - {obligation: readiness, condition: step, model: slot_rotation,
+     params: {S: S, P: P, beta: beta, warps: 2, phases: 5, properties: [readiness]}}
+  - {obligation: lifetime, condition: step, model: slot_rotation,
+     params: {S: S, P: P, beta: beta, warps: 2, phases: 5, properties: [lifetime]}}
+  - {obligation: agreement, condition: completion, model: slot_progress,
+     params: {S: S, P: P, beta: beta, warps: 2, phases: 5}}
+note: "Paper Listing 1 proof outline Σ; the bounded event model of Appendix A."

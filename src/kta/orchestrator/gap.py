@@ -105,10 +105,13 @@ def decompose(b: Mapping[str, Any], band: Mapping[str, Any]) -> dict[str, Any]:
     relaxed = b.get("relaxed_pred_us")
     irr = b.get("irreducible_us")
     if relaxed is None:
-        dpre = _term(0.0, "not_assessed", "no relaxed solve (FormulationPlan, WP19)")
+        note = b.get("delta_pre_note") or "no relaxed solve (FormulationPlan, WP19)"
+        dpre = _term(0.0, "not_assessed", str(note))
         p_rel = popt
     else:
-        dpre, p_rel = _term(popt - float(relaxed), "value"), float(relaxed)
+        # WP24: the weakest-precondition records relax "stronger" steps (D639)
+        dpre = _term(popt - float(relaxed), "value", str(b.get("delta_pre_note") or ""))
+        p_rel = float(relaxed)
     irreducible = (
         _term(0.0, "not_assessed", "no irreducible term declared")
         if irr is None

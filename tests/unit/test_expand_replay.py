@@ -80,7 +80,7 @@ def test_wp10a_references_go_from_frozen_to_covered(svc: Services, clock: Manual
     store = svc.store
     # 7 seed Templates + 30 extracted; WP10a's chains name output_tiling@1 and
     # compute_instruction_selection@1, the seed holds their @2 (WP7), so @1 is extracted too.
-    assert len(store.query("Template", limit=1000)) == 37
+    assert len(store.query("Template", limit=1000)) == 38  # + shared_memory_tiling (WP24, D637)
     assert {p.body["name"] for p in store.query("Pattern", limit=1000)} >= {
         "work_assign",
         "issue_order",

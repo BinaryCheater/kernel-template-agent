@@ -25,7 +25,7 @@ from kta.knowledge import nearest_chains, retrieve_families, retrieve_templates,
 from kta.knowledge.findings import couplings
 from kta.measure.baseline import measure_baseline
 from kta.models import bound, min_work
-from kta.orchestrator import disciplines, pipeline
+from kta.orchestrator import disciplines, pipeline, proofgate
 from kta.orchestrator.pipeline import Services, bucket_shape, case_view
 from kta.orchestrator.transition import Loop, Settings
 from kta.solve import (
@@ -171,8 +171,10 @@ def work_solving(svc: Services, loop: Loop) -> Facts:
     model_id, model = svc.unit_model(cv.case.target)
     family = str(loop.data["families"][0])
     fp = pipeline.family_package(svc, family)
-    f = assemble(fp, fp.chain, pipeline.templates_of(svc.store, fp), cv.case, hw.hw)
+    templates = pipeline.templates_of(svc.store, fp)
+    f = assemble(fp, fp.chain, templates, cv.case, hw.hw)
     out: dict[str, list[str]] = {}
+    gate: dict[str, dict[str, Any]] = {}
     solver: dict[str, dict[str, Any]] = {}
     arms: dict[str, dict[str, list[str]]] = {}
     for b in loop.data["buckets"]:
@@ -192,8 +194,21 @@ def work_solving(svc: Services, loop: Loop) -> Facts:
             )
         recs = record_solve(svc.ctx, svc.store, res, ACTOR, cv.id, family, hw_id, model_id)
         name = str(b["name"])
-        out[name] = recs.candidates
+        # once per candidate (WP24): C and Γ at the assignment before anything is built
+        kept, checks, claims = proofgate.candidate_gate(
+            svc, family, fp, templates, hw.hw, b, recs.candidates
+        )
+        out[name] = kept
+        dropped = [c for c in recs.candidates if c not in kept]
+        gate[name] = {"checks": checks, "claims": claims, "dropped": dropped}
+        top = res.candidates[0].prediction.total if res.candidates else None
+        relaxed, dpre_note = proofgate.relaxed_prediction(
+            svc, fp, templates, cv.case, b, model, hw, top,
+            s.shortlist, s.solve_time_limit_s, svc.ctx.rng(f"relaxed:{loop.id}"),
+        )  # fmt: skip
         solver[name] = {
+            "relaxed_pred_us": relaxed,
+            "delta_pre_note": dpre_note,
             "method": res.method,
             "model_optimal": res.model_optimal,
             "exhaustive": res.exhaustive,
@@ -212,6 +227,7 @@ def work_solving(svc: Services, loop: Loop) -> Facts:
         "model": model_id,
         "solver": solver,
         "arms": arms,
+        "proof_gate": gate,
     }
 
 
@@ -447,6 +463,8 @@ def work_judging(svc: Services, loop: Loop) -> Facts:
                 "prediction": pid,
                 "ci_us": (meas.ci_high_us - meas.ci_low_us) / 2,
                 "top_pred_us": solver.get("top_pred_us"),
+                "relaxed_pred_us": solver.get("relaxed_pred_us"),
+                "delta_pre_note": solver.get("delta_pre_note"),
                 "solver": solver,
                 "unpriced": dict(pred.unpriced),
                 "arms": arms,

@@ -40,15 +40,16 @@ def test_seed_import_is_idempotent(ctx: Context, store: Store) -> None:
         "Structure": 9,
         "Capability": 16,
         "CapabilityDecl": 16,
-        "Template": 7,
+        "Template": 8,
         "Realisation": 1,
+        "ProofOutline": 7,
         "HwArch": 1,
         "HwModel": 1,
     }
     assert first.warnings == []
     again = seed(ctx, store)
     assert again.written == [] and len(again.reused) == len(first.written)
-    assert len(records(store, "Template")) == 7
+    assert len(records(store, "Template")) == 8
 
 
 def test_seed_templates_cite_the_seed_source(ctx: Context, store: Store) -> None:

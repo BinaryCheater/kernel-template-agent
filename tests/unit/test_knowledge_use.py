@@ -137,7 +137,7 @@ def test_retrieve_templates_filters_and_ranks(pool: Store) -> None:
     # resources: signature, legacy cost units, or the HwArch reservation tables of the
     # effects' transaction kinds (D460)
     by_unit = [c.name for c in retrieve_templates(pool, unit="dram")]
-    assert sorted(by_unit) == ["async_transfer@1", "output_tiling@2"]
+    assert sorted(by_unit) == ["async_transfer@1", "output_tiling@2", "shared_memory_tiling@1"]
     assert [c.name for c in retrieve_templates(pool, text="slots rotate")] == [
         "multi_buffer_rotation@1"
     ]
@@ -243,12 +243,12 @@ def test_coverage_report(pool: Store) -> None:
     assert len(rep.discovery_mean) == 3 and rep.discovery_mean[-1] == 3
     assert rep.unmatched_by_level == {str(n): 3 if n == 2 else 0 for n in range(1, 8)}
     assert rep.unmatched_by_pattern == {"map": 3}
-    assert rep.assurance == {"declared": 7, "tested": 0, "bounded": 0, "proved": 0}
+    assert rep.assurance == {"declared": 8, "tested": 0, "bounded": 0, "proved": 0}
     assert rep.other_patterns == 0
     assert rep.hw_pattern_grid["none"]["reduce"] == {"declared": 1}
     fams = rep.families_per_template
     assert fams["reduction_partition"] == 1 and fams["physical_storage"] == 1
-    assert len(fams) == 7 and sum(fams.values()) == 2  # every Template, 0 when in no family
+    assert len(fams) == 8 and sum(fams.values()) == 2  # every Template, 0 when in no family
     assert rep.direct_test == {"references": 3, "all_steps_matched": 1, "nothing_unexplained": 1}
     assert rep.gaps_by_missing["template"] == 0 and rep.templates_missing == []
     assert set(rep.pending) >= {"instruction_coverage", "gap_explained"}

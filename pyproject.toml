@@ -10,6 +10,7 @@ dependencies = [
   "highspy>=1.8",
   "pyyaml>=6.0",
   "numpy>=2.1",
+  "z3-solver>=4.13",
 ]
 
 [project.scripts]
