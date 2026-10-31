@@ -68,7 +68,9 @@ class ProfileSpec:
 
 CODEX_V1 = ProfileSpec()
 CODEX_V2 = ProfileSpec(name="codex-v2", version=2, skills_by_type=SKILLS_BY_TYPE_V2)
-CODEX_V3 = ProfileSpec(name="codex-v3", version=3, skills_by_type=SKILLS_BY_TYPE_V2)
+CODEX_V3 = ProfileSpec(
+    name="codex-v3", version=3, model="gpt-6.1-sol", skills_by_type=SKILLS_BY_TYPE_V2
+)
 SUPPORTED_COMMANDS = [
     "show",
     "card",
