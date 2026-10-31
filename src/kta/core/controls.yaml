@@ -651,7 +651,25 @@ knobs:
     set_by: []
     editable: true
     accessor: finding_ladder
-    consumer: pending WP14 (status ladder for empirical knowledge)
+    consumer: kta.knowledge.ladder.rule_problems (reproduced step, D446)
+
+  - id: knowledge.promotion_review
+    row: promotion review
+    section: "12 §4"
+    controls: candidates out of the finding layer; into a Template's Γ or a Structure's regime when the same claim is reproduced on this many targets; a new Pattern/Template when this many Gaps name the same missing guess
+    type: mapping
+    fields: {min_targets_for_scope: int, min_repeats_for_pattern: int}
+    value: {min_targets_for_scope: 2, min_repeats_for_pattern: 3}
+    min: 1
+    prevents: generalising from one chip; a new Pattern for every one-off gap
+    where: [knowledge]
+    status: default
+    source: "02 §2 (promotion and demotion), D448"
+    set_by: []
+    set_from: S1/S2 logs
+    editable: true
+    accessor: promotion_review
+    consumer: kta.knowledge.promotion.review
 
   - id: escalation.model_term_provisionality
     row: model-term provisionality

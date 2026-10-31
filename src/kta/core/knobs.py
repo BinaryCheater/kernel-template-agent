@@ -175,6 +175,10 @@ class Knobs(ABC):
         return {k: int(v) for k, v in self._map("escalation.finding_ladder").items()}
 
     @property
+    def promotion_review(self) -> dict[str, int]:
+        return {k: int(v) for k, v in self._map("knowledge.promotion_review").items()}
+
+    @property
     def model_term_provisionality(self) -> dict[str, Any]:
         return self._map("escalation.model_term_provisionality")
 

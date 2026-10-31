@@ -88,10 +88,10 @@ def probed_on(store, template_ref: str) -> list[str]           # Template's and 
 def validate_realisation(r: Realisation, store) -> list[Issue]
 def findings(store, subject=None, kind=None, target=None, usable_only=True) -> list[FindingRef]   # status "prior" out of scope
 def couplings(store, member: str | None = None, target: str | None = None) -> list[CouplingRef]
-def rule_problems(store, subject: Record, to_status: str, evidence: Iterable[str]) -> list[str]   # ladder (D446)
-def promote(store, subject: str, to_status: str, evidence: list[str], now) -> str      # checker; PermissionDenied when a rule fails
+def rule_problems(store, subject: Record, to_status: str, evidence: Iterable[str], controls: Controls) -> list[str]   # ladder (D446)
+def promote(store, subject: str, to_status: str, evidence: list[str], now, controls: Controls) -> str   # checker; PermissionDenied when a rule fails
 def demote(store, subject: str, counter_evidence: list[str], reason: str, now) -> Demotion   # system; one step; stale propagation
-def review(store, now) -> str                                  # Report "promotion_review" with candidates; changes nothing else
+def review(store, now, controls: Controls) -> str             # Report "promotion_review" with candidates; changes nothing else
 def diff(store, a: str, b: str) -> PoolDiff                    # pooldiff: added, removed, changed, status moves, counts
 
 (D200) Functions that read the pool take the `Store` explicitly (no global state, conventions §3.1); `snapshot_id=None` means the whole store; `rng` is `ctx.rng("coverage")`. The package registers no interface implementation. Seed layout and atomic import: D204; `p.*` in Template expressions and chain bindings: D205.
@@ -133,7 +133,7 @@ def diff(store, a: str, b: str) -> PoolDiff                    # pooldiff: added
 
 - **Objects.** Template requires abstract Capabilities; Realisations carry code fragments, ISA constraints and expected SASS per backend × ISA range; Targets declare Capabilities by CapabilityDecl records; Findings replace Regime and Negative (legacy records are read as Findings); Couplings record `coupled_with` with evidence and scope. Levels are 1–7 (D441).
 - **Unprobed mechanisms.** A Template whose required Capability no target provides stays in the pool (`probed_on: []`); retrieval on a target hides it; coverage counts it per target.
-- **Ladder and engine.** One status ladder for empirical knowledge with evidence rules (D446); `promote` (checker), `demote` (system, one step, then `kta.store.stale.propagate`), `review` proposes promotions into the hardware model, a Template's Γ or a Structure's regime, and new Patterns. Thresholds `MIN_REPLICATIONS = 2`, `MIN_TARGETS_FOR_SCOPE = 2`, `MIN_REPEATS_FOR_PATTERN = 3` are module defaults until the controls registry (WP21) holds them.
+- **Ladder and engine.** One status ladder for empirical knowledge with evidence rules (D446); `promote` (checker), `demote` (system, one step, then `kta.store.stale.propagate`), `review` proposes promotions into the hardware model, a Template's Γ or a Structure's regime, and new Patterns. Thresholds come from the controls registry (D455): `escalation.finding_ladder.replicate_min_independent` (2) and `knowledge.promotion_review` (`min_targets_for_scope` 2, `min_repeats_for_pattern` 3); callers pass `ctx.controls`, and the Reports record the controls version.
 - **Seed layout additions.** `capabilities/*.yaml` (Capability), `targets/<target>/*.yaml` (CapabilityDecl), `realisations/*.yaml` and `references/<ref>/realisations/*.yaml` (Realisation, refs.template resolved from `template: name@version`). Seed migrations are scripts under `scripts/migrations/` recorded in `knowledge/seed/migrations.yaml` (D450).
 - **SASS checks** take expectations from realisations on the family's backend (`orchestrator.pipeline.chain_sass`, D453).
 ## WP15 implementation notes (D460, D465, D468)
