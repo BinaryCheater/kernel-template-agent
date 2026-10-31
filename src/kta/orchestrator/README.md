@@ -45,3 +45,7 @@ Deterministic loops (solve, expand, learn, calibrate, maintain, experiment, summ
 
 - May import: `core`, `store`, `targets`, `execution`, `backends`, `knowledge`, `models`, `measure`, `formulation`, `checks`, `solve`.
 - Enforced by import-linter (`pyproject.toml`, `[tool.importlinter]`).
+
+## WP19 (D544, D545)
+
+`access.py`: `task_header` / `situation_of` (the one-screen case header), `record_pull`, `pull_log`, `pull_stats`, `plan_view`; `TaskRequest.header` goes into the card.

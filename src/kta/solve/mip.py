@@ -9,6 +9,10 @@ T >= overlappable time of each unit, plus the serial time. Work per unit comes f
 reservation-table use (D472); L1's pair and recurrence bounds are relaxed (the MIP's
 value is a lower bound of L1; the shortlist is re-priced by L1). A shortlist is obtained by
 re-solving with a no-good cut on each solution found.
+
+Since WP19/WP17 this export of the agent-written (hand) formulation is the comparison arm
+of D-T1: the compiled projection (``kta.solve.projection``) is the system's own path;
+``solve(..., projection=...)`` selects it, and this path stays callable for comparison.
 """
 
 from __future__ import annotations
@@ -30,6 +34,7 @@ from kta.models import MachineModel, UnitModel, machine, unit_time_us
 from kta.solve.enumerate import domain_size, range_values
 
 MENU_MAX = 4096
+COMPARISON_ARM = "agent-written formulation (comparison arm, D-T1)"
 INF = highspy.kHighsInf
 # HiGHS reports a relative gap; with mip_rel_gap = mip_abs_gap = 0 an "Optimal" run can
 # still show rounding noise near a zero objective, so this is what counts as gap 0.

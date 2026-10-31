@@ -370,7 +370,8 @@ def test_release_api_shows_stages_and_releases_a_held_call(api: Api) -> None:
     assert queued, "the fixture world has queued agent tasks"
     task = queued[0]["task"]
     assert queued[0]["card_body"]["type"] and queued[0]["pull_log"] is None
-    assert "WP19" in queued[0]["pull_log_note"] and "WP19" in queued[0]["plan_note"]
+    # Filled by WP19: no pulls before a task runs; no plan without a case header.
+    assert queued[0]["plan"] is None and queued[0]["pull_log_note"] and queued[0]["plan_note"]
     body = {"task": task, "reason": "read card, pull log and plan"}
     assert _call(api, "POST", "/release", body, "secret-operator-token")[0] == 400  # S0: no gate
     v1 = controls_store.ensure(api.store, api.ops, api.now()).version_id

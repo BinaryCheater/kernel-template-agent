@@ -85,7 +85,8 @@ Additions made in WP9b (D340–D354):
   `/agent/cards/{id}`, `/agent/why/{id}?depth=`; `POST /agent/query {what, term?, case?, k}`,
   `/agent/validate-template {template}`, `/agent/validate-family {files}`,
   `/agent/instantiate|build|sass {family, assignment, shape}`, `/agent/submit {files, note}`;
-  files are `{relative path: base64}`.
+  files are `{relative path: base64}`. `records`, `cards`, `why` and `query` each write a Pull
+  record classified against the task's access discipline (WP19, D545).
 
 ### Record conventions read by the API (D169, default — needs user review)
 
@@ -163,7 +164,10 @@ Endpoints (`kta.api.controls`). Reading is open; writing needs the operator toke
 | `GET /controls` | `version` {id, version, stored, definitions_hash, stored_under_hash}; `knobs` (definition + `value` in force + `initial`); `experiments` (X1–X12); `write` {header, token_configured} |
 | `GET /controls/versions?limit=` | stored versions newest first: id, version, at, author, author_type, reason, changes, previous |
 | `POST /controls` {expected, changes, reason} | a new ControlsVersion by `[api] operator` plus a HumanAction `set_controls` (refs.controls); 400 on an invalid value, a stale `expected` or a blank reason; 403 on an invariant knob |
-| `GET /release` | the stage in force, all stages with exit criteria, the controls version, tasks in flight, queued agent tasks with hold reason, card body, pull log and plan (null with a note until WP19) |
+| `GET /release` | the stage in force, all stages with exit criteria, the controls version, tasks in flight, queued agent tasks with hold reason, card body, the task's pull log (null before its first pull) and the default plan its card header names, with its diff (WP19) |
+| `GET /pulls?task=<id>` | the pull-log view of one task (pulls in order, in-table / outside counts, by row, by command); without `task`: counts across tasks for revising the table (WP19) |
+| `GET /plans/{id}` | a FormulationPlan with its default's ID and the diff against it (WP19) |
+| `GET /composition` | composition statistics over the store's Chain records (WP19) |
 | `POST /release` {task, reason} | releases the next attempt of a held task (gated stage only; 400 otherwise) |
 
 `POST /write/record` (task token) refuses ControlsVersion records like HumanAction and StatusChange: only a human writes controls versions.

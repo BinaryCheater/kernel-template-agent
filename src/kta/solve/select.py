@@ -25,7 +25,8 @@ from kta.formulation import Formulation, per_unit_work, price_point, work_terms
 from kta.knowledge.types import FamilyPackage
 from kta.models import MachineModel, NoResidentCta, UnitModel, machine
 from kta.solve.enumerate import enumerate_space, space_size
-from kta.solve.mip import NotExportable, solve_mip
+from kta.solve.mip import COMPARISON_ARM, NotExportable, solve_mip
+from kta.solve.projection import compile_and_solve
 from kta.solve.result import Candidate, Method, SolveResult
 
 EXHAUSTIVE_LIMIT = 10**6
@@ -99,6 +100,7 @@ def solve(
     rng: random.Random | None = None,
     max_nodes: int = DEFAULT_MAX_NODES,
     arch: HwArch | None = None,
+    projection: Mapping[str, Any] | None = None,
 ) -> SolveResult:
     """Candidates for one shape bucket, best predicted first.
 
@@ -147,6 +149,26 @@ def solve(
         if p is not None:
             best.offer(assignment, p)
 
+    if projection is not None:
+        # The compiled projection (WP17, D547); ``projection`` holds a plan's fixed /
+        # menus / outer (solve.plan.plan_inputs) and the compiler limits.
+        try:
+            proj = compile_and_solve(
+                f, shape, mm, shortlist=shortlist, time_limit_s=time_limit_s, **projection
+            )
+        except NotExportable as exc:
+            notes.append(f"projection not compiled: {exc}")
+        else:
+            for a in proj.assignments:
+                offer(a)
+            notes += [f"projection: outer {list(proj.outer)} ({proj.outer_points} points), "
+                      f"rules {proj.rules}", *proj.notes]  # fmt: skip
+            return _result(
+                best, name, "projection", size, len(proj.assignments), 0, {}, False,
+                proj.first_optimal and not (model.interactions or model.eff or mm.efficiency
+                                           or mm.interactions), scope, notes,
+                proj.status, 0.0 if proj.first_optimal else None,
+            )  # fmt: skip
     if size >= EXHAUSTIVE_LIMIT and f.linear and _terms_linear(f, mm):
         try:
             out = solve_mip(f, shape, mm, model, shortlist, time_limit_s)
@@ -156,6 +178,7 @@ def solve(
             for a in out.assignments:
                 offer(a)
             notes.append(f"MIP solves: {out.solves}, runtime {out.runtime_s:.3f} s")
+            notes.append(f"formulation arm: {COMPARISON_ARM}")
             return _result(
                 best, name, "mip", size, len(out.assignments), 0, {}, False,
                 out.first_optimal and not model.interactions, scope, notes, out.status, out.gap,

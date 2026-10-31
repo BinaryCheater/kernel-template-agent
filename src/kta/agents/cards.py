@@ -109,6 +109,8 @@ def task_md(
             "previous": previous,
         },
     )
+    if card.header is not None:
+        out = f"{card.header.text}\n\n{out}"  # case-loop tasks start with the header (WP19)
     limit = int(policy["step_header_max_chars"])  # session.step_header_size
     if len(out) > limit:
         raise ConfigError(f"TASK.md is {len(out)} chars, above step_header_max_chars={limit}")

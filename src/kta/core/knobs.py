@@ -250,3 +250,23 @@ class Knobs(ABC):
     @property
     def version_admission(self) -> dict[str, float]:
         return {k: float(v) for k, v in self._map("model.version_admission").items()}
+
+    @property
+    def table_max_entries(self) -> int:
+        return int(self.value("formulation.table_max_entries"))
+
+    @property
+    def outer_max_points(self) -> int:
+        return int(self.value("formulation.outer_max_points"))
+
+    @property
+    def chain_max_steps(self) -> int:
+        return int(self.value("formulation.chain_max_steps"))
+
+    @property
+    def chain_max_expansions(self) -> int:
+        return int(self.value("formulation.chain_max_expansions"))
+
+    @property
+    def task_header_max_lines(self) -> int:
+        return int(self.value("session.task_header_max_lines"))

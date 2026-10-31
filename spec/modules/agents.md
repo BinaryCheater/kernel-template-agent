@@ -188,3 +188,11 @@ $KTA_DATA/<env>/batches/<batch>/
 - Wall limit: the card's `budget.wall_s`, else `budget.task_wall_s[type]`; idle cut-off `budget.no_response_timeout_s`; Executor timeout and task-token lifetime `budget.hard_cap_factor × wall`; lease `budget.lease_s`, renewed every `lease_s / 6`.
 - `sessions.decide(state, supports_resume, loop_policy, failure)`: `resume_scope = never` always starts a fresh session; the same-failure rule starts one when the same check failed `same_failure_rule` times in a row.
 - `workspace.build(..., policy=...)` takes the context policy explicitly; `cards.task_md` has no defaults of its own.
+
+## WP19: task header and access discipline (D544)
+
+- A TaskCard with a `header` (case-loop tasks) gets `header.text` as the first block of
+  TASK.md, before the step template; the `step_header_max_chars` limit applies to the whole.
+- The runtime skill `use-kta` carries the access-discipline table rendered from
+  `kta.core.access` for the version in force; the skill's hash changes with the table.
+

@@ -22,3 +22,7 @@ Enumeration and MIP solving of formulations; re-ranking with build information.
 ## WP15 (D464, D472)
 
 `solve(..., arch=None)` prices points with L1 (`UnitModel.predict_l1`), drops no-launch points (counted in notes) and refuses priced effects on a class-less HwModel; the MIP objective uses `formulation.work_terms` (reservation-table rows) and relaxes L1's pair and recurrence bounds.
+
+## WP19 / WP17 (D540–D548)
+
+`projection.py`: the steady-state projection compiler (`compile_and_solve`, `projection_us`, `consistency_check` hook for WP16); `solve(..., projection={...})` selects it, the MIP export in `mip.py` is the comparison arm (D-T1). `plan.py`: `default_plan`, `plan_inputs`, `diff_plans`, `score_plan`, `record_plan`. `chains.py`: `start_symbols`, `enumerate_chains`, `composition_stats`, `composition_view`.

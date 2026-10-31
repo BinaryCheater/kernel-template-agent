@@ -39,3 +39,7 @@ Schemas (pydantic models per record kind), content-hash IDs, the expression lang
 ## WP15 (D461, D462)
 
 Schema upcasts: Template v3 step `cost` → `effects` on WP14's `KindSpec.upcasters` (D440, D461); expression roots for the hardware model (`Expr.parse(..., roots)`, `eval(..., extra=)`); schemas `effects.py` and `hwmodel.py` (HwArch, ModelVersion, RegressionSet, InterferenceMatrix).
+
+## WP19 (D540, D544)
+
+`access_discipline.yaml` + `access.py`: the versioned access-discipline table (`table`, `Table.classify`, `render`). `schemas/plan.py`: FormulationPlan, TaskHeader, Pull.

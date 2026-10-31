@@ -35,6 +35,7 @@ from kta_gate.specific_wp14 import wp14
 from kta_gate.specific_wp15 import wp15
 from kta_gate.specific_wp16 import wp16
 from kta_gate.specific_wp18 import wp18
+from kta_gate.specific_wp19 import wp19
 from kta_gate.specific_wp20 import wp20
 from kta_gate.specific_wp21 import wp21
 
@@ -734,6 +735,7 @@ SPECIFIC: dict[str, Callable[[Path, set[str]], list[CheckResult]]] = {
     "WP15": wp15,
     "WP16": wp16,
     "WP18": wp18,
+    "WP19": wp19,
     "WP21": wp21,
     "WP20": wp20,
 }

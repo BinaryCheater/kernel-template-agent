@@ -1,0 +1,17 @@
+[
+  {
+    "claim": "Code stage (D320): the WP19 unit tests, the WP21/agent-API/formulation/WP15 unit tests and the locked WP5 acceptance tests pass on the control host. They show the projection compiler compiling and solving the GEMM seed formulation on the seeded GB10 class and instance (sm12x@1, gb10@1) with the MIP objective equal to L1's projection at peak at every returned point and equal to the minimum over the enumerated space; outer enumeration and its limit; the default FormulationPlan for the GEMM seed case and its record round trip; an agent-plan fixture diffed and scored (cited vs uncited decisions, space and bound against the default); the chain enumerator finding the seed chain at the SOL bound, pruning against an incumbent and reporting a missing rule; composition statistics as a view; the task header within one screen; the use-kta skill table identical to the data; Pull records written by the agent API for a task with a header and shown on GET /pulls and the Release page; solve() taking the projection arm. Unit runs only; no GPU job and no store record (real runs paused, D320)",
+    "command": "uv run --frozen pytest -v tests/unit/test_wp19_plan_projection.py tests/unit/test_wp21_controls.py tests/unit/test_api_agent.py tests/unit/test_formulation_solve_unit.py tests/unit/test_wp15_effects_hwmodel.py tests/acceptance/WP5",
+    "git_commit": "8c570a4c1476ef2d4d2d4c58adef20d4e1e51aa6",
+    "dirty": false,
+    "env": "dev",
+    "control_host": "Mac.lan",
+    "workers": [],
+    "record_ids": [],
+    "blob_ids": [],
+    "env_manifests": [],
+    "started_at": "2026-10-31T00:33:51Z",
+    "requires_gpu": false,
+    "output": "Mac.lan:~/kta-data/dev/WP19/evidence/pytest-8c570a4.txt"
+  }
+]

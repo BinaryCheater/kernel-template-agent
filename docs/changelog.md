@@ -224,3 +224,31 @@ Code stage (D320): no real runs, no experiments. Branch `wp/WP18`; decisions D52
 ### Owed
 
 - WP19: `relaxed_pred_us` per bucket (model optimum with the plan's fixed variables opened) so Δpre is assessed. Not done here: level choice (`escalation.level_choice`), the template-assurance refusal, the budget reminder message to the agent.
+
+## 2026-10-31: merged work package WP19 (FormulationPlan, chain enumerator, access discipline; WP17 projection compiler)
+
+Code stage (D320): no real runs, no experiments. Branch `wp/WP19`; decisions D540–D550. WP17 is folded in (D328).
+
+### Closes
+
+| Item | How |
+| --- | --- |
+| R7, D-T18, D-T19 | `FormulationPlan` record (F1–F7, citations), the deterministic default as the same object, `diff_plans` / `score_plan` (`solve/plan.py`) |
+| R8, D-T20 | versioned access-discipline table (`core/access_discipline.yaml`, rendered into `use-kta`), one-screen task header (`TaskCard.header`, TASK.md starts with it), Pull records per fetch, pull-log views (`GET /pulls`, Release page) |
+| E12, D-T19 | bounded chain enumerator over the Template grammar (Γ, capability, relations, SOL bound, incumbent pruning, coverage counts); composition statistics as a view (`GET /composition`) |
+| R1, R4, E8, D-T1 (WP17) | projection compiler (`solve/projection.py`): ResMII, RecMII, pair bounds, one-hot menus, epigraph max, menu products, table terms, integer ceil, outer enumeration; the agent writes none of it; the hand-formulation MIP stays as the comparison arm |
+| D-T4 (WP17) | pending: the MIP ↔ L2 check waits for WP16 (hook `consistency_check`, D548) |
+
+02 sections implemented: §5.1, §5.2 (compiler; the L2 check pending), §5.3, §5.4, §5.5; §6.2 bridges "FormulationPlan, pull log" (case loop out) and "pull logs, access-discipline versions" (system loop).
+
+### Files changed outside code
+
+- `docs/design/12-agent-controls.md` §7: five rows (projection table size, outer enumeration limit, chain enumerator depth and budget, task header lines).
+- `spec/`: schemas.md §4.8.1 and TaskCard `header`; formulation-solve-models.md "Projection compiler", "FormulationPlan and chains"; orchestrator-cli.md "WP19"; api-web.md (`/pulls`, `/plans/{id}`, `/composition`, Release fields, pull logging); agents.md (TASK.md header); gate.md WP19 row.
+- Worker skill `use-kta`: the header and the access-discipline table v1.
+
+### Behaviour that changes at merge
+
+- Every `kta show/card/why/query` of a worker writes a Pull record.
+- TaskCard is schema 2 (optional `header`); old cards read unchanged.
+- `use-kta` changed, so its skill hash changes: the next approved AgentProfile carries the new version.

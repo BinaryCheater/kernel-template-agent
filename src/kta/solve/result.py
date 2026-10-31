@@ -10,7 +10,7 @@ from typing import Any, Literal
 from kta.core.schemas.evaluation import Candidate as CandidateBody
 from kta.core.schemas.evaluation import Prediction
 
-Method = Literal["enumerate", "mip"]
+Method = Literal["enumerate", "mip", "projection"]  # mip: the comparison arm (D-T1)
 
 
 def assignment_key(assignment: dict[str, Any], bucket: str | None = None) -> str:

@@ -136,9 +136,12 @@ class TaskQueue:
                 "budget": s.card_budget(req.type),
                 "profile": profile,
                 "work_unit": loop_id,
+                **({"header": req.header.model_dump(mode="json")} if req.header else {}),
             }
         )
         refs: dict[str, RefValue] = {"inputs": sorted(set(req.inputs))} if req.inputs else {}
+        if req.header and req.header.plan:
+            refs["plan"] = req.header.plan  # the default FormulationPlan the header shows
         if snap.version_id:
             refs["controls"] = snap.version_id  # the version the card's budget came from
         actor = human or Actor(type="system", name=f"kta.orchestrator ({process})")

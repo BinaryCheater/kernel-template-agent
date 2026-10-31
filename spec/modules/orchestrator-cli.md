@@ -190,3 +190,20 @@ In order: correctness (rule 1, T6); accept (rule 3) unless the model is off — 
 ### Interface owed by WP19
 
 `relaxed_pred_us` per bucket in the judging facts: the model optimum of the FormulationPlan with its fixed variables (F3) opened, on the same model and bucket. Until then Δpre is `not_assessed`.
+## WP19: access discipline, task header, pull log (D544, D545)
+
+- `orchestrator/access.py`: `situation_of(gap)` (none → `start`, ε → `eps`, wall → `wall`,
+  L_rep with an idle resource → `idle_resource`, `stop`, else `diagnostic`);
+  `task_header(case, case_id, bound_us, bottleneck, gap, plan_id, score, budget,
+  discipline, max_lines)` → `TaskHeader` (ConfigError above `session.task_header_max_lines`,
+  lines clipped at 100 columns); `record_pull`, `pull_log(store, task)`, `pull_stats(store)`,
+  `plan_view(store, plan_id)`, `card_header(store, card_id)`.
+- `TaskRequest.header` (optional): `TaskQueue.create` writes it into the card and refs the
+  header's plan. The gap mapping is WP18's decomposition (components eps, delta, dpre,
+  l_rep, irreducible in us, plus `class` and `idle`).
+- The table itself is data: `core/access_discipline.yaml` (versions append-only),
+  `core/access.py` (`table(version)`, `Table.classify(command, kind, situation)`,
+  `render(table)`). The worker skill `use-kta` carries `render(table(v))` between markers;
+  the gate checks they are identical for the version `session.access_discipline_version`
+  names.
+
