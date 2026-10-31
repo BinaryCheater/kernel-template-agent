@@ -1,0 +1,357 @@
+[
+  {
+    "claim": "CUDA and TileLang vector adds compiled and passed exact GPU output checks.",
+    "command": "KTA_MODE=spark-hk KTA_ENV=dev KTA_WP=SYSDEBUG1 KTA_DATA=~/kta/data kta backend smoke --json",
+    "git_commit": "94b639ca0d6b5031489ae7cdda054a6f09e45c50",
+    "dirty": false,
+    "env": "dev",
+    "control_host": "spark-6951",
+    "workers": [
+      "spark-hk"
+    ],
+    "record_ids": [
+      "872c82a9fe11296d677201dffa7e343b61cbd4e9be4dce624a072524ed80363f",
+      "4d9c66adc7d7c33ef78b60800474f7606c8af6a1aa568efb02f7f691e44380ed",
+      "2ab88ac40ab105c5e9ca478c3cab5120db0e76e4b9a5bef4f67949b9f4f11b52",
+      "627612e04786f3d097cf994b4c734d726076bede0550e55729c2ac8120b6567a"
+    ],
+    "blob_ids": [
+      "173c168b365bad325aa7fc0bdd3cffa80faa7def27d71652b4a963ee6dff75f0",
+      "1b4fcee72e79ee78415e1da79ca2de917744f7f075eb242b020ffd0cf81445ae",
+      "1d9ff3b5136dfa3d3e16569ae46c3c1bfbe30e4fc2ef623875524d760fbc3627",
+      "349ad61c8797b11d8b10a13a0ee98ba1cdbaf8b103ba9338870886f1b7308dd6",
+      "41f3466183b7763c5b12b921b768d38cc11345fd70c6e43ee2a945e3beb3202c",
+      "5e019de37f1b7901ef1cd59161027b04219e327ad0db1cbdc84c22ba2d33a870",
+      "687e397b3a9137e02055b63bc0949d39f5be43449144d2086668779071bfe869",
+      "7c2e2641afc75c25430e02cbf1b2d3a66dbeea3db90a9b7d997ca87a7baedde4",
+      "81c515f74f7385584a2edb4f9f91d1575afcf20deba05e47a634985e41dd1f0c",
+      "827075ec79b9816de039c62477fb1a901d36adbb6d562241c349e9bc90866a2b",
+      "8bb40f7e1badff46b9990712dbd43d9bd3fd637d2fca890a59e7076bc17c5680",
+      "a1fbf0850b4edaac6c98555973ffcae23ae0f2f443439f6c9a94fc2f6269e705",
+      "c30fc9ad24a1b64848471ae52f4faffb7bf13253879654514470544f9995545e",
+      "c73dd47c13fa5bfc4b078dfbbe882afcae7ded62f50504f59fb21e9c2722ffc5",
+      "ce7dba3279af3823da827c66f30898bd8477461079b6fd2ec26dea95a1439472",
+      "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "fd1162a55f8f3f771b24afc34d890c7b746fd4e1becb9cb2eb97bfca63bdddbf"
+    ],
+    "env_manifests": [
+      "93eb0adc7a4c5d85403cbea3e5827e3ea7d067948faf69335778d71c9545bfc7"
+    ],
+    "started_at": "2026-10-31T10:56:46.058570Z",
+    "requires_gpu": true,
+    "output": "~/kta/runs/sysdebug1/06.out"
+  },
+  {
+    "claim": "GPU quiet lease deferred shared GPU and CPU jobs.",
+    "command": "KTA_MODE=spark-hk KTA_ENV=dev KTA_WP=SYSDEBUG1 KTA_DATA=~/kta/data uv run --frozen kta backend selftest lease --json",
+    "git_commit": "94b639ca0d6b5031489ae7cdda054a6f09e45c50",
+    "dirty": false,
+    "env": "dev",
+    "control_host": "spark-6951",
+    "workers": [
+      "spark-hk"
+    ],
+    "record_ids": [
+      "fd6c435fdea13ab723ac88878f550f12e42a5dcdfb8f7395e215bc6c6fd4dea5"
+    ],
+    "blob_ids": [],
+    "env_manifests": [
+      "93eb0adc7a4c5d85403cbea3e5827e3ea7d067948faf69335778d71c9545bfc7"
+    ],
+    "started_at": "2026-10-31T10:56:54.965973Z",
+    "requires_gpu": true,
+    "output": "~/kta/runs/sysdebug1/07.out"
+  },
+  {
+    "claim": "Timed-out GPU kernel was terminated and a subsequent vector add passed.",
+    "command": "KTA_MODE=spark-hk KTA_ENV=dev KTA_WP=SYSDEBUG1 KTA_DATA=~/kta/data uv run --frozen kta backend selftest timeout --json",
+    "git_commit": "94b639ca0d6b5031489ae7cdda054a6f09e45c50",
+    "dirty": false,
+    "env": "dev",
+    "control_host": "spark-6951",
+    "workers": [
+      "spark-hk"
+    ],
+    "record_ids": [
+      "a94b259ba6da41b9c7fb0943247d695e3532316b194863a4cfa7bb374bf9f8d5"
+    ],
+    "blob_ids": [],
+    "env_manifests": [
+      "93eb0adc7a4c5d85403cbea3e5827e3ea7d067948faf69335778d71c9545bfc7"
+    ],
+    "started_at": "2026-10-31T10:57:07.989769Z",
+    "requires_gpu": true,
+    "output": "~/kta/runs/sysdebug1/08.out"
+  },
+  {
+    "claim": "After the Docker runtime repair, correct GEMM passed and all three planted faults were caught by the expected checks.",
+    "command": "KTA_MODE=spark-hk KTA_ENV=dev KTA_WP=SYSDEBUG1 KTA_DATA=~/kta/data kta check selftest --json",
+    "git_commit": "48b9578eb698df4f4fb2a92db195772fea5a1e4e",
+    "dirty": false,
+    "env": "dev",
+    "control_host": "spark-6951",
+    "workers": [
+      "spark-hk"
+    ],
+    "record_ids": [
+      "c907edb357877d2497ca01f7cfa23eef3959b58fa910ecf82323394837f1b530",
+      "e327e8d24e42753aaba0a14bb537daab909822ab3096bba6b58ebebf0f276752",
+      "76c4e120e1cdd638e2968cc9069ef112c6a550965084b66b7588b07d5230e02e",
+      "89ea239517f41c726c0e38f7c226e07f1904694d77b7e9f2d6be1633d963bc31",
+      "a327cf28aea55e40da956bad05cb0cf1e7b108d3ba59683195e0613e50000de0"
+    ],
+    "blob_ids": [
+      "116bdf405cdc958894531be264abbe3f50353c8f50ed6f45cef0f814189a388d",
+      "2a5d87f1e7ba85b89dd24539243994703ce72764f104042935832733df6da9bd",
+      "8d28da48f179625d464f3282235c165bf744a948bdedac63bbb8ce83e9e7f260",
+      "ff13bb3ff0338102eee943d202f3d4b4caa915c8c2e81ba466dcb2414f3f97f3"
+    ],
+    "env_manifests": [
+      "60d457e894c76979673dd7b21c6527678f5294897ea46ae5686a80ae6541cd13"
+    ],
+    "started_at": "2026-10-31T11:05:00.780281Z",
+    "requires_gpu": true,
+    "output": "~/kta/runs/sysdebug1/23.out"
+  },
+  {
+    "claim": "Seven proof outlines were checked with recorded assurance limits; the deliberately unsound proof canary was caught. This does not claim all templates proved.",
+    "command": "KTA_MODE=spark-hk KTA_ENV=dev KTA_WP=SYSDEBUG1 KTA_DATA=~/kta/data kta prove all --json; kta prove canary --json",
+    "git_commit": "94b639ca0d6b5031489ae7cdda054a6f09e45c50",
+    "dirty": false,
+    "env": "dev",
+    "control_host": "spark-6951",
+    "workers": [
+      "spark-hk"
+    ],
+    "record_ids": [
+      "1b9922afa12377078d6b71982c20cf1a856fc3baf986939bbe48f7ad958838af",
+      "9b361b149bcd4ea0b6c3710d084678ecce8c4452496f770fe2c4ef80bdb0b707",
+      "920d31bd1a08d9c4b9e753fd1a2f77c662786d36bdce6b91f6d4213e0916ad38",
+      "13e92475ce0b91a9e2cd5d4b7b643a128e48825811a80bc073d834b095ccf339",
+      "97ee47abef5a7ee5843dadaeaaa4933a35dd9cc835035c00adbf52088cdab630",
+      "21103977a36c79f65851a78004c861ee5c61c9474d1813f974d0b21cf8a4dee6",
+      "41dde500e734a80bab682b2e1f00b8cc6248d3b803e3e814c92753375d54b526",
+      "3e77e0b803042b725b0264276a2c72ca6af76908e023897df32c3004154aef50"
+    ],
+    "blob_ids": [],
+    "env_manifests": [],
+    "started_at": "2026-10-31T10:58:31.468124Z",
+    "requires_gpu": false,
+    "output": "~/kta/runs/sysdebug1/{12,13}.out"
+  },
+  {
+    "claim": "Nsight Compute accessed real GPU counters as the ordinary worker user. Duration and SM throughput are present; the requested DRAM metric is unavailable.",
+    "command": "KTA_MODE=spark-hk KTA_ENV=dev KTA_WP=SYSDEBUG1 KTA_DATA=~/kta/data kta measure profile --json",
+    "git_commit": "48b9578eb698df4f4fb2a92db195772fea5a1e4e",
+    "dirty": false,
+    "env": "dev",
+    "control_host": "spark-6951",
+    "workers": [
+      "spark-hk"
+    ],
+    "record_ids": [
+      "39fb0f72242945e6588af2a26a95eb09973b8b082974d944afe107dff5445c3b"
+    ],
+    "blob_ids": [
+      "2805f620e4c2b12c8098d4575a856dec20eb7638e80dc57d9e767d7c6397597c",
+      "c74943aeb38898c87ce368158de2b37a94d7c9ccfad9d72d655e2d86d913ab88",
+      "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    ],
+    "env_manifests": [
+      "60d457e894c76979673dd7b21c6527678f5294897ea46ae5686a80ae6541cd13"
+    ],
+    "started_at": "2026-10-31T11:06:26.977564Z",
+    "requires_gpu": true,
+    "output": "~/kta/runs/sysdebug1/24.out"
+  },
+  {
+    "claim": "12 timed attempts were rejected and retained as interference Reports; none was converted to a Measurement.",
+    "command": "KTA_MODE=spark-hk KTA_ENV=dev KTA_WP=SYSDEBUG1 KTA_DATA=~/kta/data kta measure noise / kta calibrate hw / kta_sysdebug1 interference (see recorded job IDs)",
+    "git_commit": "48b9578eb698df4f4fb2a92db195772fea5a1e4e",
+    "dirty": false,
+    "env": "dev",
+    "control_host": "spark-6951",
+    "workers": [
+      "spark-hk"
+    ],
+    "record_ids": [
+      "8c7fef00520c7a4aff020fbdb10ec34e9245cfe2b01238267339050860fd1c4c",
+      "e6311f9b3e8d5786bfc6dad83e134887106ce9f854df5b3744286fd79fc8d6a0",
+      "6ca4c0716d48322fe49cd8d8379cecc6b759c30e0e65d0aef65af7c4dc548432",
+      "25ab5b6c5221455de1e914f8e60ca7bf4b9c89a0e8f7e4626abad384d0066725",
+      "3c393079793be9e339c8312248ead0afbe4bd12767fca6913066302cf44802b1",
+      "e70b76f7daadd1fcc2d61fc66e060d1f87d3e2232de8b82c1729e0e3a574c26b",
+      "3d32ed5bc76e8eb3417a4c41c2fb6187e0f35924ea276c694150c6c6077a4d41",
+      "295e17e132cd483723fcbc31336281ae148706462fa2f206656a81961785a7db",
+      "fdc9865c5602f9ac0e22145f332302faf0ddeea1ed04a4bb09da97e40a57a00f",
+      "42ff1f178b1530b29001cae8898417a60a191392b69854bd031c6afba9ff0f76",
+      "80ca2f433d3b50a03ae070606c9bbdc0e346354145993aeb87c40724fb72173c",
+      "d7b60beb22572a8138dbc5d42167bda7ee5e37f2e912141a7570c8071d14e21e"
+    ],
+    "blob_ids": [
+      "13b90b26213dbd7a24372e0510ad63dae2dacb51e9716248f268603c61631650",
+      "1ff74f3f07175318b4eea2630225cdd75a7dd206d31cc4c8da5ab3007c585a83",
+      "227ae208eb4516679e67408598caa06345e70ee752b279bff4756ce59a24098d",
+      "446dd9b2c0a9be901481c396b7e70a7de90125d598eb4cf31c46b5e8c32ae576",
+      "59a143cc430575cf0e6d21a272c76ba0f8e4ddc1bdaa8d9d8c8a8b82eb8c84ae",
+      "60d53c2f0cb881a4415b2192bc4b2eb675d20e8a200731ae2e2bcd9b07061eca",
+      "680c47ebf9c31f8263fe9f7bece98a7f514c2ae8322d912ea4780cf61b3f3306",
+      "72be872085dd8df01a2f90e129f26dfedba592de8a64212512fd1ff440681218",
+      "aa09eaaabfff632e4330ce1d1a4e7f0af038abc874794bfe63862dfb93252a35",
+      "b11bb2b4fc09424407415939f6bdd58d1891a79763de4b4ec500e4a188bf0ae7",
+      "de0df4c6c66592ba059459789b6d03f28b91583fcd1e1a8bd865fc6fc3b86e85",
+      "df6837fcdbcaf134cb026a7afe7435d3dbdc550c4601b2cd93b31bfc148c7287",
+      "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    ],
+    "env_manifests": [
+      "60d457e894c76979673dd7b21c6527678f5294897ea46ae5686a80ae6541cd13"
+    ],
+    "started_at": "2026-10-31T11:06:28.740328Z",
+    "requires_gpu": true,
+    "output": "~/kta/runs/sysdebug1/{noise-idle,25,26,28}.out"
+  },
+  {
+    "claim": "4 timed attempts were rejected and retained as interference Reports; none was converted to a Measurement.",
+    "command": "KTA_MODE=spark-hk KTA_ENV=dev KTA_WP=SYSDEBUG1 KTA_DATA=~/kta/data kta measure noise / kta calibrate hw / kta_sysdebug1 interference (see recorded job IDs)",
+    "git_commit": "94b639ca0d6b5031489ae7cdda054a6f09e45c50",
+    "dirty": false,
+    "env": "dev",
+    "control_host": "spark-6951",
+    "workers": [
+      "spark-hk"
+    ],
+    "record_ids": [
+      "fbf593c080002baa1abaad0ca72baa4c0a89bb995948158380505b757044df95",
+      "867ae31ab7f6283d80fd7749b09d949e8032ee96320c5c2ae8958ba954abe7a8",
+      "c516f45f9ba113dffbb5f18049f29a607e49c02a487f1ca867088a1d610ace97",
+      "acd658ebd5791db166ccab9408777febedc09239dd51d7a790ce797402fd5dcd"
+    ],
+    "blob_ids": [
+      "2a18b8ce8e47f6a6f762580db438397a897fde603a3d14e9feea7dc9fd88f258",
+      "774fe6180daabce44524557918446bee47cb1ba946729b71dcd6924ec7023a9e",
+      "9d84bfcdd019034b75c90b1f81c2c3cae6c7ceeaf18eb58942843fc298d1ec19",
+      "d1c4c67fd6f33f612fd270d2ad57583991774f49b9a26e9e03ecc49e2c528c41",
+      "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    ],
+    "env_manifests": [
+      "93eb0adc7a4c5d85403cbea3e5827e3ea7d067948faf69335778d71c9545bfc7"
+    ],
+    "started_at": "2026-10-31T11:00:33.078457Z",
+    "requires_gpu": true,
+    "output": "~/kta/runs/sysdebug1/{noise-idle,25,26,28}.out"
+  },
+  {
+    "claim": "MIP and L2 were compared on all 70 feasible configurations of each of three seed GEMM shapes, with zero bound violations. This is model-to-model consistency, not GPU accuracy.",
+    "command": "KTA_MODE=spark-hk KTA_ENV=dev KTA_WP=SYSDEBUG1 KTA_DATA=~/kta/data PYTHONPATH=tools uv run python -m kta_sysdebug1 consistency",
+    "git_commit": "48b9578eb698df4f4fb2a92db195772fea5a1e4e",
+    "dirty": false,
+    "env": "dev",
+    "control_host": "spark-6951",
+    "workers": [
+      "spark-hk"
+    ],
+    "record_ids": [
+      "586fc117df8b73c37baf43480602f6dd8f4443efc6d30ed6ad7bac29f2961f60"
+    ],
+    "blob_ids": [],
+    "env_manifests": [],
+    "started_at": "2026-10-31T11:06:42.211013Z",
+    "requires_gpu": false,
+    "output": "~/kta/runs/sysdebug1/27.out"
+  },
+  {
+    "claim": "Core implementation 947d96f passed the WP24 code-stage regression gate (22 pass, 2 warn); Phase 1 remains blocked.",
+    "command": "KTA_MODE=spark-hk KTA_ENV=dev KTA_WP=SYSDEBUG1 KTA_DATA=~/kta/data Executor CPU job: scripts/gate --stage code WP24",
+    "git_commit": "947d96fac525009970a7473a517c9f7413eceece",
+    "dirty": false,
+    "env": "dev",
+    "control_host": "spark-6951",
+    "workers": [
+      "spark-hk"
+    ],
+    "record_ids": [
+      "9450cc2cb898d5cfa2751ca62937031c447e743c87f9499e6df7233b6c368699"
+    ],
+    "blob_ids": [
+      "56ea061150658ce9a0f888fe149555a03a01fdfbacf0f325724e15ebfa4a376d",
+      "d566e79e6e231c19798a417d9a25d2221792efb8cf27837cdac4a3981a93af41",
+      "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    ],
+    "env_manifests": [
+      "369c7c75ccf9e70f750dd879ff0a232826317021eed2b4f7a0d9f1ef478177b6"
+    ],
+    "started_at": "2026-10-31T11:14:25.847122Z",
+    "requires_gpu": false,
+    "output": "~/kta/runs/sysdebug1/gate-final.out"
+  },
+  {
+    "claim": "The real installed Codex CLI supports every adapter flag; three contract checks passed using help only, without a model call.",
+    "command": "KTA_MODE=spark-hk KTA_ENV=dev KTA_WP=SYSDEBUG1 KTA_DATA=~/kta/data Executor CPU job: KTA_CODEX=~/.local/bin/codex pytest -q tests/contract/test_codex_cli_contract.py",
+    "git_commit": "947d96fac525009970a7473a517c9f7413eceece",
+    "dirty": false,
+    "env": "dev",
+    "control_host": "spark-6951",
+    "workers": [
+      "spark-hk"
+    ],
+    "record_ids": [
+      "06216b230d3269bf1b52004927cf14ff21c2f85c230ffe24e42055b0af637d9c"
+    ],
+    "blob_ids": [
+      "28f94f35a697eb110a559cd36372f2edb63dbb960fb282482e1dcc485cb9a73e",
+      "8b04ae5fc39fa2b010f5a20eb4e345629d55c80f4d16a3a9079b5dfeb6e2f22b",
+      "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    ],
+    "env_manifests": [
+      "369c7c75ccf9e70f750dd879ff0a232826317021eed2b4f7a0d9f1ef478177b6"
+    ],
+    "started_at": "2026-10-31T11:16:20.775777Z",
+    "requires_gpu": false,
+    "output": "~/kta/runs/sysdebug1/cli-contract.out"
+  },
+  {
+    "claim": "Long-run proxy-off policy was applied through the API and direct provider TLS preflight passed without a model request.",
+    "command": "KTA_MODE=spark-hk KTA_ENV=dev KTA_WP=SYSDEBUG1 KTA_DATA=~/kta/data POST /system; POST /system/proxy/test (codex)",
+    "git_commit": "48b9578eb698df4f4fb2a92db195772fea5a1e4e",
+    "dirty": false,
+    "env": "dev",
+    "control_host": "spark-6951",
+    "workers": [
+      "spark-hk"
+    ],
+    "record_ids": [
+      "9a412d9641ce8a779fe2249ceea67340fac1096100357e8c1acbb1236713cc40",
+      "8ab9f3049072a1a4c7a46e736ce2bfc389f0674a9d63ae20b4478ad54591775c"
+    ],
+    "blob_ids": [],
+    "env_manifests": [],
+    "started_at": "2026-10-31T11:09:59.479307Z",
+    "requires_gpu": false,
+    "output": "HumanAction and proxy_preflight Report"
+  },
+  {
+    "claim": "Latest deployed code including clearer System labels passed the full WP24 code-stage regression gate: 22 pass, 2 warn, 741 tests and 31 contracts. This is not Phase-1 acceptance.",
+    "command": "Executor CPU job on Spark HK: scripts/gate --stage code WP24",
+    "git_commit": "e7318d54a2b6ef9bd9510357a5b29df74568d517",
+    "dirty": false,
+    "env": "dev",
+    "control_host": "spark-6951",
+    "workers": [
+      "spark-hk"
+    ],
+    "record_ids": [
+      "7d37eafbdf353f5ebc2b79397259cf49a1f918ee21fe545a317432afb971c57f"
+    ],
+    "blob_ids": [
+      "56ea061150658ce9a0f888fe149555a03a01fdfbacf0f325724e15ebfa4a376d",
+      "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "54cf37e0f97eaec55ca3673738a8993d36eba448156ba78faaec2aa004cfd2a8"
+    ],
+    "env_manifests": [
+      "b45f47777957e2209b44f7a4d4aa042bc0b8031d89c589de16be43760e18fbfc"
+    ],
+    "started_at": "2026-10-31T11:25:36.213128Z",
+    "requires_gpu": false,
+    "output": "~/kta/runs/sysdebug1/gate-ui.out"
+  }
+]

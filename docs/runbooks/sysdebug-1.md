@@ -75,7 +75,9 @@ These steps make no decisions.
 3. **Credentials (user step).** Link or copy `~/.codex/auth.json` into `~/.config/kta/auth/codex/`. Ask the user which: a link shares the login with their interactive Codex; a copy avoids token-refresh conflicts. Then run Settings → System → Test for codex (direct, proxy `off`).
 4. **Self-tests:**
    - `kta backend smoke`
-   - `kta backend selftest`
+   - `kta backend selftest lease`
+   - `kta backend selftest timeout`
+   - `kta backend selftest cpu-compile --arch aarch64`
    - `kta measure protocol`
    - `kta check selftest`: all three planted faults must be caught.
    - `kta prove all`
@@ -107,7 +109,7 @@ These steps make no decisions.
 ### 2.1 S0: one case, no agent
 
 1. `kta case add gemm_fp16`. Build the HwModel from C1-X10. Build the GEMM family's Chain and Family records, with `kta prove family --from-dir knowledge/seed/families/gemm_fp16_tilelang --target gb10` or the WP7 setup tool (record which).
-2. `kta solve <case> --steps 1`, repeated until the loop judges.
+2. Start once with `kta solve <case> --steps 1`, retain its loop ID, then repeat `kta loop step <loop-id>` until the loop judges. Repeating `kta solve` creates a new loop each time.
 3. Check each stage on the frontend:
    - SOL;
    - chain retrieval;
@@ -125,7 +127,7 @@ These steps make no decisions.
 
 1. **Profile:**
    - `kta profile write codex-v2`
-   - `kta profile approve`
+   - `kta profile approve <profile-id> --reason "SYSDEBUG-1 supervised trial"`
    - `kta agents env build sysdebug1 --profile <id>`
 2. **Stage.** `POST /controls`: set `release.stage` to `S1` and `budget.agent_instances` to `{start: 1, max: 1}`.
 3. Start `kta runner start --slot 1 --batch sysdebug1`.
