@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import runpy
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -13,11 +14,19 @@ from kta.agents import batches
 from kta.agents.profile import CODEX_V2, write_profile
 from kta.api.app import create_app
 from kta.api.common import Api
-from kta.api.workflow import NODE_KNOBS, session_rules
+from kta.api.workflow import NODE_KNOBS, _src, session_rules
 from kta.core.controls import definitions
 from kta.orchestrator.done_checks import DONE_CHECKS
 
 TOKEN = "secret-operator-token"
+
+
+def test_workflow_source_path_in_a_commit_deployment(tmp_path: Path) -> None:
+    source = tmp_path / "src" / "commit" / "src" / "kta" / "orchestrator" / "done_checks.py"
+    source.parent.mkdir(parents=True)
+    source.write_text("def check():\n    return True\n", encoding="utf-8")
+    check = runpy.run_path(str(source))["check"]
+    assert _src(check) == "kta/orchestrator/done_checks.py:1"
 
 
 @pytest.fixture

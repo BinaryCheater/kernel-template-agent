@@ -481,6 +481,8 @@
 | D645 | Docker GPU runtime selection | SYSDEBUG-1: use Docker's GPU device request (`--gpus device=<id>`) without requiring a runtime named `nvidia`. On spark-hk the named runtime is absent while the same image with the GPU request works. Preserve network isolation, the worker uid and device selection; no daemon or system configuration change. Alternative: register the named runtime system-wide; unnecessary host change. Reversal is one argv change | SYSDEBUG-1 |
 | D646 | Measurement CLI controls snapshot | SYSDEBUG-1: construct CLI measurement services from the stored controls version, as the orchestrator does. Previously the CLI always used baseline quiet thresholds, ignoring calibration in Settings. Alternative: retain baseline-only CLI probes; this prevents the runbook's calibrated policy from taking effect. No threshold or acceptance rule changed | SYSDEBUG-1 |
 
+| D647 | Workflow source links in deployments | SYSDEBUG-1: strip the final `/src/` prefix from inspected source paths; deployments contain both `<root>/src/<commit>` and the package's `src/`. Keep the actual inspected source line and the existing workflow acceptance assertion. Alternative: expose commit-directory prefixes as source paths; those are not package-relative navigation targets | SYSDEBUG-1 |
+
 ## 已确认
 
 | ID | 决策 | 选择 | 来源 |

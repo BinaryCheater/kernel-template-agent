@@ -63,7 +63,7 @@ TASK_REQUEST = re.compile(r'TaskRequest\(\s*"(T\d)"')
 
 def _src(obj: Any) -> str:
     path = Path(inspect.getsourcefile(obj) or "?")
-    rel = path.as_posix().split("/src/", 1)[-1]
+    rel = path.as_posix().rsplit("/src/", 1)[-1]
     return f"{rel}:{inspect.getsourcelines(obj)[1]}"
 
 
