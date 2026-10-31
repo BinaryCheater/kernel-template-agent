@@ -353,3 +353,43 @@ def test_pool_view_lists_assurance_and_every_obligation(ctx: Context, store: Sql
     assert at["mechanism_available"]["status"] == "unchecked"
     assert all(o["status"] == "never checked" for o in rows["output_tiling@2"]["obligations"])
     assert find_template(store, TILING) == record_id(store.get(template_id(store, TILING)))
+
+
+# ---------------------------------------------------------------- CLI
+
+
+def test_kta_prove_commands(tmp_path: Any, monkeypatch: Any, capsys: Any) -> None:
+    import json
+
+    from kta.cli.main import EXIT_OK, main
+
+    monkeypatch.setenv("KTA_ENV", "test")
+    monkeypatch.setenv("KTA_TEST_DATA", str(tmp_path / "data"))
+
+    def run(*argv: str) -> tuple[int, Any]:
+        code = main([*argv, "--json"])
+        return code, json.loads(capsys.readouterr().out)
+
+    assert run("init")[0] == EXIT_OK
+    code, canary = run("prove", "canary")
+    assert code == EXIT_OK and canary["caught"] and canary["counterexamples"]
+    code, everything = run("prove", "all")
+    levels = {r["template"]: r["level"] for r in everything["templates"]}
+    assert code == EXIT_OK and levels[TILING] == "bounded" and len(levels) == 7
+    fam_dir = str(SEED / "families" / "gemm_fp16_tilelang")
+    code, fam = run(
+        "prove",
+        "family",
+        fam_dir,
+        "--from-dir",
+        "--target",
+        "gb10",
+        "--declare",
+        "bounded_arbitration",
+    )
+    assert code == EXIT_OK and fam["level"] is None and fam["gaps"]
+    code, again = run("prove", "family", fam_dir, "--from-dir", "--target", "gb10")
+    assert again["family"] == fam["family"]  # recorded once
+    code, w = run("prove", "wp", TILING)
+    assert code == EXIT_OK and w["relation"] == "exact"
+    assert run("prove", "status", fam["family"])[1]["assurance"] == "declared"

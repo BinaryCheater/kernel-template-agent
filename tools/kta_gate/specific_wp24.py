@@ -35,6 +35,7 @@ WP24_TESTS = (
     "test_chain_steps_are_checked_under_their_bindings",
     "test_candidate_check_in_c_and_gamma",
     "test_pool_view_lists_assurance_and_every_obligation",
+    "test_kta_prove_commands",
 )
 SEED_OUTLINES = (
     "reduction_partition",

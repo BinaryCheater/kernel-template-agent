@@ -15,6 +15,7 @@ host as a job like any other CPU job (they are deterministic and need only this 
 from __future__ import annotations
 
 import argparse
+from pathlib import Path
 from typing import Any
 
 from kta.checks.proof import compose, records, wp
@@ -24,8 +25,9 @@ from kta.cli.exec_cmds import ContextFactory, _out, command
 from kta.core.errors import ConfigError
 from kta.core.ids import record_id
 from kta.core.registry import resolve
-from kta.core.schemas import Record
+from kta.core.schemas import Actor, Record
 from kta.core.schemas.knowledge import Template
+from kta.knowledge import load_family
 from kta.models import load_machine
 from kta.store.assurance import effective, proof_summary
 from kta.store.sqlite import SqliteStore
@@ -93,9 +95,22 @@ def cmd_all(args: argparse.Namespace, make_ctx: ContextFactory) -> int:
     return 0
 
 
+def _family_from_dir(store: SqliteStore, path: Path, now: Any) -> str:
+    """The Family record of a family directory; Chain and Family are written once."""
+    fp = load_family(path)
+    for rec in store.query("Family", where={"name": fp.family.name, "version": fp.family.version}):
+        return record_id(rec)
+    tids = [find_template(store, it.template) for it in fp.chain.items]
+    actor = Actor(type="tool", name="kta prove family --from-dir")
+    chain = store.put(Record.new("Chain", fp.chain, actor, now, refs={"templates": tids}))
+    return store.put(Record.new("Family", fp.family, actor, now, refs={"chain": chain}))
+
+
 def cmd_family(args: argparse.Namespace, make_ctx: ContextFactory) -> int:
     with command(make_ctx, "prove", f"kta prove family {args.family}") as ctx:
         store = _store(ctx)
+        if args.from_dir:
+            args.family = _family_from_dir(store, Path(args.family), ctx.clock.now())
         hw = None
         if args.target:
             found = store.query("HwModel", {"target": args.target}, order="-created_at", limit=1)
@@ -108,7 +123,8 @@ def cmd_family(args: argparse.Namespace, make_ctx: ContextFactory) -> int:
         )  # fmt: skip
     _out(
         args,
-        {"summary": p.summary, "level": p.level, "results": p.results, "gaps": p.gaps},
+        {"family": args.family, "summary": p.summary, "level": p.level, "results": p.results}
+        | {"gaps": p.gaps},
         _lines(p),
     )
     return 0
@@ -210,7 +226,10 @@ def add_prove_commands(sub: Any, make_ctx: ContextFactory) -> None:
     a = add("all", cmd_all, "every Template with a ProofOutline")
     a.add_argument("--no-reuse", action="store_true")
     f = add("family", cmd_family, "Theorem 1 over a family's chain")
-    f.add_argument("family", help="Family record ID")
+    f.add_argument("family", help="Family record ID (a family directory with --from-dir)")
+    f.add_argument(
+        "--from-dir", action="store_true", help="record the directory's Chain and Family first"
+    )
     f.add_argument("--target", help="hardware values of this Target's newest HwModel")
     f.add_argument("--declare", action="append", help="an assumption of the whole result")
     f.add_argument("--case", action="append", help="case domain expression (default M, N, K >= 1)")
