@@ -817,6 +817,7 @@ export interface PreflightHost { host: string; port: number; ok: boolean; tunnel
 export interface PreflightResult {
   ok: boolean;
   report?: string;
+  skipped?: string;
   proxy: ProxyEndpoint;
   port?: { ok: boolean; ms?: number; error?: string };
   hosts: PreflightHost[];

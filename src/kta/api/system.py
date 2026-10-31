@@ -210,6 +210,9 @@ def proxy_test(api: Api, b: ProxyTestBody) -> dict[str, Any]:
     found = proxy.resolve(cfg.proxy.override)
     out: dict[str, Any] = {"proxy": found.to_dict(), "from": "control host", "results": {}}
     for name in names:
+        if name not in required:  # an `off` provider is never proxied: nothing to test
+            out["results"][name] = {"ok": True, "skipped": "policy off", "hosts": []}
+            continue
         res = proxy.preflight(found.endpoint, cfg.provider(name).check_hosts)
         data = {**res, "from": "control host", "source": found.source, "trigger": "settings test"}
         body = Report(
@@ -221,7 +224,7 @@ def proxy_test(api: Api, b: ProxyTestBody) -> dict[str, Any]:
         )
         rid = api.store.put(Record.new("Report", body, TEST_ACTOR, api.now()))
         out["results"][name] = {**res, "report": rid}
-        if res["ok"] and name in required:
+        if res["ok"]:
             proxyplan.mark(api.ops, name, True, api.now(), cleared_by="settings test", report=rid)
     out["ok"] = all(r["ok"] for r in out["results"].values())
     return out
