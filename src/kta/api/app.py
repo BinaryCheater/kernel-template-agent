@@ -11,7 +11,7 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
-from kta.api import actions, agentapi, auth, controls, events, read, system, views
+from kta.api import actions, agentapi, auth, controls, events, mechanisms, read, system, views
 from kta.api.common import Api
 from kta.api.wiring import Wired
 from kta.core.context import Context
@@ -35,6 +35,7 @@ def create_app(api: Api) -> FastAPI:
     app.include_router(agentapi.router(api))
     app.include_router(controls.router(api))
     app.include_router(system.router(api))
+    app.include_router(mechanisms.router(api))
 
     @app.exception_handler(KtaError)
     async def kta_error(_: Request, exc: KtaError) -> JSONResponse:  # pyright: ignore[reportUnusedFunction]

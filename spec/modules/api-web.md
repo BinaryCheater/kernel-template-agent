@@ -175,3 +175,16 @@ Endpoints (`kta.api.controls`). Reading is open; writing needs the operator toke
 `GET /machines` replaces limits that name a knob with the value in force and adds `limit_controls`; `GET /runs/active` takes `agent_slots` from `budget.agent_instances.start`; `GET /quotas` reads `budget.process_quotas`.
 
 Web pages: **Settings** (`/settings`): every knob grouped by 12's sections with value, prevents, where, status and set_by; editable values become one version with a reason; invariants are shown read-only; version history; X1–X12 in 02 §11 order. **Release** (`/release`): stage table with exit criteria, a stage change (a controls version), and each held agent call with its card, pull log and plan and a release button in a gated stage. The operator token is typed into the page and kept in the tab's sessionStorage only.
+
+## WP22: Settings → System and Mechanisms (D587–D591)
+
+| Endpoint | Returns / does |
+| --- | --- |
+| `GET /system` | `config` (the system configuration with its revision), `proxy` {detected (endpoint, source scutil / env / default, detail), override, in_force, no_proxy, credentials_from_secrets}, `providers` (policy, check_hosts, CLI version, auth kind, logged in yes/no, last preflight), `workers` (transport, address, registered commit vs control-plane commit, GPU, health, intake proxy), `agents` (worker, api_url), `control` (host, env, data dir, config file, commit), `release` (stage id and name, link), `audit` (`set_system` actions), `write` |
+| `POST /system` {expected, changes, reason} | operator token (`X-KTA-Operator-Token`); `changes` merges into `proxy`, `providers.<name>`, `workers.<name>`; 400 on a stale revision, an invalid value or a URL with credentials; writes the file and a HumanAction `set_system` |
+| `POST /system/proxy/test` {provider?} | preflight from the control host for one or every `required` provider; one Report `proxy_preflight` each; a pass clears that provider's breaker |
+| `POST /system/workers/{name}/test` | one trivial job (`requires.worker = name`) through the Executor; a worker that is not registered or runs another commit is reported, not run |
+| `GET /mechanisms?target=gb10` | `plans` (FormulationPlan, default, diff, uncited), `what_if` (Reports `what_if`), `canaries` {rows, by_kind}, `selection` (per GapDecomposition bucket), `learning` (per Reference: dry-run stage plan or the error), `stages`, `experiments` (count by status, link to Settings); every row carries `origin` |
+
+Web: **Settings** has two tabs (`?tab=system`): "Research controls" (the WP21 page, unchanged) and "System" (agent proxy with Test, providers, control plane, workers with Test and intake proxy, change history). **Mechanisms** (`/mechanisms`, "Have the round-4 mechanisms run, and what did they record?"): summary tiles, learning-loop stages per reference, FormulationPlan diffs, selection arms, canaries, L2 what-if; non-real rows carry FIXTURE.
+

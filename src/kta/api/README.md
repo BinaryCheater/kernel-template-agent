@@ -30,3 +30,7 @@ HTTP API (read and operation endpoints) for the web frontend; holds the single s
 ## WP14 (D449, D452)
 
 `GET /pool/diff?a=&b=` (`pool.diff` over `kta.knowledge.pooldiff`); `common.body` and `GET /records/{id}` serve upcast bodies (`stored_body`, `upcast_from` for old records).
+
+## WP22 (D587–D591)
+
+`system.py`: `GET/POST /system`, `POST /system/proxy/test`, `POST /system/workers/{name}/test` (Settings → System). `mechanisms.py`: `GET /mechanisms` (the Mechanisms page: learning stages, FormulationPlan diffs, selection arms, canaries, what-if).

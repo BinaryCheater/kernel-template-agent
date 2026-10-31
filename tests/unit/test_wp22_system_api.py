@@ -100,6 +100,8 @@ def test_proxy_test_reports_failure_and_a_pass_clears_the_breaker(
     status, out = _call(api, "POST", "/system/proxy/test", {})
     assert status == 200 and out["ok"] and set(out["results"]) == {"codex", "claude_code"}
     assert proxyplan.blocked(api.ops, "codex") is None
+    rep = api.store.get(out["results"]["codex"]["report"])
+    assert rep.body["title"] == "proxy_preflight" and rep.body["data"]["ok"] is True
 
 
 def test_worker_test_runs_a_trivial_job_through_the_executor(api: Api) -> None:

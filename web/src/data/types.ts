@@ -802,3 +802,113 @@ export interface ModelTimeline {
   origin: string;
   configurations: TimelineConfig[];
 }
+
+// ---- GET /system, POST /system, /system/proxy/test, /system/workers/{name}/test (WP22) ----
+
+export interface ProxyEndpoint { scheme: string; host: string; port: number; url: string }
+export interface ProxyDetected {
+  endpoint: ProxyEndpoint;
+  source: "scutil" | "env" | "default" | "override";
+  detail: string;
+  credentials_dropped: boolean;
+  scutil: Record<string, string>;
+}
+export interface PreflightHost { host: string; port: number; ok: boolean; tunnel?: string; tls?: string; ms?: number; error?: string; attempts?: number }
+export interface PreflightResult {
+  ok: boolean;
+  report?: string;
+  proxy: ProxyEndpoint;
+  port?: { ok: boolean; ms?: number; error?: string };
+  hosts: PreflightHost[];
+  error?: string;
+}
+export interface ProxyStatus { ok: boolean; at: string; error?: string; report?: string; task?: string | null; cleared_by?: string }
+export interface ProviderRow {
+  name: string;
+  proxy: "required" | "off";
+  check_hosts: string[];
+  cli: { command: string | null; version: string | null };
+  auth: { kind: "subscription" | "api"; logged_in: boolean | null; where?: string; note?: string };
+  status: ProxyStatus | null;
+}
+export interface WorkerRow {
+  name: string;
+  transport: string;
+  address: string;
+  root: string | null;
+  pools: Record<string, number>;
+  registered: string | null;
+  commit: string | null;
+  control_commit: string;
+  commit_match: boolean;
+  gpu: string | null;
+  healthy: boolean | null;
+  intake_proxy: string | null;
+}
+export interface SystemConfigBody {
+  revision: number;
+  updated_at: string | null;
+  updated_by: string | null;
+  reason: string | null;
+  proxy: { override: string | null; credentials_from_secrets: boolean; no_proxy_extra: string[] };
+  providers: Record<string, { proxy: "required" | "off"; check_hosts: string[] }>;
+  workers: Record<string, { intake_proxy: string | null }>;
+}
+export interface SystemView {
+  config: SystemConfigBody;
+  proxy: {
+    detected: ProxyDetected;
+    override: string | null;
+    in_force: ProxyDetected | null;
+    error?: string;
+    no_proxy: string[];
+    credentials_from_secrets: boolean;
+  };
+  providers: ProviderRow[];
+  workers: WorkerRow[];
+  agents: { worker?: string; api_url?: string; batch?: string; error?: string };
+  control: { host: string; env: string; data_dir: string; config_file: string; commit: string };
+  release: { id: string; name: string; page: string };
+  audit: { at: string; by: string; reason: string; verb: string; params?: Record<string, unknown> }[];
+  write: { header: string; token_configured: boolean };
+}
+export interface ProxyTestResult { ok: boolean; from: string; proxy: ProxyDetected; results: Record<string, PreflightResult> }
+export interface WorkerTestResult {
+  ok: boolean; worker: string; ran: boolean; error?: string; job?: string; exit_code?: number;
+  error_kind?: string; wall_s?: number; queue_s?: number; stdout?: string;
+}
+
+// ---- GET /mechanisms (WP22, D591) ----
+
+export interface MechRow { id: string; at: string; origin: string }
+export interface PlanDiffRow { section: string; key: string; default: unknown; plan: unknown; cited: boolean }
+export interface MechPlan extends MechRow {
+  family: string; author: string; chain_source: string; case: string | null; default: string | null;
+  diff: PlanDiffRow[]; uncited: string[];
+}
+export interface MechWhatIf extends MechRow {
+  model: string; summary: string; peaks: Record<string, number>; walls: Record<string, number>;
+  bottleneck: string | null; shadow_price_us: number | null; delta_total_us: number | null;
+  base_total_us: number | null; moved_total_us: number | null;
+}
+export interface MechCanary extends MechRow {
+  batch: string; kind: string; expect: string; got: string | null; verdict: string; bucket: string | null; escalate: boolean | null;
+}
+export interface MechSelection extends MechRow {
+  case: string | null; round: number | null; bucket: string;
+  model_best_us: number | null; model_top_e_us: number | null; random_best_us: number | null; random_n: number;
+  copied_us: number | null; copied_from: string | null; model_beaten_by_random: boolean;
+}
+export interface MechStage { name: string; status: string; why: string; steps: number }
+export interface MechReference extends MechRow {
+  name: string; target: string; source_class?: string; priority?: number; tiers?: string[]; stages?: MechStage[]; error?: string;
+}
+export interface MechanismsView {
+  plans: MechPlan[];
+  what_if: MechWhatIf[];
+  canaries: { rows: MechCanary[]; by_kind: Record<string, Record<string, number>> };
+  selection: MechSelection[];
+  learning: MechReference[];
+  stages: string[];
+  experiments: { count: number; by_status: Record<string, number>; page: string };
+}

@@ -27,7 +27,8 @@ export const useSnapshot = () => useContext(SnapshotContext);
 const NAV: { group: string; items: { to: string; label: string; later?: boolean; badge?: "inbox" }[] }[] = [
   { group: "Watch", items: [{ to: "/", label: "Overview" }, { to: "/running", label: "Running" }, { to: "/pipeline", label: "Pipeline" }] },
   { group: "Understand", items: [{ to: "/cases", label: "Cases" }, { to: "/families", label: "Families" }, { to: "/pool", label: "Pool" },
-    { to: "/coverage", label: "Coverage" }, { to: "/model", label: "Model" }, { to: "/model/scoreboard", label: "Scoreboard" }] },
+    { to: "/coverage", label: "Coverage" }, { to: "/model", label: "Model" }, { to: "/model/scoreboard", label: "Scoreboard" },
+    { to: "/mechanisms", label: "Mechanisms" }] },
   { group: "Intervene", items: [{ to: "/inbox", label: "Inbox", badge: "inbox" }, { to: "/operations", label: "Operations" },
     { to: "/experiments", label: "Experiments" }, { to: "/improvement", label: "Improvement" }, { to: "/agents", label: "Agents" },
     { to: "/release", label: "Release" }, { to: "/settings", label: "Settings" }] },

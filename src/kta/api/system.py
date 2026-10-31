@@ -25,6 +25,8 @@ from kta.core import proxy, sysconfig
 from kta.core.envprobe import run_probe
 from kta.core.errors import ConfigError, KtaError
 from kta.core.jobs import Job
+from kta.core.schemas import Actor, Record
+from kta.core.schemas.process import Report
 from kta.execution.executor import JobExecutor
 from kta.execution.registry import latest_registration, worker_configs
 from kta.orchestrator import release
@@ -32,6 +34,7 @@ from kta.store import code_state
 
 Reason = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 VERB = "set_system"
+TEST_ACTOR = Actor(type="system", name="kta.api.system")
 # Version command and credential location of each provider's CLI on the control host
 # (read-only probes, D78). API providers carry a key in secrets.env, checked at launch.
 CLI_VERSION: dict[str, list[str] | None] = {
@@ -199,21 +202,27 @@ def write_system(api: Api, b: SystemBody) -> dict[str, Any]:
 
 
 def proxy_test(api: Api, b: ProxyTestBody) -> dict[str, Any]:
-    """The preflight from the control host; a pass clears the provider's breaker (D585)."""
+    """The preflight from the control host, one Report per provider (evidence); a pass
+    clears that provider's breaker (D585). A failed Test does not trip it: launches do."""
     cfg = sysconfig.load(api.data_dir)
-    names = (
-        [b.provider]
-        if b.provider
-        else [n for n, p in cfg.providers.items() if p.proxy == "required"]
-    )
+    required = [n for n, p in cfg.providers.items() if p.proxy == "required"]
+    names = [b.provider] if b.provider else required
     found = proxy.resolve(cfg.proxy.override)
     out: dict[str, Any] = {"proxy": found.to_dict(), "from": "control host", "results": {}}
     for name in names:
-        hosts = cfg.provider(name).check_hosts
-        res = proxy.preflight(found.endpoint, hosts)
-        out["results"][name] = res
-        if res["ok"] and cfg.provider(name).proxy == "required":
-            proxyplan.mark(api.ops, name, True, api.now(), cleared_by="settings test")
+        res = proxy.preflight(found.endpoint, cfg.provider(name).check_hosts)
+        data = {**res, "from": "control host", "source": found.source, "trigger": "settings test"}
+        body = Report(
+            title=proxyplan.REPORT_TITLE,
+            subject=name,
+            summary=f"{name}: proxy preflight {'passed' if res['ok'] else 'failed'} "
+            f"({found.endpoint.url}, {found.source})",
+            data=data,
+        )
+        rid = api.store.put(Record.new("Report", body, TEST_ACTOR, api.now()))
+        out["results"][name] = {**res, "report": rid}
+        if res["ok"] and name in required:
+            proxyplan.mark(api.ops, name, True, api.now(), cleared_by="settings test", report=rid)
     out["ok"] = all(r["ok"] for r in out["results"].values())
     return out
 

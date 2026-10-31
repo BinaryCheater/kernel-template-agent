@@ -41,6 +41,8 @@ selector (applies to every chart that depends on the pool), data-as-of time, liv
 | Understand | Pool, Model | `/pool`, `/model` | WP9b |
 | Intervene | Inbox, Operations, Experiments, Improvement, Agents | `/inbox`, `/operations`, `/experiments`, `/improvement`, `/agents` | WP9b |
 | (linked) | Task detail | `/tasks/:id` | WP9b |
+| Understand | Mechanisms | `/mechanisms` | WP22 (D591) |
+| Intervene | Settings: tabs "Research controls" and "System" (`?tab=system`) | `/settings` | WP21, WP22 (D587) |
 
 Cross-links: a loop instance links to its Case (solve) or Reference (expand); a task links to its
 trace in Pipeline; a Solution links to its Result page; a Result links to its Family; a Family

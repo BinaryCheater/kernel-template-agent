@@ -49,6 +49,7 @@
 | WP19 | Named WP19 tests pass (projection compiled and solved on the GEMM seed with the objective equal to L1's projection and the enumerated minimum, outer enumeration and its limit; default plan; agent-plan fixture diffed and scored; enumerator finds the seed chain within its bound; composition view; header on one screen; skill table equals the data; pull log written and on the Release page; `solve` projection arm); `use-kta` carries the access-discipline table of the knob's version; FormulationPlan and Pull registered; spec sections exist; the MIP ↔ L2 check passes on the GEMM seed family and fails naming the effect on a wrong-reservation-table fixture; `model.mip_l2_check` is set by X11 (D550, D551). Code stage only |
 | WP21 | See "WP21" below |
 | WP20 | Named WP20 tests pass (the seven WP10a decompositions admitted with counted language gaps, an unexplained warning refuses the batch, the language-gap table, tiers/priority/performance core, ablation design and coupling evidence, fractional design, dry-run plan, a T2 rejected by admission and resumed in the same fake-adapter session); the seven references import through admit into a scratch store with language gaps counted and the coverage page showing four SOTA levels and a system-feature count; the learning table has tiers L0–L4 with known rules, levels 1–4, the O12 protocol marked not run, and T2 runs the `admission` done-check; the delivery note has the design-interrogation artefacts and pending real runs. Full stage: real intake, reproduce and ablate runs on spark and an O12 run |
+| WP22 | See "WP22" below |
 
 ## 验收测试的锁定
 
@@ -77,4 +78,16 @@ AGENTS.md 规定最后一步必须运行 gate 并把输出贴进交付说明。�
 | WP21 pages | `/settings` or `/release` is not routed or its page file is missing |
 | web build | the web app at HEAD does not build |
 | WP21 hand-stepped S1 run | full stage: no real S1 run is recorded yet (FAIL); code stage: WARN (pending real run) |
+
+## WP22
+
+`specific_wp22` (`tools/kta_gate/specific_wp22.py`, D580–D592):
+
+| Check | Fails when |
+| --- | --- |
+| WP22 tests | a named WP22 test did not pass (injection per policy, NO_PROXY, fail-closed launch, no credentials in records, off provider without proxy variables, detection order, system configuration revisions, preflight failures, System API read/write/Tests, Mechanisms view) |
+| WP22 proxy policy | a proxy variable is on the agent whitelist, or the provider defaults are not codex and claude_code `required`, pi and deepseek_harness `off` |
+| WP22 spec and pages | a WP22 spec section is missing, Settings has no System tab, or `/mechanisms` is not routed |
+| web build | the web app at HEAD does not build |
+| WP22 agent launch through the proxy | full stage: no AgentRun with `proxy.used` and a passed preflight (FAIL); code stage: WARN (pending real run) |
 

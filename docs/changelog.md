@@ -257,3 +257,18 @@ Code stage (D320): no real runs, no experiments. Branch `wp/WP19`; decisions D54
 
 Branch `wp/WP19-check` from `integration`; decision D551 (supersedes D548). Closes D-T4 (code stage): `solve/consistency.py` compares the compiled projection with WP16's L2 on sampled feasible points (Spearman ρ, optimistic-bound share) and names the deviating effect. Knob `model.mip_l2_check` (12 §7, set by X11; X11 `sets` now lists it). On the GEMM seed: ρ 0.52–0.54, no violation; a fixture with a wrong reservation table (4× tensor per mma) fails naming `mma.mma`.
 
+
+## 2026-10-31: merged work package WP22 (system settings, agent proxy, frontend parity)
+
+Branch `wp/WP22` from `integration`; decisions D580–D592. User requirements (2026-10-31): Codex and Claude Code always through the local Clash proxy with no direct fallback; pi and the DeepSeek harness never; a settings console with a system section; every round-4 mechanism visible in the frontend.
+
+| Item | What |
+| --- | --- |
+| Proxy (D580–D586) | system configuration separate from the controls registry; detection scutil → environment → `http://127.0.0.1:7897`; injection of the eight proxy variables for `required` providers only, NO_PROXY with loopback and the API host; preflight on the agent host (port, CONNECT, TLS), fail closed with a Report, a breaker and an Inbox item; `AgentRun.proxy`; credentials only in secrets.env |
+| Settings → System (D587–D589) | proxy with Test, providers (CLI version, logged in), workers (commit, GPU, Test job through the Executor), control plane, release stage, change history |
+| Mechanisms page (D591) | learning-loop stages, FormulationPlan diffs, selection arms, canaries, L2 what-if |
+| Open (D592) | agent CLIs are configured to run on spark, which cannot reach the Mac's Clash: the user decides where they run |
+
+### Files changed outside code
+
+- `spec/`: workplan.md WP22; agents.md (env list, WP22 section); api-web.md WP22; schemas.md `AgentRun.proxy`; gate.md WP22.

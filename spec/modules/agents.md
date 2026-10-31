@@ -91,7 +91,7 @@ agent 的行为由三样东西决定：给它的上下文、它的循环策略�
 | 目录树上方的 AGENTS.md | 工作区是独立的 git 仓库；运行前检查从文件系统根到工作区的路径上没有其他 AGENTS.md，有则拒绝启动 |
 | 工作区文件 | 只允许：`AGENTS.md`（由 prefix_template 生成）、`TASK.md`、`NOTES.md`、`inputs/`、`out/`、`.agents/skills/`（由 profile.skills 复制） |
 | MCP 服务器、web search 等内置工具 | 关闭（`cli_flags` 与隔离目录中的配置） |
-| 环境变量 | 白名单：任务令牌、`KTA_TRACE_PARENT`、`PATH`（只含 kta 与基础工具）、provider 的 key；其余清空 |
+| 环境变量 | 白名单：任务令牌、`KTA_TRACE_PARENT`、`PATH`（只含 kta 与基础工具）、provider 的 key；其余清空。WP22 (D581): for a provider whose proxy policy is `required`, plus `HTTPS_PROXY`, `HTTP_PROXY`, `ALL_PROXY`, `https_proxy`, `http_proxy`, `all_proxy`, `NO_PROXY`, `no_proxy` from the system configuration (never inherited); an `off` provider gets none of them |
 | 运行中获取的知识 | 只能经 `kta` 命令，每次调用都记录 |
 
 具体的 Codex 参数（沙箱模式、审批策略、关闭 web search 的方式、`CODEX_HOME` 是否完整生效）在 WP8 中逐项核对，核对结果写进 profile 和交付说明。
@@ -195,4 +195,16 @@ $KTA_DATA/<env>/batches/<batch>/
   TASK.md, before the step template; the `step_header_max_chars` limit applies to the whole.
 - The runtime skill `use-kta` carries the access-discipline table rendered from
   `kta.core.access` for the version in force; the skill's hash changes with the table.
+
+## WP22: agent proxy (D580–D586, D592)
+
+Codex and Claude Code do not read the macOS system proxy. The user requires both to go through the local Clash proxy with no direct fallback, and pi and the DeepSeek harness never to use it.
+
+- **Policy.** `kta.core.sysconfig` (system configuration, not the controls registry): per provider `proxy: required | off` and `check_hosts`. Defaults: codex and claude_code `required` (codex checks `chatgpt.com:443`, `api.openai.com:443`; claude_code `api.anthropic.com:443`), pi and deepseek_harness `off`; unknown providers `off`.
+- **Proxy in force.** `proxy.override` of the system configuration, else `kta.core.proxy.detect`: `scutil --proxy` → `HTTPS_PROXY`/`HTTP_PROXY`/`ALL_PROXY` (either case) of the control plane → `http://127.0.0.1:7897`. Detected at each step; the source is recorded.
+- **Injection.** `ProxyPlan = proxyplan.plan_for(provider, cfg, api_url)`; `guard.agent_env(values, path_dirs, proxy_vars=ProxyPlan.env)` adds all eight variables of the list above or none. `NO_PROXY`/`no_proxy` = `127.0.0.1,localhost,::1`, the `KTA_API` host and `proxy.no_proxy_extra`.
+- **Fail closed.** `LaunchSpec.proxy` = {provider, policy, url (no credentials), source, check_hosts, no_proxy, credentials, secrets_file}. The launcher calls `proxyplan.host_check` on the agent host before it prepares the workspace: `required` needs every variable, the proxy port and, per host, a CONNECT (HTTP or SOCKS5) plus a TLS handshake (one retry); `off` needs no proxy variable at all. Failure → report `exit: refused`, no CLI process. The runner (`proxyplan.outcome`) writes a Report `proxy_preflight`, trips the breaker (ops pointer `proxy:status:<provider>`) and raises `kta.core.proxy.ProxyUnavailable` (`ExecutionError`, kind infra). `kta runner` abandons that attempt and leases no task of a tripped provider; the Inbox shows the item until a Settings Test passes.
+- **Credentials.** Only `secrets.env` on the agent host (`KTA_PROXY_USERINFO=user:password`, used when `proxy.credentials_from_secrets` is true); added to the CLI's environment there, shown as `<provided>` in the context manifest; never in the system configuration, the launch spec, records or logs.
+- **Records.** `AgentRun.proxy` (spec/schemas.md): used, policy, scheme, host, port, source, no_proxy, credentials flag, preflight.
+- **Agent host (D592).** The proxy URL is used as is on the host named by `[agents] worker`. With `worker = spark` a loopback proxy is spark's own; the preflight refuses until the user chooses where agent CLIs run or how spark reaches a proxy.
 

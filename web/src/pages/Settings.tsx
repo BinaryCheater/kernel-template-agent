@@ -2,11 +2,13 @@
 // the failure it prevents, where it lives, its status and the experiment that sets it. Edits
 // become one new version (operator token, a reason); nothing else is editable here.
 import { useMemo, useState } from "react";
+import { useSearchParams } from "react-router";
 import { api, operatorToken } from "../data/source";
 import type { ControlsVersionRow, ControlsView, Knob } from "../data/types";
 import { useApi } from "../data/useApi";
 import { Chip, Loading, Panel, RecordLink } from "../components/ui";
 import { hhmm } from "../components/format";
+import { SystemSettings } from "./SettingsSystem";
 
 const SECTIONS: Record<string, string> = {
   "12 §1": "Budget and rounds",
@@ -30,7 +32,30 @@ function parse(k: Knob, text: string): unknown {
   return JSON.parse(text) as unknown;
 }
 
+const TABS = [
+  { id: "controls", label: "Research controls" },
+  { id: "system", label: "System" },
+] as const;
+
+/** Two tabs (WP22): the versioned research controls, and the control plane's system settings. */
 export function Settings() {
+  const [params, setParams] = useSearchParams();
+  const tab = params.get("tab") === "system" ? "system" : "controls";
+  const pick = (id: string) => {
+    const next = new URLSearchParams(params);
+    if (id === "controls") next.delete("tab");
+    else next.set("tab", id);
+    setParams(next);
+  };
+  return (
+    <div className="stack">
+      <div className="tabs">{TABS.map((t) => <button key={t.id} className={tab === t.id ? "on" : ""} onClick={() => pick(t.id)}>{t.label}</button>)}</div>
+      {tab === "system" ? <SystemSettings /> : <ResearchControls />}
+    </div>
+  );
+}
+
+function ResearchControls() {
   const c = useApi(api.controls, []);
   const v = useApi(() => api.controlsVersions(), []);
   if (!c.data) return <Loading error={c.error} />;

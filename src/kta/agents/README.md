@@ -44,3 +44,8 @@ job program is `python -m kta.agents.launch`, the only file here that starts pro
 
 - May import: `core`, `store`, `targets`, `execution`, `backends`, `knowledge`, `models`, `measure`, `formulation`, `checks`, `solve`, `orchestrator`.
 - Enforced by import-linter (`pyproject.toml`, `[tool.importlinter]`).
+
+## Proxy (WP22, D581–D586)
+
+- `proxyplan.py`: `plan_for` / `for_step` (the step's proxy from the system configuration; a tripped breaker refuses), `host_check` (run by the launcher on the agent host: fail closed), `outcome` (Report `proxy_preflight`, breaker, `ProxyUnavailable`), `status` / `mark` / `blocked` (ops pointer `proxy:status:<provider>`).
+- `guard.agent_env(values, path_dirs, proxy_vars)`: proxy variables enter only through `proxy_vars`, all eight or none; `LaunchSpec.proxy`; `AgentRun.proxy`.
