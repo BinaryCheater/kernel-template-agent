@@ -13,6 +13,7 @@ from typing import Any
 from kta.api.common import Api, body, envelope, incoming, latest, ref_one
 from kta.core.errors import NotSupported
 from kta.knowledge import pooldiff
+from kta.store.assurance import effective
 
 CURRENT_POOL = "current_pool"
 
@@ -79,7 +80,7 @@ def _summary(api: Api, fid: str) -> dict[str, Any]:
                 "template": it["template"],
                 "level_from": t.get("level_from"),
                 "level_to": t.get("level_to"),
-                "assurance": (api.store.status(tid)[1] if tid else None) or "declared",
+                "assurance": effective(api.store, tid) if tid else "declared",
             }
         )
     versions = [x for x in _ids(api, "Family") if body(api, x)["name"] == b["name"]]

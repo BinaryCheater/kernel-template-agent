@@ -18,6 +18,7 @@ from kta.core.controls import Controls, definitions
 from kta.core.errors import ConfigError
 from kta.store import SqliteOps, SqliteStore
 from kta.store import controls as controls_store
+from kta.store.assurance import effective
 
 
 @dataclass(frozen=True)
@@ -98,6 +99,10 @@ def machine_limit(api: Api, machine: str, key: str) -> int | None:
     return None
 
 
+# kinds whose assurance is read through proof records (WP24, D634)
+ASSURED = frozenset({"Template", "Family", "Chain"})
+
+
 def envelope(api: Api, id: str) -> dict[str, Any]:
     """GET /records/{id}: the stored JSON plus derived status and assurance.
 
@@ -105,7 +110,8 @@ def envelope(api: Api, id: str) -> dict[str, Any]:
     with the stored one under ``stored_body`` and ``upcast_from`` (D440).
     """
     data = api.store.get_json(id)
-    status, assurance = api.store.status(id)
+    status, raw = api.store.status(id)
+    assurance = effective(api.store, id) if data["kind"] in ASSURED else raw
     out = {"id": id, **data, "status": status, "assurance": assurance}
     rec = api.store.get(id)
     if rec.upcast:

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router";
 import { api } from "../data/source";
-import type { PoolView } from "../data/types";
+import type { PoolTemplate, PoolView } from "../data/types";
 import { useApi } from "../data/useApi";
 import { useSnapshot } from "../components/Shell";
 import { RecordActions } from "../components/actions";
@@ -51,6 +51,7 @@ function PoolBody({ p }: { p: PoolView }) {
           </div>
         ))}
       </div>
+      <AssuranceStrip p={p} />
       <Panel primary title={TABS.find((t) => t.id === tab)?.label} sub={hint}>
         <div className="tabs">{TABS.map((t) => <button key={t.id} className={tab === t.id ? "on" : ""} onClick={() => setTab(t.id)}>{t.label}<span className="muted">{p.counts[t.id] ?? 0}</span></button>)}</div>
         {tab === "templates" && <Templates p={p} />}
@@ -70,7 +71,7 @@ function Templates({ p }: { p: PoolView }) {
   if (!p.templates.length) return <div className="empty">No Template in this view.</div>;
   return (
     <table className="t">
-      <thead><tr><th>template</th><th>levels</th><th>refines → produces</th><th>contract</th><th>hardware</th><th>status</th><th /></tr></thead>
+      <thead><tr><th>template</th><th>levels</th><th>refines → produces</th><th>contract</th><th>hardware</th><th>status</th><th>obligations (checker)</th><th /></tr></thead>
       <tbody>{p.templates.map((t) => (
         <tr key={t.id}>
           <td><b className="mono">{t.name}@{t.version}</b><div className="small ink2 ellipsis2" style={{ maxWidth: 360 }}>{t.summary}</div><RecordLink id={t.id} /></td>
@@ -79,6 +80,7 @@ function Templates({ p }: { p: PoolView }) {
           <td className="small num">{t.variables} vars · {t.constraints} constraints · {t.obligations} obligations</td>
           <td className="small">{t.requires.join(", ") || <span className="muted">—</span>}{t.requires.length > 0 && <div className="muted">probed on {t.probed_on.join(", ") || "nothing yet"}</div>}</td>
           <td><Status s={t.status} a={t.assurance} /></td>
+          <td><ProofCell t={t} /></td>
           <td><RecordActions id={t.id} kind="Template" name={`${t.name}@${t.version}`} small /></td>
         </tr>
       ))}</tbody>
@@ -144,5 +146,67 @@ function References({ p }: { p: PoolView }) {
           <td className="num">{r.unmatched ?? "—"}</td><td><Status s={r.status} a={r.assurance} /></td></tr>
       ))}</tbody>
     </table>
+  );
+}
+
+const ASSURANCE_HINT: Record<string, string> = {
+  declared: "fields complete, obligations listed, nothing checked",
+  tested: "a family using it passed space verification (code level)",
+  bounded: "obligations checked on bounded models or bounded enumeration",
+  proved: "K1–K3 proved over the full stated domain",
+};
+
+/** WP24: the assurance distribution. bounded / proved come only from live proof records. */
+function AssuranceStrip({ p }: { p: PoolView }) {
+  const a = p.assurance ?? { declared: 0, tested: 0, bounded: 0, proved: 0 };
+  const total = Object.values(a).reduce((x, y) => x + y, 0) || 1;
+  const unchecked = p.templates.filter((t) => t.proof.obligations.some((o) => o.status === "unchecked" || o.status === "never checked")).length;
+  return (
+    <Panel title="Assurance of the Templates in view" sub="declared → tested → bounded → proved; bounded and proved are set only by checker proof records (kta prove)">
+      <div className="bar" style={{ height: 14, display: "flex" }}>
+        {(["proved", "bounded", "tested", "declared"] as const).map((k) => (
+          <span key={k} title={`${k}: ${a[k]}`} style={{ width: `${(a[k] / total) * 100}%`, background: k === "proved" ? "var(--st-ok)" : k === "bounded" ? "#7cc49a" : k === "tested" ? "var(--st-running)" : "var(--k-other)" }} />
+        ))}
+      </div>
+      <div className="row small" style={{ gap: 18, marginTop: 6 }}>
+        {(["declared", "tested", "bounded", "proved"] as const).map((k) => (
+          <span key={k} title={ASSURANCE_HINT[k]}><b className="num">{a[k]}</b> {k}</span>
+        ))}
+        <span className="muted" style={{ marginLeft: "auto" }}>{unchecked} Template(s) with obligations the checker did not check (listed per row)</span>
+      </div>
+    </Panel>
+  );
+}
+
+/** Every obligation of Σ with its checker outcome, stated domain and last run; unchecked ones stay listed. */
+function ProofCell({ t }: { t: PoolTemplate }) {
+  const pr = t.proof;
+  const n = (s: string) => pr.obligations.filter((o) => o.status === s).length;
+  const head = pr.summary
+    ? `${pr.level ?? "no level"} · ${n("proved") + n("bounded")}/${pr.obligations.length} discharged` + (pr.live === false ? " · stale" : "")
+    : "never checked";
+  return (
+    <details>
+      <summary className="small"><Chip tone={wordTone(pr.level ?? (pr.summary ? "unresolved" : "never checked"))}>{head}</Chip></summary>
+      <div className="small" style={{ maxWidth: 520 }}>
+        {pr.last_run && <div className="muted">last run {pr.last_run.slice(0, 19)}Z · {pr.checker} · {pr.solver} · <RecordLink id={pr.summary} label="summary" /></div>}
+        <table className="t">
+          <tbody>
+            {pr.contract.map((c) => (
+              <tr key={`${c.condition}-${c.name}`}><td className="mono">{c.condition} {c.name === "*" ? "" : c.name}</td><td><Chip tone={wordTone(c.status)}>{c.status}</Chip></td><td className="ink2">{c.reason || c.domain}</td><td><RecordLink id={c.result} /></td></tr>
+            ))}
+            {pr.obligations.map((o) => (
+              <tr key={o.name}>
+                <td className="mono">K2 {o.name}<div className="muted">method {o.method}</div></td>
+                <td><Chip tone={wordTone(o.status)}>{o.status}</Chip>{o.reused && <div className="muted">reused</div>}</td>
+                <td className="ink2">{o.domain}{o.reason && <div className="muted">{o.reason}</div>}</td>
+                <td><RecordLink id={o.result} /></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {pr.gaps.length > 0 && <div className="muted">why not higher: {pr.gaps.length} gap(s), e.g. {pr.gaps[0]}</div>}
+      </div>
+    </details>
   );
 }

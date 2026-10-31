@@ -13,8 +13,10 @@ from kta.core.errors import SchemaError
 from kta.core.ids import record_id
 from kta.core.schemas import Record
 from kta.core.schemas.knowledge import Template
+from kta.store.assurance import effective
 from kta.store.base import Store
 from kta.store.querybuild import MAX_LIMIT
+from kta.store.sqlite import SqliteStore
 
 # Store.query needs a limit; the knowledge pool is thousands of records (docs/design/23).
 ALL = MAX_LIMIT
@@ -70,8 +72,11 @@ def find_by_name(store: Store, kind: str, name: str) -> tuple[str, Record] | Non
 
 
 def status_of(store: Store, rid: str) -> tuple[str, str]:
-    """(status, assurance); no assurance StatusChange means ``declared`` (D203)."""
+    """(status, assurance); no assurance StatusChange means ``declared`` (D203). On the
+    SQLite store bounded / proved come only from live proof records (WP24, D634)."""
     status, assurance = store.status(rid)
+    if isinstance(store, SqliteStore):
+        return status, effective(store, rid)
     return status, assurance or "declared"
 
 

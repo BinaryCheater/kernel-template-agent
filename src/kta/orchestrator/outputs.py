@@ -13,6 +13,7 @@ import yaml
 
 from kta.core.schemas import Actor, Record
 from kta.core.schemas.knowledge import Family
+from kta.core.schemas.proof import ProofOutline
 from kta.knowledge import load_family, propose_template
 from kta.knowledge.admission import report_body as admission_report
 from kta.knowledge.pool import find_template
@@ -79,7 +80,19 @@ def _template(inp: CheckInput, actor: Actor) -> dict[str, Any]:
     pattern_ids = [_put(inp, actor, "Pattern", p) for p in new_patterns(inp.store, patterns)]
     sources = [str(s) for s in doc["sources"]]
     tid = propose_template(inp.ctx, inp.store, t, sources, actor, validate_in=view)
-    return {"template": tid, "patterns": pattern_ids} if pattern_ids else {"template": tid}
+    out: dict[str, Any] = {"template": tid}
+    proof = inp.workdir / "proof.yaml"
+    if proof.is_file():
+        # WP24: the agent may propose R, ρ, assumptions and model bindings; only the
+        # checker (kta prove) turns them into results, and assumptions never name X.
+        body = {
+            **yaml.safe_load(proof.read_text(encoding="utf-8")),
+            "template": f"{t.name}@{t.version}",
+        }
+        out["proof_outline"] = _put(
+            inp, actor, "ProofOutline", ProofOutline.model_validate(body), refs={"template": tid}
+        )
+    return out | {"patterns": pattern_ids} if pattern_ids else out
 
 
 def _model(inp: CheckInput, actor: Actor) -> dict[str, Any]:

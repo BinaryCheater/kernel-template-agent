@@ -12,7 +12,7 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import Any
 
-from kta.api import opsread
+from kta.api import opsread, proofview
 from kta.api.common import (
     Api,
     body,
@@ -416,5 +416,6 @@ def _result(api: Api, sol: str) -> dict[str, Any]:
         "explained_share": jdata.get("explained_share"),
         "verdict": body(api, judge)["summary"] if judge else None,
         "judgement": judge,
+        "assurance": proofview.result_assurance(api, fam, cand, numeric, sass, build),
         "refs": refs(api, sol),
     }

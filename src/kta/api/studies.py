@@ -20,10 +20,11 @@ from __future__ import annotations
 from collections import Counter
 from typing import Any
 
-from kta.api import operate
+from kta.api import operate, proofview
 from kta.api.common import Api, body, latest
 from kta.core.ids import record_id
 from kta.orchestrator.proc_common import get_state
+from kta.store.assurance import effective
 
 POOL_KINDS = ("Pattern", "Template", "Structure", "Reference", "Reconstruction")
 
@@ -39,6 +40,8 @@ def _rows(api: Api, kind: str, limit: int = 2000) -> list[tuple[str, dict[str, A
 
 def _env(api: Api, rid: str, data: dict[str, Any]) -> dict[str, Any]:
     status, assurance = api.store.status(rid)
+    if data.get("kind") in ("Template", "Family", "Chain"):
+        assurance = effective(api.store, rid)
     return {
         "id": rid,
         "created_at": data["created_at"],
@@ -93,7 +96,7 @@ def pool(api: Api, snapshot: str | None) -> dict[str, Any]:
         if keep(rid)
     ]
     out["templates"] = [
-        {**_env(api, rid, d), **_template(d["body"])}
+        {**_env(api, rid, d), **_template(d["body"]), "proof": proofview.template_proof(api, rid)}
         for rid, d in _rows(api, "Template")
         if keep(rid)
     ]
@@ -108,6 +111,7 @@ def pool(api: Api, snapshot: str | None) -> dict[str, Any]:
     out["references"] = _references(api, keep)
     out["counts"] = {k: len(v) for k, v in out.items() if isinstance(v, list)}
     out["other_patterns"] = sum(1 for p in out["patterns"] if p["category"] == "other")
+    out["assurance"] = proofview.distribution(api, [t["id"] for t in out["templates"]])
     return out
 
 

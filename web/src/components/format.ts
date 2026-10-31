@@ -31,6 +31,8 @@ const WORD_TONE: Record<string, Tone> = {
   queued: "waiting", waiting: "waiting", created: "waiting", gap: "waiting", analyzing: "waiting",
   accepted: "ok", covered: "ok", ok: "ok", passed: "ok", reproduced: "ok", calibrated: "ok", holdout_validated: "ok", healthy: "ok",
   rejected: "fail", fail: "fail", failed: "fail", expired: "fail", down: "fail", suspect: "fail",
+  proved: "ok", bounded: "ok", tested: "running", counterexample: "fail", unresolved: "waiting", unchecked: "idle", "never checked": "idle",
+  correctness: "ok", exploration: "waiting", missing: "fail",
   escalated: "human", proposed: "idle", cancelled: "idle", "not started": "idle", stale: "idle", deprecated: "idle", degraded: "waiting",
 };
 
