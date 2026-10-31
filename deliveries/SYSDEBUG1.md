@@ -2,7 +2,9 @@
 
 Date: 2026-10-31 (Asia/Singapore). Branch `sysdebug/1`.
 
-**Status: initial diagnostics available for supervised visual inspection; Phase 1 BLOCKED.** This is not an accepted S0/S1 transition, completed calibration, or a research result. The runbook explicitly stops before Phase 2 when X6/X10 cannot be produced. The operator followed that boundary.
+**Historical checkpoint (before D649; later repair results below).**
+
+**Status at that checkpoint: initial diagnostics available for supervised visual inspection; Phase 1 BLOCKED.** This is not an accepted S0/S1 transition, completed calibration, or a research result. The runbook explicitly stops before Phase 2 when X6/X10 cannot be produced. The operator followed that boundary.
 
 ## What was done
 
@@ -102,3 +104,35 @@ Skipped test: `tests.contract.test_codex_cli_contract::test_real_cli_lists_every
 ## Clock-rule repair (D649; later follow-up)
 
 User authorised autonomous mechanism repair. Design check: (1) verify observed operating stability; (2) support reproducible wall-time comparison; (3) evidence is stable 2515 MHz versus rated 3003 MHz, with no throttle flags; sampling every 50 ms is still a default; (4) applies to event-timed worker jobs, with no claim of continuous in-kernel observation; (5) can miss changes between samples or perturb launch gaps; (6) raw samples, rule version, clock span, temperature/throttle flags and group variance expose failures; (7) keep the 15% limit, add a versioned polling interval; (8) requeue unstable attempts and compare repeated real timings, never rewrite historical verdicts; (9) operator proceeds under user authorisation, with clock locking and whole-kernel cycle rescaling considered and declined for this host. Unit regressions cover stable low clocks, an interior dip, heat and throttling; real noise validation follows from a clean commit. Wall-time remains primary.
+
+Clock-rule v2 real results: 30 groups each completed for vadd (CV 0.2451227%) and GEMM (CV 0.00175166%), with 3–4 periodic polls around 50 ms apart and valid SM/temperature/power return codes. The real compile disturbance produced two CPU-interference Reports, then automatic retry and recovery passed (Report 84b43179…). Hardware calibration produced measured HwModel 39088eec…. No old verdict was rewritten and no frequency-based timing conversion was used. Earlier startup CPU activity was correctly rejected and retained. This closes the demonstrated clock false-positive; active-agent X6, peak spread and full pairwise calibration are not claimed. The earlier Mac snapshot predates these new records; new records persist in the Spark HK dev store.
+
+Latest clock-repair regression gate (Report 1a00bbc0…):
+
+```
+gate WP24 --stage code: PASSED (22 pass, 2 warn, 0 fail)
+  PASS ruff format
+  PASS ruff check
+  PASS import layers
+  PASS residue
+  PASS test doubles
+  PASS error handling
+  PASS print
+  PASS subprocess outside Executor
+  PASS secrets
+  PASS acceptance lock — 7 locked files unchanged
+  PASS pyright
+  PASS unit tests — 745 passed
+  PASS contract tests — 35 passed
+  PASS fake coverage — 2 fake(s) covered
+  PASS registry (kta doctor, dev)
+  PASS delivery note
+  PASS fixture declarations — 1 declared
+  PASS decision log — 487 decisions
+  WARN skipped tests — not explained in the delivery note
+  PASS evidence — 5 claim(s)
+  PASS WP24 tests — 16 named tests passed
+  PASS WP24 spec, seed and pages — spec, z3 lock, seed outlines, pages
+  PASS web build — tsc + vite build of HEAD in a clean directory
+  WARN WP24 real checker runs — pending real run (code stage): ProofSummary with a level and a caught proof_canary Report in dev/WP24 (clean commit)
+```

@@ -1,5 +1,7 @@
 # SYSDEBUG-1 Phase 1 — initial debug handoff
 
+Historical checkpoint before D649. Later clock-repair validation is recorded in SYSDEBUG1.md; the old rejection records remain unchanged.
+
 Date: 2026-10-31 (Asia/Singapore). **Phase 1 exit: BLOCKED.** Visual inspection of real diagnostics is available; the runbook's accepted Phase 2 S0/S1 transition has not occurred. The runbook requires a stop when X6 or X10 cannot be produced.
 
 ## At a glance

@@ -353,5 +353,106 @@
     "started_at": "2026-10-31T11:25:36.213128Z",
     "requires_gpu": false,
     "output": "~/kta/runs/sysdebug1/gate-ui.out"
+  },
+  {
+    "claim": "Clock rule v2 completed 30 idle groups for vadd and GEMM; CV 0.2451227% and 0.00175166%; periodic clock samples retained. Active-agent arm not claimed.",
+    "command": "KTA_MODE=spark-hk KTA_ENV=dev KTA_WP=SYSDEBUG1 kta measure noise --kernel all --groups 30 --revise --json",
+    "git_commit": "39686441f663ebbd7fe81a4e67b951d857a673cf",
+    "dirty": false,
+    "env": "dev",
+    "control_host": "spark-6951",
+    "workers": [
+      "spark-hk"
+    ],
+    "record_ids": [
+      "56e0b32395403a433f5cada10ac9e99cbaa09bf629333789b6dcc634a24dca3d",
+      "9890f222de35ea7714e238e818377c0f61e073b78de1b4727bdbb79717ec347b",
+      "94bf634d48347912800da9010fa9d8f7f0f75d51aef617445c3ae9047204b1b9"
+    ],
+    "blob_ids": [],
+    "env_manifests": [
+      "2734f969ca19687dc90034b9276617648c40b7a10b2bcb1363ddab3e125d851d"
+    ],
+    "started_at": "2026-10-31T13:15:30.511039Z",
+    "requires_gpu": true,
+    "output": "~/kta/runs/sysdebug1/noise-clock-v2-stable.out"
+  },
+  {
+    "claim": "Hardware peak/microbenchmark calibration completed with a measured HwModel. This is one initial calibration, not a spread-validated full interference matrix.",
+    "command": "KTA_MODE=spark-hk KTA_ENV=dev KTA_WP=SYSDEBUG1 kta calibrate hw --json",
+    "git_commit": "39686441f663ebbd7fe81a4e67b951d857a673cf",
+    "dirty": false,
+    "env": "dev",
+    "control_host": "spark-6951",
+    "workers": [
+      "spark-hk"
+    ],
+    "record_ids": [
+      "39088eecc943449bbf445fe9f47510f3dc72c65382ff2003611f079ee78cf5f8",
+      "59eecf26da9979e2e013515b1c17eedf4d306338097893d2dd4a8e272859b7d2",
+      "62a3589ee8e513a280282b2866d2f0d92e790a6ef3c2578973dcf090a1ed4f24",
+      "a4f2bb73e9cc54f66ae44edca123646b932838251b1ec8d4ec3ebe1d9418969e",
+      "a9aa7c955e2a9fc39b051e69bd8f41e10eb285246ad5dc65fe6c76928d6d7ef0",
+      "c97be4af3f11c870a3de2892bdee60e7a90d97e4cf4381dfe4b6ea2d4ec4e281",
+      "cae5f371a2744e1c5e18106248a38715b51fcb89dfb2cb954f334a139225bb36"
+    ],
+    "blob_ids": [
+      "57c11a8f53501bd4decc512159902269f143604237e7b73e277df19b76a794d4"
+    ],
+    "env_manifests": [
+      "2734f969ca19687dc90034b9276617648c40b7a10b2bcb1363ddab3e125d851d"
+    ],
+    "started_at": "2026-10-31T13:16:29.920440Z",
+    "requires_gpu": true,
+    "output": "~/kta/runs/sysdebug1/hw-clock-v2-stable.out"
+  },
+  {
+    "claim": "A deliberate real CPU compile disturbance caused two rejected attempts; automatic retry and recovery accepted stable timings. No model call.",
+    "command": "KTA_MODE=spark-hk KTA_ENV=dev KTA_WP=SYSDEBUG1 Executor real compile disturbance + Measurer.measure",
+    "git_commit": "39686441f663ebbd7fe81a4e67b951d857a673cf",
+    "dirty": false,
+    "env": "dev",
+    "control_host": "spark-6951",
+    "workers": [
+      "spark-hk"
+    ],
+    "record_ids": [
+      "84b43179aee77ebf8883073eb51cbb43f9bac1248413eefa56d752c6209e74b1"
+    ],
+    "blob_ids": [
+      "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "f96387ae6e4d89c159fb1daad04c0752a9f82fddf3cb1465ffb61cb51118a4cc"
+    ],
+    "env_manifests": [
+      "2734f969ca19687dc90034b9276617648c40b7a10b2bcb1363ddab3e125d851d"
+    ],
+    "started_at": "2026-10-31T13:17:39.651056Z",
+    "requires_gpu": true,
+    "output": "~/kta/runs/sysdebug1/clock-stress.out"
+  },
+  {
+    "claim": "Clock repair passed full WP24 code-stage regression gate: 22 pass,2 warn;745 tests,35 contracts.",
+    "command": "KTA_MODE=spark-hk KTA_ENV=dev KTA_WP=SYSDEBUG1 Executor CPU job: scripts/gate --stage code WP24",
+    "git_commit": "39686441f663ebbd7fe81a4e67b951d857a673cf",
+    "dirty": false,
+    "env": "dev",
+    "control_host": "spark-6951",
+    "workers": [
+      "spark-hk"
+    ],
+    "record_ids": [
+      "1a00bbc043ca20157723890c48a959e7a1f0e37e485f809c36e8cfb97514c6d8"
+    ],
+    "blob_ids": [
+      "2238922fda9981297898f4fd4ade1895f315a4e950b1b0d61f36abd773f6cec4",
+      "56ea061150658ce9a0f888fe149555a03a01fdfbacf0f325724e15ebfa4a376d",
+      "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    ],
+    "env_manifests": [
+      "2734f969ca19687dc90034b9276617648c40b7a10b2bcb1363ddab3e125d851d"
+    ],
+    "started_at": "2026-10-31T13:19:59.394320Z",
+    "requires_gpu": false,
+    "output": "~/kta/runs/sysdebug1/gate-clock-v2.out"
   }
 ]
