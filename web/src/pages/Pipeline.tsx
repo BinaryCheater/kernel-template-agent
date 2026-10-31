@@ -7,9 +7,10 @@ import { useApi } from "../data/useApi";
 import { Loading, Panel } from "../components/ui";
 import { dur, hhmm, pct } from "../components/format";
 import { KIND_STYLE, SpanLegend, Swimlanes, kindStyle, laneRank } from "../components/Swimlanes";
+import { PipelineStages } from "./PipelineStages";
 
 const WINDOWS = [{ label: "15 min", min: 15 }, { label: "1 h", min: 60 }, { label: "3 h", min: 180 }];
-const LANE_GROUPS = ["process", "agent", "worker", "gpu", "human"];
+const LANE_GROUPS = ["process", "agent", "worker", "gpu", "host", "human"];
 
 export function Pipeline() {
   const now = useNow();
@@ -85,6 +86,8 @@ function PipelineBody({ spans, traces, now, win, setWin }: { spans: Span[]; trac
           ))}
         </div>
       </div>
+
+      <PipelineStages now={now} win={win} />
 
       <Panel primary title="Swimlanes" sub="time → ; one row per lane (overlapping work stacks into extra rows). Click an agent session to expand its thinking and tool calls."
         right={<span className="muted">window follows now (live)</span>}>

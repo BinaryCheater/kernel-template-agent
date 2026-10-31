@@ -8,7 +8,7 @@ from typing import Any
 
 from fastapi import APIRouter, Query
 
-from kta.api import cases, modelview, opsread, pool, runs, trace
+from kta.api import cases, modelview, opsread, pool, runs, stageview, trace
 from kta.api.common import Api, envelope, iso, machines_view
 from kta.core.errors import ConfigError
 from kta.core.ids import record_id
@@ -144,6 +144,18 @@ def router(api: Api) -> APIRouter:
     ) -> dict[str, Any]:  # pyright: ignore[reportUnusedFunction]
         end = _time(to, api.now())
         return trace.summary(api, _time(from_, end - timedelta(hours=1)), end)
+
+    @r.get("/trace/stages")
+    def trace_stages(
+        from_: str | None = Query(None, alias="from"),
+        to: str | None = None,
+        bucket_s: float = 300.0,
+    ) -> dict[str, Any]:  # pyright: ignore[reportUnusedFunction]
+        end = _time(to, api.now())
+        start = _time(from_, end - timedelta(hours=6))
+        if end - start > MAX_WINDOW or end <= start or bucket_s <= 0:
+            raise ConfigError("stage window must be positive, at most 7 days, bucket > 0")
+        return stageview.stages_view(api, start, end, bucket_s)
 
     @r.get("/trace/critical-path/{trace_id}")
     def critical_path(trace_id: str) -> dict[str, Any]:  # pyright: ignore[reportUnusedFunction]

@@ -138,11 +138,10 @@ def _spec(
 ) -> LaunchSpec:
     run_as = None
     if profile.isolation == "config+user":
-        if not deps.config.agent_user:
-            raise ConfigError(
-                "profile isolation config+user needs [agents] agent_user (scripts/kta-agent-setup)"
-            )
-        run_as = deps.config.agent_user
+        # WP23 (D602, user 2026-10-31): the separate system user is optional. With an empty
+        # [agents] agent_user the CLI runs under the agent host's own account, confined by
+        # its own sandbox, the isolated home and the workspace limits.
+        run_as = deps.config.agent_user or None
     elif profile.isolation == "container":
         raise NotSupported("container isolation (D09) is not implemented")
     host = deps.config.host

@@ -14,6 +14,7 @@ from kta.core.context import Context, data_dir_for, parse_env
 from kta.core.errors import ConfigError
 from kta.core.logging import setup
 from kta.core.registry import build_registry
+from kta.store.backup import check_owner
 
 
 def main() -> None:
@@ -26,6 +27,7 @@ def main() -> None:
         process="api",
     )
     setup(ctx)
+    check_owner(ctx.data_dir)  # one control plane per store (WP23, D601)
     api = open_api(ctx)
     host = api.config.section("api").get("host")
     if host not in ("127.0.0.1", "localhost", "::1"):

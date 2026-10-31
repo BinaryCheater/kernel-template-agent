@@ -932,7 +932,10 @@ export interface WorkflowView {
   versions: { id: string; version: number; current: boolean; base: string | null; author: string; author_type: string; origin: string }[];
   task_types: WfTaskType[];
   lifecycle: { states: { id: string; kind: string; does: string }[]; transitions: WfTransition[]; limits: Record<string, unknown> };
-  session: { rules: { mode: string; reason: string }[]; source: string };
+  session: {
+    rules: { mode: string; reason: string }[]; source: string;
+    work_units: { rule: string; rules: Record<string, string>; roles: Record<string, string[]>; example: Record<string, string>; source: string };
+  };
   templates: Record<string, { blob: string; text: string; placeholders: string[] | null }>;
   skills: Record<string, { ref: string; text: string; used_by: string[] }>;
   knobs: { version: string | null; nodes: Record<string, WfKnob[]> };
@@ -943,3 +946,15 @@ export interface WorkflowView {
 export interface WfChanges { templates: Record<string, string>; skills: Record<string, string>; fields: Record<string, string | null> }
 export interface WfPreview { errors: string[]; warnings: string[]; card: string; task_md?: string }
 export interface WfDiff { what: string; old?: unknown; new?: unknown; diff?: string }
+
+/** GET /trace/stages (WP23): stage depth, throughput and wait; GPU busy; host-lock waits. */
+export interface StageTimeline {
+  from: string; to: string; buckets: string[]; bucket_s: number;
+  stages: Record<string, { depth: number[]; entries: number[]; throughput_per_h: number[]; mean_wait_s: (number | null)[] }>;
+  gpu_busy: number[];
+  host_lock: { waits: number[]; wait_s: number[] };
+  now: {
+    stages: { id: string; does: string; pool: string; depth: number; capacity: number | null; window: boolean }[];
+    held: { loop: string; kind: string; state: string; reason: string }[];
+  };
+}

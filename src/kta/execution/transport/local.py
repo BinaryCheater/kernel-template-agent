@@ -50,3 +50,12 @@ class LocalTransport:
         except subprocess.TimeoutExpired as exc:
             raise ExecutionError("infra", f"local worker did not answer in {timeout_s}s") from exc
         return check_reply("local", proc)
+
+    def popen(self, args: list[str]) -> subprocess.Popen[bytes]:
+        return subprocess.Popen(
+            [sys.executable, "-m", WORKER_MODULE, *args],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=self.environ,
+        )

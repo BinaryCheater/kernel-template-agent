@@ -40,9 +40,9 @@ experiments:
   - id: X3
     question: resume vs fresh session
     design: O11 — two arms on the same work units; also tests the 60 % context threshold
-    arms: [resume within work unit, fresh session every step]
-    metrics: [tokens, latency, outcome, rounds stuck]
-    sets: [session.resume_scope]
+    arms: [resume within work unit, fresh session every step, "work unit per case (all task types)", "work unit per case x role (kernel T1/T6, model T4/T5, knowledge T2/T3; WP23)"]
+    metrics: [tokens, latency, outcome, rounds stuck, tokens per accepted task, acceptance rate, share of T1/T6 diagnoses attributing the gap to the model]
+    sets: [session.resume_scope, session.work_unit_rule]
     profile_fields: []
     depends_on: [O11, X5]
     step: 4
@@ -76,9 +76,9 @@ experiments:
   - id: X6
     question: improvement band
     design: measured noise of the measurement protocol per kernel class (repeated measurements of fixed kernels)
-    arms: [per kernel class]
-    metrics: [CI of the median, run-to-run spread]
-    sets: [guard.improvement_band, learning.coupling_noise_band]
+    arms: [per kernel class, "agents idle vs agents active during measurement (quiet-host thresholds, WP23)"]
+    metrics: [CI of the median, run-to-run spread, interfered share, median shift with agents active]
+    sets: [guard.improvement_band, learning.coupling_noise_band, measure.quiet_thresholds]
     profile_fields: []
     depends_on: []
     step: 1
@@ -150,9 +150,9 @@ experiments:
   - id: X12
     question: concurrent agent instances
     design: 2 vs 4 instances on one batch
-    arms: [2 instances, 4 instances]
-    metrics: [throughput, GPU queue wait, rate-limit hits]
-    sets: [budget.agent_instances]
+    arms: [2 instances, 4 instances, "stage queue capacities (WP23): measure-bound vs agent-bound settings"]
+    metrics: [throughput, GPU queue wait, rate-limit hits, stage wait time, GPU idle share]
+    sets: [budget.agent_instances, pipeline.stage_capacity]
     profile_fields: []
     depends_on: [X4]
     step: 4

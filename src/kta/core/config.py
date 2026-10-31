@@ -14,6 +14,8 @@ from typing import Any
 from kta.core.errors import ConfigError
 
 CONFIG_ENV_VAR = "KTA_CONFIG"
+# A deployment mode names config/modes/<mode>.toml (WP23, D600): dev-mac, spark-hk.
+MODE_ENV_VAR = "KTA_MODE"
 
 
 def repo_root() -> Path:
@@ -26,6 +28,13 @@ def default_config_path(environ: Mapping[str, str] | None = None) -> Path:
     explicit = env.get(CONFIG_ENV_VAR)
     if explicit:
         return Path(explicit)
+    mode = env.get(MODE_ENV_VAR)
+    if mode:
+        path = repo_root() / "config" / "modes" / f"{mode}.toml"
+        if not path.is_file():
+            known = sorted(p.stem for p in (repo_root() / "config" / "modes").glob("*.toml"))
+            raise ConfigError(f"{MODE_ENV_VAR}={mode}: no {path.name}; modes: {', '.join(known)}")
+        return path
     return repo_root() / "config" / "kta.toml"
 
 

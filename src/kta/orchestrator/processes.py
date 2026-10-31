@@ -14,11 +14,14 @@ import threading
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
+from typing import Any
 
 from kta.core.errors import ConfigError, NotSupported
 from kta.core.ids import UlidFactory
-from kta.orchestrator import control, quotas, release
+from kta.measure.batching import MeasureWindow
+from kta.orchestrator import control, quotas, release, stagequeue
 from kta.orchestrator.budget import configure_scopes
+from kta.orchestrator.machines import machine
 from kta.orchestrator.operations import reverify_suspects
 from kta.orchestrator.pipeline import Services
 from kta.orchestrator.proc_calibrate import calibrate_tick
@@ -27,6 +30,7 @@ from kta.orchestrator.proc_learn import learn_tick
 from kta.orchestrator.proc_summarize import summarize_tick
 from kta.orchestrator.runner import Runner
 from kta.store import controls as controls_store
+from kta.store.backup import check_owner
 
 log = logging.getLogger("kta.orchestrator.processes")
 ALL = ("solve", "learn", "calibrate", "maintain", "experiment", "summarize")
@@ -44,7 +48,8 @@ class TickReport:
 
 
 def solve_tick(runner: Runner) -> TickReport:
-    """Check submitted tasks of solve loops, then advance every live solve instance once."""
+    """Check submitted tasks of solve loops, then advance the live solve instances the
+    stage plan admits (WP23: WIP limits, backpressure, unblocking first, windows)."""
     rep = TickReport()
     ops = runner.svc.ops
     solve_loops = {
@@ -56,12 +61,64 @@ def solve_tick(runner: Runner) -> TickReport:
         if t.work_unit in solve_loops:
             runner.queue.check(t.id)
             rep.checked.append(t.id)
-    for row in ops.list_loops("solve"):
-        if row["data"].get("process", "solve") != "solve":
-            continue  # experiment runs are advanced by the experiment process (WP11)
-        if runner.advance(str(row["id"])) is not None:
-            rep.advanced.append(str(row["id"]))
+    rows = [
+        r
+        for kind in ("solve", "expand")
+        for r in ops.list_loops(kind)
+        if not machine(kind).terminal(str(r["state"]))
+    ]
+    # experiment runs are advanced by the experiment process (WP11); they still fill stages
+    mine = {
+        str(r["id"])
+        for r in rows
+        if r["kind"] == "solve" and r["data"].get("process", "solve") == "solve"
+    }
+    snap = runner.ctx.controls
+    plan = stagequeue.plan(rows, snap.stage_capacity, snap.batch_window, runner.ctx.clock.now())
+    plan.advance = [i for i in plan.advance if i in mine]
+    plan.window = [i for i in plan.window if i in mine]
+    _record_holds(runner, rows, {k: v for k, v in plan.held.items() if k in mine}, plan)
+    for loop_id in plan.advance:
+        if runner.advance(loop_id) is not None:
+            rep.advanced.append(loop_id)
+    rep.advanced += _measure_window(runner, plan.window)
     return rep
+
+
+def _record_holds(
+    runner: Runner, rows: list[dict[str, Any]], held: dict[str, str], plan: stagequeue.Plan
+) -> None:
+    """Held loops keep their state; the reason is loop data ``deferred`` (shown on the
+    Pipeline page) and each tick's depths are one ops event ``stages``."""
+    ops = runner.svc.ops
+    for r in rows:
+        rid = str(r["id"])
+        if rid in held and r["data"].get("deferred") != held[rid]:
+            ops.put_loop(
+                rid, r["kind"], r["subject"], r["state"], {**r["data"], "deferred": held[rid]}
+            )
+    ops.record_event(
+        "stages",
+        "solve",
+        {"depth": plan.depth, "held": len(held), "window": len(plan.window)},
+    )
+
+
+def _measure_window(runner: Runner, loop_ids: list[str]) -> list[str]:
+    """Advance measurement-ready loops in one exclusive window (WP23 D608).
+
+    Without ``[measure] window_worker`` the loops are advanced one by one; each
+    measurement then takes its own lease (correct, but the drain is not amortised).
+    """
+    if not loop_ids:
+        return []
+    cfg = runner.ctx.config.section("measure")
+    worker, device = cfg.get("window_worker"), str(cfg.get("window_device", "0"))
+    if not worker:
+        return [i for i in loop_ids if runner.advance(i) is not None]
+    window = MeasureWindow(runner.svc.executor, str(worker), device, f"window:{runner.holder}")
+    done = window.run(loop_ids, runner.advance)
+    return [i for i, t in zip(loop_ids, done, strict=True) if t is not None]
 
 
 def maintain_tick(runner: Runner) -> TickReport:
@@ -108,6 +165,7 @@ def run(
         raise ConfigError(f"unknown process {name!r}; one of {', '.join(ALL)}")
     if name not in IMPLEMENTED:
         raise NotSupported(f"process {name} (WP6 implements {', '.join(IMPLEMENTED)}; WP11)")
+    check_owner(svc.ctx.data_dir)  # one control plane per store (WP23, D601)
     started = svc.ctx.clock.now()
     holder = f"{name}:{UlidFactory(svc.ctx.clock).new()}"
     lock = f"process:{name}"

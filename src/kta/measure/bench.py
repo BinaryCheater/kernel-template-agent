@@ -30,6 +30,7 @@ from pathlib import Path
 from typing import Any
 
 from kta.measure.nvml import Nvml, visible_device
+from kta.measure.quiet import read_counters
 from kta.targets.cudadrv import ATTRIBUTES, CUdeviceptr, Driver
 
 SCALARS: dict[str, type[ctypes._SimpleCData[Any]]] = {
@@ -156,9 +157,12 @@ class Bench:
                 rounds += 1
             return rounds, time.perf_counter() - t0
 
+        host_pre = read_counters(nvml)  # quiet-host check (WP23): before warm-up
         warm_iters, warm_s = phase(int(spec["warmup_min_iters"]), spec["warmup_min_ms"], False)
         env_start = nvml.sample()
+        host_start = read_counters(nvml)
         iters, loop_s = phase(int(spec["min_iters"]), spec["min_ms"], True)
+        host_end = read_counters(nvml)
         env_end = nvml.sample()
         nvml.close()
         self.drv.free(flush)
@@ -171,6 +175,9 @@ class Bench:
             "flush_bytes": flush_bytes,
             "env_start": env_start,
             "env_end": env_end,
+            "host_pre": host_pre,
+            "host_start": host_start,
+            "host_end": host_end,
         }
         (out / "timing.json").write_text(json.dumps(result), encoding="utf-8")
 

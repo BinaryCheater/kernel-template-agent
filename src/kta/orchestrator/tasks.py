@@ -22,7 +22,7 @@ from kta.core.ids import UlidFactory
 from kta.core.schemas import Actor, Record, RefValue
 from kta.core.schemas.process import Submission, TaskCard
 from kta.core.trace import SpanStart
-from kta.orchestrator import budget, control
+from kta.orchestrator import budget, control, workunits
 from kta.orchestrator.done_checks import DONE_CHECKS, CheckInput, Outcome, run_check
 from kta.orchestrator.machines import Machine, machine
 from kta.orchestrator.outputs import write_outputs
@@ -122,10 +122,13 @@ class TaskQueue:
 
         Without a loop the task is its own work unit ``human:<id>`` (D278, D365). The card
         names the approved profile (pointer ``current_profile``), else ``unassigned``.
+        The card's work unit follows ``session.work_unit_rule`` (WP23, D614): by default
+        ``<loop>:<role>``; the ops row keeps the loop, which budgets and views key on.
         """
         snap = self.controls()
         s = Settings.of(snap)
         loop_id = loop_id or f"human:{self.ids.new()}"
+        unit = workunits.unit_for(loop_id, req.type, snap.work_unit_rule, self.ids.new())
         profile = self.ops.get_pointer(CURRENT_PROFILE) or UNASSIGNED_PROFILE
         body = TaskCard.model_validate(
             {
@@ -135,7 +138,7 @@ class TaskQueue:
                 "done_checks": list(DONE_CHECKS[req.type]),
                 "budget": s.card_budget(req.type),
                 "profile": profile,
-                "work_unit": loop_id,
+                "work_unit": unit,
                 **({"header": req.header.model_dump(mode="json")} if req.header else {}),
             }
         )

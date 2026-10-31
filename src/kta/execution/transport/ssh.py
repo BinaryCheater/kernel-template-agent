@@ -111,6 +111,12 @@ class SshTransport:
                 "infra", f"{self.config.name}: no answer over ssh in {timeout_s}s"
             ) from exc
 
+    def popen(self, args: list[str]) -> subprocess.Popen[bytes]:
+        # The remote command ends when ssh closes its stdin (the hold protocol relies on it).
+        return subprocess.Popen(
+            self.argv(args), stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
+
     def call(self, args: list[str], stdin: bytes, timeout_s: float) -> bytes:
         proc = self._once(args, stdin, timeout_s)
         detail = proc.stderr.decode("utf-8", "replace").strip()[-500:]

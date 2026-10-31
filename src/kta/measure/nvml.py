@@ -69,5 +69,37 @@ class Nvml:
             "nvml_codes": {"sm": sm_rc, "mem": mem_rc, "temp": temp_rc, "power": power_rc},
         }
 
+    def load(self) -> dict[str, Any]:
+        """GPU utilisation, memory in use and compute processes (quiet-host check, WP23).
+
+        GB10 reports no framebuffer memory of its own (unified memory): ``mem_used_bytes``
+        is then None with its return code. ``compute_procs`` counts every process with a
+        CUDA context on the device, the caller's own included.
+        """
+
+        class Util(ctypes.Structure):
+            _fields_ = [("gpu", ctypes.c_uint), ("memory", ctypes.c_uint)]
+
+        class Mem(ctypes.Structure):
+            _fields_ = [
+                ("total", ctypes.c_ulonglong),
+                ("free", ctypes.c_ulonglong),
+                ("used", ctypes.c_ulonglong),
+            ]
+
+        util, mem, count = Util(), Mem(), ctypes.c_uint(0)
+        u_rc = self.lib.nvmlDeviceGetUtilizationRates(self.handle, ctypes.byref(util))
+        m_rc = self.lib.nvmlDeviceGetMemoryInfo(self.handle, ctypes.byref(mem))
+        # With no buffer NVML returns the count (0, or 7 = insufficient size, when any run).
+        p_rc = self.lib.nvmlDeviceGetComputeRunningProcesses_v3(
+            self.handle, ctypes.byref(count), None
+        )
+        return {
+            "gpu_util_pct": util.gpu if u_rc == 0 else None,
+            "mem_used_bytes": mem.used if m_rc == 0 else None,
+            "compute_procs": count.value if p_rc in (0, 7) else None,
+            "nvml_codes": {"util": u_rc, "mem": m_rc, "procs": p_rc},
+        }
+
     def close(self) -> None:
         self.lib.nvmlShutdown()

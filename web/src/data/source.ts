@@ -4,7 +4,7 @@
 import type {
   ActionLogEntry, ActiveRuns, AgentsView, BlobText, Capability, CaseDetail, CaseIndexRow, CoverageReport,
   FamilyDetail, FamilySummary, ImprovementsView, InboxItem, Machines, Meta, PoolDiff, PoolView, RecordEnvelope,
-  ModelTimeline, Quotas, Residual, ResultDetail, Scoreboard, Snapshot, Span, TaskDetail, TraceInfo, ExperimentProtocol,
+  ModelTimeline, Quotas, Residual, ResultDetail, Scoreboard, Snapshot, Span, StageTimeline, TaskDetail, TraceInfo, ExperimentProtocol,
   ControlsView, ControlsVersionRow, ReleaseView, SystemView, ProxyTestResult, WorkerTestResult, MechanismsView,
   WorkflowView, WfChanges, WfPreview, WfDiff,
 } from "./types";
@@ -60,6 +60,8 @@ export const api = {
   inbox: () => get<InboxItem[]>("/inbox"),
   trace: (from: number, to: number) =>
     get<{ spans: Span[]; traces: TraceInfo[] }>("/trace", { from: new Date(from).toISOString(), to: new Date(to).toISOString() }),
+  stages: (from: number, to: number, bucketS: number) =>
+    get<StageTimeline>("/trace/stages", { from: new Date(from).toISOString(), to: new Date(to).toISOString(), bucket_s: String(bucketS) }),
   record: (id: string) => get<RecordEnvelope>(`/records/${enc(id)}`),
   cases: () => get<CaseIndexRow[]>("/cases"),
   caseTimeline: (id: string) => get<CaseDetail>(`/cases/${enc(id)}/timeline`),

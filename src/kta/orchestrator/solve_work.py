@@ -14,6 +14,7 @@ from typing import Any
 
 from kta.checks.full import run_full
 from kta.checks.sass import sass_check
+from kta.core import hostlock
 from kta.core.errors import SchemaError
 from kta.core.ids import record_id
 from kta.core.schemas import Actor, Record
@@ -176,16 +177,19 @@ def work_solving(svc: Services, loop: Loop) -> Facts:
     arms: dict[str, dict[str, list[str]]] = {}
     for b in loop.data["buckets"]:
         rng = svc.ctx.rng(f"solve:{loop.id}")
-        res = solve(
-            f,
-            cv.case,
-            b,
-            model,
-            hw,
-            shortlist=s.shortlist,
-            time_limit_s=s.solve_time_limit_s,
-            rng=rng,
-        )
+        # On the compute host (long-run mode) the in-process solve is heavy work: it holds
+        # the host lock shared, so no measurement runs beside it (WP23, D604).
+        with hostlock.heavy(svc.ctx.config.section(hostlock.HOST_SECTION), f"solve:{loop.id}"):
+            res = solve(
+                f,
+                cv.case,
+                b,
+                model,
+                hw,
+                shortlist=s.shortlist,
+                time_limit_s=s.solve_time_limit_s,
+                rng=rng,
+            )
         recs = record_solve(svc.ctx, svc.store, res, ACTOR, cv.id, family, hw_id, model_id)
         name = str(b["name"])
         out[name] = recs.candidates
