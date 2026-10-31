@@ -68,6 +68,9 @@ class LaunchSpec:
         default_factory=lambda: dict[str, Any]()
     )  # knowledge condition (D430)
     expect_version: str | None = None  # the profile's CLI version; another version is refused
+    # WP22 (D584): provider, policy and, when required, url (no credentials), source,
+    # check_hosts, no_proxy, credentials, secrets_file. The launcher runs the preflight.
+    proxy: dict[str, Any] | None = None
 
     def to_json(self) -> bytes:
         return json.dumps(asdict(self), sort_keys=True, indent=1).encode("utf-8")

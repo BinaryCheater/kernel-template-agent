@@ -17,6 +17,8 @@ SECRET_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("slack_token", re.compile(r"\bxox[abprs]-[A-Za-z0-9\-]{10,}\b")),
     ("google_api_key", re.compile(r"\bAIza[0-9A-Za-z_\-]{35}\b")),
     ("hf_token", re.compile(r"\bhf_[A-Za-z0-9]{30,}\b")),
+    # A proxy URL's user:password part (WP22, D586); only secrets.env may hold it.
+    ("proxy_userinfo", re.compile(r"\b(?:https?|socks5h?)://[^\s/:@'\"]+:[^\s/@'\"]+@")),
     ("private_key", re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----")),
     (
         "assigned_secret",

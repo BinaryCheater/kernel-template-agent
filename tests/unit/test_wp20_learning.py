@@ -59,6 +59,7 @@ from kta.orchestrator.tasks import CURRENT_PROFILE, TaskQueue
 from kta.orchestrator.transition import TaskRequest
 from kta.store import CodeState, code_state, open_ops, open_store
 from kta.store.base import Store
+from proxyhelp import direct
 from replayhelp import HUMAN, NOTE, REFERENCES, pool, references, t2_files
 from storehelp import T0
 
@@ -280,6 +281,7 @@ def actx(tmp_path: Path) -> Context:
             },
         },
     }
+    direct(tmp_path / "d")  # codex goes direct in these tests: no network (WP22)
     return Context(
         env="test", config=config_from_mapping(config), data_dir=tmp_path / "d", registry=Registry()
     )

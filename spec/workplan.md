@@ -293,3 +293,17 @@ To save tokens (D328), WP17 is not a separate session: its scope is done by WP19
   - Staged release S0–S4 as orchestrator configuration: which processes and task types may run, whether agent calls are gated (S1: one call at a time, held until the user releases it after reading card, pull log and plan), exit criteria shown in the UI.
   - X1–X9 experiment protocol definitions (arms, metrics, which knob each sets); none are run.
 - **Acceptance (code stage)**: every 12 row present with `set_by`; a value change is versioned and visible in a run record; S1 gate holds a fake-adapter task until released; settings page renders and writes a new version.
+
+## WP22 System settings, agent proxy and frontend parity
+
+- **Depends**: WP8, WP9b, WP21; reads the round-4 deliveries (WP14–WP21). **Reads**: `spec/modules/agents.md`, `spec/modules/api-web.md`, 30.
+- **Why**: the Codex and Claude Code CLIs ignore the macOS system proxy, so agent runs went direct; the user requires both to go through the local Clash HTTP proxy, with no silent direct fallback, while pi and the DeepSeek harness must stay direct. The user also wants every mechanism of the round-4 design visible in the frontend.
+- **Produces**:
+  - A system configuration on the control plane, separate from the controls registry (infrastructure, not research knobs): proxy override, per-provider proxy policy (`required | off`), preflight hosts per provider, optional per-worker intake proxy. Written through the API with the operator token; every write is audited (author, time, reason) by a HumanAction.
+  - Proxy auto-detection: `scutil --proxy` on macOS, then `HTTPS_PROXY`/`HTTP_PROXY`/`ALL_PROXY` of the control-plane environment, then `http://127.0.0.1:7897`; the source is shown and recorded. Credentials are never stored in the configuration or records; they live in `secrets.env`.
+  - Injection, not inheritance: for `required` providers the runner injects `HTTPS_PROXY`, `HTTP_PROXY`, `ALL_PROXY` (and lowercase) from the system configuration plus `NO_PROXY`/`no_proxy` that always hold loopback and the `KTA_API` host; `off` providers get no proxy variable at all.
+  - Fail closed: before a `required` provider starts, a preflight on the host where the CLI runs checks the proxy port and an HTTPS CONNECT plus TLS handshake to the provider's API hosts (no model call). On failure the CLI does not start, the runner raises `ProxyUnavailable`, a Report records the failure and the Inbox shows it.
+  - Traceability: AgentRun `proxy` (used, scheme, host, port, source, preflight) and the context manifest's `proxy` section; never credentials.
+  - Settings page split into "Research controls" (unchanged) and "System": proxy (detected value and source, override, per-provider policy, Test), providers (CLI version, logged in yes/no), workers (address, commit vs control plane, GPU, Test job through the Executor), data directory, release stage.
+  - Frontend parity audit of the round-4 mechanisms (FormulationPlan diff, L2 what-if, canaries, selection arms, learning-loop stages, X1–X12) with the missing views added.
+- **Acceptance (code stage, D320)**: contract tests for whitelist injection per policy, NO_PROXY content, fail-closed preflight (proxy down → launch refused) and no credentials in records; a real auto-detect and preflight against the local Clash on the control host (no model call); `scripts/gate --stage code WP22`.

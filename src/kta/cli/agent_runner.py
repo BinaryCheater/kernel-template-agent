@@ -17,6 +17,7 @@ import threading
 from collections.abc import Callable
 from typing import Any
 
+from kta.agents import proxyplan
 from kta.agents.cards import RetryNote
 from kta.agents.config import agents_config
 from kta.agents.profile import approve_profile
@@ -26,6 +27,9 @@ from kta.cli.exec_cmds import ContextFactory, _out, command
 from kta.core.errors import ConfigError, NotSupported
 from kta.core.ids import UlidFactory
 from kta.core.jobs import Job, JobResult
+from kta.core.proxy import ProxyUnavailable
+from kta.core.schemas.process import TaskCard
+from kta.core.sysconfig import load as load_system
 from kta.orchestrator import control, processes, release
 from kta.orchestrator.budget import BudgetRefused
 from kta.orchestrator.pipeline import Services
@@ -115,6 +119,17 @@ def watch_cancel(
 StepFn = Callable[..., Any]
 
 
+def proxy_hold(svc: Services, task: Task) -> str | None:
+    """Why this task's provider may not start now (tripped proxy breaker), or None."""
+    card = TaskCard.model_validate(svc.store.get(task.card_id).body)
+    if card.profile == UNASSIGNED_PROFILE or not svc.store.exists(card.profile):
+        return None  # nothing to start yet; run_step reports a missing profile itself
+    provider = str(svc.store.get(card.profile).body.get("provider", ""))
+    if load_system(svc.ctx.data_dir).provider(provider).proxy != "required":
+        return None
+    return proxyplan.blocked(svc.ops, provider)
+
+
 def step_once(
     svc: Services,
     q: TaskQueue,
@@ -133,6 +148,9 @@ def step_once(
     if task is None:
         return {"task": None}
     owner = f"agent:{slot}"
+    held = proxy_hold(svc, task)
+    if held:  # a tripped proxy breaker: leave the task queued, the Inbox says why (D585)
+        return {"task": task.id, "skipped": held}
     try:
         release.admit(q.ops, q.get(task.id), q.controls())  # re-checked just before the lease
         q.lease(task.id, owner)
@@ -154,6 +172,9 @@ def step_once(
         result = step(
             svc.ctx, q.get(task.id), retry=retry, note=note, deps=deps, lane=owner, batch=use_batch
         )
+    except ProxyUnavailable as exc:
+        # The CLI never started (fail closed); the attempt ends like an abandoned step.
+        return {"task": task.id, "refused": str(exc), "verdict": q.abandon(task.id, str(exc))}
     finally:
         done.set()
         watcher.join()

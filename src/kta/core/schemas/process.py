@@ -52,6 +52,9 @@ class AgentRun(Body):
     violations: list[dict[str, Any]] = Field(default_factory=lambda: list[dict[str, Any]]())
     # experiment arm: name, knowledge condition (zero | text | pool), snapshot (D430)
     arm: dict[str, Any] = Field(default_factory=lambda: dict[str, Any]())
+    # WP22 (D586): used, policy, scheme, host, port, source, no_proxy, preflight; never
+    # credentials. None for runs before WP22.
+    proxy: dict[str, Any] | None = None
 
 
 class AgentProfile(Body):

@@ -13,6 +13,8 @@ from dataclasses import asdict, dataclass
 from typing import Any
 
 from kta.core.ids import record_id
+from kta.core.proxy import STATUS_POINTER
+from kta.core.sysconfig import DEFAULT_PROVIDERS
 from kta.orchestrator import budget, canary
 from kta.orchestrator.improve import pending_items
 from kta.orchestrator.pipeline import Services
@@ -176,7 +178,27 @@ def inbox(svc: Services) -> list[Item]:
         *_budgets(svc),
         *_improvements(svc),
         *_canaries(svc),
+        *_proxies(svc),
     ]
+
+
+def _proxies(svc: Services) -> list[Item]:
+    """A provider whose proxy preflight failed (WP22, D585): its tasks are not leased."""
+    out: list[Item] = []
+    for provider in DEFAULT_PROVIDERS:
+        raw = svc.ops.get_pointer(STATUS_POINTER + provider)
+        st = json.loads(raw) if raw else None
+        if st and not st.get("ok"):
+            out.append(
+                Item(
+                    f"proxy:{provider}",
+                    "Proxy preflight failed",
+                    f"{provider}: {st.get('error')}",
+                    "Start the local proxy (Clash) or fix Settings → System, then press Test",
+                    st.get("report"),
+                )
+            )
+    return out
 
 
 def _canaries(svc: Services) -> list[Item]:

@@ -18,6 +18,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Protocol
 
+from kta.core import proxy
 from kta.core.errors import ConfigError, PermissionDenied
 from kta.store.base import Task
 
@@ -27,6 +28,8 @@ KEY_BYTES = 32
 LIVE_TASK_STATES = frozenset({"leased", "running"})
 # Environment entries the agent process may receive (spec/modules/agents.md "环境变量").
 # Values come from the runner; anything else in the runner's own environment is dropped.
+# Proxy variables are not on this list: they enter only through ``agent_env(proxy=...)``,
+# built from the system configuration for a `required` provider (WP22, D581).
 ENV_WHITELIST: frozenset[str] = frozenset(
     {
         TOKEN_VAR,
@@ -103,13 +106,27 @@ def verify_task_token(key: bytes, token: str, now: datetime, ops: TaskLookup) ->
     return task_id
 
 
-def agent_env(values: Mapping[str, str], path_dirs: list[str]) -> dict[str, str]:
-    """Whitelisted environment; PATH holds only kta's bin dir and the base tool dirs."""
+def agent_env(
+    values: Mapping[str, str], path_dirs: list[str], proxy_vars: Mapping[str, str] | None = None
+) -> dict[str, str]:
+    """Whitelisted environment; PATH holds only kta's bin dir and the base tool dirs.
+
+    ``proxy_vars`` (from ``ProxyPlan.env``) is the only way a proxy variable gets in; it
+    must hold all of them, NO_PROXY included, or none (D581).
+    """
     unknown = sorted(set(values) - ENV_WHITELIST)
     if unknown:
         raise PermissionDenied(f"environment entries outside the whitelist: {unknown}")
     env = dict(values)
     env["PATH"] = ":".join([*path_dirs, *BASE_PATH])
+    if proxy_vars:
+        if set(proxy_vars) != proxy.ALL_VARS:
+            want, got = sorted(proxy.ALL_VARS), sorted(proxy_vars)
+            raise PermissionDenied(f"proxy injection must set exactly {want}, got {got}")
+        loop = set(proxy_vars["NO_PROXY"].split(","))
+        if not set(proxy.LOOPBACK) <= loop:
+            raise PermissionDenied("NO_PROXY must hold 127.0.0.1, localhost and ::1")
+        env.update(proxy_vars)
     return env
 
 
