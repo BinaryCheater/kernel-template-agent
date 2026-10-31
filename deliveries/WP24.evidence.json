@@ -1,0 +1,96 @@
+[
+ {
+  "git_commit": "f933f6b295337ba14ceac3a76893f6c181903d2a",
+  "dirty": false,
+  "env": "dev",
+  "control_host": "dingyideMacBook-Pro.local (the Mac, control plane; CPU only)",
+  "workers": [],
+  "blob_ids": [],
+  "env_manifests": [],
+  "requires_gpu": false,
+  "started_at": "2026-10-31T09:56:40Z",
+  "claim": "K1-K3 checked once per Template for the seed GEMM steps, output_tiling and the paper's tiling template; every obligation ends proved, bounded, counterexample (replayed) or unresolved with a reason, or is listed unchecked; shared_memory_tiling@1 reaches bounded (index conditions proved for every extent, schedule conditions bounded on the 2-warp event model)",
+  "command": "KTA_DATA=~/kta-data KTA_ENV=dev KTA_WP=WP24 kta prove all --json",
+  "record_ids": [
+   "cf3527a546deafebc3ecf8977713111e796899bf4fff992829f4d2dc700a8c67",
+   "f29ed1a517fc1c306ade0f9f49d57a09680b097f20fa628cf24f869d3878fe9f",
+   "934198b2db6f1938d56f9fb6ae14fc9b3458e23d97a91a08304d90da614a4304",
+   "2f1a7e4c7cd32ade32716417ac5edfabb0a12e62983afbed6e311c94bfee272d",
+   "efe371b91d04b56f4910755cbddceb9cf66bf78fbfbeb14b2882a87202612dbf",
+   "6ae37d5d5dba5feda23c4ef76de087dd20d78e08dd0cf24eb32cef473164c03c",
+   "3f030bdd75684873b2a75495c3da1896c9abaf4c91fecaac3560e7c2fe854e1d"
+  ]
+ },
+ {
+  "git_commit": "f933f6b295337ba14ceac3a76893f6c181903d2a",
+  "dirty": false,
+  "env": "dev",
+  "control_host": "dingyideMacBook-Pro.local (the Mac, control plane; CPU only)",
+  "workers": [],
+  "blob_ids": [],
+  "env_manifests": [],
+  "requires_gpu": false,
+  "started_at": "2026-10-31T09:56:40Z",
+  "claim": "Canary: shared_memory_tiling@1 with the planted unsound precondition P <= S - 1 is refuted with replayed counterexamples (lifetime, agreement); the replay shows missing terms",
+  "command": "KTA_DATA=~/kta-data KTA_ENV=dev KTA_WP=WP24 kta prove canary --json",
+  "record_ids": [
+   "1ea1d743fcca24f842e346de079ad00844e9af2d501223dc6bcdd2f2da609686"
+  ]
+ },
+ {
+  "git_commit": "f933f6b295337ba14ceac3a76893f6c181903d2a",
+  "dirty": false,
+  "env": "dev",
+  "control_host": "dingyideMacBook-Pro.local (the Mac, control plane; CPU only)",
+  "workers": [],
+  "blob_ids": [],
+  "env_manifests": [],
+  "requires_gpu": false,
+  "started_at": "2026-10-31T09:56:40Z",
+  "claim": "Weakest-precondition search: the lifetime preconditions of shared_memory_tiling@1 (S 1..3, P 0..2) and multi_buffer_rotation@1 (S 1..8, P 0..7) are exact on their declared menus",
+  "command": "KTA_DATA=~/kta-data KTA_ENV=dev KTA_WP=WP24 kta prove wp shared_memory_tiling@1; kta prove wp multi_buffer_rotation@1",
+  "record_ids": [
+   "84539a272354d1868e46034511d59bff3da3e16d0715b4e389a9e4d96789d365",
+   "13182c507a8e80c0847f83d311f4f319425978fc2ac108fd2b3f2af2c33888c4"
+  ]
+ },
+ {
+  "git_commit": "f933f6b295337ba14ceac3a76893f6c181903d2a",
+  "dirty": false,
+  "env": "dev",
+  "control_host": "dingyideMacBook-Pro.local (the Mac, control plane; CPU only)",
+  "workers": [],
+  "blob_ids": [],
+  "env_manifests": [],
+  "requires_gpu": false,
+  "started_at": "2026-10-31T09:56:40Z",
+  "claim": "Theorem-1 composition over the seed GEMM family's chain on GB10 hardware values: steps checked under their bindings (tiles, ab_smem, ab_stages bounded; k_split, ab_async, ab_swizzle, mma with named gaps), feasibility replayed (mma: p.operand_bits unbound), assumptions discharged or declared; without the declaration the incompatible assumption bounded_arbitration is named and the chain has no level",
+  "command": "KTA_DATA=~/kta-data KTA_ENV=dev KTA_WP=WP24 kta prove family knowledge/seed/families/gemm_fp16_tilelang --from-dir --target gb10 [--declare bounded_arbitration] --json",
+  "record_ids": [
+   "e50a53ffa9dab3fd22e7a74d526e273fae70b1765f67241553d19ecea8796790",
+   "755c3da4653e7d2b85dadd8cfd063b9ebb20ca9ba6cb6824418d63ca16a36619",
+   "730f95328c98883f4332c534cb3d827c4d2bcf24bbc330e7211e5e897b3e5994"
+  ]
+ },
+ {
+  "git_commit": "f933f6b295337ba14ceac3a76893f6c181903d2a",
+  "dirty": false,
+  "env": "dev",
+  "control_host": "dingyideMacBook-Pro.local (the Mac, control plane; CPU only)",
+  "workers": [],
+  "blob_ids": [],
+  "env_manifests": [],
+  "requires_gpu": false,
+  "started_at": "2026-10-31T09:56:40Z",
+  "claim": "Invalidation on a premise change: after the checker code changed (f933f6b), kta prove drift marked the 109 earlier proof records stale (premise changed: checker); the next run reused nothing and the one after reused every positive certificate",
+  "command": "KTA_DATA=~/kta-data KTA_ENV=dev KTA_WP=WP24 kta prove drift --json; kta prove all --json; kta prove all --json",
+  "record_ids": [
+   "0daa2780b29b3bebdd917cda6453348f928a4b6b426f4d2bed4ea09c4ca55dc8",
+   "bc445030381a8ed221af6f7c47f6e887cd90eddc96b622ad8cb30b256d40f058",
+   "a2c99142d65978d1f064aa0d95d7a8483245878e51695a5b69f9d5aee8642be5",
+   "f285277436d21f874e7a6752a3a2c5709c8ed4166f01d33d1736eeed8c082cf6",
+   "c2579a105502b907caf8a10143a83af3406861473737e3822fd0a02494ae3e29"
+  ],
+  "notes": "109 StatusChange records (stale, 'premise changed: checker', written at f933f6b); the first five listed. The invalidated proof records were written at 25c47d4 (clean) in the same store."
+ }
+]
