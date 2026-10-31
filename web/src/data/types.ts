@@ -913,3 +913,33 @@ export interface MechanismsView {
   stages: string[];
   experiments: { count: number; by_status: Record<string, number>; page: string };
 }
+
+// ---- GET /workflow, POST /workflow/preview, /workflow/drafts (WP22 Part D, D593–D597) ----
+
+export interface WfCreator { kind: "loop" | "process"; machine?: string; from?: string; to?: string; label?: string | null; when?: string | null; rule?: number | null; where?: string }
+export interface WfTaskType {
+  id: string; name: string; by: string; delivers: string;
+  creators: WfCreator[]; step_template: string; skills: string[]; commands: string[];
+  done_checks: { name: string; source: string }[];
+}
+export interface WfKnob { id: string; row: string; value: unknown; editable: boolean; type: string; unit?: string | null; prevents: string }
+export interface WfTransition { from: string; to: string; kind: string; label?: string; when?: string }
+export interface WorkflowView {
+  profile: {
+    id: string; name: string; version: number; provider: string; model: string; reasoning_effort: string | null;
+    cli_version: string; isolation: string; auth: string; current: boolean; base: string | null; origin: string;
+  };
+  versions: { id: string; version: number; current: boolean; base: string | null; author: string; author_type: string; origin: string }[];
+  task_types: WfTaskType[];
+  lifecycle: { states: { id: string; kind: string; does: string }[]; transitions: WfTransition[]; limits: Record<string, unknown> };
+  session: { rules: { mode: string; reason: string }[]; source: string };
+  templates: Record<string, { blob: string; text: string; placeholders: string[] | null }>;
+  skills: Record<string, { ref: string; text: string; used_by: string[] }>;
+  knobs: { version: string | null; nodes: Record<string, WfKnob[]> };
+  proxy: { provider: string; proxy: "required" | "off"; check_hosts: string[] };
+  invariants: { what: string; source: string }[];
+  write: { header: string };
+}
+export interface WfChanges { templates: Record<string, string>; skills: Record<string, string>; fields: Record<string, string | null> }
+export interface WfPreview { errors: string[]; warnings: string[]; card: string; task_md?: string }
+export interface WfDiff { what: string; old?: unknown; new?: unknown; diff?: string }

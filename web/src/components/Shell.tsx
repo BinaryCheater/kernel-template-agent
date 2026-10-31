@@ -30,7 +30,7 @@ const NAV: { group: string; items: { to: string; label: string; later?: boolean;
     { to: "/coverage", label: "Coverage" }, { to: "/model", label: "Model" }, { to: "/model/scoreboard", label: "Scoreboard" },
     { to: "/mechanisms", label: "Mechanisms" }] },
   { group: "Intervene", items: [{ to: "/inbox", label: "Inbox", badge: "inbox" }, { to: "/operations", label: "Operations" },
-    { to: "/experiments", label: "Experiments" }, { to: "/improvement", label: "Improvement" }, { to: "/agents", label: "Agents" },
+    { to: "/experiments", label: "Experiments" }, { to: "/improvement", label: "Improvement" }, { to: "/agents", label: "Agents" }, { to: "/workflow", label: "Workflow" },
     { to: "/release", label: "Release" }, { to: "/settings", label: "Settings" }] },
 ];
 

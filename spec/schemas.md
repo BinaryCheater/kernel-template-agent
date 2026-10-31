@@ -460,7 +460,7 @@ class ControlsVersion:  version: int (>= 1); definitions_hash: str   # WP21, D48
                      changes: list[dict]       # {knob, old, new} against refs.previous
                      reason: str               # required; the actor is the author
 ```
-refs: Report may have `env` (EnvManifest). ControlsVersion has `previous` (ControlsVersion) except version 1. TaskCard and AgentRun may have `controls` (the ControlsVersion the card's budget / the step used), ExperimentRun `controls` (a list: the versions its loop ran under) (WP21). Template's `backward_map_fn: str?` (python function path) is a field of its own.
+refs: Report may have `env` (EnvManifest). ControlsVersion has `previous` (ControlsVersion) except version 1. AgentProfile may have `base` (the profile a draft was edited from, WP22 D594). TaskCard and AgentRun may have `controls` (the ControlsVersion the card's budget / the step used), ExperimentRun `controls` (a list: the versions its loop ran under) (WP21). Template's `backward_map_fn: str?` (python function path) is a field of its own.
 
 推进规则（`kta.store.status`）：
 

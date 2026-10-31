@@ -269,3 +269,23 @@ def test_no_credentials_in_records(tmp_path: Path, monkeypatch: pytest.MonkeyPat
     assert CREDS not in json.dumps(check.report) and CREDS not in json.dumps(spec)
     missing = proxyplan.host_check(spec, env, None)
     assert not missing.ok and "KTA_PROXY_USERINFO" in missing.report["error"]
+
+
+def test_new_tasks_of_an_approved_draft_use_its_own_batch(actx: Context, parts: Any) -> None:  # noqa: F811
+    from kta.agents import drafts
+    from kta.agents.runner import open_batch
+    from kta.core.errors import ConfigError
+    from kta.core.schemas.process import TaskCard
+    from kta.store import code_state
+
+    store, ops, ex = parts
+    deps = Deps(store, ops, ex, agents_config(actx))
+    base = _profile_and_batch(actx, store)  # batch b1 = [agents] batch, built from base
+    ch = drafts.Changes.of({"fields": {"reasoning_effort": "high"}})
+    draft, _ = drafts.write_draft(store, base, ch, "tester", T)
+    name = drafts.batch_for(store, actx.data_dir, draft, code_state().commit)
+    card = TaskCard(type="T1", goal="g", inputs=[], done_checks=["delivery_note"],
+                    budget={"wall_s": 60}, profile=draft, work_unit="wu-d")  # fmt: skip
+    assert open_batch(actx, deps, card, None, None).root.name == name
+    with pytest.raises(ConfigError, match="built from profile"):
+        open_batch(actx, deps, card, None, "b1")  # an explicit batch is never swapped

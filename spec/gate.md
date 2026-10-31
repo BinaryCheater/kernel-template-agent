@@ -85,9 +85,9 @@ AGENTS.md 规定最后一步必须运行 gate 并把输出贴进交付说明。�
 
 | Check | Fails when |
 | --- | --- |
-| WP22 tests | a named WP22 test did not pass (injection per policy, NO_PROXY, fail-closed launch, no credentials in records, off provider without proxy variables, detection order, system configuration revisions, preflight failures, System API read/write/Tests, Mechanisms view) |
+| WP22 tests | a named WP22 test did not pass (injection per policy, NO_PROXY, fail-closed launch, no credentials in records, off provider without proxy variables, detection order, system configuration revisions, preflight failures, System API read/write/Tests, Mechanisms view; Part D: workflow derived from machines, checks and sessions, placeholder preview, draft version and approval, the approved draft's batch) |
 | WP22 proxy policy | a proxy variable is on the agent whitelist, or the provider defaults are not codex and claude_code `required`, pi and deepseek_harness `off` |
-| WP22 spec and pages | a WP22 spec section is missing, Settings has no System tab, or `/mechanisms` is not routed |
+| WP22 spec and pages | a WP22 spec section is missing (Part D included), Settings has no System tab, or `/mechanisms` or `/workflow` is not routed |
 | web build | the web app at HEAD does not build |
 | WP22 agent launch through the proxy | full stage: no AgentRun with `proxy.used` and a passed preflight (FAIL); code stage: WARN (pending real run) |
 

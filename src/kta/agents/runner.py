@@ -20,7 +20,17 @@ from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
-from kta.agents import arms, cards, compliance, guard, policy, proxyplan, sessions, workspace
+from kta.agents import (
+    arms,
+    batches,
+    cards,
+    compliance,
+    guard,
+    policy,
+    proxyplan,
+    sessions,
+    workspace,
+)
 from kta.agents.adapters.base import StepPlan
 from kta.agents.adapters.codex import CREDENTIAL_FILES, CodexAdapter
 from kta.agents.adapters.codex_session import usage_of
@@ -270,13 +280,21 @@ def _plan(
 def open_batch(
     ctx: Context, deps: Deps, card: TaskCard, state: sessions.SessionState | None, name: str | None
 ) -> BatchRoot:
-    """The verified batch root of this step; a work unit never changes batch."""
+    """The verified batch root of this step; a work unit never changes batch.
+
+    Without an explicit batch, a configured batch built from another profile gives way to
+    the card's own profile batch ``<name>-v<version>`` when it exists (D595)."""
+    explicit = name is not None
     name = name or deps.config.batch
     if not name:
         raise ConfigError("no batch: pass batch= or set [agents] batch (kta agents env build)")
     if state is not None and state.batch and state.batch != name:
         raise ConfigError(f"work unit {card.work_unit} belongs to batch {state.batch}, not {name}")
     root = BatchRoot.open(deps.store, ctx.data_dir, name)
+    if root.lock["profile"] != card.profile and not explicit and state is None:
+        own = batches.profile_batch(AgentProfile.model_validate(deps.store.get(card.profile).body))
+        if (batches.batches_root(ctx.data_dir) / own).exists():
+            name, root = own, BatchRoot.open(deps.store, ctx.data_dir, own)
     if root.lock["profile"] != card.profile:
         raise ConfigError(
             f"batch {name} is built from profile {root.lock['profile']}, not the card's"

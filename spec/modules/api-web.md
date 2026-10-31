@@ -188,3 +188,17 @@ Web pages: **Settings** (`/settings`): every knob grouped by 12's sections with 
 
 Web: **Settings** has two tabs (`?tab=system`): "Research controls" (the WP21 page, unchanged) and "System" (agent proxy with Test, providers, control plane, workers with Test and intake proxy, change history). **Mechanisms** (`/mechanisms`, "Have the round-4 mechanisms run, and what did they record?"): summary tiles, learning-loop stages per reference, FormulationPlan diffs, selection arms, canaries, L2 what-if; non-real rows carry FIXTURE.
 
+### WP22 Part D: agent workflow (D593–D597)
+
+| Endpoint | Returns / does |
+| --- | --- |
+| `GET /workflow?profile=` | the profile (default: `current_profile`) and its versions; per task type T1–T6: name, delivers, creators (loop transitions of machines.yaml, process call sites), step template, skills, commands, done checks with source; the task lifecycle; session rules from `sessions.decide`; template texts with their placeholders; skill texts; knobs per node with the controls version; the provider's proxy policy; invariants |
+| `GET /workflow/diff?a=&b=` | field, template and skill differences between two profile versions (unified diffs) |
+| `POST /workflow/preview` {base, changes, task_type, card?} | placeholder errors and warnings of the edited profile, and TASK.md rendered with `cards.task_md` for a sample or real card; writes nothing |
+| `POST /workflow/drafts` {base, changes, reason} | operator token; a new AgentProfile version (`refs.base`) and a HumanAction `draft_profile`; 400 on a placeholder error or no change; returns the diff |
+| `POST /workflow/drafts/{id}/approve` {reason} | operator token; `approve_profile` and the batch `<name>-v<version>` |
+
+`changes` = {templates: {key: text}, skills: {name: SKILL.md}, fields: {model, reasoning_effort, provider, cli_version}}; template keys `prefix`, `step:Tn`, `message:<name>`, `home:<file>`.
+
+Web page **Workflow** (`/workflow`, "How does an agent task run, and what configures each step?"): profile bar (version selector, diff against the version in force), task-type tabs, the pipeline (created by → task card → prompt assembly → session → agent run → done checks → accept / retry / escalate) and an editor for the selected node with a live TASK.md preview; a draft bar saves and approves.
+

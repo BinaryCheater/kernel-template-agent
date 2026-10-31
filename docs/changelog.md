@@ -267,8 +267,9 @@ Branch `wp/WP22` from `integration`; decisions D580–D592. User requirements (2
 | Proxy (D580–D586) | system configuration separate from the controls registry; detection scutil → environment → `http://127.0.0.1:7897`; injection of the eight proxy variables for `required` providers only, NO_PROXY with loopback and the API host; preflight on the agent host (port, CONNECT, TLS), fail closed with a Report, a breaker and an Inbox item; `AgentRun.proxy`; credentials only in secrets.env |
 | Settings → System (D587–D589) | proxy with Test, providers (CLI version, logged in), workers (commit, GPU, Test job through the Executor), control plane, release stage, change history |
 | Mechanisms page (D591) | learning-loop stages, FormulationPlan diffs, selection arms, canaries, L2 what-if |
+| Agent workflow (Part D, D593–D597) | Workflow page: per task type the pipeline derived from machines.yaml, done checks, sessions.decide and the profile; templates, skills, model and effort edited as a draft profile version (diff, TASK.md preview, placeholder check, approval builds its batch); knobs through controls versions, proxy through the system configuration |
 | Open (D592) | agent CLIs are configured to run on spark, which cannot reach the Mac's Clash: the user decides where they run |
 
 ### Files changed outside code
 
-- `spec/`: workplan.md WP22; agents.md (env list, WP22 section); api-web.md WP22; schemas.md `AgentRun.proxy`; gate.md WP22.
+- `spec/`: workplan.md WP22 (Part D added); agents.md (env list, WP22 and Part D sections); api-web.md WP22 and Part D; schemas.md `AgentRun.proxy`, AgentProfile `refs.base`; gate.md WP22.

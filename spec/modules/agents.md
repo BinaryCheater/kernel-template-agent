@@ -208,3 +208,8 @@ Codex and Claude Code do not read the macOS system proxy. The user requires both
 - **Records.** `AgentRun.proxy` (spec/schemas.md): used, policy, scheme, host, port, source, no_proxy, credentials flag, preflight.
 - **Agent host (D592).** The proxy URL is used as is on the host named by `[agents] worker`. With `worker = spark` a loopback proxy is spark's own; the preflight refuses until the user chooses where agent CLIs run or how spark reaches a proxy.
 
+## WP22 Part D: draft profiles (D594–D596)
+
+- `kta.agents.drafts`: `check` (placeholders per renderer, `PLACEHOLDERS`), `write_draft(store, base, Changes, author, at)` (a new AgentProfile version with `refs.base`; never changes the base or the pointer), `diff`, `batch_for` (batch `<name>-v<version>`), `render_task` (preview through `cards.task_md`).
+- `batches.profile_batch(profile)`; `runner.open_batch` falls back to the card's profile batch when the task has no batch, the configured batch was built from another profile and the work unit has no session (D595).
+

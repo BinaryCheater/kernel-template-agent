@@ -19,6 +19,7 @@ import { Experiments, Improvement } from "./pages/Studies";
 import { Settings } from "./pages/Settings";
 import { Release } from "./pages/Release";
 import { Mechanisms } from "./pages/Mechanisms";
+import { Workflow } from "./pages/Workflow";
 
 const PAGES: PageMeta[] = [
   { path: "/", title: "Overview", question: "What does the system do, and what is it doing now?" },
@@ -41,6 +42,7 @@ const PAGES: PageMeta[] = [
   { path: "/improvement", title: "Improvement", question: "Is the system getting better, and where does it fall short?" },
   { path: "/agents", title: "Agents", question: "What controls the worker agents: skills, profile versions, batch environments?" },
   { path: "/settings", title: "Settings", question: "Which control values and system settings are in force, and who changed them?" },
+  { path: "/workflow", title: "Workflow", question: "How does an agent task run, and what configures each step?" },
   { path: "/mechanisms", title: "Mechanisms", question: "Have the round-4 mechanisms run, and what did they record?" },
   { path: "/release", title: "Release", question: "Which release stage is open, and which agent calls wait for me?" },
 ];
@@ -71,6 +73,7 @@ export function App() {
         <Route path="/settings" element={<Settings />} />
         <Route path="/release" element={<Release />} />
         <Route path="/mechanisms" element={<Mechanisms />} />
+        <Route path="/workflow" element={<Workflow />} />
         <Route path="*" element={<div className="empty">No such page.</div>} />
       </Routes>
     </Shell>

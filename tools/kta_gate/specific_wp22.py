@@ -31,6 +31,10 @@ WP22_TESTS = (
     "test_proxy_test_reports_failure_and_a_pass_clears_the_breaker",
     "test_worker_test_runs_a_trivial_job_through_the_executor",
     "test_mechanisms_view_lists_each_mechanism_with_origin",
+    "test_workflow_is_derived_from_machines_checks_and_sessions",
+    "test_preview_flags_a_missing_placeholder_and_renders_task_md",
+    "test_a_draft_is_a_new_version_and_approval_moves_the_pointer",
+    "test_new_tasks_of_an_approved_draft_use_its_own_batch",
 )
 USER_POLICY = {
     "codex": "required",
@@ -43,6 +47,8 @@ SPEC_MARKS = (
     ("spec/modules/agents.md", "## WP22: agent proxy"),
     ("spec/modules/api-web.md", "## WP22: Settings"),
     ("spec/schemas.md", "proxy: dict?"),
+    ("spec/modules/api-web.md", "### WP22 Part D: agent workflow"),
+    ("spec/modules/agents.md", "## WP22 Part D: draft profiles"),
 )
 
 
@@ -71,12 +77,15 @@ def check_docs(root: Path) -> CheckResult:
         if mark not in (root / path).read_text(encoding="utf-8")
     ]
     app = (root / "web" / "src" / "App.tsx").read_text(encoding="utf-8")
-    if 'path="/mechanisms"' not in app:
-        findings.append("/mechanisms is not routed")
+    for route in ('path="/mechanisms"', 'path="/workflow"'):
+        if route not in app:
+            findings.append(f"{route} is not routed")
     settings = (root / "web" / "src" / "pages" / "Settings.tsx").read_text(encoding="utf-8")
     if "SystemSettings" not in settings:
         findings.append("Settings has no System tab")
-    return from_findings("WP22 spec and pages", findings, "spec sections, System tab, /mechanisms")
+    return from_findings(
+        "WP22 spec and pages", findings, "spec sections, System tab, /mechanisms, /workflow"
+    )
 
 
 def wp22(root: Path, passed: set[str]) -> list[CheckResult]:
