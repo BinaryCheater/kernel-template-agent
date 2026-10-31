@@ -33,7 +33,12 @@ LIVE_TASK = ("queued", "leased", "running", "submitted", "checking", "rejected",
 
 def _loop_for(api: Api, case_id: str) -> opsread.LoopRow | None:
     return next(
-        (lp for lp in opsread.loops(api.ops) if lp.kind == "solve" and lp.subject == case_id), None
+        (
+            lp
+            for lp in reversed(opsread.loops(api.ops))
+            if lp.kind == "solve" and lp.subject == case_id
+        ),
+        None,
     )
 
 
@@ -263,7 +268,7 @@ def _candidates(api: Api, case_id: str) -> list[dict[str, Any]]:
         )
     out.sort(
         key=lambda c: (
-            c["bucket"],
+            c["bucket"] or "",
             not c["selected"],
             c["predicted_us"] is None,
             c["predicted_us"] or 0,

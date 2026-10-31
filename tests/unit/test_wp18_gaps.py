@@ -7,6 +7,7 @@ check) must route to their class.
 
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import Any
 
 import pytest
@@ -209,6 +210,8 @@ def test_control_candidates_get_a_reusable_gate_and_reject_an_oversized_stage(
     assert len(before) == len(good)
     assert proofgate.control_gate(svc, fam, fp, TEST_MM, b, good) == good
     assert svc.store.query("ProofResult", {"condition": "candidate"}, limit=100) == before
+    constrained = replace(TEST_MM, hw={**TEST_MM.hw, "smem_per_cta": 1})
+    assert proofgate.control_gate(svc, fam, fp, constrained, b, good) == []
     original = svc.store.get(good[0])
     bad = svc.store.put(
         Record.new(

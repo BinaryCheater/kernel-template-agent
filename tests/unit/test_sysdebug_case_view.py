@@ -68,3 +68,7 @@ def test_case_view_uses_round_links_and_keeps_baselines_in_their_bucket(tmp_path
     assert candidate["build_record"] == bid and candidate["check_passed"]
     assert candidate["measured_us"] == 55.0
     assert [b["references"] for b in view["buckets"]] == [{"baseline": 100.0}, {"baseline": 60.0}]
+
+    api.ops.put_loop(lp.id + "NEXT", lp.kind, lp.subject, "checking", {**d, "round": 2})
+    assert cases.timeline(api, case["id"])["round"] == 2
+    assert cases.timeline(api, case["id"])["state"] == "checking"

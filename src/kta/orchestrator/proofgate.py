@@ -75,7 +75,8 @@ def control_gate(
 ) -> list[str]:
     """Control arms obey the same C/Gamma gate as model points, before execution.
 
-    Reuse only an identical live candidate check. The execution guard also covers
+    Re-evaluate C/Gamma before reusing a live result: historical premises omit hw.
+    The execution guard also covers
     rounds whose build stage predates this gate.
     """
     kept: list[str] = []
@@ -100,9 +101,10 @@ def control_gate(
             ),
             None,
         )
-        if hit is not None:
-            if hit.body["outcome"] in ("proved", "bounded"):
-                kept.append(cid)
+        steps = [(it, templates[it.template]) for it in fp.chain.items]
+        checked = cand.check_candidate(steps, a, bucket_shape(bucket), hw.hw)
+        if hit is not None and checked.ok and hit.body["outcome"] in ("proved", "bounded"):
+            kept.append(cid)
         else:
             got, _, _ = candidate_gate(svc, family, fp, templates, hw.hw, bucket, [cid])
             kept.extend(got)
