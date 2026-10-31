@@ -188,18 +188,18 @@ function ProofCell({ t }: { t: PoolTemplate }) {
   return (
     <details>
       <summary className="small"><Chip tone={wordTone(pr.level ?? (pr.summary ? "unresolved" : "never checked"))}>{head}</Chip></summary>
-      <div className="small" style={{ maxWidth: 520 }}>
+      <div className="small" style={{ minWidth: 460, maxWidth: 620 }}>
         {pr.last_run && <div className="muted">last run {pr.last_run.slice(0, 19)}Z · {pr.checker} · {pr.solver} · <RecordLink id={pr.summary} label="summary" /></div>}
         <table className="t">
           <tbody>
             {pr.contract.map((c) => (
-              <tr key={`${c.condition}-${c.name}`}><td className="mono">{c.condition} {c.name === "*" ? "" : c.name}</td><td><Chip tone={wordTone(c.status)}>{c.status}</Chip></td><td className="ink2">{c.reason || c.domain}</td><td><RecordLink id={c.result} /></td></tr>
+              <tr key={`${c.condition}-${c.name}`}><td className="mono">{c.condition} {c.name === "*" ? "" : c.name}</td><td><Chip tone={wordTone(c.status)}>{c.status}</Chip></td><td className="ink2"><span className="ellipsis2" title={c.reason || c.domain}>{c.reason || c.domain}</span></td><td><RecordLink id={c.result} /></td></tr>
             ))}
             {pr.obligations.map((o) => (
               <tr key={o.name}>
                 <td className="mono">K2 {o.name}<div className="muted">method {o.method}</div></td>
                 <td><Chip tone={wordTone(o.status)}>{o.status}</Chip>{o.reused && <div className="muted">reused</div>}</td>
-                <td className="ink2">{o.domain}{o.reason && <div className="muted">{o.reason}</div>}</td>
+                <td className="ink2"><span className="ellipsis2" title={o.domain}>{o.domain}</span>{o.reason && <div className="muted ellipsis2" title={o.reason}>{o.reason}</div>}</td>
                 <td><RecordLink id={o.result} /></td>
               </tr>
             ))}
