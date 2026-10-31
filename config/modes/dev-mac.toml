@@ -28,6 +28,7 @@ root = "~/kta"
 path = ["~/kta/.uv/bin", "/usr/local/cuda/bin"]
 env = { UV_CACHE_DIR = "~/kta/.uv/cache", UV_PYTHON_INSTALL_DIR = "~/kta/.uv/python" }
 cuda_home = "/usr/local/cuda"
+image = "kta-worker:tilelang-0.1.15"
 host_lock = "~/kta/hostlock"
 unified_memory = true
 pools = { cpu = 18, "gpu-shared" = 2, "gpu-exclusive" = 1 }

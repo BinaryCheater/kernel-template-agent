@@ -23,6 +23,7 @@ queue_timeout_s = 3600
 [workers.spark-hk]
 transport = "local"
 cuda_home = "/usr/local/cuda"
+image = "kta-worker:tilelang-0.1.15"
 host_lock = "~/kta/hostlock"
 unified_memory = true
 pools = { cpu = 18, "gpu-shared" = 2, "gpu-exclusive" = 1, agent = 2 }
