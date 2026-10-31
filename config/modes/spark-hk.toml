@@ -39,8 +39,7 @@ secrets_file = "~/.config/kta/secrets.env"
 watch = ["~/.codex", "~"]
 
 [agents.hosts.spark-hk]
-codex_cmd = ["/home/dingyi/.local/bin/codex"]
-auth_dir = "~/.config/kta/auth/codex"
+# Native CLI, provider connection and login are reused; set codex_cmd/auth_dir to override.
 nvidia_smi = "nvidia-smi"
 
 [measure]

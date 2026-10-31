@@ -41,6 +41,7 @@ class AuthSpec:
     provider: str
     dir: str  # protected credential directory on the agent host, e.g. ~/.config/kta/auth/codex
     files: list[str] = field(default_factory=lambda: list[str]())  # linked into the CLI home
+    inherit_provider: bool = False  # import native connection settings, not personal instructions
 
 
 @dataclass(frozen=True)

@@ -9,8 +9,10 @@ show the CLI version and whether credentials are present — never the credentia
 
 from __future__ import annotations
 
+import json
 import platform
-from pathlib import Path
+import threading
+import time
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Header
@@ -22,7 +24,6 @@ from kta.api import operate
 from kta.api.common import Api, controls, iso
 from kta.api.controls import TOKEN_HEADER, check_operator, token_file
 from kta.core import proxy, sysconfig
-from kta.core.envprobe import run_probe
 from kta.core.errors import ConfigError, KtaError
 from kta.core.jobs import Job
 from kta.core.schemas import Actor, Record
@@ -49,7 +50,6 @@ AUTH: dict[str, str] = {
     "pi": "api",
     "deepseek_harness": "api",
 }
-AUTH_ROOT = "~/.config/kta/auth"  # conventions §8
 WORKER_PROBE = (
     "import json, os, platform, sys; "
     "print(json.dumps({'host': platform.node(), 'python': sys.version.split()[0], "
@@ -69,42 +69,71 @@ class ProxyTestBody(BaseModel):
     provider: str | None = None  # None: every `required` provider
 
 
-def _auth(api: Api, provider: str) -> dict[str, Any]:
-    kind = AUTH.get(provider, "api")
-    if kind == "api":
-        return {
-            "kind": "api",
-            "logged_in": None,
-            "note": "API key in secrets.env, checked at launch",
-        }
-    where = _auth_dir(api, provider)
-    path = where.expanduser()
-    present = path.is_dir() and any(p.is_file() for p in path.iterdir())
-    return {"kind": kind, "logged_in": present, "where": str(where)}
+_PROBE_CACHE: dict[str, tuple[float, dict[str, Any]]] = {}
+_PROBE_LOCK = threading.Lock()
 
 
-def _auth_dir(api: Api, provider: str) -> Path:
-    """Codex's directory from ``[agents.hosts.<worker>]``; else conventions §8's path."""
-    if provider == "codex":
-        try:
-            return Path(agents_config(api.ctx).host.auth_dir)
-        except ConfigError:
-            return Path(AUTH_ROOT, provider)  # no [agents] host section configured
-    return Path(AUTH_ROOT, provider)
+def _provider_status(api: Api) -> dict[str, Any]:
+    """Probe the configured agent host through Executor; cache polling for 30 seconds."""
+    try:
+        ac = agents_config(api.ctx)
+        settings = {"codex_cmd": ac.host.codex_cmd, "auth_dir": ac.host.auth_dir}
+        key = json.dumps(
+            [str(api.data_dir), code_state().commit, ac.worker, settings], sort_keys=True
+        )
+        with _PROBE_LOCK:
+            cached = _PROBE_CACHE.get(key)
+            if cached and time.monotonic() - cached[0] < 30:
+                return cached[1]
+            ex = JobExecutor(api.ctx, api.store, api.ops, code_state().commit)
+            if ac.worker not in [w.name for w in ex.workers]:
+                return {"error": f"Agent host {ac.worker} is not registered at this commit"}
+            blob = ex.put_blob(json.dumps(settings).encode(), "application/json")
+            job = Job(
+                kind="shell",
+                argv=[
+                    "{python}",
+                    "-m",
+                    "kta.agents.launch",
+                    "--provider-status",
+                    "provider-settings.json",
+                ],
+                inputs={"provider-settings.json": blob},
+                requires={"worker": ac.worker},
+                timeout_s=60,
+            )
+            result = ex.run(job)
+            if result.ok and "provider.json" in result.outputs:
+                view = json.loads(ex.read_blob(result.outputs["provider.json"]))
+            else:
+                view = {"error": f"Provider status job failed: {result.error_kind}"}
+            _PROBE_CACHE[key] = time.monotonic(), view
+            return view
+    except KtaError as exc:
+        return {"error": str(exc)}
 
 
 def providers(api: Api, cfg: sysconfig.SystemConfig) -> list[dict[str, Any]]:
+    probe = _provider_status(api)
     out: list[dict[str, Any]] = []
     for name, pol in cfg.providers.items():
         argv = CLI_VERSION.get(name)
-        version = run_probe(argv) if argv else None
+        detected = probe.get("providers", {}).get(name, {})
+        auth = detected.get("auth") or {
+            "kind": AUTH.get(name, "api"),
+            "logged_in": None,
+            "note": probe.get("error", "Not checked on the agent host")
+            if AUTH.get(name) == "subscription"
+            else "API key in secrets.env, checked at launch",
+        }
         out.append(
             {
                 "name": name,
                 "proxy": pol.proxy,
                 "check_hosts": pol.check_hosts,
-                "cli": {"command": argv[0] if argv else None, "version": version},
-                "auth": _auth(api, name),
+                "cli": detected.get("cli", {"command": argv[0] if argv else None, "version": None}),
+                "auth": auth,
+                "observed_on": {"host": probe.get("host"), "user": probe.get("user")},
                 "status": proxyplan.status(api.ops, name),
             }
         )

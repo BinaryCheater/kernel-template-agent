@@ -84,7 +84,7 @@ def adapter_for(profile: AgentProfile, deps: Deps, plan: StepPlan) -> CodexAdapt
     return CodexAdapter(
         deps.runner,
         plan,
-        deps.config.host.codex_cmd,
+        deps.config.host.codex_cmd or ["codex"],
         profile.cli_flags,
         profile.model,
         profile.reasoning_effort,
@@ -146,7 +146,7 @@ def _spec(
         raise NotSupported("container isolation (D09) is not implemented")
     host = deps.config.host
     auth = (
-        AuthSpec("codex", host.auth_dir, list(CREDENTIAL_FILES))
+        AuthSpec("codex", host.auth_dir, list(CREDENTIAL_FILES), host.inherit_provider)
         if profile.auth == "subscription"
         else None
     )

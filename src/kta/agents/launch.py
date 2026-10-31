@@ -12,8 +12,10 @@ one agents file that imports subprocess (gate "subprocess outside Executor").
 
 from __future__ import annotations
 
+import getpass
 import json
 import os
+import platform
 import shutil
 import signal
 import subprocess  # kta:allowed job program on the agent host, started by the Executor (D300)
@@ -23,7 +25,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from kta.agents import guard, hostfs, proxyplan
+from kta.agents import guard, hostfs, provider_env, proxyplan
 from kta.agents.adapters import codex_session
 from kta.agents.launchspec import (
     HOME,
@@ -282,7 +284,9 @@ def _prepare(
         os.umask(0o007)
     hostfs.install_workspace(job, ws, spec.workspace_files)
     created = hostfs.install_home(_batch_root(job, spec) / "agent-home-template", home)
-    auth_dir = Path(spec.auth.dir).expanduser() if spec.auth else None
+    auth_dir = provider_env.auth_directory(spec.auth.dir) if spec.auth else None
+    if spec.auth and spec.auth.inherit_provider:
+        provider_env.inherit_connection(home, provider_env.codex_home())
     creds = (
         hostfs.link_credentials(home, auth_dir, spec.auth.files) if spec.auth and auth_dir else []
     )
@@ -339,6 +343,7 @@ def step(job: Path, spec: LaunchSpec) -> dict[str, Any]:
         return {**report, "exit": "refused", "error": f"proxy: {gate.report.get('error')}"}
     created, creds, auth_dir = _prepare(job, spec, ws, home)
     argv = [_sub(a, home, ws) for a in spec.argv]
+    argv = [*provider_env.command(argv[0]), *argv[1:]]
     env = {k: _sub(v, home, ws) for k, v in {**spec.env, **gate.env}.items()}
     notes_before = _notes_sha(ws, spec)
     report["pre_commit"] = commit_workspace(ws, f"before {spec.mode} {spec.run}")
@@ -385,7 +390,10 @@ def step(job: Path, spec: LaunchSpec) -> dict[str, Any]:
 def pack_outputs(
     ws: Path, home: Path, out: Path, creds: list[str], with_git: bool
 ) -> dict[str, Any]:
-    home_tar, home_flagged = hostfs.pack(home, exclude_top=creds)
+    marker = home / provider_env.MARKER
+    inherited = json.loads(marker.read_text()).get("keys") if marker.is_file() else []
+    excluded = [*creds, "config.toml"] if inherited else creds
+    home_tar, home_flagged = hostfs.pack(home, exclude_top=excluded)
     ws_tar, ws_flagged = hostfs.pack(ws, exclude_top=() if with_git else (".git",))
     (out / OUT_ARCHIVE).write_bytes(home_tar)
     (out / OUT_WORKSPACE).write_bytes(ws_tar)
@@ -413,8 +421,68 @@ def close(job: Path, spec: LaunchSpec, remove: bool) -> dict[str, Any]:
     return report
 
 
+def provider_status(settings: dict[str, Any]) -> dict[str, Any]:
+    """Read-only native CLI probes on the actual agent host; no identity or tokens returned."""
+    rows: dict[str, Any] = {}
+    for name, binary in (("codex", "codex"), ("claude_code", "claude")):
+        command = provider_env.command(
+            binary, settings.get("codex_cmd") if name == "codex" else None
+        )
+        where = (
+            provider_env.auth_directory(settings.get("auth_dir", ""))
+            if name == "codex"
+            else Path(os.environ.get("CLAUDE_CONFIG_DIR", "~/.claude")).expanduser()
+        )
+        row: dict[str, Any] = {
+            "cli": {"command": command[0], "version": None},
+            "auth": {
+                "kind": "subscription",
+                "logged_in": None,
+                "where": str(where),
+                "note": "Not checked",
+            },
+        }
+        try:
+            version = subprocess.run(
+                [*command, "--version"], capture_output=True, text=True, timeout=10
+            )
+            if version.returncode != 0:
+                row["auth"]["note"] = "CLI version probe failed"
+            else:
+                row["cli"]["version"] = (version.stdout or version.stderr).strip()
+                args = ["login", "status"] if name == "codex" else ["auth", "status"]
+                env = dict(os.environ)
+                if name == "codex":
+                    env["CODEX_HOME"] = str(where)
+                status = subprocess.run(
+                    [*command, *args], capture_output=True, text=True, timeout=15, env=env
+                )
+                if name == "claude_code":
+                    logged_in = json.loads(status.stdout).get("loggedIn")
+                else:
+                    message = (status.stdout + status.stderr).lower()
+                    logged_in = (
+                        True
+                        if status.returncode == 0 and "logged in" in message
+                        else (False if "not logged in" in message else None)
+                    )
+                row["auth"]["logged_in"] = logged_in if isinstance(logged_in, bool) else None
+                row["auth"]["note"] = (
+                    "CLI login status" if logged_in is not None else "Login status unavailable"
+                )
+        except (OSError, subprocess.TimeoutExpired, ValueError):
+            row["auth"]["note"] = "CLI unavailable or status probe failed"
+        rows[name] = row
+    return {"host": platform.node(), "user": getpass.getuser(), "providers": rows}
+
+
 def main(argv: list[str] | None = None) -> int:
     args = sys.argv[1:] if argv is None else argv
+    if len(args) == 2 and args[0] == "--provider-status":
+        hostfs.write_json(
+            Path("out/provider.json"), provider_status(json.loads(Path(args[1]).read_text()))
+        )
+        return 0
     if len(args) != 1:
         raise SystemExit("usage: python -m kta.agents.launch <job dir>")
     job = Path(args[0]).resolve()

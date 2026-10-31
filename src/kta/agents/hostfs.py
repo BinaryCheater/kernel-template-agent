@@ -17,6 +17,7 @@ from collections.abc import Iterable
 from pathlib import Path, PurePosixPath
 from typing import Any
 
+from kta.agents import provider_env
 from kta.agents.launchspec import (
     BUNDLE_BATCH,
     BUNDLE_WORKSPACE,
@@ -188,6 +189,11 @@ def manifest(
     for c in credentials:
         home_files[c] = CREDENTIAL
     user_codex = host_home / ".codex"
+    marker = home / provider_env.MARKER
+    connection = json.loads(marker.read_text()) if marker.is_file() else None
+    native_used = bool(
+        connection and (connection.get("keys") or not (spec.get("auth") or {}).get("dir"))
+    )
     return {
         "schema": MANIFEST_SCHEMA,
         "run": spec["run"],
@@ -203,8 +209,13 @@ def manifest(
         "home": {"path": str(home), "created_this_run": home_created, "files": home_files},
         "env": {k: ("<provided>" if k in secret_env else v) for k, v in sorted(env.items())},
         "upward_agents_md": upward_agents_md(workspace),
+        "provider_connection": connection,
         "user_level": {
-            str(user_codex): "present, not used (CODEX_HOME points to home)"
+            str(user_codex): (
+                "provider connection/login reused; personal context excluded"
+                if native_used
+                else "present, not used (CODEX_HOME points to home)"
+            )
             if user_codex.exists()
             else "absent"
         },

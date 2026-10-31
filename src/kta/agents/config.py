@@ -13,7 +13,8 @@ watch = ["~/.codex", "~"]           # host paths checked for writes after each r
 
 [agents.hosts.spark]                # per agent host
 codex_cmd = ["/path/to/node", "/path/to/codex"]
-auth_dir = "~/.config/kta/auth/codex"
+auth_dir = ""                     # native CODEX_HOME by default
+inherit_provider = true
 nvidia_smi = "nvidia-smi"
 ```
 """
@@ -33,7 +34,8 @@ DEFAULT_WATCH = ("~/.codex", "~")
 @dataclass(frozen=True)
 class HostConfig:
     codex_cmd: list[str] = field(default_factory=lambda: list[str]())
-    auth_dir: str = "~/.config/kta/auth/codex"
+    auth_dir: str = ""  # empty: the agent host's native CODEX_HOME (~/.codex)
+    inherit_provider: bool = True
     nvidia_smi: str = "nvidia-smi"
 
 

@@ -87,7 +87,7 @@ agent 的行为由三样东西决定：给它的上下文、它的循环策略�
 | 来源 | 控制方式 |
 | --- | --- |
 | CLI 自身的系统提示 | 无法修改；固定 CLI 版本，写入 profile |
-| 用户级配置、用户级 AGENTS.md、用户级 skills（如 `~/.codex/`） | 把 CLI 的配置目录（Codex 为 `CODEX_HOME`）指向本工作单元的持久目录 `$KTA_DATA/<env>/agent-home/<工作单元>/`；目录首次创建时内容只来自 `profile.home_files`，之后会话文件也保存在这里（conventions §7.1） |
+| 用户级配置、用户级 AGENTS.md、用户级 skills（如 `~/.codex/`） | 把 CLI 的配置目录（Codex 为 `CODEX_HOME`）指向本工作单元的持久目录 `$KTA_DATA/<env>/agent-home/<工作单元>/`；目录首次创建时实验配置来自 `profile.home_files`；D655 additionally imports native provider connection settings, with explicit profile values taking precedence, and links native credentials. Personal instructions, skills and sessions are not imported. 之后会话文件也保存在这里（conventions §7.1） |
 | 目录树上方的 AGENTS.md | 工作区是独立的 git 仓库；运行前检查从文件系统根到工作区的路径上没有其他 AGENTS.md，有则拒绝启动 |
 | 工作区文件 | 只允许：`AGENTS.md`（由 prefix_template 生成）、`TASK.md`、`NOTES.md`、`inputs/`、`out/`、`.agents/skills/`（由 profile.skills 复制） |
 | MCP 服务器、web search 等内置工具 | 关闭（`cli_flags` 与隔离目录中的配置） |
@@ -219,3 +219,7 @@ Codex and Claude Code do not read the macOS system proxy. The user requires both
 - D300 and D592 are superseded: agent CLIs run with the control plane — worker `mac` (local, pool agent) in dev mode with proxy policy `required`, worker `spark-hk` (local) in long-run mode with policy `off` in that host's system configuration.
 - `[agents] agent_user` is optional: empty runs the CLI under the agent host's own account, confined by the CLI's sandbox, the isolated home and the workspace limits (profile isolation `config+user` no longer refuses without it).
 - A work unit is `<loop>:<role>` by default (kernel T1/T6, model T4/T5, knowledge T2/T3; `kta.orchestrator.workunits`), so solving, model diagnosis and knowledge work never share a session within a case; sessions, workspaces and homes are keyed by it as before.
+
+### Native provider reuse (SYSDEBUG-1, D655)
+
+The agent host resolves its native CLI from PATH or `~/.local/bin`; `codex_cmd` is an explicit override. Empty `auth_dir` uses that host’s native `CODEX_HOME` (default `~/.codex`). `inherit_provider = true` imports connection settings into each new isolated experimental home once; set false for a fully explicit experiment. Only provider identity/definitions, base URLs and authentication settings are inherited. Profile values override inherited keys. The manifest records source path/hash/key names; merged connection config and credentials are excluded from archives. Existing homes retain their pinned settings. Settings probes CLI version/login status through Executor on the configured agent host, returning unknown when unavailable; no model request is made. Claude Code status detection does not imply an implemented Claude runtime adapter.

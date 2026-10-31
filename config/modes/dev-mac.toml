@@ -50,8 +50,7 @@ secrets_file = "~/.config/kta/secrets.env"
 watch = ["~/.codex", "~"]
 
 [agents.hosts.mac]
-codex_cmd = ["/Users/dingyi/.local/bin/codex"]
-auth_dir = "~/.config/kta/auth/codex"
+# Native CLI, provider connection and login are reused; set codex_cmd/auth_dir to override.
 nvidia_smi = "nvidia-smi"
 
 # Measurement windows (D608): ready candidates are measured in one exclusive window here.
