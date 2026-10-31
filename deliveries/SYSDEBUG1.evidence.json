@@ -454,5 +454,56 @@
     "started_at": "2026-10-31T13:19:59.394320Z",
     "requires_gpu": false,
     "output": "~/kta/runs/sysdebug1/gate-clock-v2.out"
+  },
+  {
+    "git_commit": "90619e8550954ed2cfc76eb8b60b53bfe7e0518b",
+    "dirty": false,
+    "env": "dev",
+    "control_host": "spark-6951",
+    "workers": [
+      "spark-hk"
+    ],
+    "env_manifests": [
+      "a846cd2d1b917f547720a3670af7685d17756349d53336755cfd5f9fe3c9c577"
+    ],
+    "requires_gpu": false,
+    "claim": "A deliberate real TileLang codegen failure became a failed Build retaining the original compiler error and empty metadata; its job span is failed and traceable. Functional controls v3 are loaded; the prior loop stays paused; no model call.",
+    "command": "KTA_MODE=spark-hk KTA_ENV=dev KTA_WP=SYSDEBUG1 python ~/kta/runs/sysdebug1/functional-fault.py (compilation through Executor)",
+    "record_ids": [
+      "5e2fb81506bb8eca72c256dcc05cf53afe6f0890f3ecd5716cf326ab75d9a267",
+      "73cd954fa8b75bd38cf7cefd1faf615d0908c6029929480934edab0ff17c6a80"
+    ],
+    "blob_ids": [
+      "34626539defbe05eda18f5273f3f115b9154cc1cda66dcaa659f68fc9861ba12"
+    ],
+    "started_at": "2026-10-31T14:18:49.755720Z",
+    "output": "spark-hk:~/kta/runs/sysdebug1/functional-fault.out",
+    "notes": "System-function fault injection, expected failure. Does not establish an S0 golden-path or performance acceptance."
+  },
+  {
+    "git_commit": "90619e8550954ed2cfc76eb8b60b53bfe7e0518b",
+    "dirty": false,
+    "env": "dev",
+    "control_host": "spark-6951",
+    "workers": [
+      "spark-hk"
+    ],
+    "env_manifests": [
+      "a846cd2d1b917f547720a3670af7685d17756349d53336755cfd5f9fe3c9c577"
+    ],
+    "requires_gpu": false,
+    "claim": "System-function repairs passed the full WP24 code-stage regression gate: 23 pass, 1 warn, 0 fail; 753 non-GPU tests and 36 contracts, including real Codex help-only contract; no skipped tests.",
+    "command": "Executor CPU job in git-backed checkout: scripts/gate --stage code WP24",
+    "record_ids": [
+      "ffc571c4dfefcefd50df5d7879552d986912e598856425ea2c3f257219c06492"
+    ],
+    "blob_ids": [
+      "e50cf97b10e0ddb9365be68a768bbbcc8926997e9151bf8ac12e1a98fa4382fe",
+      "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "869aad355762b584dc7acf72df1d2e2e5e8d1e9d8eb759f71c4b74d161a64902"
+    ],
+    "started_at": "2026-10-31T14:21:07.013130Z",
+    "output": "spark-hk:~/kta/runs/sysdebug1/gate-functional.out",
+    "notes": "The warning is pending WP24 real acceptance in its own namespace. This is regression verification, not SYSDEBUG calibration or method acceptance."
   }
 ]

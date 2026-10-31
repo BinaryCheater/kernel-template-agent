@@ -2,6 +2,12 @@
 
 Date: 2026-10-31 (Asia/Singapore). Branch `sysdebug/1`.
 
+**Current scope (user clarification): system-function debugging, parameter-taskbook review and workflow supervision.** The previous GEMM loop is paused and blocked; no golden-path success, completed calibration or research acceptance is claimed. Source `90619e8` is deployed; no AgentRun exists. Functional controls v3: shortlist 8, 4 measured points including 1 random, solver 10 s. The taskbook now prioritises lifecycle rehearsal, separates tolerance meanings and correctly requires S3 for learning/summarization.
+
+System repairs since the historical checkpoint: current-round baseline identity/quietness; C/Gamma gates for control arms; per-shape current-loop evidence; failed compiler output archived without JSON masking; evaluation checkpoints and cooperative pause between candidates; protocol pinned within each measurement round; preserved progress on block; loop/state trace propagation and truthful failed spans; visible blocked/paused Case state. The numeric prototype made during the earlier diagnostic detour was not adopted. No kernel source or numeric tolerance was changed.
+
+Real expected-failure rehearsal: Report `5e2fb815…`, Build `73cd954f…`. Full code-stage gate: Report `ffc571c4…`, 753 non-GPU tests, 36 contracts, 23 pass / 1 warn / 0 fail. The baseline quiet path and interruption during an actual GPU candidate still require targeted real replay; unit checks are not that evidence. The WP24 namespace warning remains. New decisions: D650–D654.
+
 **Historical checkpoint (before D649; later repair results below).**
 
 **Status at that checkpoint: initial diagnostics available for supervised visual inspection; Phase 1 BLOCKED.** This is not an accepted S0/S1 transition, completed calibration, or a research result. The runbook explicitly stops before Phase 2 when X6/X10 cannot be produced. The operator followed that boundary.
@@ -130,6 +136,36 @@ gate WP24 --stage code: PASSED (22 pass, 2 warn, 0 fail)
   PASS fixture declarations — 1 declared
   PASS decision log — 487 decisions
   WARN skipped tests — not explained in the delivery note
+  PASS evidence — 5 claim(s)
+  PASS WP24 tests — 16 named tests passed
+  PASS WP24 spec, seed and pages — spec, z3 lock, seed outlines, pages
+  PASS web build — tsc + vite build of HEAD in a clean directory
+  WARN WP24 real checker runs — pending real run (code stage): ProofSummary with a level and a caught proof_canary Report in dev/WP24 (clean commit)
+```
+
+Latest system-function regression gate (source 90619e8):
+
+```
+gate WP24 --stage code: PASSED (23 pass, 1 warn, 0 fail)
+  PASS ruff format
+  PASS ruff check
+  PASS import layers
+  PASS residue
+  PASS test doubles
+  PASS error handling
+  PASS print
+  PASS subprocess outside Executor
+  PASS secrets
+  PASS acceptance lock — 7 locked files unchanged
+  PASS pyright
+  PASS unit tests — 753 passed
+  PASS contract tests — 36 passed
+  PASS fake coverage — 2 fake(s) covered
+  PASS registry (kta doctor, dev)
+  PASS delivery note
+  PASS fixture declarations — 1 declared
+  PASS decision log — 492 decisions
+  PASS skipped tests — none
   PASS evidence — 5 claim(s)
   PASS WP24 tests — 16 named tests passed
   PASS WP24 spec, seed and pages — spec, z3 lock, seed outlines, pages
