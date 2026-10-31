@@ -35,7 +35,7 @@ def measurement(
             },
             Actor(type="tool", name="test"),
             ctx.clock.now(),
-            refs=refs,
+            refs=dict(refs),
             blobs={"params": params},
         )
     )
