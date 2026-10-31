@@ -111,3 +111,19 @@ def test_backup_restore_and_handover(tmp_path: Path) -> None:
     (tmp_path / "b1" / "kta.db").write_bytes(b"corrupt")
     with pytest.raises(ConfigError, match="manifest hash"):
         backup.restore(tmp_path / "b1", tmp_path / "other")
+
+
+def test_direct_check_of_an_off_provider_reports_each_host() -> None:
+    from kta.core import proxy
+
+    def refuse(addr: tuple[str, int], timeout_s: float) -> Any:
+        raise ConnectionRefusedError(f"refused {addr[0]}")
+
+    out = proxy.direct_check(["api.openai.com:443", "chatgpt.com"], connect=refuse)
+    assert not out["ok"] and out["proxy"] is None
+    assert [(h["host"], h["port"]) for h in out["hosts"]] == [
+        ("api.openai.com", 443),
+        ("chatgpt.com", 443),
+    ]
+    assert "refused api.openai.com" in out["error"]
+    assert proxy.direct_check([])["error"].startswith("no API host")

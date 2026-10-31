@@ -356,3 +356,34 @@ def preflight(
     if bad:
         out["error"] = "; ".join(f"{h['host']}:{h['port']}: {h.get('error')}" for h in bad)
     return out
+
+
+def direct_check(
+    hosts: Sequence[str], timeout_s: float = PREFLIGHT_TIMEOUT_S, connect: Connect = _connect
+) -> dict[str, Any]:
+    """TCP connect and TLS handshake to every host without a proxy (an ``off`` provider on
+    a host with direct internet, WP23 D617). No API request is sent."""
+    out: dict[str, Any] = {"proxy": None, "hosts": [], "ok": False}
+    if not hosts:
+        out["error"] = "no API host to check for this provider (system configuration)"
+        return out
+    for target in hosts:
+        host, port = _split_host(target)
+        start = time.monotonic()
+        row: dict[str, Any] = {"host": host, "port": port, "ok": False}
+        try:
+            with connect((host, port), timeout_s) as sock:
+                sock.settimeout(timeout_s)
+                tls = ssl.create_default_context().wrap_socket(sock, server_hostname=host)
+                row["tls"] = tls.version()
+                tls.close()
+            row["ok"] = True
+        except (OSError, ssl.SSLError, ValueError) as exc:
+            row["error"] = f"{type(exc).__name__}: {exc}"
+        row["ms"] = round((time.monotonic() - start) * 1000, 1)
+        out["hosts"].append(row)
+    bad = [h for h in out["hosts"] if not h["ok"]]
+    out["ok"] = not bad
+    if bad:
+        out["error"] = "; ".join(f"{h['host']}:{h['port']}: {h.get('error')}" for h in bad)
+    return out
