@@ -12,7 +12,7 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import Any
 
-from kta.api import opsread, proofview
+from kta.api import opsread, pool, proofview
 from kta.api.common import (
     Api,
     body,
@@ -74,6 +74,17 @@ def _best(api: Api, case_id: str) -> dict[str, Any] | None:
     }
 
 
+# Writers of measurement-fixture Cases (calibration peaks, self-tests): the frontend lists them
+# apart from the research Cases (D661).
+PROBE_WRITERS = ("kta measure",)
+
+
+def purpose(api: Api, case_id: str, loop: opsread.LoopRow | None) -> str:
+    """``solve`` for a research Case, ``probe`` for a measurement fixture never solved."""
+    writer = str(api.store.get_json(case_id).get("actor", {}).get("name", ""))
+    return "probe" if loop is None and writer.startswith(PROBE_WRITERS) else "solve"
+
+
 def summary(api: Api, case_id: str) -> dict[str, Any]:
     case = body(api, case_id)
     loop = _loop_for(api, case_id)
@@ -100,6 +111,7 @@ def summary(api: Api, case_id: str) -> dict[str, Any]:
         "best_us": best["us"] if best else None,
         "pct_of_bound": best["pct"] if best else None,
         "objective": case["objective"],
+        "purpose": purpose(api, case_id, loop),
     }
 
 
@@ -159,6 +171,7 @@ def _rounds(api: Api, loop_id: str | None, case_id: str) -> list[dict[str, Any]]
         if s.kind == "loop_step":
             steps[int(s.attrs.get("round", 1))].append(s)
     tasks = [t for t in opsread.tasks(api.ops) if t.work_unit == loop_id]
+    loop_data = next((lp.data for lp in opsread.loops(api.ops) if lp.id == loop_id), {})
     outcomes = {int(body(api, r)["data"].get("round", 0)): r for r in _judgements(api, case_id)}
     rounds = []
     for n in sorted(steps):
@@ -179,6 +192,7 @@ def _rounds(api: Api, loop_id: str | None, case_id: str) -> list[dict[str, Any]]
                     for s in ss
                 ],
                 "tasks": [_round_task(api, t) for t in mine],
+                "summary": _round_summary(api, case_id, iso(lo), iso(hi), loop_data),
                 "outcome": {
                     "rule": body(api, out)["data"].get("rule"),
                     "label": body(api, out)["summary"],
@@ -192,6 +206,105 @@ def _rounds(api: Api, loop_id: str | None, case_id: str) -> list[dict[str, Any]]
             }
         )
     return rounds
+
+
+def _round_summary(
+    api: Api, case_id: str, lo: str | None, hi: str | None, d: dict[str, Any]
+) -> dict[str, Any]:
+    """What one round used and produced (D662): the families its Candidates name, the
+    candidate funnel (built, checked, measured) and per bucket the best predicted and best
+    measured latency. Candidates belong to the round they were created in."""
+    cands = [
+        c
+        for c in incoming(api, case_id, "case", "Candidate")
+        if lo and lo <= api.store.get_json(c)["created_at"] <= (hi or "9999")
+    ]
+    fams: list[str] = []
+    built = build_failed = passed = failed = measured = 0
+    buckets: dict[str, dict[str, Any]] = {}
+    for c in cands:
+        fam = ref_one(api, c, "family")
+        if fam and fam not in fams:
+            fams.append(fam)
+        b = buckets.setdefault(
+            body(api, c)["bucket"],
+            {"candidates": 0, "predicted_best_us": None, "measured_best_us": None},
+        )
+        b["candidates"] += 1
+        pred = latest(api, incoming(api, c, "candidate", "Prediction"))
+        if pred:
+            p = float(body(api, pred)["total"])
+            b["predicted_best_us"] = min(p, b["predicted_best_us"] or p)
+        # The loop data maps candidate -> Build/Check/Measurement (Build records do not
+        # name their candidate); older candidates fall back to the record edges.
+        build = d.get("builds", {}).get(c) or latest(api, incoming(api, c, "candidate", "Build"))
+        if build is None:
+            continue
+        if not body(api, build)["ok"]:
+            build_failed += 1
+            continue
+        built += 1
+        # A candidate of the loop's current round counts only checks and measurements the
+        # loop recorded for it: a cached Build carries Checks from earlier runs (as in
+        # _candidates).
+        current = c in d.get("builds", {})
+        chk = d.get("checks", {}).get(c)
+        checks = [chk] if chk else ([] if current else incoming(api, build, "build", "Check"))
+        if checks:
+            ok = all(body(api, x)["passed"] for x in checks)
+            passed += ok
+            failed += not ok
+        meas = _measured_us(
+            api,
+            d.get("measurements", {}).get(c)
+            or (None if current else latest(api, incoming(api, build, "build", "Measurement"))),
+        )
+        if meas is not None:
+            measured += 1
+            b["measured_best_us"] = min(meas, b["measured_best_us"] or meas)
+    return {
+        "families": [_family_ref(api, f) for f in fams],
+        "candidates": len(cands),
+        "built": built,
+        "build_failed": build_failed,
+        "check_passed": passed,
+        "check_failed": failed,
+        "measured": measured,
+        "buckets": buckets,
+    }
+
+
+def _family_ref(api: Api, fid: str) -> dict[str, Any]:
+    b = body(api, fid)
+    return {"id": fid, "name": b.get("name", fid[:12]), "version": b.get("version")}
+
+
+# Knowledge kinds a task may deliver (machines.yaml task_types: Family, Template, …).
+DELIVERED = ("Family", "Chain", "Template", "Reconstruction", "Gap", "HwModel", "Report")
+
+
+def _produced(api: Api, task_id: str) -> list[dict[str, Any]]:
+    """Records a task wrote, knowledge kinds only, so a round shows what it changed."""
+    with api.store.db.read() as con:
+        rows = con.execute(
+            "SELECT id, kind FROM records WHERE task = ? ORDER BY created_at",
+            (task_id,),
+        ).fetchall()
+    out = []
+    for rid, kind in rows:
+        if kind not in DELIVERED:
+            continue
+        b = body(api, rid)
+        label = b.get("name") or b.get("summary") or b.get("description") or kind
+        version = b.get("version")
+        out.append(
+            {
+                "id": rid,
+                "kind": kind,
+                "label": f"{label}@{version}" if version is not None else str(label)[:80],
+            }
+        )
+    return out
 
 
 def _round_task(api: Api, t: opsread.TaskRow) -> dict[str, Any]:
@@ -209,7 +322,9 @@ def _round_task(api: Api, t: opsread.TaskRow) -> dict[str, Any]:
         "created_at": iso(t.created_at),
         "ended_at": iso(t.updated_at) if ended else None,
         "state": t.state,
+        "goal": body(api, t.card_id).get("goal"),
         "rejections": rejections,
+        "produced": _produced(api, t.id),
     }
 
 
@@ -318,6 +433,8 @@ def timeline(api: Api, case_id: str) -> dict[str, Any]:
             {
                 "bucket": name,
                 "bound_us": float(body(api, bound)["bound_us"]),
+                "bottleneck": body(api, bound).get("bottleneck"),
+                "bound_record": bound,
                 "best_us": min(measured) if measured else None,
                 "references": {r["name"]: r["us"] for r in refs_ if r.get("bucket") == name},
                 "solution": None,
@@ -346,6 +463,12 @@ def timeline(api: Api, case_id: str) -> dict[str, Any]:
             }
         )
     gaps = incoming(api, case_id, "case", "Gap")
+    inputs = {
+        "families": [pool.family_summary(api, f) for f in d.get("families", [])],
+        "model": d.get("model"),
+        "hw_model": d.get("hw_model"),
+        "controls": d.get("controls"),
+    }
     return {
         **s,
         "shapes": "; ".join(
@@ -357,6 +480,7 @@ def timeline(api: Api, case_id: str) -> dict[str, Any]:
         "buckets": buckets,
         "candidates": candidates,
         "gaps": [{"id": g, "description": body(api, g)["description"]} for g in gaps],
+        "inputs": inputs,
     }
 
 

@@ -62,6 +62,10 @@ class Orchestration(Protocol):
     def verify_batch(self, batch: str) -> dict[str, Any]: ...
     def verify_task_token(self, token: str, now: datetime) -> str: ...
     def inbox(self) -> list[dict[str, Any]]: ...
+    def advance_action(
+        self, loop_id: str, mode: str, reason: str, human: Actor
+    ) -> dict[str, Any]: ...
+    def advance_work(self, loop_id: str, mode: str, holder: str) -> list[dict[str, Any]]: ...
 
 
 # What each operation waits for, by owner and function (spec/modules/orchestrator-cli.md,
@@ -78,6 +82,7 @@ NEEDS: dict[str, str] = {
     "env-verify": "WP8 kta.agents.batches.verify (D322)",
     "write-record": "WP8 task tokens (kta.agents.guard.verify_task_token, D305)",
     "inbox": "WP6 kta.orchestrator.inbox.inbox",
+    "advance": "WP6 Runner.advance for a human step (WP25 Operations.advance_*)",
 }
 # What a wired operation does not do yet (GET /actions/capabilities ``partial``).
 PARTIAL: dict[str, str] = {
@@ -135,6 +140,12 @@ class Unwired:
 
     def inbox(self) -> list[dict[str, Any]]:
         raise _no("inbox")
+
+    def advance_action(self, loop_id: str, mode: str, reason: str, human: Actor) -> dict[str, Any]:
+        raise _no("advance")
+
+    def advance_work(self, loop_id: str, mode: str, holder: str) -> list[dict[str, Any]]:
+        raise _no("advance")
 
 
 class Wired(Unwired):
@@ -206,3 +217,9 @@ class Wired(Unwired):
 
     def inbox(self) -> list[dict[str, Any]]:
         return [item.to_dict() for item in inbox(self.svc)]
+
+    def advance_action(self, loop_id: str, mode: str, reason: str, human: Actor) -> dict[str, Any]:
+        return self.operations.advance_action(loop_id, mode, reason, human)
+
+    def advance_work(self, loop_id: str, mode: str, holder: str) -> list[dict[str, Any]]:
+        return self.operations.advance_work(loop_id, mode, holder)

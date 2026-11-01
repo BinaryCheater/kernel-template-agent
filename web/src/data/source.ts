@@ -6,7 +6,7 @@ import type {
   FamilyDetail, FamilySummary, ImprovementsView, InboxItem, Machines, Meta, PoolDiff, PoolView, RecordEnvelope,
   ModelTimeline, Quotas, Residual, ResultDetail, Scoreboard, Snapshot, Span, StageTimeline, TaskDetail, TraceInfo, ExperimentProtocol,
   ControlsView, ControlsVersionRow, ReleaseView, SystemView, ProxyTestResult, WorkerTestResult, MechanismsView,
-  WorkflowView, WfChanges, WfPreview, WfDiff,
+  WorkflowView, WfChanges, WfPreview, WfDiff, Journal,
 } from "./types";
 
 const BASE = "/api";
@@ -65,6 +65,8 @@ export const api = {
   record: (id: string) => get<RecordEnvelope>(`/records/${enc(id)}`),
   cases: () => get<CaseIndexRow[]>("/cases"),
   caseTimeline: (id: string) => get<CaseDetail>(`/cases/${enc(id)}/timeline`),
+  journal: (p: { before?: string; limit?: number; level?: "milestone" | "all"; case?: string }) =>
+    get<Journal>("/journal", { before: p.before, limit: p.limit ? String(p.limit) : undefined, level: p.level, case: p.case }),
   lineage: async (id: string) => {
     const g = await get<{ result?: ResultDetail }>(`/lineage/${enc(id)}`);
     if (!g.result) throw new ApiError(400, "this record is not a Solution; the evidence chain is shown for Solutions");
@@ -133,6 +135,9 @@ export const act = {
     post<Record<string, unknown>>("/actions/create-task", { type, goal, inputs, priority, reason }),
   pause: (scope: string, reason: string) => post<Record<string, unknown>>("/actions/pause", { scope, reason }),
   resume: (scope: string, reason: string) => post<Record<string, unknown>>("/actions/resume", { scope, reason }),
+  /** WP25: advance a loop by hand — one step, one round, continuously (resume), or retry a block. */
+  advance: (loop: string, mode: "step" | "round" | "run" | "retry", reason = "") =>
+    post<{ loop: string; mode: string; action: string; started: boolean; process?: string; process_running?: boolean }>("/actions/advance", { loop, mode, reason }),
 };
 
 /** Wall-clock "now" for elapsed times. */

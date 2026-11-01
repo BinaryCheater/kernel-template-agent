@@ -1,0 +1,60 @@
+# How GET /journal phrases each event (WP25, D660). An open table: a record kind or span kind
+# not listed here is shown with the `other` phrase and counted, so the coverage of this table
+# is visible on the Activity page. Placeholders are filled from the record (body fields,
+# `case` = the name of refs.case, `actor`, `n` = how many were grouped) or the span (`name`,
+# `lane`, `state`, `round`, `case`, `error`); a missing placeholder renders as "?".
+#
+# level: milestone = shown on Home and in the default Activity view; detail = Activity "all".
+# tone:  running | waiting | ok | fail | human | idle (web/DESIGN.md §4.2).
+# group: consecutive events of one kind, case and actor within `group_s` seconds become one
+#        line that uses `many` with {n}.
+
+group_s: 120
+
+records:
+  Case: {level: milestone, tone: running, text: "Case {case} added by {actor}"}
+  Problem: {level: detail, tone: idle, text: "Problem {name} defined"}
+  Contract: {level: detail, tone: idle, text: "Correctness contract written for {case}"}
+  Bound: {level: milestone, tone: running, text: "Lower bound for {case}: {bound_us:.1f} µs ({bottleneck}-bound)", many: "{n} lower bounds computed for {case}"}
+  Candidate: {level: detail, tone: running, text: "Candidate proposed for {case}", many: "{n} candidates proposed for {case}"}
+  Prediction: {level: detail, tone: idle, text: "Prediction {total:.1f} µs", many: "{n} predictions by the cost model"}
+  Build: {level: detail, tone: running, text: "Build {ok_word}", many: "{n} builds compiled"}
+  Check: {level: detail, tone: running, text: "Correctness check {passed_word}", many: "{n} correctness checks"}
+  ProofResult: {level: detail, tone: idle, text: "Proof check ({condition})", many: "{n} proof checks"}
+  ProofSummary: {level: detail, tone: idle, text: "Proof summary written", many: "{n} proof summaries"}
+  Measurement: {level: milestone, tone: ok, text: "Measured {median_us:.1f} µs", many: "{n} measurements"}
+  Solution: {level: milestone, tone: ok, text: "Solution accepted for {case}: {pct_of_bound_pct} of bound"}
+  Gap: {level: milestone, tone: waiting, text: "Gap: {description}", many: "{n} gaps recorded"}
+  Template: {level: milestone, tone: running, text: "Template {name}@{version} added", many: "{n} Templates added"}
+  Family: {level: milestone, tone: running, text: "Family {name}@{version} written"}
+  Chain: {level: detail, tone: idle, text: "Composition chain written", many: "{n} chains written"}
+  Reconstruction: {level: milestone, tone: running, text: "Reference reconstructed: {matched} steps matched"}
+  Reference: {level: milestone, tone: running, text: "Reference {name} registered", many: "{n} references registered"}
+  Report: {level: milestone, tone: idle, text: "Report: {summary}"}
+  HumanAction: {level: milestone, tone: human, text: "You: {action} — {reason}"}
+  ControlsVersion: {level: milestone, tone: human, text: "Controls version written ({change_count} changes)"}
+  AgentProfile: {level: milestone, tone: human, text: "Agent profile {name} written"}
+  AgentRun: {level: milestone, tone: running, text: "Agent run finished ({status})"}
+  TaskCard: {level: milestone, tone: running, text: "Task created: {goal}"}
+  HwFact: {level: detail, tone: idle, text: "Hardware fact {quantity}", many: "{n} hardware facts measured"}
+  HwModel: {level: milestone, tone: idle, text: "Hardware model {arch} calibrated"}
+  Protocol: {level: milestone, tone: idle, text: "Measurement protocol {name} written"}
+  Worker: {level: detail, tone: ok, text: "Worker on {host} registered"}
+  EnvManifest: {level: detail, tone: idle, text: "Worker environment recorded ({host})"}
+  other: {level: detail, tone: idle, text: "{kind} written by {actor}", many: "{n} {kind} records by {actor}"}
+
+spans:
+  loop_step: {level: milestone, tone: running, text: "{case}: round {round} entered {state}"}
+  agent_session: {level: milestone, tone: running, text: "Agent session on {lane}: {name}"}
+  job_run: {level: detail, tone: running, text: "Job {name}", many: "{n} jobs on {lane}"}
+  job_run_fail: {level: milestone, tone: fail, text: "Job {name} failed ({error})", many: "{n} jobs failed on {lane}"}
+  cli: {level: detail, tone: idle, text: "Command: {name}", many: "{n} commands"}
+  process_action: {level: detail, tone: idle, text: "{lane}: {name}", many: "{n} actions in {lane}"}
+  # Queue and lock waits are pipeline detail; the Activity page leaves them to Pipeline.
+  skip: [job_queue, lock_wait, lock_hold, agent_model, tool_call]
+  other: {level: detail, tone: idle, text: "{lane}: {name}", many: "{n} × {name}"}
+
+tasks:
+  state: {level: milestone, tone: running, text: "Task {type} → {state}"}
+
+blocked: {level: milestone, tone: fail, text: "{case} stopped in {state}: {error}: {message}"}

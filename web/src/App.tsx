@@ -20,9 +20,11 @@ import { Settings } from "./pages/Settings";
 import { Release } from "./pages/Release";
 import { Mechanisms } from "./pages/Mechanisms";
 import { Workflow } from "./pages/Workflow";
+import { Activity } from "./pages/Activity";
 
 const PAGES: PageMeta[] = [
-  { path: "/", title: "Overview", question: "What does the system do, and what is it doing now?" },
+  { path: "/", title: "Home", question: "What is the system doing now, and what did it just do?" },
+  { path: "/activity", title: "Activity", question: "What happened, in order, and why?" },
   { path: "/running", title: "Running", question: "What is occupying the system right now?" },
   { path: "/pipeline", title: "Pipeline", question: "In what order and in parallel did things run, and where did the time go?" },
   { path: "/cases", title: "Cases", question: "Which problems are being solved, and how well?" },
@@ -31,7 +33,7 @@ const PAGES: PageMeta[] = [
   { path: "/families", title: "Families", question: "Which executable families does the pool hold?" },
   { path: "/families/:id", title: "Family", question: "How is this kernel built, step by step?" },
   { path: "/coverage", title: "Coverage", question: "Have we discovered enough, and where are the blind spots?" },
-  { path: "/inbox", title: "Inbox", question: "What needs me now?" },
+  { path: "/inbox", title: "Needs you", question: "What needs me now?" },
   { path: "/tasks/:id", title: "Task", question: "What did this agent do?" },
   { path: "/operations", title: "Operations", question: "What can I start, stop or change, and what have I done?" },
   { path: "/pool", title: "Pool", question: "What does the system know now?" },
@@ -42,7 +44,7 @@ const PAGES: PageMeta[] = [
   { path: "/improvement", title: "Improvement", question: "Is the system getting better, and where does it fall short?" },
   { path: "/agents", title: "Agents", question: "What controls the worker agents: skills, profile versions, batch environments?" },
   { path: "/settings", title: "Settings", question: "Which control values and system settings are in force, and who changed them?" },
-  { path: "/workflow", title: "Workflow", question: "How does an agent task run, and what configures each step?" },
+  { path: "/workflow", title: "Agent workflow and prompts", question: "How does an agent task run, and what configures each step (prompts, skills, model)?" },
   { path: "/mechanisms", title: "Mechanisms", question: "Have the round-4 mechanisms run, and what did they record?" },
   { path: "/release", title: "Release", question: "Which release stage is open, and which agent calls wait for me?" },
 ];
@@ -52,6 +54,7 @@ export function App() {
     <Shell pages={PAGES}>
       <Routes>
         <Route path="/" element={<Overview />} />
+        <Route path="/activity" element={<Activity />} />
         <Route path="/running" element={<Running />} />
         <Route path="/pipeline" element={<Pipeline />} />
         <Route path="/cases" element={<CaseList />} />

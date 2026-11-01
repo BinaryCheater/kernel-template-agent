@@ -122,8 +122,12 @@ class Runner:
 
     # ---- one step ---------------------------------------------------------------
 
-    def advance(self, loop_id: str) -> Transition | None:
-        """One step of one instance; None when locked, terminal or blocked."""
+    def advance(self, loop_id: str, manual: bool = False) -> Transition | None:
+        """One step of one instance; None when locked, terminal, blocked or paused.
+
+        ``manual`` (a human's "advance one step", WP25 D664) ignores a pause of this loop
+        alone: pausing a loop and stepping it by hand is the hand-stepped mode. A paused
+        process or global scope still stops it."""
         lock = f"loop:{loop_id}"
         if not self.svc.ops.acquire(lock, self.holder, LOCK_S):
             return None
@@ -131,7 +135,9 @@ class Runner:
             loop = loop_of(self.svc.ops.get_loop(loop_id))
             if machine(loop.kind).terminal(loop.state) or loop.data.get("blocked"):
                 return None
-            scopes = [f"loop:{loop_id}", f"process:{PROCESS_OF[loop.kind]}", "global"]
+            scopes = [f"process:{PROCESS_OF[loop.kind]}", "global"]
+            if not manual:
+                scopes.insert(0, f"loop:{loop_id}")
             if control.paused_scope(self.svc.ops, scopes) is not None:
                 return None  # D364: a paused scope stops new steps; the state is kept
             snap = self.controls()

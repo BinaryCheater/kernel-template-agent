@@ -24,15 +24,78 @@ interface SnapCtx {
 const SnapshotContext = createContext<SnapCtx>({ snapshots: [], snapshot: "", setSnapshot: () => {} });
 export const useSnapshot = () => useContext(SnapshotContext);
 
-const NAV: { group: string; items: { to: string; label: string; later?: boolean; badge?: "inbox" }[] }[] = [
-  { group: "Watch", items: [{ to: "/", label: "Overview" }, { to: "/running", label: "Running" }, { to: "/pipeline", label: "Pipeline" }] },
-  { group: "Understand", items: [{ to: "/cases", label: "Cases" }, { to: "/families", label: "Families" }, { to: "/pool", label: "Pool" },
-    { to: "/coverage", label: "Coverage" }, { to: "/model", label: "Model" }, { to: "/model/scoreboard", label: "Scoreboard" },
-    { to: "/mechanisms", label: "Mechanisms" }] },
-  { group: "Intervene", items: [{ to: "/inbox", label: "Inbox", badge: "inbox" }, { to: "/operations", label: "Operations" },
-    { to: "/experiments", label: "Experiments" }, { to: "/improvement", label: "Improvement" }, { to: "/agents", label: "Agents" }, { to: "/workflow", label: "Workflow" },
-    { to: "/release", label: "Release" }, { to: "/settings", label: "Settings" }] },
+type NavItem = { to: string; label: string; badge?: "inbox"; also?: string[] };
+
+/** Navigation (WP25, D665): the four views used while watching are always shown; knowledge,
+ *  control and studies are groups that open when one of their pages is active or on click. */
+const PRIMARY: NavItem[] = [
+  { to: "/", label: "Home", also: ["/running"] },
+  { to: "/activity", label: "Activity" },
+  { to: "/pipeline", label: "Pipeline" },
+  { to: "/cases", label: "Cases", also: ["/results", "/tasks"] },
 ];
+const GROUPS: { group: string; hint: string; items: NavItem[] }[] = [
+  { group: "Knowledge", hint: "what the system has learned", items: [{ to: "/families", label: "Families" }, { to: "/pool", label: "Pool" },
+    { to: "/coverage", label: "Coverage" }, { to: "/model", label: "Cost model" }, { to: "/model/scoreboard", label: "Model scoreboard" }] },
+  { group: "Control", hint: "decide, configure, intervene", items: [{ to: "/inbox", label: "Needs you", badge: "inbox" }, { to: "/settings", label: "Settings" },
+    { to: "/workflow", label: "Agent workflow and prompts" }, { to: "/agents", label: "Agent skills and profiles" }, { to: "/release", label: "Release stage" },
+    { to: "/operations", label: "Actions log" }] },
+  { group: "Studies", hint: "experiments about the system itself", items: [{ to: "/experiments", label: "Experiments" }, { to: "/improvement", label: "Improvement" },
+    { to: "/mechanisms", label: "Mechanisms" }] },
+];
+
+const OPEN_KEY = "kta-nav-open";
+function loadOpen(): Record<string, boolean> {
+  try {
+    return JSON.parse(localStorage.getItem(OPEN_KEY) ?? "{}") as Record<string, boolean>;
+  } catch {
+    return {};
+  }
+}
+
+function NavEntry({ it, inbox }: { it: NavItem; inbox?: number }) {
+  const loc = useLocation();
+  const extra = it.also?.some((p) => loc.pathname.startsWith(p));
+  return (
+    <NavLink to={it.to} end={it.to === "/" || it.to === "/model"} className={({ isActive }) => (isActive || extra ? "active" : "")}>
+      <span>{it.label}</span>
+      {it.badge === "inbox" && inbox ? <span className="badge human">{inbox}</span> : null}
+    </NavLink>
+  );
+}
+
+function Nav({ inbox }: { inbox?: number }) {
+  const loc = useLocation();
+  const [open, setOpen] = useState<Record<string, boolean>>(loadOpen);
+  const toggle = (g: string, now: boolean) => {
+    const next = { ...open, [g]: !now };
+    setOpen(next);
+    try {
+      localStorage.setItem(OPEN_KEY, JSON.stringify(next));
+    } catch {
+      // storage unavailable: the choice lasts for this page only
+    }
+  };
+  return (
+    <>
+      <div className="navgroup primary-nav">{PRIMARY.map((it) => <NavEntry key={it.to} it={it} inbox={inbox} />)}</div>
+      {GROUPS.map((g) => {
+        const here = g.items.some((it) => matchPath({ path: it.to, end: false }, loc.pathname));
+        const isOpen = open[g.group] ?? here;
+        const count = g.items.some((it) => it.badge === "inbox") ? inbox : undefined;
+        return (
+          <div className="navgroup" key={g.group}>
+            <button className="nav-toggle" onClick={() => toggle(g.group, isOpen)} title={g.hint}>
+              <span className="caption">{isOpen ? "▾" : "▸"} {g.group}</span>
+              {!isOpen && count ? <span className="badge human">{count}</span> : null}
+            </button>
+            {isOpen && g.items.map((it) => <NavEntry key={it.to} it={it} inbox={inbox} />)}
+          </div>
+        );
+      })}
+    </>
+  );
+}
 
 export function Shell({ pages, children }: { pages: PageMeta[]; children: ReactNode }) {
   const loc = useLocation();
@@ -57,19 +120,8 @@ export function Shell({ pages, children }: { pages: PageMeta[]; children: ReactN
       <div className="shell">
         <nav className="sidebar">
           <div className="brand"><b>KTA</b><span>Kernel Template Agent</span></div>
-          {NAV.map((g) => (
-            <div className="navgroup" key={g.group}>
-              <div className="caption">{g.group}</div>
-              {g.items.map((it) => (
-                <NavLink key={it.to} to={it.to} end={it.to === "/" || it.to === "/model"} className={({ isActive }) => (it.later ? "disabled" : isActive ? "active" : "")}
-                  title={it.later ? "Planned for WP9b" : undefined}>
-                  <span>{it.label}</span>
-                  {it.badge === "inbox" && active.data ? <span className="badge human">{active.data.inbox_count}</span> : it.later ? <span className="later">WP9b</span> : null}
-                </NavLink>
-              ))}
-            </div>
-          ))}
-          <div className="foot">Every action writes a HumanAction record. Controls that wait for WP6/WP8 are shown dashed.</div>
+          <Nav inbox={active.data?.inbox_count} />
+          <div className="foot">Every button that acts writes a HumanAction record (who, when, why). Controls the API cannot do yet are shown disabled with what they need.</div>
         </nav>
         <div className="main">
           {metaApi.error && (

@@ -84,6 +84,12 @@ export interface LoopInstance {
   state_since: string;
   waiting_on?: string | null; // task id
   escalated?: boolean;
+  /** WP25: a loop stopped by an error (it stays in its state until retried). */
+  blocked?: { error: string; message: string; state: string; at: string } | null;
+  /** WP25: the paused scope that holds this loop (loop:<id>, process:<name> or global). */
+  paused?: string | null;
+  /** WP25: a human advance running now (step | round | retry). */
+  advancing?: string | null;
   trace_id: string;
 }
 
@@ -200,6 +206,8 @@ export interface CaseSummary {
   bound_record: string | null;
   pct_of_bound?: number | null;
   objective: string;
+  /** WP25: "solve" for a research Case, "probe" for a measurement fixture (calibration, self-test). */
+  purpose?: "solve" | "probe";
   /** GET /cases only: per-round progress, the active task and the last activity. */
   rounds?: unknown;
   active_task?: { type: string; state: string } | null;
@@ -231,17 +239,34 @@ export interface RoundTask {
   created_at: string;
   ended_at: string | null;
   state: string;
+  goal?: string | null;
   rejections: { at: string; reason: string; record: string }[];
+  /** WP25: knowledge records the task wrote (what the round changed). */
+  produced?: { id: string; kind: string; label: string }[];
+}
+/** WP25: what one round used and produced. */
+export interface RoundSummary {
+  families: { id: string; name: string; version: number | null }[];
+  candidates: number;
+  built: number;
+  build_failed: number;
+  check_passed: number;
+  check_failed: number;
+  measured: number;
+  buckets: Record<string, { candidates: number; predicted_best_us: number | null; measured_best_us: number | null }>;
 }
 export interface Round {
   n: number;
   steps: RoundStep[];
   tasks: RoundTask[];
+  summary?: RoundSummary;
   outcome?: { rule?: number | null; label: string; record: string; gap_class?: string | null; decomposition?: string | null } | null;
 }
 export interface BucketResult {
   bucket: string;
   bound_us: number;
+  bottleneck?: string | null;
+  bound_record?: string | null;
   best_us?: number | null;
   references: Record<string, number>;
   solution?: string | null;
@@ -272,6 +297,30 @@ export interface CaseDetail extends CaseSummary {
   buckets: BucketResult[];
   candidates: Candidate[];
   gaps: { id: string; description: string }[];
+  /** WP25: what the current round runs with. */
+  inputs?: { families: FamilySummary[]; model: string | null; hw_model: string | null; controls: string | null };
+}
+
+// ---- GET /journal (WP25) ----
+
+export interface JournalEntry {
+  at: string;
+  source: "record" | "span" | "task" | "blocked";
+  kind: string;
+  level: "milestone" | "detail";
+  tone: "running" | "waiting" | "ok" | "fail" | "human" | "idle";
+  text: string;
+  count: number;
+  case: string | null;
+  case_name: string | null;
+  actor: string;
+  refs: string[];
+}
+export interface Journal {
+  entries: JournalEntry[];
+  next_before: string | null;
+  unphrased: Record<string, number>;
+  scanned: number;
 }
 
 // ---- GET /lineage/{id} ----

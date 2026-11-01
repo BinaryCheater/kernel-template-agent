@@ -98,6 +98,11 @@ def _summary(api: Api, fid: str) -> dict[str, Any]:
     }
 
 
+def family_summary(api: Api, fid: str) -> dict[str, Any]:
+    """One family as GET /families lists it (name, version, steps with Templates)."""
+    return _summary(api, fid)
+
+
 def families(api: Api, snapshot: str | None) -> list[dict[str, Any]]:
     return [_summary(api, f) for f in _latest_versions(api, _members(api, snapshot))]
 

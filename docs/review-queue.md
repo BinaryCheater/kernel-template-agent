@@ -985,3 +985,25 @@ Decisions made without the user that need review. Newest last. Each entry: quest
 - **Cost of changing later:** new Template versions plus chain bindings; the checker reruns in seconds.
 
 - D658 (SYSDEBUG-1): default candidate-hash holdout share is 20%, matching the existing fitter’s nominal share. Independent data is now mandatory for T4 acceptance. This fixes in-sample acceptance; research sample adequacy still needs calibration. Changing the partition affects newly created tasks; existing card refs remain immutable.
+
+## D660 — Journal phrasing and grouping (WP25)
+
+- **Question:** how should the system's history be shown so it can be read quickly?
+- **Choice:** a deterministic phrase table (`src/kta/api/journal.yaml`) over records, spans, task changes and stops; milestones by default; bursts grouped.
+- **Rationale:** readable, reproducible, no model calls; unlisted kinds are counted so gaps in the table are visible.
+- **Cost of changing later:** low: edit the YAML (wording, levels, grouping window).
+
+## D664 — Hand advancing semantics (WP25)
+
+- **Question:** what should "one step", "one round" and "continuous" do, and may a human step a paused loop?
+- **Choice:** step = one `Runner.advance`; round = until the round number changes or the loop waits, ends or blocks (≤ 40 steps); run = resume the loop for its process (the reply says if the process is not running); a human step ignores the loop's own pause but not a process or global pause; retry clears the block.
+- **Rationale:** matches the S1 hand-stepped stage (pause, then step); keeps one control loop (the processes); long work runs off the request thread.
+- **Cost of changing later:** low: `Operations.advance_*` and `Runner.advance(manual)`.
+
+## D665 — Navigation and Home (WP25)
+
+- **Question:** which pages are always visible, and what is on Home?
+- **Choice:** Home, Activity, Pipeline, Cases always; Knowledge, Control, Studies collapsible. Home: status line, loop maps with instances and exit conditions, milestones, needs-you, resources, pipeline strip.
+- **Rationale:** the user watches the run and its history first; knowledge and settings are visited on purpose.
+- **Cost of changing later:** low: `Shell.tsx` and `Overview.tsx`; routes did not change.
+

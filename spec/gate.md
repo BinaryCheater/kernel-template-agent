@@ -92,3 +92,14 @@ AGENTS.md 规定最后一步必须运行 gate 并把输出贴进交付说明。�
 | web build | the web app at HEAD does not build |
 | WP22 agent launch through the proxy | full stage: no AgentRun with `proxy.used` and a passed preflight (FAIL); code stage: WARN (pending real run) |
 
+
+## WP25
+
+`specific_wp25` (`tools/kta_gate/specific_wp25.py`, D660–D667):
+
+| Check | Fails when |
+| --- | --- |
+| WP25 tests | a named WP25 test did not pass (manual step vs loop and process pauses, round stops where the loop waits, one step, run resumes and reports the process, retry clears a block, unknown mode and non-human refused, the endpoint and capability, journal phrasing of unlisted kinds, interleaved grouping, milestones and paging, every phrase renders, blocked and paused marks in the active view, the trace and the journal, lock holder) |
+| WP25 spec, pages and phrase table | a WP25 spec section is missing, `/activity` is not routed, Home lacks the loop maps or loop controls, Case lacks round cards, Settings lacks the key-by-key editor, Swimlanes does not draw a blocked step, or journal.yaml lacks an `other` row |
+| web build | the web app at HEAD does not build |
+| WP25 real hand advance | full stage: no clean real `advance` HumanAction with a loop step in dev/WP25 (FAIL); code stage: WARN (pending real run) |

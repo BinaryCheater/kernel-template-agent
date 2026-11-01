@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router";
 import "./styles/app.css";
 import "./styles/ops.css";
+import "./styles/v2.css";
 import { App } from "./App";
 import { LiveProvider } from "./data/live";
 

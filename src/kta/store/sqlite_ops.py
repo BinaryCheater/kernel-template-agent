@@ -216,6 +216,14 @@ class SqliteOps:
             self._log(con, "locks", lock, {"holder": holder, "until": until})
             return True
 
+    def lock_holder(self, lock: str) -> str | None:
+        """Who holds ``lock`` now (an expired lock is free); WP25 asks if a process runs."""
+        with self.db.read() as con:
+            row = con.execute(
+                "SELECT holder FROM locks WHERE name = ? AND until >= ?", (lock, ts(self._now()))
+            ).fetchone()
+        return str(row[0]) if row else None
+
     def release(self, lock: str, holder: str) -> None:
         with self.db.write() as con:
             row = con.execute("SELECT holder FROM locks WHERE name = ?", (lock,)).fetchone()

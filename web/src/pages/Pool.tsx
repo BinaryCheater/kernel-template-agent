@@ -26,6 +26,7 @@ export function Pool() {
   const label = snapshots.find((s) => s.id === snapshot)?.label;
   return (
     <div className="stack">
+      <PoolGuide />
       <div className="row small ink2">
         <span>Showing {all || !snapshot ? <b>every record in the store</b> : <>members of snapshot <b>{label}</b></>}.</span>
         <label className="row" style={{ gap: 4 }}><input type="checkbox" checked={all} onChange={(e) => setAll(e.target.checked)} />include records outside the snapshot</label>
@@ -208,5 +209,41 @@ function ProofCell({ t }: { t: PoolTemplate }) {
         {pr.gaps.length > 0 && <div className="muted">why not higher: {pr.gaps.length} gap(s), e.g. {pr.gaps[0]}</div>}
       </div>
     </details>
+  );
+}
+
+/** What the pool holds and how the parts relate (WP25: the page lists five record kinds;
+ *  this says what each one is for before the tables). Open by default until closed once. */
+function PoolGuide() {
+  const KEY = "kta-pool-guide";
+  const [open, setOpen] = useState(() => {
+    try { return localStorage.getItem(KEY) !== "closed"; } catch { return true; }
+  });
+  const toggle = () => {
+    const next = !open;
+    setOpen(next);
+    try { localStorage.setItem(KEY, next ? "open" : "closed"); } catch { /* per page only */ }
+  };
+  return (
+    <section className="panel pool-guide">
+      <header><h2>What the pool is</h2><span className="sub">the system's reusable knowledge; every Case is solved from it</span>
+        <span className="right"><button className="linkbtn" onClick={toggle}>{open ? "hide" : "explain"}</button></span></header>
+      {open && (
+        <div className="body">
+          <div className="guide-flow">
+            <div><b>Pattern</b><span>a kind of work a kernel does (move data, reduce, assign work to executors). The vocabulary.</span></div>
+            <div className="arr">refined by →</div>
+            <div><b>Template</b><span>one refinement step that makes a Pattern more concrete (tile the output, double-buffer a copy). Has variables, constraints and obligations; its assurance says how far it is checked.</span></div>
+            <div className="arr">chained into →</div>
+            <div><b>Family</b><span>an ordered chain of Templates plus a generator: a whole kernel design with free variables. A Case's round picks a Family and solves for the variables.</span></div>
+          </div>
+          <div className="guide-side small ink2">
+            <div><b>Structure</b>: a property of a problem the solver can exploit (one dominant resource, separable terms).</div>
+            <div><b>Reference</b>: an existing implementation (CUTLASS, FlashInfer…) the system decomposes to learn new Templates; what it cannot match becomes a <b>Gap</b>.</div>
+            <div>Assurance, weakest to strongest: <span className="assur-dot declared" /> declared · <span className="assur-dot tested" /> tested · <span className="assur-dot bounded" /> bounded · <span className="assur-dot proved" /> proved. Only checker records raise it.</div>
+          </div>
+        </div>
+      )}
+    </section>
   );
 }

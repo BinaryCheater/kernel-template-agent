@@ -14,8 +14,10 @@ merged; their parameters are validated first, so a bad request is still a 400 or
 from __future__ import annotations
 
 import json
+import logging
 import math
 import re
+import threading
 from collections.abc import Mapping
 from typing import Any
 
@@ -30,6 +32,48 @@ from kta.store.sqlite import RecordNotFound
 from kta.store.status import check_change
 
 DEFAULT_OPERATOR = "user"
+log = logging.getLogger(__name__)
+
+# Loops a human advance is working on now (loop id -> mode). One advance per loop at a time;
+# the runner's loop lock would refuse a second one anyway, this makes it visible (D664).
+_ADVANCING: dict[str, str] = {}
+_ADVANCING_LOCK = threading.Lock()
+
+
+def advancing() -> dict[str, str]:
+    with _ADVANCING_LOCK:
+        return dict(_ADVANCING)
+
+
+def advance(api: Api, loop_id: str, mode: str, reason: str) -> dict[str, Any]:
+    """Advance a loop by hand: one step, one round, continuously, or retry after a block.
+
+    The HumanAction is written before this returns; steps and rounds then run on a
+    background thread (a build or a measurement can take minutes), and their progress
+    shows up as loop-step spans, records and journal lines like any other step."""
+    if mode not in ("run",) and loop_id in advancing():
+        raise ConfigError(f"loop {loop_id} is already advancing ({advancing()[loop_id]})")
+    human = operator(api)
+    out = api.orchestration.advance_action(loop_id, mode, reason, human)
+    if mode == "run":
+        return {**out, "started": False}
+
+    def work() -> None:
+        try:
+            taken = api.orchestration.advance_work(loop_id, mode, f"human:{human.name}")
+            log.info("advance %s %s: %d step(s)", loop_id, mode, len(taken))
+        except Exception:  # kta:allowed a background step must not die silently
+            log.exception("advance %s %s failed", loop_id, mode)
+        finally:
+            with _ADVANCING_LOCK:
+                _ADVANCING.pop(loop_id, None)
+
+    with _ADVANCING_LOCK:
+        _ADVANCING[loop_id] = mode
+    threading.Thread(target=work, name=f"advance-{loop_id}", daemon=True).start()
+    return {**out, "started": True}
+
+
 # Records about decisions themselves; rejecting or flagging them has no meaning.
 NOT_JUDGED = frozenset({"HumanAction", "StatusChange"})
 BUDGET_KEY = re.compile(r"^[a-z][a-z0-9]*(_[a-z0-9]+)*_[a-z]+$")

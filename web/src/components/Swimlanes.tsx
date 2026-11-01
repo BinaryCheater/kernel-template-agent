@@ -136,9 +136,11 @@ export function Swimlanes(p: SwimlaneProps) {
           const rect = echarts.graphic.clipRectByRect({ x: x0, y: y - h / 2, width: Math.max(1.5, x1 - x0), height: h }, coordSys);
           if (!rect) return null;
           const dimmed = p.highlightTrace && s.trace_id !== p.highlightTrace;
+          // WP25 (D663): the open step of a loop stopped by an error is drawn as stopped, not running.
+          const stopped = s.attrs.blocked !== undefined;
           const children: unknown[] = [{
             type: "rect", shape: { ...rect, r: 2 },
-            style: {
+            style: stopped ? { fill: "#fae3e3", opacity: dimmed ? 0.3 : 1, stroke: "#d03b3b", lineWidth: 1.5 } : {
               fill: st.color, opacity: dimmed ? 0.12 : st.wait ? 0.28 : s.kind === "loop_step" ? 0.55 : 0.92,
               stroke: s.status === "fail" ? "#d03b3b" : s.status === "running" ? "#0b0b0b" : undefined,
               lineWidth: s.status === "fail" ? 2 : s.status === "running" ? 1 : 0, lineDash: s.status === "running" ? [3, 2] : undefined,
@@ -147,8 +149,8 @@ export function Swimlanes(p: SwimlaneProps) {
           if (!p.compact && rect.width > 54) {
             children.push({
               type: "text",
-              style: { text: s.name, x: rect.x + 4, y: rect.y + rect.height / 2, verticalAlign: "middle", fontSize: 10.5,
-                fill: st.wait || s.kind === "agent_model" ? "#0b0b0b" : "#fff", width: rect.width - 8, overflow: "truncate", opacity: dimmed ? 0.3 : 1 },
+              style: { text: stopped ? `${s.name} — stopped: ${String(s.attrs.blocked).split(":")[0]}` : s.name, x: rect.x + 4, y: rect.y + rect.height / 2, verticalAlign: "middle", fontSize: 10.5,
+                fill: stopped ? "#9b1f1f" : st.wait || s.kind === "agent_model" ? "#0b0b0b" : "#fff", width: rect.width - 8, overflow: "truncate", opacity: dimmed ? 0.3 : 1 },
               silent: true,
             });
           }
@@ -168,7 +170,7 @@ function tip(s: Span, nowMs: number): string {
   const st = kindStyle(s.kind);
   return `<div style="min-width:200px"><div style="font-weight:600">${s.name}</div>
     <div style="color:#52514e"><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${st.color};margin-right:5px"></span>${st.label} · ${s.lane}</div>
-    <div>${hhmm(s.start_ts, true)} → ${s.end_ts ? hhmm(s.end_ts, true) : "now"} · <b>${dur(d)}</b> · ${s.status}</div>${attrs}</div>`;
+    <div>${hhmm(s.start_ts, true)} → ${s.end_ts ? hhmm(s.end_ts, true) : "now"} · <b>${dur(d)}</b> · ${s.attrs.blocked !== undefined ? `<b style="color:#d03b3b">stopped since ${hhmm(String(s.attrs.blocked_at), true)}</b>` : s.status}</div>${attrs}</div>`;
 }
 
 export function SpanLegend({ kinds }: { kinds: string[] }) {
@@ -180,6 +182,7 @@ export function SpanLegend({ kinds }: { kinds: string[] }) {
       })}
       <span><span className="sw" style={{ background: "#fff", border: "1px dashed #0b0b0b" }} />running now</span>
       <span><span className="sw" style={{ background: "#fff", border: "2px solid #d03b3b" }} />failed</span>
+      <span><span className="sw" style={{ background: "#fae3e3", border: "1.5px solid #d03b3b" }} />stopped by an error</span>
     </div>
   );
 }

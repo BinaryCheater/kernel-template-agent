@@ -242,7 +242,93 @@ Status: assistant's design (D348, needs the user's review). Every control posts 
 | Improvement `/improvement` | Is the system getting better? | stacked bars of Gap attribution per day | attribution legend with meanings; improvement reports with items and approval |
 | Agents `/agents` | What controls the worker agents? | runtime skills × task types matrix (current profile) and skill cards | profile versions as a timeline with changed fields; pointer history; batch environments with their lock and verify state |
 
-## 7. Open questions for the user
+## 7. Supervision views (WP25, D660–D667)
+
+Status: assistant's design built on the user's direction of 2026-11-01 (quoted below); the
+page split, the layouts and the controls' exact behaviour need the user's review. It replaces
+§2's navigation and §3.1's Overview; the other pages of §3 and §6 keep their content.
+
+User direction: the frontend exists so the user can quickly grasp what the system is doing,
+what it did and what came of it, without following every back-end step; the home page should
+show which steps run and where the work stands, not a static picture; the order on screen
+should follow how a person reads and how the system runs, with full logs reachable deeper;
+logic relationships should be clear; there must be control buttons (one step, one round,
+continuous); prompts and settings stay editable, and long settings must be editable in place.
+
+### 7.1 What a person needs to see, and where it is
+
+| Question | Data | View |
+| --- | --- | --- |
+| Is it moving, is anything stopped, what needs me? | loop states, `blocked`, pauses, inbox, agent slots, GPU lease, workers, last event | Home status line |
+| Where is each case and reference? | solve/expand instances and their states | Home loop maps |
+| What did a case do in each round, what changed, how good is it? | round steps, families used, candidate funnel, predicted vs measured vs bound, judgement, tasks and what they produced | Case page round cards |
+| What happened, in order, and why? | records, loop steps, jobs, task changes, stops, human actions | Activity (journal) |
+| Where did the time go? | spans | Pipeline (unchanged, plus stopped steps) |
+| What has the system learned? | Patterns, Templates, Families, assurance | Knowledge group (Families, Pool with its guide, Coverage, cost model) |
+| What can I change? | controls, prompts and profiles, release stage | Control group (Settings, Agent workflow and prompts, …) |
+
+### 7.2 Navigation
+
+Always shown: **Home, Activity, Pipeline, Cases**. Collapsible groups (open when one of their
+pages is active, or on click; the choice is remembered per browser): **Knowledge** (Families,
+Pool, Coverage, Cost model, Model scoreboard), **Control** (Needs you with its badge, Settings,
+Agent workflow and prompts, Agent skills and profiles, Release stage, Actions log),
+**Studies** (Experiments, Improvement, Mechanisms). Running stays reachable from Home.
+
+### 7.3 Home
+
+1. Status line: overall state in words (n loops stopped by an error / moving / everything
+   paused / idle), stage, open cases and references, agents busy, jobs, GPU, workers, time
+   since the last event, a link to what needs you. A stopped loop is never shown as running.
+2. Loop maps, solve then expand: the main path is derived from machines.yaml (from the
+   initial state, the first forward transition, skipping terminals and side waits that are
+   left by `resume`); side states and terminals sit in a row below with "entered from" and
+   "then". Under each state: the conditions that send work elsewhere (`→ waiting none legal
+   T1`, judging's rules ①–⑥). Every live instance is a chip on its state (blue moving, amber
+   waiting, red stopped, grey paused); clicking a state opens its panel: what it does, who does
+   it, every exit with its condition and created task, the instances there with their error
+   or awaited task and the loop controls. The stopped state opens by itself.
+3. Agent tasks by lifecycle state (a line when there are none).
+4. Bottom: recent milestones (journal), needs-you with controls, machine resources, the
+   45-minute pipeline strip.
+
+### 7.4 Loop controls
+
+`Step` (one step now, also while the loop is paused: hand-stepping), `Round` (until the round
+is judged or the loop waits, ends or stops), `Run` (resume; the loop's process advances it,
+and the reply says if that process is not running), `Pause`, and `Retry step` instead of Step
+and Round when the loop is stopped by an error. No dialog: each click writes a HumanAction with
+an empty reason; the result shows next to the buttons. Irreversible operations (reject,
+deprecate, cancel) keep their dialog (§6.1).
+
+### 7.5 Case page
+
+Header (state, condition, round of max, controls, best result link) → stop notice with what
+Retry does → one card per shape bucket (bound with bottleneck, best, strongest reference, a
+bar with the bound as a hatched floor) → "Runs with" (family chain as Template pills with
+assurance dots, cost model, hardware model, controls version) → rounds, newest first. A round
+card: a one-sentence account of the round (judged by which rule and what it handed on, or
+where and why it stopped), the step path sized by duration, then five columns: used,
+searched, built and checked (funnel), measured vs predicted vs bound per bucket, judged and
+what changed (tasks, their rejections, records they produced). Candidates and steps are
+collapsed inside the newest card. Below: the case's activity, gaps and references.
+
+### 7.6 Activity
+
+`GET /journal` lines grouped by day: time, tone dot, text, case link, actor. Milestones by
+default, Everything on request, filter by case, Older pages back. A line opens its record;
+task lines link to the task. Kinds without a phrase are listed at the end.
+
+### 7.7 Settings and Pool
+
+Settings: one row per knob in three columns (what it is and prevents; the editor; status,
+source, id, where, who sets it); mappings and per-task-type values are edited key by key,
+lists one per line, anything else as text with "edit as JSON"; a filter and section links on
+top; changed rows highlighted with undo; the save bar with the reason stays at the bottom.
+Pool: a guide on top (Pattern → refined by → Template → chained into → Family; Structure,
+Reference, Gap; the assurance scale), closable.
+
+## 8. Open questions for the user
 
 - Is the Overview's split (solve loop large, expand + task lifecycle small) the right emphasis?
 - Should Pipeline be a top-level page (as now) or a tab inside Case / Running?

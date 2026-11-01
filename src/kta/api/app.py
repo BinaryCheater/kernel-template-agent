@@ -17,6 +17,7 @@ from kta.api import (
     auth,
     controls,
     events,
+    journal,
     mechanisms,
     read,
     system,
@@ -40,6 +41,7 @@ def create_app(api: Api) -> FastAPI:
     app = FastAPI(title="KTA API", docs_url="/docs", redoc_url=None)
     app.include_router(read.router(api))
     app.include_router(events.router(api))
+    app.include_router(journal.router(api))
     app.include_router(views.router(api))
     app.include_router(actions.router(api))
     app.include_router(auth.router(api))

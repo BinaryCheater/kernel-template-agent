@@ -17,8 +17,9 @@ from kta.core.ids import record_id
 from kta.core.schemas import Actor, Record
 from kta.models import bound, min_work
 from kta.orchestrator import control
+from kta.orchestrator.machines import machine
 from kta.orchestrator.pipeline import Services, bucket_shape, case_view
-from kta.orchestrator.runner import Runner
+from kta.orchestrator.runner import PROCESS_OF, Runner
 from kta.orchestrator.tasks import TaskQueue
 from kta.orchestrator.transition import TaskRequest
 
@@ -28,6 +29,13 @@ AGENTS_SIDE = {
     "env-verify": "kta.agents.batches.verify (agents, layer 8)",
     "write-record": "kta.agents.guard.verify_task_token (agents, layer 8)",
 }
+# How a human advances a loop (WP25, D664): one step, until the round ends, or continuously
+# (the loop's process takes over); ``retry`` clears a blocked mark and takes one step.
+ADVANCE_MODES = ("step", "round", "run", "retry")
+# "Advance one round" stops after this many steps even if the round has not ended: a guard
+# against a loop that cycles without closing its round (not a research knob).
+ROUND_STEP_CAP = 40
+
 # Records a re-verification can act on: the Solution itself, or what a Solution rests on.
 SOLUTION_REFS = ("measurement", "check", "bound")
 
@@ -187,6 +195,57 @@ class Operations:
 
     def resume(self, scope: str, reason: str, human: Actor) -> dict[str, Any]:
         return self._pause(scope, False, reason, human)
+
+    def advance_action(self, loop_id: str, mode: str, reason: str, human: Actor) -> dict[str, Any]:
+        """Check and record a human's advance request; the work is ``advance_work``.
+
+        ``run`` resumes the loop so its process advances it; the reply says whether that
+        process is running (``process_running``), since nothing moves otherwise."""
+        if mode not in ADVANCE_MODES:
+            raise ConfigError(f"advance mode {mode!r}; one of {', '.join(ADVANCE_MODES)}")
+        row = self.svc.ops.get_loop(loop_id)
+        params = json.dumps({"loop": loop_id, "mode": mode}, sort_keys=True)
+        action = _action(self.svc, human, f"advance {params}", reason, {"subject": row["subject"]})
+        out: dict[str, Any] = {"loop": loop_id, "mode": mode, "action": action}
+        if mode == "retry" and row["data"].get("blocked"):
+            data = {**row["data"], "blocked": None, "infra_failures": 0}
+            self.svc.ops.put_loop(loop_id, row["kind"], row["subject"], row["state"], data)
+        if mode == "run":
+            scope = f"loop:{loop_id}"
+            if control.is_paused(self.svc.ops, scope):
+                control.set_paused(
+                    self.svc.ops, scope, False, reason, human.name, self.svc.ctx.clock.now()
+                )
+            process = PROCESS_OF[row["kind"]]
+            out["process"] = process
+            out["process_running"] = self.svc.ops.lock_holder(f"process:{process}") is not None
+        return out
+
+    def advance_work(self, loop_id: str, mode: str, holder: str) -> list[dict[str, Any]]:
+        """Take the steps of ``advance_action``'s request (``step``/``retry``: one;
+        ``round``: until the round number changes, the loop waits, ends, blocks or does not
+        move). Returns the transitions taken."""
+        if mode == "run":
+            return []
+        runner = Runner(self.svc, holder)
+        start_round = self.svc.ops.get_loop(loop_id)["data"].get("round")
+        taken: list[dict[str, Any]] = []
+        for _ in range(1 if mode in ("step", "retry") else ROUND_STEP_CAP):
+            t = runner.advance(loop_id, manual=True)
+            if t is None:
+                break
+            taken.append(
+                {"from": t.src, "to": t.to, "kind": t.kind, "rule": t.rule, "note": t.note}
+            )
+            row = self.svc.ops.get_loop(loop_id)
+            if (
+                row["data"].get("round") != start_round
+                or row["data"].get("waiting_on")
+                or row["data"].get("blocked")
+                or machine(row["kind"]).terminal(row["state"])
+            ):
+                break
+        return taken
 
     def request_reverify(self, record: str, reason: str, human: Actor) -> dict[str, Any]:
         reverifiable(self.svc, record)  # refuse before writing the HumanAction

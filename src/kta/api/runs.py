@@ -10,10 +10,20 @@ import json
 from datetime import datetime, timedelta
 from typing import Any
 
-from kta.api import opsread
-from kta.api.common import Api, body, controls, done_check_reports, iso, machine_limit
+from kta.api import operate, opsread
+from kta.api.common import (
+    Api,
+    body,
+    controls,
+    done_check_reports,
+    iso,
+    machine_limit,
+    machines,
+)
 from kta.orchestrator import quotas
+from kta.orchestrator.control import paused_scope
 from kta.store.base import SpanRow
+from kta.store.sqlite import RecordNotFound
 
 RECENT = timedelta(hours=2)
 JOB_KINDS = {"compile", "check", "measure", "profile", "solve", "job_run", "job_queue"}
@@ -58,11 +68,14 @@ def task_view(api: Api, t: opsread.TaskRow, sessions: dict[str, SpanRow]) -> dic
 
 def loop_view(api: Api, row: opsread.LoopRow) -> dict[str, Any]:
     d = row.data
+    name = d.get("name")
+    if not name or name == row.subject[:12]:  # the runner's placeholder is the id prefix
+        name = _subject_name(api, row.subject)
     return {
         "id": row.id,
         "machine": row.kind,
         "subject": row.subject,
-        "subject_name": d.get("name") or _subject_name(api, row.subject),
+        "subject_name": name,
         "state": row.state,
         "round": d.get("round"),
         "max_rounds": machine_limit(api, row.kind, "max_rounds"),
@@ -70,13 +83,31 @@ def loop_view(api: Api, row: opsread.LoopRow) -> dict[str, Any]:
         "state_since": d.get("state_since") or iso(row.updated_at),
         "waiting_on": d.get("waiting_on"),
         "escalated": bool(d.get("escalated")),
+        # WP25 (D663): a blocked or paused loop is not working, whatever its state says.
+        "blocked": d.get("blocked"),
+        "paused": paused_scope(
+            api.ops, [f"loop:{row.id}", f"process:{_process(row.kind)}", "global"]
+        ),
+        "advancing": operate.advancing().get(row.id),
         "trace_id": row.id,
     }
 
 
+def _process(machine: str) -> str:
+    """The process a loop machine runs in (machines.yaml ``process``)."""
+    return next((str(m["process"]) for m in machines()["machines"] if m["id"] == machine), machine)
+
+
 def _subject_name(api: Api, subject: str) -> str:
     b = body(api, subject)
-    return str(b.get("name") or b.get("problem") or subject[:12])
+    if b.get("name"):
+        return str(b["name"])
+    if b.get("problem"):  # a Case is named by its Problem
+        try:
+            return str(body(api, b["problem"]).get("name") or subject[:12])
+        except RecordNotFound:
+            return str(b["problem"])
+    return subject[:12]
 
 
 def _sessions(spans: list[SpanRow]) -> dict[str, SpanRow]:
