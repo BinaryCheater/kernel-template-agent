@@ -329,14 +329,27 @@ def work_building(svc: Services, loop: Loop) -> Facts:
         kept = {c.key for c in rerank(list(cands.values()), by_key, model, hw, k=k)}
         top[name] = [cid for cid, c in cands.items() if c.key in kept]
         arms[name] = {cid: "model" for cid in top[name]}
-        for arm, cids in extra.items():
-            for cid in proofgate.control_gate(svc, family, fp, hw, _bucket(loop, name), cids):
-                a = CandidateBody.model_validate(svc.store.get(cid).body).assignment
-                build, module = pipeline.build(svc, pipeline.generate(fp, a, shape))
-                builds[cid] = module.build_id
-                if build.ok:
-                    top[name].append(cid)
-                    arms[name][cid] = arm
+        wanted = [
+            (arm, cid)
+            for arm, cids in extra.items()
+            for cid in proofgate.control_gate(svc, family, fp, hw, _bucket(loop, name), cids)
+        ]
+
+        def control(
+            item: tuple[str, str], shape: dict[str, Any] = shape
+        ) -> tuple[str, str, Build, Any]:
+            arm, cid = item
+            a = CandidateBody.model_validate(svc.store.get(cid).body).assignment
+            build, module = pipeline.build(svc, pipeline.generate(fp, a, shape))
+            return arm, cid, build, module
+
+        with ThreadPoolExecutor(max_workers=max(1, s.build_width)) as pool:
+            controlled = list(pool.map(control, wanted))
+        for arm, cid, build, module in controlled:
+            builds[cid] = module.build_id
+            if build.ok:
+                top[name].append(cid)
+                arms[name][cid] = arm
     return {"top": top, "builds": builds, "family": family, "arm_of": arms}
 
 
