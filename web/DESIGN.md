@@ -346,7 +346,7 @@ assurance with a counterexample flag. A row opens the Template's page: header (n
 assurance, summary, level span, refines → produces, source link, where it appears); main
 column What it does / Knobs / Rules / Cost it declares; side column Applies when / Checks
 (each condition and obligation in words with the checker outcome and its reason) / Related
-templates / Versions / Raw record (collapsed). Records elsewhere open in the drawer, named by
+templates / Versions / Raw record (collapsed); a divider between the columns drags to set the side width (remembered per browser, double-click resets). Records elsewhere open in the drawer, named by
 kind and name; hashes in a body show as the linked record's name; "Open as page" keeps it.
 An empty tab states what it will show and why it is empty.
 

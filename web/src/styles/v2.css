@@ -300,8 +300,12 @@ code.expr.block { display: block; padding: 8px 10px; white-space: pre-wrap; }
 .pat { font: 12.5px var(--mono); background: #eef0fb; color: #2d3a8c; padding: 1px 6px; border-radius: 4px; }
 .pill { font-size: 12.5px; border: 1px solid var(--hairline); border-radius: 10px; padding: 1px 8px; background: #fff; }
 .pill.fam { border-color: #9ec5f4; color: #184f95; }
-.tp-grid { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(320px, 1fr); gap: 16px; align-items: start; }
-@media (max-width: 1100px) { .tp-grid { grid-template-columns: 1fr; } }
+.tp-grid { display: grid; gap: 0 6px; align-items: stretch; }
+.tp-grid > .stack { align-self: start; min-width: 0; }
+.tp-split { cursor: col-resize; position: relative; touch-action: none; }
+.tp-split::before { content: ""; position: absolute; top: 0; bottom: 0; left: 4px; width: 2px; border-radius: 1px; background: var(--hairline); }
+.tp-split:hover::before { background: #5a6fd6; }
+@media (max-width: 900px) { .tp-grid { grid-template-columns: 1fr !important; } .tp-split { display: none; } }
 .tsec .body { display: flex; flex-direction: column; gap: 10px; }
 .tp-obj { line-height: 1.5; }
 pre.prog { margin: 0; white-space: pre-wrap; font: 12.5px/1.6 var(--mono); background: var(--panel-sunk); padding: 10px 12px; border-radius: 6px; }

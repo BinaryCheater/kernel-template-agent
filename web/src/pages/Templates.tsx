@@ -1,7 +1,7 @@
 // Templates (WP25, D671): every learned refinement step in one list, filtered by level, by
 // where it was learned and by how far it is checked; a row opens the Template's own page,
 // which renders the body as sections (what it does, knobs, rules, cost, checks) instead of JSON.
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type PointerEvent, type ReactNode } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { api } from "../data/source";
 import type { PoolTemplate, TemplateBody, TemplatePage as Page, TemplateProof, TplVar } from "../data/types";
@@ -174,7 +174,7 @@ function TemplateView({ p }: { p: Page }) {
         </div>
       </div>
 
-      <div className="tp-grid">
+      <Split>
         <div className="stack">
           <Sec title="What it does">
             <div className="tp-obj"><span className="pat">{b.object.type}</span> {b.object.description}</div>
@@ -265,7 +265,42 @@ function TemplateView({ p }: { p: Page }) {
             <pre className="json">{JSON.stringify(b, null, 2)}</pre>
           </details>
         </div>
-      </div>
+      </Split>
+    </div>
+  );
+}
+
+const SIDE_KEY = "kta-template-side";
+const SIDE_DEFAULT = 420;
+
+/** Two columns with a divider the reader drags to set the side column's width; the width is
+ *  remembered per browser, and a double click on the divider restores the default. */
+function Split({ children }: { children: [ReactNode, ReactNode] }) {
+  const box = useRef<HTMLDivElement>(null);
+  const [side, setSide] = useState(() => {
+    try { return Number(localStorage.getItem(SIDE_KEY)) || SIDE_DEFAULT; } catch { return SIDE_DEFAULT; }
+  });
+  const keep = (w: number) => {
+    setSide(w);
+    try { localStorage.setItem(SIDE_KEY, String(w)); } catch { /* width is a convenience */ }
+  };
+  const drag = (e: PointerEvent<HTMLDivElement>) => {
+    const el = box.current;
+    if (!el) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    const move = (m: globalThis.PointerEvent) => {
+      const r = el.getBoundingClientRect();
+      keep(Math.round(Math.min(Math.max(r.right - m.clientX, 280), r.width - 380)));
+    };
+    const up = () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  };
+  return (
+    <div className="tp-grid" ref={box} style={{ gridTemplateColumns: `minmax(0, 1fr) 10px ${side}px` }}>
+      {children[0]}
+      <div className="tp-split" onPointerDown={drag} onDoubleClick={() => keep(SIDE_DEFAULT)} title="Drag to resize; double-click to reset" />
+      {children[1]}
     </div>
   );
 }
