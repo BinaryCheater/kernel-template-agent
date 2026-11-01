@@ -48,6 +48,8 @@ class Reference:
     result: JobResult
     outputs: list[dict[str, np.ndarray[Any, Any]]]  # per input set
     compute: str
+    # per input set, the statement run in the inputs' own dtype (library=True, D695)
+    library: list[dict[str, np.ndarray[Any, Any]]] | None = None
 
 
 def reference(
@@ -56,6 +58,7 @@ def reference(
     shape: dict[str, Any],
     sets: list[dict[str, bytes]],
     compute: str = "f64",
+    library: bool = False,
 ) -> Reference:
     if problem.reference_impl.startswith("none"):
         raise NotSupported(f"problem {problem.name} has no reference: {problem.reference_impl}")
@@ -80,6 +83,7 @@ def reference(
         },
         "outputs": [t.name for t in problem.outputs],
         "sets": files,
+        "library": library,
     }
     job_inputs["ref.json"] = c.ex.put_blob(json.dumps(spec).encode(), "application/json")
     job = Job(
@@ -101,4 +105,13 @@ def reference(
             raw = c.ex.read_blob(result.outputs[f"{t.name}.s{i}.bin"])
             got[t.name] = np.frombuffer(raw, dtype=np.float64).reshape(inp.dims(t, shape))
         outs.append(got)
-    return Reference(result, outs, compute)
+    lib: list[dict[str, np.ndarray[Any, Any]]] | None = None
+    if library:
+        lib = []
+        for i in range(len(sets)):
+            low: dict[str, np.ndarray[Any, Any]] = {}
+            for t in problem.outputs:
+                raw = c.ex.read_blob(result.outputs[f"{t.name}.lib.s{i}.bin"])
+                low[t.name] = np.frombuffer(raw, dtype=np.float64).reshape(inp.dims(t, shape))
+            lib.append(low)
+    return Reference(result, outs, compute, lib)

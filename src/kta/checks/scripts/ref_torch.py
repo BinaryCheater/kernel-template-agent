@@ -17,15 +17,30 @@ import torch
 def main(path: str) -> int:
     spec = json.load(open(path, encoding="utf-8"))
     compute = {"f64": torch.float64, "f32": torch.float32}[spec["compute"]]
+    # SYSDEBUG-2 (D695): with "library", the same statement also runs on the inputs in their
+    # own dtype (e.g. FP16 through cuBLAS), with reduced-precision reductions off, so the
+    # checker can ask how far a correct same-precision implementation is from the reference.
+    library = bool(spec.get("library"))
+    if library:
+        torch.backends.cuda.matmul.allow_fp16_reduced_precision_reduction = False
+        torch.backends.cuda.matmul.allow_bf16_reduced_precision_reduction = False
     for i, files in enumerate(spec["sets"]):
         scope = {"torch": torch, **spec["shape"]}
+        low = {"torch": torch, **spec["shape"]}
         for name, t in spec["inputs"].items():
             arr = np.fromfile(files[name], dtype=t["dtype"]).reshape(t["dims"])
             scope[name] = torch.from_numpy(arr.astype(np.float64)).to("cuda", compute)
+            if library:
+                low[name] = torch.from_numpy(arr.copy()).to("cuda")
         exec(spec["statement"], scope)
         for name in spec["outputs"]:
             out = scope[name].to(torch.float64).cpu().numpy()
             out.tofile(f"out/{name}.s{i}.bin")
+        if library:
+            exec(spec["statement"], low)
+            for name in spec["outputs"]:
+                out = low[name].to(torch.float64).cpu().numpy()
+                out.tofile(f"out/{name}.lib.s{i}.bin")
     torch.cuda.synchronize()
     return 0
 

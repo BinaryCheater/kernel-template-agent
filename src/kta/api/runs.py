@@ -20,6 +20,7 @@ from kta.api.common import (
     machine_limit,
     machines,
 )
+from kta.core.errors import KtaError
 from kta.orchestrator import quotas, release
 from kta.orchestrator.control import paused_scope
 from kta.store.base import SpanRow
@@ -66,6 +67,23 @@ def task_view(api: Api, t: opsread.TaskRow, sessions: dict[str, SpanRow]) -> dic
     }
 
 
+def _held(api: Api, task_id: Any) -> dict[str, Any] | None:
+    """The waited-on task's state and, when it is queued but may not start, why."""
+    if not task_id:
+        return None
+    try:
+        t = api.ops.task(str(task_id))
+    except KtaError:
+        return None
+    if t.state != "queued":
+        return {"task": t.id, "state": t.state, "reason": None}
+    return {
+        "task": t.id,
+        "state": t.state,
+        "reason": release.hold_reason(api.ops, t, controls(api)),
+    }
+
+
 def loop_view(api: Api, row: opsread.LoopRow) -> dict[str, Any]:
     d = row.data
     name = d.get("name")
@@ -89,6 +107,8 @@ def loop_view(api: Api, row: opsread.LoopRow) -> dict[str, Any]:
             api.ops, [f"loop:{row.id}", f"process:{_process(row.kind)}", "global"]
         ),
         "advancing": operate.advancing().get(row.id),
+        # SYSDEBUG-2 (D699): waiting for a task that may not start is not "running".
+        "held": _held(api, d.get("waiting_on")),
         "chain": _chain(api, d),
         "trace_id": row.id,
     }
@@ -292,13 +312,14 @@ def inbox(api: Api) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
     for item in api.orchestration.inbox():
         kind, _, key = str(item["id"]).partition(":")
-        task = rows.get(key) if kind == "task" else None
+        task = rows.get(key) if kind in ("task", "held") else None
+        detail = _last_rejection(api, task.id) if task and kind == "task" else None
         out.append(
             {
                 **item,
                 "task": task.id if task else None,
                 "at": iso(task.updated_at) if task else None,
-                "detail": _last_rejection(api, task.id) if task else None,
+                "detail": detail if kind != "held" else item["subject"],
                 "actions": INBOX_ACTIONS.get(str(item["trigger"]), []),
             }
         )

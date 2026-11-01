@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import Field
+from pydantic import Field, SerializerFunctionWrapHandler, model_serializer
 
 from kta.core.schemas.common import Body, Unit
 
@@ -33,6 +33,20 @@ class Contract(Body):
     input_dists: list[str] = Field(default_factory=lambda: list[str]())
     edge_shapes: list[dict[str, Any]] = Field(default_factory=lambda: list[dict[str, Any]]())
     timing_boundary: str
+    # The shapes the kernel is accountable for (SYSDEBUG-2, D696): {"kind": "static"} = only
+    # the Case's own shapes (no hidden or edge shapes outside them); {"kind": "range",
+    # "ranges": {"M": [lo, hi], ...}} = any shape inside the ranges. Empty = not declared
+    # (every edge and hidden shape is checked, the behaviour before D696).
+    shape_scope: dict[str, Any] = Field(default_factory=lambda: dict[str, Any]())
+
+    @model_serializer(mode="wrap")
+    def _drop_undeclared_scope(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        # An undeclared scope is left out, so Contracts written before D696 keep their
+        # serialised form (and hash: the full check compares the Case's Contract by hash).
+        out: dict[str, Any] = handler(self)
+        if not out.get("shape_scope"):
+            out.pop("shape_scope", None)
+        return out
 
 
 class Case(Body):

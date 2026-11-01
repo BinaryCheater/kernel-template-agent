@@ -5,6 +5,15 @@ NaN-filled, and one reference job computes the same inputs in FP64. Criterion pe
 element: ``|y - ref| <= atol + rtol * |ref|`` (NaN where the reference is finite fails),
 and the relative L2 error ``||y - ref|| / ||ref||`` must stay within ``rel_l2`` when the
 Contract gives one. Hidden shapes are reported by category only.
+
+Library-relative acceptance (SYSDEBUG-2, D695): when the Contract's tolerance for a dtype
+says ``relative_to: library``, the reference job also runs the statement in the inputs' own
+dtype (the library: cuBLAS for ``A @ B``), and a candidate passes at ``level`` (``loose`` for
+the quick check before measuring, ``strict`` for the full check of a round's best) when its
+relative L2 and largest absolute error stay within ``factor`` times the library's own, with
+small floors so a library that is exact does not make every rounding a failure. Non-finite
+output where the reference is finite always fails. The fixed element-wise counts are kept
+as information.
 """
 
 from __future__ import annotations
@@ -56,6 +65,37 @@ def _compare(
     }
 
 
+def relative_to_library(tol: dict[str, Any]) -> bool:
+    return str(tol.get("relative_to", "")) == "library"
+
+
+def library_verdict(
+    stats: dict[str, Any], lib: dict[str, Any], tol: dict[str, Any], level: str
+) -> tuple[bool, dict[str, Any]]:
+    """Pass/fail of a candidate's ``stats`` against the library's ``lib`` at ``level``."""
+    factor = float(tol.get(level, 2.0))
+    l2_floor = float(tol.get("rel_l2_floor", 1e-6))
+    abs_floor = float(tol.get("abs_floor", 1e-3))
+    l2_limit = max(factor * float(lib["rel_l2"] or 0.0), l2_floor)
+    abs_limit = max(factor * float(lib["max_abs_err"]), abs_floor)
+    ok = (
+        stats["nonfinite_where_ref_finite"] == 0
+        and stats["rel_l2"] is not None
+        and stats["rel_l2"] <= l2_limit
+        and stats["max_abs_err"] <= abs_limit
+    )
+    detail = {
+        "level": level,
+        "factor": factor,
+        "rel_l2_limit": l2_limit,
+        "max_abs_limit": abs_limit,
+        "library_rel_l2": lib["rel_l2"],
+        "library_max_abs_err": lib["max_abs_err"],
+        "library_mismatches": lib["mismatches"],
+    }
+    return ok, detail
+
+
 def tolerance(contract: Contract, dtype: str) -> dict[str, Any]:
     if dtype not in contract.tolerances:
         raise ConfigError(f"the Contract has no tolerance for dtype {dtype}")
@@ -71,8 +111,12 @@ def run_numeric(
     shape: dict[str, Any],
     shown: str | None,
     dists: list[str],
+    level: str | None = None,
 ) -> None:
-    """Append the failures of ``module`` at ``shape``; ``shown`` replaces a hidden shape."""
+    """Append the failures of ``module`` at ``shape``; ``shown`` replaces a hidden shape.
+
+    ``level`` (``loose`` / ``strict``) applies library-relative acceptance to every output
+    whose tolerance asks for it (D695); None keeps the fixed element-wise criterion."""
     where: dict[str, Any] = {"shape": shape} if shown is None else {"shape_class": shown}
     sets: list[dict[str, bytes]] = []
     for dist in dists:
@@ -108,8 +152,11 @@ def run_numeric(
             }
         )
         return
+    lib_wanted = level is not None and any(
+        relative_to_library(tolerance(contract, o.dtype)) for o in problem.outputs
+    )
     try:
-        ref = reference.reference(c, problem, shape, sets)
+        ref = reference.reference(c, problem, shape, sets, library=lib_wanted)
     except (CheckerError, ExecutionError) as exc:
         ev.error("numeric.reference", str(exc))
         return
@@ -122,7 +169,16 @@ def run_numeric(
             stats = compare_output(got, ref.outputs[i][t.name], tol)
             limit = tol.get("rel_l2")
             l2 = stats["rel_l2"]
-            if stats["mismatches"] or (limit is not None and (l2 is None or l2 > float(limit))):
+            extra: dict[str, Any] = {}
+            if level is not None and relative_to_library(tol) and ref.library is not None:
+                lib = compare_output(ref.library[i][t.name], ref.outputs[i][t.name], tol)
+                ok, extra = library_verdict(stats, lib, tol, level)
+                failed = not ok
+            else:
+                failed = bool(stats["mismatches"]) or (
+                    limit is not None and (l2 is None or l2 > float(limit))
+                )
+            if failed:
                 ev.failures.append(
                     {
                         "check": "numeric",
@@ -132,12 +188,12 @@ def run_numeric(
                         **stats,
                         "rtol": tol["rtol"],
                         "atol": tol["atol"],
-                        "rel_l2_limit": limit,
+                        **({"rel_l2_limit": limit} if not extra else extra),
                     }
                 )
             if shown is None:
                 ev.detail.setdefault("results", []).append(
-                    {"shape": shape, "dist": dist, "output": t.name, **stats}
+                    {"shape": shape, "dist": dist, "output": t.name, **stats, **extra}
                 )
 
 

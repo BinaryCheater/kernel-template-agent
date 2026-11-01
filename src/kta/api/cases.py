@@ -27,6 +27,7 @@ from kta.api.common import (
 from kta.api.common import (
     record_ids as _ids,
 )
+from kta.core.ids import record_id
 from kta.orchestrator.control import paused_scope
 from kta.store.base import SpanRow
 
@@ -173,6 +174,8 @@ def _rounds(api: Api, loop_id: str | None, case_id: str) -> list[dict[str, Any]]
     tasks = [t for t in opsread.tasks(api.ops) if t.work_unit == loop_id]
     loop_data = next((lp.data for lp in opsread.loops(api.ops) if lp.id == loop_id), {})
     outcomes = {int(body(api, r)["data"].get("round", 0)): r for r in _judgements(api, case_id)}
+    jobs = [s for s in api.ops.spans(trace_id=loop_id, limit=20000) if s.kind == "job_run"]
+    events = _loop_events(api, loop_id)
     rounds = []
     for n in sorted(steps):
         ss = sorted(steps[n], key=lambda s: s.start_ts)
@@ -188,9 +191,14 @@ def _rounds(api: Api, loop_id: str | None, case_id: str) -> list[dict[str, Any]]
                         "start": iso(s.start_ts),
                         "end": iso(s.end_ts),
                         "note": s.attrs.get("note"),
+                        "work": _step_work(jobs, s.start_ts, s.end_ts),
+                        "events": [
+                            e for e in events if _within(e["at"], iso(s.start_ts), iso(s.end_ts))
+                        ],
                     }
                     for s in ss
                 ],
+                "checks": _check_reasons(api, loop_data),
                 "tasks": [_round_task(api, t) for t in mine],
                 "summary": _round_summary(api, case_id, iso(lo), iso(hi), loop_data),
                 "outcome": {
@@ -463,6 +471,7 @@ def timeline(api: Api, case_id: str) -> dict[str, Any]:
             }
         )
     gaps = incoming(api, case_id, "case", "Gap")
+    rounds = _rounds(api, s["loop_id"], case_id)
     inputs = {
         "families": [pool.family_summary(api, f) for f in d.get("families", [])],
         "model": d.get("model"),
@@ -476,11 +485,13 @@ def timeline(api: Api, case_id: str) -> dict[str, Any]:
         ),
         "references": refs_,
         "best": best,
-        "rounds": _rounds(api, s["loop_id"], case_id),
+        "rounds": rounds,
         "buckets": buckets,
         "candidates": candidates,
         "gaps": [{"id": g, "description": body(api, g)["description"]} for g in gaps],
         "inputs": inputs,
+        "standard": _standard(api, case_id),
+        "anomalies": _anomalies(api, d, buckets, rounds),
     }
 
 
@@ -622,3 +633,168 @@ def _result(api: Api, sol: str) -> dict[str, Any]:
         "assurance": proofview.result_assurance(api, fam, cand, numeric, sass, build),
         "refs": refs(api, sol),
     }
+
+
+# ---- what each step ran, and why checks failed (SYSDEBUG-2, D700) ----------------------
+
+
+def _within(at: str | None, lo: str | None, hi: str | None) -> bool:
+    return bool(at and lo and lo <= at <= (hi or "9999"))
+
+
+def _step_work(jobs: list[SpanRow], lo: Any, hi: Any) -> list[dict[str, Any]]:
+    """The Executor jobs that ran inside one step, per kind: how many, how they ended, the
+    time they took and how many ran at once (the largest overlap)."""
+    mine = [j for j in jobs if j.start_ts >= lo and (hi is None or j.start_ts <= hi)]
+    kinds: dict[str, list[SpanRow]] = defaultdict(list)
+    for j in mine:
+        kinds[j.name.split(" ", 1)[0]].append(j)
+    out = []
+    for kind, js in sorted(kinds.items()):
+        durs = [(j.end_ts - j.start_ts).total_seconds() for j in js if j.end_ts]
+        edges = sorted([(j.start_ts, 1) for j in js] + [(j.end_ts, -1) for j in js if j.end_ts])
+        now = peak = 0
+        for _, d in edges:
+            now += d
+            peak = max(peak, now)
+        out.append(
+            {
+                "kind": kind,
+                "count": len(js),
+                "failed": sum(j.status == "fail" for j in js),
+                "busy_s": round(sum(durs), 1),
+                "mean_s": round(sum(durs) / len(durs), 2) if durs else None,
+                "max_s": round(max(durs), 1) if durs else None,
+                "max_parallel": peak,
+            }
+        )
+    return out
+
+
+def _loop_events(api: Api, loop_id: str) -> list[dict[str, Any]]:
+    """Blocks of the loop (event log) and the human actions that advanced or retried it."""
+    out: list[dict[str, Any]] = []
+    for e in api.ops.events_for("loops", loop_id):
+        b = e.change.get("blocked")
+        if b:
+            out.append(
+                {
+                    "at": iso(e.at),
+                    "kind": "blocked",
+                    "text": f"stopped in {b.get('state')}: {b.get('error')}: "
+                    f"{str(b.get('message', ''))[:300]}",
+                }
+            )
+    for rec in api.store.query("HumanAction", order="-created_at", limit=2000):
+        action = str(rec.body.get("action", ""))
+        if not action.startswith("advance ") or loop_id not in action:
+            continue
+        out.append(
+            {
+                "at": iso(rec.created_at),
+                "kind": "human",
+                "text": f"{rec.actor.name}: {action.split(' ', 1)[1]} — "
+                f"{rec.body.get('reason', '')}",
+            }
+        )
+    for rec in api.store.query(
+        "Report", {"subject": "measurement_interfered"}, order="-created_at", limit=2000
+    ):
+        out.append(
+            {
+                "at": iso(rec.created_at),
+                "kind": "rejected_measurement",
+                "text": f"measurement not counted: {rec.body.get('summary')}",
+                "record": record_id(rec),
+            }
+        )
+    return sorted(out, key=lambda e: str(e["at"]))
+
+
+def _check_reasons(api: Api, d: dict[str, Any]) -> dict[str, Any]:
+    """The round's checks grouped by failure reason: quick checks (gate before measuring)
+    and full checks (a bucket's best), each reason with the candidates it hit, one
+    example's numbers and the records."""
+    out: dict[str, Any] = {}
+    for level, key in (("quick", "checks"), ("full", "final_checks")):
+        mapping: dict[str, str] = d.get(key) or {}
+        groups: dict[str, dict[str, Any]] = {}
+        passed = 0
+        for chk in mapping.values():
+            b = body(api, chk)
+            if b.get("passed"):
+                passed += 1
+                continue
+            seen: set[str] = set()
+            for f in b.get("failures", []):
+                name = str(f.get("check", "?"))
+                if f.get("dist"):
+                    name += f" · {f['dist']}"
+                g = groups.setdefault(
+                    name, {"reason": name, "candidates": 0, "example": f, "records": []}
+                )
+                if name not in seen:
+                    g["candidates"] += 1
+                    seen.add(name)
+                if len(g["records"]) < 5 and chk not in g["records"]:
+                    g["records"].append(chk)
+        out[level] = {
+            "total": len(mapping),
+            "passed": passed,
+            "reasons": sorted(groups.values(), key=lambda g: -g["candidates"]),
+        }
+    return out
+
+
+def _standard(api: Api, case_id: str) -> dict[str, Any] | None:
+    """The correctness standard the case is checked against: its Contract, and who wrote it."""
+    cref = refs(api, case_id).get("contract")
+    if not isinstance(cref, str):
+        return None
+    rec = api.store.get(cref)
+    return {
+        "record": cref,
+        "written_by": rec.actor.name,
+        "written_at": iso(rec.created_at),
+        **rec.body,
+    }
+
+
+def _anomalies(
+    api: Api, d: dict[str, Any], buckets: list[dict[str, Any]], rounds: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Facts on the page that contradict each other or stop progress, said plainly."""
+    out: list[dict[str, Any]] = []
+    for b in buckets:
+        for name, us in (b.get("references") or {}).items():
+            if us is not None and b.get("bound_us") and us < b["bound_us"]:
+                out.append(
+                    {
+                        "level": "fail",
+                        "text": f"{b['bucket']}: {name} measured {us:.1f} µs, below the lower "
+                        f"bound {b['bound_us']:.1f} µs — the bound is not a bound (hardware "
+                        "peak too low)",
+                        "record": b.get("bound_record"),
+                    }
+                )
+    for r in rounds:
+        q = (r.get("checks") or {}).get("quick") or {}
+        if q.get("total") and not q.get("passed"):
+            out.append(
+                {
+                    "level": "fail",
+                    "text": f"round {r['n']}: none of {q['total']} candidates passed the check "
+                    "before measuring, so none was measured",
+                }
+            )
+        for st in r["steps"]:
+            for w in st.get("work", []):
+                if w["kind"] == "compile" and w["count"] > 4 and w["max_parallel"] <= 1:
+                    out.append(
+                        {
+                            "level": "warn",
+                            "text": f"round {r['n']}: {w['count']} compiles ran one at a time "
+                            f"({w['busy_s']:.0f} s in all)",
+                        }
+                    )
+    return out

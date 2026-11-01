@@ -9,10 +9,11 @@ One family per instance: the best-ranked retrieved family (known issue, WP6 note
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, replace
 from typing import Any
 
-from kta.checks.full import run_full
+from kta.checks.full import run_full, run_quick
 from kta.checks.sass import sass_check
 from kta.core import hostlock
 from kta.core.errors import SchemaError
@@ -303,10 +304,21 @@ def work_building(svc: Services, loop: Loop) -> Facts:
     controls: Mapping[str, Mapping[str, list[str]]] = loop.data.get("arms") or {}
     for name, ids in loop.data["candidates"].items():
         shape = bucket_shape(_bucket(loop, name))
-        cands = {cid: _candidate(svc, cid) for cid in ids}
+        # D697: only the best-predicted compile_count of the shortlist get build feedback,
+        # compiled build_width at a time (the Executor's cpu pool runs them side by side).
+        cands = {cid: _candidate(svc, cid) for cid in ids[: s.compile_count]}
         by_key: dict[str, Build] = {}
-        for cid, c in cands.items():
+
+        def one(
+            item: tuple[str, Candidate], shape: dict[str, Any] = shape
+        ) -> tuple[str, Candidate, Build, Any]:
+            cid, c = item
             build, module = pipeline.build(svc, pipeline.generate(fp, c.assignment, shape))
+            return cid, c, build, module
+
+        with ThreadPoolExecutor(max_workers=max(1, s.build_width)) as pool:
+            done = list(pool.map(one, cands.items()))
+        for cid, c, build, module in done:
             builds[cid] = module.build_id
             by_key[c.key] = build
             if build.ok:
@@ -330,10 +342,11 @@ def work_building(svc: Services, loop: Loop) -> Facts:
 
 def work_checking(svc: Services, loop: Loop) -> Facts:
     checker = svc.checker()
-    small = pipeline.sanitizer_shape(case_view(svc.store, loop.subject))
 
+    # D694: the gate before measuring is the quick check (loose level, the module as built);
+    # the full check runs on each bucket's best measured candidate in judging.
     def check(cv: Any, fp: Any, gk: Any, module: Any, shape: Any, a: Any) -> str:
-        return run_full(
+        return run_quick(
             checker,
             module,
             gk,
@@ -342,10 +355,8 @@ def work_checking(svc: Services, loop: Loop) -> Facts:
             cv.case,
             case_id=cv.id,
             shape=shape,
-            build_for=pipeline.builder(svc, fp, a),
             sass=pipeline.chain_sass(svc.store, fp, a),
             assignment=a,
-            sanitizer_shape=small,
         ).id
 
     checks = each_top(svc, loop, check, "checks")
@@ -398,6 +409,51 @@ def work_measuring(svc: Services, loop: Loop) -> Facts:
     }
 
 
+FINAL_TRIES = 3  # measured candidates, fastest first, given the full check per bucket
+
+
+def _final_checked(
+    svc: Services, loop: Loop, name: str, rows: list[tuple[str, str, Prediction, Measurement]]
+) -> tuple[tuple[str, str, Prediction, Measurement] | None, list[list[str]]]:
+    """The fastest measured candidate of a bucket that passes the full check at the strict
+    level (D694), and the [check, candidate] pairs of those that did not. Results are kept
+    in loop data ``final_checks`` so a resumed judging step does not check twice."""
+    done: dict[str, str] = dict(loop.data.get("final_checks") or {})
+    cv = case_view(svc.store, loop.subject)
+    family = str(loop.data["families"][0])
+    fp = pipeline.family_package(svc, family)
+    shape = bucket_shape(_bucket(loop, name))
+    small = pipeline.sanitizer_shape(cv)
+    failed: list[list[str]] = []
+    for row in rows[:FINAL_TRIES]:
+        cid = row[0]
+        if cid not in done:
+            a = CandidateBody.model_validate(svc.store.get(cid).body).assignment
+            gk = pipeline.generate(fp, a, shape)
+            _, module = pipeline.build(svc, gk)
+            chk = run_full(
+                svc.checker(),
+                module,
+                gk,
+                cv.problem,
+                cv.contract,
+                cv.case,
+                case_id=cv.id,
+                shape=shape,
+                build_for=pipeline.builder(svc, fp, a),
+                sass=pipeline.chain_sass(svc.store, fp, a),
+                assignment=a,
+                sanitizer_shape=small,
+                level="strict",
+            )
+            done[cid] = chk.id
+            checkpoint(svc, loop, final_checks=dict(done))
+        if svc.store.get(done[cid]).body["passed"]:
+            return row, failed
+        failed.append([done[cid], cid])
+    return None, failed
+
+
 def work_judging(svc: Services, loop: Loop) -> Facts:
     cv = case_view(svc.store, loop.subject)
     _, sig = svc.protocol()
@@ -438,7 +494,21 @@ def work_judging(svc: Services, loop: Loop) -> Facts:
             )
             continue
         arms["model"] = [(r[2].total, r[3].median_us) for r in rows]
-        cid, pid, pred, meas = min(rows, key=lambda r: r[3].median_us)
+        best = _final_checked(svc, loop, name, sorted(rows, key=lambda r: r[3].median_us))
+        failed += best[1]
+        if best[0] is None:
+            buckets.append(
+                {
+                    "name": name,
+                    "failed_checks": failed,
+                    "pairs": [],
+                    "best_us": 0.0,
+                    "predicted_us": 0.0,
+                    "bound_us": 0.0,
+                }
+            )
+            continue
+        cid, pid, pred, meas = best[0]
         solver = dict(d.get("solver", {}).get(name, {}))
         units = [
             {"unit": u, "bound_us": bnd.per_unit_us.get(u), "predicted_us": t, "measured_us": None}

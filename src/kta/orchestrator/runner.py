@@ -189,6 +189,9 @@ class Runner:
             "state": loop.state,
         }
         self._put(loop, loop.state, {"blocked": blocked})
+        # SYSDEBUG-2 (D700): keep the block in the event log; loop data only holds the current
+        # one, and a retry clears it, so the case page could not show it afterwards.
+        self.svc.ops.record_event("loops", loop.id, {"blocked": blocked})
         log.error("loop %s blocked in %s: %s", loop.id, loop.state, exc, extra={"loop_id": loop.id})
 
     def _put(self, loop: Loop, state: str, update: Mapping[str, Any]) -> None:

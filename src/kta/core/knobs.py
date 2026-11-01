@@ -196,6 +196,10 @@ class Knobs(ABC):
         return int(self.value("solve.shortlist"))
 
     @property
+    def compile_count(self) -> int:
+        return int(self.value("solve.compile_count"))
+
+    @property
     def solve_time_limit_s(self) -> float:
         return float(self.value("solve.time_limit_s"))
 

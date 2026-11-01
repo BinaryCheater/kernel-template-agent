@@ -7,6 +7,11 @@ knowledge (decision D227). ``full_check`` runs, for the module's own shape, nume
 sanitizer, anti-cheat and SASS checks; numeric checks for every Contract edge shape and
 every hidden shape; and the Contract identity check against the Case record. It writes
 one Check per sub-check and an aggregate Check referencing them.
+
+SYSDEBUG-2 (D694, D696): edge and hidden shapes outside the Contract's ``shape_scope`` are
+skipped and listed; ``quick_check`` is the cheap gate before measuring (numeric on the
+module's own shape with one input distribution at the loose level, anti-cheat, SASS and
+identity; no extra builds), and the full check (strict level) is for a round's best.
 """
 
 from __future__ import annotations
@@ -32,6 +37,8 @@ from kta.core.schemas.knowledge import SassExpect
 from kta.core.schemas.process import Report, StatusChange
 
 NAME = "full_checker"
+QUICK = "quick_checker"
+QUICK_DISTS = ("normal",)
 BuildFor = Callable[[dict[str, Any]], tuple[GeneratedKernel, BuiltModule]]
 
 
@@ -60,6 +67,26 @@ def identity_failures(
     return out
 
 
+def in_scope(
+    shape: dict[str, Any], scope: dict[str, Any], case_shapes: list[dict[str, Any]]
+) -> bool:
+    """Whether ``shape`` is one the Contract holds the kernel accountable for (D696)."""
+    kind = scope.get("kind")
+    if not kind:
+        return True
+    dims = {k: v for k, v in shape.items() if isinstance(v, int) and not isinstance(v, bool)}
+    if kind == "static":
+        return any(all(s.get(k) == v for k, v in dims.items()) for s in case_shapes)
+    if kind == "range":
+        ranges: dict[str, Any] = scope.get("ranges") or {}
+        return all(int(r[0]) <= dims[k] <= int(r[1]) for k, r in ranges.items() if k in dims)
+    raise NotSupported(f"shape_scope kind {kind!r} (expected static or range)")
+
+
+def case_shapes(case: Case) -> list[dict[str, Any]]:
+    return [dict(s.get("shape", {})) for s in case.shape_dist]
+
+
 def _numeric_one(
     c: Checker,
     module: BuiltModule,
@@ -68,13 +95,14 @@ def _numeric_one(
     shape: dict[str, Any],
     shown: str | None,
     dists: list[str],
+    level: str | None = None,
 ) -> Checked:
     ev = Evidence()
-    run_numeric(c, ev, module, problem, contract, shape, shown, dists)
+    run_numeric(c, ev, module, problem, contract, shape, shown, dists, level)
     if shown is None:
-        ev.detail.update({"dists": dists, "ctx_seed": c.seed})
+        ev.detail.update({"dists": dists, "ctx_seed": c.seed, "level": level})
     else:
-        ev.detail = {"shape_class": shown, "dists": dists}
+        ev.detail = {"shape_class": shown, "dists": dists, "level": level}
     return write_check(c, NUMERIC, ev, module.build_id)
 
 
@@ -93,10 +121,11 @@ def run_full(
     assignment: dict[str, Any] | None = None,
     extra_dists: list[str] | None = None,
     sanitizer_shape: dict[str, Any] | None = None,
+    level: str | None = None,
 ) -> Checked:
     """``sanitizer_shape``: run compute-sanitizer on a module built for this (small) shape
     instead of the module's own shape (docs/design/50 §3, decision D285); None keeps the
-    module's shape."""
+    module's shape. ``level``: library-relative acceptance level (D695), None = fixed."""
     if build_for is None:
         raise NotSupported("full_check needs build_for to compile edge and hidden shapes")
     rebuild = build_for
@@ -110,7 +139,9 @@ def run_full(
         except (CheckerError, ExecutionError) as exc:
             agg.error(name, str(exc))
 
-    guarded("numeric", lambda: _numeric_one(c, module, problem, contract, shape, None, dists))
+    guarded(
+        "numeric", lambda: _numeric_one(c, module, problem, contract, shape, None, dists, level)
+    )
     if sanitizer_shape is None:
         guarded("sanitizer", lambda: sanitizer_check(c, module, problem, shape))
     else:
@@ -119,15 +150,18 @@ def run_full(
     guarded("anticheat", lambda: anticheat_check(c, module, gk, problem, shape))
     if sass:
         guarded("sass", lambda: sass_check(c, module, sass, assignment or {}))
-    others = [(e, None) for e in contract.edge_shapes]
+    others: list[tuple[dict[str, Any], str | None]] = [(e, None) for e in contract.edge_shapes]
     seed = hidden.private_seed(c.private_dir)
     others += [(s, cat) for s, cat in hidden.hidden_shapes(seed, shape)]
+    scope, own = contract.shape_scope, case_shapes(case)
+    skipped = [cat or "edge" for s, cat in others if not in_scope(s, scope, own)]
+    others = [(s, cat) for s, cat in others if in_scope(s, scope, own)]
     for other, category in others:
         label = "numeric" if category is None else f"numeric.hidden.{category}"
 
         def one(other: dict[str, Any] = other, category: str | None = category) -> Checked:
             _, m = rebuild(other)
-            return _numeric_one(c, m, problem, contract, other, category, dists)
+            return _numeric_one(c, m, problem, contract, other, category, dists, level)
 
         guarded(label, one)
     agg.failures += identity_failures(c, case, case_id, contract)
@@ -137,8 +171,57 @@ def run_full(
     agg.refs.update({"env": first.refs["env"], "worker": first.refs["worker"]})
     agg.refs["checks"] = [s.id for s in subs]
     agg.refs["case"] = case_id
-    agg.detail = {"sub_checks": {s.id: s.passed for s in subs}, "hidden_shapes": len(others)}
+    agg.detail = {
+        "sub_checks": {s.id: s.passed for s in subs},
+        "hidden_shapes": len(others),
+        "out_of_scope": skipped,
+        "shape_scope": scope,
+        "level": level,
+    }
     return write_check(c, NAME, agg, module.build_id)
+
+
+def run_quick(
+    c: Checker,
+    module: BuiltModule,
+    gk: GeneratedKernel,
+    problem: Problem,
+    contract: Contract,
+    case: Case,
+    *,
+    case_id: str,
+    shape: dict[str, Any],
+    sass: list[SassExpect] | None = None,
+    assignment: dict[str, Any] | None = None,
+    level: str = "loose",
+) -> Checked:
+    """The gate before measuring (D694): cheap, on the module as built, no rebuilds."""
+    wanted = [d for d in QUICK_DISTS if d in contract.input_dists]
+    dists = wanted or dists_for(contract, None)[:1]
+    agg = Evidence()
+    subs: list[Checked] = []
+
+    def guarded(name: str, fn: Callable[[], Checked]) -> None:
+        try:
+            subs.append(fn())
+        except (CheckerError, ExecutionError) as exc:
+            agg.error(name, str(exc))
+
+    guarded(
+        "numeric", lambda: _numeric_one(c, module, problem, contract, shape, None, dists, level)
+    )
+    guarded("anticheat", lambda: anticheat_check(c, module, gk, problem, shape))
+    if sass:
+        guarded("sass", lambda: sass_check(c, module, sass, assignment or {}))
+    agg.failures += identity_failures(c, case, case_id, contract)
+    for s in subs:
+        agg.failures += [{**f, "sub_check": s.id} for f in s.body.failures]
+    first = c.store.get(subs[0].id) if subs else c.store.get(module.build_id)
+    agg.refs.update({"env": first.refs["env"], "worker": first.refs["worker"]})
+    agg.refs["checks"] = [s.id for s in subs]
+    agg.refs["case"] = case_id
+    agg.detail = {"sub_checks": {s.id: s.passed for s in subs}, "dists": dists, "level": level}
+    return write_check(c, QUICK, agg, module.build_id)
 
 
 def full_check(

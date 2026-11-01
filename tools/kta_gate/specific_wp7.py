@@ -98,9 +98,14 @@ def case_findings(root: Path) -> list[str]:
         f"input distribution {d} missing" for d in ("normal", "zeros", "extreme") if d not in dists
     ]
     edges = doc["contract"]["edge_shapes"]
-    if not any(min(e.values()) == 1 for e in edges):
+    # SYSDEBUG-2 (D696): a Contract that declares its shape scope is checked inside it; a
+    # static scope (only the Case's own shapes) needs no edge shapes outside those.
+    scoped = bool((doc["contract"].get("shape_scope") or {}).get("kind"))
+    if not scoped and not any(min(e.values()) == 1 for e in edges):
         out.append("no length-1 edge shape")
-    if not any(any(v % 64 for v in e.values()) and min(e.values()) > 1 for e in edges):
+    if not scoped and not any(
+        any(v % 64 for v in e.values()) and min(e.values()) > 1 for e in edges
+    ):
         out.append("no non-tile-multiple edge shape")
     if "torch.matmul" not in str(doc.get("baseline", {}).get("call", "")):
         out.append("baseline is not torch.matmul")

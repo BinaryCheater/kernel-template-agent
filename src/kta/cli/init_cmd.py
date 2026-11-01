@@ -17,6 +17,7 @@ from kta.knowledge import (
     import_seed,
     seed_dir,
 )
+from kta.measure import protocol
 from kta.targets.gb10 import catalog
 
 ContextFactory = Callable[[str], Context]
@@ -44,6 +45,9 @@ def cmd_init(args: argparse.Namespace, make_ctx: ContextFactory) -> int:
         out["batches"].append(_summary(import_seed(ctx, store, root)))
         if args.references:
             out["batches"].append(_summary(import_references(ctx, store, root / "references")))
+        # SYSDEBUG-2 (D698): a fresh store measures nothing without the measurement Protocol;
+        # write the default one here instead of letting the first loop block in measuring.
+        out["protocol"] = protocol.ensure_v1(store, ctx.clock)
     except SeedError as exc:
         out["error"] = str(exc)
         code = 1
@@ -54,6 +58,8 @@ def cmd_init(args: argparse.Namespace, make_ctx: ContextFactory) -> int:
         for b in out["batches"]:
             lines.append(f"{b['batch']}: wrote {b['written']}, reused {b['reused']} {b['counts']}")
             lines += [f"  WARN {w}" for w in b["warnings"]]
+        if "protocol" in out:
+            lines.append(f"measurement protocol measure-v1 {out['protocol']}")
         if "error" in out:
             lines.append(f"FAIL {out['error']}")
         emit_text("\n".join(lines))

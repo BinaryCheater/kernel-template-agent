@@ -83,6 +83,8 @@ class Settings:
     max_rounds: int
     max_retries: int
     shortlist: int
+    compile_count: int  # of the shortlist, compiled per bucket (D697)
+    build_width: int  # concurrent builds (pipeline.stage_capacity build)
     top_k: int  # measured points k (guard.exploration_share)
     rank_min: float  # Spearman rho below this (with >= rank_n points) -> rule 2
     rank_n: int
@@ -121,6 +123,8 @@ class Settings:
             max_rounds=c.rounds_per_case_loop,
             max_retries=c.retries_per_task,
             shortlist=c.shortlist,
+            compile_count=c.compile_count,
+            build_width=int(c.stage_capacity["build"]),
             top_k=c.exploration_share["measured_points"],
             rank_min=rank["rank_min"],
             rank_n=int(rank["rank_n"]),

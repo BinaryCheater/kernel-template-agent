@@ -20,12 +20,17 @@ problem:
       dram: "(case.M * case.K + case.K * case.N + case.M * case.N) * 2"
 contract:
   tolerances:
-    bf16: {rtol: 0.02, atol: 0.02, rel_l2: 0.008}
+    # SYSDEBUG-2 D695: judged against the library (torch.matmul in bf16, cuBLAS) on the same
+    # inputs, not element-wise against FP64: loose before measuring, strict for a round's
+    # best. The fixed rtol/atol/rel_l2 stay as reported information. Factors and floors
+    # are the assistant's proposal (needs user review).
+    bf16: {rtol: 0.02, atol: 0.02, rel_l2: 0.008, relative_to: library, loose: 4.0, strict: 1.5, rel_l2_floor: 1.0e-6, abs_floor: 1.0e-3}
   input_dists: [normal, zeros, extreme, cancellation, large_dynamic_range]
-  edge_shapes:
-    - {M: 1, N: 1, K: 1}
-    - {M: 129, N: 193, K: 65}
-    - {M: 1, N: 4096, K: 4096}
+  # SYSDEBUG-2 D696: the case is three static shapes; the kernel is accountable for those
+  # only (no hidden shapes outside them). The former edge shapes (1x1x1, 129x193x65,
+  # 1x4096x4096) were the assistant's, not the user's, and are outside this scope.
+  shape_scope: {kind: static}
+  edge_shapes: []
   timing_boundary: "single kernel launch; C = A @ B with A, B, C in device memory"
 case:
   shape_dist:

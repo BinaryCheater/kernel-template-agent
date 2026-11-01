@@ -407,6 +407,16 @@ class SqliteOps:
             ).fetchall()
         return [OpsEvent(r[0], parse_ts(r[1]), r[2], r[3], json.loads(r[4])) for r in rows]
 
+    def events_for(self, table: str, row_id: str) -> list[OpsEvent]:
+        """Every event of one row, oldest first (SYSDEBUG-2: a loop's blocks for the case page)."""
+        with self.db.read() as con:
+            rows = con.execute(
+                "SELECT seq, at, table_name, row_id, change_json FROM ops_events "
+                "WHERE table_name = ? AND row_id = ? ORDER BY seq",
+                (table, row_id),
+            ).fetchall()
+        return [OpsEvent(r[0], parse_ts(r[1]), r[2], r[3], json.loads(r[4])) for r in rows]
+
     # ---- spans (kta.core.trace.SpanSink) ----------------------------------------
 
     def start_span(self, span: SpanStart) -> None:

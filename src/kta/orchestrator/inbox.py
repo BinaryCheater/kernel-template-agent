@@ -15,7 +15,7 @@ from typing import Any
 from kta.core.ids import record_id
 from kta.core.proxy import STATUS_POINTER
 from kta.core.sysconfig import DEFAULT_PROVIDERS
-from kta.orchestrator import budget, canary
+from kta.orchestrator import budget, canary, release
 from kta.orchestrator.improve import pending_items
 from kta.orchestrator.pipeline import Services
 from kta.orchestrator.transition import Settings
@@ -179,7 +179,30 @@ def inbox(svc: Services) -> list[Item]:
         *_improvements(svc),
         *_canaries(svc),
         *_proxies(svc),
+        *_held(svc),
     ]
+
+
+def _held(svc: Services) -> list[Item]:
+    """A queued agent task the release stage keeps from starting (SYSDEBUG-2, D699): a loop
+    waits on it, so it needs the user (release it, or move the stage)."""
+    c = controls_store.current(svc.store, svc.ops)
+    out: list[Item] = []
+    for t in svc.ops.list_tasks(states=("queued",)):
+        reason = release.hold_reason(svc.ops, t, c)
+        if reason is None:
+            continue
+        goal = str(svc.store.get(t.card_id).body.get("goal", ""))
+        out.append(
+            Item(
+                f"held:{t.id}",
+                "Agent task waiting, not running",
+                f"{t.card_type} {goal}: {reason}",
+                "Release it on the Release page, or change the release stage",
+                t.card_id,
+            )
+        )
+    return out
 
 
 def _proxies(svc: Services) -> list[Item]:

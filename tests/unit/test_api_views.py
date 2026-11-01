@@ -59,14 +59,19 @@ def test_inbox_comes_from_the_orchestrator(api: Api) -> None:
         "Task over retry limit",
         "Same done-check failing repeatedly",
         "Budget at 80%",
+        # SYSDEBUG-2 (D699): the fixture's queued agent tasks cannot start at stage S0
+        "Agent task waiting, not running",
+        "Agent task waiting, not running",
     ]
+    assert all("runs no agent calls" in i["detail"] for i in items[3:])
     task = items[0]
     assert task["task"] and task["actions"] == ["retry", "cancel"]
     assert (
         task["detail"]
         == "validate_template: precondition references undeclared name hw.ldmatrix_x4"
     )
-    assert all(i["task"] is None for i in items[1:])
+    assert all(i["task"] is None for i in items[1:3])
+    assert all(i["task"] for i in items[3:])  # a held task links to its task page
 
 
 def test_budget_trees_are_per_resource(api: Api) -> None:

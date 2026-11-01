@@ -82,6 +82,7 @@ Thresholds that the code already used and that govern the loops, plus the D325 d
 | Knob | Controls | Value | Prevents | Where | Status | set_by |
 | --- | --- | --- | --- | --- | --- | --- |
 | shortlist size | candidates shortlisted by the pre-compile model per bucket | 64 | compiling a search space instead of a shortlist | orch | spec (10 §2.1) | X8 |
+| candidates compiled per bucket | of the shortlist, best predicted first, compiled each round for build feedback | 16 | compiling the whole shortlist every round | orch | default (SYSDEBUG-2 D697) | — |
 | solver time limit | wall time of one MIP solve | 60 s | a solve blocking the loop | orch | default (D263) | — |
 | model-off thresholds | judging rule 2: Spearman ρ below rank_min with ≥ rank_n points, or median relative error above rel_error_max | ρ 0.5, n 3, error 0.3 | a model that misranks steering the search unchecked | orch | default (D263) | — |
 | explained-gap share | judging rule 3: share of the gap to the bound the model must explain | 0.8 | an unexplained gap passing as a result | orch | default (D263) | — |

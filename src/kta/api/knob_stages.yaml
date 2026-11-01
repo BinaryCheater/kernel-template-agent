@@ -18,6 +18,7 @@ solving:
   - guard.evidence_citation_in_plans
   - model.mip_l2_check
 building:
+  - solve.compile_count
   - execution.unified_memory_cap
   - pipeline.stage_capacity
   - orch.infra_retries
