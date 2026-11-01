@@ -454,6 +454,11 @@ def _final_checked(
     return None, failed
 
 
+def _final_map(svc: Services, loop: Loop) -> dict[str, str]:
+    """The full checks judging recorded so far (checkpointed in loop data)."""
+    return dict(svc.ops.get_loop(loop.id)["data"].get("final_checks") or {})
+
+
 def work_judging(svc: Services, loop: Loop) -> Facts:
     cv = case_view(svc.store, loop.subject)
     _, sig = svc.protocol()
@@ -546,6 +551,9 @@ def work_judging(svc: Services, loop: Loop) -> Facts:
     family = str(d["families"][0])
     templates = [i.template for i in pipeline.family_package(svc, family).chain.items]
     return {
+        # D701: returned as a fact too, or the transition writes the loop data read before
+        # judging and the checkpointed full checks are lost
+        "final_checks": _final_map(svc, loop),
         "basis": disciplines.basis(templates, family, model_id),
         "couplings": [
             [m.name for m in c.body.members]

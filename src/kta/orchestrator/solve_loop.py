@@ -336,6 +336,8 @@ def _carry(
         "rolled_back_mechanisms": rolled,
         # A rolled-back round's family is not preferred next round (work_retrieving).
         "prefer_family": verdict["incumbent"].get("family"),
+        # SYSDEBUG-2 (D701): the full checks of each bucket's best, for the case page
+        "final_checks": dict(loop.facts.get("final_checks") or loop.data.get("final_checks") or {}),
     }
     if route["escalate"] != "none":
         out["escalated"] = route["escalate"]
