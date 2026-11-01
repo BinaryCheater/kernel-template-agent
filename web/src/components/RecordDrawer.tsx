@@ -5,6 +5,7 @@ import { wordTone } from "./format";
 import { AssuranceChip, Chip, Loading } from "./ui";
 import { RecordActions } from "./actions";
 import { BodyView, RefName, recordName } from "./BodyView";
+import { Annotate } from "./Annotate";
 
 /** The same view as a page of its own (`/records/:id`), for keeping open or linking. */
 export function RecordPage() {
@@ -42,6 +43,7 @@ function DrawerBody({ id, close }: { id: string; close?: () => void }) {
           <h2>{r ? recordName(r) : "…"}</h2>
         </div>
         <span className="row" style={{ gap: 10 }}>
+          {r && <Annotate subject={id} label={`${r.kind}: ${recordName(r)}`} compact />}
           {r?.kind === "Template" ? <Link to={`/knowledge/templates/${id}`}>Open page</Link>
             : close && <Link to={`/records/${id}`}>Open as page</Link>}
           {close && <button className="close" onClick={close} aria-label="Close">×</button>}

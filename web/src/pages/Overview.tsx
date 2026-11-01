@@ -10,7 +10,7 @@ import { useApi } from "../data/useApi";
 import { useLive, useNow } from "../data/live";
 import { Loading, Panel } from "../components/ui";
 import { dur, since } from "../components/format";
-import { FlowMap, LevelStrip } from "../components/FlowMap";
+import { FlowMap, LevelStrip, StageBar } from "../components/FlowMap";
 import { LoopControls, loopCondition } from "../components/LoopControls";
 import { stateWord, taskWord } from "../components/words";
 import { JournalList } from "./Activity";
@@ -106,35 +106,44 @@ function LoopSection({ title, def, loops, a, href }: { title: string; def: Machi
       {show && (
         <div className="body">
           <FlowMap def={def} loops={open} unitHref={href} />
-          {open.length > 0 && <RunList loops={open} a={a} href={href} />}
+          {open.length > 0 && <RunList loops={open} a={a} href={href} def={def} />}
         </div>
       )}
     </section>
   );
 }
 
-function RunList({ loops, a, href }: { loops: LoopInstance[]; a: ActiveRuns; href: (l: LoopInstance) => string }) {
+function RunList({ loops, a, href, def }: { loops: LoopInstance[]; a: ActiveRuns; href: (l: LoopInstance) => string; def: MachineDef }) {
   const now = useNow();
   return (
-    <table className="t runs">
-      <thead><tr><th>name</th><th>at</th><th className="r">round</th><th className="r">for</th><th>levels 1–7</th><th /></tr></thead>
-      <tbody>{loops.map((l) => {
+    <div className="runcards">
+      {loops.map((l) => {
         const c = loopCondition(l);
         const task = l.waiting_on ? a.tasks.find((t) => t.id === l.waiting_on) : undefined;
         return (
-          <tr key={l.id}>
-            <td><span className={`run-dot ${c.tone}`} /><Link to={href(l)}><b>{l.subject_name}</b></Link></td>
-            <td>{stateWord(l.state)}{task && <span className="ink2"> · {taskWord(task.type)}</span>}
-              {l.blocked && <div className="run-err">{l.blocked.error}</div>}
-              {!l.blocked && c.tone === "idle" && <div className="ink2 small">paused</div>}</td>
-            <td className="r num">{l.round ?? "—"}{l.max_rounds ? `/${l.max_rounds}` : ""}</td>
-            <td className="r num">{dur(since(l.state_since, now))}</td>
-            <td><LevelStrip chain={l.chain} /></td>
-            <td className="r"><LoopControls loop={l} compact /></td>
-          </tr>
+          <div key={l.id} className={`runcard ${c.tone}`}>
+            <div className="runcard-main">
+              <div className="runcard-title">
+                <span className={`run-dot ${c.tone}`} />
+                <Link to={href(l)} className="runcard-name">{l.subject_name}</Link>
+                <span className={`runcard-state ${c.tone}`}>{c.text}</span>
+              </div>
+              <div className="runcard-where">
+                <span className="runcard-step">{stateWord(l.state)}{task && <span className="ink2"> · {taskWord(task.type)}</span>}</span>
+                <StageBar def={def} loop={l} />
+              </div>
+              {l.blocked && <div className="run-err" title={l.blocked.message}><b>{l.blocked.error}</b> {l.blocked.message.slice(0, 160)}</div>}
+            </div>
+            <div className="runcard-facts">
+              <div><span className="caption">round</span><b className="num">{l.round ?? "—"}{l.max_rounds ? <span className="ink3">/{l.max_rounds}</span> : null}</b></div>
+              <div><span className="caption">in this step</span><b className="num">{dur(since(l.state_since, now))}</b></div>
+              <div><span className="caption">levels touched</span><LevelStrip chain={l.chain} /></div>
+            </div>
+            <div className="runcard-ops"><LoopControls loop={l} compact /></div>
+          </div>
         );
-      })}</tbody>
-    </table>
+      })}
+    </div>
   );
 }
 

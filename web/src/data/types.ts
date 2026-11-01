@@ -1083,3 +1083,52 @@ export interface StageTimeline {
     held: { loop: string; kind: string; state: string; reason: string }[];
   };
 }
+
+// ---- SYSDEBUG-2: settings in force and review notes (D690, D691) ----
+
+export interface Annotation {
+  id: string;
+  at: string;
+  subject: string;
+  verdict: "agree" | "question" | "change";
+  label: string;
+  loop: string | null;
+  note: string;
+  resolution: { outcome: "done" | "kept" | "later"; note: string; at: string } | null;
+}
+
+export interface InForceKnob {
+  id: string;
+  row: string;
+  controls: string;
+  value: unknown;
+  initial: unknown;
+  unit: string | null;
+  status: string;
+  who: string;
+  set_by_you: boolean;
+  calibrated: boolean;
+  set_by: string[];
+  set_from: string | null;
+  source: string;
+  prevents: string;
+  consumer: string;
+  editable: boolean;
+  stages: string[];
+  last_change: { version: number; record: string; by: string; by_type: string; reason: string; at: string; old: unknown } | null;
+  annotations: Annotation[];
+}
+
+export interface InForce {
+  version: { id: string | null; version: number };
+  loop: string | null;
+  versions_seen: { id: string; version: number; at: string; by: string; reason: string }[];
+  stages: string[];
+  counts: Record<string, number>;
+  knobs: InForceKnob[];
+  hardware: {
+    model: { id: string; target: string; version: number; arch: string } | null;
+    values: { name: string; value: unknown; status: string; source: string }[];
+    counts: Record<string, number>;
+  };
+}

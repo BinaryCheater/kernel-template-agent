@@ -1,7 +1,7 @@
 // One async function per API endpoint (spec/modules/api-web.md). The Vite dev server proxies
 // /api to the KTA API on the control host (config [api]); nothing here holds data itself.
 
-import type {
+import type { Annotation, InForce,
   ActionLogEntry, ActiveRuns, AgentsView, BlobText, Capability, CaseDetail, CaseIndexRow, CoverageReport,
   FamilyDetail, FamilySummary, ImprovementsView, InboxItem, Machines, Meta, PoolDiff, PoolView, RecordEnvelope, TemplatePage,
   ModelTimeline, Quotas, Residual, ResultDetail, Scoreboard, Snapshot, Span, StageTimeline, TaskDetail, TraceInfo, ExperimentProtocol,
@@ -57,6 +57,9 @@ export const api = {
   meta: () => get<Meta>("/meta"),
   machines: () => get<Machines>("/machines"),
   active: () => get<ActiveRuns>("/runs/active"),
+  /** SYSDEBUG-2: settings in force (optionally for one loop) and the review notes. */
+  inForce: (loop?: string) => get<InForce>("/settings/in-force", { loop }),
+  annotations: (open = false) => get<Annotation[]>("/annotations", { open: open ? "true" : undefined }),
   inbox: () => get<InboxItem[]>("/inbox"),
   trace: (from: number, to: number) =>
     get<{ spans: Span[]; traces: TraceInfo[] }>("/trace", { from: new Date(from).toISOString(), to: new Date(to).toISOString() }),
@@ -142,6 +145,11 @@ export const act = {
   /** WP25: advance a loop by hand — one step, one round, continuously (resume), or retry a block. */
   advance: (loop: string, mode: "step" | "round" | "run" | "retry", reason = "") =>
     post<{ loop: string; mode: string; action: string; started: boolean; process?: string; process_running?: boolean }>("/actions/advance", { loop, mode, reason }),
+  /** SYSDEBUG-2: the user's verdict on a step, record or setting; resolve closes it. */
+  annotate: (subject: string, verdict: "agree" | "question" | "change", note: string, label = "", loop?: string) =>
+    post<{ annotation: string }>("/actions/annotate", { subject, verdict, note, label, ...(loop ? { loop } : {}) }),
+  resolve: (annotation: string, outcome: "done" | "kept" | "later", note = "") =>
+    post<{ resolution: string }>("/actions/resolve", { annotation, outcome, note }),
 };
 
 /** Wall-clock "now" for elapsed times. */

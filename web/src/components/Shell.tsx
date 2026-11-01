@@ -26,7 +26,7 @@ export const useSnapshot = () => useContext(SnapshotContext);
 
 type NavItem = { to: string; label: string; badge?: "inbox"; also?: string[] };
 
-/** Navigation (WP25, D670): six pages. Detail pages (case, task, result, family) light up
+/** Navigation (WP25, D670; SYSDEBUG-2 D691 adds Review): seven pages. Detail pages (case, task, result, family) light up
  *  their parent; pages left out of the menu stay reachable by link (earlier WPs' routes). */
 const PRIMARY: NavItem[] = [
   { to: "/", label: "Home", also: ["/running", "/inbox"] },
@@ -34,6 +34,7 @@ const PRIMARY: NavItem[] = [
   { to: "/knowledge", label: "Knowledge", also: ["/families", "/pool", "/coverage", "/model"] },
   { to: "/activity", label: "Activity", also: ["/operations"] },
   { to: "/pipeline", label: "Pipeline" },
+  { to: "/review", label: "Review" },
   { to: "/settings", label: "Settings", also: ["/workflow", "/agents", "/release"] },
 ];
 const GROUPS: { group: string; hint: string; items: NavItem[] }[] = [];

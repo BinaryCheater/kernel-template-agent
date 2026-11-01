@@ -24,6 +24,7 @@ import { Activity } from "./pages/Activity";
 import { Knowledge } from "./pages/Knowledge";
 import { TemplatePage } from "./pages/Templates";
 import { RecordPage } from "./components/RecordDrawer";
+import { Review } from "./pages/Review";
 
 const PAGES: PageMeta[] = [
   { path: "/", title: "Home", question: "What is the system doing now, and what did it just do?" },
@@ -52,6 +53,7 @@ const PAGES: PageMeta[] = [
   { path: "/settings", title: "Settings", question: "Which control values and system settings are in force, and who changed them?" },
   { path: "/workflow", title: "Agent workflow and prompts", question: "How does an agent task run, and what configures each step (prompts, skills, model)?" },
   { path: "/mechanisms", title: "Mechanisms", question: "Have the round-4 mechanisms run, and what did they record?" },
+  { path: "/review", title: "Review", question: "What does this run assume, who decided it, and what have I said about it?" },
   { path: "/release", title: "Release", question: "Which release stage is open, and which agent calls wait for me?" },
 ];
 
@@ -84,6 +86,7 @@ export function App() {
         <Route path="/agents" element={<Agents />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/release" element={<Release />} />
+        <Route path="/review" element={<Review />} />
         <Route path="/mechanisms" element={<Mechanisms />} />
         <Route path="/workflow" element={<Workflow />} />
         <Route path="*" element={<div className="empty">No such page.</div>} />

@@ -13,6 +13,7 @@ import { useNow } from "../data/live";
 import { Chip, Loading, Panel, RecordLink } from "../components/ui";
 import { dur, hhmm, pct, since, stateTone, us } from "../components/format";
 import { LoopControls, loopCondition } from "../components/LoopControls";
+import { Annotate } from "../components/Annotate";
 import { JournalList } from "./Activity";
 import { stateWord, taskWord } from "../components/words";
 
@@ -130,6 +131,7 @@ function CaseBody({ c, m, a }: { c: CaseDetail; m: Machines; a?: ActiveRuns }) {
             <span className="small ink2">round {c.round || "—"} of {maxRounds}</span>
           </div>
           {loop ? <LoopControls loop={loop} /> : c.loop_id ? null : <span className="small muted">not started: <span className="mono">kta solve {c.id.slice(0, 12)}</span></span>}
+          {c.loop_id && <Link className="small" to={`/review?loop=${c.loop_id}`}>settings this run assumes →</Link>}
           {c.best && <span className="small">best result {us(c.best.us)} · <Link to={`/results/${c.best.solution}`}>why it holds →</Link></span>}
         </div>
       </div>
@@ -259,6 +261,7 @@ function RoundCard({ r, c, m, open, current }: { r: Round; c: CaseDetail; m: Mac
         <b>Round {r.n}</b>
         <span className="small ink2">{t0 ? hhmm(t0) : ""} → {t1 ? hhmm(t1) : "now"} · {t0 ? dur((Date.parse(t1 ?? new Date(now).toISOString()) - Date.parse(t0)) / 1000) : ""}</span>
         <span className="round-why">{why(r, c, current)}</span>
+        <Annotate subject={`loop:${c.loop_id ?? c.id}:round:${r.n}`} label={`${c.name}, round ${r.n}`} loop={c.loop_id ?? undefined} compact />
         <span className="linkbtn">{expanded ? "less" : "more"}</span>
       </header>
       <StepPath r={r} m={m} stopped={stopped} />

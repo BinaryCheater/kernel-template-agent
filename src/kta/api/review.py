@@ -53,6 +53,8 @@ def _last_changes(api: Api) -> dict[str, dict[str, Any]]:
     """Per knob, the newest stored version that changed it: version, author, reason, time."""
     out: dict[str, dict[str, Any]] = {}
     for rid, rec in controls_store.history(api.store, 1000):  # newest first
+        if rec.actor.type == "system":
+            continue  # initial values and definition upgrades are not decisions
         for c in controls_store.changes_of(rec):
             out.setdefault(
                 c.knob,
