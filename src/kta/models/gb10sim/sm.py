@@ -797,7 +797,7 @@ class SM:
         self.on_share(eq)
 
     def on_share(self, eq: float):
-        pass
+        """Hook for a subclass whose own rates follow the chip share (WSSM's TMA engine)."""
 
     def block_exit(self, b, now):
         """A warp of block b exited; when the whole block has, start the next block on its slot."""
