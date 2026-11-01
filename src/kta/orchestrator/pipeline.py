@@ -82,6 +82,7 @@ class Services:
             c.seed,
             c.controls.quiet_thresholds,
             c.controls.clock_sample_ms,
+            c.controls.requeue_wait_s,
         )
 
     def backend(self, name: str) -> Backend:

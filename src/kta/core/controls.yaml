@@ -1121,6 +1121,23 @@ knobs:
     accessor: clock_sample_ms
     consumer: kta.measure.runner.Measurer -> bench.time clock_samples
 
+  - id: measure.requeue_wait_s
+    row: wait before re-measuring an interfered timing
+    section: "12 §7"
+    controls: seconds the Measurer waits before rerunning a timing job judged not quiet, so a passing burst of other work can end instead of every requeue landing in it
+    type: float
+    value: 30.0
+    min: 0.0
+    unit: s
+    prevents: a case blocked by three back-to-back rejections inside one short burst
+    where: [protocol, orch]
+    status: default
+    source: "SYSDEBUG-2 D692 (user 2026-11-02: the quiet rule must not stall a case)"
+    set_by: [X6]
+    editable: true
+    accessor: requeue_wait_s
+    consumer: kta.measure.runner.Measurer (between quiet-judged attempts)
+
   - id: execution.unified_memory_cap
     row: unified-memory cap for CPU jobs
     section: "12 §7"

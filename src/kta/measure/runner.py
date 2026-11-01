@@ -18,6 +18,7 @@ from __future__ import annotations
 import json
 import logging
 import random
+import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
@@ -85,6 +86,8 @@ class Measurer:
         seed: int = 0,
         thresholds: dict[str, Any] | None = None,
         clock_sample_ms: float | None = None,
+        requeue_wait_s: float | None = None,
+        sleep: Callable[[float], None] = time.sleep,
     ) -> None:
         self.store = store
         self.ex = ex
@@ -97,6 +100,10 @@ class Measurer:
         self.clock_sample_ms = (
             baseline().clock_sample_ms if clock_sample_ms is None else clock_sample_ms
         )
+        self.requeue_wait_s = (
+            baseline().requeue_wait_s if requeue_wait_s is None else requeue_wait_s
+        )
+        self.sleep = sleep
 
     @classmethod
     def from_ctx(cls, ctx: Context) -> Measurer:
@@ -131,7 +138,9 @@ class Measurer:
     ) -> tuple[JobResult, dict[str, Any], quiet.QuietVerdict, list[str]]:
         interfered: list[str] = []
         attempts = 1 + int(self.thresholds.get("max_requeues", 0))
-        for _ in range(attempts):
+        for attempt in range(attempts):
+            if attempt and self.requeue_wait_s > 0:
+                self.sleep(self.requeue_wait_s)  # let a passing burst of other work end
             result = self.ex.run(job)
             if not result.ok or "timing.json" not in result.outputs:
                 stderr = self.ex.read_blob(result.stderr_blob).decode("utf-8", "replace")[-2000:]

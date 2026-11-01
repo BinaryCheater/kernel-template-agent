@@ -1,0 +1,85 @@
+# Which step of a run reads which knob (SYSDEBUG-2, D690), for GET /settings/in-force.
+# Keys are solve-loop states (machines.yaml), plus `agent` (any agent task), `learning`
+# (expand loop and knowledge admission) and `system` (processes, inbox, gate). Written from
+# each knob's `consumer` in core/controls.yaml; a knob listed nowhere shows under `other`,
+# so a new knob is visible before anyone maps it (open table).
+bounded: []
+retrieving:
+  - escalation.template_assurance_for_use
+  - formulation.chain_max_steps
+  - formulation.chain_max_expansions
+solving:
+  - solve.shortlist
+  - solve.time_limit_s
+  - formulation.table_max_entries
+  - formulation.outer_max_points
+  - guard.exploration_share
+  - guard.selection_controls
+  - guard.evidence_citation_in_plans
+  - model.mip_l2_check
+building:
+  - execution.unified_memory_cap
+  - pipeline.stage_capacity
+  - orch.infra_retries
+checking:
+  - guard.hidden_shapes_and_seeds
+  - pipeline.stage_capacity
+measuring:
+  - measure.quiet_thresholds
+  - measure.requeue_wait_s
+  - measure.clock_sample_ms
+  - measure.batch_window
+  - budget.gpu_s
+judging:
+  - guard.improvement_band
+  - judging.model_ranking
+  - judging.explained_min
+  - escalation.accept
+  - guard.null_round_limit
+  - guard.one_mechanism_per_round
+  - guard.mechanism_attribution
+  - escalation.case_to_knowledge
+  - escalation.to_user
+  - escalation.level_choice
+  - budget.rounds_per_case_loop
+  - inbox.suspicious_result
+agent:
+  - release.stage
+  - budget.task_wall_s
+  - budget.hard_cap_factor
+  - budget.no_response_timeout_s
+  - budget.lease_s
+  - budget.tool_call_steps
+  - budget.reminder_fraction
+  - budget.retries_per_task
+  - budget.agent_instances
+  - budget.user_attention_cap
+  - session.fresh_session_threshold
+  - session.same_failure_rule
+  - session.resume_scope
+  - session.step_header_size
+  - session.tool_output_truncation
+  - session.access_discipline_version
+  - session.notes_required_sections
+  - session.task_header_max_lines
+  - session.work_unit_rule
+  - guard.duplicate_proposal_rejection
+  - guard.completion_checks_fixed
+  - guard.evidence_write_ban
+learning:
+  - learning.reproduction_epsilon
+  - learning.scope
+  - learning.ablation_pairwise_max_runs
+  - learning.ablation_max_runs
+  - learning.coupling_noise_band
+  - knowledge.promotion_review
+  - escalation.finding_ladder
+  - escalation.model_term_provisionality
+  - guard.structural_dedupe
+  - model.version_admission
+system:
+  - budget.process_quotas
+  - guard.fixture_declaration
+  - guard.canary_rate
+  - inbox.repeat_failures
+  - inbox.budget_warn

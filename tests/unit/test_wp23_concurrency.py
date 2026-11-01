@@ -284,11 +284,15 @@ def test_interfered_measurement_is_requeued_and_not_counted(
 ) -> None:
     register(hctx, hstore, hops, worker_configs(hctx)["local"], code_state().commit)
     ex = JobExecutor(hctx, hstore, hops, code_state().commit)
-    m = Measurer(hstore, ex, hctx.clock, hctx.rng, 0, baseline().quiet_thresholds)
+    waits: list[float] = []
+    m = Measurer(
+        hstore, ex, hctx.clock, hctx.rng, 0, baseline().quiet_thresholds, sleep=waits.append
+    )
     result, data, verdict, interfered = m._run_quiet(  # pyright: ignore[reportPrivateUsage]
         measure_job(tmp_path, [timing(True), timing(False)])
     )
     assert result.ok and not verdict.interfered and (tmp_path / "attempts").read_text() == "2"
+    assert waits == [baseline().requeue_wait_s]  # one wait, before the rerun only (D692)
     assert len(interfered) == 1
     rep = hstore.get(interfered[0])
     assert (
@@ -304,7 +308,7 @@ def test_a_host_that_never_quiets_raises_and_writes_no_measurement(
     register(hctx, hstore, hops, worker_configs(hctx)["local"], code_state().commit)
     ex = JobExecutor(hctx, hstore, hops, code_state().commit)
     th = {**baseline().quiet_thresholds, "max_requeues": 1}
-    m = Measurer(hstore, ex, hctx.clock, hctx.rng, 0, th)
+    m = Measurer(hstore, ex, hctx.clock, hctx.rng, 0, th, requeue_wait_s=0.0)
     with pytest.raises(HostNotQuiet, match="2 attempts") as err:
         m._run_quiet(measure_job(tmp_path, [timing(True)]))  # pyright: ignore[reportPrivateUsage]
     assert err.value.kind == "infra"
