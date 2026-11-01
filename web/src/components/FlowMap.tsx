@@ -214,14 +214,17 @@ export function LevelStrip({ chain }: { chain?: LoopInstance["chain"] }) {
 /** The main path as a segmented bar: done, current (pulsing; red when stopped), to do. */
 export function StageBar({ def, loop }: { def: MachineDef; loop: LoopInstance }) {
   const path = mainPath(def).filter((s, _i, all) => !(s === "new" && all.length > 1));
-  const cur = loop.state === "new" ? 0 : path.indexOf(loop.state);
-  const off = cur < 0; // waiting for an agent, or finished
+  const at = loop.state === "new" ? 0 : path.indexOf(loop.state);
+  // waiting for an agent: the round got as far as judging, which handed the work over
+  const cur = at < 0 && loop.state === "waiting" ? path.indexOf("judging") + 1 : at;
+  const off = cur < 0; // finished, or a state off the main path
   const c = loopCondition(loop);
   return (
     <span className="stagebar" title={off ? stateWord(loop.state) : `step ${cur + 1} of ${path.length}: ${stateWord(loop.state)}`}>
       {path.map((s, i) => (
         <span key={s} className={`seg ${!off && i < cur ? "done" : ""} ${!off && i === cur ? `cur ${c.tone}` : ""}`} title={stateWord(s)} />
       ))}
+      {loop.state === "waiting" && <span className={`seg agent cur ${c.tone}`} title={stateWord("waiting")} />}
     </span>
   );
 }

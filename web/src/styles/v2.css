@@ -272,6 +272,7 @@
 .stagebar .seg.cur.fail { background: var(--st-fail); animation: none; }
 .stagebar .seg.cur.idle { background: var(--st-idle); animation: none; }
 .stagebar .seg.cur.waiting { background: var(--st-waiting); }
+.stagebar .seg.agent { margin-left: 6px; width: 34px; background: #6250d6; }
 @keyframes fm-pulse-bg { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }
 .run-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--st-idle); }
 .run-dot.running { background: var(--st-running); box-shadow: 0 0 0 3px var(--st-running-tint); }
