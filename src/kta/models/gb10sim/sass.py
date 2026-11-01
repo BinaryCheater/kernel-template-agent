@@ -68,6 +68,9 @@ def parse(text: str, kernel: str | None = None) -> list[Ins]:
             continue
         if kernel and ".text." in line:
             in_k = kernel in line
+        elif kernel and "Function :" in line:
+            # KTA (WP26): cuobjdump -sass (the Build's `sass` blob) names functions this way
+            in_k = line.split("Function :", 1)[1].strip() == kernel
         m = LINE.search(line)
         if m and in_k and i + 1 < len(lines):
             h = HI.match(lines[i + 1])
@@ -86,6 +89,10 @@ def parse(text: str, kernel: str | None = None) -> list[Ins]:
                 if op.startswith("BRA"):
                     t = re.search(r"\(([.A-Za-z0-9_]+)\)", args)
                     tgt = t.group(1) if t else None
+                    if tgt is None:
+                        # KTA (WP26): cuobjdump prints the target address, nvdisasm a label
+                        a_ = re.search(r"\b0x([0-9a-f]+)\s*$", args.strip())
+                        tgt = int(a_.group(1), 16) if a_ else None
                 out.append(
                     Ins(
                         addr,
