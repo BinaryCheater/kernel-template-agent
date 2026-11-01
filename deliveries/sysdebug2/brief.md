@@ -6,7 +6,7 @@ For: the user, before the supervised round. Written by the assistant on 2026-11-
 
 | What | Where | Notes |
 | --- | --- | --- |
-| Trial store `SYSDEBUG2` (empty: no case, no loop, no agent run) | spark-hk, `~/kta/data/dev/SYSDEBUG2` | code `1c02174` (branch `sysdebug/2`), env `~/kta/kta-env-sysdebug2.sh`, services `~/kta/longrun-sd2.sh start|stop` |
+| Trial store `SYSDEBUG2` (one case added, no loop, no agent run) | spark-hk, `~/kta/data/dev/SYSDEBUG2` | code `c98fcb3` (branch `sysdebug/2`), env `~/kta/kta-env-sysdebug2.sh`, services `~/kta/longrun-sd2.sh start|stop` |
 | Frontend / API for the trial | spark-hk 4174 / 7312; on the Mac **http://127.0.0.1:14174** (tunnel 14174→4174, 17312→7312) | reopen the tunnel if it dropped: `ssh -N -L 14174:127.0.0.1:4174 -L 17312:127.0.0.1:7312 spark-hk` |
 | Rehearsal store `SYSDEBUG2_DRY` (scratch, not evidence) | spark-hk, logs `~/kta/runs/sysdebug2-dry/` | the assistant's dry run of the round, section 4 |
 | Old store `SYSDEBUG1` and its services (4173 / 7310) | spark-hk | untouched |
@@ -61,7 +61,7 @@ Setup: `kta init --references`, worker register, target probe, the relaxed quiet
 
 ## 5. The supervised round, step by step
 
-Open http://127.0.0.1:14174. Add the case (Cases), then on Home use **Step** for one step at a time. After each step, mark ✓ / ? / ✎ where you look.
+Already done in SYSDEBUG2 (setup only, logs `~/kta/runs/sysdebug2/11–13.*`): `kta measure protocol`, `kta case add knowledge/seed/cases/gemm_fp16.yaml` (case `20f53db3…`, three shapes), `kta prove family … --target gb10`. **No loop has started.** The frontend has no start button: the assistant starts it with `kta solve 20f53db3… --steps 1` while you watch (after the decisions in section 4), then you use **Step** on Home (or on the case page) one step at a time. After each step, mark ✓ / ? / ✎ where you look.
 
 | Step | Look at | Judge |
 | --- | --- | --- |
