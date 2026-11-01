@@ -1,0 +1,493 @@
+{
+ "_doc": "GB10 GPU, functional model constants. spec = the chip's design or the driver; probe = a microbenchmark that isolates one unit; ablation = a real kernel with one mechanism removed. No value here is fitted to kernel times.",
+ "sms": {
+  "value": 48,
+  "source": "spec: driver"
+ },
+ "smsp_per_sm": {
+  "value": 4,
+  "source": "spec: Blackwell SM, four sub-partitions"
+ },
+ "clock_GHz": {
+  "value": 2.52,
+  "source": "probe: clock.cu, clock64 against globaltimer, 48 blocks of dependent FMAs"
+ },
+ "tensor_flop_per_clk_per_sm": {
+  "value": 1024,
+  "source": "spec: mma.sync m16n8k16 fp16 in, fp32 accumulate; probe mma_rate.cu reached 2.58 TF/s per SM = 1024 x 2.52 GHz with 8+ warps"
+ },
+ "tensor_eff_pure_mma": {
+  "value": {
+   "1": 0.93,
+   "2": 1.0
+  },
+  "source": "probe: mma_rate.cu, warps per sub-partition 1 / 2+, two or more independent accumulators per warp"
+ },
+ "tensor_eff_gemm_loop": {
+  "value": {
+   "1": 0.833,
+   "2": 0.895,
+   "4": 0.895
+  },
+  "source": "ablation: noload variants of 22 cp.async kernels at 1024^3, median ideal/measured compute per k-tile by warps per sub-partition (1: n=9, range 0.76-0.88; 2: n=13, range 0.81-0.96); the loss to the pure-mma probe is ldmatrix interleaved with mma in the same warps. 4 per sub-partition not ablated: taken as 2"
+ },
+ "smem_bytes_per_clk_per_sm": {
+  "value": 128,
+  "source": "spec: 32 banks x 4 B"
+ },
+ "smem_per_sm_bytes": {
+  "value": 102400,
+  "source": "spec: driver"
+ },
+ "smem_reserved_per_block_bytes": {
+  "value": 1024,
+  "source": "spec: driver"
+ },
+ "regs_per_sm": {
+  "value": 65536,
+  "source": "spec: driver"
+ },
+ "reg_alloc_unit_per_warp": {
+  "value": 256,
+  "source": "spec: register allocation granularity per warp"
+ },
+ "max_threads_per_sm": {
+  "value": 1536,
+  "source": "spec: driver"
+ },
+ "max_blocks_per_sm": {
+  "value": 24,
+  "source": "spec: driver"
+ },
+ "l2_bytes": {
+  "value": 25165824,
+  "source": "spec: driver"
+ },
+ "l2_effective_bytes": {
+  "value": 16780000.0,
+  "source": "probe (round 2): reuse distance at which a re-read stops hitting; 2/3 of the 24 MB (sets and the CPU's share)"
+ },
+ "port_GBs_per_sm": {
+  "value": 80.7,
+  "source": "probe: mlp_stream.cu warm L2, 1-32 blocks of 512 threads: 80.7 GB/s each = 32.0 B per clock; TMA (81) and cp.async (76-80) loads alone in the ablations hit the same ceiling"
+ },
+ "l2_aggregate_GBs": {
+  "value": 3465,
+  "source": "probe: mlp_stream.cu warm L2, 48 blocks x 512 threads x 4 loads in flight: 3.47 TB/s (96 blocks: 3.5-4.6)"
+ },
+ "dram_read_GBs": {
+  "value": 237,
+  "source": "probe: mlp_stream.cu, 64 MB read on a clean L2: 237 GB/s = 87 % of the 273 GB/s spec (256 bits x 8533 MT/s)"
+ },
+ "lat_l1_ns": {
+  "value": 17,
+  "source": "probe: chase.cu, 16 KB, .ca"
+ },
+ "lat_l2_ns": {
+  "value": 136,
+  "source": "probe: chase.cu, 16-64 KB, .cg (beyond 1 MB the random chase pays TLB misses, ~400 ns)"
+ },
+ "lat_dram_ns": {
+  "value": 440,
+  "source": "probe: mlp_stream.cu cold, Little's law at low load: 2-32 KB in flight / measured rate = 436-456 ns"
+ },
+ "launch_us": {
+  "value": 2.59,
+  "source": "ablation (step 2c): kt0_nostore, 1 block, event time"
+ },
+ "block_issue_us": {
+  "value": 0.008,
+  "source": "ablation (step 2c): full grid minus 1 block over blocks at 8192^3"
+ },
+ "block_setup_us": {
+  "value": 0.1,
+  "source": "ablation: %globaltimer span of an empty block"
+ },
+ "store_ns_per_KB": {
+  "value": 28,
+  "source": "ablation: kt0 minus kt0_nostore, 1 block"
+ },
+ "bubble_us_per_k16_single_block_cpasync": {
+  "value": 0.104,
+  "source": "ablation: full minus max(compute, loads) per k-tile on the cp.async kernels whose SMs hold one block (0.22 us at block_K 32, 0.39 at 64): per 16-wide k step. With two or more resident blocks it measured 0-0.06: the other block fills it (superseded by cpasync_t0_us, the same mechanism measured directly)"
+ },
+ "bubble_us_per_ktile_tma_ws": {
+  "value": 0.09,
+  "source": "ablation (step 2c): full minus max(compute, loads under load) per k-tile at the seven TMA picks, median"
+ },
+ "dirty_l2_extra_us": {
+  "value": [
+   [
+    2,
+    11.9
+   ],
+   [
+    4,
+    18.7
+   ],
+   [
+    8,
+    25.6
+   ],
+   [
+    12,
+    27.8
+   ],
+   [
+    16,
+    29.5
+   ],
+   [
+    24,
+    31.6
+   ],
+   [
+    32,
+    35.0
+   ],
+   [
+    64,
+    37.9
+   ]
+  ],
+  "source": "probe: mlp_stream.cu, MB read after a 256 MB write flush minus after a read flush: the write-back of dirty L2 lines. TileLang's do_bench leaves the L2 this way"
+ },
+ "cpasync_t0_us": {
+  "value": 0.22,
+  "source": "WITHDRAWN Oct 20: an artifact of tileload.cu's run-time address division (loopsteps.cu shows no fixed per-k-tile cost); kept only so the analytical model's history is reproducible. probe: tileload.cu, one block of 128-256 threads, 3 stages: time per k-tile = 0.22 us + bytes / 71 GB/s (4 KB 0.275 us ... 24 KB 0.556 us); independent of the stage count (2-5): the loop's serial issue, wait and two barriers, not memory latency. A second resident block fills it (2 blocks/SM: 0.22 + 2 x bytes/71 per round). The ablation's single-block 'bubble' (0.22 us per k-tile at block_K 32) is the same cost"
+ },
+ "cpasync_r_GBs": {
+  "value": 71,
+  "source": "probe: tileload.cu, slope of time per k-tile against tile bytes, one block"
+ },
+ "tma_r_GBs_alone": {
+  "value": 81,
+  "source": "ablation (step 2c): TMA loads-only variant, one block"
+ },
+ "tma_l2_aggregate_GBs": {
+  "value": 1860,
+  "source": "ablation: 1024^3 TMA pick, loads-only variant without the C store (nocompute_nostore), grids 8x12 and 8x16 (2-3 full waves): 37.6-40 GB/s per block = 1.81-1.91 TB/s chip. Supersedes 1.58 TB/s, which included the store"
+ },
+ "cpasync_l2_aggregate_GBs": {
+  "value": 2250,
+  "source": "probe: tileload.cu, 96-192 blocks (2 per SM), 16 KB tiles, L2-resident: 2.25 TB/s chip"
+ },
+ "dram_peak_by_segment_GBs": {
+  "value": [
+   [
+    64,
+    204
+   ],
+   [
+    256,
+    233
+   ],
+   [
+    4096,
+    237
+   ]
+  ],
+  "source": "probe: tileload.cu, DRAM source, clean L2, 48-96 blocks: 64-byte row segments 201-204 GB/s, 256-byte 230-234; mlp_stream contiguous 237"
+ },
+ "dram_little_latency_us": {
+  "value": 0.62,
+  "source": "probe: tileload.cu, DRAM source, 8 blocks x 2 stages x 8 KB: 64 KB in flight at 105 GB/s = 0.62 us (the knee of Little's law; deeper queues raise it)"
+ },
+ "cpasync_overlap_p": {
+  "value": 2.0,
+  "source": "ablation: 21 cp.async kernels at 1024^3, each one's whole block time (minus setup) against its compute alone and its loads alone under the full grid; the exponent p with (compute^p + loads^p)^(1/p) = whole has median 1.97 (18 of 21 within 1.5-2.4; three 64x128 tiles overlap almost fully, p 3.7-6). The same warps issue the copies and the mma, so they share issue slots and barriers: balanced parts hide about half of the smaller one, loads 2-4x compute hide 75-86 %. The TMA path, with its own producer warps, overlaps fully (step 2c: max(compute, loads) + sync at every pick)"
+ },
+ "sim": {
+  "value": {
+   "hmma_16816_pipe_clk": 16,
+   "hmma_latency_clk": 29,
+   "ldsm_latency_clk": 34,
+   "ldsm_sm_clk_per_x4": 4.0,
+   "bar_base_clk": 13,
+   "bar_per_warp_clk": 2,
+   "ldgsts_l2_latency_clk": 350,
+   "ldgsts_dram_latency_clk": 1560,
+   "default_var_latency_clk": 20,
+   "rbar_release_clk": 8,
+   "mio_ldsm_clk": 11.7,
+   "mio_ldgsts_clk": 6.0,
+   "smem_array_clk_per_512B": 4.0,
+   "l2_return_clk_per_512B": 16.7,
+   "l2_aggregate_B_per_clk_cpasync": 817.7,
+   "lsu_clk_per_line": 1.0,
+   "stg_tpc_clk_per_instr_4B": 15.0,
+   "stg_tpc_clk_per_instr_16B": 14.0,
+   "stg_chip_B_per_clk_4B": 137.8,
+   "stg_chip_B_per_clk_16B": 570.9,
+   "mufu_smsp_clk_per_instr": 8.0,
+   "mufu_latency_clk": 18,
+   "ffma_lanes_per_clk_per_sm": 124,
+   "mio_stsm_clk": 10.8,
+   "tma_st_tpc_B_per_clk": 33.1,
+   "tma_st_chip_B_per_clk": 482.0,
+   "tma_st_fixed_clk": 457,
+   "l1_clk_per_line": 2.0,
+   "l1_hit_latency_clk": 45,
+   "ldg_l2_latency_clk": 342,
+   "local_clk_per_line": 4.0,
+   "red_sm_B_per_clk": 25.6,
+   "red_chip_B_per_clk": 330.0,
+   "red_pair_clk_per_line": 2.0,
+   "red_chip_B_per_clk_frag": 225.0,
+   "st_queue_instr": 16,
+   "red_smsp_clk_per_line": 2.65,
+   "fma_fp32_clk": 1.0,
+   "alu_half_rate_clk": 2.0,
+   "mbar_wake_clk": 134,
+   "tma_dram_latency_clk": 1170,
+   "tma_l2_latency_clk": 440
+  },
+  "source": "probe: instlat.cu (ldmatrix latency 38.4 cycles per dependent hop incl. the add; ldmatrix 4.0 cycles per x4 per SM with 8+ warps, 11.7 per warp alone; bar.sync 14.6 + ~2 cycles per warp; cp.async 16 B round trip from L2 350 cycles; cp.async 16.0 B per clock per SM within a block = one warp instruction per 32 cycles), mma_rate.cu (HMMA.16816 one per 16 cycles per sub-partition; 29-cycle dependent latency), mlp_stream (DRAM ~0.62 us = 1560 cycles). default_var_latency and rbar_release are assumptions, not measured; cpq.cu: one warp issues a 16 B x 32-lane cp.async every 6 cycles; 4 warps one every 4 cycles per SM (the shared-memory array, 128 B per clock, also used by ldmatrix); 4 warps x 64 copies land at ~64 B per clock per SM (the L2 return path); instlat's earlier 16 B/clk cp.async figure was the probe's own bank conflicts (lanes 128 B apart) and is withdrawn; the chip's L2 serves cp.async tile traffic at 2.25 TB/s with all SMs loading (tileload.cu, 96-192 blocks) = 893 B per clock, shared by the active SMs; loopsteps.cu (Oct 20): TileLang's loop shape (copy, commit, wait, two barriers) with compile-time addressing moves 78 GB/s per SM (30.7 B per clock: the port) up to ~24 SMs; the chip's L2 saturates at 2.07-2.10 TB/s; commit, wait and barriers cost nothing measurable. TileLang's own loads-only kernels confirm 76-80 GB/s with one block. tileload.cu's 37.8 GB/s single-block figure (and the 0.22 us per k-tile fixed cost derived from it) came from run-time integer division in that probe's address code and is withdrawn; the load unit's address stage looks up one 128-byte line per cycle per SM (design assumption, checked: cpq.cu contiguous 512 B = 4 lines -> 4 cycles per copy with 4 warps; predicts the single-block loss of 3 ablated kernels within 20 %); a copy releases its read barrier when that stage has processed it (ncu: the whole kernel gains long_scoreboard 0.80 and mio/lg throttle stalls over its mma-only version); storepat.cu: the two SMs of a pair (TPC) share one store path: every store pattern doubles from 1 to 2 busy SMs and stays flat to 8; TileLang's C store (4 B per lane, 8 rows x 16 B per instruction, half-sectors) takes 15 cycles per instruction (8.7 B per clock), 16 B per lane coalesced 14 cycles per 512 B instruction (37 B per clock); storepat.cu at 24/48/96 blocks: chip-wide store limit ~0.31-0.38 TB/s for TileLang's half-sector 4 B stores and ~1.4-1.5 TB/s for 16 B coalesced stores (the per-pair limit holds to 24 blocks); l2share.cu: the chip's L2 delivers 2.08-2.14 TB/s to the lean copy loop with 1, 2, 3 or 4 blocks resident per SM and 8-16 KB tiles: the share follows blocks in flight, not SMs; sfu.cu: MUFU (ex2, rsqrt, lg2, tanh; sin 22-cycle) 18-cycle latency and 16 lane results per clock per SM = one warp instruction per 8 cycles per sub-partition (one warp alone reaches 4 per clock); FFMA 124 per clock per SM, latency ~4.7. The rcp row was folded away by the compiler (unchecked); tmastore.cu (Oct 20): stmatrix x4 one warp every 10.77 cycles, 4.0 cycles per x4 per SM with 4+ warps (the shared array's 128 B/clk); TMA store of a 64 KB tile: one block 0.96 us, two blocks on a pair 1.74 us each, 48 blocks 2.75 us: 33.1 B/clk per pair (the slope), 457 cycles fixed, 482 B/clk chip; wait_group.read (TileLang's default) costs the same as the full wait; ldg_atomic.cu (Oct 20): dependent LDG 50.8 cycles per hop in a 16 KB ring (L1; about 45 after the loop's own instructions) and 342.5 in a 4 MB ring (L2); LDG.128 L1 hits 7.4-8.5 cycles per 512 B per SM (2 per line); ld.global.cg from L2 15.7 cycles per 512 B on one SM (the copy port) and 2.2 TB/s for the chip (the copy path's L2 limit); spills with one slot per warp 11.9 cycles per two loads and a store (4 per line); RED.F32 one warp instruction per 5 cycles per SM, RED.F32x2 per 10 (25.6 B/clk), chip 323-340 B/clk; every lane on one address about 3.3 cycles per add for the whole chip; ldg_atomic.cu redfrag (Oct 20): RED.F32x2 in the mma accumulator layout (8 rows x 32 B per warp instruction): one block 16 cycles per instruction, two blocks on a pair 32 each (2 cycles per line on the pair's store port), 48 and 96 blocks 225 B/clk for the chip; blocks adding into the same tile at once are not slower (redtile); stq.cu (Oct 20): with 4 warps about 16 store or atomic warp instructions per SM issue at once, then issue follows the drain (16 cycles per instruction per SM for accumulator-layout RED.F32x2 and for STG.128); one warp alone issues accumulator-layout RED.F32x2 every 21.25 cycles (2.65 per line); alu.cu, alumix.cu (Oct 20), warp instructions per clock per SM, 32 warps: FFMA 3.86, FADD 3.94; IMAD, LOP3, SHF, PRMT, HFMA2 2.0; HADD2.F32 with F2FP 2.0 together; F2I 0.5 (the SFU rate). Mixes: PRMT+IMAD 3.92 (two units), PRMT+LOP3 2.0 and HFMA2+IMAD 2.0 (one unit each), IMAD+FFMA 1.32+1.32 (FP32 1 cycle and IMAD 2 cycles on one FMA unit), HFMA2+LOP3 1.27+1.91; LOP3+FFMA 1.53+1.02 is about 23 % below the two-unit picture (unexplained); mbar.cu (Oct 20): one warp arrives on an mbarrier while another waits on the same SM: the waiter gets through 134 cycles later with try_wait (TileLang's form; 157 with a test_wait spin; an arrive with an earlier global store waits for it, 217); arrives from one lane cost 6.6 cycles each in a row; dramlat.cu (Oct 20): one TMA box loaded alone, issue to mbarrier complete: from DRAM 512/608/704/896 ns for 4/8/16/32 KB idle (about 460 ns, 1170 cycles, plus the TMA engine's transfer); from L2 224 ns for 4 KB (about 440 cycles plus transfer); under background load the box waits behind everyone's queued bytes (4 KB: 2.4 us at 208 GB/s, 3.6 us saturated), as base latency plus chip bytes in flight over the DRAM rate. Pointer chase: 421 ns idle, 554 at 121 GB/s, 1159 at 208, 1929 saturated"
+ },
+ "l2_hit_vs_reuse_distance": {
+  "value": [
+   [
+    0,
+    1.0
+   ],
+   [
+    14,
+    1.0
+   ],
+   [
+    16,
+    0.964
+   ],
+   [
+    18,
+    0.816
+   ],
+   [
+    20,
+    0.752
+   ],
+   [
+    22,
+    0.75
+   ],
+   [
+    24,
+    0.626
+   ],
+   [
+    28,
+    0.624
+   ],
+   [
+    32,
+    0.32
+   ],
+   [
+    40,
+    0.012
+   ],
+   [
+    48,
+    0.0
+   ]
+  ],
+  "source": "probe: l2policy.cu with ncu L2 hit/miss sectors, cyclic scans of W MB x 4 passes (reuse distance = W): hit probability of a re-read above the 50 % floor of 64-byte fills; made non-increasing at 22 MB. No standard policy (LRU, random, SLRU, BIP, RRIP at 24 MB) reproduces it; a re-read 4-8 MB set also survives a 64 MB stream (scan resistance)"
+ },
+ "dram_write_GBs": {
+  "value": 197,
+  "source": "probe: dram.cu mix, write-only 197 GB/s, read-only 242, read:write 1:1 220, 3:1 222, 1:3 217; a mix is served at 1 / (f_read/242 + f_write/197) within ~4 %"
+ },
+ "dram_loaded_latency_us": {
+  "value": [
+   [
+    0,
+    0.419
+   ],
+   [
+    4,
+    1.35
+   ],
+   [
+    8,
+    2.68
+   ],
+   [
+    16,
+    4.81
+   ],
+   [
+    24,
+    5.86
+   ],
+   [
+    47,
+    6.13
+   ]
+  ],
+  "source": "probe: dram.cu load, pointer chase (2 MB-page-local, TLB hits) on one SM while N SMs stream-read DRAM at ~250 GB/s: queueing. The simulator's per-SM share of the DRAM rate is this queue"
+ },
+ "cpu_dram_contention": {
+  "value": {
+   "gpu_GBs_alone": 237,
+   "with_cpu_threads": {
+    "2": 213.5,
+    "8": 170.6,
+    "20": 137.9
+   },
+   "cpu_alone_GBs": {
+    "2": 95.3,
+    "8": 138.7,
+    "20": 151.9
+   }
+  },
+  "source": "probe: cpuhog.c + mlp_stream, the GPU's DRAM read rate while CPU threads copy 256 MB buffers; an environment input (cpu_dram_GBs), zero in all kernel measurements here"
+ },
+ "l2_policy_findings": {
+  "value": {
+   "scan_resistant": true,
+   "fill_bytes": 64,
+   "cyclic_hit_curve_MB": [
+    [
+     14,
+     1.0
+    ],
+    [
+     16,
+     0.96
+    ],
+    [
+     20,
+     0.75
+    ],
+    [
+     24,
+     0.63
+    ],
+    [
+     28,
+     0.62
+    ],
+    [
+     32,
+     0.32
+    ],
+    [
+     40,
+     0.01
+    ]
+   ]
+  },
+  "source": "probe: l2policy.cu with ncu, a re-read 4-8 MB set survives a 64 MB stream; cyclic scans lose reuse gradually from 16 to 40 MB; a 50 % hit floor on streams (two 32 B sectors per fill). No standard policy at 24 MB reproduces this. For GEMM traffic the k-slice LRU over 16.8 MB matches ncu best (median 6 %, 18 kernels); the measured reuse-distance curve under-counts (median 15 %)"
+ },
+ "l2_carryover_b2b": {
+  "value": [
+   [
+    16,
+    1.0
+   ],
+   [
+    20,
+    0.82
+   ],
+   [
+    24,
+    0.6
+   ],
+   [
+    28,
+    0.26
+   ],
+   [
+    32,
+    0.13
+   ],
+   [
+    36,
+    0.0
+   ]
+  ],
+  "source": "probe: stream_b2b.cu, a linear read of S MiB repeated back-to-back with no flush, all SMs: 1.6 TB/s up to 16 MiB, 782 GB/s at 20, 487 at 24, 303 at 28, 265 at 32, 232-237 from 36 up (the DRAM rate); the fraction of the read found in the L2 from the previous run, solved from the time. Back-to-back timing of real kernels at 33-35 MB varied about 10 % between sessions (split-K 128x4096x4096: 168, 135, 146 us), so it is an average"
+ },
+ "tensor_rates_by_type": {
+  "value": {
+   "f16_f32_m16n8k16": 1017,
+   "f16_f16_m16n8k16": 1020,
+   "bf16_f32_m16n8k16": 1018,
+   "tf32_f32_m16n8k8": 510,
+   "e4m3_f32_m16n8k32": 2041,
+   "e5m2_f32_m16n8k32": 2039,
+   "e2m1_f32_m16n8k32_f8f6f4": 2038,
+   "s8_s32_m16n8k32": 2038
+  },
+  "source": "probe: mma_types.cu, dense FLOP per clock per SM, 8 warps x 8 accumulators on all 48 SMs, event-timed: every shape and type holds the tensor pipe 16.05-16.10 cycles per instruction per sub-partition (HMMA, IMMA, QMMA). FP4 through kind::f8f6f4 runs at the FP8 rate; the block-scaled mxf4 m16n8k64 form is not measured. A first version timed with clock64 inside the kernel read 8x these rates: the compiler does not keep a clock read after register-only mma instructions"
+ },
+ "clock_sustained_GHz": {
+  "value": {
+   "tensor_20s": [
+    2.496,
+    2.476
+   ],
+   "dram_stream_20s": 2.502,
+   "tensor_TFs": [
+    121.5,
+    120.4
+   ],
+   "power_W": {
+    "tensor": 68,
+    "dram": 23.5
+   }
+  },
+  "source": "probe: sustain.cu with nvidia-smi every 500 ms: mma.sync on all SMs back-to-back from one process, 121.5 TFLOP/s for 13 s then 120.4 (-0.9 %) at 62 C, SM clock 2496 -> 2476 MHz, 68 W, no throttle reason; a DRAM read stream 237 GB/s for 20 s at 2502 MHz, 23.5 W. The simulator's 2.54 GHz comes from short in-kernel probes: long runs are about 2 % slower"
+ },
+ "launch_costs_us": {
+  "value": {
+   "stream_empty_back_to_back": 2.05,
+   "graph_per_kernel": 0.43,
+   "graph_extra_per_1024_blocks": 0.44,
+   "between_kernels_with_work": 3.1,
+   "single_launch_and_sync_host": 4.9
+  },
+  "source": "probe: launch.cu: empty kernels back-to-back from one stream 2.04-2.08 us each for 1 to 1024 blocks (the host's submission rate); the same 100 kernels as a CUDA graph 0.43 us each (0.87 with 1024 blocks); a 48-block kernel with about 21 us of work back-to-back leaves 3.1 us between kernels (launch, blocks starting, drain); one launch plus synchronize timed on the host 4.9 us. The simulator adds 2.6 us per kernel (ablation harness), or launch_us(graph=True)"
+ },
+ "icache_loop_limit_KB": {
+  "value": 32,
+  "source": "probe: icache.cu, loops of 256 to 16384 independent FFMAs (4 to 256 KB of code), 8 warps: full rate up to 32 KB, then -10 % at 64 KB, -27 % at 128 KB, -50 % at 256 KB. TileLang's kernels here are at most about 24 KB in all and their main loops about 3 KB, so instruction fetch is not modelled"
+ },
+ "tier4_features": {
+  "value": {
+   "cluster_max_blocks": 8,
+   "active_clusters_of_2": 48,
+   "distributed_smem": true,
+   "l2_persisting_max_bytes": 18874368,
+   "access_policy_window_max_bytes": 134217728,
+   "stream_priorities": [
+    0,
+    -5
+   ],
+   "cooperative_launch": true,
+   "concurrent_kernels": true
+  },
+  "source": "probe: tier4_query.cu, device attributes and a real 2-block cluster launch whose blocks read each other's shared memory (101/100 as expected); 8 MB asked of the persisting L2 set-aside gave 9 MB (granularity)"
+ },
+ "l2_persist_window_payoff_us": {
+  "value": {
+   "4MB": [
+    20.3,
+    6.0
+   ],
+   "8MB": [
+    37.7,
+    8.0
+   ],
+   "12MB": [
+    51.0,
+    10.1
+   ],
+   "16MB": [
+    63.4,
+    14.2
+   ]
+  },
+  "source": "probe: l2persist.cu, a decode-style read of W MB of weights after a 64 MB stream of other traffic, without and with a stream access-policy window marking the weights persisting (18 MB set aside): 3.4-5x faster; the window keeps the weights in the L2 across the other traffic"
+ }
+}

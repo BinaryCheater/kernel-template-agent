@@ -336,3 +336,15 @@ To save tokens (D328), WP17 is not a separate session: its scope is done by WP19
   - First targets: the seed GEMM five steps (reduction_partition, physical_storage, async_transfer, multi_buffer_rotation, shared_resource_binding) and the tiling template, where the paper already has results to compare against; a planted wrong Pre (e.g. `P ≤ S − 1`) must produce a replayed counterexample (canary for the checker).
 - **Not covered, stated plainly**: whether agent-written generator code implements the Template's abstract program (stays guarded by code markers, expected SASS, sanitizers; IR-level extraction later), FP rounding, schedules beyond the bounded event model. Code-level claims stay `tested`.
 - **Acceptance (code stage, D320)**: the five seed steps each end proved, bounded or unresolved with a recorded reason (no silent pass); the planted unsound Pre yields a replayed counterexample; K1 failure is caught on a fixture whose C admits a point Pre rejects; composition rejects a chain with an incompatible assumption; invalidation on a premise change; `scripts/gate --stage code WP24`. Checker runs are CPU jobs (on the compute host via the Executor when heavy).
+
+## WP26 One hardware-model engine (GB10)
+
+- **Depends**: WP15, WP16, WP19. **Reads**: `docs/design/25-hardware-model-sources.md`; 02 §4, §5; upstream (read-only, copied with provenance) `/Users/dingyi/Projects/ai-infra-codesign-ventus` at `0eef497`: `agentic/gb10/`, `calibration/spark-6951/` (gb10.json, sass/, ablation*/), and for bookkeeping `agentic/sim/`, `calibration/spark-6951/{contract.yaml,coverage.md,MODEL_CARD.md}`, `notes/sim_gaps.md`.
+- **Why** (user, 2026-11-02): one simulator, copied into KTA and iterated; L1, L2 and L3 from the same source; measured parameters plus fitted calibration parameters that benchmarks refine into mechanisms (D680).
+- **Produces**:
+  - Copy step: `src/kta/models/gb10sim/` (SM simulator, warp-specialized TMA, grid mapping, analytic traffic functions, validation drivers) and `gb10.json`, behaviour-preserving (D681); `scripts/gb10sim-replay`; the upstream validation sets replayed on a worker with upstream code and with the copy, rows equal.
+  - Parameter step: every constant written in code moves into the parameter file; each value carries a status (measured / fitted / structural) and its probe; an unknown opcode is an error; the replay is re-run and differences are listed.
+  - L3: the engine on a compiled candidate's SASS, as an Executor job on a worker; `L3Result` from it; first real run on a GEMM family candidate.
+  - L2 and L1 from the same engine and parameter file (synthetic instruction stream from Template effects; closed form from the same pipe costs); instruction-mix check against compiled SASS.
+- **Acceptance (code stage)**: replay equality of the copy step; parameter step with no code constant left untracked; L3 job defined and run for real once; `scripts/gate --stage code WP26`.
+

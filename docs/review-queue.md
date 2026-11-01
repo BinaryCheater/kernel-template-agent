@@ -972,3 +972,11 @@ Decisions made without the user that need review. Newest last. Each entry: quest
 - **Choice:** not repaired; reported with replayed counterexamples. Proposed repairs: physical_storage and output_tiling move their p-only preconditions into Γ (K1); multi_buffer_rotation, physical_storage, shared_resource_binding bound their p.* in Γ (sizes ≥ 1, `S * p.size_bytes <= p.capacity_bytes` for some S, `p.wavefronts` as defined) (K3); async_transfer adds `complete_point != "before_read" or p.single_issuer` or drops `before_read`; shared_resource_binding restates `bijective_binding` as injectivity with an inverse on the image (padding).
 - **Rationale:** a seed change is a knowledge decision; new versions change chain references.
 - **Cost of changing later:** new Template versions plus chain bindings; the checker reruns in seconds.
+
+## D680 Base simulator for the single hardware-model engine (WP26)
+
+- **Question:** which upstream simulator becomes KTA's one engine for L1, L2 and L3?
+- **Choice:** `agentic/gb10` (TileLang-specific SASS simulator with compiler control bits, `gb10.json`), with `agentic/sim`'s bookkeeping brought over; copied into `src/kta/models/gb10sim/`.
+- **Rationale:** best-calibrated on the kernels KTA generates (22 TileLang GEMMs, whole kernel median 5.3 %, worst 16 %; TMA warp specialization covered); the user's direction is one simulator copied and iterated.
+- **Cost of changing later:** the copy is self-contained (one package and one parameter file); switching base means replacing the package and re-running the replay; L1/L2 built on it would follow its parameter names.
+
