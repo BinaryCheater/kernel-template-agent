@@ -1007,3 +1007,10 @@ Decisions made without the user that need review. Newest last. Each entry: quest
 - **Rationale:** the user watches the run and its history first; knowledge and settings are visited on purpose.
 - **Cost of changing later:** low: `Shell.tsx` and `Overview.tsx`; routes did not change.
 
+## D668–D670 — Process switches, flowchart home, six pages (WP25, second round)
+
+- **Question:** after the first round the user found Home too busy, the pages too many and the T-codes and state names unexplained, and asked for controls that let the system run.
+- **Choice:** Home = one sentence + Solve/Learning switches + a flowchart per loop with instances on their steps + the list of open instances (step, round, time, seven levels, controls) + just happened + needs you; six pages; words instead of codes; process switches host `processes.run` in the API.
+- **Rationale:** what is moving and what is stuck should be visible without reading; deeper detail is one click away.
+- **Cost of changing later:** low (frontend files and one API endpoint).
+

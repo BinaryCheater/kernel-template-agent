@@ -23,7 +23,7 @@ export function Activity() {
     setParams(next, { replace: true });
   };
   return (
-    <Panel primary title="Activity" sub="everything the system did, in plain words; click a line for its evidence"
+    <Panel primary title="Activity"
       right={
         <span className="row" style={{ gap: 8 }}>
           <div className="tabs small-tabs">

@@ -247,6 +247,29 @@ class Operations:
                 break
         return taken
 
+    def process_action(self, name: str, start: bool, reason: str, human: Actor) -> dict[str, Any]:
+        """Record a human's start or stop of a process (WP25, D668). A stop is a stop
+        request the running process reads at its next tick; a start is checked here and
+        run by the caller (``processes.run`` holds the process lock while it runs)."""
+        from kta.orchestrator import processes  # processes imports this module
+
+        if name not in processes.ALL:
+            raise ConfigError(f"unknown process {name!r}; one of {', '.join(processes.ALL)}")
+        holder = self.svc.ops.lock_holder(f"process:{name}")
+        if start and holder is not None:
+            raise ConfigError(f"process {name} is already running ({holder})")
+        verb = "start" if start else "stop"
+        action = _action(self.svc, human, f"process {verb} {name}", reason, {})
+        if not start:
+            processes.request_stop(self.svc, name)
+        return {"process": name, "action": action, "running": holder is not None}
+
+    def run_process(self, name: str, interval_s: float) -> int:
+        """Run ``name`` until a stop request (blocks; the API calls it on a thread)."""
+        from kta.orchestrator import processes  # processes imports this module
+
+        return processes.run(self.svc, name, interval_s)
+
     def request_reverify(self, record: str, reason: str, human: Actor) -> dict[str, Any]:
         reverifiable(self.svc, record)  # refuse before writing the HumanAction
         action = _action(self.svc, human, f"reverify {record}", reason, {"subject": record})

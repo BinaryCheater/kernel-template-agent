@@ -26,23 +26,17 @@ export const useSnapshot = () => useContext(SnapshotContext);
 
 type NavItem = { to: string; label: string; badge?: "inbox"; also?: string[] };
 
-/** Navigation (WP25, D665): the four views used while watching are always shown; knowledge,
- *  control and studies are groups that open when one of their pages is active or on click. */
+/** Navigation (WP25, D670): six pages. Detail pages (case, task, result, family) light up
+ *  their parent; pages left out of the menu stay reachable by link (earlier WPs' routes). */
 const PRIMARY: NavItem[] = [
-  { to: "/", label: "Home", also: ["/running"] },
-  { to: "/activity", label: "Activity" },
-  { to: "/pipeline", label: "Pipeline" },
+  { to: "/", label: "Home", also: ["/running", "/inbox"] },
   { to: "/cases", label: "Cases", also: ["/results", "/tasks"] },
+  { to: "/knowledge", label: "Knowledge", also: ["/families", "/pool", "/coverage", "/model"] },
+  { to: "/activity", label: "Activity", also: ["/operations"] },
+  { to: "/pipeline", label: "Pipeline" },
+  { to: "/settings", label: "Settings", also: ["/workflow", "/agents", "/release"] },
 ];
-const GROUPS: { group: string; hint: string; items: NavItem[] }[] = [
-  { group: "Knowledge", hint: "what the system has learned", items: [{ to: "/families", label: "Families" }, { to: "/pool", label: "Pool" },
-    { to: "/coverage", label: "Coverage" }, { to: "/model", label: "Cost model" }, { to: "/model/scoreboard", label: "Model scoreboard" }] },
-  { group: "Control", hint: "decide, configure, intervene", items: [{ to: "/inbox", label: "Needs you", badge: "inbox" }, { to: "/settings", label: "Settings" },
-    { to: "/workflow", label: "Agent workflow and prompts" }, { to: "/agents", label: "Agent skills and profiles" }, { to: "/release", label: "Release stage" },
-    { to: "/operations", label: "Actions log" }] },
-  { group: "Studies", hint: "experiments about the system itself", items: [{ to: "/experiments", label: "Experiments" }, { to: "/improvement", label: "Improvement" },
-    { to: "/mechanisms", label: "Mechanisms" }] },
-];
+const GROUPS: { group: string; hint: string; items: NavItem[] }[] = [];
 
 const OPEN_KEY = "kta-nav-open";
 function loadOpen(): Record<string, boolean> {
@@ -121,7 +115,7 @@ export function Shell({ pages, children }: { pages: PageMeta[]; children: ReactN
         <nav className="sidebar">
           <div className="brand"><b>KTA</b><span>Kernel Template Agent</span></div>
           <Nav inbox={active.data?.inbox_count} />
-          <div className="foot">Every button that acts writes a HumanAction record (who, when, why). Controls the API cannot do yet are shown disabled with what they need.</div>
+
         </nav>
         <div className="main">
           {metaApi.error && (
@@ -136,15 +130,14 @@ export function Shell({ pages, children }: { pages: PageMeta[]; children: ReactN
           <header className="topbar">
             <div className="title">
               <h1>{meta.title}</h1>
-              <p>{meta.question}</p>
             </div>
             <div className="spacer" />
-            <label>
+            {loc.pathname.startsWith("/knowledge") && <label>
               Pool snapshot
               <select value={snapshot} onChange={(e) => setSnapshot(e.target.value)}>
                 {(snaps.data ?? []).map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
               </select>
-            </label>
+            </label>}
             <span className="asof" title={live.lastEvent ? `last event ${hhmm(new Date(live.lastEvent).toISOString(), true)} UTC` : "no event yet"}>
               {STATIC ? <span className="chip idle"><span className="dot" />static view</span>
                 : <span className={`chip ${live.connected ? "ok" : "fail"}`}><span className="dot" />{live.connected ? "live" : "disconnected"}</span>}

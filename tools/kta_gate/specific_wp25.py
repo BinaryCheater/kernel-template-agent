@@ -33,6 +33,9 @@ WP25_TESTS = (
     "test_every_phrase_renders_with_its_placeholders_missing",
     "test_active_view_and_trace_mark_a_blocked_paused_loop",
     "test_lock_holder_ignores_an_expired_lock",
+    "test_process_start_and_stop_are_recorded_and_guarded",
+    "test_active_view_lists_processes",
+    "test_human_actions_read_as_words",
 )
 SPEC_MARKS = (
     ("spec/workplan.md", "## WP25 "),
@@ -41,7 +44,9 @@ SPEC_MARKS = (
 )
 PAGE_MARKS = (
     ("web/src/App.tsx", 'path="/activity"'),
-    ("web/src/pages/Overview.tsx", "LoopMap"),
+    ("web/src/pages/Overview.tsx", "FlowMap"),
+    ("web/src/pages/Overview.tsx", "ProcessSwitch"),
+    ("web/src/App.tsx", 'path="/knowledge"'),
     ("web/src/pages/Overview.tsx", "LoopControls"),
     ("web/src/pages/Case.tsx", "RoundCard"),
     ("web/src/pages/Settings.tsx", "ValueEditor"),

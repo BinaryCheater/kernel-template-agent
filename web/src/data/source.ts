@@ -135,6 +135,9 @@ export const act = {
     post<Record<string, unknown>>("/actions/create-task", { type, goal, inputs, priority, reason }),
   pause: (scope: string, reason: string) => post<Record<string, unknown>>("/actions/pause", { scope, reason }),
   resume: (scope: string, reason: string) => post<Record<string, unknown>>("/actions/resume", { scope, reason }),
+  /** WP25: start or stop a loop process (solve, learn) hosted by the API. */
+  process: (name: string, action: "start" | "stop", reason = "") =>
+    post<{ process: string; action: string; running: boolean }>("/actions/process", { name, action, reason }),
   /** WP25: advance a loop by hand — one step, one round, continuously (resume), or retry a block. */
   advance: (loop: string, mode: "step" | "round" | "run" | "retry", reason = "") =>
     post<{ loop: string; mode: string; action: string; started: boolean; process?: string; process_running?: boolean }>("/actions/advance", { loop, mode, reason }),

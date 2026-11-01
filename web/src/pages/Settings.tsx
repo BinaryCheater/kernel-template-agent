@@ -9,6 +9,8 @@ import { useApi } from "../data/useApi";
 import { Chip, Loading, Panel, RecordLink } from "../components/ui";
 import { hhmm } from "../components/format";
 import { SystemSettings } from "./SettingsSystem";
+import { Workflow } from "./Workflow";
+import { Release } from "./Release";
 
 const SECTIONS: Record<string, string> = {
   "12 §1": "Budget and rounds",
@@ -34,13 +36,15 @@ function parse(k: Knob, text: string): unknown {
 
 const TABS = [
   { id: "controls", label: "Research controls" },
+  { id: "agents", label: "Agent prompts" },
+  { id: "stage", label: "Release stage" },
   { id: "system", label: "System" },
 ] as const;
 
 /** Two tabs (WP22): the versioned research controls, and the control plane's system settings. */
 export function Settings() {
   const [params, setParams] = useSearchParams();
-  const tab = params.get("tab") === "system" ? "system" : "controls";
+  const tab = TABS.find((t) => t.id === params.get("tab"))?.id ?? "controls";
   const pick = (id: string) => {
     const next = new URLSearchParams(params);
     if (id === "controls") next.delete("tab");
@@ -50,7 +54,10 @@ export function Settings() {
   return (
     <div className="stack">
       <div className="tabs">{TABS.map((t) => <button key={t.id} className={tab === t.id ? "on" : ""} onClick={() => pick(t.id)}>{t.label}</button>)}</div>
-      {tab === "system" ? <SystemSettings /> : <ResearchControls />}
+      {tab === "system" && <SystemSettings />}
+      {tab === "controls" && <ResearchControls />}
+      {tab === "agents" && <Workflow />}
+      {tab === "stage" && <Release />}
     </div>
   );
 }

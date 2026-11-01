@@ -90,6 +90,8 @@ export interface LoopInstance {
   paused?: string | null;
   /** WP25: a human advance running now (step | round | retry). */
   advancing?: string | null;
+  /** WP25: the steps of the family the loop's current round uses (levels 1-7). */
+  chain?: { key: string; template: string; level_from: number | null; level_to: number | null; assurance: string }[];
   trace_id: string;
 }
 
@@ -160,6 +162,8 @@ export interface ActiveRuns {
   as_of: string;
   agent_slots: string[];
   loops: LoopInstance[];
+  /** WP25: the loop processes and whether each runs and is allowed by the release stage. */
+  processes?: { name: string; running: boolean; holder: string | null; allowed: boolean }[];
   tasks: TaskInstance[];
   jobs: Job[];
   leases: Lease[];

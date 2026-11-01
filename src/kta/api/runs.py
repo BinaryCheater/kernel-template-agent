@@ -10,7 +10,7 @@ import json
 from datetime import datetime, timedelta
 from typing import Any
 
-from kta.api import operate, opsread
+from kta.api import operate, opsread, pool
 from kta.api.common import (
     Api,
     body,
@@ -20,7 +20,7 @@ from kta.api.common import (
     machine_limit,
     machines,
 )
-from kta.orchestrator import quotas
+from kta.orchestrator import quotas, release
 from kta.orchestrator.control import paused_scope
 from kta.store.base import SpanRow
 from kta.store.sqlite import RecordNotFound
@@ -89,8 +89,42 @@ def loop_view(api: Api, row: opsread.LoopRow) -> dict[str, Any]:
             api.ops, [f"loop:{row.id}", f"process:{_process(row.kind)}", "global"]
         ),
         "advancing": operate.advancing().get(row.id),
+        "chain": _chain(api, d),
         "trace_id": row.id,
     }
+
+
+# Processes the Home page can start and stop (WP25, D668): the two that advance loops.
+HOSTED = ("solve", "learn")
+
+
+def processes_view(api: Api) -> list[dict[str, Any]]:
+    """Each loop process: whether one runs (holds its lock) and whether the release stage
+    allows it."""
+    snap = controls(api)
+    out = []
+    for name in HOSTED:
+        holder = api.ops.lock_holder(f"process:{name}")
+        out.append(
+            {
+                "name": name,
+                "running": holder is not None,
+                "holder": holder,
+                "allowed": release.process_allowed(snap, name),
+            }
+        )
+    return out
+
+
+def _chain(api: Api, d: dict[str, Any]) -> list[dict[str, Any]]:
+    """The steps of the family the loop's current round uses (levels 1-7, assurance)."""
+    fams = d.get("families") or []
+    if not fams:
+        return []
+    try:
+        return list(pool.family_summary(api, str(fams[0])).get("step_detail", []))
+    except RecordNotFound:
+        return []
 
 
 def _process(machine: str) -> str:
@@ -288,6 +322,7 @@ def active(api: Api) -> dict[str, Any]:
         "as_of": iso(now),
         "agent_slots": [f"agent:{i + 1}" for i in range(controls(api).agent_instances["start"])],
         "loops": loops,
+        "processes": processes_view(api),
         "tasks": live,
         "jobs": jobs,
         "leases": _leases(api, spans),

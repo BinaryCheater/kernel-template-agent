@@ -74,6 +74,29 @@ def advance(api: Api, loop_id: str, mode: str, reason: str) -> dict[str, Any]:
     return {**out, "started": True}
 
 
+# Tick interval of a process the API hosts (as `kta process start`'s default).
+PROCESS_INTERVAL_S = 10.0
+
+
+def process(api: Api, name: str, start: bool, reason: str) -> dict[str, Any]:
+    """Start or stop a process from the frontend (WP25, D668). A started process runs on a
+    thread of the API with the same tick loop and lock as ``kta process start``; a stop is
+    the same stop request ``kta process stop`` makes, honoured at the next tick."""
+    out = api.orchestration.process_action(name, start, reason, operator(api))
+    if not start:
+        return out
+
+    def work() -> None:
+        try:
+            ticks = api.orchestration.run_process(name, PROCESS_INTERVAL_S)
+            log.info("process %s stopped after %d ticks", name, ticks)
+        except Exception:  # kta:allowed a hosted process must not die silently
+            log.exception("process %s failed", name)
+
+    threading.Thread(target=work, name=f"process-{name}", daemon=True).start()
+    return {**out, "running": True}
+
+
 # Records about decisions themselves; rejecting or flagging them has no meaning.
 NOT_JUDGED = frozenset({"HumanAction", "StatusChange"})
 BUDGET_KEY = re.compile(r"^[a-z][a-z0-9]*(_[a-z0-9]+)*_[a-z]+$")

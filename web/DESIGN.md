@@ -267,39 +267,46 @@ continuous); prompts and settings stay editable, and long settings must be edita
 | What has the system learned? | Patterns, Templates, Families, assurance | Knowledge group (Families, Pool with its guide, Coverage, cost model) |
 | What can I change? | controls, prompts and profiles, release stage | Control group (Settings, Agent workflow and prompts, …) |
 
-### 7.2 Navigation
+### 7.2 Navigation (second round, D670)
 
-Always shown: **Home, Activity, Pipeline, Cases**. Collapsible groups (open when one of their
-pages is active, or on click; the choice is remembered per browser): **Knowledge** (Families,
-Pool, Coverage, Cost model, Model scoreboard), **Control** (Needs you with its badge, Settings,
-Agent workflow and prompts, Agent skills and profiles, Release stage, Actions log),
-**Studies** (Experiments, Improvement, Mechanisms). Running stays reachable from Home.
+Six pages, no groups: **Home, Cases, Knowledge, Activity, Pipeline, Settings**. Knowledge has
+tabs (By level, Kernel families, Templates, Coverage, Cost model); Settings has tabs (Research
+controls, Agent prompts, Release stage, System). Pages taken out of the menu (Running, Inbox,
+Operations, Agents, Experiments, Improvement, Mechanisms, Model scoreboard) keep their routes
+because earlier WPs' acceptance checks name them; they are reached by links only. Page titles
+have no subtitle; the pool snapshot selector shows on Knowledge only.
 
-### 7.3 Home
+### 7.3 Home (second round, D669)
 
-1. Status line: overall state in words (n loops stopped by an error / moving / everything
-   paused / idle), stage, open cases and references, agents busy, jobs, GPU, workers, time
-   since the last event, a link to what needs you. A stopped loop is never shown as running.
-2. Loop maps, solve then expand: the main path is derived from machines.yaml (from the
-   initial state, the first forward transition, skipping terminals and side waits that are
-   left by `resume`); side states and terminals sit in a row below with "entered from" and
-   "then". Under each state: the conditions that send work elsewhere (`→ waiting none legal
-   T1`, judging's rules ①–⑥). Every live instance is a chip on its state (blue moving, amber
-   waiting, red stopped, grey paused); clicking a state opens its panel: what it does, who does
-   it, every exit with its condition and created task, the instances there with their error
-   or awaited task and the loop controls. The stopped state opens by itself.
-3. Agent tasks by lifecycle state (a line when there are none).
-4. Bottom: recent milestones (journal), needs-you with controls, machine resources, the
-   45-minute pipeline strip.
+User direction (round 2): less text; a flowchart with loops and branches; a clear unit; see
+which runs are where and how many; whether the optimisation levels show in a run; controls
+that let the whole thing run.
 
-### 7.4 Loop controls
+1. Top line: one sentence (n stopped by an error / n running / Paused / Nothing to run), the
+   two process switches (Solve loop, Learning loop: Run or Pause), agents and GPU, "needs you".
+2. One section per loop ("Cases", "References being learned") with its count. The unit is
+   the loop instance: one Case in the solve loop, one Reference in the expand loop. The loop
+   is a flowchart: main path left to right in plain words (Lower bound → Find templates →
+   Pick candidates → Compile → Check → Measure → Judge → Solved); branches go down to the
+   agent step ("Agent fixes it"), the way back is dashed; "Gave up" below the end. Each case is
+   a chip under its step, with a count badge; red when stopped. Conditions are tooltips on
+   the arrows; there is no text on the canvas beyond step names and case names.
+3. Under the chart, the list of those cases: name, step (and the agent's job when waiting),
+   round, time at the step, the seven optimisation levels its family touches (cells coloured
+   by assurance), and its controls.
+4. Bottom: just happened (one line each), needs you.
 
-`Step` (one step now, also while the loop is paused: hand-stepping), `Round` (until the round
-is judged or the loop waits, ends or stops), `Run` (resume; the loop's process advances it,
-and the reply says if that process is not running), `Pause`, and `Retry step` instead of Step
-and Round when the loop is stopped by an error. No dialog: each click writes a HumanAction with
-an empty reason; the result shows next to the buttons. Irreversible operations (reject,
-deprecate, cancel) keep their dialog (§6.1).
+### 7.4 Controls
+
+- Process switches (D668): Run starts the loop's process inside the API (same tick loop and
+  lock as `kta process start`); Pause asks it to stop at its next tick. This is "let it run".
+- Per case: `Step`, `Round`, `Run`/`Pause`, `Retry step` when stopped (D664).
+- Every click writes a HumanAction; irreversible operations keep their dialog (§6.1).
+
+### 7.4b Words
+
+State ids, task codes (T1–T6) and level numbers are shown in words (`components/words.ts`):
+e.g. `retrieving` → Find templates, `waiting` → Agent fixes it, T1 → build a kernel family.
 
 ### 7.5 Case page
 

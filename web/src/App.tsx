@@ -21,10 +21,12 @@ import { Release } from "./pages/Release";
 import { Mechanisms } from "./pages/Mechanisms";
 import { Workflow } from "./pages/Workflow";
 import { Activity } from "./pages/Activity";
+import { Knowledge } from "./pages/Knowledge";
 
 const PAGES: PageMeta[] = [
   { path: "/", title: "Home", question: "What is the system doing now, and what did it just do?" },
   { path: "/activity", title: "Activity", question: "What happened, in order, and why?" },
+  { path: "/knowledge", title: "Knowledge", question: "What has the research accumulated?" },
   { path: "/running", title: "Running", question: "What is occupying the system right now?" },
   { path: "/pipeline", title: "Pipeline", question: "In what order and in parallel did things run, and where did the time go?" },
   { path: "/cases", title: "Cases", question: "Which problems are being solved, and how well?" },
@@ -55,6 +57,7 @@ export function App() {
       <Routes>
         <Route path="/" element={<Overview />} />
         <Route path="/activity" element={<Activity />} />
+        <Route path="/knowledge" element={<Knowledge />} />
         <Route path="/running" element={<Running />} />
         <Route path="/pipeline" element={<Pipeline />} />
         <Route path="/cases" element={<CaseList />} />

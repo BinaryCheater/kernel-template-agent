@@ -99,7 +99,7 @@ AGENTS.md 规定最后一步必须运行 gate 并把输出贴进交付说明。�
 
 | Check | Fails when |
 | --- | --- |
-| WP25 tests | a named WP25 test did not pass (manual step vs loop and process pauses, round stops where the loop waits, one step, run resumes and reports the process, retry clears a block, unknown mode and non-human refused, the endpoint and capability, journal phrasing of unlisted kinds, interleaved grouping, milestones and paging, every phrase renders, blocked and paused marks in the active view, the trace and the journal, lock holder) |
-| WP25 spec, pages and phrase table | a WP25 spec section is missing, `/activity` is not routed, Home lacks the loop maps or loop controls, Case lacks round cards, Settings lacks the key-by-key editor, Swimlanes does not draw a blocked step, or journal.yaml lacks an `other` row |
+| WP25 tests | a named WP25 test did not pass (manual step vs loop and process pauses, round stops where the loop waits, one step, run resumes and reports the process, retry clears a block, unknown mode and non-human refused, the endpoint and capability, journal phrasing of unlisted kinds, interleaved grouping, milestones and paging, every phrase renders, blocked and paused marks in the active view, the trace and the journal, lock holder, process start/stop, processes in the active view, actions in words) |
+| WP25 spec, pages and phrase table | a WP25 spec section is missing, `/activity` or `/knowledge` is not routed, Home lacks the flowchart, process switches or loop controls, Case lacks round cards, Settings lacks the key-by-key editor, Swimlanes does not draw a blocked step, or journal.yaml lacks an `other` row |
 | web build | the web app at HEAD does not build |
 | WP25 real hand advance | full stage: no clean real `advance` HumanAction with a loop step in dev/WP25 (FAIL); code stage: WARN (pending real run) |

@@ -23,6 +23,7 @@ from fastapi import APIRouter, Query
 
 from kta.api import opsread
 from kta.api.common import Api, iso
+from kta.api.operate import parse_action
 from kta.core.errors import ConfigError
 from kta.store.sqlite import RecordNotFound
 
@@ -91,6 +92,14 @@ class _Names:
     def __init__(self, api: Api) -> None:
         self.api = api
         self.cache: dict[str, str] = {}
+        self.loops = {lp.id: lp for lp in opsread.loops(api.ops)}
+
+    def loop(self, loop_id: str) -> str:
+        """A loop id -> the name of its subject (case or reference)."""
+        lp = self.loops.get(loop_id)
+        if lp is None:
+            return loop_id[-8:]
+        return self.case(lp.subject) or lp.subject[:12]
 
     def case(self, cid: str | None) -> str | None:
         if not cid:
@@ -114,10 +123,14 @@ def _record_event(api: Api, rid: str, kind: str, table: dict[str, Any], names: _
     case = refs.get("case") if isinstance(refs.get("case"), str) else None
     if kind == "Case":
         case = rid
-    p = table.get(kind)
+    sub = body.get("data", {}).get("kind") if isinstance(body.get("data"), dict) else None
+    p = table.get(f"{kind}:{sub}") or table.get(kind)
     phrased = p is not None
     p = p or table["other"]
     values: dict[str, Any] = {k: v for k, v in body.items() if isinstance(v, str | int | float)}
+    if kind == "HumanAction":
+        values["action_words"] = _action_words(str(body.get("action", "")), names)
+        values["reason_words"] = f" — {body['reason']}" if body.get("reason") else ""
     values.update(
         kind=kind,
         actor=actor,
@@ -148,6 +161,20 @@ def _record_event(api: Api, rid: str, kind: str, table: dict[str, Any], names: _
         refs=[rid],
         phrased=phrased,
     )
+
+
+def _action_words(action: str, names: _Names) -> str:
+    """A HumanAction's ``action`` in words: loop ids become case names, JSON becomes text."""
+    parsed = parse_action(action)
+    verb, params, args = parsed["verb"], parsed["params"] or {}, parsed["args"]
+    loop = params.get("loop") or (args[5:] if args.startswith("loop:") else None)
+    if loop:
+        target = names.loop(str(loop))
+        mode = params.get("mode")
+        return f"{mode} {target}" if verb == "advance" and mode else f"{verb} {target}"
+    if verb == "set_controls":
+        return f"new controls version {params.get('version', '')}".strip()
+    return f"{verb} {args}".strip() if args else verb
 
 
 def _span_event(

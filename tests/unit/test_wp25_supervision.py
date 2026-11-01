@@ -4,6 +4,7 @@ summaries, and the probe/solve split of Cases."""
 
 from __future__ import annotations
 
+import json
 from datetime import timedelta
 from pathlib import Path
 from typing import Any
@@ -198,7 +199,8 @@ def _block(api: Api, loop: opsread.LoopRow) -> dict[str, Any]:
 
 def test_active_view_and_trace_mark_a_blocked_paused_loop(tmp_path: Path) -> None:
     api = seeded_api(tmp_path)
-    loop = next(lp for lp in opsread.loops(api.ops) if lp.kind == "solve")
+    open_steps = {s.trace_id for s in opsread.open_spans(api.ops) if s.kind == "loop_step"}
+    loop = next(lp for lp in opsread.loops(api.ops) if lp.kind == "solve" and lp.id in open_steps)
     _block(api, loop)
     control.set_paused(api.ops, f"loop:{loop.id}", True, "hold", "alice", api.now())
     view = runs.loop_view(api, next(lp for lp in opsread.loops(api.ops) if lp.id == loop.id))
@@ -211,6 +213,38 @@ def test_active_view_and_trace_mark_a_blocked_paused_loop(tmp_path: Path) -> Non
     assert all("blocked" not in s["attrs"] for s in steps if s["end_ts"] is not None)
     lines = journal.journal(api, None, 50, "milestone", None)["entries"]
     assert any(e["source"] == "blocked" and "JSONDecodeError" in e["text"] for e in lines)
+
+
+def test_process_start_and_stop_are_recorded_and_guarded(svc: Services) -> None:
+    ops = Operations(svc)
+    out = ops.process_action("solve", True, "run all", ALICE)
+    assert out["running"] is False
+    assert svc.store.get(out["action"]).body["action"] == "process start solve"
+    svc.ops.acquire("process:solve", "solve:1", 60)
+    with pytest.raises(ConfigError):
+        ops.process_action("solve", True, "", ALICE)  # already running
+    ops.process_action("solve", False, "pause all", ALICE)
+    assert svc.ops.get_pointer("process:solve:stop")  # honoured at the next tick
+    with pytest.raises(ConfigError):
+        ops.process_action("dance", True, "", ALICE)
+
+
+def test_active_view_lists_processes(tmp_path: Path) -> None:
+    api = seeded_api(tmp_path)
+    procs = runs.active(api)["processes"]
+    assert [p["name"] for p in procs] == ["solve", "learn"]
+    assert all(p["running"] is False for p in procs)
+    api.ops.acquire("process:solve", "solve:x", 60)
+    assert runs.active(api)["processes"][0]["running"] is True
+
+
+def test_human_actions_read_as_words(tmp_path: Path) -> None:
+    api = seeded_api(tmp_path)
+    loop = next(lp for lp in opsread.loops(api.ops) if lp.kind == "solve")
+    action = "advance " + json.dumps({"loop": loop.id, "mode": "round"})
+    put(api, "HumanAction", {"action": action, "reason": ""})
+    line = journal.journal(api, None, 5, "milestone", None)["entries"][0]
+    assert line["text"].startswith("You: round ") and loop.id not in line["text"]
 
 
 def test_lock_holder_ignores_an_expired_lock(svc: Services) -> None:

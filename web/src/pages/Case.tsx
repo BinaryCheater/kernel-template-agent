@@ -14,6 +14,7 @@ import { Chip, Loading, Panel, RecordLink } from "../components/ui";
 import { dur, hhmm, pct, since, stateTone, us } from "../components/format";
 import { LoopControls, loopCondition } from "../components/LoopControls";
 import { JournalList } from "./Activity";
+import { stateWord, taskWord } from "../components/words";
 
 export function CaseList() {
   const cases = useApi(api.cases, []);
@@ -24,13 +25,13 @@ export function CaseList() {
   const probeRows = cases.data.filter((c) => c.purpose === "probe");
   return (
     <div className="stack">
-      <Panel primary title="Cases" sub="problems the system is asked to solve · % of bound = lower bound ÷ best measured latency (100% = at the bound)">
+      <Panel primary title="Cases">
         <CaseTable rows={research} m={m.data} />
         {research.length === 0 && <div className="empty">No case yet. Add one with <span className="mono">kta case add</span>, then start it with <span className="mono">kta solve</span>.</div>}
       </Panel>
-      <Panel title="Measurement probes" sub={`${probeRows.length} cases written by kta measure (calibration peaks, self-tests); they are inputs to the hardware model, not problems to solve`}
+      <Panel title={`Measurement probes (${probeRows.length})`} sub="calibration and self-tests, not problems to solve"
         right={<button className="linkbtn" onClick={() => setProbes(!probes)}>{probes ? "hide" : "show"}</button>}>
-        {probes ? <CaseTable rows={probeRows} m={m.data} /> : <div className="small muted">{[...new Set(probeRows.map((c) => c.name.replace(/_[^_]*$/, "")))].join(", ")}</div>}
+        {probes ? <CaseTable rows={probeRows} m={m.data} /> : null}
       </Panel>
     </div>
   );
@@ -59,10 +60,6 @@ function CaseTable({ rows, m }: { rows: CaseIndexRow[]; m: Machines }) {
           </tr>
         ))}</tbody>
       </table>
-      <div className="legend" style={{ marginTop: 10 }}>
-        <span><span className="rd done" /> round judged (R3 = rule ③)</span><span><span className="rd task" /> round handed to an agent task</span>
-        <span><span className="rd open" /> current round</span><span><span className="rd todo" /> rounds left before escalation</span>
-      </div>
     </>
   );
 }
@@ -139,8 +136,8 @@ function CaseBody({ c, m, a }: { c: CaseDetail; m: Machines; a?: ActiveRuns }) {
 
       {c.blocked && (
         <div className="notice fail">
-          <b>Stopped in {c.blocked.state} since {hhmm(c.blocked.at)} UTC: {c.blocked.error}.</b> {c.blocked.message}
-          <div className="small">The loop keeps its state and every record so far. Fix the cause, then <b>Retry step</b> runs {c.blocked.state} again; nothing moves until then.</div>
+          <b>Stopped at {stateWord(c.blocked.state)} since {hhmm(c.blocked.at)} UTC: {c.blocked.error}</b>
+          <div className="small">{c.blocked.message}</div>
         </div>
       )}
 
@@ -148,7 +145,7 @@ function CaseBody({ c, m, a }: { c: CaseDetail; m: Machines; a?: ActiveRuns }) {
       <Inputs c={c} />
 
       <section className="stack" style={{ gap: 10 }}>
-        <h2 className="section-title">Rounds <span className="sub">newest first · each round: retrieve → solve → build → check → measure → judge</span></h2>
+        <h2 className="section-title">Rounds</h2>
         {rounds.length === 0 && <div className="empty">No round has started.</div>}
         {rounds.map((r, i) => <RoundCard key={r.n} r={r} c={c} m={m} open={i === 0} current={i === 0 && !!c.loop_id} />)}
       </section>
@@ -157,7 +154,7 @@ function CaseBody({ c, m, a }: { c: CaseDetail; m: Machines; a?: ActiveRuns }) {
         <Panel title="Activity of this case" right={<Link to={`/activity?case=${c.id}`}>all →</Link>}>
           <JournalList level="milestone" limit={10} case={c.id} compact />
         </Panel>
-        <Panel title="Gaps and references" sub="what the pool could not explain; what we compare against">
+        <Panel title="Gaps and references">
           {c.gaps.length === 0 ? <div className="small muted">No gap recorded for this case.</div> : c.gaps.map((g) => <div key={g.id}><RecordLink id={g.id} label={`Gap: ${g.description}`} /></div>)}
           <table className="t compact" style={{ marginTop: 8 }}><tbody>
             {c.references.map((r) => <tr key={r.record}><td>{r.name}</td><td className="r num"><RecordLink id={r.record} label={us(r.us)} /></td></tr>)}
@@ -210,7 +207,7 @@ function Inputs({ c }: { c: CaseDetail }) {
   const inp = c.inputs;
   if (!inp || (!inp.families.length && !inp.model)) return null;
   return (
-    <Panel title="Runs with" sub="what the current round builds from: the family's chain of Templates (each one refinement step), the cost model and the controls version">
+    <Panel title="Built from">
       {inp.families.map((f) => (
         <div key={f.id} className="inputs-family">
           <Link to={`/families/${f.id}`}><b className="mono">{f.name}@{f.version}</b></Link> <span className="small muted">{f.backend} · {f.steps} steps</span>
@@ -236,17 +233,16 @@ const RULE = ["", "①", "②", "③", "④", "⑤", "⑥"];
 
 function why(r: Round, c: CaseDetail, current: boolean): string {
   const last = r.steps[r.steps.length - 1];
-  const s = r.summary;
   if (r.outcome) {
     const t = r.tasks[r.tasks.length - 1];
-    return `Judged by rule ${RULE[r.outcome.rule ?? 0] ?? r.outcome.rule}: ${r.outcome.label}.` + (t ? ` It handed the work to ${t.type} (${t.state}); when that is accepted the loop goes on with round ${r.n + 1}.` : "");
+    return `Judged: ${r.outcome.label}.` + (t ? ` Next: agent will ${taskWord(t.type)} (${t.state}), then round ${r.n + 1}.` : "");
   }
-  if (current && c.blocked) return `Stopped in ${c.blocked.state}: ${c.blocked.error}. ${s ? `${s.candidates} candidates were proposed and ${s.built} built; ` : ""}nothing is measured yet, so the round has not been judged.`;
+  if (current && c.blocked) return `Stopped at ${stateWord(c.blocked.state)}: ${c.blocked.error}.`;
   if (r.tasks.length) {
     const t = r.tasks[r.tasks.length - 1];
-    return `In ${last.state}, the loop could not go on by itself and created ${t.type}: ${t.goal ?? ""} (${t.state}).`;
+    return `At ${stateWord(last.state)}, handed to an agent to ${taskWord(t.type)} (${t.state}).`;
   }
-  return current ? `In progress: now in ${last.state}${last.note ? ` (${last.note})` : ""}.` : `Left the round in ${last.state}.`;
+  return current ? `Now at ${stateWord(last.state)}.` : `Ended at ${stateWord(last.state)}.`;
 }
 
 function RoundCard({ r, c, m, open, current }: { r: Round; c: CaseDetail; m: Machines; open: boolean; current: boolean }) {
@@ -269,16 +265,16 @@ function RoundCard({ r, c, m, open, current }: { r: Round; c: CaseDetail; m: Mac
       {expanded && (
         <>
           <div className="round-cols">
-            <div><div className="caption">1 · used</div>
+            <div><div className="caption">used</div>
               {s?.families.length ? s.families.map((f) => <div key={f.id}><Link to={`/families/${f.id}`} className="mono">{f.name}@{f.version}</Link></div>) : <span className="muted small">no family yet</span>}
             </div>
-            <div><div className="caption">2 · searched</div>
+            <div><div className="caption">searched</div>
               {s ? <><b className="num">{s.candidates}</b> candidates<div className="small muted">{Object.entries(s.buckets).map(([b, x]) => `${b}: ${x.candidates}`).join(" · ")}</div></> : "—"}
             </div>
-            <div><div className="caption">3 · built and checked</div>
+            <div><div className="caption">compiled and checked</div>
               {s ? <Funnel s={s} /> : "—"}
             </div>
-            <div><div className="caption">4 · measured vs predicted vs bound</div>
+            <div><div className="caption">vs lower bound</div>
               {s && c.buckets.map((b) => {
                 const x = s.buckets[b.bucket];
                 return (
@@ -291,12 +287,12 @@ function RoundCard({ r, c, m, open, current }: { r: Round; c: CaseDetail; m: Mac
               })}
               <div className="legend tiny"><span><span className="sw floor" />bound</span><span><span className="sw pred" />predicted best</span><span><span className="sw best" />measured best</span></div>
             </div>
-            <div><div className="caption">5 · judged, and what changed</div>
+            <div><div className="caption">result</div>
               {r.outcome ? <div><b>{RULE[r.outcome.rule ?? 0]}</b> <RecordLink id={r.outcome.record} label={r.outcome.label} />{r.outcome.gap_class && <div className="small muted">gap class {r.outcome.gap_class} · <RecordLink id={r.outcome.decomposition} label="decomposition" /></div>}</div>
                 : <span className="small muted">not judged yet</span>}
               {r.tasks.map((t) => (
                 <div key={t.id} className="round-task">
-                  <Link to={`/tasks/${t.id}`}><span className="tag task">{t.type}</span></Link> <span className="small">{t.goal}</span> <Chip tone={stateTone(m.machines.find((x) => x.id === "task"), t.state)}>{t.state}</Chip>
+                  <Link to={`/tasks/${t.id}`}><span className="tag task">agent: {taskWord(t.type)}</span></Link> <Chip tone={stateTone(m.machines.find((x) => x.id === "task"), t.state)}>{t.state}</Chip>
                   {t.rejections.length > 0 && <div className="small error">{t.rejections.length} rejection(s): {t.rejections[t.rejections.length - 1].reason}</div>}
                   {t.produced?.map((p) => <div key={p.id} className="small">produced <RecordLink id={p.id} label={`${p.kind} ${p.label}`} /></div>)}
                 </div>
@@ -328,7 +324,7 @@ function StepPath({ r, m, stopped }: { r: Round; m: Machines; stopped: boolean }
         const tone = open && stopped ? "fail" : stateTone(solve, s.state);
         return (
           <div key={i} className={`sp ${tone} ${open ? "open" : ""}`} style={{ flexGrow: Math.max(0.6, (d / total) * 10) }} title={`${s.state}: ${dur(d)}${s.note ? ` · ${s.note}` : ""}`}>
-            <span className="mono">{s.state}</span><span className="num">{dur(d)}</span>
+            <span>{stateWord(s.state)}</span><span className="num">{dur(d)}</span>
           </div>
         );
       })}
@@ -357,7 +353,7 @@ function Candidates({ c }: { c: CaseDetail }) {
   const rows = useMemo(() => (hasSelected && !showAll ? c.candidates.filter((x) => x.selected) : c.candidates), [c.candidates, hasSelected, showAll]);
   return (
     <details>
-      <summary>Candidates of this round ({hasSelected ? `${c.candidates.filter((x) => x.selected).length} selected of ${c.candidates.length}` : c.candidates.length}) · exploration is not a proof of kernel correctness</summary>
+      <summary>Candidates ({hasSelected ? `${c.candidates.filter((x) => x.selected).length} of ${c.candidates.length}` : c.candidates.length})</summary>
       {hasSelected && <label className="small"><input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} /> show every shortlisted candidate</label>}
       <table className="t compact">
         <thead><tr><th>shape / arm</th><th>assignment / evidence</th><th className="r">predicted</th><th className="r">measured</th><th>check</th></tr></thead>

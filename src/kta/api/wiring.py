@@ -66,6 +66,10 @@ class Orchestration(Protocol):
         self, loop_id: str, mode: str, reason: str, human: Actor
     ) -> dict[str, Any]: ...
     def advance_work(self, loop_id: str, mode: str, holder: str) -> list[dict[str, Any]]: ...
+    def process_action(
+        self, name: str, start: bool, reason: str, human: Actor
+    ) -> dict[str, Any]: ...
+    def run_process(self, name: str, interval_s: float) -> int: ...
 
 
 # What each operation waits for, by owner and function (spec/modules/orchestrator-cli.md,
@@ -83,6 +87,7 @@ NEEDS: dict[str, str] = {
     "write-record": "WP8 task tokens (kta.agents.guard.verify_task_token, D305)",
     "inbox": "WP6 kta.orchestrator.inbox.inbox",
     "advance": "WP6 Runner.advance for a human step (WP25 Operations.advance_*)",
+    "process": "WP6 processes.run and request_stop (WP25 Operations.process_action)",
 }
 # What a wired operation does not do yet (GET /actions/capabilities ``partial``).
 PARTIAL: dict[str, str] = {
@@ -146,6 +151,12 @@ class Unwired:
 
     def advance_work(self, loop_id: str, mode: str, holder: str) -> list[dict[str, Any]]:
         raise _no("advance")
+
+    def process_action(self, name: str, start: bool, reason: str, human: Actor) -> dict[str, Any]:
+        raise _no("process")
+
+    def run_process(self, name: str, interval_s: float) -> int:
+        raise _no("process")
 
 
 class Wired(Unwired):
@@ -223,3 +234,9 @@ class Wired(Unwired):
 
     def advance_work(self, loop_id: str, mode: str, holder: str) -> list[dict[str, Any]]:
         return self.operations.advance_work(loop_id, mode, holder)
+
+    def process_action(self, name: str, start: bool, reason: str, human: Actor) -> dict[str, Any]:
+        return self.operations.process_action(name, start, reason, human)
+
+    def run_process(self, name: str, interval_s: float) -> int:
+        return self.operations.run_process(name, interval_s)

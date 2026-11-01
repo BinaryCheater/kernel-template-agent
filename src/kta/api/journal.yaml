@@ -30,8 +30,11 @@ records:
   Chain: {level: detail, tone: idle, text: "Composition chain written", many: "{n} chains written"}
   Reconstruction: {level: milestone, tone: running, text: "Reference reconstructed: {matched} steps matched"}
   Reference: {level: milestone, tone: running, text: "Reference {name} registered", many: "{n} references registered"}
-  Report: {level: milestone, tone: idle, text: "Report: {summary}"}
-  HumanAction: {level: milestone, tone: human, text: "You: {action} — {reason}"}
+  # A Report row can be refined by its data.kind as "Report:<kind>" (judgements matter; tool
+  # and debugging reports are detail).
+  Report: {level: detail, tone: idle, text: "Report: {summary}"}
+  "Report:judgement": {level: milestone, tone: running, text: "{case} judged: {summary}"}
+  HumanAction: {level: milestone, tone: human, text: "You: {action_words}{reason_words}"}
   ControlsVersion: {level: milestone, tone: human, text: "Controls version written ({change_count} changes)"}
   AgentProfile: {level: milestone, tone: human, text: "Agent profile {name} written"}
   AgentRun: {level: milestone, tone: running, text: "Agent run finished ({status})"}
