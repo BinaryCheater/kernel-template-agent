@@ -40,6 +40,10 @@ def router(api: Api) -> APIRouter:
     def pool(snapshot: str | None = None) -> dict[str, Any]:  # pyright: ignore[reportUnusedFunction]
         return studies.pool(api, snapshot)
 
+    @r.get("/templates/{id}")
+    def template(id: str) -> dict[str, Any]:  # pyright: ignore[reportUnusedFunction]
+        return studies.template_page(api, id)
+
     @r.get("/proofs/{id}")
     def proofs(id: str) -> dict[str, Any]:  # pyright: ignore[reportUnusedFunction]
         api.store.get(id)  # 404 for an unknown record

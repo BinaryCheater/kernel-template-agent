@@ -630,6 +630,46 @@ export interface PoolTemplate extends PoolEnv {
   name: string; version: number; level_from: number; level_to: number; change: string; refines: string; produces: string[];
   summary: string; requires: string[]; probed_on: string[]; variables: number; constraints: number; obligations: number;
   proof: TemplateProof;
+  /** WP25: scope predicate ("True" = no condition stated), Source names, chains that name it. */
+  scope: string; sources: string[]; used_by: TemplateUse[];
+}
+
+/** A chain that names a Template: a Reference's reconstruction (analysis) or a Family (a kernel). */
+export interface TemplateUse { kind: "reference" | "family"; id: string; name: string }
+
+/** GET /templates/{id} (WP25): one Template for its own page. */
+export interface TemplatePage extends PoolEnv {
+  body: TemplateBody;
+  sources: { id: string; name: string; locator?: string; revision?: string; type?: string }[];
+  used_by: TemplateUse[];
+  versions: { id: string; version: number; created_at: string }[];
+  relations: { type: string; target: string; note?: string | null; id: string | null }[];
+  proof: TemplateProof;
+}
+export interface TplExpr { id: string; expr: string; meaning: string; cls: string; same_as?: string | null }
+export interface TplVar {
+  name: string; kind: string; binding: string; role: string; meaning: string; unit?: string | null; when?: string | null;
+  domain: (number | string | boolean)[] | { lo: number; hi: number; step?: number; pow2?: boolean };
+}
+export interface TplTx {
+  id: string; pattern: string; kind: string; count: string; amounts: Record<string, string>;
+  src?: string | null; dst?: string | null; when?: string | null; note?: string | null;
+}
+export interface TemplateBody {
+  name: string; version: number; level_from: number; level_to: number; change: string; refines: string; produces: string[];
+  object: { type: string; description: string };
+  variables: TplVar[]; constraints: TplExpr[]; preconditions: TplExpr[];
+  program: { description: string }; backward_map: string;
+  obligations: { name: string; statement: string; method: string }[];
+  effects?: {
+    transactions: TplTx[];
+    storage: { id: string; level: string; scope?: string; bytes: string; when?: string | null; note?: string | null }[];
+    overlap: { between: string[]; when?: string | null; inflight?: string | null; trips?: string | null; note?: string | null }[];
+  };
+  scope: { predicate: string; text: string };
+  requires: string[]; probed_on: string[];
+  signature?: { algorithm: string; reuse?: string | null; storage?: string | null; boundary?: string | null; resources: string[] };
+  numeric_risk?: string | null; summary: string;
 }
 
 // ---- WP24: proof records (ProofSummary / ProofResult) ----

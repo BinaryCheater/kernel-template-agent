@@ -3,7 +3,7 @@
 
 import type {
   ActionLogEntry, ActiveRuns, AgentsView, BlobText, Capability, CaseDetail, CaseIndexRow, CoverageReport,
-  FamilyDetail, FamilySummary, ImprovementsView, InboxItem, Machines, Meta, PoolDiff, PoolView, RecordEnvelope,
+  FamilyDetail, FamilySummary, ImprovementsView, InboxItem, Machines, Meta, PoolDiff, PoolView, RecordEnvelope, TemplatePage,
   ModelTimeline, Quotas, Residual, ResultDetail, Scoreboard, Snapshot, Span, StageTimeline, TaskDetail, TraceInfo, ExperimentProtocol,
   ControlsView, ControlsVersionRow, ReleaseView, SystemView, ProxyTestResult, WorkerTestResult, MechanismsView,
   WorkflowView, WfChanges, WfPreview, WfDiff, Journal,
@@ -84,6 +84,7 @@ export const api = {
   blob: (sha: string) => get<BlobText>(`/blobs/${enc(sha)}`),
   agents: () => get<AgentsView>("/agents"),
   pool: (snapshot?: string) => get<PoolView>("/pool", { snapshot }),
+  template: (id: string) => get<TemplatePage>(`/templates/${enc(id)}`),
   experiments: async () => (await get<{ protocols: ExperimentProtocol[] }>("/experiments")).protocols,
   improvements: () => get<ImprovementsView>("/improvements"),
   residuals: (model?: string) => get<Residual[]>("/model/residuals", { model }),

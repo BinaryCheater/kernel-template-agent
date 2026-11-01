@@ -231,8 +231,10 @@ Web page **Workflow** (`/workflow`, "How does an agent task run, and what config
 - `/runs/active`: `processes` — for solve and learn: `running`, `holder`, `allowed` (release stage); loops: `chain` (the steps of the family the current round uses, levels 1–7 and assurance), `blocked` (error, message, state, at), `paused` (the scope that holds it, or null), `advancing` (mode or null); `subject_name` resolves a Case to its Problem's name.
 - `/cases` and the timeline: `purpose` (`probe` for a Case written by `kta measure` and never solved, else `solve`).
 - `/cases/{id}/timeline`: per round `summary` (families from the round's Candidates' `refs.family`, candidates, built, build_failed, check_passed, check_failed, measured, per bucket candidates and best predicted and measured); the current round counts only the checks and measurements the loop recorded; per task `goal` and `produced` (knowledge records written by the task); per bucket `bottleneck`, `bound_record`; `inputs` (the current round's families as `/families` rows, cost model, hardware model, controls version).
+- `/pool`: each Template has `scope` (its Γ predicate; `"True"` = none stated), `sources` (Source names) and `used_by` (`{kind: reference|family, id, name}`, one per owner whose Chain names it) (D671).
+- `GET /templates/{id}` (D671) → the Template's envelope (status, effective assurance, actor, created) plus `body`, `sources` (id, name, locator, revision, type), `used_by`, `versions` (every version of the same name), `relations` (each with `id` of the target's newest version, or null) and `proof` (as in `/pool`); 404 for a record that is not a Template.
 - `/trace`: the open `loop_step` span of a blocked loop carries `attrs.blocked` ("Error: message") and `attrs.blocked_at`.
 
 ### Pages
 
-Routes as before plus `/activity` and `/knowledge`. Navigation, Home, Case and Settings follow web/DESIGN.md §7.
+Routes as before plus `/activity`, `/knowledge`, `/knowledge/templates/:id` and `/records/:id` (D671). Navigation, Home, Case and Settings follow web/DESIGN.md §7.

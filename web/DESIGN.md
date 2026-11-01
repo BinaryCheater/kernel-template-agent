@@ -335,6 +335,21 @@ top; changed rows highlighted with undo; the save bar with the reason stays at t
 Pool: a guide on top (Pattern → refined by → Template → chained into → Family; Structure,
 Reference, Gap; the assurance scale), closable.
 
+### 7.8 Knowledge (round 3, D671)
+
+Tabs: Templates, Kernel families, Cost model, Patterns/gaps/references, Coverage. Templates is
+one list with three facet rows (level 1–7, learned from, checked); each chip counts what it
+would show given the other facets, and a level with nothing is disabled rather than drawn as
+an empty column. Columns: name and summary, the seven-cell level span, source, "applies when"
+(the scope, or "not stated"), "appears in" (references analysed, kernel families built),
+assurance with a counterexample flag. A row opens the Template's page: header (name,
+assurance, summary, level span, refines → produces, source link, where it appears); main
+column What it does / Knobs / Rules / Cost it declares; side column Applies when / Checks
+(each condition and obligation in words with the checker outcome and its reason) / Related
+templates / Versions / Raw record (collapsed). Records elsewhere open in the drawer, named by
+kind and name; hashes in a body show as the linked record's name; "Open as page" keeps it.
+An empty tab states what it will show and why it is empty.
+
 ## 8. Open questions for the user
 
 - Is the Overview's split (solve loop large, expand + task lifecycle small) the right emphasis?

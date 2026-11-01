@@ -9,7 +9,7 @@ import { AssuranceChip, Chip, Loading, Panel, RecordLink } from "../components/u
 import { LEVEL_NAMES, wordTone } from "../components/format";
 
 type Tab = "templates" | "patterns" | "structures" | "gaps" | "references";
-const TABS: { id: Tab; label: string; hint: string }[] = [
+const ALL_TABS: { id: Tab; label: string; hint: string }[] = [
   { id: "templates", label: "Templates", hint: "refinement steps: contract, level, assurance" },
   { id: "patterns", label: "Patterns", hint: "transaction patterns; new ones need your confirmation" },
   { id: "structures", label: "Structures", hint: "structural facts the solver may use; need your confirmation" },
@@ -18,7 +18,7 @@ const TABS: { id: Tab; label: string; hint: string }[] = [
 ];
 const LV_COLORS: Record<number, string> = Object.fromEntries([1, 2, 3, 4, 5, 6, 7].map((l) => [l, `var(--lv${l})`]));
 
-export function Pool() {
+export function Pool({ without }: { without?: Tab } = {}) {
   const { snapshot, snapshots } = useSnapshot();
   const [all, setAll] = useState(false);
   const snap = all ? undefined : snapshot || undefined;
@@ -33,17 +33,18 @@ export function Pool() {
         <Link to="/pool/diff" style={{ marginLeft: "auto" }}>Compare two snapshots →</Link>
         <Link to="/families">Families and their chains →</Link>
       </div>
-      {!p.data ? <Loading error={p.error} /> : <PoolBody p={p.data} />}
+      {!p.data ? <Loading error={p.error} /> : <PoolBody p={p.data} without={without} />}
     </div>
   );
 }
 
-function PoolBody({ p }: { p: PoolView }) {
-  const [tab, setTab] = useState<Tab>("templates");
-  const hint = TABS.find((t) => t.id === tab)?.hint;
+function PoolBody({ p, without }: { p: PoolView; without?: Tab }) {
+  const TABS = ALL_TABS.filter((t) => t.id !== without);
+  const [tab, setTab] = useState<Tab>(TABS[0].id);
+  const hint = ALL_TABS.find((t) => t.id === tab)?.hint;
   return (
     <>
-      <div className="stats" style={{ gridTemplateColumns: "repeat(5, 1fr)" }}>
+      <div className="stats" style={{ gridTemplateColumns: `repeat(${TABS.length}, 1fr)` }}>
         {TABS.map((t) => (
           <div key={t.id} className="stat" style={{ cursor: "pointer", borderColor: tab === t.id ? "var(--st-human)" : undefined }} onClick={() => setTab(t.id)}>
             <div className="label">{t.label}</div>
@@ -52,7 +53,7 @@ function PoolBody({ p }: { p: PoolView }) {
           </div>
         ))}
       </div>
-      <AssuranceStrip p={p} />
+      {without !== "templates" && <AssuranceStrip p={p} />}
       <Panel primary title={TABS.find((t) => t.id === tab)?.label} sub={hint}>
         <div className="tabs">{TABS.map((t) => <button key={t.id} className={tab === t.id ? "on" : ""} onClick={() => setTab(t.id)}>{t.label}<span className="muted">{p.counts[t.id] ?? 0}</span></button>)}</div>
         {tab === "templates" && <Templates p={p} />}

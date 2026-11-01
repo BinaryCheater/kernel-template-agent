@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { api } from "../data/source";
 import type { Residual } from "../data/types";
 import { useApi } from "../data/useApi";
-import { useOpenRecord, Loading, Panel, RecordLink, Stat } from "../components/ui";
+import { useOpenRecord, Empty, Loading, Panel, RecordLink, Stat } from "../components/ui";
 import { AXIS, EChart, TOOLTIP, type EOption } from "../components/EChart";
 import { pct } from "../components/format";
 
@@ -11,6 +11,14 @@ const PALETTE = ["#2a78d6", "#eb6834", "#1baf7a", "#6250d6", "#e87ba4", "#eda100
 export function Model() {
   const r = useApi(() => api.residuals(), []);
   if (!r.data) return <Loading error={r.error} />;
+  if (!r.data.length) {
+    return (
+      <Panel primary title="Cost model">
+        <Empty what="How well the cost model predicts: each measured candidate's predicted time against its measured time, the error spread and the candidates it explains worst."
+          why="No candidate that has a prediction has been measured yet; the first rounds stopped before the measure step." />
+      </Panel>
+    );
+  }
   return <ModelBody rows={r.data} />;
 }
 

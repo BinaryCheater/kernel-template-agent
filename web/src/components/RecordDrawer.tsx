@@ -1,9 +1,16 @@
-import { useSearchParams } from "react-router";
+import { Link, useParams, useSearchParams } from "react-router";
 import { api } from "../data/source";
 import { useApi } from "../data/useApi";
 import { wordTone } from "./format";
-import { AssuranceChip, Chip, Loading, RecordLink } from "./ui";
+import { AssuranceChip, Chip, Loading } from "./ui";
 import { RecordActions } from "./actions";
+import { BodyView, RefName, recordName } from "./BodyView";
+
+/** The same view as a page of its own (`/records/:id`), for keeping open or linking. */
+export function RecordPage() {
+  const { id = "" } = useParams();
+  return <section className="panel primary record-page"><DrawerBody id={id} /></section>;
+}
 
 /** Side drawer showing one record (envelope, body, refs, blobs); driven by `?rec=<id>`. */
 export function RecordDrawer() {
@@ -25,16 +32,20 @@ export function RecordDrawer() {
   );
 }
 
-function DrawerBody({ id, close }: { id: string; close: () => void }) {
+function DrawerBody({ id, close }: { id: string; close?: () => void }) {
   const { data: r, error } = useApi(() => api.record(id), [id]);
   return (
     <>
       <header>
         <div>
-          <div className="caption">Record{r ? ` · ${r.kind}` : ""}</div>
-          <h2 className="mono" style={{ fontSize: 12, wordBreak: "break-all" }}>{id}</h2>
+          <div className="caption">{r?.kind ?? "Record"}</div>
+          <h2>{r ? recordName(r) : "…"}</h2>
         </div>
-        <button className="close" onClick={close} aria-label="Close">×</button>
+        <span className="row" style={{ gap: 10 }}>
+          {r?.kind === "Template" ? <Link to={`/knowledge/templates/${id}`}>Open page</Link>
+            : close && <Link to={`/records/${id}`}>Open as page</Link>}
+          {close && <button className="close" onClick={close} aria-label="Close">×</button>}
+        </span>
       </header>
       <div className="dbody">
         {!r ? (
@@ -48,27 +59,28 @@ function DrawerBody({ id, close }: { id: string; close: () => void }) {
             </div>
             <RecordActions id={r.id} kind={r.kind} small />
             <dl className="kv">
-              <dt>kind</dt><dd>{r.kind} <span className="muted">schema {r.schema}</span></dd>
-              <dt>created</dt><dd className="num">{r.created_at}</dd>
+              <dt>created</dt><dd className="num">{r.created_at.slice(0, 19).replace("T", " ")}</dd>
               <dt>actor</dt><dd>{r.actor.type} · {r.actor.name}{r.actor.task && <> · task <span className="mono">{r.actor.task}</span></>}</dd>
             </dl>
             {Object.keys(r.refs).length > 0 && (
               <div>
-                <div className="caption">refs</div>
+                <div className="caption">Linked records</div>
                 <dl className="kv" style={{ marginTop: 6 }}>
                   {Object.entries(r.refs).map(([k, v]) => (
                     <div key={k} style={{ display: "contents" }}>
                       <dt>{k}</dt>
-                      <dd className="row wrap" style={{ gap: 6 }}>{(Array.isArray(v) ? v : [v]).map((x) => <RecordLink key={x} id={x} />)}</dd>
+                      <dd className="row wrap" style={{ gap: 6 }}>{(Array.isArray(v) ? v : [v]).map((x) => <RefName key={x} id={x} />)}</dd>
                     </div>
                   ))}
                 </dl>
               </div>
             )}
-            <div>
-              <div className="caption">body</div>
-              <pre className="json" style={{ marginTop: 6 }}>{JSON.stringify(r.body, null, 2)}</pre>
-            </div>
+            <BodyView v={r.body} />
+            <details className="raw">
+              <summary>Raw record</summary>
+              <div className="ink2 mono small">{r.id} · schema {r.schema}</div>
+              <pre className="json">{JSON.stringify(r.body, null, 2)}</pre>
+            </details>
             {Object.keys(r.blobs).length > 0 && (
               <div>
                 <div className="caption">blobs</div>
@@ -81,3 +93,4 @@ function DrawerBody({ id, close }: { id: string; close: () => void }) {
     </>
   );
 }
+

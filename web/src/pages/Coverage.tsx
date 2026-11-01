@@ -3,7 +3,7 @@ import { api } from "../data/source";
 import type { CoverageReport, Machines } from "../data/types";
 import { useApi } from "../data/useApi";
 import { AXIS, EChart, TOOLTIP, type EOption } from "../components/EChart";
-import { Chip, Loading, Panel, RecordLink } from "../components/ui";
+import { Chip, Empty, Loading, Panel, RecordLink } from "../components/ui";
 import { pct, wordTone } from "../components/format";
 import { useSnapshot } from "../components/Shell";
 
@@ -11,6 +11,14 @@ export function Coverage() {
   const { snapshot, snapshots } = useSnapshot();
   const cov = useApi(() => (snapshot ? api.coverage(snapshot) : Promise.reject(new Error("no snapshot yet"))), [snapshot]);
   const m = useApi(api.machines, []);
+  if (!snapshot) {
+    return (
+      <Panel primary title="Coverage">
+        <Empty what="How much of the kernel knowledge in a class of references the pool already describes: the discovery curve, estimated coverage, instruction families we cannot produce yet."
+          why="Coverage is measured on a frozen snapshot of the pool, and no snapshot has been taken yet." />
+      </Panel>
+    );
+  }
   if (cov.status === 501) {
     return (
       <Panel primary title="No coverage report for this snapshot" sub={snapshots.find((s) => s.id === snapshot)?.label}>

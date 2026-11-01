@@ -251,3 +251,26 @@ def test_lock_holder_ignores_an_expired_lock(svc: Services) -> None:
     assert svc.ops.lock_holder("process:solve") is None
     svc.ops.acquire("process:solve", "solve:1", 30)
     assert svc.ops.lock_holder("process:solve") == "solve:1"
+
+
+# ---- the Template page (D671) ----
+
+
+def test_template_page_gives_body_sources_usage_and_checks(api: Api) -> None:
+    app = create_app(api)
+    status, pool = request(app, "GET", "/pool")
+    assert status == 200 and pool["templates"]
+    row = next((t for t in pool["templates"] if t["used_by"]), pool["templates"][0])
+    assert {"scope", "sources", "used_by"} <= row.keys()
+    status, page = request(app, "GET", f"/templates/{row['id']}")
+    assert status == 200
+    assert page["body"]["name"] == row["name"] and page["used_by"] == row["used_by"]
+    assert [s["name"] for s in page["sources"]] == row["sources"]
+    assert any(v["id"] == row["id"] for v in page["versions"])
+    assert {"obligations", "contract"} <= page["proof"].keys()
+    for rel in page["relations"]:
+        assert rel["id"] is None or api.store.get(rel["id"]).kind == "Template"
+    other = (pool["patterns"] or pool["gaps"] or [None])[0]
+    assert other is not None
+    status, _ = request(app, "GET", f"/templates/{other['id']}")
+    assert status == 404
