@@ -75,3 +75,47 @@ Already done in SYSDEBUG2 (setup only, logs `~/kta/runs/sysdebug2/11–13.*`): `
 | Throughout | Review → Settings in force (`settings this run assumes →` on the case page) | which defaults decided the step |
 
 At the end: Review → Your notes is the list to go through (Done / Keep / Later).
+
+---
+
+# Update, 2026-11-02 05:30 local: fixes and a full round (SYSDEBUG4)
+
+Frontend http://127.0.0.1:14174 now shows store **SYSDEBUG4** (code `23d71d9`, branch `sysdebug/2`, pushed). SYSDEBUG1–3 and the rehearsal store stay on disk.
+
+## What was fixed (decisions D694–D701)
+
+| Problem seen in the rehearsal | Fix |
+| --- | --- |
+| Full check (5 distributions, edge and hidden shapes, sanitizer) before every measurement | Tiered: a quick check before measuring (own shape, `normal`, loose level, anti-cheat, SASS); the full check (strict level) only for each shape's fastest measured candidate, in judging |
+| Element-wise tolerance against FP64 for an FP16 kernel | Library-relative acceptance: the candidate's rel L2 and max error within ×4 (loose) / ×1.5 (strict) of cuBLAS's own error on the same inputs, plus floors. **Factors are the assistant's proposal** |
+| Edge/hidden shapes outside the task (1×1×1, …) | Contracts declare `shape_scope`; the GEMM cases are `static` (their three shapes only); the assistant's edge shapes removed |
+| 198 serial compiles | 16 per shape (new knob `solve.compile_count`), 6 at a time |
+| Missing measurement Protocol blocked the loop | `kta init` writes it |
+| "Agent fixes it … running" while nothing ran | Shown as queued and not running, with the reason; *Needs you* lists the held task |
+| Case page could not show any of this | Anomalies at the top, "what each step ran" (jobs per kind, count, time, overlap, blocks, retries, rejected measurements), check failures grouped by reason with numbers, the correctness standard with who wrote it |
+| (found in SYSDEBUG3) judging re-ran forever: creating the model task failed because Measurements did not name their candidate, and the error escaped | Measurements carry `candidate`; any error while deciding a transition blocks the loop and is logged |
+
+## Round 1 of SYSDEBUG4 (no agent, nothing tuned)
+
+| Step | Took | Result |
+| --- | --- | --- |
+| Lower bound → pick candidates | 1 s | 198 shortlisted, 16 per shape compiled + 2 random per shape |
+| Compile | 1 min 17 s | 54 built (most from the compile cache) |
+| Check before measuring | 3 min 49 s | **24 of 24 passed** (72 check runs, one at a time) |
+| Measure | 1 min 35 s | 8 per shape, no attempt rejected |
+| Judge | 1 min 43 s | full check of each shape's fastest: 3 of 3 passed (strict); **rule 2: the cost model is off → T4 (fix the model)**, queued, held at S0 |
+
+| Shape | Lower bound | Ours (best) | cuBLAS | Ours vs cuBLAS | Model predicted |
+| --- | --- | --- | --- | --- | --- |
+| 4096³ | 1495.0 µs | 1985.0 µs | 1496.1 µs | 33 % slower | 1578.3 µs |
+| 8192×1024×4096 | 747.5 µs | 780.3 µs | 777.2 µs | 0.4 % slower | 1052.9 µs |
+| 1024×1024×16384 | 373.8 µs | 520.9 µs | 433.9 µs | 20 % slower | 562.6 µs |
+
+Median model error per shape: 23 %, 7.7 %, 3.5 %. cuBLAS on 4096³ sits at the lower bound (1496.1 vs 1495.0), so that bound is at best tight; finding 2 still stands.
+
+## Known issues left
+
+- The full checks of this round ran (3 passed) but their mapping was lost when the transition wrote the loop data; fixed for later rounds (`final_checks` is now carried), so this round's page shows only the quick checks.
+- The 6 control-arm builds ran one at a time (the page flags it); fixed after the round, not yet seen in a run. Quick checks also run one at a time (72 runs, 3.5 min).
+- The loop now waits on T4 (fix the cost model): moving on needs either an agent (stage S1) or a decision about the model.
+- Still the user's: tolerance factors, the lower bound's tensor rate, the quiet thresholds (shown as "set by you"), the reference-chain lifetime warnings.
