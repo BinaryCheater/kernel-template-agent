@@ -3,13 +3,24 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from typing import Any
+
+import pytest
 
 from kta.api.cases import _step_work  # pyright: ignore[reportPrivateUsage]
 from kta.checks.full import in_scope
 from kta.checks.numeric import library_verdict
+from kta.core.context import Context
+from kta.core.errors import SchemaError
 from kta.core.ids import canonical_json
 from kta.core.schemas.evaluation import Contract
+from kta.orchestrator import runner as runner_mod
+from kta.orchestrator.pipeline import Services
+from kta.orchestrator.runner import Runner
 from kta.store.base import SpanRow
+from kta.store.sqlite import SqliteStore
+from kta.store.sqlite_ops import SqliteOps
+from orchesthelp import world
 
 TOL = {"rtol": 0.01, "atol": 0.01, "relative_to": "library", "loose": 4.0, "strict": 1.5}
 
@@ -81,3 +92,27 @@ def test_step_work_counts_jobs_and_their_largest_overlap() -> None:
     assert work["compile"]["count"] == 4 and work["compile"]["max_parallel"] == 1
     assert work["compile"]["busy_s"] == 20.0
     assert work["check"]["max_parallel"] == 3 and work["check"]["failed"] == 1
+
+
+def test_a_failing_transition_blocks_the_loop_and_logs_it(
+    ctx: Context, store: SqliteStore, ops: SqliteOps, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """D700/D701: an error while deciding or applying the transition (e.g. creating the
+    routed task) blocks the loop and lands in its event log, instead of escaping and
+    repeating the state's work on every step."""
+    svc = Services(ctx, store, ops)
+    w = world(svc)
+    r = Runner(svc, "test")
+    loop_id = r.start("solve", w["case"], "c")
+
+    def boom(*_: Any, **__: Any) -> Any:
+        raise SchemaError("T4 measurements need distinct candidate identities")
+
+    monkeypatch.setattr(runner_mod, "step", boom)
+    assert r.advance(loop_id) is None
+    blocked = ops.get_loop(loop_id)["data"]["blocked"]
+    assert blocked["error"] == "SchemaError" and "distinct candidate" in blocked["message"]
+    logged = [
+        e.change["blocked"] for e in ops.events_for("loops", loop_id) if e.change.get("blocked")
+    ]
+    assert logged and logged[-1]["error"] == "SchemaError"

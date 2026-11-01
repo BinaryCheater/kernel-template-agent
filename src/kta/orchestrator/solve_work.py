@@ -345,7 +345,7 @@ def work_checking(svc: Services, loop: Loop) -> Facts:
 
     # D694: the gate before measuring is the quick check (loose level, the module as built);
     # the full check runs on each bucket's best measured candidate in judging.
-    def check(cv: Any, fp: Any, gk: Any, module: Any, shape: Any, a: Any) -> str:
+    def check(cv: Any, fp: Any, gk: Any, module: Any, shape: Any, a: Any, cid: str) -> str:
         return run_quick(
             checker,
             module,
@@ -379,8 +379,8 @@ def work_measuring(svc: Services, loop: Loop) -> Facts:
     m = svc.measurer()
     passed = {c for c, chk in loop.data["checks"].items() if svc.store.get(chk).body["passed"]}
 
-    def meas(cv: Any, fp: Any, gk: Any, module: Any, shape: Any, a: Any) -> str:
-        return m.measure(module, cv.case, shape, protocol_id).id
+    def meas(cv: Any, fp: Any, gk: Any, module: Any, shape: Any, a: Any, cid: str) -> str:
+        return m.measure(module, cv.case, shape, protocol_id, candidate=cid).id
 
     top = {k: [c for c in v if c in passed] for k, v in loop.data["top"].items()}
     loop_passed = Loop(loop.id, loop.kind, loop.subject, loop.state, {**loop.data, "top": top})

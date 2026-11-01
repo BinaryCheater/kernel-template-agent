@@ -52,6 +52,6 @@ def each_top(svc: Services, loop: Loop, fn: Callable[..., str], key: str) -> dic
             a = Candidate.model_validate(svc.store.get(cid).body).assignment
             gk = pipeline.generate(fp, a, shape)
             _, module = pipeline.build(svc, gk)
-            out[cid] = fn(cv, fp, gk, module, shape, a)
+            out[cid] = fn(cv, fp, gk, module, shape, a, cid)
             checkpoint(svc, loop, **{key: dict(out)})
     return out

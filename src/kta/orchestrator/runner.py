@@ -147,13 +147,20 @@ class Runner:
                 facts = self._work(loop, svc)
             if facts is None:
                 return None
-            t = step(replace(loop, facts=facts), svc.ctx)
-            # the version this step decided under, and every version the loop ran under (WP21)
-            seen = [str(v) for v in cast(list[Any], loop.data.get("controls_seen") or [])]
-            if snap.version_id and snap.version_id not in seen:
-                seen.append(snap.version_id)
-            used = {"controls": snap.version_id, "controls_seen": seen}
-            self.apply(loop, replace(t, data={**t.data, **used}))
+            try:
+                t = step(replace(loop, facts=facts), svc.ctx)
+                # the version this step decided under, and every version the loop ran under
+                seen = [str(v) for v in cast(list[Any], loop.data.get("controls_seen") or [])]
+                if snap.version_id and snap.version_id not in seen:
+                    seen.append(snap.version_id)
+                used = {"controls": snap.version_id, "controls_seen": seen}
+                self.apply(loop, replace(t, data={**t.data, **used}))
+            except KtaError as exc:
+                # SYSDEBUG-2 (D701): a failure while deciding or applying the transition (e.g.
+                # creating the routed task) blocks the loop like a work failure; before, the
+                # error escaped and the state's work ran again on every step.
+                self._block(loop, exc)
+                return None
             return t
         finally:
             self.svc.ops.release(lock, self.holder)

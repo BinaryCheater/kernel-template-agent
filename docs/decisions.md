@@ -527,6 +527,7 @@
 | D698 | Protocol at init | `kta init` writes the default measurement Protocol (measure-v1) when missing; a fresh store blocked in measuring without it | SYSDEBUG-2 |
 | D699 | Held tasks are said to be held | A loop waiting on a queued task that the release stage keeps from starting shows the reason instead of "running" (`held` in the loop view), and the inbox lists each such task | SYSDEBUG-2 |
 | D700 | Case page: what each step ran, why checks failed, the standard, anomalies | Blocks go to the ops event log (`loops` events) and `events_for`; each round step lists its jobs per kind (count, failures, busy time, largest overlap), blocks, human actions and rejected measurements; rounds group check failures by reason (quick and full); the case shows its Contract (who wrote it) and anomalies (baseline below the bound, nothing passed the gate, serial compiles). Assistant's design | SYSDEBUG-2 |
+| D701 | Measurements name their candidate; transition failures block | SYSDEBUG3 round: judging routed rule 2 (model off) and creating the T4 failed ("T4 measurements need distinct candidate identities": the solve loop's Measurements carried no `candidate` ref, which the SYSDEBUG-1 holdout pairing needs); the error escaped the runner, so judging re-ran on every step. `Measurer.measure(candidate=)` and the solve loop pass it; an error in `step`/`apply` blocks the loop and is logged | SYSDEBUG-2 |
 
 ## 已确认
 

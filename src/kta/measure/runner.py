@@ -216,6 +216,7 @@ class Measurer:
         module: BuiltModule,
         case: Case,
         protocol_id: str,
+        candidate: str | None = None,
     ) -> Measured:
         body, times_us = self.measurement_body(t, index, module.build_id, protocol_id)
         refs: dict[str, str | list[str]] = {
@@ -224,6 +225,8 @@ class Measurer:
             "build": module.build_id,
             "protocol": protocol_id,
         }
+        if candidate:
+            refs["candidate"] = candidate
         return self.write_measurement(t, body, times_us, refs, case)
 
     def measurement_body(
@@ -295,10 +298,17 @@ class Measurer:
         return Measured(mid, body, times_us)
 
     def measure(
-        self, module: BuiltModule, case: Case, shape: dict[str, Any], protocol_id: str
+        self,
+        module: BuiltModule,
+        case: Case,
+        shape: dict[str, Any],
+        protocol_id: str,
+        candidate: str | None = None,
     ) -> Measured:
+        """``candidate``: the Candidate measured, kept in refs so a Prediction and its
+        Measurement pair by candidate (T4 holdout, SYSDEBUG-2 D701)."""
         t = self._time([module], case, shape, protocol_id)
-        return self._record(t, 0, module, case, protocol_id)
+        return self._record(t, 0, module, case, protocol_id, candidate)
 
     def compare(
         self,
