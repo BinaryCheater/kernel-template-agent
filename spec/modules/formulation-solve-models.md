@@ -20,6 +20,8 @@ models/whatif.py       what-if runs and the l2_simulation / what_if Reports (D50
 models/base.py         L3Simulator protocol (D506)
 models/l3.py           ExternalSassSimulator: the external SASS-level simulator as an Executor job (D506)
 models/regression.py   regression scoring, admission and the scoreboard (D507–D510)
+models/gb10sim/        the GB10 simulator copied from AI-Infra-Co-Design agentic/gb10 @0eef497 (WP26, D680–D683):
+                       SASS reader, SM simulator, TMA warp specialization, grid mapping, gb10.json parameters
 ```
 
 ### Hardware model and L1 (WP15; docs/design/02 §4, §5.1)
@@ -108,6 +110,12 @@ class ExternalSassSimulator(bundle_dir, upstream_dir, timeout_s=600)
     # the research repository's kernel-lab/exports/gb10-simulator-calibration-20261020-v2, never imported:
     # job() is a "shell" Job on the cpu pool running tools/simulate.py with the cubin as input;
     # simulate() raises NotSupported until that job has run for real (pending real run)
+
+# models/gb10sim/l3.py (WP26, D683): the copied engine on a Build's SASS, in-process
+def simulate_build(sass_path, kernel, holes, shape, regs, smem, warm) -> dict   # total_us, detail, params_sha256
+    # TileLang's cp.async GEMM lowering only; TMA warp specialization and other kernels raise NotSupported.
+    # Job entry: python -m kta.models.gb10sim.l3 SPEC.json SASS OUT.json. The Executor job and the
+    # L3Simulator implementation on top of it are pending (WP26).
 
 # models/regression.py
 Observation(kernel, configuration, predicted_us, measured_us, predicted_busy_us, measured_busy_us, holdout, prediction, measurement)
