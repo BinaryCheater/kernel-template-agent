@@ -1014,3 +1014,10 @@ Decisions made without the user that need review. Newest last. Each entry: quest
 - **Rationale:** what is moving and what is stuck should be visible without reading; deeper detail is one click away.
 - **Cost of changing later:** low (frontend files and one API endpoint).
 
+## D680 Base simulator for the single hardware-model engine (WP26)
+
+- **Question:** which upstream simulator becomes KTA's one engine for L1, L2 and L3?
+- **Choice:** `agentic/gb10` (TileLang-specific SASS simulator with compiler control bits, `gb10.json`), with `agentic/sim`'s bookkeeping brought over; copied into `src/kta/models/gb10sim/`.
+- **Rationale:** best-calibrated on the kernels KTA generates (22 TileLang GEMMs, whole kernel median 5.3 %, worst 16 %; TMA warp specialization covered); the user's direction is one simulator copied and iterated.
+- **Cost of changing later:** the copy is self-contained (one package and one parameter file); switching base means replacing the package and re-running the replay; L1/L2 built on it would follow its parameter names.
+

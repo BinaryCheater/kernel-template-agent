@@ -22,3 +22,7 @@ The declarative hardware model resolved to numbers (`MachineModel`: HwModel inst
 
 - May import: `core`, `store`, `targets`, `execution`.
 - Enforced by import-linter (`pyproject.toml`, `[tool.importlinter]`).
+
+## WP26 (D680, D681)
+
+`gb10sim/`: the GB10 simulator copied from AI-Infra-Co-Design `agentic/gb10` (commit `0eef497`) with its parameter file `gb10.json`; provenance and changes in `gb10sim/README.md`. It is to become the single engine behind L1, L2 and L3 (`docs/design/25-hardware-model-sources.md`); the copy step changes nothing it computes, checked by `scripts/gb10sim-replay`.

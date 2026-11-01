@@ -350,3 +350,15 @@ To save tokens (D328), WP17 is not a separate session: its scope is done by WP19
   - Second round (user feedback, D668–D670): Home as one sentence with Solve/Learning process switches (`POST /actions/process`), a flowchart per loop with instances on their steps, the list of open instances with the seven optimisation levels of their family; plain words for states and task types; six pages (Home, Cases, Knowledge with tabs, Activity, Pipeline, Settings with tabs).
   - Settings edits mappings key by key with a filter and a fixed save bar; the Pool page explains what it holds.
 - **Acceptance (code stage, D320)**: the named WP25 tests (manual step vs pauses, round stops where the loop waits, run reports the process, retry clears a block, the endpoint and capability, journal phrasing, grouping, levels and paging, phrase table, blocked and paused marks, process start/stop, processes in the active view, actions in words); `scripts/gate --stage code WP25`. Full stage: a real hand advance on the control plane in dev/WP25. User acceptance is the user's judgement of the pages.
+
+## WP26 One hardware-model engine (GB10)
+
+- **Depends**: WP15, WP16, WP19. **Reads**: `docs/design/25-hardware-model-sources.md`; 02 §4, §5; upstream (read-only, copied with provenance) `/Users/dingyi/Projects/ai-infra-codesign-ventus` at `0eef497`: `agentic/gb10/`, `calibration/spark-6951/` (gb10.json, sass/, ablation*/), and for bookkeeping `agentic/sim/`, `calibration/spark-6951/{contract.yaml,coverage.md,MODEL_CARD.md}`, `notes/sim_gaps.md`.
+- **Why** (user, 2026-11-02): one simulator, copied into KTA and iterated; L1, L2 and L3 from the same source; measured parameters plus fitted calibration parameters that benchmarks refine into mechanisms (D680).
+- **Produces**:
+  - Copy step: `src/kta/models/gb10sim/` (SM simulator, warp-specialized TMA, grid mapping, analytic traffic functions, validation drivers) and `gb10.json`, behaviour-preserving (D681); `scripts/gb10sim-replay`; the upstream validation sets replayed on a worker with upstream code and with the copy, rows equal.
+  - Parameter step: every constant written in code moves into the parameter file; each value carries a status (measured / fitted / structural) and its probe; an unknown opcode is an error; the replay is re-run and differences are listed.
+  - L3: the engine on a compiled candidate's SASS, as an Executor job on a worker; `L3Result` from it; first real run on a GEMM family candidate.
+  - L2 and L1 from the same engine and parameter file (synthetic instruction stream from Template effects; closed form from the same pipe costs); instruction-mix check against compiled SASS.
+- **Acceptance (code stage)**: replay equality of the copy step; parameter step with no code constant left untracked; L3 job defined and run for real once; `scripts/gate --stage code WP26`.
+
