@@ -7,7 +7,7 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { api } from "../data/source";
-import type { ActiveRuns, CaseDetail, CaseIndexRow, CaseRoundProgress, Machines, Round, RoundSummary } from "../data/types";
+import type { ActiveRuns, CaseDetail, CaseIndexRow, CaseRoundProgress, CheckLevel, Machines, Round, RoundSummary, StepWork } from "../data/types";
 import { useApi } from "../data/useApi";
 import { useNow } from "../data/live";
 import { Chip, Loading, Panel, RecordLink } from "../components/ui";
@@ -142,14 +142,32 @@ function CaseBody({ c, m, a }: { c: CaseDetail; m: Machines; a?: ActiveRuns }) {
           <div className="small">{c.blocked.message}</div>
         </div>
       )}
+      {loop?.held?.reason && (
+        <div className="notice held">
+          <b>Nothing is running: the agent task this case waits for is queued and may not start.</b>
+          <div className="small">{loop.held.reason}. <Link to="/release">Release it</Link>, or change the release stage. <Link to={`/tasks/${loop.held.task}`}>The task →</Link></div>
+        </div>
+      )}
+      {(c.anomalies ?? []).length > 0 && (
+        <div className="anomalies">
+          {(c.anomalies ?? []).map((x, i) => (
+            <div key={i} className={`anomaly ${x.level}`}>
+              <span className="anomaly-mark">{x.level === "fail" ? "!" : "·"}</span>
+              <span>{x.text}</span>
+              {x.record && <RecordLink id={x.record} label="record" />}
+            </div>
+          ))}
+        </div>
+      )}
 
       <Question c={c} />
       <Inputs c={c} />
+      <Standard c={c} />
 
       <section className="stack" style={{ gap: 10 }}>
         <h2 className="section-title">Rounds</h2>
         {rounds.length === 0 && <div className="empty">No round has started.</div>}
-        {rounds.map((r, i) => <RoundCard key={r.n} r={r} c={c} m={m} open={i === 0} current={i === 0 && !!c.loop_id} />)}
+        {rounds.map((r, i) => <RoundCard key={r.n} r={r} c={c} m={m} a={a} open={i === 0} current={i === 0 && !!c.loop_id} />)}
       </section>
 
       <div className="grid" style={{ gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", alignItems: "start" }}>
@@ -247,7 +265,11 @@ function why(r: Round, c: CaseDetail, current: boolean): string {
   return current ? `Now at ${stateWord(last.state)}.` : `Ended at ${stateWord(last.state)}.`;
 }
 
-function RoundCard({ r, c, m, open, current }: { r: Round; c: CaseDetail; m: Machines; open: boolean; current: boolean }) {
+function heldOf(c: CaseDetail, a?: ActiveRuns): string | null {
+  return a?.loops.find((l) => l.id === c.loop_id)?.held?.reason ?? null;
+}
+
+function RoundCard({ r, c, m, open, current, a }: { r: Round; c: CaseDetail; m: Machines; open: boolean; current: boolean; a?: ActiveRuns }) {
   const [expanded, setExpanded] = useState(open);
   const now = useNow();
   const s = r.summary;
@@ -264,7 +286,7 @@ function RoundCard({ r, c, m, open, current }: { r: Round; c: CaseDetail; m: Mac
         <Annotate subject={`loop:${c.loop_id ?? c.id}:round:${r.n}`} label={`${c.name}, round ${r.n}`} loop={c.loop_id ?? undefined} compact />
         <span className="linkbtn">{expanded ? "less" : "more"}</span>
       </header>
-      <StepPath r={r} m={m} stopped={stopped} />
+      <StepPath r={r} m={m} stopped={stopped} held={current ? heldOf(c, a) : null} />
       {expanded && (
         <>
           <div className="round-cols">
@@ -302,12 +324,9 @@ function RoundCard({ r, c, m, open, current }: { r: Round; c: CaseDetail; m: Mac
               ))}
             </div>
           </div>
+          {r.checks && <CheckReasons checks={r.checks} />}
+          <StepTable r={r} held={current ? heldOf(c, a) : null} stopped={stopped} />
           {current && c.candidates.length > 0 && <Candidates c={c} />}
-          <details><summary>Steps of this round</summary>
-            <table className="t compact"><tbody>{r.steps.map((st, i) => (
-              <tr key={i}><td className="mono">{st.state}</td><td className="num small">{hhmm(st.start, true)}</td><td className="num small">{st.end ? dur((Date.parse(st.end) - Date.parse(st.start)) / 1000) : "running"}</td><td className="small muted">{st.note}</td></tr>
-            ))}</tbody></table>
-          </details>
         </>
       )}
     </div>
@@ -315,7 +334,7 @@ function RoundCard({ r, c, m, open, current }: { r: Round; c: CaseDetail; m: Mac
 }
 
 /** The states this round went through, in order, each as wide as it took (min width). */
-function StepPath({ r, m, stopped }: { r: Round; m: Machines; stopped: boolean }) {
+function StepPath({ r, m, stopped, held }: { r: Round; m: Machines; stopped: boolean; held?: string | null }) {
   const now = useNow();
   const solve = m.machines.find((x) => x.id === "solve");
   const spans = r.steps.map((s) => ({ s, d: ((s.end ? Date.parse(s.end) : now) - Date.parse(s.start)) / 1000 }));
@@ -324,10 +343,11 @@ function StepPath({ r, m, stopped }: { r: Round; m: Machines; stopped: boolean }
     <div className="step-path">
       {spans.map(({ s, d }, i) => {
         const open = !s.end;
-        const tone = open && stopped ? "fail" : stateTone(solve, s.state);
+        const isHeld = open && !!held;
+        const tone = open && stopped ? "fail" : isHeld ? "held" : stateTone(solve, s.state);
         return (
-          <div key={i} className={`sp ${tone} ${open ? "open" : ""}`} style={{ flexGrow: Math.max(0.6, (d / total) * 10) }} title={`${s.state}: ${dur(d)}${s.note ? ` · ${s.note}` : ""}`}>
-            <span>{stateWord(s.state)}</span><span className="num">{dur(d)}</span>
+          <div key={i} className={`sp ${tone} ${open && !isHeld ? "open" : ""}`} style={{ flexGrow: Math.max(0.6, (isHeld ? 0.06 : d / total) * 10) }} title={`${s.state}: ${dur(d)}${isHeld ? ` · not running: ${held}` : s.note ? ` · ${s.note}` : ""}`}>
+            <span>{stateWord(s.state)}{isHeld ? " · queued" : ""}</span><span className="num">{isHeld ? "not running" : dur(d)}</span>
           </div>
         );
       })}
@@ -374,5 +394,138 @@ function Candidates({ c }: { c: CaseDetail }) {
         ))}</tbody>
       </table>
     </details>
+  );
+}
+
+
+const WORK_WORDS: Record<string, string> = { compile: "compile", check: "check run", measure: "timing run", run: "probe run" };
+
+function workLine(w: StepWork): string {
+  const each = w.mean_s != null ? `${w.mean_s < 10 ? w.mean_s.toFixed(1) : Math.round(w.mean_s)} s each` : "";
+  const at = w.count > 1 ? `${w.max_parallel} at once` : "";
+  return [`${WORK_WORDS[w.kind] ?? w.kind} ×${w.count}`, at, each, w.failed ? `${w.failed} failed` : ""].filter(Boolean).join(" · ");
+}
+
+/** Each step of the round: when, how long, the jobs it ran and what happened during it. */
+function StepTable({ r, held, stopped }: { r: Round; held: string | null; stopped: boolean }) {
+  const now = useNow();
+  return (
+    <div className="steptable">
+      <div className="caption">what each step ran</div>
+      <table className="t compact">
+        <thead><tr><th>step</th><th>from</th><th className="r">took</th><th>jobs</th><th>during the step</th></tr></thead>
+        <tbody>{r.steps.map((st, i) => {
+          const open = !st.end;
+          const took = ((st.end ? Date.parse(st.end) : now) - Date.parse(st.start)) / 1000;
+          const busy = (st.work ?? []).reduce((p, w) => p + w.busy_s, 0);
+          return (
+            <tr key={i} className={open ? (held ? "held" : stopped ? "stopped" : "open") : ""}>
+              <td><b>{stateWord(st.state)}</b><div className="tiny mono ink3">{st.state}</div></td>
+              <td className="num small">{hhmm(st.start, true)}</td>
+              <td className="r num small">{open && held ? <span className="ink3">—</span> : dur(took)}{open && !held && !stopped && <div className="tiny ink3">so far</div>}</td>
+              <td className="small">
+                {(st.work ?? []).length === 0 ? <span className="ink3">{open && held ? "nothing: waiting for a task that may not start" : "in-process (no jobs)"}</span>
+                  : (st.work ?? []).map((w) => <div key={w.kind} className={`workline ${w.failed ? "bad" : ""} ${w.count > 4 && w.max_parallel <= 1 && w.kind === "compile" ? "serial" : ""}`}>{workLine(w)}</div>)}
+                {busy > 0 && took > 0 && <div className="tiny ink3">job time {dur(busy)} in {dur(took)} of wall time</div>}
+              </td>
+              <td className="small">
+                {open && held && <div className="ev held">not running: {held}</div>}
+                {(st.events ?? []).map((e, j) => (
+                  <div key={j} className={`ev ${e.kind}`}>
+                    <span className="num ink3">{hhmm(e.at)}</span> {e.text} {e.record && <RecordLink id={e.record} label="record" />}
+                  </div>
+                ))}
+                {st.note && <div className="ink2">{st.note}</div>}
+              </td>
+            </tr>
+          );
+        })}</tbody>
+      </table>
+    </div>
+  );
+}
+
+function fmtNum(v: unknown): string {
+  if (typeof v !== "number") return String(v ?? "—");
+  if (v !== 0 && (Math.abs(v) < 1e-2 || Math.abs(v) >= 1e5)) return v.toExponential(2);
+  return Number.isInteger(v) ? v.toLocaleString() : v.toFixed(3);
+}
+
+/** The numbers that say how badly a check failed, against its limits. */
+function reasonNumbers(x: Record<string, unknown>): string {
+  const parts: string[] = [];
+  if (x.mismatches != null && x.elements != null) parts.push(`${fmtNum(x.mismatches)} of ${fmtNum(x.elements)} elements outside rtol/atol ${fmtNum(x.rtol)}`);
+  if (x.rel_l2 != null) parts.push(`rel L2 ${fmtNum(x.rel_l2)}${x.rel_l2_limit != null ? ` (limit ${fmtNum(x.rel_l2_limit)})` : ""}`);
+  if (x.max_abs_err != null) parts.push(`max error ${fmtNum(x.max_abs_err)}${x.max_abs_limit != null ? ` (limit ${fmtNum(x.max_abs_limit)})` : ""}`);
+  if (x.library_rel_l2 != null) parts.push(`library: rel L2 ${fmtNum(x.library_rel_l2)}, max ${fmtNum(x.library_max_abs_err)}`);
+  if (x.level) parts.push(`${String(x.level)} level ×${fmtNum(x.factor)}`);
+  if (x.shape) parts.push(`shape ${Object.entries(x.shape as Record<string, number>).map(([k, v]) => `${k}=${v}`).join(" ")}`);
+  if (x.shape_class) parts.push(`hidden shape: ${String(x.shape_class)}`);
+  if (!parts.length && x.detail) parts.push(String(x.detail).slice(0, 220));
+  return parts.join(" · ");
+}
+
+/** Why candidates failed: the gate before measuring, and the full check of each shape's best. */
+function CheckReasons({ checks }: { checks: { quick: CheckLevel; full: CheckLevel } }) {
+  const levels: [string, string, CheckLevel][] = [
+    ["quick", "check before measuring (loose)", checks.quick],
+    ["full", "full check of each shape's fastest (strict)", checks.full],
+  ];
+  if (!levels.some(([, , l]) => l.total)) return null;
+  return (
+    <div className="checkreasons">
+      {levels.filter(([, , l]) => l.total).map(([key, label, l]) => (
+        <div key={key} className="cr-level">
+          <div className="cr-head">
+            <span className="caption">{label}</span>
+            <span className={`cr-count ${l.passed === l.total ? "ok" : l.passed === 0 ? "bad" : "mixed"}`}>{l.passed} of {l.total} passed</span>
+          </div>
+          {l.reasons.length > 0 && (
+            <table className="t compact">
+              <thead><tr><th>failed on</th><th className="r">candidates</th><th>one of them, in numbers</th><th>records</th></tr></thead>
+              <tbody>{l.reasons.map((x) => (
+                <tr key={x.reason}>
+                  <td className="mono small">{x.reason}</td>
+                  <td className="r num">{x.candidates}</td>
+                  <td className="small">{reasonNumbers(x.example)}</td>
+                  <td className="small">{x.records.slice(0, 3).map((id, i) => <span key={id}>{i ? " " : ""}<RecordLink id={id} label={`#${i + 1}`} /></span>)}</td>
+                </tr>
+              ))}</tbody>
+            </table>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** The correctness standard of the case: its Contract, who wrote it, and the user's verdict. */
+function Standard({ c }: { c: CaseDetail }) {
+  const s = c.standard;
+  if (!s) return null;
+  const scope = s.shape_scope?.kind
+    ? s.shape_scope.kind === "static" ? "only the case's own shapes"
+      : `any shape within ${Object.entries(s.shape_scope.ranges ?? {}).map(([k, [lo, hi]]) => `${k} ${lo}–${hi}`).join(", ")}`
+    : "not declared (every edge and hidden shape is checked)";
+  return (
+    <Panel title="Correctness standard" sub={`the Contract this case is checked against · written by ${s.written_by}`}
+      right={<span className="row" style={{ gap: 8 }}><Annotate subject={s.record} label={`${c.name}: correctness standard`} loop={c.loop_id ?? undefined} compact /><RecordLink id={s.record} label="record" /></span>}>
+      <div className="std-grid">
+        <div><div className="caption">tolerance</div>
+          {Object.entries(s.tolerances).map(([dt, t]) => (
+            <div key={dt} className="small">
+              <b className="mono">{dt}</b>{" "}
+              {t.relative_to === "library"
+                ? <>within <b>×{fmtNum(t.loose)}</b> of the library's own error before measuring, <b>×{fmtNum(t.strict)}</b> for a shape's best <span className="ink3">(fixed rtol/atol {fmtNum(t.rtol)} reported only)</span></>
+                : <>every element within rtol {fmtNum(t.rtol)}, atol {fmtNum(t.atol)}{t.rel_l2 != null ? `, rel L2 ≤ ${fmtNum(t.rel_l2)}` : ""}</>}
+            </div>
+          ))}
+        </div>
+        <div><div className="caption">input distributions</div><div className="small">{s.input_dists.join(", ")}<div className="tiny ink3">the check before measuring uses normal only</div></div></div>
+        <div><div className="caption">shapes the kernel answers for</div><div className="small">{scope}</div>
+          {s.edge_shapes.length > 0 && <div className="tiny ink3">edge shapes: {s.edge_shapes.map((e) => Object.entries(e).map(([k, v]) => `${k}=${v}`).join(" ")).join("; ")}</div>}
+        </div>
+      </div>
+    </Panel>
   );
 }

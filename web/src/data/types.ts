@@ -90,6 +90,8 @@ export interface LoopInstance {
   paused?: string | null;
   /** WP25: a human advance running now (step | round | retry). */
   advancing?: string | null;
+  /** SYSDEBUG-2 (D699): the task the loop waits on, and why it may not start (null reason: it may). */
+  held?: { task: string; state: string; reason: string | null } | null;
   /** WP25: the steps of the family the loop's current round uses (levels 1-7). */
   chain?: { key: string; template: string; level_from: number | null; level_to: number | null; assurance: string }[];
   trace_id: string;
@@ -230,12 +232,27 @@ export interface CaseIndexRow extends CaseSummary {
   rounds: CaseRoundProgress[];
 }
 
+export interface StepWork {
+  kind: string;
+  count: number;
+  failed: number;
+  busy_s: number;
+  mean_s: number | null;
+  max_s: number | null;
+  max_parallel: number;
+}
+export interface StepEvent { at: string; kind: "blocked" | "human" | "rejected_measurement"; text: string; record?: string }
 export interface RoundStep {
   state: string;
   start: string;
   end: string | null;
   note?: string | null;
+  /** SYSDEBUG-2 (D700): the jobs this step ran, per kind, and what happened during it. */
+  work?: StepWork[];
+  events?: StepEvent[];
 }
+export interface CheckReason { reason: string; candidates: number; example: Record<string, unknown>; records: string[] }
+export interface CheckLevel { total: number; passed: number; reasons: CheckReason[] }
 export interface RoundTask {
   id: string;
   type: TaskType;
@@ -265,6 +282,8 @@ export interface Round {
   tasks: RoundTask[];
   summary?: RoundSummary;
   outcome?: { rule?: number | null; label: string; record: string; gap_class?: string | null; decomposition?: string | null } | null;
+  /** SYSDEBUG-2 (D700): check results grouped by reason (quick = gate before measuring, full = each shape's best). */
+  checks?: { quick: CheckLevel; full: CheckLevel };
 }
 export interface BucketResult {
   bucket: string;
@@ -303,6 +322,14 @@ export interface CaseDetail extends CaseSummary {
   gaps: { id: string; description: string }[];
   /** WP25: what the current round runs with. */
   inputs?: { families: FamilySummary[]; model: string | null; hw_model: string | null; controls: string | null };
+  /** SYSDEBUG-2 (D700): the Contract the case is checked against, and who wrote it. */
+  standard?: {
+    record: string; written_by: string; written_at: string;
+    tolerances: Record<string, Record<string, unknown>>; input_dists: string[];
+    edge_shapes: Record<string, number>[]; shape_scope?: { kind?: string; ranges?: Record<string, [number, number]> };
+    timing_boundary: string;
+  } | null;
+  anomalies?: { level: "fail" | "warn"; text: string; record?: string | null }[];
 }
 
 // ---- GET /journal (WP25) ----

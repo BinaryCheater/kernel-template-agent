@@ -429,3 +429,33 @@ dl.bv.nested .bv-row { grid-template-columns: 110px minmax(0, 1fr); }
 .bv-list { margin: 0; padding-left: 18px; }
 .record-page > header { display: flex; justify-content: space-between; }
 .record-page .dbody { display: flex; flex-direction: column; gap: 12px; padding: 12px 16px; }
+
+/* ---- case page: held, anomalies, step table, check reasons, standard (SYSDEBUG-2, D699, D700) ---- */
+.notice.held { background: #f4f3ef; border: 1px solid #d9d8cf; border-left: 4px solid #8a8880; padding: 10px 14px; border-radius: 8px; }
+.anomalies { display: flex; flex-direction: column; gap: 6px; }
+.anomaly { display: flex; gap: 10px; align-items: baseline; padding: 8px 12px; border-radius: 8px; font-size: 13px; background: #fff8e8; border: 1px solid #f1dca8; }
+.anomaly.fail { background: #fff3f3; border-color: #f2c0c0; color: #7d1c1c; }
+.anomaly-mark { font-weight: 800; width: 14px; text-align: center; }
+.sp.held { background: #ecebe6; color: var(--ink-3); border-style: dashed; }
+.steptable { margin-top: 12px; }
+.steptable table td { vertical-align: top; }
+.steptable tr.open td:first-child { box-shadow: inset 3px 0 0 var(--st-running); }
+.steptable tr.held td:first-child { box-shadow: inset 3px 0 0 #a3a29b; }
+.steptable tr.stopped td:first-child { box-shadow: inset 3px 0 0 var(--st-fail); }
+.workline { font-variant-numeric: tabular-nums; }
+.workline.bad { color: #9b1f1f; }
+.workline.serial { color: #7a5200; }
+.workline.serial::after { content: "  ← one at a time"; color: #b07a00; font-size: 11px; }
+.ev { line-height: 1.45; }
+.ev.blocked { color: #9b1f1f; }
+.ev.human { color: #4936b8; }
+.ev.rejected_measurement { color: #7a5200; }
+.ev.held { color: var(--ink-2); font-style: italic; }
+.checkreasons { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+.cr-level { padding: 10px 12px; border: 1px solid var(--hairline); border-radius: 10px; background: #fff; }
+.cr-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.cr-count { font-size: 12px; font-weight: 700; padding: 2px 9px; border-radius: 999px; background: var(--panel-sunk); }
+.cr-count.ok { background: var(--st-ok-tint); color: #1b6b1b; }
+.cr-count.bad { background: var(--st-fail-tint); color: #9b1f1f; }
+.cr-count.mixed { background: #fff1d1; color: #7a5200; }
+.std-grid { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 16px; }

@@ -793,8 +793,8 @@ def _anomalies(
                     out.append(
                         {
                             "level": "warn",
-                            "text": f"round {r['n']}: {w['count']} compiles ran one at a time "
-                            f"({w['busy_s']:.0f} s in all)",
+                            "text": f"round {r['n']}, step {st['state']}: {w['count']} compiles "
+                            f"ran one at a time ({w['busy_s']:.0f} s in all)",
                         }
                     )
     return out

@@ -74,10 +74,11 @@ export function LoopControls({ loop, compact }: { loop: Pick<LoopInstance, "id" 
 }
 
 /** One line saying what holds a loop, if anything: blocked, paused, waiting, or moving. */
-export function loopCondition(l: Pick<LoopInstance, "id" | "blocked" | "paused" | "waiting_on" | "advancing">): { tone: "fail" | "idle" | "waiting" | "running"; text: string } {
+export function loopCondition(l: Pick<LoopInstance, "id" | "blocked" | "paused" | "waiting_on" | "advancing" | "held">): { tone: "fail" | "idle" | "waiting" | "running"; text: string } {
   if (l.blocked) return { tone: "fail", text: `stopped by ${l.blocked.error}` };
   if (l.advancing) return { tone: "running", text: l.advancing === "round" ? "advancing a round" : "stepping" };
   if (l.paused) return { tone: "idle", text: l.paused === `loop:${l.id}` ? "paused" : `paused (${l.paused})` };
+  if (l.held?.reason) return { tone: "idle", text: "agent task queued, not running" };
   if (l.waiting_on) return { tone: "waiting", text: "waiting for an agent task" };
   return { tone: "running", text: "running" };
 }
