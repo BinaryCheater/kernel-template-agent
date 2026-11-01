@@ -1,0 +1,10 @@
+# Questions for the supervised session
+
+1. **Quiet clocks (blocks X6/X10):** should quietness reject every sample below rated maximum, or detect clock instability/throttling under the actual workload? Current snapshots are taken around the timed loop, not continuously in-kernel. Choose an observable and a validation drill before changing a threshold. Alternative: keep the current rule and establish a reproducible clock-control method; that may need separate host-change approval.
+2. **Calibration margins:** specify the headroom for QUIET and MEM before either cap is applied. Current measurements do not establish compile/check peak RSS or GPU peak memory.
+3. **Proof findings:** seed contracts have counterexamples/unresolved obligations. For S0 the expected result is exploration, not proof-backed assurance. The user should inspect one counterexample and decide whether the current display communicates that boundary.
+4. **Profiler completeness:** ncu permissions work, but the requested DRAM metric is n/a on this setup. Decide which available GB10 counter or alternative trace should supply the missing memory evidence; do not treat missing as zero.
+5. **Codex login isolation:** before S1, the runbook asks link vs copy of the existing login into the dedicated auth directory. Neither was done; no model call was made. Copy avoids sharing a token-refresh file, while a link follows the interactive login.
+6. **MIP–L2 threshold:** the seed passes narrowly and may disagree by 2.49× on time. Use the result to inspect approximation error; do not select a new threshold from this same family and then call that independent validation. GPU ranking O3 remains untested.
+7. **Provider status scope:** System CLI version probes use PATH; the runner uses its configured absolute Codex command. The UI now labels this limit explicitly. A successful help contract establishes the latter exists; it does not establish login.
+8. **Remaining learning gaps:** runnable-reference reproduction/ablation and Phase-3 ledger, adaptive measurement and reviewer process remain separate work. They are not prerequisites for viewing the initial diagnostics.

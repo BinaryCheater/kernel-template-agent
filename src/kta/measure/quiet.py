@@ -124,11 +124,12 @@ def observed(timing: Mapping[str, Any]) -> dict[str, Any]:
     gpre, gs, ge = _gpu(pre), _gpu(s), _gpu(e)
     procs = gpre.get("compute_procs")
     sm_max = gs.get("sm_max_mhz")
-    sm = [x for x in (gs.get("sm_mhz"), ge.get("sm_mhz")) if x is not None]
+    samples = [gs, *timing.get("clock_samples", []), ge]
+    sm = [float(x["sm_mhz"]) for x in samples if x.get("sm_mhz") is not None]
     throttle = 0
-    for x in (gs.get("throttle_reasons"), ge.get("throttle_reasons")):
-        throttle |= int(x or 0)
-    temps = [x for x in (gs.get("temp_c"), ge.get("temp_c")) if x is not None]
+    for sample in samples:
+        throttle |= int(sample.get("throttle_reasons") or 0)
+    temps = [x["temp_c"] for x in samples if x.get("temp_c") is not None]
     return {
         "other_cpu_cores": round(other_cpu_cores(s, e), 4),
         "other_cpu_cores_pre": round(other_cpu_cores(pre, s), 4),
@@ -139,7 +140,13 @@ def observed(timing: Mapping[str, Any]) -> dict[str, Any]:
         # one already (the driver is initialised), so others = count - 1.
         "other_gpu_procs": None if procs is None else max(0, int(procs) - 1),
         "temp_c_max": max(temps) if temps else None,
-        "sm_clock_drop_frac": (
+        "clock_rule": "observed_window_span_v2",
+        "sm_clock_samples": len(sm),
+        "sm_clock_min_mhz": min(sm) if sm else None,
+        "sm_clock_max_mhz": max(sm) if sm else None,
+        "sm_clock_mean_mhz": sum(sm) / len(sm) if sm else None,
+        "sm_clock_drop_frac": (None if not sm or max(sm) <= 0 else round(1 - min(sm) / max(sm), 4)),
+        "sm_clock_below_max_frac": (
             None if not sm or not sm_max else round(1 - min(sm) / float(sm_max), 4)
         ),
         "throttle_reasons": throttle,

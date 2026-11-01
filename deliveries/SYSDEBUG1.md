@@ -1,0 +1,247 @@
+# SYSDEBUG-1 initial debug checkpoint
+
+Date: 2026-11-01 (Asia/Singapore). Branch `sysdebug/1`.
+
+**Automated rehearsal update (2026-11-01):** task/tool contracts now use a versioned codex-v3 profile; actual task use is charged with replay-safe receipts, API tool-call caps are enforced, and T4 verification uses candidate-aligned frozen holdout data rather than visible training data. A missing holdout holds one task without starving the ready queue. Targeted repair tests passed before the final batch gate (769 non-GPU tests, 36 contracts; 23 pass / 1 warn / 0 fail). Main deployment and worker commits match; API/frontend are healthy. No kernel source or numeric tolerance changed.
+
+In dev/SYSDEBUG1_AUTO, real T3 tasks passed acceptance, rejection/escalation, correction/retry and cancellation rehearsals; a real Executor job was cancelled and its successor succeeded. Two bounded Codex tasks were accepted in 46.918 s and 33.078 s, the second resuming the first session. Saved archives contain tool events and no credential files. Reports `a8229fef…`, `1ccb99b6…`; evidence is in SYSDEBUG1_AUTO.evidence.json. The isolated environment ended at S0 with no task in flight. Its Mac snapshot is verified (database hash plus 99/99 objects).
+
+Agent use: four runtime attempts total. The inherited gpt-5.4 default was rejected by the account; gpt-6.1-sol then exposed an incompatible forced legacy sandbox mode. The final two gpt-6.1-sol / low-effort calls succeeded under native bubblewrap with no sandbox bypass or system changes. No new construction subagents were started for this automated batch. Model choice here tests workflow, not relative model quality. Real session token totals are cumulative on resume and tool_s remains uncalibrated; do not use these fields for per-task cost comparison.
+
+**Current scope (user clarification): system-function debugging, parameter-taskbook review and workflow supervision.** The previous GEMM loop is paused and blocked; no golden-path success, completed calibration or research acceptance is claimed. Source `e71d105` is deployed. Real AgentRuns now exist in the isolated SYSDEBUG1_AUTO test namespace; the main SYSDEBUG1 stage remains S0. Functional controls v3: shortlist 8, 4 measured points including 1 random, solver 10 s. The taskbook now prioritises lifecycle rehearsal, separates tolerance meanings and correctly requires S3 for learning/summarization.
+
+System repairs since the historical checkpoint: current-round baseline identity/quietness; C/Gamma gates for control arms; per-shape current-loop evidence; failed compiler output archived without JSON masking; evaluation checkpoints and cooperative pause between candidates; protocol pinned within each measurement round; preserved progress on block; loop/state trace propagation and truthful failed spans; visible blocked/paused Case state. The numeric prototype made during the earlier diagnostic detour was not adopted. No kernel source or numeric tolerance was changed.
+
+Real expected-failure rehearsal: Report `5e2fb815…`, Build `73cd954f…`. Full code-stage gate: Report `bdd8652e…`, 757 non-GPU tests, 36 contracts, 23 pass / 1 warn / 0 fail. The baseline quiet path and interruption during an actual GPU candidate still require targeted real replay; unit checks are not that evidence. The WP24 namespace warning remains. New decisions: D650–D654.
+
+**Historical checkpoint (before D649; later repair results below).**
+
+**Status at that checkpoint: initial diagnostics available for supervised visual inspection; Phase 1 BLOCKED.** This is not an accepted S0/S1 transition, completed calibration, or a research result. The runbook explicitly stops before Phase 2 when X6/X10 cannot be produced. The operator followed that boundary.
+
+Provider follow-up: Settings probes the actual agent host through Executor, resolves native CLIs and queries login status. On Spark HK, both Codex and Claude Code report logged in as dingyi. A separate Codex experimental home seeded with the experiment config reuses native login by symlink (Report `53d2eecb…`); credentials are absent from its archive and no model call was made. Native provider connection settings are inherited separately from personal instructions and sessions; profile overrides remain explicit. Harness versions are recorded with actual version/hash and drift flag, without an equality launch gate. Claude runtime remains NotSupported. Decisions D655–D656.
+
+## What was done
+
+- Read the current runbook, conventions, WP23/WP24 design and delivery boundaries; deployed the code to Spark HK. Latest deployed source: `e7318d54a2b6ef9bd9510357a5b29df74568d517`. API, web preview and the pre-existing Tailscale web binding run in tmux. The Mac tunnel remains `http://127.0.0.1:14173` (web) and `127.0.0.1:17310` (API).
+- Used the new `~/kta/data/dev/SYSDEBUG1` store. Old `dev/WP23` and its code were preserved; old launcher saved as `~/kta/longrun-WP23.sh`. New environment is `~/kta/kta-env-sysdebug.sh`; no main branch change, push, model call, login copy/link, sudo or system configuration change occurred.
+- Registered `spark-hk` with `gpu=sm_121`, CUDA and TileLang backend labels. Target probing and doctor passed. Both CUDA and TileLang vector adds passed exact checking of 1,048,576 elements. Lease exclusion, timeout recovery and aarch64 CPU compile passed. Evidence entries 1–3 and the original command outputs under `~/kta/runs/sysdebug1/`.
+- Fixed GPU container startup: remove the forced unregistered `nvidia` runtime and let Docker satisfy the explicit device request (D645). The real reference-based checker rerun passed the correct GEMM and caught all three planted faults, Report `c907edb357877d2497ca01f7cfa23eef3959b58fa910ecf82323394837f1b530` (evidence 4). Failed pre-fix Check records remain immutable.
+- Verified ncu through KTA's ordinary Executor path: Profile `39fb0f72242945e6588af2a26a95eb09973b8b082974d944afe107dff5445c3b`, duration **1,176,224 ns = 1,176.224 µs**, SM throughput **83.19%**. Driver already reports `RmProfilingAdminOnly=0`; no permission change was necessary. Requested DRAM metric is `n/a` in the CSV, not zero (evidence 6). The [NVIDIA permission guidance](https://developer.nvidia.com/nvidia-development-tools-solutions-err_nvgpuctrperm-permission-issue-performance-counters) was consulted; the real profile, rather than driver configuration alone, establishes access.
+- Ran seven proof outlines and the planted proof canary (`3e77e0b8…`, caught). Shared-memory tiling has bounded assurance; six other outlines have no proof level. These are the expected WP24 findings, not seven proved Templates (evidence 5).
+- Attempted idle vadd/GEMM noise, hardware calibration and an initial two-pair interference probe. **16 attempts were rejected and retained as real Reports; zero Measurements were accepted.** Initial idle failures are clock-only; later reports also include CPU/GPU activity. No threshold was changed, failed timing accepted, CV fabricated or HwModel calibrated (evidence 7–8).
+- Recorded MIP–L2 consistency for 3 shapes × 70 feasible seed configurations: rho 0.5192 / 0.5216 / 0.5361, zero bound violations; L2/MIP up to 2.4898. This is a model-to-model diagnostic using the seed model (evidence 9).
+- Fixed measurement CLI controls loading (D646). It previously ignored stored quiet thresholds; it now uses the same stored snapshot as orchestration. Fixed Workflow source navigation under `src/<commit>/src/...` (D647), retaining the existing acceptance assertion. Added targeted regressions for both.
+- Clarified System labels: an endpoint applies only to required providers; a failed PATH probe says "not found on PATH", which does not contradict an installed, configured absolute CLI command (D648). No settings or probe behaviour changed.
+- Ran the full WP24 **code-stage regression gate** through an Executor CPU job on Spark HK, final source `e7318d5`: **22 pass, 2 warn, 0 fail**, 741 non-GPU tests and 31 contract tests; pyright, import layers and clean frontend build pass. Report `7d37eafb…` (evidence 13; earlier core regression in evidence 10). This gate is regression coverage, not a SYSDEBUG Phase-1 acceptance gate; `scripts/gate` has no SYSDEBUG1 package name.
+- The gate's real-Codex-help contract was skipped because the CLI was not on that job's PATH. Ran it separately through the Executor with explicit `KTA_CODEX=~/.local/bin/codex`: **3 passed**, Report `06216b23…`, no model request (evidence 11).
+- Applied long-run proxy `off` through the authenticated System API and verified direct Codex TLS preflight. Only the audit action and preflight records were returned; no token or login contents were printed. Research controls and release stage S0 remain unchanged (evidence 12).
+- Wrote [seven decision cards and the phase summary](sysdebug/phase1.md), [questions for the user](sysdebug/questions.md), and a [visual walkthrough](sysdebug/walkthrough.md). An independent AI reviewer checked the cards against the read-only API and agreed with their pass/blocked boundaries. The rejected-attempt drawer was visibly verified in the browser.
+
+## Fixtures and simplifications
+
+- No fixture data seeded into SYSDEBUG1 and no new fixture implementation in `src/`. Existing `src/kta/store/bench.py` fixture is unchanged and remains declared by WP1.
+- The interference driver plans only two initial pairs, explicitly labelled non-exhaustive; neither completed because the first measured kernel was rejected.
+- Initial direct tests from the deployment archive reported 11 failures: the archive lacks git metadata needed by ten provenance tests; the workflow source-path failure was a genuine deployment bug and was fixed. The git-backed final-source code gate passes without relaxing those tests.
+- No replacement result, hidden fallback, changed numerical tolerance, weakened checker or new research threshold was used.
+
+## Known issues
+
+- The original rated-maximum clock rejection was repaired by the observed within-window span policy; targeted library-baseline and interruption replay remain pending.
+- C1-MEM lacks compile/check peak RSS, a measured GPU peak and a defined margin. Existing caps remain labelled defaults.
+- Profile stores numeric metrics without their CSV units/availability. The real CSV supplies ns for duration and `n/a` for DRAM. Profiler access is verified; full metric coverage is not.
+- Active-agent noise, spread-validated hardware interference and memory headroom remain pending. Idle noise and initial hardware peaks have real evidence; the full S0 measurement/gap/routing path is incomplete. Real agent start/resume is now verified separately in SYSDEBUG1_AUTO.
+- Proof counterexamples and unsupported proof levels remain as WP24 expected. Seed GEMM candidates would be exploration; proof execution exit 0 is not assurance.
+- Calibration reasons are reachable through Record drawers but are raw JSON; there is no dedicated calibration summary page or `measurement_interfered` Inbox trigger. Cards supply the readable summary for the joint walkthrough.
+- Reproduction/ablation and the Phase-3 prerequisites are still separate work. No attempt was made to bypass them.
+- The final regression gate keeps WP24's warning about real runs in its own `dev/WP24` namespace. This SYSDEBUG store does not substitute for that acceptance.
+
+## New decisions
+
+Current follow-up: D655–D659 (provider reuse, harness provenance, actual-use accounting, holdout and versioned runtime contracts).
+
+D645 (Docker GPU request), D646 (stored measurement controls), D647 (deployment source links), D648 (system diagnostics label scope). All are local reversible implementation repairs; no spec interface or acceptance criterion changed.
+
+## Needed changes
+
+- Finish targeted lifecycle/measurement replays and calibrate the named research thresholds; functional repairs do not establish calibration.
+- Contracts, settlement and independent holdout guards are repaired. Before broad GPU/agent trials, replay T1/T6 build/check tasks, whole-loop interruption/recovery and the library-baseline quiet path. GPU in-flight budget exhaustion remains unverified.
+- Check one proof counterexample and one rejected timing in the frontend, then review the remaining cards. The user owns any C-level method or stage decision.
+- No changes to other module interfaces were made. Corrected runbook CLI syntax for backend self-tests, solve-loop advancement and profile approval.
+
+## Pending real runs
+
+Complete X6 idle/active noise, repeated peaks and interference, deliberate compile interference drill, memory headroom calibration, S0 GEMM and its GapDecomposition, then user-released S1 tasks. None is described as complete here.
+
+## Backup
+
+Final handoff snapshot on Spark HK: `~/kta/backups/SYSDEBUG1-20261031-handoff`, created 2026-10-31T11:25:58Z.
+
+Verified Mac copy: `/Users/dingyi/kta-backups/spark-hk/SYSDEBUG1-20261031/handoff-snapshot`.
+
+- DB sha256: `162261d094bddb7e1bcecf6843e51bc604c0a0a2d01f12a1cb7ad960e1920f71`.
+- **527 / 527 object hashes verified.** Every record and blob referenced by the 13 evidence entries is present in this read-only-checked snapshot.
+- System configuration included; no login credentials copied. The earlier snapshot is preserved. Base archive and a 655 KB delta were used to transfer the new snapshot without retransmitting unchanged objects; `verified.json` records the check.
+- The remote store and services remain live. No periodic backup was scheduled.
+
+## Gate output
+
+Latest automated batch, source `e71d105`, Report `806284ab…` in SYSDEBUG1_AUTO:
+
+```
+gate WP24 --stage code: PASSED (23 pass, 1 warn, 0 fail)
+  PASS ruff format
+  PASS ruff check
+  PASS import layers
+  PASS residue
+  PASS test doubles
+  PASS error handling
+  PASS print
+  PASS subprocess outside Executor
+  PASS secrets
+  PASS acceptance lock — 7 locked files unchanged
+  PASS pyright
+  PASS unit tests — 769 passed
+  PASS contract tests — 36 passed
+  PASS fake coverage — 2 fake(s) covered
+  PASS registry (kta doctor, dev)
+  PASS delivery note
+  PASS fixture declarations — 1 declared
+  PASS decision log — 497 decisions
+  PASS skipped tests — none
+  PASS evidence — 5 claim(s)
+  PASS WP24 tests — 16 named tests passed
+  PASS WP24 spec, seed and pages — spec, z3 lock, seed outlines, pages
+  PASS web build — tsc + vite build of HEAD in a clean directory
+  WARN WP24 real checker runs — pending real run (code stage): ProofSummary with a level and a caught proof_canary Report in dev/WP24 (clean commit)
+```
+
+
+Latest source `487a1b8`, Report `bdd8652e3f90470b17067576f5a96c2ca1f6f7e2f19e551ad8b7e34964fb681b` (code regression, not SYSDEBUG stage acceptance):
+
+```
+gate WP24 --stage code: PASSED (23 pass, 1 warn, 0 fail)
+  PASS ruff format
+  PASS ruff check
+  PASS import layers
+  PASS residue
+  PASS test doubles
+  PASS error handling
+  PASS print
+  PASS subprocess outside Executor
+  PASS secrets
+  PASS acceptance lock — 7 locked files unchanged
+  PASS pyright
+  PASS unit tests — 757 passed
+  PASS contract tests — 36 passed
+  PASS fake coverage — 2 fake(s) covered
+  PASS registry (kta doctor, dev)
+  PASS delivery note
+  PASS fixture declarations — 1 declared
+  PASS decision log — 494 decisions
+  PASS skipped tests — none
+  PASS evidence — 5 claim(s)
+  PASS WP24 tests — 16 named tests passed
+  PASS WP24 spec, seed and pages — spec, z3 lock, seed outlines, pages
+  PASS web build — tsc + vite build of HEAD in a clean directory
+  WARN WP24 real checker runs — pending real run (code stage): ProofSummary with a level and a caught proof_canary Report in dev/WP24 (clean commit)
+```
+
+Historical gate output follows.
+
+Final-source run on Spark HK via Executor, Report `7d37eafbdf353f5ebc2b79397259cf49a1f918ee21fe545a317432afb971c57f`:
+
+```
+gate WP24 --stage code: PASSED (22 pass, 2 warn, 0 fail)
+  PASS ruff format
+  PASS ruff check
+  PASS import layers
+  PASS residue
+  PASS test doubles
+  PASS error handling
+  PASS print
+  PASS subprocess outside Executor
+  PASS secrets
+  PASS acceptance lock — 7 locked files unchanged
+  PASS pyright
+  PASS unit tests — 741 passed
+  PASS contract tests — 31 passed
+  PASS fake coverage — 2 fake(s) covered
+  PASS registry (kta doctor, dev)
+  PASS delivery note
+  PASS fixture declarations — 1 declared
+  PASS decision log — 486 decisions
+  WARN skipped tests — not explained in the delivery note
+  PASS evidence — 5 claim(s)
+  PASS WP24 tests — 16 named tests passed
+  PASS WP24 spec, seed and pages — spec, z3 lock, seed outlines, pages
+  PASS web build — tsc + vite build of HEAD in a clean directory
+  WARN WP24 real checker runs — pending real run (code stage): ProofSummary with a level and a caught proof_canary Report in dev/WP24 (clean commit)
+```
+
+Skipped test: `tests.contract.test_codex_cli_contract::test_real_cli_lists_every_adapter_option` (CLI absent from the gate job's PATH). Separate explicit-path help-only contract run passed 3 tests. The other warning is WP24's own pending real acceptance namespace, not a hidden SYSDEBUG pass.
+
+## Clock-rule repair (D649; later follow-up)
+
+User authorised autonomous mechanism repair. Design check: (1) verify observed operating stability; (2) support reproducible wall-time comparison; (3) evidence is stable 2515 MHz versus rated 3003 MHz, with no throttle flags; sampling every 50 ms is still a default; (4) applies to event-timed worker jobs, with no claim of continuous in-kernel observation; (5) can miss changes between samples or perturb launch gaps; (6) raw samples, rule version, clock span, temperature/throttle flags and group variance expose failures; (7) keep the 15% limit, add a versioned polling interval; (8) requeue unstable attempts and compare repeated real timings, never rewrite historical verdicts; (9) operator proceeds under user authorisation, with clock locking and whole-kernel cycle rescaling considered and declined for this host. Unit regressions cover stable low clocks, an interior dip, heat and throttling; real noise validation follows from a clean commit. Wall-time remains primary.
+
+Clock-rule v2 real results: 30 groups each completed for vadd (CV 0.2451227%) and GEMM (CV 0.00175166%), with 3–4 periodic polls around 50 ms apart and valid SM/temperature/power return codes. The real compile disturbance produced two CPU-interference Reports, then automatic retry and recovery passed (Report 84b43179…). Hardware calibration produced measured HwModel 39088eec…. No old verdict was rewritten and no frequency-based timing conversion was used. Earlier startup CPU activity was correctly rejected and retained. This closes the demonstrated clock false-positive; active-agent X6, peak spread and full pairwise calibration are not claimed. The earlier Mac snapshot predates these new records; new records persist in the Spark HK dev store.
+
+Latest clock-repair regression gate (Report 1a00bbc0…):
+
+```
+gate WP24 --stage code: PASSED (22 pass, 2 warn, 0 fail)
+  PASS ruff format
+  PASS ruff check
+  PASS import layers
+  PASS residue
+  PASS test doubles
+  PASS error handling
+  PASS print
+  PASS subprocess outside Executor
+  PASS secrets
+  PASS acceptance lock — 7 locked files unchanged
+  PASS pyright
+  PASS unit tests — 745 passed
+  PASS contract tests — 35 passed
+  PASS fake coverage — 2 fake(s) covered
+  PASS registry (kta doctor, dev)
+  PASS delivery note
+  PASS fixture declarations — 1 declared
+  PASS decision log — 487 decisions
+  WARN skipped tests — not explained in the delivery note
+  PASS evidence — 5 claim(s)
+  PASS WP24 tests — 16 named tests passed
+  PASS WP24 spec, seed and pages — spec, z3 lock, seed outlines, pages
+  PASS web build — tsc + vite build of HEAD in a clean directory
+  WARN WP24 real checker runs — pending real run (code stage): ProofSummary with a level and a caught proof_canary Report in dev/WP24 (clean commit)
+```
+
+Latest system-function regression gate (source 90619e8):
+
+```
+gate WP24 --stage code: PASSED (23 pass, 1 warn, 0 fail)
+  PASS ruff format
+  PASS ruff check
+  PASS import layers
+  PASS residue
+  PASS test doubles
+  PASS error handling
+  PASS print
+  PASS subprocess outside Executor
+  PASS secrets
+  PASS acceptance lock — 7 locked files unchanged
+  PASS pyright
+  PASS unit tests — 753 passed
+  PASS contract tests — 36 passed
+  PASS fake coverage — 2 fake(s) covered
+  PASS registry (kta doctor, dev)
+  PASS delivery note
+  PASS fixture declarations — 1 declared
+  PASS decision log — 492 decisions
+  PASS skipped tests — none
+  PASS evidence — 5 claim(s)
+  PASS WP24 tests — 16 named tests passed
+  PASS WP24 spec, seed and pages — spec, z3 lock, seed outlines, pages
+  PASS web build — tsc + vite build of HEAD in a clean directory
+  WARN WP24 real checker runs — pending real run (code stage): ProofSummary with a level and a caught proof_canary Report in dev/WP24 (clean commit)
+```

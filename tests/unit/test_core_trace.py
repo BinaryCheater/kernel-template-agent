@@ -66,3 +66,20 @@ def test_span_without_tracer_or_with_bad_lane_fails(ops: SqliteOps, clock: Manua
             pass
     with pytest.raises(ConfigError, match=TRACE_PARENT_VAR):
         new_tracer(ops, clock, UlidFactory(clock), {TRACE_PARENT_VAR: "no-colon"})
+
+
+def test_switching_to_loop_trace_uses_its_state_parent_and_restores_caller(
+    ops: SqliteOps,
+    clock: ManualClock,
+) -> None:
+    from kta.core.trace import Tracer
+
+    ids = UlidFactory(clock)
+    cli = new_tracer(ops, clock, ids, {})
+    loop = Tracer(ops, clock, "loop", ids, "state")
+    with tracing(cli), span("other", "CLI", "process:cli") as parent:
+        with tracing(loop), span("job_run", "failed compile", "worker:spark:cpu") as job:
+            job.set(ok=False, error_kind="nonzero")
+        assert current_span_id() == parent.span_id
+    (row,) = ops.spans(trace_id="loop")
+    assert row.parent_id == "state" and row.status == "fail"

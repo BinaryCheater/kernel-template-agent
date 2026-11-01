@@ -242,7 +242,115 @@ Status: assistant's design (D348, needs the user's review). Every control posts 
 | Improvement `/improvement` | Is the system getting better? | stacked bars of Gap attribution per day | attribution legend with meanings; improvement reports with items and approval |
 | Agents `/agents` | What controls the worker agents? | runtime skills × task types matrix (current profile) and skill cards | profile versions as a timeline with changed fields; pointer history; batch environments with their lock and verify state |
 
-## 7. Open questions for the user
+## 7. Supervision views (WP25, D660–D667)
+
+Status: assistant's design built on the user's direction of 2026-11-01 (quoted below); the
+page split, the layouts and the controls' exact behaviour need the user's review. It replaces
+§2's navigation and §3.1's Overview; the other pages of §3 and §6 keep their content.
+
+User direction: the frontend exists so the user can quickly grasp what the system is doing,
+what it did and what came of it, without following every back-end step; the home page should
+show which steps run and where the work stands, not a static picture; the order on screen
+should follow how a person reads and how the system runs, with full logs reachable deeper;
+logic relationships should be clear; there must be control buttons (one step, one round,
+continuous); prompts and settings stay editable, and long settings must be editable in place.
+
+### 7.1 What a person needs to see, and where it is
+
+| Question | Data | View |
+| --- | --- | --- |
+| Is it moving, is anything stopped, what needs me? | loop states, `blocked`, pauses, inbox, agent slots, GPU lease, workers, last event | Home status line |
+| Where is each case and reference? | solve/expand instances and their states | Home loop maps |
+| What did a case do in each round, what changed, how good is it? | round steps, families used, candidate funnel, predicted vs measured vs bound, judgement, tasks and what they produced | Case page round cards |
+| What happened, in order, and why? | records, loop steps, jobs, task changes, stops, human actions | Activity (journal) |
+| Where did the time go? | spans | Pipeline (unchanged, plus stopped steps) |
+| What has the system learned? | Patterns, Templates, Families, assurance | Knowledge group (Families, Pool with its guide, Coverage, cost model) |
+| What can I change? | controls, prompts and profiles, release stage | Control group (Settings, Agent workflow and prompts, …) |
+
+### 7.2 Navigation (second round, D670)
+
+Six pages, no groups: **Home, Cases, Knowledge, Activity, Pipeline, Settings**. Knowledge has
+tabs (By level, Kernel families, Templates, Coverage, Cost model); Settings has tabs (Research
+controls, Agent prompts, Release stage, System). Pages taken out of the menu (Running, Inbox,
+Operations, Agents, Experiments, Improvement, Mechanisms, Model scoreboard) keep their routes
+because earlier WPs' acceptance checks name them; they are reached by links only. Page titles
+have no subtitle; the pool snapshot selector shows on Knowledge only.
+
+### 7.3 Home (second round, D669)
+
+User direction (round 2): less text; a flowchart with loops and branches; a clear unit; see
+which runs are where and how many; whether the optimisation levels show in a run; controls
+that let the whole thing run.
+
+1. Top line: one sentence (n stopped by an error / n running / Paused / Nothing to run), the
+   two process switches (Solve loop, Learning loop: Run or Pause), agents and GPU, "needs you".
+2. One section per loop ("Cases", "References being learned") with its count. The unit is
+   the loop instance: one Case in the solve loop, one Reference in the expand loop. The loop
+   is a flowchart: main path left to right in plain words (Lower bound → Find templates →
+   Pick candidates → Compile → Check → Measure → Judge → Solved); branches go down to the
+   agent step ("Agent fixes it"), the way back is dashed; "Gave up" below the end. Each case is
+   a chip under its step, with a count badge; red when stopped. Conditions are tooltips on
+   the arrows; there is no text on the canvas beyond step names and case names.
+3. Under the chart, the list of those cases: name, step (and the agent's job when waiting),
+   round, time at the step, the seven optimisation levels its family touches (cells coloured
+   by assurance), and its controls.
+4. Bottom: just happened (one line each), needs you.
+
+### 7.4 Controls
+
+- Process switches (D668): Run starts the loop's process inside the API (same tick loop and
+  lock as `kta process start`); Pause asks it to stop at its next tick. This is "let it run".
+- Per case: `Step`, `Round`, `Run`/`Pause`, `Retry step` when stopped (D664).
+- Every click writes a HumanAction; irreversible operations keep their dialog (§6.1).
+
+### 7.4b Words
+
+State ids, task codes (T1–T6) and level numbers are shown in words (`components/words.ts`):
+e.g. `retrieving` → Find templates, `waiting` → Agent fixes it, T1 → build a kernel family.
+
+### 7.5 Case page
+
+Header (state, condition, round of max, controls, best result link) → stop notice with what
+Retry does → one card per shape bucket (bound with bottleneck, best, strongest reference, a
+bar with the bound as a hatched floor) → "Runs with" (family chain as Template pills with
+assurance dots, cost model, hardware model, controls version) → rounds, newest first. A round
+card: a one-sentence account of the round (judged by which rule and what it handed on, or
+where and why it stopped), the step path sized by duration, then five columns: used,
+searched, built and checked (funnel), measured vs predicted vs bound per bucket, judged and
+what changed (tasks, their rejections, records they produced). Candidates and steps are
+collapsed inside the newest card. Below: the case's activity, gaps and references.
+
+### 7.6 Activity
+
+`GET /journal` lines grouped by day: time, tone dot, text, case link, actor. Milestones by
+default, Everything on request, filter by case, Older pages back. A line opens its record;
+task lines link to the task. Kinds without a phrase are listed at the end.
+
+### 7.7 Settings and Pool
+
+Settings: one row per knob in three columns (what it is and prevents; the editor; status,
+source, id, where, who sets it); mappings and per-task-type values are edited key by key,
+lists one per line, anything else as text with "edit as JSON"; a filter and section links on
+top; changed rows highlighted with undo; the save bar with the reason stays at the bottom.
+Pool: a guide on top (Pattern → refined by → Template → chained into → Family; Structure,
+Reference, Gap; the assurance scale), closable.
+
+### 7.8 Knowledge (round 3, D671)
+
+Tabs: Templates, Kernel families, Cost model, Patterns/gaps/references, Coverage. Templates is
+one list with three facet rows (level 1–7, learned from, checked); each chip counts what it
+would show given the other facets, and a level with nothing is disabled rather than drawn as
+an empty column. Columns: name and summary, the seven-cell level span, source, "applies when"
+(the scope, or "not stated"), "appears in" (references analysed, kernel families built),
+assurance with a counterexample flag. A row opens the Template's page: header (name,
+assurance, summary, level span, refines → produces, source link, where it appears); main
+column What it does / Knobs / Rules / Cost it declares; side column Applies when / Checks
+(each condition and obligation in words with the checker outcome and its reason) / Related
+templates / Versions / Raw record (collapsed); a divider between the columns drags to set the side width (remembered per browser, double-click resets). Records elsewhere open in the drawer, named by
+kind and name; hashes in a body show as the linked record's name; "Open as page" keeps it.
+An empty tab states what it will show and why it is empty.
+
+## 8. Open questions for the user
 
 - Is the Overview's split (solve loop large, expand + task lifecycle small) the right emphasis?
 - Should Pipeline be a top-level page (as now) or a tab inside Case / Running?

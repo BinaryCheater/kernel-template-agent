@@ -11,12 +11,14 @@ import hashlib
 import io
 import json
 import os
+import re
 import shutil
 import tarfile
 from collections.abc import Iterable
 from pathlib import Path, PurePosixPath
 from typing import Any
 
+from kta.agents import provider_env
 from kta.agents.launchspec import (
     BUNDLE_BATCH,
     BUNDLE_WORKSPACE,
@@ -81,6 +83,17 @@ def install_workspace(job_dir: Path, workspace: Path, names: list[str]) -> list[
     replaced wholesale so the agent cannot keep edits to skills between steps.
     """
     workspace.mkdir(parents=True, exist_ok=True)
+    incoming = job_dir / (BUNDLE_WORKSPACE + "TASK.md")
+    previous = workspace / "TASK.md"
+    if incoming.is_file() and previous.is_file():
+        before = re.search(r"Task `([^`]+)`", previous.read_text())
+        after = re.search(r"Task `([^`]+)`", incoming.read_text())
+        if before and after and before.group(1) != after.group(1):
+            # Prior outputs are already in the previous run's archive and git commit.
+            # A retry retains its draft; a different task starts clean.
+            for name in ("out", "inputs"):
+                if (workspace / name).is_dir():
+                    shutil.rmtree(workspace / name)
     (workspace / "out").mkdir(exist_ok=True)
     (workspace / "inputs").mkdir(exist_ok=True)
     for d in REPLACED_DIRS:
@@ -188,6 +201,11 @@ def manifest(
     for c in credentials:
         home_files[c] = CREDENTIAL
     user_codex = host_home / ".codex"
+    marker = home / provider_env.MARKER
+    connection = json.loads(marker.read_text()) if marker.is_file() else None
+    native_used = bool(
+        connection and (connection.get("keys") or not (spec.get("auth") or {}).get("dir"))
+    )
     return {
         "schema": MANIFEST_SCHEMA,
         "run": spec["run"],
@@ -203,8 +221,13 @@ def manifest(
         "home": {"path": str(home), "created_this_run": home_created, "files": home_files},
         "env": {k: ("<provided>" if k in secret_env else v) for k, v in sorted(env.items())},
         "upward_agents_md": upward_agents_md(workspace),
+        "provider_connection": connection,
         "user_level": {
-            str(user_codex): "present, not used (CODEX_HOME points to home)"
+            str(user_codex): (
+                "provider connection/login reused; personal context excluded"
+                if native_used
+                else "present, not used (CODEX_HOME points to home)"
+            )
             if user_codex.exists()
             else "absent"
         },

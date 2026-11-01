@@ -216,3 +216,25 @@ Web page **Workflow** (`/workflow`, "How does an agent task run, and what config
 - `GET /proofs/{id}`: the subject's effective assurance, ProofSummaries and ProofResults, newest first.
 - `GET /lineage/{solution}` → `result.assurance` {family (composition summary, level, gaps), steps (effective assurance, level in this chain), candidate (gate outcome and claims), code_level (numeric tests, SASS intent, sanitizer, canaries), not_covered}.
 - Web: Pool shows the assurance strip and an obligations column (expandable, unchecked listed); Result has a "Proved vs tested" panel.
+
+## WP25: supervision views (D660–D667)
+
+### Endpoints
+
+- `GET /journal?before=&limit=&level=milestone|all&case=` → `{entries, next_before, unphrased, scanned}`. An entry: `at, source (record|span|task|blocked), kind, level, tone, text, count, case, case_name, actor, refs`. Sources: records, spans (queue and lock waits and agent internals are left to Pipeline), task state changes from `ops_events`, loops stopped by an error. Phrases come from `src/kta/api/journal.yaml` (a row `Kind:<data.kind>` refines a kind, e.g. `Report:judgement`; open table: an unlisted kind uses `other` and is counted in `unphrased`). Events with a `many` phrase group by kind, case, actor and lane; other events group when their text is equal; a group spans at most `group_s` seconds from its oldest member. `next_before` pages backwards. The text never drives a state change.
+- `POST /actions/advance {loop, mode, reason?}`, mode `step | round | run | retry` (capability `advance`). Writes a HumanAction `advance {"loop","mode"}` before returning. `step`/`retry` take one step, `round` steps until the round number changes, the loop waits on a task, ends or blocks (at most 40 steps), all on a background thread of the API (one advance per loop at a time; a second is refused). `retry` first clears the loop's `blocked` mark. `run` resumes the loop scope and answers `process` and `process_running` (whether that process holds its lock): nothing advances without the process. A human step ignores a pause of the loop alone (hand-stepping); a process or global pause still stops it.
+
+- `POST /actions/process {name, action: start|stop, reason?}` (capability `process`, D668): `start` is refused while the process lock is held, writes a HumanAction `process start <name>` and runs `processes.run(name, 10 s)` on an API thread; `stop` writes `process stop <name>` and the stop request the process honours at its next tick.
+
+### Fields added to existing views
+
+- `/runs/active`: `processes` — for solve and learn: `running`, `holder`, `allowed` (release stage); loops: `chain` (the steps of the family the current round uses, levels 1–7 and assurance), `blocked` (error, message, state, at), `paused` (the scope that holds it, or null), `advancing` (mode or null); `subject_name` resolves a Case to its Problem's name.
+- `/cases` and the timeline: `purpose` (`probe` for a Case written by `kta measure` and never solved, else `solve`).
+- `/cases/{id}/timeline`: per round `summary` (families from the round's Candidates' `refs.family`, candidates, built, build_failed, check_passed, check_failed, measured, per bucket candidates and best predicted and measured); the current round counts only the checks and measurements the loop recorded; per task `goal` and `produced` (knowledge records written by the task); per bucket `bottleneck`, `bound_record`; `inputs` (the current round's families as `/families` rows, cost model, hardware model, controls version).
+- `/pool`: each Template has `scope` (its Γ predicate; `"True"` = none stated), `sources` (Source names) and `used_by` (`{kind: reference|family, id, name}`, one per owner whose Chain names it) (D671).
+- `GET /templates/{id}` (D671) → the Template's envelope (status, effective assurance, actor, created) plus `body`, `sources` (id, name, locator, revision, type), `used_by`, `versions` (every version of the same name), `relations` (each with `id` of the target's newest version, or null) and `proof` (as in `/pool`); 404 for a record that is not a Template.
+- `/trace`: the open `loop_step` span of a blocked loop carries `attrs.blocked` ("Error: message") and `attrs.blocked_at`.
+
+### Pages
+
+Routes as before plus `/activity`, `/knowledge`, `/knowledge/templates/:id` and `/records/:id` (D671). Navigation, Home, Case and Settings follow web/DESIGN.md §7.

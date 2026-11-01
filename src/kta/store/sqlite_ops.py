@@ -216,6 +216,14 @@ class SqliteOps:
             self._log(con, "locks", lock, {"holder": holder, "until": until})
             return True
 
+    def lock_holder(self, lock: str) -> str | None:
+        """Who holds ``lock`` now (an expired lock is free); WP25 asks if a process runs."""
+        with self.db.read() as con:
+            row = con.execute(
+                "SELECT holder FROM locks WHERE name = ? AND until >= ?", (lock, ts(self._now()))
+            ).fetchone()
+        return str(row[0]) if row else None
+
     def release(self, lock: str, holder: str) -> None:
         with self.db.write() as con:
             row = con.execute("SELECT holder FROM locks WHERE name = ?", (lock,)).fetchone()
@@ -288,9 +296,25 @@ class SqliteOps:
             self._log(con, "budgets", scope, {"reserved": dict(amount)})
             return True
 
-    def settle(self, scope: str, reserved: Mapping[str, float], used: Mapping[str, float]) -> None:
+    def settle(
+        self,
+        scope: str,
+        reserved: Mapping[str, float],
+        used: Mapping[str, float],
+        receipt: str | None = None,
+    ) -> None:
         """Release a reservation and book what was actually used."""
         with self.db.write() as con:
+            receipt_key = f"budget_receipt:{scope}:{receipt}" if receipt else None
+            payload = json.dumps({"reserved": dict(reserved), "used": dict(used)}, sort_keys=True)
+            if receipt_key:
+                prior = con.execute(
+                    "SELECT value FROM pointers WHERE name = ?", (receipt_key,)
+                ).fetchone()
+                if prior:
+                    if prior[0] != payload:
+                        raise ConfigError(f"budget receipt {receipt} reused with different amounts")
+                    return
             _, have_used, have_reserved = self._budget(con, scope)
             for key, value in reserved.items():
                 left = have_reserved.get(key, 0.0) - value
@@ -304,6 +328,10 @@ class SqliteOps:
                 (json.dumps(have_used, sort_keys=True), json.dumps(have_reserved), scope),
             )
             self._log(con, "budgets", scope, {"released": dict(reserved), "used": dict(used)})
+            if receipt_key:
+                con.execute(
+                    "INSERT INTO pointers(name, value) VALUES (?, ?)", (receipt_key, payload)
+                )
 
     def budget(self, scope: str) -> dict[str, dict[str, float]]:
         with self.db.read() as con:

@@ -10,8 +10,9 @@ measured the same way (decision D284):
   call with a pair of CUDA events;
 - warm-up and measured phases each run until both their iteration and wall-time minimums
   are reached (capped at ``max_iters``);
-- NVML is sampled at the start and end of the measured phase (a minimal ctypes copy of
-  ``kta.measure.nvml``, because the package is not importable here).
+- NVML and host counters are sampled around the measured phase, using
+  the same NVML and host-counter helpers shipped as job inputs, with periodic
+  clock samples between event-timed launches.
 
 Reads ``spec.json``: ``call`` (a lambda over the tensor names, for example
 ``lambda A, B, C: torch.matmul(A, B, out=C)``), ``tensors`` {name: {dtype, dims}},
@@ -20,7 +21,6 @@ Reads ``spec.json``: ``call`` (a lambda over the tensor names, for example
 """
 
 # pyright: reportMissingImports=false
-import ctypes
 import json
 import os
 import sys
@@ -29,58 +29,11 @@ import time
 import numpy as np
 import torch
 
+from kta.measure.nvml import Nvml
+from kta.measure.quiet import read_counters
+
 DTYPES = {"f16": torch.float16, "bf16": torch.bfloat16, "f32": torch.float32}
 NP_DTYPES = {"f16": np.float16, "f32": np.float32}
-
-
-class Nvml:
-    def __init__(self):
-        self.lib = None
-        for name in ("libnvidia-ml.so.1", "libnvidia-ml.so"):
-            try:
-                self.lib = ctypes.CDLL(name)
-                break
-            except OSError:
-                continue
-        self.handle = ctypes.c_void_p()
-        if self.lib is None or self.lib.nvmlInit_v2() != 0:
-            self.lib = None
-            return
-        # The container sees only the leased GPU, as index 0.
-        if self.lib.nvmlDeviceGetHandleByIndex_v2(0, ctypes.byref(self.handle)):
-            self.lib = None
-
-    def _uint(self, fn, *args):
-        value = ctypes.c_uint()
-        code = getattr(self.lib, fn)(self.handle, *args, ctypes.byref(value))
-        return (value.value if code == 0 else None), code
-
-    def sample(self):
-        if self.lib is None:
-            keys = ("sm_mhz", "sm_max_mhz", "mem_mhz", "temp_c", "power_w", "throttle_reasons")
-            return {**dict.fromkeys(keys), "nvml_codes": "unavailable"}
-        sm, sm_rc = self._uint("nvmlDeviceGetClockInfo", 1)
-        mem, mem_rc = self._uint("nvmlDeviceGetClockInfo", 2)
-        sm_max, _ = self._uint("nvmlDeviceGetMaxClockInfo", 1)
-        temp, temp_rc = self._uint("nvmlDeviceGetTemperature", 0)
-        power, power_rc = self._uint("nvmlDeviceGetPowerUsage")
-        reasons = ctypes.c_ulonglong()
-        r_rc = self.lib.nvmlDeviceGetCurrentClocksThrottleReasons(
-            self.handle, ctypes.byref(reasons)
-        )
-        return {
-            "sm_mhz": sm,
-            "sm_max_mhz": sm_max,
-            "mem_mhz": mem,
-            "temp_c": temp,
-            "power_w": power / 1000 if power is not None else None,
-            "throttle_reasons": reasons.value if r_rc == 0 else None,
-            "nvml_codes": {"sm": sm_rc, "mem": mem_rc, "temp": temp_rc, "power": power_rc},
-        }
-
-    def close(self):
-        if self.lib is not None:
-            self.lib.nvmlShutdown()
 
 
 def load_sets(spec):
@@ -112,6 +65,8 @@ def main(path):
     flush = torch.empty(flush_bytes, dtype=torch.uint8, device="cuda")
     start, end = torch.cuda.Event(enable_timing=True), torch.cuda.Event(enable_timing=True)
     times, state = [], {"k": 0}
+    clock_samples = []
+    sample_s = float(spec["clock_sample_ms"]) / 1000
 
     def one(keep):
         k = state["k"]
@@ -130,17 +85,25 @@ def main(path):
 
     def phase(min_iters, min_ms, keep):
         rounds, t0 = 0, time.perf_counter()
+        next_sample = t0 + sample_s
         while rounds < int(spec["max_iters"]) and (
             rounds < min_iters or (time.perf_counter() - t0) * 1000 < min_ms
         ):
             one(keep)
             rounds += 1
+            now = time.perf_counter()
+            if keep and now >= next_sample:
+                clock_samples.append({"mono_s": now, **nvml.sample()})
+                next_sample = now + sample_s
         return rounds, time.perf_counter() - t0
 
-    nvml = Nvml()
+    nvml = Nvml(0)
+    host_pre = read_counters(nvml)
     warm_iters, warm_s = phase(int(spec["warmup_min_iters"]), spec["warmup_min_ms"], False)
     env_start = nvml.sample()
+    host_start = read_counters(nvml)
     iters, loop_s = phase(int(spec["min_iters"]), spec["min_ms"], True)
+    host_end = read_counters(nvml)
     env_end = nvml.sample()
     nvml.close()
     result = {
@@ -152,6 +115,11 @@ def main(path):
         "flush_bytes": flush_bytes,
         "env_start": env_start,
         "env_end": env_end,
+        "host_pre": host_pre,
+        "host_start": host_start,
+        "host_end": host_end,
+        "clock_samples": clock_samples,
+        "clock_sample_ms": sample_s * 1000,
         "versions": {
             "torch": torch.__version__,
             "cuda": torch.version.cuda,

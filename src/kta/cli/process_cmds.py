@@ -98,7 +98,11 @@ def cmd_quotas(args: argparse.Namespace, make_ctx: ContextFactory) -> int:
 
 def cmd_profile_write(args: argparse.Namespace, make_ctx: ContextFactory) -> int:
     """Record a profile version (idempotent); approving it is a separate step (D366)."""
-    spec = {"codex-v1": profile.CODEX_V1, "codex-v2": profile.CODEX_V2}[args.name]
+    spec = {
+        "codex-v1": profile.CODEX_V1,
+        "codex-v2": profile.CODEX_V2,
+        "codex-v3": profile.CODEX_V3,
+    }[args.name]
     with command(make_ctx, "profile-write", f"kta profile write {args.name}") as ctx:
         pid = profile.write_profile(Services.open(ctx).store, ctx.clock.now(), spec)
     _out(args, {"profile": pid, "name": spec.name}, f"AgentProfile {spec.name}: {pid}")
@@ -143,5 +147,5 @@ def add_process_commands(
         None,
     ) or group.add_subparsers(dest="profile_command", required=True)
     parser(prof, "write", cmd_profile_write, "record a profile version").add_argument(
-        "name", choices=["codex-v1", "codex-v2"]
+        "name", choices=["codex-v1", "codex-v2", "codex-v3"]
     )

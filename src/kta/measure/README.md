@@ -43,4 +43,11 @@ Measurement harness and versioned measurement protocols; comparisons and profile
 
 ## WP23 (D605, D608)
 
+`baseline.py`: library timings ship the same NVML/quiet helpers into their isolated container and use the same interference rejection/requeue path as generated kernels.
+
 `quiet.py`: host readings of timing jobs and the quiet-host verdict; `Measurer` reruns interfered jobs (Report `measurement_interfered`) and never records them as Measurements (`HostNotQuiet` when every attempt is interfered). `batching.py`: `MeasureWindow`, one exclusive window for several measurements.
+
+Clock rule v2 (SYSDEBUG-1, D649): reject excessive clock span relative to the maximum
+observed within the measured window, not a stable clock below the device's rated maximum.
+`clock_samples` poll between CUDA-event-timed launches at `measure.clock_sample_ms`;
+temperature and throttle checks include these samples. Historical verdicts stay immutable.

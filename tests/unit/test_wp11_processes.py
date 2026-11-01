@@ -168,7 +168,7 @@ def _measured_loop(svc: Services, case: str, family: str, ratio: float, n: int) 
             "n": 100,
             "protocol": "p",
         }
-        meas[cid] = _put(svc, "Measurement", body, case=case, env=env, worker=worker)
+        meas[cid] = _put(svc, "Measurement", body, case=case, candidate=cid, env=env, worker=worker)
     svc.ops.put_loop(
         "L" + family[:8], "solve", case, "judging", {"families": [family], "measurements": meas}
     )
@@ -188,7 +188,9 @@ def test_calibrate_records_missing_hardware_and_alerts_on_model_error(svc: Servi
     (t4,) = rep.done["T4"]
     card = svc.store.get(svc.ops.task(t4).card_id).body
     assert card["type"] == "T4" and "low by a median 40%" in card["goal"]
-    assert len(card["inputs"]) == 1 + 2 * 12
+    held = svc.store.get(svc.ops.task(t4).card_id).refs["holdout"]
+    assert len(card["inputs"]) + len(held) == 1 + 2 * 12
+    assert not set(card["inputs"]) & set(held)
     assert svc.store.get(card["inputs"][1]).kind == "Prediction"
     assert svc.store.get(card["inputs"][2]).kind == "Measurement"
     assert "T4" not in calibrate_tick(r).done  # one open T4 per family

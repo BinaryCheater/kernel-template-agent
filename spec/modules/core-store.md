@@ -107,7 +107,7 @@ class Ops:
     def release(self, lock: str, holder: str) -> None
     def set_pointer(self, name: str, expected: str | None, value: str) -> bool   # compare-and-set
     def reserve(self, scope: str, amount: dict) -> bool
-    def settle(self, scope: str, reserved: dict, used: dict) -> None
+    def settle(self, scope: str, reserved: dict, used: dict, receipt: str | None = None) -> None
     def events(self, since: int) -> list[OpsEvent]
 ```
 
@@ -202,3 +202,5 @@ history(store, limit) -> list[(id, Record)]
 - `kta.core.hostlock`: `HostLock(dir).shared(holder, wait_s)`, `.exclusive(holder, wait_s, max_hold_s, on_waiting=None)`, `.holder()`; `heavy(host_section, what)`; `HostLockTimeout` (ExecutionError infra); `python -m kta.core.hostlock hold`.
 - Controls: knobs `measure.quiet_thresholds`, `execution.unified_memory_cap`, `measure.batch_window`, `pipeline.stage_capacity`, `session.work_unit_rule`; `set_from` may be `S0 data`.
 - `kta.store.backup`: `backup(data_dir, dest, now, handover_to=None)`, `restore(src, data_dir)`, `check_owner(data_dir)`.
+
+SYSDEBUG-1 (D657): an optional settlement receipt makes release/actual-use booking idempotent. Within one transaction the store checks the scope/receipt payload, updates the budget and persists the receipt. Replaying identical amounts is a no-op; conflicting reuse is refused. Existing three-argument callers retain their behavior.

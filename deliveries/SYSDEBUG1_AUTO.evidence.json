@@ -1,0 +1,92 @@
+[
+  {
+    "dirty": false,
+    "env": "dev",
+    "control_host": "spark-6951",
+    "workers": [
+      "spark-hk"
+    ],
+    "requires_gpu": false,
+    "claim": "In isolated SYSDEBUG1_AUTO, real task acceptance, rejection/escalation, repaired retry, queued/running cancellation and Executor cancellation/recovery passed. Two real Codex T3 smoke tasks were accepted, first as a new session and then by resume of the same session; actual wall use settled and replay did not double-charge. Native sandbox allowed workspace writes and denied a sibling write.",
+    "command": "KTA_ENV=dev KTA_WP=SYSDEBUG1_AUTO KTA_CONFIG=~/kta/runs/sysdebug1/auto-config.toml python ~/kta/runs/sysdebug1/auto-rehearsal.py",
+    "git_commit": "1d1cb30735e56c83a5d404aaebc1d5d3114aaab9",
+    "record_ids": [
+      "52c56876e2906d987e7840ca9c4b29f7e58b09c29379d1c1252ab992ff5257f6",
+      "a8229fefd0118e29be0bcc13fe831744c6915cc056669e21d77e808724cab040",
+      "54157bc14537da764d89c5bed7d8a2a3ec5a00c2e94eb0027334a61ef31bc119",
+      "677660a7752d403b96b9a6f5f4b7a948a283f7a443ae1ca1e9e65021ad9c1a84"
+    ],
+    "blob_ids": [
+      "02d654dc27e0d6deb719da8a158195d5477ca91cdb763c611572fc88928bc3ce",
+      "079a46be23754f69e10be47bd8245283cc92ab579bb5d31750659df84bb43dee",
+      "1b77edbbc986956beafb110acf22cbe743e40841a3115683db3a0b83b5310c8e",
+      "277c5419f8b3396ae99e94a30d64af5f2873cafb1dbafc2608e797ef0e214813",
+      "44b732a9cf54bc6a0faac75f780dfda0c941936c76191f5aef157efebd46f89b",
+      "57d6626249992511c32d53da8809ab7fa1db7a584e33b5ac07bc1c3e3ad31954",
+      "6acf91161e7f47a47cd384fac1056a891d64e5530f5bebd05f5064eca53ad769",
+      "8e493acfa983601f95521c65f8f072f85d99a07c46d6ed845799c5cbc36ee16d",
+      "9e48f7c417159ad8bb3dd053ed8a8cd17d43cbe9672eee9861f08cf83c159176",
+      "bfc20a53e9d46f613f26b1647045c2ab74566f756939d1e467f25b15003f3db4",
+      "c84451b139754aca199e2cbaa3d88f51e189b5c2f70f7fce5b8e138208cb2ab3"
+    ],
+    "env_manifests": [
+      "34c0f1c7e4edec29d207d88e99f2f483ea77e65ec46b3f8861b5e4e212edfff3"
+    ],
+    "started_at": "2026-10-31T16:01:11.722982+00:00",
+    "output": "spark-hk:~/kta/runs/sysdebug1/auto-rehearsal-complete.out",
+    "notes": "Purpose-built known-Template copies test workflow only, with no kernel optimisation, GPU performance or new-knowledge claim. Runtime model gpt-6.1-sol, low effort, 46.918 s and 33.078 s. A shared native model-cache observation on resume was subsequently reclassified without modifying its original record. Main SYSDEBUG1 remains S0. Data and all references reside in dev/SYSDEBUG1_AUTO."
+  },
+  {
+    "dirty": false,
+    "env": "dev",
+    "control_host": "spark-6951",
+    "workers": [
+      "spark-hk"
+    ],
+    "requires_gpu": false,
+    "claim": "Both real saved-session archives parse into tool calls/results and usage events, contain no credential files, and retain the identical session ID across start/resume.",
+    "command": "Read and parse the saved .tar.gz archives through kta.agents.runner.parse_session; verify manifests and archive members",
+    "git_commit": "e71d105f2757a7dcac7580a2d5f9b600bcd6d834",
+    "record_ids": [
+      "1ccb99b6232a7bb32fd27bb494499e87d0506ca830b5cb5c4ae7f9ca1b350a42"
+    ],
+    "blob_ids": [
+      "44b732a9cf54bc6a0faac75f780dfda0c941936c76191f5aef157efebd46f89b",
+      "57d6626249992511c32d53da8809ab7fa1db7a584e33b5ac07bc1c3e3ad31954",
+      "8e493acfa983601f95521c65f8f072f85d99a07c46d6ed845799c5cbc36ee16d",
+      "c84451b139754aca199e2cbaa3d88f51e189b5c2f70f7fce5b8e138208cb2ab3"
+    ],
+    "env_manifests": [
+      "9d1b67a91ead20ab108d0f77f8fa90172280d57d6845397d8e99cc04bcf45ddc"
+    ],
+    "started_at": "2026-10-31T16:14:34.378786+00:00",
+    "output": "spark-hk:~/kta/runs/sysdebug1/auto-metadata.json",
+    "notes": "Namespace dev/SYSDEBUG1_AUTO. Session token counts are cumulative and tool_s lacks coverage; this does not establish per-task token cost or tool-time calibration."
+  },
+  {
+    "dirty": false,
+    "env": "dev",
+    "control_host": "spark-6951",
+    "workers": [
+      "spark-hk"
+    ],
+    "requires_gpu": false,
+    "claim": "Final source passes WP24 code-stage regression gate: 769 non-GPU tests, 36 contracts, 23 pass, 1 warn, 0 fail, no skipped tests.",
+    "command": "Executor CPU job in git-backed checkout: scripts/gate --stage code WP24",
+    "git_commit": "e71d105f2757a7dcac7580a2d5f9b600bcd6d834",
+    "record_ids": [
+      "806284ab015ca77833a59824105b290e6cf718ee2661fce8d4b6b294b5208ac6"
+    ],
+    "blob_ids": [
+      "29079e1a5103f28c284b2ceb523200b3de47d1c40fe4c0aa12de566bcfaf68d7",
+      "a9f8f83640b1cc849dcc36358c260bd030bade7778c53454a0fbd476010b5d02",
+      "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    ],
+    "env_manifests": [
+      "9d1b67a91ead20ab108d0f77f8fa90172280d57d6845397d8e99cc04bcf45ddc"
+    ],
+    "started_at": "2026-10-31T16:13:14.275349+00:00",
+    "output": "spark-hk:~/kta/runs/sysdebug1/gate-auto-final.out",
+    "notes": "Gate Report is in dev/SYSDEBUG1_AUTO. The existing warning concerns pending real WP24 acceptance in its own namespace; this is code regression, not SYSDEBUG method acceptance."
+  }
+]

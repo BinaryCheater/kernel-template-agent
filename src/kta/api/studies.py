@@ -25,6 +25,7 @@ from kta.api.common import Api, body, latest
 from kta.core.ids import record_id
 from kta.orchestrator.proc_common import get_state
 from kta.store.assurance import effective
+from kta.store.sqlite import RecordNotFound
 
 POOL_KINDS = ("Pattern", "Template", "Structure", "Reference", "Reconstruction")
 
@@ -59,6 +60,7 @@ def _template(b: dict[str, Any]) -> dict[str, Any]:
         "summary": b.get("summary", ""),
         "requires": b.get("requires", []),
         "probed_on": b.get("probed_on", []),
+        "scope": (b.get("scope") or {}).get("predicate", "True"),
         "variables": len(b.get("variables", [])),
         "constraints": len(b.get("constraints", [])),
         "obligations": len(b.get("obligations", [])),
@@ -95,8 +97,16 @@ def pool(api: Api, snapshot: str | None) -> dict[str, Any]:
         for rid, d in _rows(api, "Pattern")
         if keep(rid)
     ]
+    used = _usage(api)
+    names = _names(api, "Source")
     out["templates"] = [
-        {**_env(api, rid, d), **_template(d["body"]), "proof": proofview.template_proof(api, rid)}
+        {
+            **_env(api, rid, d),
+            **_template(d["body"]),
+            "sources": [names.get(s, s) for s in _list(d["refs"].get("sources"))],
+            "used_by": used.get(rid, []),
+            "proof": proofview.template_proof(api, rid),
+        }
         for rid, d in _rows(api, "Template")
         if keep(rid)
     ]
@@ -113,6 +123,78 @@ def pool(api: Api, snapshot: str | None) -> dict[str, Any]:
     out["other_patterns"] = sum(1 for p in out["patterns"] if p["category"] == "other")
     out["assurance"] = proofview.distribution(api, [t["id"] for t in out["templates"]])
     return out
+
+
+def _list(v: Any) -> list[str]:
+    return [v] if isinstance(v, str) else [x for x in v or [] if isinstance(x, str)]
+
+
+def _names(api: Api, kind: str) -> dict[str, str]:
+    return {rid: str(d["body"].get("name", rid)) for rid, d in _rows(api, kind)}
+
+
+def _usage(api: Api) -> dict[str, list[dict[str, str]]]:
+    """Template ID -> the chains that name it, by owner: a Reference whose reconstruction
+    matched it (analysis) or a Family built with it (a kernel). One entry per owner name."""
+    owner: dict[str, dict[str, str]] = {}
+    refs = _names(api, "Reference")
+    for _, d in _rows(api, "Reconstruction"):
+        ref, ch = d["refs"].get("reference"), d["refs"].get("chain")
+        if isinstance(ref, str) and isinstance(ch, str):
+            owner[ch] = {"kind": "reference", "id": ref, "name": refs.get(ref, ref)}
+    for rid, d in _rows(api, "Family"):
+        ch = d["refs"].get("chain")
+        if isinstance(ch, str):
+            owner[ch] = {"kind": "family", "id": rid, "name": str(d["body"]["name"])}
+    out: dict[str, list[dict[str, str]]] = {}
+    for cid, d in _rows(api, "Chain"):
+        o = owner.get(cid)
+        if o is None:
+            continue
+        for tid in _list(d["refs"].get("templates")):
+            rows = out.setdefault(tid, [])
+            if not any(r["kind"] == o["kind"] and r["name"] == o["name"] for r in rows):
+                rows.append(o)
+    return out
+
+
+def template_page(api: Api, tid: str) -> dict[str, Any]:
+    """GET /templates/{id}: one Template for its own page (WP25): the body, where it came
+    from, which references and families use it, its versions, relations and checks."""
+    rec = api.store.get(tid)
+    if rec.kind != "Template":
+        raise RecordNotFound(f"{tid} is a {rec.kind}, not a Template")
+    data = rec.to_json_dict()
+    b = rec.body
+    rows = _rows(api, "Template")
+    versions = [
+        {"id": rid, "version": d["body"]["version"], "created_at": d["created_at"]}
+        for rid, d in rows
+        if d["body"]["name"] == b["name"]
+    ]
+    newest: dict[str, tuple[int, str]] = {}
+    for rid, d in rows:
+        n, v = d["body"]["name"], d["body"]["version"]
+        if n not in newest or v > newest[n][0]:
+            newest[n] = (v, rid)
+    sources = []
+    for sid in _list(data["refs"].get("sources")):
+        sb = body(api, sid)
+        keys = ("name", "locator", "revision", "type")
+        sources.append({"id": sid, **{k: sb.get(k) for k in keys}})
+    relations = [
+        {**r, "id": newest.get(r["target"].partition("@")[0], (0, None))[1]}
+        for r in b.get("relations", [])
+    ]
+    return {
+        **_env(api, tid, data),
+        "body": b,
+        "sources": sources,
+        "used_by": _usage(api).get(tid, []),
+        "versions": sorted(versions, key=lambda x: x["version"]),
+        "relations": relations,
+        "proof": proofview.template_proof(api, tid),
+    }
 
 
 def _references(api: Api, keep: Any) -> list[dict[str, Any]]:

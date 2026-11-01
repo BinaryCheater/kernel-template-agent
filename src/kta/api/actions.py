@@ -30,6 +30,18 @@ class ScopeBody(_Body):
     reason: str = ""
 
 
+class AdvanceBody(_Body):
+    loop: Id
+    mode: Annotated[str, StringConstraints(pattern="^(step|round|run|retry)$")]
+    reason: str = ""
+
+
+class ProcessBody(_Body):
+    name: Id
+    action: Annotated[str, StringConstraints(pattern="^(start|stop)$")]
+    reason: str = ""
+
+
 class TaskBody(_Body):
     task: Id
     reason: str = ""
@@ -121,6 +133,8 @@ CATALOGUE: list[tuple[str, str, str, str | None]] = [
     ("priority", "/actions/priority", "HumanAction, task priority", "priority"),
     ("pause", "/actions/pause", "HumanAction", "pause"),
     ("resume", "/actions/resume", "HumanAction", "resume"),
+    ("advance", "/actions/advance", "HumanAction; the next step(s) and their records", "advance"),
+    ("process", "/actions/process", "HumanAction; the process runs or is asked to stop", "process"),
     ("env-verify", "/agents/batches/{batch}/verify", "nothing (a lock check)", "env-verify"),
     ("write-record", "/write/record", "the agent's record, as its task", "write-record"),
     ("set-controls", "/controls", "ControlsVersion, HumanAction (operator token)", None),
@@ -176,6 +190,14 @@ def router(api: Api) -> APIRouter:
     @r.get("/log")
     def get_log(limit: int = Query(100, le=1000)) -> list[dict[str, Any]]:  # pyright: ignore[reportUnusedFunction]
         return action_log(api, limit)
+
+    @r.post("/advance")
+    def advance(b: AdvanceBody) -> dict[str, Any]:  # pyright: ignore[reportUnusedFunction]
+        return operate.advance(api, b.loop, b.mode, b.reason)
+
+    @r.post("/process")
+    def process(b: ProcessBody) -> dict[str, Any]:  # pyright: ignore[reportUnusedFunction]
+        return operate.process(api, b.name, b.action == "start", b.reason)
 
     @r.post("/pause")
     def pause(b: ScopeBody) -> dict[str, Any]:  # pyright: ignore[reportUnusedFunction]

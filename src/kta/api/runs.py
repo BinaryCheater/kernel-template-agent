@@ -10,10 +10,20 @@ import json
 from datetime import datetime, timedelta
 from typing import Any
 
-from kta.api import opsread
-from kta.api.common import Api, body, controls, done_check_reports, iso, machine_limit
-from kta.orchestrator import quotas
+from kta.api import operate, opsread, pool
+from kta.api.common import (
+    Api,
+    body,
+    controls,
+    done_check_reports,
+    iso,
+    machine_limit,
+    machines,
+)
+from kta.orchestrator import quotas, release
+from kta.orchestrator.control import paused_scope
 from kta.store.base import SpanRow
+from kta.store.sqlite import RecordNotFound
 
 RECENT = timedelta(hours=2)
 JOB_KINDS = {"compile", "check", "measure", "profile", "solve", "job_run", "job_queue"}
@@ -58,11 +68,14 @@ def task_view(api: Api, t: opsread.TaskRow, sessions: dict[str, SpanRow]) -> dic
 
 def loop_view(api: Api, row: opsread.LoopRow) -> dict[str, Any]:
     d = row.data
+    name = d.get("name")
+    if not name or name == row.subject[:12]:  # the runner's placeholder is the id prefix
+        name = _subject_name(api, row.subject)
     return {
         "id": row.id,
         "machine": row.kind,
         "subject": row.subject,
-        "subject_name": d.get("name") or _subject_name(api, row.subject),
+        "subject_name": name,
         "state": row.state,
         "round": d.get("round"),
         "max_rounds": machine_limit(api, row.kind, "max_rounds"),
@@ -70,13 +83,65 @@ def loop_view(api: Api, row: opsread.LoopRow) -> dict[str, Any]:
         "state_since": d.get("state_since") or iso(row.updated_at),
         "waiting_on": d.get("waiting_on"),
         "escalated": bool(d.get("escalated")),
+        # WP25 (D663): a blocked or paused loop is not working, whatever its state says.
+        "blocked": d.get("blocked"),
+        "paused": paused_scope(
+            api.ops, [f"loop:{row.id}", f"process:{_process(row.kind)}", "global"]
+        ),
+        "advancing": operate.advancing().get(row.id),
+        "chain": _chain(api, d),
         "trace_id": row.id,
     }
 
 
+# Processes the Home page can start and stop (WP25, D668): the two that advance loops.
+HOSTED = ("solve", "learn")
+
+
+def processes_view(api: Api) -> list[dict[str, Any]]:
+    """Each loop process: whether one runs (holds its lock) and whether the release stage
+    allows it."""
+    snap = controls(api)
+    out = []
+    for name in HOSTED:
+        holder = api.ops.lock_holder(f"process:{name}")
+        out.append(
+            {
+                "name": name,
+                "running": holder is not None,
+                "holder": holder,
+                "allowed": release.process_allowed(snap, name),
+            }
+        )
+    return out
+
+
+def _chain(api: Api, d: dict[str, Any]) -> list[dict[str, Any]]:
+    """The steps of the family the loop's current round uses (levels 1-7, assurance)."""
+    fams = d.get("families") or []
+    if not fams:
+        return []
+    try:
+        return list(pool.family_summary(api, str(fams[0])).get("step_detail", []))
+    except RecordNotFound:
+        return []
+
+
+def _process(machine: str) -> str:
+    """The process a loop machine runs in (machines.yaml ``process``)."""
+    return next((str(m["process"]) for m in machines()["machines"] if m["id"] == machine), machine)
+
+
 def _subject_name(api: Api, subject: str) -> str:
     b = body(api, subject)
-    return str(b.get("name") or b.get("problem") or subject[:12])
+    if b.get("name"):
+        return str(b["name"])
+    if b.get("problem"):  # a Case is named by its Problem
+        try:
+            return str(body(api, b["problem"]).get("name") or subject[:12])
+        except RecordNotFound:
+            return str(b["problem"])
+    return subject[:12]
 
 
 def _sessions(spans: list[SpanRow]) -> dict[str, SpanRow]:
@@ -257,6 +322,7 @@ def active(api: Api) -> dict[str, Any]:
         "as_of": iso(now),
         "agent_slots": [f"agent:{i + 1}" for i in range(controls(api).agent_instances["start"])],
         "loops": loops,
+        "processes": processes_view(api),
         "tasks": live,
         "jobs": jobs,
         "leases": _leases(api, spans),

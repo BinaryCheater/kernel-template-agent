@@ -130,6 +130,8 @@ class Bench:
         order = random.Random(int(spec.get("order_seed", 0)))
         nmod = len(self.launchers)
         times: list[list[float]] = [[] for _ in range(nmod)]
+        clock_samples: list[dict[str, Any]] = []
+        sample_s = float(spec.get("clock_sample_ms", 50.0)) / 1000
         state = {"k": 0}
 
         def one(m: int, keep: bool) -> None:
@@ -146,6 +148,7 @@ class Bench:
 
         def phase(min_iters: int, min_ms: float, keep: bool) -> tuple[int, float]:
             rounds, t0 = 0, time.perf_counter()
+            next_sample = t0 + sample_s
             max_iters = int(spec["max_iters"])
             while rounds < max_iters and (
                 rounds < min_iters or (time.perf_counter() - t0) * 1000 < min_ms
@@ -155,6 +158,11 @@ class Bench:
                 for m in mods:
                     one(m, keep)
                 rounds += 1
+                now = time.perf_counter()
+                if keep and now >= next_sample:
+                    # Poll between event-timed launches, never inside the kernel timer.
+                    clock_samples.append({"mono_s": now, **nvml.sample()})
+                    next_sample = now + sample_s
             return rounds, time.perf_counter() - t0
 
         host_pre = read_counters(nvml)  # quiet-host check (WP23): before warm-up
@@ -178,6 +186,8 @@ class Bench:
             "host_pre": host_pre,
             "host_start": host_start,
             "host_end": host_end,
+            "clock_samples": clock_samples,
+            "clock_sample_ms": sample_s * 1000,
         }
         (out / "timing.json").write_text(json.dumps(result), encoding="utf-8")
 

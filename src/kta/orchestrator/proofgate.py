@@ -16,16 +16,18 @@ from collections.abc import Mapping
 from typing import Any
 
 from kta.checks.proof import candidate as cand
+from kta.checks.proof import records as proof_records
 from kta.checks.proof import wp
 from kta.checks.proof.prove import find_template
 from kta.core.errors import SchemaError
+from kta.core.ids import record_id
 from kta.core.schemas.evaluation import Candidate as CandidateBody
 from kta.core.schemas.evaluation import Case
 from kta.core.schemas.knowledge import Template
 from kta.formulation import assemble
 from kta.knowledge import FamilyPackage
 from kta.models import UnitModel
-from kta.orchestrator.pipeline import Services, bucket_shape
+from kta.orchestrator.pipeline import Services, bucket_shape, templates_of
 from kta.solve import solve
 from kta.store.sqlite import SqliteStore
 
@@ -61,6 +63,52 @@ def candidate_gate(
         if chk.ok:
             kept.append(cid)
     return kept, results, claims
+
+
+def control_gate(
+    svc: Services,
+    family: str,
+    fp: FamilyPackage,
+    hw: Any,
+    bucket: Mapping[str, Any],
+    ids: list[str],
+) -> list[str]:
+    """Control arms obey the same C/Gamma gate as model points, before execution.
+
+    Re-evaluate C/Gamma before reusing a live result: historical premises omit hw.
+    The execution guard also covers
+    rounds whose build stage predates this gate.
+    """
+    kept: list[str] = []
+    templates = templates_of(svc.store, fp)
+    for cid in ids:
+        a = svc.store.get(cid).body["assignment"]
+        expected = {
+            "family": family,
+            "case": proof_records.h(bucket_shape(bucket)),
+            "assignment": proof_records.h(a),
+            **proof_records.versions(),
+        }
+        results = svc.store.query(
+            "ProofResult", {"subject": cid, "condition": "candidate"}, order="-created_at", limit=20
+        )
+        hit = next(
+            (
+                r
+                for r in results
+                if all(r.body["premises"].get(k) == v for k, v in expected.items())
+                and proof_records.alive(_sqlite(svc), record_id(r))
+            ),
+            None,
+        )
+        steps = [(it, templates[it.template]) for it in fp.chain.items]
+        checked = cand.check_candidate(steps, a, bucket_shape(bucket), hw.hw)
+        if hit is not None and checked.ok and hit.body["outcome"] in ("proved", "bounded"):
+            kept.append(cid)
+        else:
+            got, _, _ = candidate_gate(svc, family, fp, templates, hw.hw, bucket, [cid])
+            kept.extend(got)
+    return kept
 
 
 def relaxed_templates(

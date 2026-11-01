@@ -80,3 +80,13 @@ export function UsageBar({ used, reserved = 0, limit, width }: { used: number; r
 export function Loading({ error }: { error?: string }) {
   return error ? <div className="error">Could not load: {error}</div> : <div className="empty">Loading…</div>;
 }
+
+/** An empty page: what will appear here, and why nothing has yet. */
+export function Empty({ what, why }: { what: ReactNode; why: ReactNode }) {
+  return (
+    <div className="empty2">
+      <div className="e-what"><span className="k">Shows</span>{what}</div>
+      <div className="e-why"><span className="k">Empty because</span>{why}</div>
+    </div>
+  );
+}

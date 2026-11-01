@@ -14,7 +14,7 @@ from datetime import datetime
 from typing import Any
 
 from kta.store import SqliteOps, SqliteStore
-from kta.store.base import SpanRow
+from kta.store.base import OpsEvent, SpanRow
 from kta.store.db import parse_ts, ts
 
 
@@ -207,3 +207,36 @@ def pointer_history(ops: SqliteOps, name: str) -> list[tuple[datetime, dict[str,
             (name,),
         ).fetchall()
     return [(parse_ts(r[0]), json.loads(r[1])) for r in rows]
+
+
+def spans_before(ops: SqliteOps, before: datetime, limit: int) -> list[SpanRow]:
+    """The latest spans that started before ``before``, newest first (GET /journal)."""
+    with ops.db.read() as con:
+        rows = con.execute(
+            "SELECT span_id, parent_id, trace_id, kind, lane, name, start_ts, end_ts, status, "
+            "attrs_json FROM spans WHERE start_ts < ? ORDER BY start_ts DESC LIMIT ?",
+            (ts(before), limit),
+        ).fetchall()
+    return [_span(r) for r in rows]
+
+
+def records_before(store: SqliteStore, before: str, limit: int) -> list[tuple[str, str, str]]:
+    """(id, kind, created_at) of the latest records created before ``before``, newest first."""
+    with store.db.read() as con:
+        rows = con.execute(
+            "SELECT id, kind, created_at FROM records WHERE created_at < ? "
+            "ORDER BY created_at DESC LIMIT ?",
+            (before, limit),
+        ).fetchall()
+    return [(r[0], r[1], r[2]) for r in rows]
+
+
+def task_events_before(ops: SqliteOps, before: datetime, limit: int) -> list[OpsEvent]:
+    """Ops events of the tasks table (state changes) before ``before``, newest first."""
+    with ops.db.read() as con:
+        rows = con.execute(
+            "SELECT seq, at, table_name, row_id, change_json FROM ops_events "
+            "WHERE table_name = 'tasks' AND at < ? ORDER BY seq DESC LIMIT ?",
+            (ts(before), limit),
+        ).fetchall()
+    return [OpsEvent(r[0], parse_ts(r[1]), r[2], r[3], json.loads(r[4])) for r in rows]

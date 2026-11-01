@@ -51,7 +51,9 @@ def docker_argv(
     if cuda_home is not None:
         cmd += ["-v", f"{cuda_home}:{CONTAINER_CUDA_HOME}:ro"]
     if device is not None:
-        cmd += ["--runtime", "nvidia", "--gpus", f"device={device}"]
+        # Docker selects its NVIDIA device driver for --gpus. Requiring a named
+        # runtime rejects hosts whose toolkit works without a runtime registration.
+        cmd += ["--gpus", f"device={device}"]
     if mem_limit_mb is not None:
         cmd += ["--memory", f"{mem_limit_mb}m"]
     for key, value in sorted(env.items()):

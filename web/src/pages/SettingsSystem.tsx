@@ -111,7 +111,7 @@ function ProxyPanel({ view, draft, setDraft }: { view: SystemView; draft: Draft;
       right={<button className="op" disabled={busy} onClick={() => run()}>{busy ? "Testing…" : "Test all required"}</button>}>
       <div className="grid" style={{ gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 16, alignItems: "start" }}>
         <div className="stack" style={{ gap: 8 }}>
-          <div><span className="muted small">In force</span>
+          <div><span className="muted small">Proxy endpoint for required providers</span>
             <div className="mono" style={{ fontSize: 18 }}>{inForce ? inForce.endpoint.url : "—"}</div>
             {inForce && <div className="small"><Chip tone={inForce.source === "default" ? "waiting" : "ok"}>{inForce.source}</Chip> <span className="muted">{SOURCE_NOTE[inForce.source]}</span></div>}
             {p.error && <div className="error small">{p.error}</div>}
@@ -172,14 +172,14 @@ function PolicyRow({ r, draft, setDraft, test, onTest, busy }: {
 
 function Providers({ rows }: { rows: ProviderRow[] }) {
   return (
-    <Panel title="Providers" sub="CLI on the control host and whether credentials are present (status only)">
+    <Panel title="Providers" sub="CLI version probes use PATH; the runner may have a separate configured command. Credentials are checked by presence only.">
       <table className="t compact">
         <thead><tr><th>Provider</th><th>CLI version</th><th>Auth</th><th>Logged in</th></tr></thead>
         <tbody>
           {rows.map((r) => (
             <tr key={r.name}>
               <td><b>{r.name}</b>{r.cli.command && <div className="mono small muted">{r.cli.command}</div>}</td>
-              <td className="mono small">{r.cli.version ?? <span className="muted">{r.cli.command ? "not installed here" : "not checked"}</span>}</td>
+              <td className="mono small">{r.cli.version ?? <span className="muted">{r.cli.command ? "not found on PATH" : "not checked"}</span>}</td>
               <td className="small">{r.auth.kind}</td>
               <td className="small">{r.auth.logged_in === null ? <span className="muted">{r.auth.note}</span>
                 : <><Chip tone={r.auth.logged_in ? "ok" : "waiting"}>{r.auth.logged_in ? "yes" : "no"}</Chip> <span className="mono muted">{r.auth.where}</span></>}</td>

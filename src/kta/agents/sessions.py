@@ -112,7 +112,7 @@ def after_run(
     started_new: bool,
 ) -> SessionState:
     prev = state or SessionState()
-    failures = [] if started_new else list(prev.failures)
+    failures = [] if started_new or failure is None else list(prev.failures)
     if failure is not None:
         failures.append(failure)
     return SessionState(

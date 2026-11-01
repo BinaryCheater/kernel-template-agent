@@ -41,6 +41,7 @@ class AuthSpec:
     provider: str
     dir: str  # protected credential directory on the agent host, e.g. ~/.config/kta/auth/codex
     files: list[str] = field(default_factory=lambda: list[str]())  # linked into the CLI home
+    inherit_provider: bool = False  # import native connection settings, not personal instructions
 
 
 @dataclass(frozen=True)
@@ -67,7 +68,7 @@ class LaunchSpec:
     arm: dict[str, Any] = field(
         default_factory=lambda: dict[str, Any]()
     )  # knowledge condition (D430)
-    expect_version: str | None = None  # the profile's CLI version; another version is refused
+    expect_version: str | None = None  # profile reference; actual version is recorded, not gated
     # WP22 (D584): provider, policy and, when required, url (no credentials), source,
     # check_hosts, no_proxy, credentials, secrets_file. The launcher runs the preflight.
     proxy: dict[str, Any] | None = None

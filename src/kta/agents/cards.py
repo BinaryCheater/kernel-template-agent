@@ -102,7 +102,12 @@ def task_md(
             "card_id": card_id,
             "goal": card.goal,
             "done_checks": _bullets([f"`{c}`" for c in card.done_checks]),
-            "inputs": _inputs(cards[:k], int(policy["card_max_lines"])),
+            "inputs": _inputs(cards[:k], int(policy["card_max_lines"]))
+            + (
+                f"\n\nAll {len(cards)} inputs are indexed in inputs/index.json."
+                if len(cards) > k
+                else ""
+            ),
             "budget": _budget(card.budget, used),
             "skills": _bullets([f"`{s}` (`.agents/skills/{s}/SKILL.md`)" for s in skills]),
             "commands": " ".join(f"`kta {c}`" for c in commands) or "(none)",

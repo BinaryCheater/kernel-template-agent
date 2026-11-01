@@ -273,7 +273,7 @@ def add_agent_commands(
         p.add_argument("--assignment", required=True, help="JSON object of family variables")
         p.add_argument("--shape", required=True, help='JSON object, e.g. {"M": 256}')
         if name == "instantiate":
-            p.add_argument("--out", default="kernel")
+            p.add_argument("--out", default="out/kernel")
     for name in ("run", "src"):
         p = parser(name, cmd_not_yet, f"{name} (not provided yet)")
         p.add_argument("args", nargs="*")

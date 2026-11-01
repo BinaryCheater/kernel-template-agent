@@ -9,7 +9,7 @@ import { AssuranceChip, Chip, Loading, Panel, RecordLink } from "../components/u
 import { LEVEL_NAMES, wordTone } from "../components/format";
 
 type Tab = "templates" | "patterns" | "structures" | "gaps" | "references";
-const TABS: { id: Tab; label: string; hint: string }[] = [
+const ALL_TABS: { id: Tab; label: string; hint: string }[] = [
   { id: "templates", label: "Templates", hint: "refinement steps: contract, level, assurance" },
   { id: "patterns", label: "Patterns", hint: "transaction patterns; new ones need your confirmation" },
   { id: "structures", label: "Structures", hint: "structural facts the solver may use; need your confirmation" },
@@ -18,7 +18,7 @@ const TABS: { id: Tab; label: string; hint: string }[] = [
 ];
 const LV_COLORS: Record<number, string> = Object.fromEntries([1, 2, 3, 4, 5, 6, 7].map((l) => [l, `var(--lv${l})`]));
 
-export function Pool() {
+export function Pool({ without }: { without?: Tab } = {}) {
   const { snapshot, snapshots } = useSnapshot();
   const [all, setAll] = useState(false);
   const snap = all ? undefined : snapshot || undefined;
@@ -26,23 +26,25 @@ export function Pool() {
   const label = snapshots.find((s) => s.id === snapshot)?.label;
   return (
     <div className="stack">
+      <PoolGuide />
       <div className="row small ink2">
         <span>Showing {all || !snapshot ? <b>every record in the store</b> : <>members of snapshot <b>{label}</b></>}.</span>
         <label className="row" style={{ gap: 4 }}><input type="checkbox" checked={all} onChange={(e) => setAll(e.target.checked)} />include records outside the snapshot</label>
         <Link to="/pool/diff" style={{ marginLeft: "auto" }}>Compare two snapshots →</Link>
         <Link to="/families">Families and their chains →</Link>
       </div>
-      {!p.data ? <Loading error={p.error} /> : <PoolBody p={p.data} />}
+      {!p.data ? <Loading error={p.error} /> : <PoolBody p={p.data} without={without} />}
     </div>
   );
 }
 
-function PoolBody({ p }: { p: PoolView }) {
-  const [tab, setTab] = useState<Tab>("templates");
-  const hint = TABS.find((t) => t.id === tab)?.hint;
+function PoolBody({ p, without }: { p: PoolView; without?: Tab }) {
+  const TABS = ALL_TABS.filter((t) => t.id !== without);
+  const [tab, setTab] = useState<Tab>(TABS[0].id);
+  const hint = ALL_TABS.find((t) => t.id === tab)?.hint;
   return (
     <>
-      <div className="stats" style={{ gridTemplateColumns: "repeat(5, 1fr)" }}>
+      <div className="stats" style={{ gridTemplateColumns: `repeat(${TABS.length}, 1fr)` }}>
         {TABS.map((t) => (
           <div key={t.id} className="stat" style={{ cursor: "pointer", borderColor: tab === t.id ? "var(--st-human)" : undefined }} onClick={() => setTab(t.id)}>
             <div className="label">{t.label}</div>
@@ -51,7 +53,7 @@ function PoolBody({ p }: { p: PoolView }) {
           </div>
         ))}
       </div>
-      <AssuranceStrip p={p} />
+      {without !== "templates" && <AssuranceStrip p={p} />}
       <Panel primary title={TABS.find((t) => t.id === tab)?.label} sub={hint}>
         <div className="tabs">{TABS.map((t) => <button key={t.id} className={tab === t.id ? "on" : ""} onClick={() => setTab(t.id)}>{t.label}<span className="muted">{p.counts[t.id] ?? 0}</span></button>)}</div>
         {tab === "templates" && <Templates p={p} />}
@@ -208,5 +210,41 @@ function ProofCell({ t }: { t: PoolTemplate }) {
         {pr.gaps.length > 0 && <div className="muted">why not higher: {pr.gaps.length} gap(s), e.g. {pr.gaps[0]}</div>}
       </div>
     </details>
+  );
+}
+
+/** What the pool holds and how the parts relate (WP25: the page lists five record kinds;
+ *  this says what each one is for before the tables). Open by default until closed once. */
+function PoolGuide() {
+  const KEY = "kta-pool-guide";
+  const [open, setOpen] = useState(() => {
+    try { return localStorage.getItem(KEY) !== "closed"; } catch { return true; }
+  });
+  const toggle = () => {
+    const next = !open;
+    setOpen(next);
+    try { localStorage.setItem(KEY, next ? "open" : "closed"); } catch { /* per page only */ }
+  };
+  return (
+    <section className="panel pool-guide">
+      <header><h2>What the pool is</h2><span className="sub">the system's reusable knowledge; every Case is solved from it</span>
+        <span className="right"><button className="linkbtn" onClick={toggle}>{open ? "hide" : "explain"}</button></span></header>
+      {open && (
+        <div className="body">
+          <div className="guide-flow">
+            <div><b>Pattern</b><span>a kind of work a kernel does (move data, reduce, assign work to executors). The vocabulary.</span></div>
+            <div className="arr">refined by →</div>
+            <div><b>Template</b><span>one refinement step that makes a Pattern more concrete (tile the output, double-buffer a copy). Has variables, constraints and obligations; its assurance says how far it is checked.</span></div>
+            <div className="arr">chained into →</div>
+            <div><b>Family</b><span>an ordered chain of Templates plus a generator: a whole kernel design with free variables. A Case's round picks a Family and solves for the variables.</span></div>
+          </div>
+          <div className="guide-side small ink2">
+            <div><b>Structure</b>: a property of a problem the solver can exploit (one dominant resource, separable terms).</div>
+            <div><b>Reference</b>: an existing implementation (CUTLASS, FlashInfer…) the system decomposes to learn new Templates; what it cannot match becomes a <b>Gap</b>.</div>
+            <div>Assurance, weakest to strongest: <span className="assur-dot declared" /> declared · <span className="assur-dot tested" /> tested · <span className="assur-dot bounded" /> bounded · <span className="assur-dot proved" /> proved. Only checker records raise it.</div>
+          </div>
+        </div>
+      )}
+    </section>
   );
 }

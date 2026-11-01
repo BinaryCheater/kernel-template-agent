@@ -3,10 +3,10 @@
 
 import type {
   ActionLogEntry, ActiveRuns, AgentsView, BlobText, Capability, CaseDetail, CaseIndexRow, CoverageReport,
-  FamilyDetail, FamilySummary, ImprovementsView, InboxItem, Machines, Meta, PoolDiff, PoolView, RecordEnvelope,
+  FamilyDetail, FamilySummary, ImprovementsView, InboxItem, Machines, Meta, PoolDiff, PoolView, RecordEnvelope, TemplatePage,
   ModelTimeline, Quotas, Residual, ResultDetail, Scoreboard, Snapshot, Span, StageTimeline, TaskDetail, TraceInfo, ExperimentProtocol,
   ControlsView, ControlsVersionRow, ReleaseView, SystemView, ProxyTestResult, WorkerTestResult, MechanismsView,
-  WorkflowView, WfChanges, WfPreview, WfDiff,
+  WorkflowView, WfChanges, WfPreview, WfDiff, Journal,
 } from "./types";
 
 const BASE = "/api";
@@ -65,6 +65,8 @@ export const api = {
   record: (id: string) => get<RecordEnvelope>(`/records/${enc(id)}`),
   cases: () => get<CaseIndexRow[]>("/cases"),
   caseTimeline: (id: string) => get<CaseDetail>(`/cases/${enc(id)}/timeline`),
+  journal: (p: { before?: string; limit?: number; level?: "milestone" | "all"; case?: string }) =>
+    get<Journal>("/journal", { before: p.before, limit: p.limit ? String(p.limit) : undefined, level: p.level, case: p.case }),
   lineage: async (id: string) => {
     const g = await get<{ result?: ResultDetail }>(`/lineage/${enc(id)}`);
     if (!g.result) throw new ApiError(400, "this record is not a Solution; the evidence chain is shown for Solutions");
@@ -82,6 +84,7 @@ export const api = {
   blob: (sha: string) => get<BlobText>(`/blobs/${enc(sha)}`),
   agents: () => get<AgentsView>("/agents"),
   pool: (snapshot?: string) => get<PoolView>("/pool", { snapshot }),
+  template: (id: string) => get<TemplatePage>(`/templates/${enc(id)}`),
   experiments: async () => (await get<{ protocols: ExperimentProtocol[] }>("/experiments")).protocols,
   improvements: () => get<ImprovementsView>("/improvements"),
   residuals: (model?: string) => get<Residual[]>("/model/residuals", { model }),
@@ -133,6 +136,12 @@ export const act = {
     post<Record<string, unknown>>("/actions/create-task", { type, goal, inputs, priority, reason }),
   pause: (scope: string, reason: string) => post<Record<string, unknown>>("/actions/pause", { scope, reason }),
   resume: (scope: string, reason: string) => post<Record<string, unknown>>("/actions/resume", { scope, reason }),
+  /** WP25: start or stop a loop process (solve, learn) hosted by the API. */
+  process: (name: string, action: "start" | "stop", reason = "") =>
+    post<{ process: string; action: string; running: boolean }>("/actions/process", { name, action, reason }),
+  /** WP25: advance a loop by hand — one step, one round, continuously (resume), or retry a block. */
+  advance: (loop: string, mode: "step" | "round" | "run" | "retry", reason = "") =>
+    post<{ loop: string; mode: string; action: string; started: boolean; process?: string; process_running?: boolean }>("/actions/advance", { loop, mode, reason }),
 };
 
 /** Wall-clock "now" for elapsed times. */

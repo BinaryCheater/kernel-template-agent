@@ -24,7 +24,7 @@ from kta.agents.profile import approve_profile
 from kta.agents.runner import Deps, run_step
 from kta.agents.units import close_work_unit
 from kta.cli.exec_cmds import ContextFactory, _out, command
-from kta.core.errors import ConfigError, NotSupported
+from kta.core.errors import ConfigError, KtaError, NotSupported
 from kta.core.ids import UlidFactory
 from kta.core.jobs import Job, JobResult
 from kta.core.proxy import ProxyUnavailable
@@ -32,6 +32,7 @@ from kta.core.schemas.process import TaskCard
 from kta.core.sysconfig import load as load_system
 from kta.orchestrator import control, processes, release
 from kta.orchestrator.budget import BudgetRefused
+from kta.orchestrator.model_checks import holdout
 from kta.orchestrator.pipeline import Services
 from kta.orchestrator.quotas import order_queued
 from kta.orchestrator.tasks import UNASSIGNED_PROFILE, TaskQueue
@@ -53,14 +54,24 @@ def next_task(q: TaskQueue) -> Task | None:
         queued, lambda t: str(q.info(t.id).get("process", "solve")), q.ops, controls
     )
     return next(
-        (
-            t
-            for t in ordered
-            if q.card(t).profile != UNASSIGNED_PROFILE
-            and release.hold_reason(q.ops, t, controls) is None
-        ),
+        (t for t in ordered if _prepared(q, t) and release.hold_reason(q.ops, t, controls) is None),
         None,
     )
+
+
+def _prepared(q: TaskQueue, task: Task) -> bool:
+    card = q.card(task)
+    if card.profile == UNASSIGNED_PROFILE:
+        return False
+    if card.type == "T4" and card.inputs:
+        try:
+            holdout(q.store, task.card_id)
+        except KtaError as exc:
+            reason = str(exc)
+            if q.info(task.id).get("agent_hold") != reason:
+                q.annotate(task.id, agent_hold=reason)
+            return False
+    return True
 
 
 class TrackingRunner:
@@ -175,9 +186,14 @@ def step_once(
     except ProxyUnavailable as exc:
         # The CLI never started (fail closed); the attempt ends like an abandoned step.
         return {"task": task.id, "refused": str(exc), "verdict": q.abandon(task.id, str(exc))}
+    except KtaError as exc:
+        if q.get(task.id).state == "running":
+            q.abandon(task.id, str(exc))
+        raise
     finally:
         done.set()
         watcher.join()
+    q.reconcile_usage(task.id)
     after = q.get(task.id).state
     out: dict[str, Any] = {
         "task": task.id,

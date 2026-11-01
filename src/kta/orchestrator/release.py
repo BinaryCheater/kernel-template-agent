@@ -120,6 +120,9 @@ def hold_reason(ops: SqliteOps, task: Task, controls: Controls) -> str | None:
         return f"stage {stage.id} ({stage.name}) runs no agent calls"
     if task.card_type not in stage.task_types:
         return f"stage {stage.id} does not run {task.card_type} tasks"
+    info = json.loads(ops.get_pointer(f"task:{task.id}") or "{}")
+    if info.get("agent_hold"):
+        return str(info["agent_hold"])
     if stage.agent_calls == "automatic":
         return None
     busy = [t.id for t in ops.list_tasks(states=IN_FLIGHT) if t.id != task.id]

@@ -14,8 +14,9 @@ from typing import Any, cast
 from kta.core.controls import Controls
 from kta.core.errors import ExecutionError, KtaError
 from kta.core.ids import UlidFactory
+from kta.core.logging import bind
 from kta.core.schemas import Actor, Record
-from kta.core.trace import SpanStart
+from kta.core.trace import SpanStart, Tracer, tracing
 from kta.orchestrator import budget, control, expand_work, solve_work
 from kta.orchestrator.inbox import inbox
 from kta.orchestrator.machines import machine
@@ -121,8 +122,12 @@ class Runner:
 
     # ---- one step ---------------------------------------------------------------
 
-    def advance(self, loop_id: str) -> Transition | None:
-        """One step of one instance; None when locked, terminal or blocked."""
+    def advance(self, loop_id: str, manual: bool = False) -> Transition | None:
+        """One step of one instance; None when locked, terminal, blocked or paused.
+
+        ``manual`` (a human's "advance one step", WP25 D664) ignores a pause of this loop
+        alone: pausing a loop and stepping it by hand is the hand-stepped mode. A paused
+        process or global scope still stops it."""
         lock = f"loop:{loop_id}"
         if not self.svc.ops.acquire(lock, self.holder, LOCK_S):
             return None
@@ -130,12 +135,16 @@ class Runner:
             loop = loop_of(self.svc.ops.get_loop(loop_id))
             if machine(loop.kind).terminal(loop.state) or loop.data.get("blocked"):
                 return None
-            scopes = [f"loop:{loop_id}", f"process:{PROCESS_OF[loop.kind]}", "global"]
+            scopes = [f"process:{PROCESS_OF[loop.kind]}", "global"]
+            if not manual:
+                scopes.insert(0, f"loop:{loop_id}")
             if control.paused_scope(self.svc.ops, scopes) is not None:
                 return None  # D364: a paused scope stops new steps; the state is kept
             snap = self.controls()
             svc = self.svc.with_controls(snap)
-            facts = self._work(loop, svc)
+            tracer = Tracer(svc.ops, svc.ctx.clock, loop.id, self.ids, loop.data.get("state_span"))
+            with tracing(tracer), bind(loop_id=loop.id):
+                facts = self._work(loop, svc)
             if facts is None:
                 return None
             t = step(replace(loop, facts=facts), svc.ctx)
@@ -160,7 +169,8 @@ class Runner:
             if exc.kind in ("infra", "timeout"):
                 n = int(loop.data.get("infra_failures", 0)) + 1
                 if n < Settings.of(svc.ctx.controls).infra_retries:
-                    self._put(loop, loop.state, {"infra_failures": n})
+                    fresh = loop_of(self.svc.ops.get_loop(loop.id))
+                    self._put(fresh, loop.state, {"infra_failures": n})
                     log.warning("loop %s %s: infra error %d: %s", loop.id, loop.state, n, exc)
                     return None
             self._block(loop, exc)
@@ -171,6 +181,7 @@ class Runner:
         return None
 
     def _block(self, loop: Loop, exc: Exception) -> None:
+        loop = loop_of(self.svc.ops.get_loop(loop.id))
         blocked = {
             "error": type(exc).__name__,
             "message": str(exc)[:2000],

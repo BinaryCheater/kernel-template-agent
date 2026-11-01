@@ -52,6 +52,22 @@ The phase summary is a table of cards, one line each. The user reads summaries a
 
 ---
 
+## Functional-debug priority (user clarification, 2026-10-31)
+
+Before case quality or parameter optimisation, rehearse system functions: a normal stage path,
+expected compile/check failure, timeout, pause/resume, partial-progress recovery, correct routing,
+and truthful frontend state with inspectable evidence. A workload is only a bounded test input.
+A numerical failure is useful evidence for the rejection path; it does not require kernel tuning.
+
+Current Spark HK functional-test controls: shortlist 8, 4 measured points including 1 random,
+solver limit 10 s, release S0. These are reversible debugging budgets, not X8/X9 results.
+Keep statistical significance, worthwhile improvement, numeric correctness and reproduction
+margins distinct. Uncalibrated values stay labelled; functional inspection can proceed before
+performance-acceptance calibration is complete. Discuss findings directly with the user;
+retain machine-readable evidence without requiring new decision cards for routine repairs.
+
+Run focused checks during repairs, quick checks before commits, and one batch regression once the repairs are stable. Additional full regression is justified by a new failure, not by every edit. At each handoff, report actual agent use: construction versus runtime roles, model/effort and selection rationale, outcomes/failures, session strategy and reliable resource figures; mark missing or cumulative usage explicitly.
+
 ## 1. Phase 1 — Calibration (unattended)
 
 **Purpose:** a trustworthy ruler and price list before anything is judged. **User attention:** read one summary table at the end.
@@ -72,10 +88,12 @@ These steps make no decisions.
    - `kta target probe`
    - `kta doctor`
    - `kta controls token`; never print it.
-3. **Credentials (user step).** Link or copy `~/.codex/auth.json` into `~/.config/kta/auth/codex/`. Ask the user which: a link shares the login with their interactive Codex; a copy avoids token-refresh conflicts. Then run Settings → System → Test for codex (direct, proxy `off`).
+3. **Provider reuse.** Use the agent-host user’s native provider/login by default (D655). New experimental homes link existing credentials and inherit connection settings separately from task context. No second login or KTA credential copy is needed.
 4. **Self-tests:**
    - `kta backend smoke`
-   - `kta backend selftest`
+   - `kta backend selftest lease`
+   - `kta backend selftest timeout`
+   - `kta backend selftest cpu-compile --arch aarch64`
    - `kta measure protocol`
    - `kta check selftest`: all three planted faults must be caught.
    - `kta prove all`
@@ -85,7 +103,7 @@ These steps make no decisions.
 
 | Card | Question | Data | Rule | If wrong | Level |
 | --- | --- | --- | --- | --- | --- |
-| **C1-X6** | How big a difference is a real improvement (noise band)? | `kta measure noise --kernel all`, repeated with agents idle and with one agent CLI active; CV per kernel, clocks, quiet verdicts | band = max(2 × CV over groups, protocol floor); if idle and active differ by more than 1 CV, record that agents must pause during measurement windows | too narrow: noise accepted as gains; too wide: real gains ignored and cases close early | A |
+| **C1-X6** | How big a difference is a real improvement (noise band)? | `kta measure noise --kernel all`, repeated with agents idle and with one agent CLI active; CV per kernel, clocks, quiet verdicts | protocol floor = max CV of group medians rounded up to 0.1 percentage point; significance requires disjoint 95% CIs and a difference above 3 × floor. Report rejected attempts as well as accepted timings; the policy improvement band is a separate setting | too narrow: noise accepted as gains; too wide: real gains ignored and cases close early | A |
 | **C1-X10** | What are GB10's peaks and pairwise interferences? | `kta calibrate hw` (peaks and microbenchmarks), interference pairs A, B, A+B | values with their spread go into a new HwModel version; a peak whose spread exceeds the band is flagged | SOL too optimistic: gaps never close; too pessimistic: cases stop early | A |
 | **C1-QUIET** | When is the host quiet enough to measure? | host snapshots around every measurement above; one deliberate concurrent compile during a window | thresholds = idle distribution + margin; the deliberate compile must be flagged `interfered` | unexplained timing noise, or good measurements thrown away | A |
 | **C1-MEM** | How much memory may concurrent CPU jobs use on the unified-memory host? | peak RSS of the compile and check jobs above, GPU memory during measurement | cap = total − measurement peak − margin | jobs killed, or the GPU starved during measurement | A |
@@ -107,7 +125,7 @@ These steps make no decisions.
 ### 2.1 S0: one case, no agent
 
 1. `kta case add gemm_fp16`. Build the HwModel from C1-X10. Build the GEMM family's Chain and Family records, with `kta prove family --from-dir knowledge/seed/families/gemm_fp16_tilelang --target gb10` or the WP7 setup tool (record which).
-2. `kta solve <case> --steps 1`, repeated until the loop judges.
+2. Start once with `kta solve <case> --steps 1`, retain its loop ID, then repeat `kta loop step <loop-id>` until the loop judges. Repeating `kta solve` creates a new loop each time.
 3. Check each stage on the frontend:
    - SOL;
    - chain retrieval;
@@ -124,8 +142,8 @@ These steps make no decisions.
 ### 2.2 S1: agent calls released one at a time
 
 1. **Profile:**
-   - `kta profile write codex-v2`
-   - `kta profile approve`
+   - `kta profile write codex-v3`
+   - `kta profile approve <profile-id> --reason "SYSDEBUG-1 supervised trial"`
    - `kta agents env build sysdebug1 --profile <id>`
 2. **Stage.** `POST /controls`: set `release.stage` to `S1` and `budget.agent_instances` to `{start: 1, max: 1}`.
 3. Start `kta runner start --slot 1 --batch sysdebug1`.
@@ -200,7 +218,7 @@ An inaccurate model costs extra measurements; it never stops knowledge work or c
 
 ### 3.2 Run
 
-1. `release.stage` S2. Agent instances start at 1 and rise to 2 after a clean batch.
+1. Begin with `release.stage` S2 for case-loop supervision. S2 excludes learning and summarization; move to S3 only after its release criteria are accepted before claiming three concurrent loops. Agent instances start at 1 and rise to 2 only after controlled comparison of accepted throughput, queue age, memory and quiet-window disruption.
 2. A handful of cases: GEMM FP16 and BF16 shapes, then one other kernel class once the GEMM batch is clean.
 3. References keep flowing through analysis and admission.
 4. Batches of about 2 hours, each ending in a digest and the cards below.
@@ -211,7 +229,7 @@ An inaccurate model costs extra measurements; it never stops knowledge work or c
 | --- | --- | --- | --- | --- | --- |
 | **C3-X5** | How many retries per task? | marginal acceptance of retry 2 vs 3 | keep the retry only while it adds accepted tasks per agent-hour | stuck tasks, or tasks killed that would have passed | A |
 | **C3-X9** | Task wall-clock budgets per type | completion-time distribution per task type | p90 + margin | runaway tasks, or premature kills | A |
-| **C3-X12** | Concurrent agents and stage capacities | throughput, GPU queue wait, rate-limit hits, stage depths | the largest setting with no rate limits and GPU idle under 20 % | GPU idles, or work goes stale in queues | A |
+| **C3-X12** | Concurrent agents and stage capacities | throughput, GPU queue wait, rate-limit hits, stage depths | the setting with the best accepted throughput per agent-hour within the declared queue, memory and error budgets; GPU idle is diagnostic, not an acceptance target | GPU idles, or work goes stale in queues | A |
 | **C3-X2** | Reasoning effort | two effort levels on the same tasks | the lower one unless acceptance drops beyond the band | money wasted, or quality lost | B |
 | **C3-X3** | Resume scope and work-unit rule | tokens per accepted task, acceptance, model-blame share (3 arms) | the cheapest arm with no acceptance loss and no blame skew | context blow-ups, or biased diagnoses | B |
 | **C3-X4** | How agents get knowledge (discipline vs dump vs browse) | acceptance and tokens per arm | the best acceptance per token | agents starved or flooded | B |
@@ -242,5 +260,5 @@ Do not fix these during the run; record them where they bite.
 - **Model and effort are per profile**, not per task type (D594).
 - **Reproduce and ablate are dry-run plans** for runnable references (D569). C3-X7 waits for them.
 - **The seed GEMM Templates reach no proof level** (WP24, D643). Candidates are `exploration`; that is expected.
-- **The eager torch baseline records no host readings** (D605).
+- **Library-baseline quietness and NVML helpers are repaired** (D650); targeted real replay of that path remains pending.
 - **No periodic backup.** Take one at the end of each phase with `kta store backup ~/kta/backups/<ts>` and pull it to the Mac.

@@ -220,3 +220,9 @@ In order: correctness (rule 1, T6); accept (rule 3) unless the model is off — 
 - `orchestrator/proofgate.py`: `candidate_gate(svc, family_id, fp, templates, hw, bucket, ids) -> (kept, results, claims)` runs in `work_solving` after `record_solve`: violating candidates are dropped and recorded; facts `proof_gate[bucket] = {checks, claims, dropped}`.
 - `relaxed_prediction(...)`: with every chain step whose newest live `wp` ProofResult says "stronger" relaxed, re-solves the bucket; `solver[bucket].relaxed_pred_us` and `delta_pre_note` reach the judged bucket, and `gap.decompose` turns them into Δpre (`value`, or `not_assessed` with the note).
 - CLI: `kta prove ...` (see measure-check.md WP24).
+
+### SYSDEBUG-1 task verification and accounting repairs (D657–D659)
+
+T4 creation aligns Prediction/Measurement pairs by candidate identity and requires one protocol. Candidate IDs with integer hash modulo 5 = 0 form a frozen checker-owned holdout in TaskCard.refs.holdout, excluded from body.inputs; agent record/card/lineage endpoints do not expose these records. Stable membership applies across reordered/repeated requests. No train/holdout data means no AI call, and legacy unsplit cards cannot pass model_holdout_improves. This is an experimental 20% default; sample adequacy is uncalibrated.
+
+Task settlement books actual AgentRun wall time and task-owned descendant GPU job allocation time. Idempotent receipts protect per-run/per-job charges and per-attempt reservation releases; reconciliation can run after cancellation/restart without double charging. The existing budget.steps limits kta API invocations per attempt and resets only on a new lease. Runner errors release a still-running attempt through the normal rejection path.

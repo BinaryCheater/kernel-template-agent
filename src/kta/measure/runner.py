@@ -84,6 +84,7 @@ class Measurer:
         rng: RngFactory,
         seed: int = 0,
         thresholds: dict[str, Any] | None = None,
+        clock_sample_ms: float | None = None,
     ) -> None:
         self.store = store
         self.ex = ex
@@ -93,6 +94,9 @@ class Measurer:
         # None = the baseline values of measure.quiet_thresholds (callers with a controls
         # snapshot pass theirs).
         self.thresholds = thresholds if thresholds is not None else baseline().quiet_thresholds
+        self.clock_sample_ms = (
+            baseline().clock_sample_ms if clock_sample_ms is None else clock_sample_ms
+        )
 
     @classmethod
     def from_ctx(cls, ctx: Context) -> Measurer:
@@ -103,6 +107,7 @@ class Measurer:
             ctx.rng,
             ctx.seed,
             ctx.controls.quiet_thresholds,
+            ctx.controls.clock_sample_ms,
         )
 
     def _interfered(self, result: JobResult, timing: dict[str, Any], v: quiet.QuietVerdict) -> str:
@@ -168,6 +173,7 @@ class Measurer:
             )
         }
         settings["order_seed"] = self.rng(streams["order"]).getrandbits(31)
+        settings["clock_sample_ms"] = self.clock_sample_ms
         requires = {"gpu": jobs.target_sm(self.store, case.target)}
         bench = jobs.bench_job(
             self.ex,

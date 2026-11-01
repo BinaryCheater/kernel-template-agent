@@ -9,7 +9,7 @@ One family per instance: the best-ranked retrieved family (known issue, WP6 note
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from typing import Any
 
 from kta.checks.full import run_full
@@ -27,6 +27,8 @@ from kta.measure.baseline import measure_baseline
 from kta.models import bound, min_work
 from kta.orchestrator import disciplines, pipeline, proofgate
 from kta.orchestrator.pipeline import Services, bucket_shape, case_view
+from kta.orchestrator.solve_baseline import baseline_us
+from kta.orchestrator.solve_evaluate import checkpoint, each_top, paused, pending
 from kta.orchestrator.transition import Loop, Settings
 from kta.solve import (
     EXHAUSTIVE_LIMIT,
@@ -316,7 +318,7 @@ def work_building(svc: Services, loop: Loop) -> Facts:
         top[name] = [cid for cid, c in cands.items() if c.key in kept]
         arms[name] = {cid: "model" for cid in top[name]}
         for arm, cids in extra.items():
-            for cid in cids:
+            for cid in proofgate.control_gate(svc, family, fp, hw, _bucket(loop, name), cids):
                 a = CandidateBody.model_validate(svc.store.get(cid).body).assignment
                 build, module = pipeline.build(svc, pipeline.generate(fp, a, shape))
                 builds[cid] = module.build_id
@@ -324,20 +326,6 @@ def work_building(svc: Services, loop: Loop) -> Facts:
                     top[name].append(cid)
                     arms[name][cid] = arm
     return {"top": top, "builds": builds, "family": family, "arm_of": arms}
-
-
-def _each_top(svc: Services, loop: Loop, fn: Callable[..., str]) -> dict[str, str]:
-    cv = case_view(svc.store, loop.subject)
-    fp = pipeline.family_package(svc, str(loop.data["families"][0]))
-    out: dict[str, str] = {}
-    for name, ids in loop.data["top"].items():
-        shape = bucket_shape(_bucket(loop, name))
-        for cid in ids:
-            a = CandidateBody.model_validate(svc.store.get(cid).body).assignment
-            gk = pipeline.generate(fp, a, shape)
-            _, module = pipeline.build(svc, gk)
-            out[cid] = fn(cv, fp, gk, module, shape, a)
-    return out
 
 
 def work_checking(svc: Services, loop: Loop) -> Facts:
@@ -360,13 +348,23 @@ def work_checking(svc: Services, loop: Loop) -> Facts:
             sanitizer_shape=small,
         ).id
 
-    checks = _each_top(svc, loop, check)
+    checks = each_top(svc, loop, check, "checks")
     failed = [cid for cid in checks.values() if not svc.store.get(cid).body["passed"]]
-    return {"checks": checks, "failed": failed}
+    return {"checks": checks, "failed": failed, "pending": pending(loop, checks)}
 
 
 def work_measuring(svc: Services, loop: Loop) -> Facts:
-    protocol_id, _ = svc.protocol()
+    round_ = int(loop.data.get("round", 1))
+    if loop.data.get("measurement_round") != round_:
+        updates: dict[str, Any] = {
+            "protocol": svc.protocol()[0],
+            "measurement_round": round_,
+            "measurements": {},
+            "baseline_measurements": {},
+        }
+        checkpoint(svc, loop, **updates)
+        loop = replace(loop, data={**loop.data, **updates})
+    protocol_id = str(loop.data["protocol"])
     m = svc.measurer()
     passed = {c for c, chk in loop.data["checks"].items() if svc.store.get(chk).body["passed"]}
 
@@ -375,28 +373,29 @@ def work_measuring(svc: Services, loop: Loop) -> Facts:
 
     top = {k: [c for c in v if c in passed] for k, v in loop.data["top"].items()}
     loop_passed = Loop(loop.id, loop.kind, loop.subject, loop.state, {**loop.data, "top": top})
-    measured = _each_top(svc, loop_passed, meas)
-    # The baseline is timed under the same protocol per bucket (D284, D362); judging reads
-    # the newest Measurement with refs.case and refs.baseline.
+    measured = each_top(svc, loop_passed, meas, "measurements")
+    # Baselines use the same pinned protocol and current-round bucket identity.
     cv = case_view(svc.store, loop.subject)
-    baselines: dict[str, str] = {}
+    baselines: dict[str, str] = dict(loop.data.get("baseline_measurements", {}))
     if cv.baseline is not None:
         for b in loop.data["buckets"]:
+            if paused(svc, loop):
+                break
+            if str(b["name"]) in baselines:
+                continue
             got = measure_baseline(m, cv.baseline, cv.case, bucket_shape(b), protocol_id, cv.id)
             baselines[str(b["name"])] = got.id
-    return {"measurements": measured, "protocol": protocol_id, "baseline_measurements": baselines}
-
-
-def _baseline_us(svc: Services, case_id: str, baseline: str | None) -> float | None:
-    if baseline is None:
-        return None
-    found = svc.store.query(
-        "Measurement",
-        {"refs.case": case_id, "refs.baseline": baseline},
-        order="-created_at",
-        limit=1,
+            checkpoint(svc, loop, baseline_measurements=dict(baselines))
+    incomplete = pending(loop_passed, measured) or (
+        cv.baseline is not None
+        and any(str(b["name"]) not in baselines for b in loop.data["buckets"])
     )
-    return float(found[0].body["median_us"]) if found else None
+    return {
+        "measurements": measured,
+        "protocol": protocol_id,
+        "baseline_measurements": baselines,
+        "pending": incomplete,
+    }
 
 
 def work_judging(svc: Services, loop: Loop) -> Facts:
@@ -454,7 +453,9 @@ def work_judging(svc: Services, loop: Loop) -> Facts:
                 "best_us": meas.median_us,
                 "predicted_us": pred.total,
                 "bound_us": bnd.bound_us,
-                "reference_us": _baseline_us(svc, cv.id, cv.baseline),
+                "reference_us": baseline_us(
+                    svc.store, loop, name, bucket_shape(_bucket(loop, name)), cv.baseline
+                ),
                 "units": units,
                 "assignment": CandidateBody.model_validate(svc.store.get(cid).body).assignment,
                 "measurement": d["measurements"][cid],

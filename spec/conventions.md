@@ -199,7 +199,7 @@ The old `spark` (spark-b6d9) is no longer the default worker; its records stay v
 ## 8. 机密
 
 - 两种认证方式：
-  - **订阅**（Codex、Claude Code）：CLI 的登录凭据保存在控制面机器上一个受保护的目录（`~/.config/kta/auth/<provider>/`，权限 700）。每个工作单元的隔离配置目录创建时，只把凭据文件链接或复制进去。
+  - **Subscription providers (Codex, Claude Code):** reuse the agent host user’s native provider login by default. An explicit `auth_dir` overrides the source. Experimental CLI homes link existing credential files; no separate KTA login or copied credential store is required. Provider connection settings may be inherited independently of personal instructions and sessions (D655).
   - **API**（pi、DeepSeek harness）：key 放在 `~/.config/kta/secrets.env`（权限 600），由运行器在启动 agent 进程时注入环境变量。
 - 凭据文件和 key 不进入上下文清单的内容、不进入会话存档的产物、不进入日志；上下文清单中只记录"凭据已提供"。
 - 不得出现在 git、记录、产物、日志、提示中。gate 用正则扫描常见的 key 格式。

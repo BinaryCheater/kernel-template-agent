@@ -1,5 +1,16 @@
 # Review queue
 
+## D653 — Evaluation recovery and truthful failure state
+
+- **Question:** Is a completed candidate check the right cooperative pause boundary for supervised debugging?
+- **Choice:** Checkpoint each completed check/measurement; retain results on a blocked step; resume unfinished work. Compile errors remain failed Build evidence, and tracing/frontend distinguish blocked, paused and unsuccessful work.
+- **Rationale:** The first system rehearsal hid completed checks behind an all-at-once state and masked a failed codegen job with JSONDecodeError. No acceptance rule or kernel implementation changes.
+- **Cost of changing later:** Low for the boundary; finer cancellation within a full check needs additional checkpoints. Autonomous engineering repair authorised by the user; no approval pause.
+
+## D649 — Quiet clock rule v2
+
+User authorised autonomous repair. Keep stable workload clocks below rated maximum; reject sampled within-window variation, heat or throttling. New 50 ms polling interval remains an X6 default. Clock locking needs unavailable privileges; whole-kernel frequency rescaling confounds memory and launch costs. Reversible code/control change; real repeated measurements validate it. Review is informational and does not pause this repair.
+
 Decisions made without the user that need review. Newest last. Each entry: question, choice made, rationale, cost of changing it later, link to the decision ID.
 
 (empty)
@@ -972,3 +983,34 @@ Decisions made without the user that need review. Newest last. Each entry: quest
 - **Choice:** not repaired; reported with replayed counterexamples. Proposed repairs: physical_storage and output_tiling move their p-only preconditions into Γ (K1); multi_buffer_rotation, physical_storage, shared_resource_binding bound their p.* in Γ (sizes ≥ 1, `S * p.size_bytes <= p.capacity_bytes` for some S, `p.wavefronts` as defined) (K3); async_transfer adds `complete_point != "before_read" or p.single_issuer` or drops `before_read`; shared_resource_binding restates `bijective_binding` as injectivity with an inverse on the image (padding).
 - **Rationale:** a seed change is a knowledge decision; new versions change chain references.
 - **Cost of changing later:** new Template versions plus chain bindings; the checker reruns in seconds.
+
+- D658 (SYSDEBUG-1): default candidate-hash holdout share is 20%, matching the existing fitter’s nominal share. Independent data is now mandatory for T4 acceptance. This fixes in-sample acceptance; research sample adequacy still needs calibration. Changing the partition affects newly created tasks; existing card refs remain immutable.
+
+## D660 — Journal phrasing and grouping (WP25)
+
+- **Question:** how should the system's history be shown so it can be read quickly?
+- **Choice:** a deterministic phrase table (`src/kta/api/journal.yaml`) over records, spans, task changes and stops; milestones by default; bursts grouped.
+- **Rationale:** readable, reproducible, no model calls; unlisted kinds are counted so gaps in the table are visible.
+- **Cost of changing later:** low: edit the YAML (wording, levels, grouping window).
+
+## D664 — Hand advancing semantics (WP25)
+
+- **Question:** what should "one step", "one round" and "continuous" do, and may a human step a paused loop?
+- **Choice:** step = one `Runner.advance`; round = until the round number changes or the loop waits, ends or blocks (≤ 40 steps); run = resume the loop for its process (the reply says if the process is not running); a human step ignores the loop's own pause but not a process or global pause; retry clears the block.
+- **Rationale:** matches the S1 hand-stepped stage (pause, then step); keeps one control loop (the processes); long work runs off the request thread.
+- **Cost of changing later:** low: `Operations.advance_*` and `Runner.advance(manual)`.
+
+## D665 — Navigation and Home (WP25)
+
+- **Question:** which pages are always visible, and what is on Home?
+- **Choice:** Home, Activity, Pipeline, Cases always; Knowledge, Control, Studies collapsible. Home: status line, loop maps with instances and exit conditions, milestones, needs-you, resources, pipeline strip.
+- **Rationale:** the user watches the run and its history first; knowledge and settings are visited on purpose.
+- **Cost of changing later:** low: `Shell.tsx` and `Overview.tsx`; routes did not change.
+
+## D668, D669, D670 — Process switches, flowchart home, six pages (WP25, second round)
+
+- **Question:** after the first round the user found Home too busy, the pages too many and the T-codes and state names unexplained, and asked for controls that let the system run.
+- **Choice:** Home = one sentence + Solve/Learning switches + a flowchart per loop with instances on their steps + the list of open instances (step, round, time, seven levels, controls) + just happened + needs you; six pages; words instead of codes; process switches host `processes.run` in the API.
+- **Rationale:** what is moving and what is stuck should be visible without reading; deeper detail is one click away.
+- **Cost of changing later:** low (frontend files and one API endpoint).
+

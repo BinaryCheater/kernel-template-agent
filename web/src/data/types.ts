@@ -84,6 +84,14 @@ export interface LoopInstance {
   state_since: string;
   waiting_on?: string | null; // task id
   escalated?: boolean;
+  /** WP25: a loop stopped by an error (it stays in its state until retried). */
+  blocked?: { error: string; message: string; state: string; at: string } | null;
+  /** WP25: the paused scope that holds this loop (loop:<id>, process:<name> or global). */
+  paused?: string | null;
+  /** WP25: a human advance running now (step | round | retry). */
+  advancing?: string | null;
+  /** WP25: the steps of the family the loop's current round uses (levels 1-7). */
+  chain?: { key: string; template: string; level_from: number | null; level_to: number | null; assurance: string }[];
   trace_id: string;
 }
 
@@ -154,6 +162,8 @@ export interface ActiveRuns {
   as_of: string;
   agent_slots: string[];
   loops: LoopInstance[];
+  /** WP25: the loop processes and whether each runs and is allowed by the release stage. */
+  processes?: { name: string; running: boolean; holder: string | null; allowed: boolean }[];
   tasks: TaskInstance[];
   jobs: Job[];
   leases: Lease[];
@@ -187,6 +197,8 @@ export interface TraceInfo {
 // ---- GET /cases, /cases/{id}/timeline ----
 
 export interface CaseSummary {
+  blocked?: { error: string; message: string; state: string; at: string } | null;
+  paused?: boolean;
   id: string;
   name: string;
   problem: string;
@@ -198,6 +210,8 @@ export interface CaseSummary {
   bound_record: string | null;
   pct_of_bound?: number | null;
   objective: string;
+  /** WP25: "solve" for a research Case, "probe" for a measurement fixture (calibration, self-test). */
+  purpose?: "solve" | "probe";
   /** GET /cases only: per-round progress, the active task and the last activity. */
   rounds?: unknown;
   active_task?: { type: string; state: string } | null;
@@ -229,23 +243,48 @@ export interface RoundTask {
   created_at: string;
   ended_at: string | null;
   state: string;
+  goal?: string | null;
   rejections: { at: string; reason: string; record: string }[];
+  /** WP25: knowledge records the task wrote (what the round changed). */
+  produced?: { id: string; kind: string; label: string }[];
+}
+/** WP25: what one round used and produced. */
+export interface RoundSummary {
+  families: { id: string; name: string; version: number | null }[];
+  candidates: number;
+  built: number;
+  build_failed: number;
+  check_passed: number;
+  check_failed: number;
+  measured: number;
+  buckets: Record<string, { candidates: number; predicted_best_us: number | null; measured_best_us: number | null }>;
 }
 export interface Round {
   n: number;
   steps: RoundStep[];
   tasks: RoundTask[];
+  summary?: RoundSummary;
   outcome?: { rule?: number | null; label: string; record: string; gap_class?: string | null; decomposition?: string | null } | null;
 }
 export interface BucketResult {
   bucket: string;
   bound_us: number;
+  bottleneck?: string | null;
+  bound_record?: string | null;
   best_us?: number | null;
   references: Record<string, number>;
   solution?: string | null;
 }
 export interface Candidate {
   rank: number;
+  bucket?: string;
+  arm?: string;
+  selected?: boolean;
+  build_record?: string | null;
+  check_record?: string | null;
+  measurement_record?: string | null;
+  proof_record?: string | null;
+  claims?: string | null;
   assignment: Record<string, number | string>;
   predicted_us: number | null;
   measured_us?: number | null;
@@ -262,6 +301,30 @@ export interface CaseDetail extends CaseSummary {
   buckets: BucketResult[];
   candidates: Candidate[];
   gaps: { id: string; description: string }[];
+  /** WP25: what the current round runs with. */
+  inputs?: { families: FamilySummary[]; model: string | null; hw_model: string | null; controls: string | null };
+}
+
+// ---- GET /journal (WP25) ----
+
+export interface JournalEntry {
+  at: string;
+  source: "record" | "span" | "task" | "blocked";
+  kind: string;
+  level: "milestone" | "detail";
+  tone: "running" | "waiting" | "ok" | "fail" | "human" | "idle";
+  text: string;
+  count: number;
+  case: string | null;
+  case_name: string | null;
+  actor: string;
+  refs: string[];
+}
+export interface Journal {
+  entries: JournalEntry[];
+  next_before: string | null;
+  unphrased: Record<string, number>;
+  scanned: number;
 }
 
 // ---- GET /lineage/{id} ----
@@ -567,6 +630,46 @@ export interface PoolTemplate extends PoolEnv {
   name: string; version: number; level_from: number; level_to: number; change: string; refines: string; produces: string[];
   summary: string; requires: string[]; probed_on: string[]; variables: number; constraints: number; obligations: number;
   proof: TemplateProof;
+  /** WP25: scope predicate ("True" = no condition stated), Source names, chains that name it. */
+  scope: string; sources: string[]; used_by: TemplateUse[];
+}
+
+/** A chain that names a Template: a Reference's reconstruction (analysis) or a Family (a kernel). */
+export interface TemplateUse { kind: "reference" | "family"; id: string; name: string }
+
+/** GET /templates/{id} (WP25): one Template for its own page. */
+export interface TemplatePage extends PoolEnv {
+  body: TemplateBody;
+  sources: { id: string; name: string; locator?: string; revision?: string; type?: string }[];
+  used_by: TemplateUse[];
+  versions: { id: string; version: number; created_at: string }[];
+  relations: { type: string; target: string; note?: string | null; id: string | null }[];
+  proof: TemplateProof;
+}
+export interface TplExpr { id: string; expr: string; meaning: string; cls: string; same_as?: string | null }
+export interface TplVar {
+  name: string; kind: string; binding: string; role: string; meaning: string; unit?: string | null; when?: string | null;
+  domain: (number | string | boolean)[] | { lo: number; hi: number; step?: number; pow2?: boolean };
+}
+export interface TplTx {
+  id: string; pattern: string; kind: string; count: string; amounts: Record<string, string>;
+  src?: string | null; dst?: string | null; when?: string | null; note?: string | null;
+}
+export interface TemplateBody {
+  name: string; version: number; level_from: number; level_to: number; change: string; refines: string; produces: string[];
+  object: { type: string; description: string };
+  variables: TplVar[]; constraints: TplExpr[]; preconditions: TplExpr[];
+  program: { description: string }; backward_map: string;
+  obligations: { name: string; statement: string; method: string }[];
+  effects?: {
+    transactions: TplTx[];
+    storage: { id: string; level: string; scope?: string; bytes: string; when?: string | null; note?: string | null }[];
+    overlap: { between: string[]; when?: string | null; inflight?: string | null; trips?: string | null; note?: string | null }[];
+  };
+  scope: { predicate: string; text: string };
+  requires: string[]; probed_on: string[];
+  signature?: { algorithm: string; reuse?: string | null; storage?: string | null; boundary?: string | null; resources: string[] };
+  numeric_risk?: string | null; summary: string;
 }
 
 // ---- WP24: proof records (ProofSummary / ProofResult) ----

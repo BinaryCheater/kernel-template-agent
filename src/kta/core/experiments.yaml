@@ -78,7 +78,7 @@ experiments:
     design: measured noise of the measurement protocol per kernel class (repeated measurements of fixed kernels)
     arms: [per kernel class, "agents idle vs agents active during measurement (quiet-host thresholds, WP23)"]
     metrics: [CI of the median, run-to-run spread, interfered share, median shift with agents active]
-    sets: [guard.improvement_band, learning.coupling_noise_band, measure.quiet_thresholds]
+    sets: [guard.improvement_band, learning.coupling_noise_band, measure.quiet_thresholds, measure.clock_sample_ms]
     profile_fields: []
     depends_on: []
     step: 1

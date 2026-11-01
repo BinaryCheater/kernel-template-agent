@@ -45,9 +45,29 @@ def window(
     return {
         "from": iso(start),
         "to": iso(end),
-        "spans": [span_json(s) for s in spans],
+        "spans": [_mark_blocked(span_json(s), blocked) for s in spans]
+        if (blocked := _blocked_loops(api))
+        else [span_json(s) for s in spans],
         "traces": traces(api, spans),
     }
+
+
+def _blocked_loops(api: Api) -> dict[str, dict[str, Any]]:
+    """Loop id -> its ``blocked`` entry (error, message, state, at) for stopped loops."""
+    return {lp.id: lp.data["blocked"] for lp in opsread.loops(api.ops) if lp.data.get("blocked")}
+
+
+def _mark_blocked(span: dict[str, Any], blocked: dict[str, dict[str, Any]]) -> dict[str, Any]:
+    """The open loop step of a blocked loop is not running (D663): it carries
+    ``attrs.blocked`` (since when and why) so the Pipeline draws it as stopped."""
+    b = blocked.get(span["trace_id"])
+    if b and span["kind"] == "loop_step" and span["end_ts"] is None:
+        span["attrs"] = {
+            **span["attrs"],
+            "blocked": f"{b.get('error')}: {b.get('message')}",
+            "blocked_at": b.get("at"),
+        }
+    return span
 
 
 def traces(api: Api, spans: list[SpanRow]) -> list[dict[str, Any]]:
