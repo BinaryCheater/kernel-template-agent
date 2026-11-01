@@ -12,23 +12,27 @@ from __future__ import annotations
 import itertools
 import math
 
+from .model import SMS, bank_conflict_ways, dram_split_kslice
 from .model import C as MC
-from .model import bank_conflict_ways, dram_split_kslice
 from .sass import main_loop
 from .sm import SM, kernel_sass
 
-F = 2.54e3  # cycles per us under load (clock probes 2.52-2.54 GHz)
+F = MC["clock_under_load_GHz"] * 1e3  # cycles per us under load (clock probes 2.52-2.54 GHz)
 # block replacement on the busiest SM (a new block starts when one exits) instead of separate waves
 FLOW = True
 
 
-def launch_us(blocks: int = 48, graph: bool = False) -> float:
+def launch_us(blocks: int = SMS, graph: bool = False) -> float:
     """Per-kernel overhead in a back-to-back sequence: 2.6 us from one stream (ablation harness;
     probe launch.cu: the
     host submits at 2.05 us per kernel, 3.1 us between kernels with work), 0.43 us per kernel inside
     a CUDA graph plus
     about 0.43 ns per block."""
-    return 0.43 + 0.00043 * blocks if graph else 2.6
+    return (
+        MC["graph_launch_us"] + MC["graph_launch_us_per_block"] * blocks
+        if graph
+        else MC["launch_stream_us"]
+    )
 
 
 def copy_lines(h: dict) -> list:
@@ -60,8 +64,17 @@ def sass_trips(ins, h: dict, src_trips: int) -> int:
 
 def occupancy(h: dict, regs: int, smem: int) -> int:
     warps = h["threads"] // 32
-    rw = math.ceil(regs * 32 / 256) * 256
-    return max(1, min(65536 // (warps * rw), 102400 // (smem + 1024), 1536 // h["threads"], 24))
+    unit = MC["reg_alloc_unit_per_warp"]
+    rw = math.ceil(regs * 32 / unit) * unit
+    return max(
+        1,
+        min(
+            MC["regs_per_sm"] // (warps * rw),
+            MC["smem_per_sm_bytes"] // (smem + MC["smem_reserved_per_block_bytes"]),
+            MC["max_threads_per_sm"] // h["threads"],
+            MC["max_blocks_per_sm"],
+        ),
+    )
 
 
 # environment: DRAM bandwidth the host CPU is using at the same time (cpuhog.c measured up to ~150)
@@ -83,7 +96,10 @@ def dram_peak(run_bytes: float) -> float:
                 math.log(x1) - math.log(x0)
             )
             break
-    return max(10.0, peak - CPU_DRAM_GBs * (237.0 / 273.0))
+    return max(
+        MC["dram_rate_floor_GBs"],
+        peak - CPU_DRAM_GBs * (MC["dram_read_GBs"] / MC["dram_datasheet_GBs"]),
+    )
 
 
 def wave_dram(h: dict, shape: dict, wave: dict, warm: bool = True) -> tuple[float, float]:
@@ -111,7 +127,10 @@ def wave_dram(h: dict, shape: dict, wave: dict, warm: bool = True) -> tuple[floa
         cap = MC["l2_effective_bytes"]
         c_all = M * N * 2
         c_w *= max(0.0, c_all - cap) / c_all if c_all else 0.0
-    wpeak = max(10.0, MC["dram_write_GBs"] - CPU_DRAM_GBs * (197.0 / 273.0))
+    wpeak = max(
+        MC["dram_rate_floor_GBs"],
+        MC["dram_write_GBs"] - CPU_DRAM_GBs * (MC["dram_write_GBs"] / MC["dram_datasheet_GBs"]),
+    )
     c_r = 0.0 if warm else wave.get("c_read", 0.0)  # C rows are contiguous: streamed like B
     secs = (wave["A"] / dram_peak(run_a) + (wave["B"] + c_r) / dram_peak(run_b) + c_w / wpeak) / 1e9
     return wave["A"] + wave["B"] + c_r, secs
@@ -122,8 +141,8 @@ def dram_clk(read_bytes: float, secs: float, blocks_eq: float) -> float:
     (writes folded in),
     shared by the blocks in flight."""
     if read_bytes <= 0:
-        return 512 / (237e9 / 2.54e9 / blocks_eq)
-    return 512 * (secs / read_bytes) * 2.54e9 * blocks_eq
+        return 512 / (MC["dram_read_GBs"] * 1e9 / (MC["clock_under_load_GHz"] * 1e9) / blocks_eq)
+    return 512 * (secs / read_bytes) * (MC["clock_under_load_GHz"] * 1e9) * blocks_eq
 
 
 def ldsm_ways(h: dict) -> tuple:
@@ -162,7 +181,7 @@ def simulate_kernel(
     Rmax = occupancy(h, regs, smem)
     trips = sass_trips(ins, h, KT - (h["num_stages"] - 1))
     if split == 1:
-        sp = dram_split_kslice(h, shape, 48 * Rmax)
+        sp = dram_split_kslice(h, shape, SMS * Rmax)
         if atomic_c:  # C added with atomics (fp32): lines not in the L2 are read from DRAM first
             sp = {
                 "waves": [
@@ -174,7 +193,7 @@ def simulate_kernel(
     else:
         # each split is its own GEMM over K/split with its own A columns and B rows; spread its
         # misses over its blocks
-        one = dram_split_kslice(h, {"M": M, "N": N, "K": K // split}, 48 * Rmax)
+        one = dram_split_kslice(h, {"M": M, "N": N, "K": K // split}, SMS * Rmax)
         t1 = tiles // split
         a_b = sum(w["A"] for w in one["waves"]) / t1
         b_b = sum(w["B"] for w in one["waves"]) / t1
@@ -185,7 +204,7 @@ def simulate_kernel(
             # run atomics on C lines not in the L2 make it read them from DRAM first (probe
             # ldg_atomic.cu redtile): after a flush the first split to touch a C line pays a read of
             # it
-            nb_ = min(left_, 48 * Rmax)
+            nb_ = min(left_, SMS * Rmax)
             sp["waves"].append(
                 {
                     "A": nb_ * a_b,
@@ -206,11 +225,11 @@ def simulate_kernel(
             secs += s_
         copy_bytes = tiles * KT * (h["block_M"] + h["block_N"]) * h["block_K"] * 2
         miss = min(1.0, rb / copy_bytes) if copy_bytes else 0.0
-        eq = min(tiles, 48 * Rmax) / min(Rmax, math.ceil(tiles / 48))
+        eq = min(tiles, SMS * Rmax) / min(Rmax, math.ceil(tiles / SMS))
         sm = SM(
             ins,
             h["threads"],
-            math.ceil(tiles / 48),
+            math.ceil(tiles / SMS),
             trips,
             active_sms=eq,
             copy_lines=copy_lines(h),
@@ -234,17 +253,17 @@ def simulate_kernel(
             "busy": {k: round(v / max(1, r["cycles"]), 2) for k, v in r["busy"].items()},
         }
         return {
-            "us": 2.6 + us,
+            "us": MC["launch_stream_us"] + us,
             "tiles": tiles,
             "blocks_per_sm": Rmax,
-            "waves": math.ceil(tiles / (48 * Rmax)),
+            "waves": math.ceil(tiles / (SMS * Rmax)),
             "dram_MB": rb / 1e6,
             "parts": [part],
         }
-    left, t, w, parts = tiles, 2.6, 0, []
+    left, t, w, parts = tiles, MC["launch_stream_us"], 0, []
     while left > 0:
-        n = min(left, 48 * Rmax)
-        R = math.ceil(n / 48)
+        n = min(left, SMS * Rmax)
+        R = math.ceil(n / SMS)
         eq = n / R
         copy_bytes = n * KT * (h["block_M"] + h["block_N"]) * h["block_K"] * 2
         wv = (

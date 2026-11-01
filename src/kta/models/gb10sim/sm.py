@@ -28,7 +28,9 @@ from typing import Any
 
 from .sass import Ins, main_loop, parse
 
-P = json.loads(Path(__file__).with_name("gb10.json").read_text())["sim"]["value"]
+_PARAMS = json.loads(Path(__file__).with_name("gb10.json").read_text())
+P = _PARAMS["sim"]["value"]
+SMS = _PARAMS["sms"]["value"]
 
 
 FMA_FP32 = {"FFMA", "FADD", "FMUL"}
@@ -235,11 +237,18 @@ class SM:
         self.bar_arrived = {}
         self.last_issue: list[Warp | None] = [None] * 4
         self.count: dict[str, Any] = {"issued": 0, "HMMA": 0, "LDSM": 0, "LDGSTS": 0, "BAR": 0}
+        self.assumed_latency: dict[str, int] = {}
         self.busy: dict[str, float] = {"tensor": 0, "smem": 0, "fill": 0}
 
     def ev(self, t, kind, w, arg=None):
         self.seq += 1
         heapq.heappush(self.events, (t, self.seq, kind, w, arg))
+
+    def _assumed(self, x) -> None:
+        """KTA (WP26): count instructions whose result latency is the assumed
+        default_var_latency_clk (no probe for that opcode), reported by run() as `assumed_latency`.
+        """
+        self.assumed_latency[x.op] = self.assumed_latency.get(x.op, 0) + 1
 
     def on_event(self, kind, w, key, now):
         """Events of a subclass's own kinds (the base simulator has none beyond the four above)."""
@@ -298,7 +307,7 @@ class SM:
                     v = 0
                 elif "SR_CTAID" in x.args and self.grid_dim:
                     gx, gy, gz = [*self.grid_dim, 1, 1][:3]
-                    lin = (w.block * 48) % (gx * gy * gz)
+                    lin = (w.block * SMS) % (gx * gy * gz)
                     v = {"X": lin % gx, "Y": (lin // gx) % gy, "Z": lin // (gx * gy)}[
                         x.args.split("SR_CTAID.")[1][0]
                     ]
@@ -673,6 +682,7 @@ class SM:
                 self.busy[u] = self.busy.get(u, 0) + c
                 if x.wbar is not None:
                     lat_done = now + P["default_var_latency_clk"]
+                    self._assumed(x)
             elif x.base in XU_OPS:
                 self.mufu_free[w.smsp] = now + P["mufu_smsp_clk_per_instr"]
                 self.busy["sfu"] = self.busy.get("sfu", 0) + P["mufu_smsp_clk_per_instr"]
@@ -710,6 +720,7 @@ class SM:
                 self.block_exit(w.block, now)
             elif x.wbar is not None:
                 lat_done = now + P["default_var_latency_clk"]
+                self._assumed(x)
             if x.wbar is not None and lat_done is not None and x.base != "LDGDEPBAR":
                 w.sb[x.wbar] += 1
                 self.ev(lat_done, "sb", w, x.wbar)
@@ -768,9 +779,9 @@ class SM:
         """SM-equivalents sharing the chip's limits once this SM has finished `finished` blocks."""
         if not self.grid_blocks:
             return self.eq0
-        q, r = divmod(self.grid_blocks, 48)
+        q, r = divmod(self.grid_blocks, SMS)
         R = self.resident
-        counts = [q + 1] * r + [q] * (48 - r)
+        counts = [q + 1] * r + [q] * (SMS - r)
         mine = max(counts)
         chip = sum(max(0, min(R, c - finished)) for c in counts)
         own = max(1, min(R, mine - finished))
@@ -876,7 +887,12 @@ class SM:
                 nxt.append(self.events[0][0])
             nxt += [t for t in self.stq if t > now][:1]
             now = now + 1 if issued else (min(nxt) if nxt else now + 1)
-        return {"cycles": max(now, getattr(self, "end", 0)), **self.count, "busy": self.busy}
+        return {
+            "cycles": max(now, getattr(self, "end", 0)),
+            **self.count,
+            "busy": self.busy,
+            "assumed_latency": self.assumed_latency,
+        }
 
 
 def kernel_sass(path: str | Path, kernel: str = "matmul_kernel") -> list[Ins]:

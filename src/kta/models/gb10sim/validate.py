@@ -20,10 +20,12 @@ from typing import Any
 
 from kta.models.regression import spearman
 
+from .kernel import occupancy
+from .model import SMS, C
 from .sass import main_loop
 from .sm import SM, kernel_sass
 
-F = 2.52e3  # cycles per us
+F = C["clock_GHz"] * 1e3  # cycles per us
 
 
 def trips(cal: Path, name: str, variant: str) -> int:
@@ -109,9 +111,7 @@ def simulate(
 
 def _rmax(h: dict, regs: int) -> int:
     smem = h["num_stages"] * (h["block_M"] + h["block_N"]) * h["block_K"] * 2
-    warps = h["threads"] // 32
-    rw = math.ceil(regs * 32 / 256) * 256
-    return max(1, min(65536 // (warps * rw), 102400 // (smem + 1024), 1536 // h["threads"], 24))
+    return occupancy(h, regs, smem)
 
 
 def block_level(cal: Path, names: list[str] | None = None) -> list[dict]:
@@ -126,8 +126,8 @@ def block_level(cal: Path, names: list[str] | None = None) -> list[dict]:
         h = r["pick"]
         tiles = r["blocks"]
         rmax = _rmax(h, int(regs[name]))
-        res = min(rmax, math.ceil(tiles / 48))
-        act = min(48, tiles)
+        res = min(rmax, math.ceil(tiles / SMS))
+        act = min(SMS, tiles)
         full = simulate(cal, name, "full", res, act)
         nol = simulate(cal, name, "noload", 1, 1)
         noc = simulate(cal, name, "nocompute", res, act)
@@ -144,6 +144,7 @@ def block_level(cal: Path, names: list[str] | None = None) -> list[dict]:
                 "noload": (nol["us"], meas_c),
                 "nocompute": (noc["us"], meas_l),
                 "wall_s": full["wall_s"],
+                "assumed_latency": full["assumed_latency"],
             }
         )
     return rows
@@ -160,21 +161,21 @@ def kernel_us(cal: Path, name: str, variant: str, h: dict, tiles: int, rmax: int
         # when one exits; the chip's L2 and store limits are shared by the blocks in flight (as
         # min(48, tiles/Rmax) equal SMs)
         return (
-            2.6
+            C["launch_stream_us"]
             + simulate(
                 cal,
                 name,
                 variant,
-                math.ceil(tiles / 48),
-                min(tiles, 48 * rmax) / min(rmax, math.ceil(tiles / 48)),
+                math.ceil(tiles / SMS),
+                min(tiles, SMS * rmax) / min(rmax, math.ceil(tiles / SMS)),
                 resident=rmax,
                 grid=tiles,
             )["us"]
         )
-    left, t = tiles, 2.6
+    left, t = tiles, C["launch_stream_us"]
     while left > 0:
-        n = min(left, 48 * rmax)
-        res = math.ceil(n / 48)
+        n = min(left, SMS * rmax)
+        res = math.ceil(n / SMS)
         # the chip's L2 and store limits are shared by the blocks in flight: an SM holding R blocks
         # gets R/n of them, i.e. it behaves as one of n/R equal SMs (measured: the L2 rate is the
         # same for 1 to 4 blocks per SM)

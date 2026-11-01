@@ -15,12 +15,12 @@ import time
 from pathlib import Path
 
 from .kernel import dram_clk, wave_dram
-from .model import dram_split_kslice
+from .model import SMS, C, dram_split_kslice
 from .sass import main_loop
 from .sm import kernel_sass
 from .ws import WSSM
 
-F = 2.54e3
+F = C["clock_under_load_GHz"] * 1e3
 
 
 def ws_sim(
@@ -89,7 +89,7 @@ def ws_sim(
 def kernel_us(cal: Path, name, h, shape, variant="full", warm=True, sass_path=None):
     tiles = math.ceil(shape["M"] / h["block_M"]) * math.ceil(shape["N"] / h["block_N"])
     kt = math.ceil(shape["K"] / h["block_K"])
-    sp = dram_split_kslice(h, shape, 48)
+    sp = dram_split_kslice(h, shape, SMS)
     from .kernel import FLOW
 
     if FLOW:
@@ -107,9 +107,9 @@ def kernel_us(cal: Path, name, h, shape, variant="full", warm=True, sass_path=No
             * h["block_K"]
             * 2
         )
-        eq = min(48.0, float(tiles))
+        eq = min(float(SMS), float(tiles))
         return (
-            2.6
+            C["launch_stream_us"]
             + ws_sim(
                 cal,
                 name,
@@ -120,13 +120,13 @@ def kernel_us(cal: Path, name, h, shape, variant="full", warm=True, sass_path=No
                 min(1.0, rb / cb) if cb else 0.0,
                 dram_clk(rb, secs, eq),
                 sass_path,
-                nblocks=math.ceil(tiles / 48),
+                nblocks=math.ceil(tiles / SMS),
                 grid=tiles,
             )["us"]
         )
-    left, t, w = tiles, 2.6, 0
+    left, t, w = tiles, C["launch_stream_us"], 0
     while left > 0:
-        n = min(left, 48)
+        n = min(left, SMS)
         cb = (
             n
             * kt
@@ -167,7 +167,7 @@ def ws_level(cal: Path, names: list[str] | None = None) -> list[dict]:
         kt = r["KT"]
         nol = ws_sim(cal, name, "noload", h, s)
         full1 = ws_sim(cal, name, "full", h, s)
-        meas_c = r["compute_per_ktile_us"] * kt + (r.get("block_setup_us") or 0.1)
+        meas_c = r["compute_per_ktile_us"] * kt + (r.get("block_setup_us") or C["block_setup_us"])
         k = kernel_us(cal, name, h, s)
         rows.append(
             {

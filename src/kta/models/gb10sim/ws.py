@@ -22,6 +22,7 @@ The tile bytes per k-tile are split evenly over the UTMALDG instructions of one 
 
 from __future__ import annotations
 
+from .model import C
 from .sm import SM, P
 
 
@@ -68,8 +69,9 @@ class WSSM(SM):
     def on_share(self, eq):
         # the TMA engine: 81 GB/s for one SM alone, the chip's 1.86 TB/s shared by the
         # SM-equivalents in flight
-        rate_alone = 81e9 / 2.54e9
-        rate_chip = 1860e9 / 2.54e9 / max(1.0, eq)
+        clock = C["clock_under_load_GHz"] * 1e9
+        rate_alone = C["tma_r_GBs_alone"] * 1e9 / clock
+        rate_chip = C["tma_l2_aggregate_GBs"] * 1e9 / clock / max(1.0, eq)
         self.tma_clk_per_B = 1.0 / min(rate_alone, rate_chip)
 
     def eligible(self, w, now):
