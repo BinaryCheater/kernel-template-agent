@@ -55,9 +55,9 @@ machines:
       - {id: measuring, kind: step, work: executor,
          does: Measure under the protocol; measure baselines if needed}
       - {id: judging, kind: step, work: orchestrator,
-         does: Decompose the gap (eps, delta, dpre, L_rep, irreducible), apply the disciplines, route by routing.yaml}
+         does: "Analyse the round (D733): model alignment gate, bottleneck from the model and ncu (D735), main contradiction, verification against the last round; decompose the gap and route by routing.yaml"}
       - {id: waiting, kind: wait, work: agent,
-         does: "An agent works on the created task (in S1 after your release): T1/T6 formulate a new family (the next round searches it), T4 revises the cost model"}
+         does: "An agent works on the created task (in S1 after your release): T7 analyses the round first (D736), then T1/T6 formulate the next round's family with the analyst's report, T4 revises the cost model"}
       - {id: accepted, kind: terminal, work: orchestrator,
          does: Criterion met; the Solution is recorded}
       - {id: closed, kind: terminal, work: orchestrator,
@@ -88,6 +88,8 @@ machines:
          when: the route escalates (uncertified solver, model error after calibration, inconsistent bound)}
       - {from: judging, to: closed, kind: normal, rule: 6, label: null rounds,
          when: the null-round limit is reached (guard.null_round_limit)}
+      - {from: waiting, to: waiting, kind: creates_task, creates: [T1, T6, T2, T4], label: analysed,
+         when: the analyst's T7 accepted; the routed task starts with its report (D736)}
       - {from: waiting, to: retrieving, kind: resume, label: re-retrieve,
          when: a T1, T2 or T6 task accepted (the pool changed)}
       - {from: waiting, to: solving, kind: resume, label: re-solve,

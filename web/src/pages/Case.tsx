@@ -255,7 +255,7 @@ function why(r: Round, c: CaseDetail, current: boolean): string {
   const last = r.steps[r.steps.length - 1];
   if (r.outcome) {
     const t = r.tasks[r.tasks.length - 1];
-    return `Judged: ${r.outcome.label}.` + (t ? ` Next: agent will ${taskWord(t.type)} (${t.state}), then round ${r.n + 1}.` : "");
+    return `Analysed: ${r.outcome.label}.` + (t ? ` Next: agent will ${taskWord(t.type)} (${t.state}), then round ${r.n + 1}.` : "");
   }
   if (current && c.blocked) return `Stopped at ${stateWord(c.blocked.state)}: ${c.blocked.error}.`;
   if (r.tasks.length) {
@@ -457,6 +457,15 @@ function StepPath({ r, m, stopped, held }: { r: Round; m: Machines; stopped: boo
   const solve = m.machines.find((x) => x.id === "solve");
   const spans = r.steps.map((s) => ({ s, d: ((s.end ? Date.parse(s.end) : now) - Date.parse(s.start)) / 1000 }));
   const total = spans.reduce((p, x) => p + x.d, 0) || 1;
+  // D736: each waiting step waits on one agent task, in creation order (T7 analyses the
+  // round, then T1/T6 formulates the next one)
+  const agents = [...r.tasks].sort((a, b) => a.created_at.localeCompare(b.created_at));
+  let k = 0;
+  const label = (state: string) => {
+    if (state !== "waiting") return stateWord(state);
+    const t = agents[k++];
+    return !t ? stateWord(state) : t.type === "T7" ? "Agent analyses" : t.type === "T1" || t.type === "T6" ? "Agent formulates" : `Agent: ${taskWord(t.type)}`;
+  };
   return (
     <div className="step-path">
       {spans.map(({ s, d }, i) => {
@@ -465,7 +474,7 @@ function StepPath({ r, m, stopped, held }: { r: Round; m: Machines; stopped: boo
         const tone = open && stopped ? "fail" : isHeld ? "held" : stateTone(solve, s.state);
         return (
           <div key={i} className={`sp ${tone} ${open && !isHeld ? "open" : ""}`} style={{ flexGrow: Math.max(0.6, (isHeld ? 0.06 : d / total) * 10) }} title={`${s.state}: ${dur(d)}${isHeld ? ` · not running: ${held}` : s.note ? ` · ${s.note}` : ""}`}>
-            <span>{stateWord(s.state)}{isHeld ? " · queued" : ""}</span><span className="num">{isHeld ? "not running" : dur(d)}</span>
+            <span>{label(s.state)}{isHeld ? " · queued" : ""}</span><span className="num">{isHeld ? "not running" : dur(d)}</span>
           </div>
         );
       })}

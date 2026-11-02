@@ -11,8 +11,8 @@ export const STATE_WORDS: Record<string, string> = {
   building: "Compile",
   checking: "Check",
   measuring: "Measure",
-  judging: "Judge",
-  waiting: "Agent formulates",
+  judging: "Analyse",  // D733: judging is the bottleneck analysis
+  waiting: "Agent works",
   accepted: "Solved",
   closed: "Gave up",
   // expand loop: one Reference

@@ -38,6 +38,15 @@ def solve_branches() -> list[tuple[str, dict[str, Any], dict[str, Any]]]:
         ("measuring", {"measurements": {}}, {}),
         ("waiting", {"tasks": {"T": "accepted"}}, {**waiting, "waiting_type": "T1"}),
         ("waiting", {"tasks": {"T": "accepted"}}, {**waiting, "waiting_type": "T4"}),
+        (  # D736: the analyst accepted, the routed task follows
+            "waiting",
+            {"tasks": {"T": "accepted"}, "analysis_report": "## Main contradiction"},
+            {
+                **waiting,
+                "waiting_type": "T7",
+                "after_analysis": {"type": "T1", "goal": "g", "inputs": ["F", "C"], "header": None},
+            },
+        ),
     ]
 
 
