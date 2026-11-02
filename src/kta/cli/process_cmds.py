@@ -106,6 +106,7 @@ def cmd_profile_write(args: argparse.Namespace, make_ctx: ContextFactory) -> int
         "codex-v5": profile.CODEX_V5,
         "codex-v6": profile.CODEX_V6,
         "codex-v7": profile.CODEX_V7,
+        "codex-v8": profile.CODEX_V8,
     }[args.name]
     with command(make_ctx, "profile-write", f"kta profile write {args.name}") as ctx:
         pid = profile.write_profile(Services.open(ctx).store, ctx.clock.now(), spec)
@@ -160,5 +161,6 @@ def add_process_commands(
             "codex-v5",
             "codex-v6",
             "codex-v7",
+            "codex-v8",
         ],
     )

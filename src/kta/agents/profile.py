@@ -14,7 +14,7 @@ from __future__ import annotations
 import gzip
 import io
 import tarfile
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -97,7 +97,10 @@ CODEX_V7 = ProfileSpec(
     skills_by_type={**SKILLS_BY_TYPE_V2, "T7": ["use-kta"]},
     task_types=(*TASK_TYPES, "T7"),
 )
-LATEST = CODEX_V7  # what `kta init` stores for a fresh store (D705)
+# codex-v8 (SYSDEBUG-2, D742): T7 tells an overestimated unit (count or hardware rate,
+# direction `calibrate model`) from a missing term, and treats spreads within 5% as noise.
+CODEX_V8 = replace(CODEX_V7, name="codex-v8", version=8)
+LATEST = CODEX_V8  # what `kta init` stores for a fresh store (D705)
 SUPPORTED_COMMANDS = [
     "show",
     "card",

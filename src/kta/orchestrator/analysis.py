@@ -15,8 +15,10 @@ order and the result is one report that drives the next round.
    moved bottleneck (also progress), or no effect. Directions follow the bottleneck: a
    bottleneck that does not move and does not improve counts as stuck.
 
-Unit busy fractions come from the model's work at peak over the measured time; per-unit
-counters (ncu) are not read yet.
+Unit busy fractions come from the model's work at peak over the measured time, next to
+the ncu counters of each bucket's best (D735); a unit the model prices longer than the
+kernel ran is overestimated (its rate or its count), and candidates within NOISE of each
+other give the model nothing to rank (D742).
 """
 
 from __future__ import annotations
@@ -32,8 +34,10 @@ NEAR_BOUND = 1.10  # measured within 10% of the bound: the bucket is done
 INFLATION = 1.20  # bottleneck work above 1.2x its minimum
 IDLE = 0.80  # bottleneck busy below 80% of the measured time
 BOTTLENECK_MARGIN = 0.15  # counters busier by 15 points on another unit
-COUNTED_UNITS = ("tensor", "l2", "smem", "dram")  # units with an ncu pct-of-peak counter
+COUNTED_UNITS = ("tensor", "l2", "smem", "dram", "issue")  # units with an ncu pct-of-peak counter
 PROGRESS = 0.02  # a best time 2% lower is progress (above the usual noise band)
+NOISE = 1.05  # measured candidates within 5% of each other: nothing for the model to rank
+OVER = 1.05  # a unit the model gives more time than the whole kernel took
 
 
 def _spearman(xs: Sequence[float], ys: Sequence[float]) -> float | None:
@@ -80,11 +84,20 @@ def _bucket(b: Mapping[str, Any], prev: Mapping[str, Any] | None) -> dict[str, A
     misaligned: list[str] = []
     if low:
         misaligned.append("count")
-    if ties or (spread_meas > 1.5 and spread_pred < 1.1):
+    if (ties and spread_meas > NOISE) or (spread_meas > 1.5 and spread_pred < 1.1):
         misaligned.append("missing_term")
+    # a unit priced longer than the kernel ran: its rate is too low or its count too high
+    over = [u["unit"] for u in units if best > 0 and float(u["predicted_us"]) > OVER * best]
+    if over:
+        misaligned.append("overestimated")
     if median_err is not None and median_err > REL_ERROR_MAX and not low:
         misaligned.append("rate_or_composition")
-    if rho is not None and rho < RANK_MIN and "missing_term" not in misaligned:
+    if (
+        rho is not None
+        and rho < RANK_MIN
+        and spread_meas > NOISE
+        and "missing_term" not in misaligned
+    ):
         misaligned.append("missing_term")
     top = max(units, key=lambda u: float(u["predicted_us"]), default=None)
     unit = str(top["unit"]) if top else None
@@ -131,6 +144,7 @@ def _bucket(b: Mapping[str, Any], prev: Mapping[str, Any] | None) -> dict[str, A
         "median_rel_error": median_err,
         "predictions_tie": ties,
         "below_sol_units": low,
+        "overestimated_units": over,
         "measured_spread": spread_meas,
         "predicted_spread": spread_pred,
         "bottleneck": unit,
@@ -158,6 +172,9 @@ def _bucket(b: Mapping[str, Any], prev: Mapping[str, Any] | None) -> dict[str, A
         ],
         "status": status,
     }
+    modelled = {str(u["unit"]) for u in units}
+    out["model_only_units"] = sorted(modelled - set(counted)) if counted else []
+    out["counter_only_units"] = sorted(set(counted) - modelled)
     out["contradiction"] = _contradiction(out)
     out["next"] = _next(out)
     out["verification"] = _verify(out, prev)
@@ -168,25 +185,33 @@ def _pct(x: float | None) -> str:
     return "?" if x is None else f"{100 * x:.0f}%"
 
 
+def _model_text(a: Mapping[str, Any]) -> str:
+    why = {
+        "count": f"units {', '.join(a['below_sol_units'])} are priced below their speed of "
+        "light (counts per tile or per step)",
+        "missing_term": f"measured times differ {a['measured_spread']:.2f}x while "
+        f"predictions differ {a['predicted_spread']:.2f}x (a resource is missing from the "
+        "expression)",
+        "rate_or_composition": "predictions are off by a median "
+        f"{_pct(a['median_rel_error'])} (a rate or the way terms combine is wrong)",
+        "bottleneck_mismatch": f"the model's bottleneck is {a['bottleneck']} but the "
+        f"counters show {a['ncu_bottleneck']} busiest",
+        "overestimated": f"the model gives {', '.join(a['overestimated_units'])} more time "
+        f"than the whole kernel took ({a['best_us']:.4g} us): that unit's rate in the "
+        "hardware model is too low, or its count too high",
+    }
+    return "the model does not match the measurements: " + "; ".join(
+        why[k] for k in a["misaligned"]
+    )
+
+
 def _contradiction(a: Mapping[str, Any]) -> str:
     s, u = a["status"], a["bottleneck"]
     if s == "near_bound":
-        return f"best {a['best_us']:.4g} us is within 10% of the bound {a['bound_us']:.4g} us"
+        text = f"best {a['best_us']:.4g} us is within 10% of the bound {a['bound_us']:.4g} us"
+        return text + (f"; {_model_text(a)}" if a["misaligned"] else "")
     if s == "model":
-        why = {
-            "count": f"units {', '.join(a['below_sol_units'])} are priced below their speed of "
-            "light (counts per tile or per step)",
-            "missing_term": f"measured times differ {a['measured_spread']:.2f}x while "
-            f"predictions differ {a['predicted_spread']:.2f}x (a resource is missing from the "
-            "expression)",
-            "rate_or_composition": "predictions are off by a median "
-            f"{_pct(a['median_rel_error'])} (a rate or the way terms combine is wrong)",
-            "bottleneck_mismatch": f"the model's bottleneck is {a['bottleneck']} but the "
-            f"counters show {a['ncu_bottleneck']} busiest (the expression misses that work)",
-        }
-        return "the model does not match the measurements: " + "; ".join(
-            why[k] for k in a["misaligned"]
-        )
+        return _model_text(a)
     if s == "inflation":
         return (
             f"{u} is the bottleneck and does {a['bottleneck_work_ratio']:.2f}x the necessary "
@@ -210,6 +235,14 @@ def _next(a: Mapping[str, Any]) -> str:
     if s == "near_bound":
         return "done for this shape"
     if s == "model":
+        if a["misaligned"] == ["overestimated"] or (
+            "overestimated" in a["misaligned"] and "count" not in a["misaligned"]
+        ):
+            return (
+                f"fix the model's time for {', '.join(a['overestimated_units'])}: calibrate its "
+                "rate on this GPU (hardware model) if the counts are right, else fix the counts; "
+                "do not optimise the kernel against a model that does not match"
+            )
         return (
             "fix the search expression first (instances, missing transfer or storage terms, "
             "rates); do not optimise the kernel against a model that does not match"
@@ -247,6 +280,10 @@ def analyze(
     return {"buckets": rows, "text": report(rows)}
 
 
+def _us(x: Any) -> str:
+    return "n/a" if x is None else f"{float(x):.4g} us"
+
+
 def report(rows: Sequence[Mapping[str, Any]]) -> str:
     lines = ["## Analysis of the last round", ""]
     for a in rows:
@@ -256,6 +293,32 @@ def report(rows: Sequence[Mapping[str, Any]]) -> str:
             f"({a['pct_of_bound']:.0f}% of bound); model "
             + ("aligned" if a["aligned"] else f"misaligned ({', '.join(a['misaligned'])})")
         )
+        ncu = a.get("ncu_bottleneck")
+        lines.append(
+            f"  - bottleneck: model {a.get('bottleneck') or '?'}"
+            + (f", ncu {ncu}" if ncu else ", no ncu profile")
+            + f"; occupancy {_pct(a.get('occupancy'))}"
+        )
+        units: list[Mapping[str, Any]] = list(a.get("units") or [])
+        for u in units:  # what the expression and the counters say per unit
+            sol = f", speed of light {_us(u['sol_us'])}" if u.get("sol_us") else ""
+            lines.append(
+                f"    - {u['unit']}: model {_us(u.get('predicted_us'))} (busy "
+                f"{_pct(u.get('busy'))} of the measured time), ncu busy "
+                f"{_pct(u.get('ncu_busy'))}{sol}"
+            )
+        if a.get("model_only_units"):
+            lines.append(f"  - model only (no counter read): {', '.join(a['model_only_units'])}")
+        if a.get("counter_only_units"):
+            only = ", ".join(a["counter_only_units"])
+            lines.append(f"  - counters only (no term in the expression): {only}")
+        lines.append(
+            f"  - measured candidates differ {a['measured_spread']:.2f}x, predictions "
+            f"{a['predicted_spread']:.2f}x (within {NOISE:.2f}x is measurement noise)"
+        )
+        if a.get("top_stalls"):
+            stalls = ", ".join(f"{x['reason']} {x['per_issue']:.3g}" for x in a["top_stalls"])
+            lines.append(f"  - top warp stalls (cycles per issue): {stalls}")
         lines.append(f"  - main contradiction: {a['contradiction']}")
         lines.append(f"  - next: {a['next']}")
         if v["outcome"] != "first":

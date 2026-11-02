@@ -419,3 +419,25 @@ def test_every_judging_route_to_a_task_may_create_the_analyst() -> None:
 
     edges = [e for e in machine("solve").edges if e.src == "judging" and e.to == "waiting"]
     assert edges and all("T7" in e.creates for e in edges)
+
+
+def test_noise_is_not_a_missing_term_and_a_unit_longer_than_the_kernel_is_overestimated() -> None:
+    """SYSDEBUG13 round 1: tied predictions over candidates 3% apart were called a missing
+    term, and an L2 priced at 1051 us for a kernel that ran 776 us was not named (D742)."""
+    from kta.orchestrator import analysis
+
+    units = [
+        {"unit": "tensor", "bound_us": 747.5, "predicted_us": 747.5},
+        {"unit": "l2", "bound_us": None, "predicted_us": 1051.0},
+        {"unit": "dram", "bound_us": 392.0, "predicted_us": 392.0},
+    ]
+    ncu = {"busy": {"tensor": 0.66, "l2": 0.56, "smem": 0.26}, "stalls": {"wait": 4.6}}
+    b = {"name": "s1", "pairs": [(1053.0, 776.5), (1053.0, 790.0), (1053.0, 803.0)],
+         "best_us": 776.5, "bound_us": 747.5, "units": units, "ncu": ncu}  # fmt: skip
+    a = analysis.analyze([b], None)["buckets"][0]
+    assert "missing_term" not in a["misaligned"] and "overestimated" in a["misaligned"]
+    assert a["overestimated_units"] == ["l2"]
+    assert a["counter_only_units"] == ["smem"] and a["model_only_units"] == ["dram"]
+    text = analysis.report([a])
+    assert "more time than the whole kernel took" in text and "l2: model 1051 us" in text
+    assert "ncu busy 56%" in text and "counters only" in text and "noise" in text

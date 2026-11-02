@@ -396,7 +396,14 @@ ANALYSIS_FILE = "analysis.md"
 ANALYSIS_SECTIONS = (
     "Main contradiction", "Direction", "Expected effect", "What would refute it", "Per shape",
 )  # fmt: skip
-DIRECTIONS = ("fix expression", "fix family", "widen space", "new technique", "done")
+DIRECTIONS = (
+    "fix expression",
+    "calibrate model",
+    "fix family",
+    "widen space",
+    "new technique",
+    "done",
+)
 
 
 def analysis_report(inp: CheckInput) -> Outcome:

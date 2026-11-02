@@ -602,6 +602,7 @@ NCU_UNITS = {
     "l2": "lts__t_sectors.avg.pct_of_peak_sustained_elapsed",
     "smem": "l1tex__data_pipe_lsu_wavefronts_mem_shared.avg.pct_of_peak_sustained_elapsed",
     "dram": "dram__throughput.avg.pct_of_peak_sustained_elapsed",
+    "issue": "smsp__issue_active.avg.pct_of_peak_sustained_elapsed",  # D742
     "sm": "sm__throughput.avg.pct_of_peak_sustained_elapsed",
     "occupancy": "sm__warps_active.avg.pct_of_peak_sustained_active",
 }

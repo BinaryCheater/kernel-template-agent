@@ -245,7 +245,7 @@ def test_clock_dip_between_identical_endpoints_is_rejected() -> None:
 @pytest.mark.parametrize(
     "sample",
     [
-        {"sm_mhz": 2400, "throttle_reasons": 4, "temp_c": 50},
+        {"sm_mhz": 2400, "throttle_reasons": 8, "temp_c": 50},  # HW slowdown
         {"sm_mhz": 2400, "throttle_reasons": 0, "temp_c": 90},
     ],
 )
@@ -255,6 +255,13 @@ def test_transient_throttling_or_heat_between_endpoints_is_rejected(sample: dict
     verdict = quiet.assess(data, baseline().quiet_thresholds)
     assert verdict.interfered
     assert any("throttle" in reason or "temp_c" in reason for reason in verdict.reasons)
+
+
+def test_the_sw_power_cap_is_not_interference() -> None:
+    """D742: GB10 runs sustained kernels at its software power cap (0x4)."""
+    data = timing(False)
+    data["clock_samples"] = [{"sm_mhz": 2400, "throttle_reasons": 4, "temp_c": 50}]
+    assert not quiet.assess(data, baseline().quiet_thresholds).interfered
 
 
 def test_parse_proc_counters() -> None:

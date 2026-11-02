@@ -28,6 +28,7 @@ task_types:
   - {id: T4, name: diagnose model, by: worker, delivers: revised cost terms}
   - {id: T5, name: write microbenchmark, by: worker, delivers: benchmark and result}
   - {id: T6, name: fix family or Template, by: worker, delivers: new Family or Template version}
+  - {id: T7, name: analyse the round, by: worker, delivers: analysis report (main contradiction, direction)}
 
 machines:
   - id: solve

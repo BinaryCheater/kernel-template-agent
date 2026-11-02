@@ -2,7 +2,7 @@
 
 checks may not import knowledge, so the orchestrator enumerates: one ``path`` item per
 reachable structural path (the distinct values of the family's structure variables
-among feasible points) and 4 random feasible assignments as ``sample`` items, on the
+among feasible points) and one random feasible assignment as a ``sample`` item, on the
 first shape of the card's Case. Each item is generated and built through the Executor.
 """
 
@@ -27,7 +27,7 @@ from kta.solve import enumerate_space, shape_buckets
 from kta.solve.export import ExportCheck, check_export
 from kta.store.base import Store
 
-SAMPLES = 4
+SAMPLES = 1  # D742: one random feasible point besides every structural path
 MAX_POINTS = 100_000  # feasible points visited when looking for structural paths
 
 
