@@ -189,6 +189,12 @@ TERMS = (("eps", "epsilon"), ("delta", "delta"), ("dpre", "delta_pre"), ("l_rep"
          ("irreducible", "irreducible"))  # fmt: skip
 
 
+def _shape_text(shape: Mapping[str, Any]) -> str:
+    """``M=8192 N=1024 K=4096``: GEMM dimensions first in M, N, K order, then the rest."""
+    first = [k for k in ("M", "N", "K") if k in shape]
+    return " ".join(f"{k}={shape[k]}" for k in [*first, *sorted(set(shape) - set(first))])
+
+
 def _header(
     loop: Loop, s: Settings, name: str, decs: list[dict[str, Any]], task_type: str
 ) -> TaskHeader | None:
@@ -206,10 +212,11 @@ def _header(
         if known:
             gap_terms[key] = sum(known) / len(known)
     gap_terms["class"] = name
-    facts = [f"family `{loop.facts.get('family')}`: this round solved inside it (`kta show`)"]
+    fam = str(loop.facts.get("family", ""))
+    facts = [f"family `{fam[:12]}` (an input): this round solved inside it"]
     bounds: list[float] = []
     for b in buckets:
-        shape = "x".join(str(v) for v in dict(b.get("shape") or {}).values()) or b["name"]
+        shape = _shape_text(dict(b.get("shape") or {})) or b["name"]
         if not b.get("pairs"):
             facts.append(f"{b['name']} {shape}: no measured candidate")
             continue
@@ -229,7 +236,7 @@ def _header(
     }
     try:
         return access.task_header(
-            case=str(loop.data.get("name") or loop.subject),
+            case=str(loop.facts.get("case_name") or loop.subject[:12]),
             case_id=loop.subject,
             bound_us=sum(bounds) / len(bounds) if bounds else None,
             bottleneck=f"mean of {len(bounds)} buckets" if len(bounds) > 1 else None,

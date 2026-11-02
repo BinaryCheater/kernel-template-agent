@@ -20,6 +20,7 @@ from kta.orchestrator import runner as runner_mod
 from kta.orchestrator import solve_work, step
 from kta.orchestrator.pipeline import Services
 from kta.orchestrator.runner import Runner
+from kta.orchestrator.solve_loop import _shape_text  # pyright: ignore[reportPrivateUsage]
 from kta.orchestrator.transition import Loop
 from kta.store.base import SpanRow
 from kta.store.sqlite import SqliteStore
@@ -144,6 +145,7 @@ def test_a_model_off_round_creates_t4_unless_model_fixes_are_deferred(ctx: Conte
     header = deferred.tasks[0].header
     assert header is not None and header.situation == "diagnostic"
     assert "s0 " in header.text and "best 14 us, reference 10.5" in header.text
+    assert _shape_text({"K": 4096, "M": 8192, "N": 1024}) == "M=8192 N=1024 K=4096"
     assert routed.tasks[0].header is not None and routed.tasks[0].header.situation == "eps"
     # the model metrics are still recorded on the decomposition
     assert deferred.records[-2].body["buckets"][0]["model_off"] is True

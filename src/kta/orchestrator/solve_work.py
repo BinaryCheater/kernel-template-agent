@@ -625,6 +625,7 @@ def work_judging(svc: Services, loop: Loop) -> Facts:
         # D701: returned as a fact too, or the transition writes the loop data read before
         # judging and the checkpointed full checks are lost
         "final_checks": _final_map(svc, loop),
+        "case_name": cv.problem.name,  # for the task header (D707)
         "basis": disciplines.basis(templates, family, model_id),
         "couplings": [
             [m.name for m in c.body.members]
