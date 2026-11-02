@@ -36,7 +36,8 @@ PLAN_NOTE = "the task's card names no FormulationPlan (no case header)"
 
 class ControlsBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    expected: str | None  # the version the author read (null: none stored yet)
+    # the version the author read (null: none stored yet); omitted: the current one
+    expected: str | None = controls_store.LATEST
     changes: dict[str, Any]
     reason: Reason = ""
 

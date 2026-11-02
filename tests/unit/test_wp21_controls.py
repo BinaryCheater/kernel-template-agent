@@ -183,10 +183,10 @@ def test_a_value_change_is_a_new_version_with_author_and_reason(store, ops, cloc
         controls_store.propose(
             store, ops, {"budget.retries_per_task": 4}, HUMAN, "r", clock.now(), v1.version_id
         )
-    with pytest.raises(ConfigError, match="equal"):
-        controls_store.propose(
-            store, ops, {"budget.retries_per_task": 3}, HUMAN, "r", clock.now(), v2.version_id
-        )
+    same = controls_store.propose(
+        store, ops, {"budget.retries_per_task": 3}, HUMAN, "", clock.now()
+    )
+    assert same == v2  # no change, no new version; no expected version needed
     with pytest.raises(PermissionDenied):
         system = Actor(type="system", name="x")
         controls_store.propose(

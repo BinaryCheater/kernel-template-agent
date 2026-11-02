@@ -27,6 +27,9 @@ POINTER = "controls:current"
 SYSTEM = Actor(type="system", name="kta.store.controls")
 
 
+LATEST = "latest"  # propose on the current version, whatever it is
+
+
 def _read(store: Store, ops: Ops) -> tuple[Record | None, str | None]:
     rid = ops.get_pointer(POINTER)
     return (None, None) if rid is None else (store.get(rid), rid)
@@ -100,13 +103,13 @@ def propose(
     author: Actor,
     reason: str,
     at: datetime,
-    expected: str | None,
+    expected: str | None = LATEST,
 ) -> Controls:
     """Write a new version with ``changes`` (knob id -> value) by a human ``author``.
 
     ``expected`` is the version the author read (None: the values in force were not stored
     yet); a different current version is refused, so nobody overwrites a change they have
-    not seen. Invariant knobs are refused
+    not seen; LATEST (the default) proposes on whatever is current. Invariant knobs are refused
     (PermissionDenied), invalid values and no-op proposals are ConfigError.
     """
     if author.type != "human" or not author.name.strip():
@@ -115,7 +118,7 @@ def propose(
     if not changes:
         raise ConfigError("no changes given")
     read = current(store, ops)  # None: the author saw values not stored yet (baseline/upgrade)
-    if expected != read.version_id:
+    if expected != LATEST and expected != read.version_id:
         raise ConfigError(
             f"the current controls version is {read.version_id} (v{read.version}), "
             f"not {expected}: reload and propose again"
@@ -123,7 +126,7 @@ def propose(
     base = ensure(store, ops, at)  # stores what the author saw first, so the diff is exact
     new = base.with_changes(changes)
     if not base.diff(new):
-        raise ConfigError("the proposed values equal the current ones")
+        return base  # nothing to change
     return _write(store, ops, base, new.values, author, reason.strip(), at)
 
 
