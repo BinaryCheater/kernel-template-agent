@@ -145,3 +145,23 @@ wrong; relax the buffer lifetime rule; do not fix the model yet, run the system 
 - Route `model_fix_deferred` → T1 "Improve the kernel", held at S1. To run it: Settings → Agent
   prompts → put codex-v3 in force (operator token, reason), then release the task (case page or
   Release stage tab).
+
+## Update 2026-11-02 05:00 — SYSDEBUG7 (codex-v4 in force, T1 ready)
+
+User requests: put the profile in force without asking; more detailed prompts; fix the family
+pick; show formulation, verification and the agent's work in the loop.
+
+- Code `9a6d160` (frontend CSS from the next commit, rebuilt in place). Store SYSDEBUG7; web
+  `http://127.0.0.1:14178` (tunnel to 4178), API 17316 → 7316. SYSDEBUG6 (same code minus the
+  header fixes) was replaced on these ports; its store is kept. SYSDEBUG4 (14174) and
+  SYSDEBUG5 (14176) still run.
+- codex-v4 put in force by the assistant at the user's word (reason quotes it); batch
+  environment `codex-v4-v4` built.
+- D706: after an accepted T1/T6 the next round solves the delivered family; D707: routed tasks
+  carry the case header (per-shape best / reference / bound / prediction / rank rho, family,
+  gap terms, situation) and codex-v4 has a detailed T1 template; D708: the round card shows six
+  stages (pick family, formulation, solve + proof gate, compile/check/measure, judge, agent
+  task) with who does each.
+- Round 1: quick 24/24, strict 3/3 (all three kept now). Best 2015 / 774 / 515 µs against
+  cuBLAS 1490 / 770 / 424 µs. Proof gate kept 64/64 per shape. Route `model_fix_deferred` → T1,
+  held at S1 until released.
