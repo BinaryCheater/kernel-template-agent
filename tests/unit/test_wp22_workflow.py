@@ -49,7 +49,7 @@ def test_workflow_is_derived_from_machines_checks_and_sessions(api: Api) -> None
     assert status == 200, w
     assert w["profile"]["name"] == "codex-v2" and w["profile"]["current"]
     by = {t["id"]: t for t in w["task_types"]}
-    assert set(by) == {"T1", "T2", "T3", "T4", "T5", "T6"}
+    assert set(by) == {"T1", "T2", "T3", "T4", "T5", "T6", "T7"}  # T7 listed with the machines
     for t, names in DONE_CHECKS.items():
         if t not in by:  # D736: T7 exists from profile codex-v7; this store runs codex-v2
             continue
