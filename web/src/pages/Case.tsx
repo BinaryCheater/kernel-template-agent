@@ -167,7 +167,7 @@ function CaseBody({ c, m, a }: { c: CaseDetail; m: Machines; a?: ActiveRuns }) {
       <section className="stack" style={{ gap: 10 }}>
         <h2 className="section-title">Rounds</h2>
         {rounds.length === 0 && <div className="empty">No round has started.</div>}
-        {rounds.map((r, i) => <RoundCard key={r.n} r={r} c={c} m={m} a={a} open={i === 0} current={i === 0 && !!c.loop_id} />)}
+        {rounds.map((r, i) => <RoundCard key={r.n} r={r} prev={rounds[i + 1]} c={c} m={m} a={a} open={i === 0} current={i === 0 && !!c.loop_id} />)}
       </section>
 
       <div className="grid" style={{ gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", alignItems: "start" }}>
@@ -269,7 +269,15 @@ function heldOf(c: CaseDetail, a?: ActiveRuns): string | null {
   return a?.loops.find((l) => l.id === c.loop_id)?.held?.reason ?? null;
 }
 
-function RoundCard({ r, c, m, open, current, a }: { r: Round; c: CaseDetail; m: Machines; open: boolean; current: boolean; a?: ActiveRuns }) {
+/** How a round's best compares with the previous round's (gain, not pass/fail): "1.08× faster" or "3.1% slower". */
+function gainText(now: number | null | undefined, before: number | null | undefined): { text: string; tone: string } | null {
+  if (!now || !before) return null;
+  const r = before / now;
+  if (Math.abs(r - 1) < 0.005) return { text: "same as last round", tone: "ink2" };
+  return r > 1 ? { text: `${r.toFixed(2)}× faster than last round`, tone: "ok-text" } : { text: `${((1 / r - 1) * 100).toFixed(1)}% slower than last round`, tone: "warn-text" };
+}
+
+function RoundCard({ r, prev, c, m, open, current, a }: { r: Round; prev?: Round; c: CaseDetail; m: Machines; open: boolean; current: boolean; a?: ActiveRuns }) {
   const [expanded, setExpanded] = useState(open);
   const now = useNow();
   const s = r.summary;
@@ -317,6 +325,7 @@ function RoundCard({ r, c, m, open, current, a }: { r: Round; c: CaseDetail; m: 
                     <span className="small mono">{b.bucket}</span>
                     <BoundBar bound={b.bound_us} best={x?.measured_best_us ?? null} reference={null} predicted={x?.predicted_best_us ?? null} />
                     <span className="small num">{x?.measured_best_us ? us(x.measured_best_us) : <span className="muted">pred {us(x?.predicted_best_us)}</span>}</span>
+                    {(() => { const g = gainText(x?.measured_best_us, prev?.summary?.buckets[b.bucket]?.measured_best_us); return g ? <span className={`small ${g.tone}`}>{g.text}</span> : null; })()}
                   </div>
                 );
               })}

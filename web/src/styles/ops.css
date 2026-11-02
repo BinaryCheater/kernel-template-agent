@@ -30,6 +30,7 @@ label.field textarea { resize: vertical; }
 .notice.fail { background: var(--st-fail-tint); color: #9b1f1f; }
 .notice.waiting { background: var(--st-waiting-tint); color: #6b4b00; }
 .warn-text { color: #8a5a00; }
+.ok-text { color: #0b7a3e; }
 
 /* ---- inbox ---- */
 .inbox-list { display: flex; flex-direction: column; gap: var(--s3); }
