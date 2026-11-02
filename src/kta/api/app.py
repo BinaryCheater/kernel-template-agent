@@ -18,6 +18,7 @@ from kta.api import (
     controls,
     events,
     journal,
+    learning,
     mechanisms,
     read,
     review,
@@ -52,6 +53,7 @@ def create_app(api: Api) -> FastAPI:
     app.include_router(mechanisms.router(api))
     app.include_router(workflow.router(api))
     app.include_router(review.router(api))
+    app.include_router(learning.router(api))
 
     @app.exception_handler(KtaError)
     async def kta_error(_: Request, exc: KtaError) -> JSONResponse:  # pyright: ignore[reportUnusedFunction]
