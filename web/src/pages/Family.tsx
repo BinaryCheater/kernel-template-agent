@@ -80,7 +80,8 @@ function FamilyBody({ f }: { f: FamilyDetail }) {
           <div className="ink2">{f.workload} · <RecordLink id={f.id} label="family record" /> · <RecordLink id={f.chain_record} label="chain record" /></div>
         </div>
       </div>
-      <div className="grid" style={{ gridTemplateColumns: "minmax(0, 1fr) 360px", alignItems: "start" }}>
+      {/* SYSDEBUG-2: the chain is wide, so it takes the full row and the card sits below */}
+      <div className="stack">
         <Panel primary title="Composition chain" sub="each box refines one transaction with one Template; arrows are 'after' dependencies — click a step">
           <ChainDag nodes={f.nodes} selected={sel} onSelect={setSel} />
           <div className="legend">

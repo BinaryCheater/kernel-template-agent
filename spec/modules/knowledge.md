@@ -58,7 +58,7 @@ def reuse_plan(store, chain_id: str, case: Case, hw: dict, params: dict | None =
     # 对 invalid 的步骤，给出 alternative_of 的候选
 
 # 检索
-def retrieve_families(store, case: Case, k: int = 5, hw: dict | None = None) -> list[Card]
+def retrieve_families(store, case: Case, k: int = 5, hw: dict | None = None, case_id: str | None = None) -> list[Card]  # case_id: leave out families of other cases (D713)
 def retrieve_templates(store, pattern: str | None, unit: str | None, text: str | None, case: Case | None, k: int = 10, hw: dict | None = None, params: dict | None = None, target: str | None = None) -> list[Card]
     # target (default case.target): only Templates whose every required Capability is "yes" there (D445)
 def unavailable_templates(store, target: str) -> dict[str, list[str]]   # {"unavailable": [...] (a capability "no"), "unconfirmed": [...] ("unknown")}

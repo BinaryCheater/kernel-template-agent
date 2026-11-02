@@ -136,7 +136,7 @@ def work_retrieving(svc: Services, loop: Loop) -> Facts:
     def allowed(cards: list[Any]) -> list[Any]:
         return allowed_cards(cards, members, knowledge)
 
-    fams = allowed(retrieve_families(svc.store, cv.case, k=20, hw=hw.limits))
+    fams = allowed(retrieve_families(svc.store, cv.case, k=20, hw=hw.limits, case_id=cv.id))
     if fams:
         ids = [c.id for c in fams]
         # D706: a family an agent just delivered goes first, so the round measures the

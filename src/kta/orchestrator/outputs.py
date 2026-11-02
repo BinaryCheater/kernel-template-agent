@@ -46,6 +46,10 @@ def _family(inp: CheckInput, actor: Actor) -> dict[str, Any]:
     ]
     if previous:
         refs["previous"] = previous[0]
+    # D713: the family belongs to the case its task was for; other cases do not retrieve it
+    cases = [i for i in inp.card.inputs if inp.store.exists(i) and inp.store.get(i).kind == "Case"]
+    if cases:
+        refs["case"] = cases[0]
     fam_id = _put(
         inp, actor, "Family", Family.model_validate(fp.family.model_dump()), refs=refs, blobs=blobs
     )

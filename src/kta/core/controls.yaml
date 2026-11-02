@@ -747,12 +747,12 @@ knobs:
     section: "12 §7"
     controls: how many of the shortlist (best predicted first) are compiled each round; the measured points are re-ranked from these with the compiler's feedback
     type: int
-    value: 16
+    value: 8
     min: 1
     prevents: compiling the whole shortlist (64 per bucket) every round when only the measured points need build feedback
     where: [orch]
     status: default
-    source: "SYSDEBUG-2 D697 (rehearsal: 198 serial compiles, 15 min, before anything was measured)"
+    source: "SYSDEBUG-2 D697 (rehearsal: 198 serial compiles, 15 min, before anything was measured); 8 set by the user 2026-11-02, provisional (D714)"
     set_by: []
     editable: true
     accessor: compile_count

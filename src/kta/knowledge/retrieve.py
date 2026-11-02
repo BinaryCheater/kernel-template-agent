@@ -213,13 +213,25 @@ def _family_chain(store: Store, rec: Record) -> Chain | None:
 
 
 def retrieve_families(
-    store: Store, case: Case, k: int = 5, hw: Mapping[str, Any] | None = None
+    store: Store,
+    case: Case,
+    k: int = 5,
+    hw: Mapping[str, Any] | None = None,
+    case_id: str | None = None,
 ) -> list[Card]:
-    """Families whose every step is admissible on the case (Γ not false, hardware yes)."""
+    """Families whose every step is admissible on the case (Γ not false, hardware yes).
+
+    With ``case_id``, a family delivered for another case is left out (D713): a family
+    is the formulation of one case, so cases running side by side never share one.
+    Families without a case (seed or library ones) stay usable as starting points.
+    """
     p = problem_params(store, case)
     cw = _case_words(store, case)
     ranked: list[tuple[tuple[Any, ...], Card]] = []
     for rid, rec in pool.with_ids(pool.records(store, "Family")):
+        owner = rec.refs.get("case")
+        if case_id is not None and owner is not None and owner != case_id:
+            continue
         chain = _family_chain(store, rec)
         if chain is None or not pool.usable(store, rid):
             continue

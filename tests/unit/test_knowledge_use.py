@@ -197,6 +197,24 @@ def test_retrieve_families_excludes_false_scope(pool: Store) -> None:
     assert [c.name for c in retrieve_families(pool, case({"M": 64}), hw=HW)] == ["gemm_ok@1"]
 
 
+def test_retrieve_families_leaves_out_other_cases_families(pool: Store) -> None:
+    """D713: a family delivered for one case is not retrieved for another; a family
+    without a case (seed) stays usable. Existing record IDs stand in for the two Cases."""
+    chain = put_chain(pool, "fp16 gemm", [GEMM_ITEMS[0], GEMM_ITEMS[3]])
+    mine, other = source_id(pool), chain
+    for name, owner in (("seed", None), ("mine", mine), ("other", other)):
+        refs: dict[str, Any] = {"chain": chain} | ({"case": owner} if owner else {})
+        put(
+            pool,
+            "Family",
+            {"name": name, "version": 1, "backend": "tilelang", "entry": "gen.py:generate"},
+            refs,
+        )
+    got = {c.name for c in retrieve_families(pool, case({"M": 64}), hw=HW, case_id=mine)}
+    assert got == {"seed@1", "mine@1"}
+    assert len(retrieve_families(pool, case({"M": 64}), hw=HW)) == 3
+
+
 def _recon(store: Store, chain: str, name: str, matched: int, unmatched: int) -> str:
     src = source_id(store)
     ref = put(
