@@ -199,6 +199,8 @@ def test_retrieval_puts_the_delivered_family_before_the_incumbent(
     w = world(svc)
     cards = [Card(i, "Family", f"{i}@1", [], "proposed", "declared", False) for i in "ABC"]
     monkeypatch.setattr(solve_work, "retrieve_families", lambda *_a, **_k: cards)
+    monkeypatch.setattr(solve_work.pipeline, "family_package", lambda *_a: None)
+    monkeypatch.setattr(solve_work.space, "expression_issues", lambda *_a: ([], []))
     base = loop("solve", "retrieving", prefer_family="A")
     lp = Loop(base.id, base.kind, w["case"], base.state, base.data, base.facts)
     assert solve_work.work_retrieving(svc, lp)["families"][0] == "A"  # incumbent
@@ -235,3 +237,19 @@ def test_a_failed_check_reads_as_its_numbers() -> None:
     assert text is not None and text.startswith("check numeric, dist cancellation, rel_l2 0.000208")
     assert "mismatches 480" in text and text.endswith("(+1 more)")
     assert failure_reason([]) is None
+
+
+def test_a_family_with_a_wrong_expression_goes_back_to_the_agent(
+    ctx: Context, store: SqliteStore, ops: SqliteOps, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """D737: the retrieved family fails the expression check -> a T1 to fix it, no search."""
+    svc = Services(ctx, store, ops)
+    w = world(svc)
+    cards = [Card("A", "Family", "A@1", [], "proposed", "declared", False)]
+    monkeypatch.setattr(solve_work, "retrieve_families", lambda *_a, **_k: cards)
+    monkeypatch.setattr(solve_work.pipeline, "family_package", lambda *_a: None)
+    monkeypatch.setattr(solve_work.space, "expression_issues", lambda *_a: (["tensor low"], []))
+    base = loop("solve", "retrieving")
+    lp = Loop(base.id, base.kind, w["case"], base.state, base.data, base.facts)
+    out = solve_work.work_retrieving(svc, lp)
+    assert out["families"] == [] and out["t1_inputs"][0] == "A" and "tensor low" in out["t1_goal"]
