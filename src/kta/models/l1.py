@@ -66,6 +66,7 @@ class EvalOverlap:
     holds: bool
     inflight: float | None = None
     trips: float | None = None
+    executors: float | None = None  # D731: waves = ceil(executors / resident slots)
 
 
 @dataclass(frozen=True)
@@ -212,6 +213,17 @@ def _sum(vectors: Iterable[Mapping[str, float]]) -> dict[str, float]:
     return out
 
 
+def waves(executors: float | None, residency: int | None, mm: MachineModel) -> float:
+    """Sequential waves of ``executors`` over the chip's resident slots (D731). Without a
+    residency wall the slots are the hardware's CTA limit per SM, so the bound stays
+    optimistic."""
+    if not executors:
+        return 1.0
+    per_sm = residency or int(mm.hw.get("max_ctas_per_sm", 1) or 1)
+    slots = max(1, int(mm.hw.get("sm_count", 1) or 1) * max(1, per_sm))
+    return float(math.ceil(executors / slots))
+
+
 def check_walls(storage: Iterable[EvalStorage], mm: MachineModel) -> tuple[WallCheck, ...]:
     out: list[WallCheck] = []
     items = list(storage)
@@ -241,7 +253,7 @@ def price(
     resident = [w.residency for w in walls if w.residency is not None]
     if resident and "residency" not in feats:
         feats["residency"] = min(resident)
-    parts, unpriced, unmodelled, per_tx = price_parts(effects, mm)
+    parts, unpriced, unmodelled, per_tx = price_parts(effects, mm, feats.get("residency"))
     eff = {r: mm.efficiency_of(r, feats) for r in parts.busy_peak_us}
     for vec in parts.serial_peak_us:
         eff.update({r: mm.efficiency_of(r, feats) for r in vec if r not in eff})
@@ -267,7 +279,7 @@ def _applies(mm: MachineModel, src: str, feats: Mapping[str, Any]) -> bool:
 
 
 def price_parts(
-    effects: EvalEffects, mm: MachineModel
+    effects: EvalEffects, mm: MachineModel, residency: int | None = None
 ) -> tuple[
     Parts, dict[str, float], dict[str, float], tuple[tuple[str, str, dict[str, float]], ...]
 ]:
@@ -306,7 +318,8 @@ def price_parts(
             if all(lat is not None for g in lats for lat in g) and all(lats):
                 # min: the bound must stay optimistic (MIP <= simulator, 02 §5.2)
                 la, lb = (min(x for x in g if x is not None) for g in lats)
-                recurrence[f"recurrence {name}"] = o.trips * (la + lb) / o.inflight * US_PER_S
+                per_executor = o.trips * (la + lb) / o.inflight * US_PER_S
+                recurrence[f"recurrence {name}"] = per_executor * waves(o.executors, residency, mm)
             else:
                 unmodelled[f"latency:{name}"] = 1.0
     busy = _sum(v for k, v in times.items() if k not in serial_keys)

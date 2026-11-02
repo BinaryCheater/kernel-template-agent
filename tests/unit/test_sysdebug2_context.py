@@ -335,3 +335,36 @@ def test_the_host_lock_span_lane_is_valid() -> None:
     from kta.core import trace
 
     assert trace.LANE_RE.match("host:spark-hk")  # the measurement window's host lock span
+
+
+def test_analysis_gates_on_the_model_then_names_the_bottleneck() -> None:
+    from kta.orchestrator import analysis
+
+    units = [
+        {"unit": "tensor", "bound_us": 1495.0, "predicted_us": 0.02},
+        {"unit": "l2", "bound_us": None, "predicted_us": 0.03},
+    ]
+    tie = {"name": "s0", "pairs": [(8.5, 2033.0), (8.5, 6081.0), (8.5, 3411.0)],
+           "best_us": 2033.0, "bound_us": 1495.0, "units": units}  # fmt: skip
+    a = analysis.analyze([tie], None)["buckets"][0]
+    assert a["status"] == "model" and set(a["misaligned"]) >= {"count", "missing_term"}
+    good = {"name": "s0", "pairs": [(2000.0, 2100.0), (2600.0, 2700.0), (3000.0, 3200.0)],
+            "best_us": 2100.0, "bound_us": 1495.0,
+            "units": [{"unit": "tensor", "bound_us": 1495.0, "predicted_us": 1500.0},
+                      {"unit": "l2", "bound_us": 400.0, "predicted_us": 2000.0}]}  # fmt: skip
+    b = analysis.analyze([good], None)["buckets"][0]
+    assert b["aligned"] and b["bottleneck"] == "l2" and b["status"] == "inflation"
+    same = analysis.analyze([good], {"buckets": [b]})["buckets"][0]
+    assert same["verification"] == {**same["verification"], "outcome": "no_effect", "stuck": 1}
+    assert "main contradiction" in analysis.report([b])
+
+
+def test_the_recurrence_runs_once_per_wave() -> None:
+    from types import SimpleNamespace as NS
+
+    from kta.models.l1 import waves
+
+    mm: Any = NS(hw={"sm_count": 48, "max_ctas_per_sm": 32})
+    assert waves(2048, 1, mm) == 43  # one resident CTA per SM
+    assert waves(None, 1, mm) == 1
+    assert waves(2048, None, mm) == 2  # no residency wall: the optimistic hardware limit

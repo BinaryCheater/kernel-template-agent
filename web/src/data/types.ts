@@ -322,7 +322,7 @@ export interface Round {
   steps: RoundStep[];
   tasks: RoundTask[];
   summary?: RoundSummary;
-  outcome?: { rule?: number | null; label: string; record: string; gap_class?: string | null; decomposition?: string | null } | null;
+  outcome?: { rule?: number | null; label: string; record: string; gap_class?: string | null; decomposition?: string | null; analysis?: RoundAnalysis | null } | null;
   /** SYSDEBUG-2 (D700): check results grouped by reason (quick = gate before measuring, full = each shape's best). */
   checks?: { quick: CheckLevel; full: CheckLevel };
   made?: RoundMade | null;
@@ -1201,3 +1201,27 @@ export interface InForce {
     counts: Record<string, number>;
   };
 }
+
+/** D733: the bottleneck analysis that judged a round, per measured bucket. */
+export interface BucketAnalysis {
+  name: string;
+  best_us: number;
+  bound_us: number;
+  pct_of_bound: number | null;
+  aligned: boolean;
+  misaligned: string[];
+  rho: number | null;
+  median_rel_error: number | null;
+  predictions_tie: boolean;
+  measured_spread: number;
+  predicted_spread: number;
+  bottleneck: string | null;
+  bottleneck_busy: number | null;
+  bottleneck_work_ratio: number | null;
+  units: { unit: string; sol_us: number | null; predicted_us: number; busy: number | null }[];
+  status: "near_bound" | "model" | "inflation" | "idle" | "balanced";
+  contradiction: string;
+  next: string;
+  verification: { outcome: "first" | "progress" | "bottleneck_moved" | "no_effect"; stuck: number; previous_best_us?: number; previous_bottleneck?: string | null };
+}
+export interface RoundAnalysis { buckets: BucketAnalysis[]; text: string }

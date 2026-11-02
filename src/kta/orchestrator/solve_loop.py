@@ -180,6 +180,9 @@ def _task(loop: Loop, f: Mapping[str, Any], cls: str, route: Mapping[str, Any]) 
         inputs = [refs[0], loop.subject]
     else:
         inputs = [str(f["family"]), loop.subject]
+    text = (f.get("analysis") or {}).get("text")
+    if text:  # D733: the analysis is what the next task works on
+        goal = f"{goal}\n\n{text}"
     return TaskRequest(task_type, goal, inputs)
 
 
@@ -346,6 +349,7 @@ def judge(loop: Loop, s: Settings) -> Transition:
         "units": units,
         "explained_share": share,
         "buckets": [{"name": b["name"], **m} for b, m in zip(buckets, metrics, strict=True)],
+        "analysis": f.get("analysis"),  # D733
         "settings": {
             "rank_min": s.rank_min,
             "rel_error_max": s.rel_error_max,

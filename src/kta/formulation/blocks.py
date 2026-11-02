@@ -111,6 +111,9 @@ class BoundOverlap:
     when: Expr | None
     inflight: Expr | None
     trips: Expr | None
+    # executors that each run the loop (the item's p.instances): the recurrence holds per
+    # executor, and executors beyond one wave of resident slots run after it (D731)
+    executors: Expr | None = None
 
 
 @dataclass(frozen=True)
@@ -131,7 +134,12 @@ class Block:
         for t in self.transactions:
             out += [t.count, *t.amounts.values(), *([t.when] if t.when else [])]
         out += [x for s in self.storage for x in (s.bytes, s.when) if x is not None]
-        out += [x for o in self.overlaps for x in (o.when, o.inflight, o.trips) if x is not None]
+        out += [
+            x
+            for o in self.overlaps
+            for x in (o.when, o.inflight, o.trips, o.executors)
+            if x is not None
+        ]
         return out
 
 
@@ -386,6 +394,7 @@ class _Effects:
                 when=self._expr(when, o.when),
                 inflight=self._expr(inflight, o.inflight),
                 trips=self._expr(trips, o.trips),
+                executors=self._expr(self.scale, str(self.item.bindings.get(INSTANCES))),
             )
             for o, when, inflight, trips in self._ov
         )

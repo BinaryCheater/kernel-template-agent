@@ -234,7 +234,9 @@ def test_stable_operating_clock_below_rated_maximum_is_not_interference() -> Non
 def test_clock_dip_between_identical_endpoints_is_rejected() -> None:
     data = timing(False)
     data["clock_samples"] = [{"sm_mhz": 1200, "throttle_reasons": 0, "temp_c": 50}]
-    verdict = quiet.assess(data, baseline().quiet_thresholds)
+    # D734: off by default (GB10's sampled clocks are stale); a set limit still applies
+    assert not quiet.assess(data, baseline().quiet_thresholds).interfered
+    verdict = quiet.assess(data, {**baseline().quiet_thresholds, "sm_clock_drop_max": 0.15})
     assert verdict.interfered
     assert verdict.observed["sm_clock_drop_frac"] == 0.5
     assert any("sm_clock_drop_frac" in reason for reason in verdict.reasons)

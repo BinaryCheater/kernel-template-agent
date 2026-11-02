@@ -65,6 +65,7 @@ def evaluate_effects(
             _on(o.when, a, hw, shape),
             _num(o.inflight, a, hw, shape) if o.inflight else None,
             _num(o.trips, a, hw, shape) if o.trips else None,
+            _num(o.executors, a, hw, shape) if o.executors else None,
         )
         for o in f.overlaps
     )

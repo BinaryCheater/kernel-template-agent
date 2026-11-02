@@ -119,7 +119,10 @@ def space_verifies(inp: CheckInput) -> Outcome:
     # Late import: space enumerates, generates and builds through the Executor.
     from kta.orchestrator.space import verify_family_space
 
-    report = verify_family_space(inp.svc, inp.workdir, inp.card)
+    try:
+        report = verify_family_space(inp.svc, inp.workdir, inp.card)
+    except SchemaError as exc:  # D732: the search expression is wrong; nothing was built
+        return Outcome("verify_space", False, [str(exc)], {})
     failures = [
         f"{i['path_id']}: {i.get('reason') or i.get('failures') or 'failed (see its Check)'}"
         for i in report.items

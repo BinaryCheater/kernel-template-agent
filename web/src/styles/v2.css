@@ -467,3 +467,8 @@ dl.bv.nested .bv-row { grid-template-columns: 110px minmax(0, 1fr); }
 .made-details { display: flex; flex-direction: column; gap: 4px; margin: 6px 0; }
 .made-details table.t.compact td.mono { white-space: nowrap; }
 .made-details details > table, .made-details details > div { overflow-x: auto; }
+/* D733: the analysis that judged a round */
+.analysis { display: flex; flex-direction: column; gap: 6px; margin: 8px 0; padding: 8px 10px; border-left: 3px solid var(--hairline); background: var(--panel-sunk); }
+.analysis-bucket { display: flex; flex-direction: column; gap: 2px; }
+.analysis-bucket details > table { overflow-x: auto; display: block; }
+.analysis-bucket tr.strong td { font-weight: 600; }

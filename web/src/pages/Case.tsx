@@ -7,7 +7,7 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { api } from "../data/source";
-import type { ActiveRuns, CaseDetail, CaseIndexRow, CaseRoundProgress, CheckLevel, Machines, Round, RoundMade, RoundSummary, RoundTask, StepWork } from "../data/types";
+import type { ActiveRuns, BucketAnalysis, CaseDetail, CaseIndexRow, CaseRoundProgress, CheckLevel, Machines, Round, RoundAnalysis, RoundMade, RoundSummary, RoundTask, StepWork } from "../data/types";
 import { useApi } from "../data/useApi";
 import { useNow } from "../data/live";
 import { Chip, Loading, Panel, RecordLink } from "../components/ui";
@@ -346,12 +346,42 @@ function RoundCard({ r, prev, c, m, open, current, a }: { r: Round; prev?: Round
               ))}
             </div>
           </div>
+          {r.outcome?.analysis && <AnalysisPanel a={r.outcome.analysis} />}
           {r.made && <MadeDetails made={r.made} />}
           {r.checks && <CheckReasons checks={r.checks} />}
           <StepTable r={r} held={current ? heldOf(c, a) : null} stopped={stopped} />
           {current && c.candidates.length > 0 && <Candidates c={c} />}
         </>
       )}
+    </div>
+  );
+}
+
+const STATUS: Record<BucketAnalysis["status"], string> = {
+  near_bound: "near the bound", model: "model misaligned", inflation: "excess work", idle: "bottleneck waits", balanced: "balanced",
+};
+
+/** D733: the analysis that judged the round: model alignment, bottleneck, main contradiction, next step. */
+function AnalysisPanel({ a }: { a: RoundAnalysis }) {
+  const pct = (x: number | null) => (x == null ? "—" : `${Math.round(100 * x)}%`);
+  return (
+    <div className="analysis">
+      <div className="caption">analysis</div>
+      {a.buckets.map((b) => (
+        <div key={b.name} className="analysis-bucket">
+          <div><span className="mono">{b.name}</span> <Chip tone={b.status === "model" ? "fail" : b.status === "near_bound" ? "ok" : "running"}>{STATUS[b.status]}</Chip>{" "}
+            <span className="small ink2">best {us(b.best_us)} · bound {us(b.bound_us)} · {b.pct_of_bound == null ? "" : `${Math.round(b.pct_of_bound)}% of bound`} · model {b.aligned ? "aligned" : `misaligned (${b.misaligned.join(", ")})`}{b.rho != null ? ` · rank ρ ${b.rho.toFixed(2)}` : b.predictions_tie ? " · predictions tie" : ""}{b.median_rel_error != null ? ` · median error ${pct(b.median_rel_error)}` : ""}</span>
+          </div>
+          <div><b>main contradiction:</b> {b.contradiction}</div>
+          <div><b>next:</b> {b.next}</div>
+          {b.verification.outcome !== "first" && <div className="small ink2">against the last round: {b.verification.outcome.replace("_", " ")} (was {us(b.verification.previous_best_us)} on {b.verification.previous_bottleneck ?? "—"}){b.verification.stuck ? `, stuck ${b.verification.stuck} round(s)` : ""}</div>}
+          <details className="small"><summary>units (model work at peak vs measured time)</summary>
+            <table className="t compact"><thead><tr><th>unit</th><th>speed of light</th><th>predicted</th><th>busy</th></tr></thead>
+              <tbody>{b.units.map((u) => <tr key={u.unit} className={u.unit === b.bottleneck ? "strong" : ""}><td className="mono">{u.unit}</td><td className="num">{us(u.sol_us)}</td><td className="num">{us(u.predicted_us)}</td><td className="num">{pct(u.busy)}</td></tr>)}</tbody>
+            </table>
+          </details>
+        </div>
+      ))}
     </div>
   );
 }

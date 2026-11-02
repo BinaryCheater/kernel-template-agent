@@ -16,8 +16,11 @@ from kta.checks.full import SpaceItem, SpaceReport, run_full, space_verify
 from kta.core.errors import SchemaError
 from kta.core.ids import record_id
 from kta.core.schemas.process import TaskCard
-from kta.formulation import assemble
+from kta.formulation import assemble, evaluate_effects
+from kta.formulation.blocks import INSTANCES
 from kta.knowledge import FamilyPackage, load_family
+from kta.models import min_work
+from kta.models.l1 import price, sol_us
 from kta.orchestrator import pipeline
 from kta.orchestrator.pipeline import CaseView, Services, bucket_shape, case_view
 from kta.solve import enumerate_space, shape_buckets
@@ -43,6 +46,84 @@ def points(
     found: list[dict[str, Any]] = []
     enumerate_space(f, shape, mm.hw, found.append, max_nodes=MAX_POINTS)
     return shape, found
+
+
+EXPRESSION_SAMPLES = 8
+EXPRESSION_POINTS = 5_000
+WORK_SLACK = 0.99  # rounding in ceil_div counts must not trip the conservation check
+
+
+def expression_issues(
+    svc: Services, fp: FamilyPackage, cv: CaseView
+) -> tuple[list[str], list[str]]:
+    """The search expression's hard errors and hints (D732).
+
+    Errors: work below the problem's minimum on a resource at a sampled point (the
+    expression would predict faster than the speed of light). Hints: an item with
+    transactions and no ``p.instances`` (its counts must then cover the whole kernel), and
+    family variables no cost term reads (the expression cannot rank them).
+    """
+    _, mm = svc.machine(cv.case.target)
+    templates = pipeline.templates_of(svc.store, fp)
+    f = assemble(fp, fp.chain, templates, cv.case, mm.hw)
+    errors: list[str] = []
+    hints: list[str] = []
+    for item in fp.chain.items:
+        txs = [t for t in f.transactions if t.source == item.key]
+        if txs and INSTANCES not in item.bindings:
+            hints.append(
+                f"chain item {item.key}: bind {INSTANCES} to how many times its transactions run "
+                "in the whole kernel (per-CTA items: the CTA count, e.g. "
+                "ceil_div(case.M, BM) * ceil_div(case.N, BN); per-iteration items: that times "
+                "the iterations per CTA); left unbound it counts one instance"
+            )
+    shape = bucket_shape(shape_buckets(cv.case)[0])
+    found: list[dict[str, Any]] = []
+    enumerate_space(f, shape, mm.hw, found.append, max_nodes=EXPRESSION_POINTS)
+    try:
+        sol = sol_us(min_work(cv.problem, shape), mm)
+    except Exception:  # noqa: BLE001 - a problem without min_work has no conservation check
+        sol = {}
+    hints_absent: list[str] = []
+    for a in found[:: max(1, len(found) // EXPRESSION_SAMPLES)][:EXPRESSION_SAMPLES]:
+        r = price(evaluate_effects(f, a, shape, mm.hw), mm)
+        busy: dict[str, float] = {}
+        for _, _, times in r.per_tx:
+            for res, t in times.items():
+                busy[res] = busy.get(res, 0.0) + t
+        low = [
+            f"{res} {busy.get(res, 0.0):.4g} us < minimum {need:.4g} us "
+            f"(1/{need / max(busy.get(res, 0.0), 1e-12):.0f} of the necessary work)"
+            for res, need in sorted(sol.items())
+            if need > 0 and 0.0 < busy.get(res, 0.0) < WORK_SLACK * need
+        ]
+        absent = [res for res, need in sorted(sol.items()) if need > 0 and res not in busy]
+        if absent and not hints_absent:
+            hints_absent = absent
+        if low:
+            errors.append(
+                f"at {a} on {shape} the expression does less work than the problem needs: "
+                + "; ".join(low)
+                + ". Counts are probably per tile or per step: check p.instances and the "
+                "count bindings of the items producing these resources"
+            )
+            break
+    used = {v for t in f.transactions for e in (t.count, *t.amounts.values()) for v in e.free_vars}
+    used |= {
+        v for o in f.overlaps for e in (o.trips, o.inflight, o.executors) if e for v in e.free_vars
+    }
+    used |= {v for st in f.storage for v in st.bytes.free_vars}
+    hints += [
+        f"resource {res} has necessary work but no term in the expression (a missing term)"
+        for res in hints_absent
+    ]
+    hints += [
+        f"family variable {v} appears in no cost term: the expression cannot rank its values "
+        "(a missing term, or a variable to fix)"
+        for v in sorted(f.variables)
+        if v not in used and v not in f.runtime_vars
+    ]
+    return errors, hints
 
 
 def items(svc: Services, fp: FamilyPackage, cv: CaseView) -> list[SpaceItem]:
@@ -83,7 +164,11 @@ def items(svc: Services, fp: FamilyPackage, cv: CaseView) -> list[SpaceItem]:
 
 def verify_family_space(svc: Services, workdir: Path, card: TaskCard) -> SpaceReport:
     fp = load_family(workdir)
-    todo = items(svc, fp, case_of(svc.store, card))  # before the checker needs the executor
+    cv = case_of(svc.store, card)
+    errors, _ = expression_issues(svc, fp, cv)
+    if errors:
+        raise SchemaError("search expression: " + " | ".join(errors))
+    todo = items(svc, fp, cv)  # before the checker needs the executor
     return space_verify(svc.checker(), todo, [])
 
 

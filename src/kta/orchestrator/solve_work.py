@@ -26,7 +26,7 @@ from kta.knowledge import retrieve_families
 from kta.knowledge.findings import couplings
 from kta.measure.baseline import measure_baseline
 from kta.models import bound, min_work
-from kta.orchestrator import disciplines, pipeline, proofgate
+from kta.orchestrator import analysis, disciplines, pipeline, proofgate
 from kta.orchestrator.pipeline import Services, bucket_shape, case_view
 from kta.orchestrator.solve_baseline import baseline_us
 from kta.orchestrator.solve_evaluate import checkpoint, each_top, paused, pending
@@ -683,6 +683,8 @@ def work_judging(svc: Services, loop: Loop) -> Facts:
         )
     refs = svc.store.query("Reference", {"problem": cv.case.problem}, limit=5)
     family = str(d["families"][0])
+    # D733: judging is the analysis; the last round's analysis is still in the loop data
+    report = analysis.analyze(buckets, d.get("analysis"))
     templates = [i.template for i in pipeline.family_package(svc, family).chain.items]
     return {
         # D701: returned as a fact too, or the transition writes the loop data read before
@@ -696,6 +698,7 @@ def work_judging(svc: Services, loop: Loop) -> Facts:
             if any(m.name in {t.split("@", 1)[0] for t in templates} for m in c.body.members)
         ],
         "buckets": buckets,
+        "analysis": report,
         "references": [record_id(r) for r in refs],
         "family": str(d["families"][0]),
         "model": model_id,

@@ -118,7 +118,7 @@ def test_d325_defaults_are_registry_values() -> None:
 
 def test_settings_are_a_view_of_the_controls() -> None:
     s = Settings.of(baseline())
-    assert (s.max_rounds, s.max_retries, s.shortlist, s.top_k) == (5, 2, 64, 8)
+    assert (s.max_rounds, s.max_retries, s.shortlist, s.top_k) == (5, 2, 64, 4)
     assert s.task_wall_s["T2"] == 5400 and s.card_budget("T4")["wall_s"] == 2700
     assert s.loop_limit() == {"agent_min": 5 * 5400 / 60, "gpu_min": 10 * 600 / 60}
     assert s.epsilon_rel == pytest.approx(0.1) and s.attention_limit == 10

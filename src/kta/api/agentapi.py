@@ -257,7 +257,10 @@ def router(api: Api) -> APIRouter:
             generate(fp, found[0], shape)
         except Exception as exc:  # noqa: BLE001 - any generator error is the author's to see
             return [Issue("generation", f"{type(exc).__name__}: {exc}", "gen.py")]
-        return []
+        errors, hints = space.expression_issues(svc, fp, cv)  # D732
+        return [Issue("expression", m, "chain") for m in errors] + [
+            Issue("expression_hint", m, "chain", "warning") for m in hints
+        ]
 
     @r.post("/instantiate")
     def instantiate(

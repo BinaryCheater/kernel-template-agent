@@ -187,7 +187,7 @@ def test_selection_arms_draw_random_feasible_points_and_copy_a_solution(svc: Ser
     b = {"name": "s0", "shape": {"M": 512, "N": 512, "K": 512}, "weight": 1.0}
     lp = Loop("L1", "solve", w["case"], "solving", {})
     arms = selection_arms(svc, lp, s, f, TEST_MM, b, fam, w["case"])
-    assert len(arms["random"]) == s.exploration_k == 2
+    assert len(arms["random"]) == s.exploration_k == 1
     assert [svc.store.get(c).body["assignment"] for c in arms["copied"]] == [{"bm": 64}]
     again = selection_arms(svc, lp, s, f, TEST_MM, b, fam, w["case"])
     same = [svc.store.get(c).body["assignment"] for c in again["random"]]

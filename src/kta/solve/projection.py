@@ -50,7 +50,7 @@ from kta.formulation import Formulation, evaluate_effects
 from kta.formulation.blocks import BoundExpr, BoundOverlap, BoundStorage, BoundTx
 from kta.formulation.pricing import row_term
 from kta.models import MachineModel
-from kta.models.l1 import US_PER_S, compose, price_parts
+from kta.models.l1 import US_PER_S, check_walls, compose, price_parts, waves
 from kta.solve.enumerate import domain_size, enumerate_space, range_values
 from kta.solve.mip import FEASIBLE, GAP_ZERO, INF, MENU_MAX, Linear, NotExportable, _add_row, _Lin
 
@@ -248,9 +248,17 @@ def _recurrence(c: _Ctx, o: BoundOverlap, groups: list[list[BoundTx]]) -> Value:
                 return 0.0  # unmodelled latency: L1 reports it and drops the bound
             lats.append(min(op.latency_s for op in live if op and op.latency_s is not None))
         assert o.inflight is not None and o.trips is not None
-        return float(c.ev(o.trips, a)) * sum(lats) / float(c.ev(o.inflight, a)) * US_PER_S
+        per_executor = float(c.ev(o.trips, a)) * sum(lats) / float(c.ev(o.inflight, a))
+        n = float(c.ev(o.executors, a)) if o.executors is not None else None
+        return per_executor * waves(n, _residency(c, a), c.mm) * US_PER_S
 
     return value
+
+
+def _residency(c: _Ctx, a: Mapping[str, Any]) -> int | None:
+    walls = check_walls(evaluate_effects(c.f, c.env(a), c.shape, c.mm.hw).storage, c.mm)
+    resident = [w.residency for w in walls if w.residency is not None]
+    return min(resident) if resident else None
 
 
 def _wall_bytes(c: _Ctx, s: BoundStorage, level: str, scope: str) -> Value:
@@ -321,6 +329,8 @@ def atoms(
             names = _vars(o.inflight, o.trips) | {
                 v for g in groups for t in g for v in support[t.key]
             }
+            if o.executors is not None:  # D731: waves depend on residency (storage)
+                names |= _vars(o.executors, *(st.bytes for st in c.f.storage))
             out.append(
                 Atom("recmii", f"recurrence {name}", name, c.open(names), _recurrence(c, o, groups))
             )
