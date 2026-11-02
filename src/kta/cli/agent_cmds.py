@@ -73,7 +73,7 @@ def cmd_query(args: argparse.Namespace, make_ctx: ContextFactory) -> int:
             if case is None:
                 raise NotSupported("query near a family: give the Case ID (--case)")
             cards = (
-                retrieve_families(store, case, k=args.k)
+                retrieve_families(store, case, k=args.k, case_id=subject)  # D713
                 if args.what == "pool"
                 else nearest_chains(store, case, k=args.k)
             )

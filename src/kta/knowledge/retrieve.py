@@ -161,10 +161,18 @@ def _words(text: str) -> set[str]:
 
 
 def _case_words(store: Store, case: Case) -> set[str]:
-    words = _words(case.problem)
-    hit = pool.find_by_name(store, "Problem", case.problem)
-    if hit is not None:
+    """Words of the case's Problem. ``case.problem`` is the Problem's record ID (D717: it
+    was looked up by name only, so every chain scored 0); a name still works."""
+    words: set[str] = set()
+    body: dict[str, Any] | None = None
+    if store.exists(case.problem) and store.get(case.problem).kind == "Problem":
+        body = store.get(case.problem).body
+    elif (hit := pool.find_by_name(store, "Problem", case.problem)) is not None:
         body = hit[1].body
+    else:
+        words = _words(case.problem)
+    if body is not None:
+        words |= _words(str(body.get("name", "")))
         words |= _words(
             " ".join(
                 [

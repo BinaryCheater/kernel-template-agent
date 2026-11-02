@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import asdict, replace
+from dataclasses import replace
 from typing import Any, cast
 
 from kta.checks.full import run_full, run_quick
@@ -22,7 +22,7 @@ from kta.core.schemas import Actor, Record
 from kta.core.schemas.evaluation import Bound, Build, Measurement, Prediction
 from kta.core.schemas.evaluation import Candidate as CandidateBody
 from kta.formulation import assemble
-from kta.knowledge import nearest_chains, retrieve_families, retrieve_templates, reuse_plan
+from kta.knowledge import retrieve_families
 from kta.knowledge.findings import couplings
 from kta.measure.baseline import measure_baseline
 from kta.models import bound, min_work
@@ -165,25 +165,18 @@ def work_retrieving(svc: Services, loop: Loop) -> Facts:
             )
             out["family_choice"]["note"] = out["delivered_family_note"]
         return out
-    chains = allowed(nearest_chains(svc.store, cv.case, k=10))[:3]
-    data: dict[str, Any] = {"nearest_chains": [asdict(c) for c in chains]}
+    # D717: no family of this case yet. Choosing the Templates, the chain and the search
+    # space is the formulation the agent is asked to do; the system preselects nothing (no
+    # nearest chain, no keep/replace verdicts). The agent reaches the knowledge (Templates,
+    # reference chains) through `kta query` and its skills.
     inputs = [cv.id]
-    if chains:
-        plan = reuse_plan(svc.store, chains[0].id, cv.case, hw.limits)
-        data["reuse_plan"] = plan.to_dict()
-        inputs.append(chains[0].id)
-        bad = [s.key for s in plan.steps if s.verdict != "keep"]
-        goal = f"Build a family from chain {chains[0].name}; replace steps {', '.join(bad)}"
-    else:
-        cards = allowed(retrieve_templates(svc.store, case=cv.case, k=20, hw=hw.limits))[:5]
-        data["templates"] = [asdict(c) for c in cards]
-        inputs += [c.id for c in cards]
-        goal = (
-            "Build a family for this case from the retrieved Templates"
-            if cards
-            else f"Build a family for this case (knowledge condition: {knowledge})"
-        )
-    data["knowledge"] = knowledge
+    goal = (
+        "Build the first family for this case: choose the Templates and the search space "
+        "yourself and say why"
+    )
+    if knowledge != "pool":
+        goal += f" (knowledge condition: {knowledge})"
+    data: dict[str, Any] = {"knowledge": knowledge, "preselected": None}
     if members is not None:
         data["snapshot"] = len(members)
     rid = _report(svc, "retrieval", cv.id, goal, data, {"case": cv.id})

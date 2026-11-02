@@ -40,7 +40,9 @@ the reference, the lower bound (SOL), the model's prediction and the family it u
 - Start from where the time goes: the shape with the largest gap, what the kernel spends it
   on (memory traffic, a pipeline that does not overlap, too few blocks per SM, an
   instruction choice), and the Templates that address it (skill `find-knowledge`;
-  `kta query tmpl`, `kta query pool --case <case>`, `kta why <id>`).
+  `kta query tmpl`, `kta query chain --case <case>` for the Template chains of reference
+  kernels, `kta query pool --case <case>`, `kta why <id>`). Nothing is preselected for you:
+  which Templates, which chain and which search space is your choice.
 - Keep the family general over its variables: the solver chooses the values, not you.
 - Prefer Templates whose scope holds on this case and whose assurance is higher; a step whose
   scope or proof is open is allowed, but say so in the delivery note.

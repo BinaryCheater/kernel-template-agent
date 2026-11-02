@@ -209,6 +209,22 @@ def test_retrieval_puts_the_delivered_family_before_the_incumbent(
     assert out["families"][0] == "A" and "not retrievable" in out["delivered_family_note"]
 
 
+def test_without_a_family_the_agent_formulates_from_nothing_preselected(
+    ctx: Context, store: SqliteStore, ops: SqliteOps, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """D717: no family of the case -> a T1 whose only input is the Case (plus the retrieval
+    report); no nearest chain, no keep/replace verdicts in the goal."""
+    svc = Services(ctx, store, ops)
+    w = world(svc)
+    monkeypatch.setattr(solve_work, "retrieve_families", lambda *_a, **_k: [])
+    base = loop("solve", "retrieving")
+    lp = Loop(base.id, base.kind, w["case"], base.state, base.data, base.facts)
+    out = solve_work.work_retrieving(svc, lp)
+    assert out["families"] == [] and "choose the Templates" in out["t1_goal"]
+    assert "chain" not in out["t1_goal"] and out["t1_inputs"][0] == w["case"]
+    assert len(out["t1_inputs"]) == 2  # the Case and the retrieval report
+
+
 def test_a_failed_check_reads_as_its_numbers() -> None:
     """D711: done-check failures name what failed instead of 'path0: None'."""
     from kta.checks.full import failure_reason

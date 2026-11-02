@@ -10,6 +10,7 @@ import pytest
 
 from knowhelp import put, put_template, seed, source_id, template
 from kta.core.context import Context
+from kta.core.ids import record_id
 from kta.core.schemas.evaluation import Case
 from kta.knowledge import (
     card,
@@ -182,6 +183,18 @@ def test_card_nearest_and_diff(pool: Store) -> None:
     assert hit is not None
     tcard = card(pool, hit[0])
     assert tcard.lines[1].startswith("author:") and "used in 2 chain(s)" in tcard.text()
+
+
+def test_nearest_chains_read_the_problem_by_record_id(pool: Store) -> None:
+    """D717: a Case names its Problem by record ID; looked up by name only, every chain
+    scored 0 and the order fell back to record IDs (an RMSNorm chain came first for GEMM)."""
+    gemm = put_chain(pool, "fp16 gemm with smem pipeline", GEMM_ITEMS)
+    norm = put_chain(pool, "rmsnorm row reduction", GEMM_ITEMS[:2])
+    hit = pool.query("Problem", limit=1)[0]
+    pid = record_id(hit)
+    for c in (case({"M": 1}, problem=pid), case({"M": 1})):
+        near = nearest_chains(pool, c, k=2)
+        assert [x.id for x in near] == [gemm, norm] and "similarity 0.00" not in near[0].lines[2]
 
 
 def test_retrieve_families_excludes_false_scope(pool: Store) -> None:

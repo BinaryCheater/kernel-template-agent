@@ -77,7 +77,7 @@ def test_zero_arm_gets_no_pool_objects_and_tasks_carry_batch_and_arm(svc: Servic
     card = q.card(q.get(task))
     retrieval = svc.store.get(card.inputs[-1])
     assert retrieval.body["data"]["knowledge"] == "zero"
-    assert retrieval.body["data"]["templates"] == []  # no seed Template reaches the zero arm
+    assert retrieval.body["data"]["preselected"] is None  # D717: nothing preselected, any arm
 
 
 def test_snapshot_limits_retrieval_to_its_members(svc: Services) -> None:
@@ -90,7 +90,7 @@ def test_snapshot_limits_retrieval_to_its_members(svc: Services) -> None:
     row = _advance(svc, _experiment_loop(svc, w["case"], snapshot=snap), 3)
     card = svc.store.get(svc.ops.task(row["data"]["waiting_on"]).card_id)
     retrieval = svc.store.get(card.body["inputs"][-1])
-    assert retrieval.body["data"]["snapshot"] == 0 and retrieval.body["data"]["templates"] == []
+    assert retrieval.body["data"]["snapshot"] == 0 and retrieval.body["data"]["preselected"] is None
 
 
 def test_knowledge_aliases_and_text_needs_a_snapshot(svc: Services) -> None:
