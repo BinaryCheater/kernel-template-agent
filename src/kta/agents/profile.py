@@ -76,7 +76,12 @@ CODEX_V3 = ProfileSpec(
 CODEX_V4 = ProfileSpec(
     name="codex-v4", version=4, model="gpt-6.1-sol", skills_by_type=SKILLS_BY_TYPE_V2
 )
-LATEST = CODEX_V4  # what `kta init` stores for a fresh store (D705)
+# codex-v5 (LEARNDEMO-1, D721): decompose-kernel and write-template read the frozen source
+# from the source_tree input instead of the unimplemented `kta src`.
+CODEX_V5 = ProfileSpec(
+    name="codex-v5", version=5, model="gpt-6.1-sol", skills_by_type=SKILLS_BY_TYPE_V2
+)
+LATEST = CODEX_V5  # what `kta init` stores for a fresh store (D705)
 SUPPORTED_COMMANDS = [
     "show",
     "card",
