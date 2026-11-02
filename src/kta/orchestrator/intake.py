@@ -13,6 +13,7 @@ workspace's input limit (vLLM at 2eae56c4 is 48 MB gzip, its source files 18 MB)
 
 from __future__ import annotations
 
+import re
 import shlex
 from typing import Any
 
@@ -42,8 +43,16 @@ INCLUDE = (
 )
 
 
+def include_regex() -> str:
+    """``INCLUDE`` as one POSIX ERE on a repository path (basename globs: ``*`` stays in a
+    path segment). A pathspec that matches no file makes ``git archive`` fail, so the
+    archive is given the matching file list instead."""
+    names = [re.escape(p).replace(r"\*", "[^/]*") for p in INCLUDE]
+    return f"(^|/)({'|'.join(names)})$"
+
+
 def _script(url: str, rev: str) -> str:
-    specs = " ".join(shlex.quote(f":(glob)**/{p}") for p in INCLUDE)
+    r = shlex.quote(rev)
     return "\n".join(
         [
             "set -eu",
@@ -53,8 +62,11 @@ def _script(url: str, rev: str) -> str:
             "cd src",
             f"git rev-parse {shlex.quote(rev + '^{commit}')} > ../out/commit.txt",
             f"git rev-parse {shlex.quote(rev + '^{tree}')} > ../out/tree.txt",
-            f"git ls-tree -r --name-only {shlex.quote(rev)} > ../out/files.txt",
-            f"git archive --format=tar {shlex.quote(rev)} -- {specs} > ../source.tar",
+            f"git ls-tree -r --name-only {r} > ../out/files.txt",
+            f"grep -E {shlex.quote(include_regex())} ../out/files.txt > ../include.txt || true",
+            "set --",
+            'while IFS= read -r f; do set -- "$@" "$f"; done < ../include.txt',
+            f'git archive --format=tar {r} -- "$@" > ../source.tar',
             "gzip -n -c ../source.tar > ../out/source.tar.gz",
             "tar -tf ../source.tar | wc -l > ../out/included.txt",
         ]
