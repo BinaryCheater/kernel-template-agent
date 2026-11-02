@@ -173,3 +173,20 @@ def test_projection_inputs_fall_back_to_enumeration_with_the_reason(
     monkeypatch.setattr(solve_work, "default_plan", broken)
     proj, note = solve_work.projection_inputs(None, None, None, {"name": "s0", "shape": {}})
     assert proj is None and note == "no plan, enumeration: no menus"
+
+
+def test_a_malformed_family_yaml_names_its_fields(tmp_path: Path) -> None:
+    """D718: `kta validate-family` got an HTTP 500 (pydantic error not mapped), so the agent
+    could not see what was wrong and guessed the format."""
+    from kta.knowledge.families import load_family
+
+    for name in ("chain.yaml", "edge_cases.yaml", "README.md", "gen.py"):
+        (tmp_path / name).write_text("[]\n" if name.endswith(".yaml") else "")
+    (tmp_path / "family.yaml").write_text(
+        "name: f\nversion: 1\nbackend: tilelang\nvariables: {BM: {}}\nentry: gen.py:generate\n"
+        "constraints: []\n"
+    )
+    with pytest.raises(SchemaError) as err:
+        load_family(tmp_path)
+    assert "family.yaml: variables: Input should be a valid list" in str(err.value)
+    assert "constraints: Extra inputs are not permitted" in str(err.value)

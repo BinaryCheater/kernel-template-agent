@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, cast
 
 import yaml
+from pydantic import ValidationError
 
 from kta.core.errors import SchemaError
 from kta.core.schemas.knowledge import Chain, Family, RangeSpec, Template, VarSpec
@@ -27,13 +28,31 @@ def _yaml(path: Path) -> Any:
         raise SchemaError(f"cannot read {path}: {exc}") from exc
 
 
+def _fields(exc: ValidationError) -> str:
+    """One line per invalid field: its location, the message and the value given."""
+    out = []
+    for e in exc.errors():
+        loc = ".".join(str(x) for x in e["loc"]) or "(top)"
+        given = repr(e.get("input"))[:80]
+        out.append(f"{loc}: {e['msg']} (given {given})")
+    return "; ".join(out)
+
+
 def load_family(path: Path) -> FamilyPackage:
     """Parse a family directory; raises SchemaError when a file is missing or invalid."""
     missing = [f for f in FAMILY_FILES if not (path / f).is_file()]
     if missing:
         raise SchemaError(f"family directory {path} lacks {missing}")
-    family = Family.model_validate(_yaml(path / "family.yaml"))
-    chain = Chain.model_validate(_yaml(path / "chain.yaml"))
+    # D718: a schema error names the fields (raised as SchemaError, so `kta validate-family`
+    # answers 400 with the message instead of an HTTP 500 the agent cannot read)
+    try:
+        family = Family.model_validate(_yaml(path / "family.yaml"))
+    except ValidationError as exc:
+        raise SchemaError(f"family.yaml: {_fields(exc)}") from exc
+    try:
+        chain = Chain.model_validate(_yaml(path / "chain.yaml"))
+    except ValidationError as exc:
+        raise SchemaError(f"chain.yaml: {_fields(exc)}") from exc
     edge = _yaml(path / "edge_cases.yaml") or []
     if not isinstance(edge, list) or not all(isinstance(e, dict) for e in cast(list[Any], edge)):
         raise SchemaError(f"{path}/edge_cases.yaml must be a list of mappings")
