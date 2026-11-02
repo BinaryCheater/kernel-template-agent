@@ -167,9 +167,10 @@ class Operations:
         return {"task": task_id, "state": "cancelled", "action": action}
 
     def retry_task(
-        self, task_id: str, note: str, human: Actor, checker_fault: bool = False
+        self, task_id: str, note: str, human: Actor, force: bool = False
     ) -> dict[str, Any]:
-        action = self.queue.retry(task_id, note, human, note=note, checker_fault=checker_fault)
+        # a force retry keeps ``note`` as the logged reason; nothing reaches the agent (D712)
+        action = self.queue.retry(task_id, note, human, note=None if force else note, force=force)
         return {"task": task_id, "state": "queued", "action": action}
 
     def create_task(self, spec: Any, reason: str, human: Actor) -> dict[str, Any]:

@@ -194,6 +194,8 @@ def step_once(
         done.set()
         watcher.join()
     q.reconcile_usage(task.id)
+    if q.info(task.id).get("fresh_session"):
+        q.annotate(task.id, fresh_session=None)  # one fresh session per force retry (D712)
     after = q.get(task.id).state
     out: dict[str, Any] = {
         "task": task.id,

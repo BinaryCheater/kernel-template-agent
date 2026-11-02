@@ -119,8 +119,10 @@ def test_a_retry_for_a_checker_fault_rechecks_the_same_files(
         _submit(q, task, files)
         names.append([o.name for o in q.check(task).outcomes])
     assert names[1] == ["duplicate_proposal"] and q.get(task).state == "escalated"
-    q.retry(task, "the checker was wrong", None, note="resubmit", checker_fault=True)
-    assert q.info(task)["rejected_digests"] == [] and q.retry_context(task)[0] == []
+    q.retry(task, "the checker was wrong", None, force=True)
+    info = q.info(task)
+    assert info["rejected_digests"] == [] and info["fresh_session"] is True
+    assert q.retry_context(task) == ([], None)
     _submit(q, task, files)
     assert "duplicate_proposal" not in [o.name for o in q.check(task).outcomes]
 

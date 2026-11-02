@@ -133,8 +133,8 @@ export const act = {
     post<Record<string, unknown>>("/actions/reject-improvement", { improvement, reason }),
   budget: (scope: string, limit: Record<string, number>, reason: string) => post<Record<string, unknown>>("/actions/budget", { scope, limit, reason }),
   cancel: (task: string, reason: string) => post<Record<string, unknown>>("/actions/cancel", { task, reason }),
-  retry: (task: string, note: string, checkerFault = false) =>
-    post<Record<string, unknown>>("/actions/retry", { task, note, checker_fault: checkerFault }),
+  retry: (task: string, note: string, force = false) =>
+    post<Record<string, unknown>>("/actions/retry", { task, note, force }),
   priority: (task: string, priority: number, reason: string) => post<Record<string, unknown>>("/actions/priority", { task, priority, reason }),
   createTask: (type: string, goal: string, inputs: string[], priority: number, reason: string) =>
     post<Record<string, unknown>>("/actions/create-task", { type, goal, inputs, priority, reason }),

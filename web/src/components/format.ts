@@ -14,11 +14,20 @@ export function dur(s: number): string {
 export const since = (iso: string, nowMs: number) => (nowMs - Date.parse(iso)) / 1000;
 export const between = (a: string, b: string | null, nowMs: number) => ((b ? Date.parse(b) : nowMs) - Date.parse(a)) / 1000;
 
-/** UTC clock time, "14:07" or "14:07:30". */
+/** Clock times are shown in UTC+8 (user request 2026-11-02); records keep UTC. */
+export const TZ_LABEL = "UTC+8";
+const TZ_OFFSET_MS = 8 * 3600 * 1000;
+
+/** UTC+8 clock time, "14:07" or "14:07:30". */
 export function hhmm(iso: string, seconds = false): string {
-  const d = new Date(iso);
+  const d = new Date(Date.parse(iso) + TZ_OFFSET_MS);
   const p = (n: number) => String(n).padStart(2, "0");
   return `${p(d.getUTCHours())}:${p(d.getUTCMinutes())}${seconds ? `:${p(d.getUTCSeconds())}` : ""}`;
+}
+
+/** UTC+8 date and time, "2026-11-02 14:07:30". */
+export function stamp(iso: string): string {
+  return new Date(Date.parse(iso) + TZ_OFFSET_MS).toISOString().slice(0, 19).replace("T", " ");
 }
 
 export const shortId = (id: string) => (id.length > 26 ? id.slice(0, 10) : id.slice(-8));

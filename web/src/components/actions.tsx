@@ -208,8 +208,8 @@ export function TaskActions({ task, label, small, retry = true, priority }: { ta
           submit={(r) => act.retry(task, r)} />
       )}
       {retry && (
-        <ActionButton op="retry" label="Retry: the checker was wrong" small={small} title={`Retry ${label} after a checker fault`} reasonLabel="Note for the next attempt"
-          explain="Use when a rejection was caused by the checker, not the agent: the same files may be submitted again (not a duplicate) and the agent is not shown those failures."
+        <ActionButton op="retry" label="Force retry" small={small} title={`Force retry ${label}`} reasonLabel="Reason (kept in the log, not sent to the agent)"
+          explain="A clean start: earlier rejections and their messages are dropped and the agent starts a new session. Use it when a failure was not about the agent's work."
           submit={(r) => act.retry(task, r, true)} />
       )}
       <ActionButton op="cancel" label="Cancel task" tone="danger" small={small} title={`Cancel ${label}`}

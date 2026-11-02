@@ -6,7 +6,7 @@ import { useApi } from "../data/useApi";
 import { useSnapshot } from "../components/Shell";
 import { RecordActions } from "../components/actions";
 import { AssuranceChip, Chip, Loading, Panel, RecordLink } from "../components/ui";
-import { LEVEL_NAMES, wordTone } from "../components/format";
+import { LEVEL_NAMES, TZ_LABEL, stamp, wordTone } from "../components/format";
 
 type Tab = "templates" | "patterns" | "structures" | "gaps" | "references";
 const ALL_TABS: { id: Tab; label: string; hint: string }[] = [
@@ -191,7 +191,7 @@ function ProofCell({ t }: { t: PoolTemplate }) {
     <details>
       <summary className="small"><Chip tone={wordTone(pr.level ?? (pr.summary ? "unresolved" : "never checked"))}>{head}</Chip></summary>
       <div className="small" style={{ minWidth: 460, maxWidth: 620 }}>
-        {pr.last_run && <div className="muted">last run {pr.last_run.slice(0, 19)}Z · {pr.checker} · {pr.solver} · <RecordLink id={pr.summary} label="summary" /></div>}
+        {pr.last_run && <div className="muted">last run {stamp(pr.last_run)} {TZ_LABEL} · {pr.checker} · {pr.solver} · <RecordLink id={pr.summary} label="summary" /></div>}
         <table className="t">
           <tbody>
             {pr.contract.map((c) => (

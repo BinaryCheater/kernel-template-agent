@@ -11,7 +11,7 @@ import type { ActiveRuns, CaseDetail, CaseIndexRow, CaseRoundProgress, CheckLeve
 import { useApi } from "../data/useApi";
 import { useNow } from "../data/live";
 import { Chip, Loading, Panel, RecordLink } from "../components/ui";
-import { dur, hhmm, pct, since, stateTone, us } from "../components/format";
+import { TZ_LABEL, dur, hhmm, pct, since, stateTone, us } from "../components/format";
 import { LoopControls, loopCondition } from "../components/LoopControls";
 import { Annotate } from "../components/Annotate";
 import { JournalList } from "./Activity";
@@ -138,7 +138,7 @@ function CaseBody({ c, m, a }: { c: CaseDetail; m: Machines; a?: ActiveRuns }) {
 
       {c.blocked && (
         <div className="notice fail">
-          <b>Stopped at {stateWord(c.blocked.state)} since {hhmm(c.blocked.at)} UTC: {c.blocked.error}</b>
+          <b>Stopped at {stateWord(c.blocked.state)} since {hhmm(c.blocked.at)} {TZ_LABEL}: {c.blocked.error}</b>
           <div className="small">{c.blocked.message}</div>
         </div>
       )}

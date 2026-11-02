@@ -1,7 +1,7 @@
 import { Link, useParams, useSearchParams } from "react-router";
 import { api } from "../data/source";
 import { useApi } from "../data/useApi";
-import { wordTone } from "./format";
+import { TZ_LABEL, stamp, wordTone } from "./format";
 import { AssuranceChip, Chip, Loading } from "./ui";
 import { RecordActions } from "./actions";
 import { BodyView, RefName, recordName } from "./BodyView";
@@ -61,7 +61,7 @@ function DrawerBody({ id, close }: { id: string; close?: () => void }) {
             </div>
             <RecordActions id={r.id} kind={r.kind} small />
             <dl className="kv">
-              <dt>created</dt><dd className="num">{r.created_at.slice(0, 19).replace("T", " ")}</dd>
+              <dt>created</dt><dd className="num">{stamp(r.created_at)} {TZ_LABEL}</dd>
               <dt>actor</dt><dd>{r.actor.type} · {r.actor.name}{r.actor.task && <> · task <span className="mono">{r.actor.task}</span></>}</dd>
             </dl>
             {Object.keys(r.refs).length > 0 && (

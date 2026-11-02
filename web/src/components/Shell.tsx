@@ -4,7 +4,7 @@ import { api } from "../data/source";
 import { useLive } from "../data/live";
 import type { Snapshot } from "../data/types";
 import { useApi } from "../data/useApi";
-import { hhmm } from "./format";
+import { TZ_LABEL, hhmm } from "./format";
 import { RecordDrawer } from "./RecordDrawer";
 import { CapabilitiesProvider } from "./actions";
 
@@ -139,10 +139,10 @@ export function Shell({ pages, children }: { pages: PageMeta[]; children: ReactN
                 {(snaps.data ?? []).map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
               </select>
             </label>}
-            <span className="asof" title={live.lastEvent ? `last event ${hhmm(new Date(live.lastEvent).toISOString(), true)} UTC` : "no event yet"}>
+            <span className="asof" title={live.lastEvent ? `last event ${hhmm(new Date(live.lastEvent).toISOString(), true)} ${TZ_LABEL}` : "no event yet"}>
               {STATIC ? <span className="chip idle"><span className="dot" />static view</span>
                 : <span className={`chip ${live.connected ? "ok" : "fail"}`}><span className="dot" />{live.connected ? "live" : "disconnected"}</span>}
-              {hhmm(new Date(live.now).toISOString())} UTC
+              {hhmm(new Date(live.now).toISOString())} {TZ_LABEL}
             </span>
           </header>
           <div className="content">{children}</div>

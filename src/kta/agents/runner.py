@@ -349,6 +349,8 @@ def run_step(
         policy.loop_policy(controls),
         retry.signature if retry else None,
     )
+    if info.get("fresh_session"):  # a human force retry: a clean start (D712)
+        decision = sessions.Decision("start", "force retry by a human: a fresh session")
     key = guard.ensure_key(Path(deps.config.token_key_file))
     token = guard.issue_token(key, task.id, ctx.clock.now() + timedelta(seconds=plan.hard_cap_s))
     prompt = _prompt(root, decision.mode, card, task, retry, note)
