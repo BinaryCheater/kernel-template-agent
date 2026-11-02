@@ -33,7 +33,7 @@ from kta.execution.registry import latest_registration, worker_configs
 from kta.orchestrator import release
 from kta.store import code_state
 
-Reason = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
+Reason = Annotated[str, StringConstraints(strip_whitespace=True)]  # D728: optional
 VERB = "set_system"
 TEST_ACTOR = Actor(type="system", name="kta.api.system")
 # Version command and credential location of each provider's CLI on the control host
@@ -61,7 +61,7 @@ class SystemBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
     expected: int  # the revision the author read
     changes: dict[str, Any]
-    reason: Reason
+    reason: Reason = ""
 
 
 class ProxyTestBody(BaseModel):

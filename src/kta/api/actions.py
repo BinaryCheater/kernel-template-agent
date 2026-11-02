@@ -17,7 +17,7 @@ from kta.api.common import Api, iso
 from kta.api.wiring import HUMAN_PRIORITY, NEEDS, TaskSpec
 from kta.core.ids import record_id
 
-Reason = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
+Reason = Annotated[str, StringConstraints(strip_whitespace=True)]  # D728: optional
 Id = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 
 
@@ -49,7 +49,7 @@ class TaskBody(_Body):
 
 class RetryBody(_Body):
     task: Id
-    note: Reason
+    note: Reason = ""
     # SYSDEBUG-2 (D712): force retry, a clean start: earlier rejections, their failure
     # messages and any note are dropped, the next agent step opens a new session, and
     # ``note`` is kept in the log only (not sent to the agent)
@@ -59,7 +59,7 @@ class RetryBody(_Body):
 class BudgetBody(_Body):
     scope: Id
     limit: dict[str, float]
-    reason: Reason
+    reason: Reason = ""
 
 
 class PriorityBody(_Body):
@@ -78,12 +78,12 @@ class CreateTaskBody(_Body):
 
 class RecordReasonBody(_Body):
     record: Id
-    reason: Reason
+    reason: Reason = ""
 
 
 class ImprovementBody(_Body):
     improvement: Id
-    reason: Reason
+    reason: Reason = ""
 
 
 class FlagBody(_Body):

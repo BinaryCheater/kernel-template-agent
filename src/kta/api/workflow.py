@@ -42,7 +42,7 @@ from kta.core.sysconfig import load as load_system
 from kta.orchestrator import done_checks, workunits
 from kta.store import code_state
 
-Reason = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
+Reason = Annotated[str, StringConstraints(strip_whitespace=True)]  # D728: optional
 # Which controls knobs act at which node of the pipeline (ids are checked against the
 # registry by the tests; the values always come from the registry).
 NODE_KNOBS: dict[str, tuple[str, ...]] = {
@@ -271,12 +271,12 @@ class DraftBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
     base: str
     changes: dict[str, Any]
-    reason: Reason
+    reason: Reason = ""
 
 
 class ApproveBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    reason: Reason
+    reason: Reason = ""
 
 
 def preview(api: Api, b: PreviewBody) -> dict[str, Any]:

@@ -28,7 +28,7 @@ from kta.store import controls as controls_store
 TOKEN_HEADER = "X-KTA-Operator-Token"
 DEFAULT_TOKEN_FILE = "~/.config/kta/operator-token"
 AGENT_TYPES = ("T1", "T2", "T3", "T4", "T5", "T6")
-Reason = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
+Reason = Annotated[str, StringConstraints(strip_whitespace=True)]  # D728: optional
 # What a held call's reader is shown besides the card (WP19): its pull log and its plan.
 PULL_LOG_NOTE = "no pulls logged for this task yet (it has not run)"
 PLAN_NOTE = "the task's card names no FormulationPlan (no case header)"
@@ -38,13 +38,13 @@ class ControlsBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
     expected: str | None  # the version the author read (null: none stored yet)
     changes: dict[str, Any]
-    reason: Reason
+    reason: Reason = ""
 
 
 class ReleaseBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
     task: Reason
-    reason: Reason
+    reason: Reason = ""
 
 
 def token_file(api: Api) -> Path:
@@ -55,6 +55,10 @@ def token_file(api: Api) -> Path:
 
 
 def check_operator(api: Api, token: str | None) -> None:
+    """D728: the console is the user's own: writes need no token unless the configuration
+    names one (``[api] operator_token_file``)."""
+    if "operator_token_file" not in api.config.section("api"):
+        return
     path = token_file(api)
     if not path.is_file():
         raise PermissionDenied(f"no operator token at {path}: create it with `kta controls token`")

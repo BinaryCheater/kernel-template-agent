@@ -295,3 +295,21 @@ def test_the_harness_turns_tma_off_for_every_tilelang_kernel() -> None:
         isinstance(merge.value, ast.Dict)
         and ast.unparse(merge.value.values[-1]) == "HARNESS_CONFIGS"
     )
+
+
+def test_a_changed_build_script_invalidates_cached_builds() -> None:
+    """D727: after the TileLang codegen changed (D725), builds were still served from the
+    cache (the key named the kernel files, not the backend's build script)."""
+    from kta.backends import common
+
+    gk = SimpleNamespace(
+        backend="tilelang", files={"kernel.py": "x"}, entry="main",
+        launch=SimpleNamespace(to_dict=lambda: {"grid": [1]}),
+    )  # fmt: skip
+    target = SimpleNamespace(model_dump=lambda mode="json": {"name": "gb10"})
+    put = SimpleNamespace(put_blob=lambda data, media: data.decode())
+
+    def key(tc: str | None) -> str:
+        return common.build_key(gk, target, [], "img", put, tc).sha256  # pyright: ignore[reportArgumentType]
+
+    assert key("a") != key("b") != key(None)

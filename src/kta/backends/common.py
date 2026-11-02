@@ -58,20 +58,28 @@ class BuildKey:
 
 
 def build_key(
-    gk: GeneratedKernel, target: Target, flags: list[str], image: str | None, put: JobRunner
+    gk: GeneratedKernel,
+    target: Target,
+    flags: list[str],
+    image: str | None,
+    put: JobRunner,
+    toolchain: str | None = None,
 ) -> BuildKey:
+    """``toolchain``: hash of the backend's own build script (D727), so changing how the
+    backend compiles invalidates cached builds instead of reusing them."""
     files = {name: sha256_hex(text.encode("utf-8")) for name, text in sorted(gk.files.items())}
-    data = canonical_json(
-        {
-            "backend": gk.backend,
-            "files": files,
-            "entry": gk.entry,
-            "launch": gk.launch.to_dict(),
-            "flags": flags,
-            "target": target.model_dump(mode="json"),
-            "image": image,
-        }
-    )
+    fields: dict[str, object] = {
+        "backend": gk.backend,
+        "files": files,
+        "entry": gk.entry,
+        "launch": gk.launch.to_dict(),
+        "flags": flags,
+        "target": target.model_dump(mode="json"),
+        "image": image,
+    }
+    if toolchain is not None:
+        fields["toolchain"] = toolchain
+    data = canonical_json(fields)
     sha = put.put_blob(data, "application/json")
     return BuildKey(sha, data)
 

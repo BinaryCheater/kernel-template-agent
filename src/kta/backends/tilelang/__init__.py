@@ -20,6 +20,7 @@ from kta.backends import common
 from kta.backends.base import BuiltModule, GeneratedKernel
 from kta.core.context import Clock
 from kta.core.errors import ConfigError, NotSupported
+from kta.core.ids import sha256_hex
 from kta.core.jobs import Job, JobResult, JobRunner
 from kta.core.schemas.evaluation import Build
 from kta.core.schemas.hardware import Target
@@ -92,7 +93,8 @@ class TileLangBackend:
         if MAIN_FILE not in gk.files:
             raise ConfigError(f"TileLang kernels need a {MAIN_FILE} file; got {sorted(gk.files)}")
         flags = self.plugin.compile_flags(self.name)
-        key = common.build_key(gk, target, flags, target.image, ex)
+        toolchain = sha256_hex(_resource("gen.py"))  # D727: the codegen script is part of the key
+        key = common.build_key(gk, target, flags, target.image, ex, toolchain)
         hit = common.cached(self.store, key)
         if hit is not None:
             return hit

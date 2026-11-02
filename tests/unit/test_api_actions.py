@@ -69,12 +69,13 @@ def test_reject_writes_human_action_and_marks_dependents_stale(api: Api) -> None
 
 @pytest.mark.parametrize("reason", [None, "", "   "])
 @pytest.mark.parametrize("path", ["/actions/reject", "/actions/deprecate"])
-def test_reject_and_deprecate_need_a_reason(api: Api, path: str, reason: str | None) -> None:
+def test_reject_and_deprecate_need_no_reason(api: Api, path: str, reason: str | None) -> None:
+    """D728: a human's action takes effect; a reason is optional."""
     tid = _id(api, "Template")
     body: dict[str, Any] = {"record": tid} if reason is None else {"record": tid, "reason": reason}
     status, out = call(api, path, body)
-    assert status == 400 and "reason" in out["detail"]
-    assert actions(api) == [] and api.store.status(tid)[0] != "rejected"
+    assert status == 200, out
+    assert len(actions(api)) == 1
 
 
 def test_deprecate_does_not_propagate(api: Api) -> None:
@@ -120,9 +121,7 @@ def test_unknown_record_is_404(api: Api) -> None:
     assert status == 404
 
 
-def test_budget_needs_reason_and_merges_limits(api: Api) -> None:
-    status, out = call(api, "/actions/budget", {"scope": "global", "limit": {"agent_min": 600}})
-    assert status == 400 and "reason" in out["detail"]
+def test_budget_merges_limits(api: Api) -> None:
     status, _ = call(
         api, "/actions/budget", {"scope": "loop:x", "limit": {"agent_min": 1}, "reason": "r"}
     )
@@ -216,7 +215,6 @@ def test_cancel_goes_through_the_task_queue(api: Api) -> None:
 
 def test_retry_requeues_an_escalated_task(api: Api) -> None:
     task = _task(api, "escalated")
-    assert call(api, "/actions/retry", {"task": task})[0] == 400  # the note is required
     status, out = call(api, "/actions/retry", {"task": task, "note": "declare swz's domain"})
     assert status == 200, out
     assert api.ops.task(task).state == "queued"

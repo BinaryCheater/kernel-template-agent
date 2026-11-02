@@ -148,7 +148,6 @@ def test_improvement_inbox_items_and_decisions(api: Api) -> None:
         (rid, ["approve-improvement", "reject-improvement"])
     ]
     app = create_app(api)
-    assert request(app, "POST", "/actions/reject-improvement", {"improvement": rid})[0] == 400
     status, out = request(
         app, "POST", "/actions/reject-improvement", {"improvement": rid, "reason": "not now"}
     )
