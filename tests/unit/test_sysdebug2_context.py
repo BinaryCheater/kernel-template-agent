@@ -394,3 +394,20 @@ def test_the_analysis_report_needs_its_sections_and_a_direction(tmp_path: Path) 
         )
     )
     assert done_checks.analysis_report(inp).passed
+
+
+def test_residency_in_the_projection_reads_only_the_storage() -> None:
+    """SYSDEBUG12: the recurrence's wave factor evaluated every transaction, so a variable
+    outside the atom's support (threads) raised ExprError at every combination and the MIP
+    excluded the whole space (Infeasible while enumeration found 30 points)."""
+    from types import SimpleNamespace as NS
+
+    from kta.core.expr import Expr
+    from kta.formulation.blocks import BoundStorage
+    from kta.solve import projection
+
+    store = BoundStorage("ops", "buf", "smem", "cta", Expr.parse("BM * 4", {"BM"}), None)
+    needs_threads = NS(count=Expr.parse("threads * 2", {"threads"}))
+    f: Any = NS(storage=[store], transactions=[needs_threads])
+    c = projection._Ctx(f, NS(walls=[], hw={}), {}, {}, {})  # type: ignore[arg-type]
+    assert projection._residency(c, {"BM": 64}) is None  # no ExprError for 'threads'
