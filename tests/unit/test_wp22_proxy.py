@@ -6,6 +6,7 @@ import json
 import socket
 import threading
 from collections.abc import Iterator
+from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -289,3 +290,6 @@ def test_new_tasks_of_an_approved_draft_use_its_own_batch(actx: Context, parts: 
     assert open_batch(actx, deps, card, None, None).root.name == name
     with pytest.raises(ConfigError, match="built from profile"):
         open_batch(actx, deps, card, None, "b1")  # an explicit batch is never swapped
+    # D709: with no [agents] batch configured, the profile's own batch is used
+    bare = Deps(store, ops, ex, replace(agents_config(actx), batch=""))
+    assert open_batch(actx, bare, card, None, None).root.name == name

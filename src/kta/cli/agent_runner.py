@@ -279,7 +279,11 @@ def add_agent_runner_commands(
     rc = runner.add_subparsers(dest="runner_command", required=True)
     s = leaf(rc, "start", cmd_runner_start, "run agent steps in the foreground until stopped")
     s.add_argument("--slot", type=int, default=1)
-    s.add_argument("--batch", help="batch root (default [agents] batch)")
+    s.add_argument(
+        "--batch",
+        help="batch name under <data>/batches (default [agents] batch, else the batch built "
+        "when the card's profile was approved)",
+    )
     s.add_argument("--interval", type=float, default=10.0)
     s.add_argument("--ticks", type=int)
     leaf(rc, "stop", cmd_runner_stop, "ask the running agent runner to stop")

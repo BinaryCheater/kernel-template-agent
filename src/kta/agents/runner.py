@@ -285,6 +285,10 @@ def open_batch(
     the card's own profile batch ``<name>-v<version>`` when it exists (D595)."""
     explicit = name is not None
     name = name or deps.config.batch
+    if not name:  # SYSDEBUG-2 (D709): the batch approving the card's profile built, if any
+        own = batches.profile_batch(AgentProfile.model_validate(deps.store.get(card.profile).body))
+        if (batches.batches_root(ctx.data_dir) / own).exists():
+            name = own
     if not name:
         raise ConfigError("no batch: pass batch= or set [agents] batch (kta agents env build)")
     if state is not None and state.batch and state.batch != name:
