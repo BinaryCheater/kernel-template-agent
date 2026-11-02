@@ -268,8 +268,15 @@ export interface RoundTask {
   inputs?: string[];
   header?: string | null;
   situation?: string | null;
-  runs?: { id: string; exit?: string | null; wall_s?: number | null; model?: string | null }[];
+  runs?: {
+    id: string; exit?: string | null; wall_s?: number | null; model?: string | null;
+    /** D716: context monitoring. */
+    tokens_in?: number | null; tokens_cached?: number | null; tokens_out?: number | null;
+    tool_calls?: number | null; session_mode?: string | null;
+  }[];
 }
+/** D716: one shortlisted candidate of a bucket. */
+export interface ShortItem { id: string; assignment: Record<string, unknown>; pred_us: number; bottleneck: string | null; kept: boolean }
 /** SYSDEBUG-2 (D708): how a round was made — family choice, formulation, solve and proof gate. */
 export interface RoundMade {
   family_choice: { picked: string; why: string; retrieved: number; note?: string; picked_ref?: { id: string; name: string; version: number | null } } | null;
@@ -284,8 +291,20 @@ export interface RoundMade {
     transactions: number;
     missing_hw: string[];
     blocks: { key: string; template: string; constraints: number; fixed: Record<string, unknown>; uses: string[] }[];
+    /** D716: the exported problem. */
+    exprs?: { source: string; id: string; kind: string; expr: string; meaning: string }[];
+    domains?: Record<string, string>;
   } | null;
-  solve: { bucket: string; method?: string | null; exhaustive?: boolean | null; model_optimal?: boolean | null; top_pred_us?: number | null; proof_gate?: { checked: number; kept: number; dropped: number } | null; report?: string | null }[];
+  solve: {
+    bucket: string; method?: string | null; exhaustive?: boolean | null; model_optimal?: boolean | null; top_pred_us?: number | null;
+    proof_gate?: { checked: number; kept: number; dropped: number } | null; report?: string | null;
+    /** D715/D716 */
+    mip_status?: string | null; mip_gap?: number | null; plan?: { fixed: Record<string, unknown>; menus: Record<string, unknown[]>; outer: string[] } | null;
+    plan_note?: string | null; notes?: string[]; space_size?: number | null; feasible?: number | null; pruned_by?: Record<string, number>;
+    shortlist?: ShortItem[]; compiled?: string[];
+  }[];
+  /** D716: the family's change against its previous version. */
+  family_diff?: { previous: string; text: string | null } | null;
 }
 /** WP25: what one round used and produced. */
 export interface RoundSummary {

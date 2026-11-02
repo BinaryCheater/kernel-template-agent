@@ -55,6 +55,11 @@ class AgentRun(Body):
     # WP22 (D586): used, policy, scheme, host, port, source, no_proxy, preflight; never
     # credentials. None for runs before WP22.
     proxy: dict[str, Any] | None = None
+    # D716 (context monitoring): cached share of tokens_in, tool calls made, and whether the
+    # step resumed the work unit's session or started a fresh one, with the reason
+    tokens_cached: int | None = None
+    tool_calls: int | None = None
+    session_mode: str | None = None
 
 
 class AgentProfile(Body):

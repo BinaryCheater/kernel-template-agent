@@ -254,10 +254,38 @@ def _made(api: Api, decomposition: Any, live: dict[str, Any]) -> dict[str, Any] 
                 "top_pred_us": s.get("top_pred_us"),
                 "proof_gate": s.get("proof_gate"),
                 "report": s.get("report"),
+                # D715/D716: how it was solved, the shortlist and what was compiled
+                "mip_status": s.get("mip_status"),
+                "mip_gap": s.get("mip_gap"),
+                "plan": s.get("plan"),
+                "plan_note": s.get("plan_note"),
+                "notes": s.get("notes") or [],
+                "space_size": s.get("space_size"),
+                "feasible": s.get("feasible"),
+                "pruned_by": s.get("pruned_by") or {},
+                "shortlist": s.get("shortlist") or [],
+                "compiled": s.get("compiled") or [],
             }
             for name, s in per.items()
         ],
+        "family_diff": _family_diff(api, choice["picked"]) if choice else None,
     }
+
+
+DIFF_MAX_CHARS = 20_000
+
+
+def _family_diff(api: Api, fid: str) -> dict[str, Any] | None:
+    """The family's change against its previous version (D716), when it has one."""
+    if not api.store.exists(fid):
+        return None
+    rec = api.store.get(fid)
+    sha = rec.blobs.get("diff")
+    prev = rec.refs.get("previous")
+    if not sha:
+        return {"previous": prev, "text": None} if prev else None
+    text = api.store.blob_path(sha).read_text(encoding="utf-8", errors="replace")
+    return {"previous": prev, "text": text[:DIFF_MAX_CHARS]}
 
 
 def _round_summary(
@@ -388,6 +416,12 @@ def _round_task(api: Api, t: opsread.TaskRow) -> dict[str, Any]:
                 "exit": body(api, rid).get("exit"),
                 "wall_s": body(api, rid).get("wall_s"),
                 "model": body(api, rid).get("model"),
+                # D716: context monitoring
+                "tokens_in": body(api, rid).get("tokens_in"),
+                "tokens_cached": body(api, rid).get("tokens_cached"),
+                "tokens_out": body(api, rid).get("tokens_out"),
+                "tool_calls": body(api, rid).get("tool_calls"),
+                "session_mode": body(api, rid).get("session_mode"),
             }
             for rid in run_ids
         ],

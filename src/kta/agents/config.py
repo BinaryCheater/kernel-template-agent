@@ -10,6 +10,7 @@ token_key_file = "~/.config/kta/task-token.key"   # on the control host
 api_url = ""                        # KTA_API given to the agent-side kta (WP6/WP9)
 secrets_file = "~/.config/kta/secrets.env"
 watch = ["~/.codex", "~"]           # host paths checked for writes after each run
+refs_dir = ""                       # read-only references copied to refs/ of T1 workspaces (D716)
 
 [agents.hosts.spark]                # per agent host
 codex_cmd = ["/path/to/node", "/path/to/codex"]
@@ -49,6 +50,7 @@ class AgentsConfig:
     api_url: str = ""
     secrets_file: str = "~/.config/kta/secrets.env"
     watch: list[str] = field(default_factory=lambda: list(DEFAULT_WATCH))
+    refs_dir: str = ""  # control host directory of read-only references for T1 (D716)
     hosts: dict[str, HostConfig] = field(default_factory=lambda: dict[str, HostConfig]())
 
     @property

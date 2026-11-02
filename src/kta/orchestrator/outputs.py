@@ -7,6 +7,7 @@ Report lists them; loops read it to resume.
 
 from __future__ import annotations
 
+import difflib
 from typing import Any
 
 import yaml
@@ -35,6 +36,27 @@ def _put(inp: CheckInput, actor: Actor, kind: str, body: Any, **kw: Any) -> str:
     return inp.store.put(Record.new(kind, body, actor, inp.ctx.clock.now(), **kw))
 
 
+def family_diff(inp: CheckInput, previous: str, blobs: dict[str, str]) -> str:
+    """Unified diff of the family files against ``previous`` (DELIVERY.md left out)."""
+    old = {k: v for k, v in inp.store.get(previous).blobs.items() if k.startswith("files/")}
+    out: list[str] = []
+    for name in sorted(set(old) | set(blobs)):
+        if name == "files/DELIVERY.md" or old.get(name) == blobs.get(name):
+            continue
+
+        def lines(sha: str | None) -> list[str]:
+            if sha is None:
+                return []
+            data = inp.store.blob_path(sha).read_text(encoding="utf-8", errors="replace")
+            return data.splitlines(keepends=True)
+
+        rel = name.removeprefix("files/")
+        out += difflib.unified_diff(
+            lines(old.get(name)), lines(blobs.get(name)), f"a/{rel}", f"b/{rel}"
+        )
+    return "".join(out)
+
+
 def _family(inp: CheckInput, actor: Actor) -> dict[str, Any]:
     """Chain and Family records; the package files become the Family's blobs."""
     fp = load_family(inp.workdir)
@@ -46,6 +68,10 @@ def _family(inp: CheckInput, actor: Actor) -> dict[str, Any]:
     ]
     if previous:
         refs["previous"] = previous[0]
+        # D716: the change against the previous version, kept with the new family
+        diff = family_diff(inp, previous[0], blobs)
+        if diff:
+            blobs["diff"] = inp.store.put_blob(diff.encode("utf-8"), "text/x-diff")
     # D713: the family belongs to the case its task was for; other cases do not retrieve it
     cases = [i for i in inp.card.inputs if inp.store.exists(i) and inp.store.get(i).kind == "Case"]
     if cases:

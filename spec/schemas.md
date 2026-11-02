@@ -415,6 +415,7 @@ class TaskCard:     type: Literal["T1", "T2", "T3", "T4", "T5", "T6"]; goal: str
                     header: TaskHeader?   # schema 2 (WP19): case-loop tasks; TASK.md starts with header.text
 class AgentRun:     session: str; profile: str; cli_version: str; model: str
                     tokens_in: int?; tokens_out: int?           # 会话中带有用量时由解析器填写；否则为空
+                    tokens_cached: int?; tool_calls: int?; session_mode: str?   # D716: cached share of tokens_in, tool calls, "start|resume: <reason>"
                     session_archive: str                      # blob：该会话的会话文件与 CLI 输出（不含凭据）
                     wall_s: float; tool_s: float; queue_s: float; exit: str
                     context_manifest: str             # blob：本次运行全部上下文来源及其 hash（agents.md）

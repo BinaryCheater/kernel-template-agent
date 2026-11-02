@@ -8,7 +8,9 @@ enters the workspace (spec/modules/agents.md "工作区文件").
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 from kta.agents import arms, cards
@@ -96,6 +98,43 @@ def input_files(store: Store, ids: list[str]) -> dict[str, bytes]:
     return files
 
 
+def family_out(store: Store, inputs: list[str]) -> dict[str, bytes]:
+    """The current family's files as ``out/<name>`` (D716): a T1 edits the family in
+    place instead of copying it; the delivery note is left for the agent to write.
+    Installed only into an empty ``out/`` (hostfs), so a retry keeps the draft."""
+    for rid in inputs:
+        rec = store.get(rid)
+        if rec.kind != "Family":
+            continue
+        return {
+            "out/" + name.removeprefix("files/"): store.blob_path(sha).read_bytes()
+            for name, sha in rec.blobs.items()
+            if name.startswith("files/") and name != "files/DELIVERY.md"
+        }
+    return {}
+
+
+REF_SUFFIXES = (".py", ".md", ".txt", ".pyi")
+REF_MAX_BYTES = 4 * 1024 * 1024
+
+
+def reference_files(root: str) -> dict[str, bytes]:
+    """Text files under ``root`` (``[agents] refs_dir``) for ``refs/`` of T1 workspaces
+    (D716): read-only documentation such as the build worker's TileLang package source."""
+    if not root:
+        return {}
+    base = Path(root).expanduser()
+    if not base.is_dir():
+        raise ConfigError(f"[agents] refs_dir {root} is not a directory")
+    out: dict[str, bytes] = {}
+    for path in sorted(base.rglob("*")):
+        if path.is_file() and path.suffix in REF_SUFFIXES:
+            out[path.relative_to(base).as_posix()] = path.read_bytes()
+    if sum(len(v) for v in out.values()) > REF_MAX_BYTES:
+        raise ConfigError(f"[agents] refs_dir {root} holds more than {REF_MAX_BYTES} bytes of text")
+    return out
+
+
 def build(
     store: Store,
     profile: AgentProfile,
@@ -108,6 +147,7 @@ def build(
     retry: cards.RetryNote | None,
     policy: dict[str, Any],
     arm: Arm = NO_ARM,
+    refs: Mapping[str, bytes] | None = None,
 ) -> Bundle:
     """Workspace files; templates and skills come only from the verified batch root (D322),
     shaped by the arm's knowledge condition (D430)."""
@@ -152,5 +192,8 @@ def build(
             ws[f".agents/skills/{name}/{rel}"] = content
     ws.update(input_files(store, inputs))
     ws.update(book)
+    if t == "T1":
+        ws.update(family_out(store, inputs))
+        ws.update({f"refs/{k}": v for k, v in (refs or {}).items()})
     bundle.batch = batch.template()
     return bundle

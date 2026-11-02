@@ -7,7 +7,7 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { api } from "../data/source";
-import type { ActiveRuns, CaseDetail, CaseIndexRow, CaseRoundProgress, CheckLevel, Machines, Round, RoundSummary, StepWork } from "../data/types";
+import type { ActiveRuns, CaseDetail, CaseIndexRow, CaseRoundProgress, CheckLevel, Machines, Round, RoundMade, RoundSummary, RoundTask, StepWork } from "../data/types";
 import { useApi } from "../data/useApi";
 import { useNow } from "../data/live";
 import { Chip, Loading, Panel, RecordLink } from "../components/ui";
@@ -312,7 +312,7 @@ function RoundCard({ r, prev, c, m, open, current, a }: { r: Round; prev?: Round
             <div><div className="caption">compiled + solved</div>
               {s ? <><b className="num">{s.candidates}</b> candidates<div className="small muted">{Object.entries(s.buckets).map(([b, x]) => `${b}: ${x.candidates}`).join(" · ")}</div></> : "—"}
               {r.made?.solve.some((x) => x.proof_gate) && <div className="small ink2">proof gate: {r.made.solve.map((x) => x.proof_gate ? `${x.proof_gate.kept}/${x.proof_gate.checked}` : "—").join(" · ")} kept</div>}
-              {r.made?.solve[0]?.method && <div className="small muted">{r.made.solve[0].method}{r.made.solve.every((x) => x.exhaustive) ? ", exhaustive" : ""}</div>}
+              {r.made?.solve[0]?.method && <div className="small ink2">{solveText(r.made.solve)}</div>}
             </div>
             <div><div className="caption">compiled and checked</div>
               {s ? <Funnel s={s} /> : "—"}
@@ -339,16 +339,77 @@ function RoundCard({ r, prev, c, m, open, current, a }: { r: Round; prev?: Round
                   <Link to={`/tasks/${t.id}`}><span className="tag task">agent: {taskWord(t.type)}</span></Link> <Chip tone={stateTone(m.machines.find((x) => x.id === "task"), t.state)}>{t.state}</Chip>
                   {t.rejections.length > 0 && <div className="small error">{t.rejections.length} rejection(s): {t.rejections[t.rejections.length - 1].reason}</div>}
                   <div className="small ink2">{t.inputs?.length ?? 0} input(s){t.runs?.length ? ` · ${t.runs.length} run(s), last exit ${t.runs[t.runs.length - 1].exit ?? "—"}` : " · not run yet"}</div>
+                  {t.runs?.map((x) => <div key={x.id} className="small muted">{runText(x)}</div>)}
                   {t.header && <details className="small"><summary>case header the agent reads</summary><pre className="made-header">{t.header}</pre></details>}
                   {t.produced?.map((p) => <div key={p.id} className="small">produced <RecordLink id={p.id} label={`${p.kind} ${p.label}`} /></div>)}
                 </div>
               ))}
             </div>
           </div>
+          {r.made && <MadeDetails made={r.made} />}
           {r.checks && <CheckReasons checks={r.checks} />}
           <StepTable r={r} held={current ? heldOf(c, a) : null} stopped={stopped} />
           {current && c.candidates.length > 0 && <Candidates c={c} />}
         </>
+      )}
+    </div>
+  );
+}
+
+/** D715: how the round was solved, in one line (method, status, gap, outer variables). */
+function solveText(solve: RoundMade["solve"]): string {
+  const x = solve[0];
+  if (x.method === "projection" || x.method === "mip") {
+    const outer = x.plan?.outer?.length ? ` · ${x.plan.outer.join(", ")} enumerated outside` : "";
+    const gaps = solve.map((y) => (y.mip_gap == null ? "—" : `${(y.mip_gap * 100).toFixed(2)}%`)).join(" / ");
+    return `MIP (finite menus linearised) · ${solve.map((y) => y.mip_status ?? "—").join(" / ")} · gap ${gaps}${outer}`;
+  }
+  const why = x.plan_note && x.plan_note !== "default plan" ? x.plan_note : (x.notes ?? []).find((n) => n.startsWith("projection not compiled")) ?? "";
+  return `enumeration${solve.every((y) => y.exhaustive) ? ", exhaustive" : ""}${why ? ` — ${why}` : ""}`;
+}
+
+/** D716: one agent run for monitoring: session mode, tool calls, tokens and cached share. */
+function runText(x: NonNullable<RoundTask["runs"]>[number]): string {
+  const k = (n?: number | null) => (n == null ? "—" : n >= 1000 ? `${Math.round(n / 1000)}k` : String(n));
+  const cached = x.tokens_in && x.tokens_cached != null ? ` (${Math.round((100 * x.tokens_cached) / x.tokens_in)}% cached)` : "";
+  const mode = x.session_mode ? x.session_mode.split(":")[0] : "—";
+  return `${mode} · ${x.tool_calls ?? "—"} calls · in ${k(x.tokens_in)}${cached} · out ${k(x.tokens_out)} · ${x.wall_s ? dur(x.wall_s) : "—"}`;
+}
+
+/** D716: the exported problem, the family diff and per shape the solve and its shortlist. */
+function MadeDetails({ made }: { made: RoundMade }) {
+  const f = made.formulation;
+  return (
+    <div className="made-details">
+      {f?.exprs && f.exprs.length > 0 && (
+        <details className="small"><summary>exported problem: {f.variables.length} variables, {f.exprs.length} constraints</summary>
+          <div className="mono ink2">{f.variables.map((v) => `${v} ∈ ${f.domains?.[v] ?? "?"}`).join("   ")}</div>
+          <table className="t compact"><thead><tr><th>step</th><th>id</th><th>expression</th><th>meaning</th></tr></thead><tbody>
+            {f.exprs.map((e) => <tr key={`${e.source}:${e.id}`}><td className="mono">{e.source}</td><td className="mono">{e.id}</td><td className="mono">{e.expr}</td><td className="ink2">{e.meaning}</td></tr>)}
+          </tbody></table>
+        </details>
+      )}
+      {made.family_diff && (
+        <details className="small"><summary>family change against the previous version</summary>
+          {made.family_diff.text ? <pre className="made-header">{made.family_diff.text}</pre> : <span className="muted">no diff recorded</span>}
+        </details>
+      )}
+      {made.solve.some((x) => x.shortlist?.length) && (
+        <details className="small"><summary>solve and shortlist per shape</summary>
+          {made.solve.map((x) => (
+            <div key={x.bucket} style={{ marginTop: 6 }}>
+              <div><b className="mono">{x.bucket}</b> <span className="ink2">{x.method}{x.mip_status ? ` · ${x.mip_status}` : ""}{x.feasible != null ? ` · ${x.feasible} feasible of ${x.space_size ?? "?"}` : ""} · {x.compiled?.length ?? 0} compiled</span></div>
+              {x.pruned_by && Object.keys(x.pruned_by).length > 0 && <div className="muted">ruled out by: {Object.entries(x.pruned_by).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k} ${n}`).join(" · ")}</div>}
+              <table className="t compact"><thead><tr><th>#</th><th>assignment</th><th className="r">predicted</th><th>bound by</th><th>compiled</th></tr></thead><tbody>
+                {(x.shortlist ?? []).map((c, i) => (
+                  <tr key={c.id}><td className="num">{i + 1}</td><td className="mono">{Object.entries(c.assignment).map(([k, v]) => `${k}=${String(v)}`).join(" ")}</td>
+                    <td className="r num">{us(c.pred_us)}</td><td>{c.bottleneck ?? "—"}</td>
+                    <td>{x.compiled?.includes(c.id) ? "yes" : c.kept ? "" : <span className="warn-text">proof gate dropped</span>}</td></tr>
+                ))}
+              </tbody></table>
+            </div>
+          ))}
+        </details>
       )}
     </div>
   );

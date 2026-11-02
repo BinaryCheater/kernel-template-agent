@@ -33,7 +33,7 @@ def run_task(ctx: Context, task: Task) -> AgentRun
 
 ## 行为
 
-- **会话**：一个工作单元（`TaskCard.work_unit`）一个会话。同一工作单元的后续任务用 `resume`，只发增量消息。以下情况开新会话：上下文超过模型窗口的 60%；同一完成检查连续两次因相同原因失败；适配器不支持恢复；会话异常。新会话的提示要求 worker 先读工作区的 `NOTES.md`。
+- **会话**：一个工作单元（`TaskCard.work_unit`）一个会话。同一工作单元的后续任务用 `resume`，只发增量消息。以下情况开新会话：上下文超过模型窗口的 60%；同一完成检查连续两次因相同原因失败；适配器不支持恢复；会话异常。新会话的提示要求 worker 先读工作区的 `NOTES.md`。D716 (profile v5): a resumed step on a new task of the unit gets `msg-new_round` (the case header: what the last delivery measured), not the full inputs again; a fresh session in a unit with history gets `msg-handoff`, written by the system from records (the case's family versions with their delivery notes, `kta.agents.handoff`).
 - **工作区**：`$KTA_DATA/work/<work_unit>/`，整个工作单元期间保留，git 管理，每个任务结束时提交一次。包含 `TASK.md`、`NOTES.md`、`inputs/`、`out/`。工作单元结束后打包为产物，再删除。
 - **提示**：固定前缀（所有会话字节级相同）＋ 步骤头（一页以内：目标、完成检查原文、剩余预算、相关记录卡片最多 5 张、建议读的 skills）。不放入完整的池或历史。
 - **权限**：
@@ -89,7 +89,7 @@ agent 的行为由三样东西决定：给它的上下文、它的循环策略�
 | CLI system prompt | Cannot be edited; record the actual CLI version and binary hash for each run. The profile version is a reference, not a launch gate (D656). |
 | 用户级配置、用户级 AGENTS.md、用户级 skills（如 `~/.codex/`） | 把 CLI 的配置目录（Codex 为 `CODEX_HOME`）指向本工作单元的持久目录 `$KTA_DATA/<env>/agent-home/<工作单元>/`；目录首次创建时实验配置来自 `profile.home_files`；D655 additionally imports native provider connection settings, with explicit profile values taking precedence, and links native credentials. Personal instructions, skills and sessions are not imported. 之后会话文件也保存在这里（conventions §7.1） |
 | 目录树上方的 AGENTS.md | 工作区是独立的 git 仓库；运行前检查从文件系统根到工作区的路径上没有其他 AGENTS.md，有则拒绝启动 |
-| 工作区文件 | 只允许：`AGENTS.md`（由 prefix_template 生成）、`TASK.md`、`NOTES.md`、`inputs/`、`out/`、`.agents/skills/`（由 profile.skills 复制） |
+| 工作区文件 | 只允许：`AGENTS.md`（由 prefix_template 生成）、`TASK.md`、`NOTES.md`、`inputs/`、`out/`、`refs/`、`.agents/skills/`（由 profile.skills 复制）。D716: a T1's `out/` is prefilled with the case's current family when `out/` is empty (a retry keeps its draft); `refs/` holds read-only references from `[agents] refs_dir` (T1), replaced every step |
 | MCP 服务器、web search 等内置工具 | 关闭（`cli_flags` 与隔离目录中的配置） |
 | 环境变量 | 白名单：任务令牌、`KTA_TRACE_PARENT`、`PATH`（只含 kta 与基础工具）、provider 的 key；其余清空。WP22 (D581): for a provider whose proxy policy is `required`, plus `HTTPS_PROXY`, `HTTP_PROXY`, `ALL_PROXY`, `https_proxy`, `http_proxy`, `all_proxy`, `NO_PROXY`, `no_proxy` from the system configuration (never inherited); an `off` provider gets none of them |
 | 运行中获取的知识 | 只能经 `kta` 命令，每次调用都记录 |

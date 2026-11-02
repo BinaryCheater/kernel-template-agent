@@ -1,66 +1,62 @@
-# Clean baseline: formulation first, from the workload (plan, for user review)
+# Clean baseline: formulation first, from the workload
 
-Status: plan only, nothing below is implemented unless marked "exists". User request,
-2026-11-02: formulation runs from the first round; whatever is missing is filled in; a
-case can start from a pure workload, build its own baseline form and optimise it.
+Status: agreed with the user 2026-11-02 (discussion in the SYSDEBUG-2 session); implementation
+in progress on branch sysdebug/2. "Exists" marks what was already in the code before.
 
-## What exists today (checked in code)
+## Principles (user, 2026-11-02)
 
-| Piece | Where | State |
-|---|---|---|
-| Chain enumeration from the Template pool for a case, bounded by SOL | `kta.solve.chains.enumerate_chains` | exists, not called by the solve loop |
-| Assemble a formulation (variables, constraints, effects) from a chain | `kta.formulation.assemble` | exists, used every round |
-| Finite-menu linearisation: one-hot menus, menu products and table terms tabulated over joint menus, integer ceil columns, outer enumeration for what fits neither; objective = L1 projection (T >= busy per resource, pair and recurrence bounds, walls) | `kta.solve.projection.compile_and_solve` | exists (WP17/WP19), not called by the solve loop |
-| Deterministic FormulationPlan (F1-F7), diff and score of an agent's plan | `kta.solve.plan` | exists, not called by the solve loop |
-| Enumeration over the family's declared domains | `kta.solve.enumerate` | what every round uses now |
-| Code generator | hand-written per family (`gen.py`) | the one piece a pure workload does not have |
+- Templates contribute decision variables and tricks; they do not compose a whole program.
+  The program is written by the agent.
+- What is tested is the ability to formulate good solutions, not the ability to write a
+  correct baseline from nothing. The agent may read TileLang documentation and examples.
+  The baseline is not over-specified: let it come out as it does.
+- The clean run offers no seed family, to exercise the whole flow. Seed families may exist
+  in real work.
+- A family is the formulation of one case (D713).
+- No rule of "one change per round". Avoid circling on small points round after round;
+  substantive changes (several related mechanisms if needed) are the default, a small one
+  (e.g. one variable's range) only when the agent judges it the better move.
+- Context management: the system keeps the state across rounds (code, formulation, what was
+  tried and its outcome) and gives the agent only what is new; repeated exploration and
+  repeated artifacts cost tokens and time.
 
-So the round-1 "Formulation" step today only picks a stored family; the MIP path is
-skipped because the plain MIP export refuses products of variables, and the projection
-compiler that handles them is never given a plan.
+## The flow
 
-## Target round (every round, round 1 included)
+0. **Workload.** Case: semantics with a reference implementation, dtypes, layouts, shapes,
+   tolerance. The system adds reference timing, bounds, hardware facts and the Template
+   cards relevant to the workload. No family is offered in the clean run.
+1. **Round 1.** Retrieval finds no family of this case -> T1 "write a baseline for this case
+   and its formulation" (exists as the no-family T1 path; prompt updated). The system
+   verifies the delivered family (validate, space verification, proof gate), then solves it.
+2. **Every round with a family.** Assemble -> default FormulationPlan -> projection MIP
+   (finite menus one-hot, menu products and table terms tabulated, ceil columns, outer
+   enumeration; exists in `kta.solve.projection`, now called by the loop). Enumeration is
+   the fallback, with its reason recorded. Build the top `compile_count` (8), check,
+   measure, judge by gain per shape.
+3. **Next T1.** The agent gets the delta since its last step: measured gain per shape,
+   predicted vs measured, the new gap; it changes the family as it judges (one or several
+   mechanisms), working on the current family already placed in `out/`.
 
-1. **Workload -> chain (F1).** Round 1 without a family: `enumerate_chains` over the
-   Template pool for the case, ranked by bound; keep the best few chains. With a family in
-   the case's own lineage (D713): its chain is the default; the chain enumerator still runs
-   and is shown, so a better chain can be proposed.
-2. **Chain -> formulation (F2-F6).** Assemble; build the default FormulationPlan
-   (menus, outer variables, table terms, glue, dispatch). Record the plan.
-3. **Export.** The exported problem is stored and shown: variables and menus, every
-   constraint with its source step and meaning, the objective atoms, and which products
-   were tabulated / which variables went outer.
-4. **Transform.** Deterministic: the projection compiler's linearisation (above). Agent:
-   a T1 may change the plan (chain step, menus, glue, table terms); its diff against the
-   default and its citations are scored (`score_plan`) and shown.
-5. **Solve.** `compile_and_solve` per shape bucket (MIP, status and gap). Enumeration is
-   kept as the comparison arm on small spaces and as the fallback, always with its reason.
-6. **Baseline code.** If the chain has a generator (a family in the lineage, or a library
-   one taken as a starting point), build the top `compile_count` (8) candidates, check and
-   measure as now. If there is none, the round still delivers the formulation, the
-   predicted best region and the bound, and the T1 goal becomes "write the generator for
-   this plan" (F7) with the plan as input; the next round builds and measures it.
-7. **Judge and next round** as now (gain per shape vs the previous round and the reference).
+## Context management
+
+| Item | Rule |
+|---|---|
+| Resume | T1/T6 of one case share a session across rounds (`case_role`, D614, exists); fresh on context > 60 %, abnormal exit, same failure twice, force retry (exists) |
+| Never shared | across cases; kernel writer vs model diagnosis (exists) |
+| Resumed step | the step message carries only the delta (results of the last delivery), not the full inputs again |
+| Fresh step in a unit with history | a handoff written by the system from records: case state, family lineage with each version's change, what each round measured |
+| Workspace | `out/` is prefilled with the current family; the system records the diff of each delivery against its parent |
+| Monitoring | per agent step: calls, input tokens, cached share, resume or fresh and why |
 
 ## Display (case page, per round)
 
-- formulation column: chain source and reason per step (which cost it addresses,
-  alternatives not taken), exported constraints/objective, transforms, plan diff.
-- compiled + solved column: method and reason, MIP status/gap, space -> feasible with
-  per-constraint pruning, the shortlist (assignment, predicted us, bottleneck unit),
-  which 8 were compiled, proof gate.
-- after measuring: predicted vs measured per point and rank correlation.
+- formulation: family and why; exported constraints (source step, expression, meaning);
+  the family diff against the previous version.
+- compiled + solved: method and reason, MIP status/gap, space -> feasible, shortlist
+  (assignment, predicted us, bottleneck unit), which were compiled, proof gate.
+- agent work: runs with tokens, cached share, resume/fresh.
 
-## Steps
+## Run
 
-| # | Step | Size |
-|---|---|---|
-| 1 | Solve loop calls `default_plan` + `compile_and_solve` per bucket; enumeration as comparison/fallback; record method, reason, status, gap, pruning | small-medium |
-| 2 | Store the exported formulation and plan per round; case page shows them and the shortlist | medium |
-| 3 | Round 1 without a family: chain enumeration -> plan -> solve; T1 "write generator for this plan" | medium |
-| 4 | Per-step reasons and alternatives in the chain (from the enumerator's ranking and the Templates' cost notes) | small |
-| 5 | Clean store SYSDEBUG10: GEMM case with no seed family offered (pure workload) and, as a second arm, with the TileLang seed as a starting point; compare | run |
-
-Open questions for the user: whether the no-generator round should also ask the agent for
-a generator at once (one T1) or first show the plan; whether the seed family stays
-available as a starting point in the clean run or the run starts with none.
+SYSDEBUG10: a fresh store, GEMM fp16 case, no seed family imported; prepared and stopped
+before the first step, started only on the user's go-ahead.

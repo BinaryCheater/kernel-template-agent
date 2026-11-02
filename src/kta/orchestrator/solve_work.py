@@ -11,12 +11,12 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, replace
-from typing import Any
+from typing import Any, cast
 
 from kta.checks.full import run_full, run_quick
 from kta.checks.sass import sass_check
 from kta.core import hostlock
-from kta.core.errors import SchemaError
+from kta.core.errors import NotSupported, SchemaError
 from kta.core.ids import record_id
 from kta.core.schemas import Actor, Record
 from kta.core.schemas.evaluation import Bound, Build, Measurement, Prediction
@@ -40,6 +40,7 @@ from kta.solve import (
     solve,
     space_size,
 )
+from kta.solve.plan import default_plan, plan_inputs
 from kta.solve.records import record_solve
 
 ACTOR = Actor(type="tool", name="kta.orchestrator.solve_work")
@@ -206,6 +207,7 @@ def work_solving(svc: Services, loop: Loop) -> Facts:
         rng = svc.ctx.rng(f"solve:{loop.id}")
         # On the compute host (long-run mode) the in-process solve is heavy work: it holds
         # the host lock shared, so no measurement runs beside it (WP23, D604).
+        proj, plan_note = projection_inputs(fp, f, hw, b)
         with hostlock.heavy(svc.ctx.config.section(hostlock.HOST_SECTION), f"solve:{loop.id}"):
             res = solve(
                 f,
@@ -216,6 +218,7 @@ def work_solving(svc: Services, loop: Loop) -> Facts:
                 shortlist=s.shortlist,
                 time_limit_s=s.solve_time_limit_s,
                 rng=rng,
+                projection=proj,
             )
         recs = record_solve(svc.ctx, svc.store, res, ACTOR, cv.id, family, hw_id, model_id)
         name = str(b["name"])
@@ -243,6 +246,16 @@ def work_solving(svc: Services, loop: Loop) -> Facts:
             "model_optimal": res.model_optimal,
             "exhaustive": res.exhaustive,
             "mip_gap": res.mip_gap,
+            # D715: how the round was solved and why (projection MIP or the fallback)
+            "mip_status": res.mip_status,
+            "plan": proj,
+            "plan_note": plan_note,
+            "notes": res.notes,
+            "space_size": res.space_size,
+            "feasible": res.feasible,
+            "pruned_by": res.pruned_by,
+            "shortlist": shortlist_view(res.candidates, recs.candidates, kept),
+            "compiled": kept[: s.compile_count],
             "top_pred_us": res.candidates[0].prediction.total if res.candidates else None,
             "report": recs.report,
         }
@@ -261,6 +274,51 @@ def work_solving(svc: Services, loop: Loop) -> Facts:
     }
 
 
+def projection_inputs(
+    fp: Any, f: Any, mm: Any, b: Mapping[str, Any]
+) -> tuple[dict[str, Any] | None, str]:
+    """The default FormulationPlan's fixed/menus/outer for the projection MIP (D715).
+
+    Every round solves the family's formulation with the projection compiler: finite
+    menus one-hot, products of menu variables and table terms tabulated, ``ceil`` as
+    integer columns, the rest enumerated outside (02 §5.2). When no plan can be made the
+    round falls back to enumeration, and the reason is kept with the round."""
+    try:
+        plan = default_plan(fp, f, mm, bucket_shape(b))
+        return plan_inputs(plan, f), "default plan"
+    except (NotSupported, SchemaError) as exc:
+        return None, f"no plan, enumeration: {exc}"
+
+
+SHORTLIST_SHOWN = 12
+
+
+def _domain_text(v: Any) -> str:
+    d: Any = v.domain
+    if isinstance(d, list):
+        return "{" + ",".join(map(str, cast(list[Any], d))) + "}"
+    lo, hi = getattr(d, "lo", None), getattr(d, "hi", None)
+    return f"{lo}..{hi}" if lo is not None else str(d)
+
+
+def shortlist_view(cands: list[Any], ids: list[str], kept: list[str]) -> list[dict[str, Any]]:
+    """The best-predicted candidates as the case page shows them (D716): assignment,
+    predicted latency, the unit that bounds it, and whether the proof gate kept it."""
+    out: list[dict[str, Any]] = []
+    for c, cid in list(zip(cands, ids, strict=True))[:SHORTLIST_SHOWN]:
+        units = dict(c.prediction.per_unit or {})
+        out.append(
+            {
+                "id": cid,
+                "assignment": dict(c.assignment),
+                "pred_us": c.prediction.total,
+                "bottleneck": max(units, key=lambda u: units[u]) if units else None,
+                "kept": cid in kept,
+            }
+        )
+    return out
+
+
 def formulation_summary(f: Any) -> dict[str, Any]:
     """The assembled formulation in a few numbers (D708): its variables, constraints by
     kind and one row per chain block (Template, constraints, constants it fixes)."""
@@ -276,6 +334,18 @@ def formulation_summary(f: Any) -> dict[str, Any]:
         "linear": f.linear,
         "transactions": len(f.transactions),
         "missing_hw": list(f.missing_hw),
+        # D716: the exported problem, one row per constraint with its source step
+        "exprs": [
+            {
+                "source": c.source,
+                "id": c.id,
+                "kind": c.kind,
+                "expr": c.expr.src,
+                "meaning": c.meaning,
+            }
+            for c in f.constraints
+        ],
+        "domains": {k: _domain_text(v) for k, v in f.variables.items()},
         "blocks": [
             {
                 "key": k,

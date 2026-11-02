@@ -27,11 +27,12 @@ WORKSPACE_ENTRIES: tuple[str, ...] = (
     "NOTES.md",
     "inputs",
     "out",
+    "refs",
     ".agents",
     ".git",
 )
 # Directories the runner replaces wholesale on every step (the agent may not keep edits).
-REPLACED_DIRS: tuple[str, ...] = (".agents/skills",)
+REPLACED_DIRS: tuple[str, ...] = (".agents/skills", "refs")
 
 Mode = Literal["start", "resume", "close", "remove"]
 

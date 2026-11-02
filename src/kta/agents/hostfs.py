@@ -80,7 +80,9 @@ def install_workspace(job_dir: Path, workspace: Path, names: list[str]) -> list[
     """Copy bundle files into the workspace; returns the names written.
 
     ``NOTES.md`` is only seeded (the agent owns it); directories in REPLACED_DIRS are
-    replaced wholesale so the agent cannot keep edits to skills between steps.
+    replaced wholesale so the agent cannot keep edits to skills between steps. ``out/``
+    files of the bundle (the current family, D716) are written only into an empty ``out/``:
+    a retry keeps the agent's draft.
     """
     workspace.mkdir(parents=True, exist_ok=True)
     incoming = job_dir / (BUNDLE_WORKSPACE + "TASK.md")
@@ -96,16 +98,19 @@ def install_workspace(job_dir: Path, workspace: Path, names: list[str]) -> list[
                     shutil.rmtree(workspace / name)
     (workspace / "out").mkdir(exist_ok=True)
     (workspace / "inputs").mkdir(exist_ok=True)
+    out_empty = not any((workspace / "out").iterdir())
     for d in REPLACED_DIRS:
         if (workspace / d).exists():
             shutil.rmtree(workspace / d)
     written: list[str] = []
     for name in names:
         rel = safe_rel(name)
-        if rel.parts[0] not in WORKSPACE_ENTRIES or rel.parts[0] in ("out", ".git"):
+        if rel.parts[0] not in WORKSPACE_ENTRIES or rel.parts[0] == ".git":
             raise ConfigError(f"bundle file {name} is outside the allowed workspace entries")
         dest = workspace / rel
         if rel.as_posix() == "NOTES.md" and dest.exists():
+            continue
+        if rel.parts[0] == "out" and not out_empty:
             continue
         dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(job_dir / (BUNDLE_WORKSPACE + name), dest)

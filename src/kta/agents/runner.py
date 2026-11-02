@@ -26,6 +26,7 @@ from kta.agents import (
     cards,
     compliance,
     guard,
+    handoff,
     policy,
     proxyplan,
     sessions,
@@ -217,6 +218,14 @@ def violations_of(
     return out
 
 
+def _last_card(store: Store, state: sessions.SessionState | None) -> str | None:
+    """The task card of the work unit's last agent run (None without history)."""
+    if state is None or not state.runs or not store.exists(state.runs[-1]):
+        return None
+    card = store.get(state.runs[-1]).refs.get("card")
+    return card if isinstance(card, str) else None
+
+
 def _prompt(
     batch: BatchRoot,
     mode: str,
@@ -224,15 +233,33 @@ def _prompt(
     task: Task,
     retry: cards.RetryNote | None,
     note: str | None,
+    store: Store | None = None,
+    state: sessions.SessionState | None = None,
 ) -> str:
     def tpl(name: str) -> str:
         return batch.text(f"msg-{name}.md")
 
+    def has(name: str) -> bool:
+        return (batch.root / "prompts" / f"msg-{name}.md").is_file()
+
     parts: list[str] = []
+    history = store is not None and state is not None and bool(state.runs)
     if mode == "start":
         parts.append(cards.new_session(tpl("new_session"), card.work_unit, retry))
+        # D716: a fresh session in a unit with history gets the system's handoff
+        text = handoff.handoff_text(store, card) if history and store is not None else ""
+        if text and has("handoff"):
+            parts.append(cards.render(tpl("handoff"), {"handoff": text}))
     elif retry is not None:
         parts.append(cards.rejection(tpl("rejection"), task.id, retry))
+    elif (
+        store is not None
+        and has("new_round")
+        and _last_card(store, state) not in (None, task.card_id)
+    ):
+        # D716: a resumed session on a new task hears only what changed since its last step
+        header = card.header.text if card.header is not None else "(no case header)"
+        parts.append(cards.render(tpl("new_round"), {"task_id": task.id, "header": header}))
     if note:
         parts.append(cards.human_note(tpl("human_note"), note))
     if not parts:
@@ -265,6 +292,7 @@ def _plan(
         retry=retry,
         policy=policy.context_policy(controls),
         arm=arm,
+        refs=workspace.reference_files(deps.config.refs_dir) if card.type == "T1" else None,
     )
     limits = _limits(card, controls)
     spec = _spec(ctx, deps, task, card, profile, run, bundle, batch.root.name, arm, px)
@@ -353,7 +381,7 @@ def run_step(
         decision = sessions.Decision("start", "force retry by a human: a fresh session")
     key = guard.ensure_key(Path(deps.config.token_key_file))
     token = guard.issue_token(key, task.id, ctx.clock.now() + timedelta(seconds=plan.hard_cap_s))
-    prompt = _prompt(root, decision.mode, card, task, retry, note)
+    prompt = _prompt(root, decision.mode, card, task, retry, note, deps.store, state)
     stop = threading.Event()
     renewer = threading.Thread(
         target=_renewing, args=(deps.ops, task, stop, controls.lease_s), daemon=True
@@ -408,6 +436,7 @@ def _agent_run(
     events: list[AgentEvent],
     arm: Arm,
     controls: Controls,
+    mode: str | None = None,
 ) -> AgentRun:
     usage = usage_of(events)
     return AgentRun(
@@ -417,6 +446,9 @@ def _agent_run(
         model=profile.model,
         tokens_in=usage.tokens_in,
         tokens_out=usage.tokens_out,
+        tokens_cached=usage.cached_in,
+        tool_calls=sum(1 for e in events if e.kind == "tool_call"),
+        session_mode=mode,
         session_archive=launch.archive,
         wall_s=launch.wall_s,
         tool_s=tool_seconds(events),
@@ -446,7 +478,8 @@ def _record(
     controls: Controls,
 ) -> StepResult:
     usage = usage_of(events)
-    body = _agent_run(deps, card, profile, launch, events, arm, controls)
+    mode = f"{decision.mode}: {decision.reason}"
+    body = _agent_run(deps, card, profile, launch, events, arm, controls, mode)
     refs: dict[str, Any] = {
         "env": launch.env_manifest,
         "worker": launch.worker,

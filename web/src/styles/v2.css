@@ -463,3 +463,7 @@ dl.bv.nested .bv-row { grid-template-columns: 110px minmax(0, 1fr); }
 /* ---- SYSDEBUG-2 (D708): the case header an agent task reads ---- */
 .made-header { white-space: pre-wrap; font-size: 11px; line-height: 1.35; background: rgba(0,0,0,0.03); padding: 6px; border-radius: 6px; max-height: 260px; overflow: auto; }
 @media (prefers-color-scheme: dark) { .made-header { background: rgba(255,255,255,0.05); } }
+/* D716: collapsed details of a round (exported problem, family diff, shortlist) */
+.made-details { display: flex; flex-direction: column; gap: 4px; margin: 6px 0; }
+.made-details table.t.compact td.mono { white-space: nowrap; }
+.made-details details > table, .made-details details > div { overflow-x: auto; }

@@ -31,6 +31,7 @@ SKILLS = PACKAGE / "skills"
 CURRENT_POINTER = "current_profile"
 TASK_TYPES = ("T1", "T2", "T3", "T4", "T5", "T6")
 MESSAGES = ("rejection", "budget_warning", "human_note", "new_session")
+CONTEXT_MESSAGES = ("new_round", "handoff")  # profile version >= 5 (D716)
 # kta subcommands an agent may call (docs/design/10 §5, spec/modules/orchestrator-cli.md).
 AGENT_COMMANDS = [
     "show", "query", "why", "src", "instantiate", "build", "sass", "check", "run",
@@ -76,7 +77,12 @@ CODEX_V3 = ProfileSpec(
 CODEX_V4 = ProfileSpec(
     name="codex-v4", version=4, model="gpt-6.1-sol", skills_by_type=SKILLS_BY_TYPE_V2
 )
-LATEST = CODEX_V4  # what `kta init` stores for a fresh store (D705)
+# codex-v5 (SYSDEBUG-2, D716): T1 without the one-mechanism rule, the baseline case (no
+# family yet), out/ prefilled with the current family, the TileLang reference in refs/.
+CODEX_V5 = ProfileSpec(
+    name="codex-v5", version=5, model="gpt-6.1-sol", skills_by_type=SKILLS_BY_TYPE_V2
+)
+LATEST = CODEX_V5  # what `kta init` stores for a fresh store (D705)
 SUPPORTED_COMMANDS = [
     "show",
     "card",
@@ -172,6 +178,8 @@ def profile_body(store: Store, spec: ProfileSpec = CODEX_V1) -> AgentProfile:
         for n in sorted({s for v in by_type.values() for s in v})
     }
     messages = {m: blob(f"msg-{m}.md") for m in MESSAGES}
+    if spec.version >= 5:  # D716: the new-round delta and the handoff of a fresh session
+        messages |= {m: blob(f"msg-{m}.md") for m in CONTEXT_MESSAGES}
     messages["notes_seed"] = blob("notes-seed.md")
     return AgentProfile(
         name=spec.name,
