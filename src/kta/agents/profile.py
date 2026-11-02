@@ -82,7 +82,12 @@ CODEX_V4 = ProfileSpec(
 CODEX_V5 = ProfileSpec(
     name="codex-v5", version=5, model="gpt-6.1-sol", skills_by_type=SKILLS_BY_TYPE_V2
 )
-LATEST = CODEX_V5  # what `kta init` stores for a fresh store (D705)
+# codex-v6 (SYSDEBUG-2, D724): write-family with a complete, valid example of family.yaml,
+# chain.yaml (p.* parameters bound) and generate()'s mapping (launch.params, smem_bytes).
+CODEX_V6 = ProfileSpec(
+    name="codex-v6", version=6, model="gpt-6.1-sol", skills_by_type=SKILLS_BY_TYPE_V2
+)
+LATEST = CODEX_V6  # what `kta init` stores for a fresh store (D705)
 SUPPORTED_COMMANDS = [
     "show",
     "card",

@@ -241,3 +241,24 @@ def test_a_launch_without_arguments_is_refused_before_the_gpu(tmp_path: Path) ->
         reason
         == "check numeric.run, kta.core.errors.ExecutionError: [nonzero] cuLaunchKernel failed: X"
     )
+
+
+def test_the_write_family_example_is_valid(store: SqliteStore) -> None:
+    """D724: the v6 skill's example family.yaml and chain.yaml parse as the checks parse them,
+    and generate()'s example names launch params (the formats agents got wrong in SYSDEBUG11)."""
+    import re
+
+    import yaml
+
+    from kta.agents.profile import CODEX_V6, SKILLS, versioned
+    from kta.core.schemas.knowledge import Chain, Family
+
+    path = versioned(SKILLS, "write-family", CODEX_V6.version) / "SKILL.md"
+    text = path.read_text()
+    assert "/v6/" in str(path)
+    blocks = re.findall(r"```yaml\n(.*?)```", text, re.S)
+    Family.model_validate(yaml.safe_load(blocks[0]))
+    chain = Chain.model_validate(yaml.safe_load(blocks[1]))
+    assert any(k.startswith("p.") for k in chain.items[0].bindings)
+    assert '"params"' in text and '"smem_bytes"' in text
+    assert profile_body(store, CODEX_V6).skills  # the profile builds
