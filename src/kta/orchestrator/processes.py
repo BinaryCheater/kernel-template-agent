@@ -172,6 +172,8 @@ def run(
     lease = int(max(60.0, 4 * (interval_s or 10.0)))
     if not svc.ops.acquire(lock, holder, lease):
         raise ConfigError(f"process {name} is already running (lock {lock})")
+    for orphan in svc.ops.release_orphans(f"{name}:", holder):  # D723: crash recovery
+        log.warning("%s: released lock %s of an earlier %s instance", holder, orphan, name)
     configure_scopes(svc.ops, svc.ctx.config, svc.ctx.controls)
     quotas.apply_quotas(svc.ops, svc.ctx.controls)  # WP11: experiment share when none runs
     runner = Runner(svc, holder)
