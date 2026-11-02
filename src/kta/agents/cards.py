@@ -109,16 +109,25 @@ def task_md(
     retry: RetryNote | None,
     policy: dict[str, Any],
     last_submission: str | None = None,
+    forced: bool = False,
 ) -> str:
     k = int(policy["cards_k"])
     previous = ""
     if last_submission:
         # D721: the task's state, from the queue: a fresh session must not take notes
-        # saying "submitted" for "done"
+        # saying "submitted" for "done". D726: after a force retry the reason was outside
+        # the agent's work, so it is told to resubmit rather than look for a fault of its own.
+        why = (
+            "for a reason outside your work (a system fault, fixed since). If "
+            "`kta validate-family out` passes, submit again; do not change the family "
+            "because of that rejection"
+            if forced
+            else "; the task ends only when a submission passes the done checks. Check "
+            "`out/` against them and submit again"
+        )
         previous = (
             "\n## Status of this task\n\nThis task is open. An earlier submission "
-            f"(`{last_submission}`) was not accepted; the task ends only when a submission "
-            "passes the done checks. Check `out/` against them and submit again.\n"
+            f"(`{last_submission}`) was not accepted {why}.\n"
         )
     if retry is not None and retry.failures:
         previous += "\n## Previous attempt was rejected\n\n" + _bullets(failure_lines(retry))

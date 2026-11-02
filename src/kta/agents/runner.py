@@ -281,6 +281,7 @@ def _plan(
     px: ProxyPlan,
 ) -> tuple[StepPlan, Limits]:
     """Bundle, launch spec and job inputs of one step."""
+    info = arms.task_info(deps.ops, task.id)
     bundle = workspace.build(
         deps.store,
         profile,
@@ -293,7 +294,9 @@ def _plan(
         policy=policy.context_policy(controls),
         arm=arm,
         refs=workspace.reference_files(deps.config.refs_dir) if card.type == "T1" else None,
-        last_submission=arms.task_info(deps.ops, task.id).get("submission"),
+        last_submission=info.get("submission"),
+        # D726: force-retried (attempt_base set) and not rejected since (last_rejection cleared)
+        forced=info.get("attempt_base") is not None and not info.get("last_rejection"),
     )
     limits = _limits(card, controls)
     spec = _spec(ctx, deps, task, card, profile, run, bundle, batch.root.name, arm, px)

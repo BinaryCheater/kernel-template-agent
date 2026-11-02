@@ -217,6 +217,9 @@ def test_task_md_states_an_open_task_after_a_submission(store: SqliteStore, tmp_
     assert "This task is open" not in cards.task_md("$previous", **kw)
     text = cards.task_md("$previous", **kw, last_submission="sub-1")
     assert "This task is open" in text and "`sub-1`" in text
+    # D726: after a force retry the agent is told the reason was not its work
+    forced = cards.task_md("$previous", **kw, last_submission="sub-1", forced=True)
+    assert "outside your work" in forced and "submit again" in forced
 
 
 def test_a_launch_without_arguments_is_refused_before_the_gpu(tmp_path: Path) -> None:

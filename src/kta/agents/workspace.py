@@ -149,6 +149,7 @@ def build(
     arm: Arm = NO_ARM,
     refs: Mapping[str, bytes] | None = None,
     last_submission: str | None = None,
+    forced: bool = False,
 ) -> Bundle:
     """Workspace files; templates and skills come only from the verified batch root (D322),
     shaped by the arm's knowledge condition (D430)."""
@@ -186,6 +187,7 @@ def build(
         retry=retry,
         policy=policy,
         last_submission=last_submission,
+        forced=forced,
     ).encode()
     if "notes_seed" in profile.message_templates:
         ws["NOTES.md"] = batch.text("msg-notes_seed.md").encode()
