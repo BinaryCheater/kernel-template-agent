@@ -50,6 +50,7 @@ from kta.core.registry import resolve
 from kta.core.schemas import Actor, Record
 from kta.core.schemas.process import AgentProfile, AgentRun, TaskCard
 from kta.core.trace import child_environ, span
+from kta.store import code_state
 from kta.store import controls as controls_store
 from kta.store.base import Ops, Store, Task
 
@@ -317,12 +318,14 @@ def open_batch(
     the card's own profile batch ``<name>-v<version>`` when it exists (D595)."""
     explicit = name is not None
     name = name or deps.config.batch
-    if not name:  # SYSDEBUG-2 (D709): the batch approving the card's profile built, if any
+    if not name and state is not None and state.batch:
+        # D738: a work unit keeps its batch when a newer profile is approved meanwhile
+        return BatchRoot.open(deps.store, ctx.data_dir, state.batch)
+    if not name:  # SYSDEBUG-2 (D709): the card's profile batch, built on first use (D738)
         own = batches.profile_batch(AgentProfile.model_validate(deps.store.get(card.profile).body))
-        if (batches.batches_root(ctx.data_dir) / own).exists():
-            name = own
-    if not name:
-        raise ConfigError("no batch: pass batch= or set [agents] batch (kta agents env build)")
+        if not (batches.batches_root(ctx.data_dir) / own).exists():
+            batches.build(deps.store, ctx.data_dir, own, card.profile, code_state().commit)
+        name = own
     if state is not None and state.batch and state.batch != name:
         raise ConfigError(f"work unit {card.work_unit} belongs to batch {state.batch}, not {name}")
     root = BatchRoot.open(deps.store, ctx.data_dir, name)

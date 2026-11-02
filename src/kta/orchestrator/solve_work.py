@@ -163,9 +163,8 @@ def work_retrieving(svc: Services, loop: Loop) -> Facts:
         # changed) is not searched with a wrong expression; the agent fixes it first
         errors, _ = space.expression_issues(svc, pipeline.family_package(svc, order[0]), cv)
         if errors:
-            goal = (
-                "Fix the search expression of this family before it is searched: "
-                + " | ".join(errors)
+            goal = "Fix the search expression of this family before it is searched: " + " | ".join(
+                errors
             )
             return {"families": [], "t1_goal": goal, "t1_inputs": [order[0], cv.id]}
         if tried and tried not in ids:
