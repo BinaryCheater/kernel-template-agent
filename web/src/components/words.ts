@@ -6,13 +6,13 @@ export const STATE_WORDS: Record<string, string> = {
   // solve loop: one Case
   new: "Start",
   bounded: "Lower bound",
-  retrieving: "Pick family",
-  solving: "Formulate · prove · solve",
+  retrieving: "Formulation",
+  solving: "Compile + solve",
   building: "Compile",
   checking: "Check",
   measuring: "Measure",
   judging: "Judge",
-  waiting: "Agent task",
+  waiting: "Agent formulates",
   accepted: "Solved",
   closed: "Gave up",
   // expand loop: one Reference
