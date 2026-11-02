@@ -203,6 +203,12 @@ def _generator(fp: FamilyPackage) -> Callable[..., Any]:
     return cast(Callable[..., Any], func)
 
 
+GENERATED_SHAPE = (
+    "{'files': {name: source}, 'entry': kernel symbol, 'launch': {'grid': [x, y, z], "
+    "'block': [x, y, z], 'smem_bytes': int, 'params': [...]}, optional 'markers': [...]}"
+)
+
+
 def generate(
     fp: FamilyPackage, assignment: Mapping[str, Any], shape: Mapping[str, Any]
 ) -> GeneratedKernel:
@@ -213,8 +219,13 @@ def generate(
     if not isinstance(out, Mapping):
         raise SchemaError(f"{fp.family.name}: generate() returned {type(out).__name__}")
     g = cast(Mapping[str, Any], out)
-    if "launch" not in g or "entry" not in g:
-        raise SchemaError(f"{fp.family.name}: generate() must return files, entry and launch")
+    missing = [k for k in ("files", "entry", "launch") if k not in g]
+    if missing:
+        # D722: say what came back and what is expected, so the author can fix it
+        raise SchemaError(
+            f"{fp.family.name}: generate() returned keys {sorted(map(str, g))}, lacks "
+            f"{missing}; expected a mapping {GENERATED_SHAPE}"
+        )
     return GeneratedKernel(
         backend=str(g.get("backend", fp.family.backend)),
         files={str(k): str(v) for k, v in g["files"].items()},

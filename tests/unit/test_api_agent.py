@@ -203,3 +203,27 @@ def test_validate_family_reports_what_verify_space_would_refuse(
     )  # fmt: skip
     assert status == 200 and not out["ok"]
     assert any(i["kind"] == "formulation" and "p.M" in i["message"] for i in out["issues"]), out
+
+
+def test_validate_family_runs_the_generator_once(
+    api: Api, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """D722: verify_space refused 'generate() must return files, entry and launch' after a
+    passing self-check; the self-check now generates one point and names what came back."""
+    from kta.knowledge import import_seed
+    from kta.orchestrator import space as orch_space
+    from kta.orchestrator.pipeline import Services, case_view
+    from orchesthelp import world
+
+    import_seed(api.ctx, api.store, ROOT / "knowledge" / "seed")
+    case = world(Services(api.ctx, api.store, api.ops))["case"]
+    monkeypatch.setattr(orch_space, "case_of", lambda store, _card: case_view(store, case))
+    task = _running(api)
+    files = {p.name: p.read_bytes() for p in FAMILY.iterdir() if p.is_file()}
+    files["gen.py"] = b"def generate(assignment, case):\n    return {'files': {'k.py': ''}}\n"
+    status, out = request(
+        create_app(api), "POST", "/agent/validate-family",
+        {"files": agentapi.encode_files(files)}, _auth(api, tmp_path, task),
+    )  # fmt: skip
+    gen = [i for i in out["issues"] if i["kind"] == "generation"]
+    assert status == 200 and gen and "lacks ['entry', 'launch']" in gen[0]["message"], out

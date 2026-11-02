@@ -253,6 +253,10 @@ def router(api: Api) -> APIRouter:
             return [Issue("formulation", str(exc), "chain")]
         if not found:
             return [Issue("no_feasible_point", f"no feasible point on {shape}", "family")]
+        try:  # D722: verify_space generates code next; do it once here (no compile, no GPU)
+            generate(fp, found[0], shape)
+        except Exception as exc:  # noqa: BLE001 - any generator error is the author's to see
+            return [Issue("generation", f"{type(exc).__name__}: {exc}", "gen.py")]
         return []
 
     @r.post("/instantiate")
