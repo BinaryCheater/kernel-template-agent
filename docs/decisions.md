@@ -565,7 +565,6 @@
 | D736 | An analyst agent (T7) between judging and the next task | Profile codex-v7 adds T7: a fresh session per round reads the system's analysis and writes out/analysis.md (main contradiction, direction from a fixed list, expected effect, refutation, per shape); the routed task follows with the report in its goal. Budget 1200 s until T7 is a column of the per-type knobs | SYSDEBUG-2 |
 | D737 | A retrieved family is re-checked before it is searched | Retrieving runs the hard expression check on the family it picked; a failing family (accepted before the check existed, or since the check changed) is not searched: a T1 gets the family and the errors to fix. SYSDEBUG11's family v2 was accepted with per-tile counts before D732 | SYSDEBUG-2 |
 | D738 | A work unit keeps its batch; a new profile's batch is built on first use | Approving codex-v7 left the running kernel unit (batch codex-v5-v5) without a usable batch and new units without any: the runner exited on 'no batch'. The runner now reuses the unit's recorded batch, and builds `<profile>-v<version>` the first time a new unit needs it | SYSDEBUG-2 |
-| D739 | System-side step failures do not use the agent's attempts | A step that raises a system error (no batch, a crashed tool) ends the attempt without counting it (attempt_base +1) and without telling the agent; three in a row hold the task (agent_hold) until a force retry. SYSDEBUG11's fix-expression T1 escalated on runner 'no batch' errors before the agent ran once | SYSDEBUG-2 |
 
 ## 已确认
 

@@ -186,16 +186,14 @@ def step_once(
     except ProxyUnavailable as exc:
         # The CLI never started (fail closed); the attempt ends like an abandoned step.
         return {"task": task.id, "refused": str(exc), "verdict": q.abandon(task.id, str(exc))}
-    except KtaError as exc:  # D739: the system failed, not the agent
+    except KtaError as exc:
         if q.get(task.id).state == "running":
-            q.system_error(task.id, f"{type(exc).__name__}: {exc}")
+            q.abandon(task.id, str(exc))
         raise
     finally:
         done.set()
         watcher.join()
     q.reconcile_usage(task.id)
-    if q.info(task.id).get("system_errors"):
-        q.annotate(task.id, system_errors=0)  # D739: a step ran; the next error starts anew
     if q.info(task.id).get("fresh_session"):
         q.annotate(task.id, fresh_session=None)  # one fresh session per force retry (D712)
     after = q.get(task.id).state
