@@ -411,3 +411,11 @@ def test_residency_in_the_projection_reads_only_the_storage() -> None:
     f: Any = NS(storage=[store], transactions=[needs_threads])
     c = projection._Ctx(f, NS(walls=[], hw={}), {}, {}, {})  # type: ignore[arg-type]
     assert projection._residency(c, {"BM": 64}) is None  # no ExprError for 'threads'
+
+
+def test_every_judging_route_to_a_task_may_create_the_analyst() -> None:
+    """SYSDEBUG13: judge creates T7 before the routed task; the machine refused it."""
+    from kta.orchestrator.machines import machine
+
+    edges = [e for e in machine("solve").edges if e.src == "judging" and e.to == "waiting"]
+    assert edges and all("T7" in e.creates for e in edges)

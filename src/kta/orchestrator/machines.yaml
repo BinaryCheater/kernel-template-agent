@@ -76,13 +76,13 @@ machines:
          when: no shortlisted candidate built or kept a resident CTA}
       - {from: checking, to: measuring, kind: normal}
       - {from: measuring, to: judging, kind: normal}
-      - {from: judging, to: waiting, kind: creates_task, rule: 1, creates: [T6], label: check failed,
+      - {from: judging, to: waiting, kind: creates_task, rule: 1, creates: [T6, T7], label: check failed,
          when: a correctness check failed}
-      - {from: judging, to: waiting, kind: creates_task, rule: 2, creates: [T4], label: model off,
+      - {from: judging, to: waiting, kind: creates_task, rule: 2, creates: [T4, T7], label: model off,
          when: predicted and measured ranking disagree, or error above threshold}
       - {from: judging, to: accepted, kind: normal, rule: 3, label: criterion met,
          when: 12 §4 accept - not worse than the strongest reference and eps below the limit, or the gap explained as irreducible}
-      - {from: judging, to: waiting, kind: creates_task, rule: 4, creates: [T2, T1], label: space loss,
+      - {from: judging, to: waiting, kind: creates_task, rule: 4, creates: [T2, T1, T7], label: space loss,
          when: the gap class is delta_pre (T1) or L_rep (T2 with a reference, else T1)}
       - {from: judging, to: closed, kind: normal, rule: 5, label: escalated,
          when: the route escalates (uncertified solver, model error after calibration, inconsistent bound)}
