@@ -87,8 +87,6 @@ def test_system_config_defaults_revisions_and_stale_writes(tmp_path: Path) -> No
         sysconfig.save(tmp_path, {"proxy": {"override": None}}, 0, "me", T, "stale")
     with pytest.raises(ConfigError):
         sysconfig.save(tmp_path, {"providers": {"pi": {"proxy": "optional"}}}, 1, "me", T, "x")
-    with pytest.raises(ConfigError, match="reason"):
-        sysconfig.save(tmp_path, {}, 1, "me", T, " ")
 
 
 # ---- injection per policy (contract) ----------------------------------------------------

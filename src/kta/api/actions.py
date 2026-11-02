@@ -1,8 +1,7 @@
 """Operation endpoints (spec/modules/api-web.md "操作"): POST /actions/*.
 
-Every operation writes a HumanAction (operate.py). ``reason`` is required for reject,
-deprecate and budget (design/30 §3); a missing or blank one is a 400, as is any other
-malformed body (app.py maps request validation errors to 400).
+Every operation writes a HumanAction (operate.py); ``reason`` is optional everywhere (D728).
+A malformed body is a 400 (app.py maps request validation errors to 400).
 """
 
 from __future__ import annotations

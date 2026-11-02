@@ -192,10 +192,11 @@ def test_a_value_change_is_a_new_version_with_author_and_reason(store, ops, cloc
         controls_store.propose(
             store, ops, {"budget.retries_per_task": 4}, system, "r", clock.now(), v2.version_id
         )
-    with pytest.raises(ConfigError, match="reason"):
-        controls_store.propose(
-            store, ops, {"budget.retries_per_task": 4}, HUMAN, " ", clock.now(), v2.version_id
-        )
+    # D728: a human's change needs no reason
+    v3 = controls_store.propose(
+        store, ops, {"budget.retries_per_task": 4}, HUMAN, " ", clock.now(), v2.version_id
+    )
+    assert v3.version == 3
 
 
 def test_definitions_upgrade_writes_a_system_version(store, ops, clock) -> None:
@@ -354,8 +355,6 @@ def test_settings_api_reads_open_and_writes_a_version_with_the_token(api: Api) -
     assert _call(api, "POST", "/controls", locked, "secret-operator-token")[0] == 403
     bad = {"expected": out["id"], "changes": {"budget.lease_s": "long"}, "reason": "r"}
     assert _call(api, "POST", "/controls", bad, "secret-operator-token")[0] == 400
-    blank = {"expected": out["id"], "changes": {"budget.lease_s": 900}, "reason": " "}
-    assert _call(api, "POST", "/controls", blank, "secret-operator-token")[0] == 400
     machines = _call(api, "GET", "/machines")[1]
     task = next(m for m in machines["machines"] if m["id"] == "task")
     assert task["limits"]["max_retries"] == 3

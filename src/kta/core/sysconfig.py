@@ -149,8 +149,7 @@ def save(
     reason: str,
 ) -> SystemConfig:
     """Write a new revision; refused when ``expected`` is not the revision on disk."""
-    if not reason.strip():
-        raise ConfigError("a system configuration change needs a reason")
+    # D728: a reason is optional
     current = load(data_dir)
     if current.revision != expected:
         raise ConfigError(

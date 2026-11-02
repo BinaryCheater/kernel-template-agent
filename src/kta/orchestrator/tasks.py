@@ -400,7 +400,8 @@ class TaskQueue:
         if force:
             self._set_info(task_id, rejected_digests=[], last_rejection=None, human_note=None,
                            fresh_session=True, attempt_base=task.attempts)  # fmt: skip
-        self._move(task, "queued", kind="human")
+        if not (force and task.state == "queued"):  # D728: a force retry works on a queued task
+            self._move(task, "queued", kind="human")
         if note:
             self._set_info(task_id, human_note=note)
         return action

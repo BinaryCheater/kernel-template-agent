@@ -65,7 +65,7 @@ def _write(
         definitions_hash=definitions().hash,
         values=dict(new),
         changes=changes,
-        reason=reason,
+        reason=reason.strip() or "(no reason given)",  # D728: optional for a human
     )
     refs: dict[str, str | list[str]] = {"previous": previous} if previous else {}
     rid = store.put(Record.new("ControlsVersion", body, actor, at, refs=refs))
@@ -111,8 +111,7 @@ def propose(
     """
     if author.type != "human" or not author.name.strip():
         raise PermissionDenied("a controls version is written by a named human")
-    if not reason.strip():
-        raise ConfigError("a controls version needs a reason")
+    # D728: a reason is optional
     if not changes:
         raise ConfigError("no changes given")
     read = current(store, ops)  # None: the author saw values not stored yet (baseline/upgrade)
