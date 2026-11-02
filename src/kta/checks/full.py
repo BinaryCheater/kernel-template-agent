@@ -281,7 +281,28 @@ class SpaceReport:
     report_id: str
 
 
+REASON_KEYS = ("check", "dist", "rel_l2", "rel_l2_limit", "max_abs_err", "max_abs_limit",
+               "mismatches", "elements", "reason", "error")  # fmt: skip
+
+
+def failure_reason(failures: list[dict[str, Any]]) -> str | None:
+    """The first failure of a check in one line (SYSDEBUG-2): what failed, with its numbers."""
+    if not failures:
+        return None
+    f = failures[0]
+    parts = [
+        f"{k} {f[k]:.3g}" if isinstance(f[k], float) else f"{k} {f[k]}"
+        for k in REASON_KEYS
+        if f.get(k) is not None
+    ]
+    more = f" (+{len(failures) - 1} more)" if len(failures) > 1 else ""
+    return (", ".join(parts) or str(f)[:200]) + more
+
+
 def space_verify(c: Checker, items: Iterable[SpaceItem], subjects: list[str]) -> SpaceReport:
+    """Every structural path gets the full check and every sample a numeric check, both at
+    the loose level (SYSDEBUG-2 D711: obvious errors only, relative to the library, as the
+    solve loop's quick check), so a delivery is not refused for fp16 rounding."""
     rows: list[dict[str, Any]] = []
     ids: list[str] = []
     for it in items:
@@ -298,13 +319,22 @@ def space_verify(c: Checker, items: Iterable[SpaceItem], subjects: list[str]) ->
                 build_for=it.build_for,
                 sass=it.sass,
                 assignment=it.assignment,
+                level="loose",
             )
         else:
             chk = _numeric_one(
-                c, it.module, it.problem, it.contract, it.shape, None, dists_for(it.contract, None)
+                c,
+                it.module,
+                it.problem,
+                it.contract,
+                it.shape,
+                None,
+                dists_for(it.contract, None),
+                "loose",
             )
         ids.append(chk.id)
-        rows.append({"path_id": it.path_id, "kind": it.kind, "check": chk.id, "passed": chk.passed})
+        rows.append({"path_id": it.path_id, "kind": it.kind, "check": chk.id, "passed": chk.passed,
+                     "reason": failure_reason(list(chk.body.failures))})  # fmt: skip
     paths = sum(r["kind"] == "path" for r in rows)
     passed = bool(rows) and paths > 0 and all(r["passed"] for r in rows)
     changes: list[str] = []

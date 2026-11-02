@@ -120,7 +120,11 @@ def space_verifies(inp: CheckInput) -> Outcome:
     from kta.orchestrator.space import verify_family_space
 
     report = verify_family_space(inp.svc, inp.workdir, inp.card)
-    failures = [f"{i['path_id']}: {i.get('failures')}" for i in report.items if not i["passed"]]
+    failures = [
+        f"{i['path_id']}: {i.get('reason') or i.get('failures') or 'failed (see its Check)'}"
+        for i in report.items
+        if not i["passed"]
+    ]
     return Outcome("verify_space", report.passed, failures, {"report": report.report_id})
 
 

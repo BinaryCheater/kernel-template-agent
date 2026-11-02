@@ -207,3 +207,15 @@ def test_retrieval_puts_the_delivered_family_before_the_incumbent(
     gone = Loop(lp.id, lp.kind, lp.subject, lp.state, {**lp.data, "try_family": "Z"}, {})
     out = solve_work.work_retrieving(svc, gone)
     assert out["families"][0] == "A" and "not retrievable" in out["delivered_family_note"]
+
+
+def test_a_failed_check_reads_as_its_numbers() -> None:
+    """D711: done-check failures name what failed instead of 'path0: None'."""
+    from kta.checks.full import failure_reason
+
+    f = {"check": "numeric", "dist": "cancellation", "rel_l2": 2.08e-4, "rel_l2_limit": 1e-3,
+         "mismatches": 480, "elements": 16777216, "output": "C"}  # fmt: skip
+    text = failure_reason([f, f])
+    assert text is not None and text.startswith("check numeric, dist cancellation, rel_l2 0.000208")
+    assert "mismatches 480" in text and text.endswith("(+1 more)")
+    assert failure_reason([]) is None
