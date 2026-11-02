@@ -10,7 +10,7 @@ per assignment and shape; M, N and K are compile-time constants.
 | `k_split` | `reduction_partition@1` | KT, BK | `k_split` (the k-tile loop) |
 | `ab_smem` | `physical_storage@1` | S (copies) | `ab_smem` (A_shared, B_shared) |
 | `ab_async` | `async_transfer@1` | constants: cp.async, 16 bytes | `ab_async` (T.copy global -> shared) |
-| `ab_stages` | `multi_buffer_rotation@1` | S, P (glue `P == S - 1`) | `ab_stages` (T.Pipelined num_stages) |
+| `ab_stages` | `multi_buffer_rotation@2` | S, P (glue `P == S - 1`); late 0, private 0 | `ab_stages` (T.Pipelined num_stages) |
 | `ab_swizzle` | `shared_resource_binding@1` | constant: xor_swizzle | `ab_swizzle` (TileLang's swizzled layout, not overridden) |
 | `mma` | `compute_instruction_selection@2` | constant: mma.sync m16n8k16 f16 | `mma` (T.gemm) |
 

@@ -67,7 +67,7 @@ Patterns: `reduce`, `contract`, `map`, `store`, `transfer`, `sync`, `access`, `o
 | `reduction_partition@1` | reduce → reduce | `num_groups`, `group_size`, `assignment` (which reduction indices go to which group) |
 | `physical_storage@1` | store → store | `level` (reg, smem, tmem, gmem), `buffer`, `share_order` (order of values sharing one buffer) |
 | `async_transfer@1` | transfer → transfer, sync | `mechanism` (software, instruction, controller), `issue_point`, `complete_point`, `granularity_bytes` |
-| `multi_buffer_rotation@1` | store → store, sync | `S` (slots), `P` (prefetch distance), `beta` (trailing barrier, 0/1); obligation P ≤ S − 2 + β |
+| `multi_buffer_rotation@2` | store → store, sync | `S` (slots), `P` (prefetch distance), `beta` (trailing barrier, 0/1), `late` (refill after the consumption, 0/1), `private` (thread-private slots, 0/1); obligation P ≤ S − 2 + max(β, private) + late, late ≤ P (v2, D704) |
 | `shared_resource_binding@1` | access → access | `binding` (request → bank/port map, e.g. an XOR swizzle), `queue_depth` (hardware; fixed on GB10) |
 
 ## Reproduction status

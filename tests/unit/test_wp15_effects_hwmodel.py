@@ -117,7 +117,7 @@ def test_schema_1_cost_record_upcasts_on_read_and_keeps_its_id(store: Store) -> 
     assert t.effects.upcast_from == "cost"
     assert [(c.unit, c.overlap) for c in t.cost] == [("issue", "serial"), ("dram", "overlappable")]
     assert [x.kind for x in t.effects.transactions] == ["unit:issue", "unit:dram"]
-    hit = find_template(store, "multi_buffer_rotation@1")
+    hit = find_template(store, "multi_buffer_rotation@2")
     assert hit is not None and hit[1].effects.upcast_from == "cost"
 
 

@@ -792,6 +792,21 @@ knobs:
     accessor: model_ranking
     consumer: solve loop judging rule 2
 
+  - id: judging.defer_model_fix
+    row: defer model fixes
+    section: "12 §7"
+    controls: when true, a round whose model is off (rule 2) or whose gap is attributed to the model (epsilon) does not create a model-diagnosis task (T4); it routes to the kernel-improvement task (T1, route model_fix_deferred) and the model being off no longer blocks acceptance. The model metrics are still computed and shown
+    type: bool
+    value: false
+    prevents: model diagnosis taking over the loop before the system has run end to end once (SYSDEBUG-2, user request 2026-11-02)
+    where: [orch]
+    status: default
+    source: "SYSDEBUG-2 D702"
+    set_by: []
+    editable: true
+    accessor: defer_model_fix
+    consumer: kta.orchestrator.solve_loop._decide
+
   - id: judging.explained_min
     row: explained-gap share
     section: "12 §7"

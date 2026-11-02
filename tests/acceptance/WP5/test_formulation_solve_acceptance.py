@@ -43,9 +43,9 @@ def test_constant_binding_removes_variable(ctx: Context, store: Store) -> None:
     # beta of multi_buffer_rotation is bound to the constant 1: it is not a search
     # variable, the block records it as fixed and the constraint carries the constant.
     stages = f.blocks["ab_stages"]
-    assert stages.fixed == {"beta": 1}
+    assert stages.fixed == {"beta": 1, "late": 0, "private": 0}  # late, private: D704
     assert "beta" not in f.variables
-    assert f.constraint("ab_stages:c_lifetime").expr.src == "P <= S - 2 + 1"
+    assert f.constraint("ab_stages:c_lifetime").expr.src == "P <= S - 2 + 1 + 0 - 1 * 0 + 0"
     # Binding a variable that was free to a constant removes it from the search too.
     items = [i.model_copy(deep=True) for i in fp.chain.items]
     stages_item = next(i for i in items if i.key == "ab_stages")
@@ -62,7 +62,7 @@ def test_constant_binding_removes_variable(ctx: Context, store: Store) -> None:
     )
     f2 = assemble(fp2, fp2.chain, templates, case(), TEST_HW.limits, previous=f)
     assert "P" not in f2.variables
-    assert f2.blocks["ab_stages"].fixed == {"P": 1, "beta": 1}
+    assert f2.blocks["ab_stages"].fixed == {"P": 1, "beta": 1, "late": 0, "private": 0}
     assert f2.constraint("ab_stages:c_lifetime").expr.free_vars == {"S"}
     # Only the changed step's block was rebuilt.
     assert set(f2.reused) == set(f.blocks) - {"ab_stages"}

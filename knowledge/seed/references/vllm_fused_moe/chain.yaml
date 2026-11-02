@@ -49,9 +49,9 @@ items:
     after: [k_part, gather]
     code_markers: []
   - key: ab_stages
-    template: multi_buffer_rotation@1
+    template: multi_buffer_rotation@2
     applies_to: "num_stages (3 or 4 in the default config) shared-memory stages created by the Triton pipeliner; P and beta chosen by the compiler (vllm/model_executor/layers/fused_moe/fused_moe.py:1437-1453)"
-    bindings: {S: num_stages, P: "num_stages - 1", beta: 1}
+    bindings: {S: num_stages, P: "num_stages - 1", beta: 1, late: 0, private: 0}
     after: [ab_async]
     code_markers: []
   - key: a_guard

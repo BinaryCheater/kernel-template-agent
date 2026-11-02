@@ -63,8 +63,31 @@ function ProfileBar({ w, pick }: { w: WorkflowView; pick: (id: string) => void }
         {p.base && <> · edited from <RecordLink id={p.base} /></>}</>}
       right={<select value={p.id} onChange={(e) => pick(e.target.value)}>{w.versions.map((v) => <option key={v.id} value={v.id}>v{v.version}{v.current ? " (in force)" : ""} · {v.author}</option>)}</select>}>
       <div className="small muted">Every task type below runs with this profile once it is in force. Edits never change a profile: they become a new version (draft), shown as a diff, approved by you; past runs keep the version they recorded.</div>
+      {!p.current && !cur && <div className="notice waiting" style={{ marginTop: 8 }}>No profile is in force: agent tasks cannot start until you put one in force. Read the prompts and skills below first.</div>}
       {!p.current && cur && <DiffList title={`differences from the version in force (v${cur.version})`} rows={diff.data ?? []} />}
+      {!p.current && <PutInForce id={p.id} />}
     </Panel>
+  );
+}
+
+/** SYSDEBUG-2 (D705): put a stored, never-approved profile in force without making a draft. */
+function PutInForce({ id }: { id: string }) {
+  const [reason, setReason] = useState("");
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const go = async () => {
+    try {
+      const out = await api.approveDraft(id, reason.trim());
+      setMsg({ ok: true, text: `in force; batch ${out.batch} built for its new tasks` });
+      window.setTimeout(() => window.location.reload(), 800);
+    } catch (e) { setMsg({ ok: false, text: e instanceof Error ? e.message : String(e) }); }
+  };
+  return (
+    <div className="row wrap" style={{ gap: 8, marginTop: 10 }}>
+      <TokenField />
+      <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="reason (required)" style={{ flex: 1, minWidth: 240 }} />
+      <button className="op primary" disabled={!reason.trim()} onClick={go}>Put this version in force</button>
+      {msg && <span className={msg.ok ? "small" : "error small"}>{msg.text}</span>}
+    </div>
   );
 }
 

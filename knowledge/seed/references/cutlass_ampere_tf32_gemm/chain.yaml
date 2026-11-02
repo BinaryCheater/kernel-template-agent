@@ -67,9 +67,9 @@ items:
     after: [ab_thread_map]
     code_markers: []
   - key: ab_stages
-    template: multi_buffer_rotation@1
+    template: multi_buffer_rotation@2
     applies_to: "4-stage circular shared-memory buffer, prologue fetches S-1 = 3 stages ahead, cp.async.wait_group<S-2> followed by __syncthreads before a stage is reused (include/cutlass/gemm/threadblock/mma_multistage.h:250-284, 360-435, 486-491; example:210)"
-    bindings: {S: 4, P: 3, beta: 1}
+    bindings: {S: 4, P: 3, beta: 1, late: 0, private: 0}
     after: [ab_async]
     code_markers: []
   - key: ab_swizzle
@@ -85,9 +85,9 @@ items:
     after: [mma, ab_swizzle]
     code_markers: []
   - key: frag_stages
-    template: multi_buffer_rotation@1
-    applies_to: "two register fragment buffers per operand: fragment k+1 is loaded from smem while MMA k runs (include/cutlass/gemm/threadblock/mma_multistage.h:177-183, 505-523, 598-604). Partial match, see gap ux-09."
-    bindings: {S: 2, P: 1, beta: 0}
+    template: multi_buffer_rotation@2
+    applies_to: "two register fragment buffers per operand: fragment k+1 is loaded from smem while MMA k runs (include/cutlass/gemm/threadblock/mma_multistage.h:177-183, 505-523, 598-604). Thread-private, so private = 1; version 1 rejected it (gap ux-09), version 2 matches (SYSDEBUG-2 D704)."
+    bindings: {S: 2, P: 1, beta: 0, late: 0, private: 1}
     after: [frag_load]
     code_markers: []
   - key: epi_fusion

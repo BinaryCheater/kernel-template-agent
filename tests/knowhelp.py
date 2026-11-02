@@ -109,9 +109,9 @@ def gemm_chain(markers: bool = True) -> dict[str, Any]:
         },
         {
             "key": "ab_stages",
-            "template": "multi_buffer_rotation@1",
+            "template": "multi_buffer_rotation@2",
             "applies_to": "A and B k-tiles",
-            "bindings": {"S": "S", "P": "P", "beta": 1},
+            "bindings": {"S": "S", "P": "P", "beta": 1, "late": 0, "private": 0},
             "after": ["ab_smem"],
         },
     ]

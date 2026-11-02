@@ -13,6 +13,13 @@ Reimplemented after the read-only reference
 (``schedule_obligations``, ``replay_schedule``); not imported.
 
 KT is max(phases, S + P + 2) for each point so that a slot is reused within the model.
+
+Two optional roles (SYSDEBUG-2, D704) cover orderings production kernels use that the paper's
+program does not: ``late`` = 1 issues the refill of generation p + P after consuming p (and
+after the trailing barrier when beta), as FlashAttention-2 refills its single K/V slot;
+``private`` = 1 gives every warp its own slots (register fragments), so only its own program
+order protects them, as CUTLASS and Marlin double-buffer register fragments. A model binding
+that does not name a role keeps it 0, which is the paper's program unchanged.
 """
 
 from __future__ import annotations
@@ -33,21 +40,26 @@ TN = 2  # B columns in the event model's block
 
 
 def program(
-    s: int, p: int, beta: int, warps: int, phases: int, leading: bool = True
+    s: int, p: int, beta: int, warps: int, phases: int, leading: bool = True, late: int = 0
 ) -> list[list[Event]]:
     progs: list[list[Event]] = []
     for w in range(warps):
         prog: list[Event] = [("LOAD", w, u) for u in range(min(p, phases))]
         for ph in range(phases):
+            load: Event | None = None
             if p == 0:
-                prog.append(("LOAD", w, ph))
+                load = ("LOAD", w, ph)
             elif ph + p < phases:
-                prog.append(("LOAD", w, ph + p))
+                load = ("LOAD", w, ph + p)
+            if load and not late:
+                prog.append(load)
             if leading:
                 prog.append(("BAR", "A", ph))
             prog.append(("COMP", w, ph))
             if beta:
                 prog.append(("BAR", "B", ph))
+            if load and late:  # with P = 0 this loads what was just consumed: never ready
+                prog.append(load)
         progs.append(prog)
     _ = s
     return progs
@@ -62,9 +74,17 @@ def _elements(warps: int) -> list[tuple[str, int]]:
 
 
 def schedule_queries(
-    s: int, p: int, beta: int, warps: int, phases: int, timeout_ms: int, leading: bool = True
+    s: int,
+    p: int,
+    beta: int,
+    warps: int,
+    phases: int,
+    timeout_ms: int,
+    leading: bool = True,
+    late: int = 0,
+    private: int = 0,
 ) -> dict[str, Any]:
-    progs = program(s, p, beta, warps, phases, leading)
+    progs = program(s, p, beta, warps, phases, leading, late)
     ev: dict[Event, Any] = {}
     for prog in progs:
         for e in prog:
@@ -81,7 +101,7 @@ def schedule_queries(
             for i, (mat, idx) in enumerate(elems):
                 if mat == "A" and idx != w:
                     continue
-                owner = i % warps
+                owner = w if private else i % warps
                 d, c = ev[("LOAD", owner, ph)], ev[("COMP", w, ph)]
                 ready.append(c < d)
                 for u in range(phases):
@@ -104,7 +124,12 @@ def linearize(model: dict[str, int], progs: list[list[Event]]) -> list[Event]:
 
 
 def replay(
-    s: int, warps: int, phases: int, progs: list[list[Event]], order: list[Event]
+    s: int,
+    warps: int,
+    phases: int,
+    progs: list[list[Event]],
+    order: list[Event],
+    private: int = 0,
 ) -> dict[str, Any]:
     """Execute the interleaving with formal tokens; compare with the reference products."""
     pos = {e: i for i, e in enumerate(order)}
@@ -113,21 +138,24 @@ def replay(
             if pos[a] >= pos[b]:
                 return {"admissible": False, "agrees": False, "reason": f"program order {a} !< {b}"}
     elems = _elements(warps)
-    slot: dict[tuple[int, int], tuple[Any, ...]] = {}
+    slot: dict[tuple[int, int, int], tuple[Any, ...]] = {}  # (owner, slot, element)
     acc = {(w, j): Counter[tuple[Any, ...]]() for w in range(warps) for j in range(TN)}
     trace: list[str] = []
     for e in order:
         if e[0] == "LOAD":
             _, w, u = e
             for i, (mat, idx) in enumerate(elems):
-                if i % warps == w:
-                    slot[(u % s, i)] = (mat, idx, u) if mat == "A" else (mat, u, idx)
+                mine = (mat == "B" or idx == w) if private else i % warps == w
+                if mine:
+                    tok = (mat, idx, u) if mat == "A" else (mat, u, idx)
+                    slot[(w if private else 0, u % s, i)] = tok
             trace.append(f"LOAD warp{w} gen{u} -> slot{u % s}")
         elif e[0] == "COMP":
             _, w, ph = e
-            a = slot.get((ph % s, w))
+            own = w if private else 0
+            a = slot.get((own, ph % s, w))
             for j in range(TN):
-                b = slot.get((ph % s, warps + j))
+                b = slot.get((own, ph % s, warps + j))
                 if a is None or b is None:
                     acc[(w, j)][("uninitialised",)] += 1
                 else:
@@ -153,12 +181,13 @@ def replay(
 
 
 def safe_point(
-    s: int, p: int, beta: int, m: ModelInput, d: Draft
+    s: int, p: int, beta: int, m: ModelInput, d: Draft, late: int = 0, private: int = 0
 ) -> tuple[bool | None, dict[str, Any]]:
-    """(safe, evidence) for one (S, P, beta); None when the solver did not decide."""
+    """(safe, evidence) for one (S, P, beta, late, private); None when undecided."""
     warps = int(m.param("warps", 2))
     phases = max(int(m.param("phases", 5)), s + p + 2)
-    qs = schedule_queries(s, p, beta, warps, phases, m.timeout_ms, bool(m.param("leading", True)))
+    leading = bool(m.param("leading", True))
+    qs = schedule_queries(s, p, beta, warps, phases, m.timeout_ms, leading, late, private)
     ev: dict[str, Any] = {"phases": phases, "warps": warps}
     for name in m.param("properties", ["readiness", "lifetime"]):
         q = qs[name]
@@ -167,38 +196,59 @@ def safe_point(
             return None, {**ev, "unknown": name, "reason": q.reason}
         if q.result == "sat":
             order = linearize(q.model, qs["progs"])
-            rep = replay(s, warps, phases, qs["progs"], order)
+            rep = replay(s, warps, phases, qs["progs"], order, private)
             ev.update(failed=name, interleaving=[list(e) for e in order], replay=rep)
             # the interpreter must exhibit a wrong term, else the encoding is suspect
             return (None if rep["agrees"] else False), ev
     return True, ev
 
 
-def slot_rotation(m: ModelInput) -> Draft:
+def _optional(m: ModelInput, role: str) -> tuple[str | None, list[Any]]:
+    """An optional role (late, private): its variable and values, or (None, [0])."""
+    name = m.param(role)
+    return (name, m.menu(name)) if isinstance(name, str) else (None, [0])
+
+
+def _points(m: ModelInput) -> list[tuple[dict[str, Any], tuple[int, int, int, int, int]]]:
+    """Every (S, P, beta, late, private) of the menus, with the point named by variable."""
     sv, pv, bv = m.var("S"), m.var("P"), m.var("beta")
+    (lv, lvals), (qv, qvals) = _optional(m, "late"), _optional(m, "private")
+    out: list[tuple[dict[str, Any], tuple[int, int, int, int, int]]] = []
+    for s, p, b, lt, q in itertools.product(m.menu(sv), m.menu(pv), m.menu(bv), lvals, qvals):
+        point = {sv: s, pv: p, bv: b}
+        if lv:
+            point[lv] = lt
+        if qv:
+            point[qv] = q
+        out.append((point, (int(s), int(p), int(b), int(lt), int(q))))
+    return out
+
+
+def _domain_text(m: ModelInput) -> str:
+    names = [m.var("S"), m.var("P"), m.var("beta")]
+    names += [n for n in (_optional(m, "late")[0], _optional(m, "private")[0]) if n]
+    return ", ".join(f"{n} in {m.menu(n)}" for n in names)
+
+
+def slot_rotation(m: ModelInput) -> Draft:
     t0 = time.perf_counter()
     d = m.draft("bounded", "", ("pre", "X", "program"))
     table: list[dict[str, Any]] = []
     first_bad: dict[str, Any] | None = None
     undecided: list[dict[str, Any]] = []
-    for s in m.menu(sv):
-        for p in m.menu(pv):
-            for b in m.menu(bv):
-                point = {sv: s, pv: p, bv: b}
-                admitted = m.pre_holds(point)
-                safe, ev = safe_point(int(s), int(p), int(b), m, d)
-                table.append({**point, "pre": admitted, "safe": safe})
-                if safe is None:
-                    undecided.append(
-                        {**point, **{k: v for k, v in ev.items() if k != "interleaving"}}
-                    )
-                elif admitted and not safe and first_bad is None:
-                    first_bad = {"point": point, **ev}
+    for point, (s, p, b, lt, q) in _points(m):
+        admitted = m.pre_holds(point)
+        safe, ev = safe_point(s, p, b, m, d, lt, q)
+        table.append({**point, "pre": admitted, "safe": safe})
+        if safe is None:
+            undecided.append({**point, **{k: v for k, v in ev.items() if k != "interleaving"}})
+        elif admitted and not safe and first_bad is None:
+            first_bad = {"point": point, **ev}
     exact = all(r["pre"] == r["safe"] for r in table)
     stronger = [r for r in table if r["safe"] and not r["pre"]]
     warps = int(m.param("warps", 2))
     d.domain = (
-        f"{sv} in {m.menu(sv)}, {pv} in {m.menu(pv)}, {bv} in {m.menu(bv)} admitted by Pre; "
+        f"{_domain_text(m)} admitted by Pre; "
         f"every interleaving of the event model with {warps} warps and KT = max("
         f"{int(m.param('phases', 5))}, S+P+2) phases; leading barrier; other variables abstracted"
     )
@@ -221,52 +271,40 @@ def slot_progress(m: ModelInput) -> Draft:
     and barrier constraints have a solution (no circular wait: some complete run exists,
     and every stuck prefix can be extended because all warps cross the same barriers),
     and that run, replayed with tokens, gives exactly the reference products."""
-    sv, pv, bv = m.var("S"), m.var("P"), m.var("beta")
     t0 = time.perf_counter()
     warps = int(m.param("warps", 2))
+    leading = bool(m.param("leading", True))
     d = m.draft("bounded", "", ("pre", "X", "program"))
     runs: list[dict[str, Any]] = []
-    for s in m.menu(sv):
-        for p in m.menu(pv):
-            for b in m.menu(bv):
-                point = {sv: s, pv: p, bv: b}
-                if not m.pre_holds(point):
-                    continue
-                phases = max(int(m.param("phases", 5)), int(s) + int(p) + 2)
-                progs = program(
-                    int(s), int(p), int(b), warps, phases, bool(m.param("leading", True))
-                )
-                ev: dict[Event, Any] = {}
-                for prog in progs:
-                    for e in prog:
-                        ev.setdefault(e, z3.Int(_name(e)))
-                adm = [ev[x] < ev[y] for prog in progs for x, y in itertools.pairwise(prog)]
-                adm.append(z3.Distinct(*[v for e, v in ev.items() if e[0] != "BAR"]))
-                q = run(z3.And(*adm), {_name(e): v for e, v in ev.items()}, m.timeout_ms)
-                d.add(q.record())
-                if q.result == "unknown":
-                    d.outcome, d.reason = "unresolved", f"solver unknown at {point}: {q.reason}"
-                    break
-                if q.result == "unsat":
-                    d.outcome, d.counterexample = (
-                        "counterexample",
-                        {"point": point, "circular_wait": True},
-                    )
-                    d.replay = {"agrees": False, "reason": "no admissible complete run"}
-                    d.reason = f"circular wait at {point}"
-                    break
-                rep = replay(int(s), warps, phases, progs, linearize(q.model, progs))
-                runs.append({**point, "agrees": rep["agrees"]})
-                if not rep["agrees"]:
-                    d.outcome, d.counterexample, d.replay = "counterexample", {"point": point}, rep
-                    d.reason = f"the witness run at {point} does not give the reference products"
-                    break
-            if d.outcome != "bounded":
-                break
-        if d.outcome != "bounded":
+    for point, (s, p, b, lt, q) in _points(m):
+        if not m.pre_holds(point):
+            continue
+        phases = max(int(m.param("phases", 5)), s + p + 2)
+        progs = program(s, p, b, warps, phases, leading, lt)
+        ev: dict[Event, Any] = {}
+        for prog in progs:
+            for e in prog:
+                ev.setdefault(e, z3.Int(_name(e)))
+        adm = [ev[x] < ev[y] for prog in progs for x, y in itertools.pairwise(prog)]
+        adm.append(z3.Distinct(*[v for e, v in ev.items() if e[0] != "BAR"]))
+        qr = run(z3.And(*adm), {_name(e): v for e, v in ev.items()}, m.timeout_ms)
+        d.add(qr.record())
+        if qr.result == "unknown":
+            d.outcome, d.reason = "unresolved", f"solver unknown at {point}: {qr.reason}"
+            break
+        if qr.result == "unsat":
+            d.outcome, d.counterexample = "counterexample", {"point": point, "circular_wait": True}
+            d.replay = {"agrees": False, "reason": "no admissible complete run"}
+            d.reason = f"circular wait at {point}"
+            break
+        rep = replay(s, warps, phases, progs, linearize(qr.model, progs), q)
+        runs.append({**point, "agrees": rep["agrees"]})
+        if not rep["agrees"]:
+            d.outcome, d.counterexample, d.replay = "counterexample", {"point": point}, rep
+            d.reason = f"the witness run at {point} does not give the reference products"
             break
     d.domain = (
-        f"{sv} in {m.menu(sv)}, {pv} in {m.menu(pv)}, {bv} in {m.menu(bv)} admitted by Pre; "
+        f"{_domain_text(m)} admitted by Pre; "
         f"event model with {warps} warps and KT = max({int(m.param('phases', 5))}, S+P+2) phases"
     )
     d.data["runs"] = runs

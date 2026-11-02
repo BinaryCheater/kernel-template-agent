@@ -71,6 +71,7 @@ CODEX_V2 = ProfileSpec(name="codex-v2", version=2, skills_by_type=SKILLS_BY_TYPE
 CODEX_V3 = ProfileSpec(
     name="codex-v3", version=3, model="gpt-6.1-sol", skills_by_type=SKILLS_BY_TYPE_V2
 )
+LATEST = CODEX_V3  # what `kta init` stores for a fresh store (D705)
 SUPPORTED_COMMANDS = [
     "show",
     "card",

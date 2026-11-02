@@ -10,17 +10,21 @@ import pytest
 from kta.api.cases import _step_work  # pyright: ignore[reportPrivateUsage]
 from kta.checks.full import in_scope
 from kta.checks.numeric import library_verdict
+from kta.checks.proof.prove import prove_template
 from kta.core.context import Context
 from kta.core.errors import SchemaError
 from kta.core.ids import canonical_json
 from kta.core.schemas.evaluation import Contract
 from kta.orchestrator import runner as runner_mod
+from kta.orchestrator import step
 from kta.orchestrator.pipeline import Services
 from kta.orchestrator.runner import Runner
 from kta.store.base import SpanRow
 from kta.store.sqlite import SqliteStore
 from kta.store.sqlite_ops import SqliteOps
-from orchesthelp import world
+from orchesthelp import bucket, ctx_with, judging, world
+from proofhelp import seeded, template_id
+from storehelp import T0
 
 TOL = {"rtol": 0.01, "atol": 0.01, "relative_to": "library", "loose": 4.0, "strict": 1.5}
 
@@ -116,3 +120,46 @@ def test_a_failing_transition_blocks_the_loop_and_logs_it(
         e.change["blocked"] for e in ops.events_for("loops", loop_id) if e.change.get("blocked")
     ]
     assert logged and logged[-1]["error"] == "SchemaError"
+
+
+# ---- D702: defer model fixes; D704: multi_buffer_rotation@2 -------------------------------
+
+
+def _misranked(best: float) -> list[tuple[float, float]]:
+    """Pairs (predicted, measured) whose measured order reverses the predicted one."""
+    return [(10.0, best + 20.0), (20.0, best + 10.0), (30.0, best)]
+
+
+def test_a_model_off_round_creates_t4_unless_model_fixes_are_deferred(ctx: Context) -> None:
+    lp = judging(bucket(pairs=_misranked(14.0), best_us=14.0))  # worse than the reference
+    routed = step(lp, ctx)
+    assert (routed.rule, [t.type for t in routed.tasks]) == (2, ["T4"])
+    deferred = step(lp, ctx_with(ctx, {"judging.defer_model_fix": True}))
+    assert (deferred.rule, [t.type for t in deferred.tasks]) == (4, ["T1"])
+    data = deferred.records[-1].body["data"]
+    assert data["gap_class"] == "model_fix_deferred" and data["settings"]["defer_model_fix"]
+    # the model metrics are still recorded on the decomposition
+    assert deferred.records[-2].body["buckets"][0]["model_off"] is True
+
+
+def test_deferring_model_fixes_lets_an_otherwise_accepted_round_accept(ctx: Context) -> None:
+    lp = judging(bucket(pairs=_misranked(10.4), best_us=10.4))  # beats the reference (10.5)
+    assert step(lp, ctx).rule == 2
+    assert step(lp, ctx_with(ctx, {"judging.defer_model_fix": True})).rule == 3
+
+
+def test_rotation_v2_precondition_is_exact_on_the_event_model(
+    ctx: Context, store: SqliteStore
+) -> None:
+    """P <= S - 2 + max(beta, private) + late with late <= P equals the safe set of the
+    event model on the declared domains, so the register rotations of CUTLASS and Marlin
+    (S 2, P 1, private) and FlashAttention-2's late single-slot refill (S 1, P 1, beta,
+    late) are admitted and nothing unsafe is."""
+    seeded(ctx, store)
+    p = prove_template(store, template_id(store, "multi_buffer_rotation@2"), T0)
+    gen = [store.get(r).body for r in p.results]
+    table = next(b for b in gen if b.get("obligation") == "generation_correctness")
+    assert table["outcome"] == "bounded" and table["data"]["pre_exact"], table.get("reason")
+    rows = {(r["S"], r["P"], r["beta"], r["late"], r["private"]): r for r in table["data"]["table"]}
+    assert rows[(2, 1, 0, 0, 1)]["safe"] and rows[(1, 1, 1, 1, 0)]["safe"]
+    assert not rows[(2, 1, 0, 0, 0)]["safe"] and not rows[(1, 0, 1, 1, 0)]["safe"]

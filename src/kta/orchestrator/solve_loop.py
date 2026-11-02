@@ -175,15 +175,20 @@ def _task(loop: Loop, f: Mapping[str, Any], cls: str, route: Mapping[str, Any]) 
 
 def _decide(loop: Loop, s: Settings, decs: list[dict[str, Any]], d: Mapping[str, Any]) -> str:
     """The route name: correctness; accept (unless the model is off); the null-round
-    limit; model error after calibration; model off; else the decomposition's class."""
+    limit; model error after calibration; model off; else the decomposition's class.
+    With judging.defer_model_fix (D702) the model being off neither blocks acceptance nor
+    creates T4: a model-off or epsilon round routes to model_fix_deferred (T1)."""
     cls = decs[0]["case_class"] if decs else "correctness"
     if cls == "correctness":
         return cls
-    off = any(x["model_off"] for x in decs)
+    model_off = any(x["model_off"] for x in decs)
+    off = model_off and not s.defer_model_fix
     if not off and decs and all(x["accepted"] for x in decs) and not d.get("rolled_back"):
         return "accept"
     if d.get("null_rounds", 0) >= s.null_round_limit:
         return "null_rounds"
+    if s.defer_model_fix and (model_off or cls == "epsilon"):
+        return "model_fix_deferred"
     k2k = s.case_to_knowledge
     calibrated = int(loop.data.get("calibrations", 0)) >= int(k2k["calibrations_first"])
     err = max((x["median_rel_error"] or 0.0 for x in decs), default=0.0)
@@ -263,6 +268,7 @@ def judge(loop: Loop, s: Settings) -> Transition:
             "rank_min": s.rank_min,
             "rel_error_max": s.rel_error_max,
             "explained_min": s.explained_min,
+            "defer_model_fix": s.defer_model_fix,
             "significance_rel": sig,
             "accept": dict(s.accept),
             "improvement_band": dict(s.improvement_band),

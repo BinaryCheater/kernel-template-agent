@@ -94,7 +94,9 @@ GEMM_ITEMS = [
             "p.align_bytes": 2,
         },
     ),
-    item("ab_stages", "multi_buffer_rotation@1", {"S": 3, "P": 1, "beta": 1}),
+    item(
+        "ab_stages", "multi_buffer_rotation@2", {"S": 3, "P": 1, "beta": 1, "late": 0, "private": 0}
+    ),
     item("ab_banks", "shared_resource_binding@1", {"binding": "xor_swizzle", "queue_depth": 8}),
 ]
 
@@ -133,13 +135,13 @@ def test_reuse_plan_marks_steps(pool: Store) -> None:
 
 def test_retrieve_templates_filters_and_ranks(pool: Store) -> None:
     names = [c.name for c in retrieve_templates(pool, pattern="store")]
-    assert sorted(names) == ["multi_buffer_rotation@1", "physical_storage@1"]
+    assert sorted(names) == ["multi_buffer_rotation@2", "physical_storage@1"]
     # resources: signature, legacy cost units, or the HwArch reservation tables of the
     # effects' transaction kinds (D460)
     by_unit = [c.name for c in retrieve_templates(pool, unit="dram")]
     assert sorted(by_unit) == ["async_transfer@1", "output_tiling@2", "shared_memory_tiling@1"]
     assert [c.name for c in retrieve_templates(pool, text="slots rotate")] == [
-        "multi_buffer_rotation@1"
+        "multi_buffer_rotation@2"
     ]
     cards = retrieve_templates(pool, case=case({"M": 64}), hw={})
     unknown = [c.name for c in cards if c.scope_unknown]
@@ -173,7 +175,7 @@ def test_card_nearest_and_diff(pool: Store) -> None:
     near = nearest_chains(pool, case({"M": 1}), k=2)
     assert [c.id for c in near] == [full, small]
     diff = [c.name for c in diff_templates(pool, full, small)]
-    assert diff == ["async_transfer@1", "multi_buffer_rotation@1", "shared_resource_binding@1"]
+    assert diff == ["async_transfer@1", "multi_buffer_rotation@2", "shared_resource_binding@1"]
     c = card(pool, full)
     assert c.kind == "Chain" and len(c.lines) <= 5
     hit = find_template(pool, "reduction_partition@1")
@@ -302,7 +304,7 @@ def test_chao1_interval_and_page_fields(pool: Store) -> None:
 def test_render_text_knowledge_and_overview(pool: Store, tmp_path: Path) -> None:
     render_text_knowledge(pool, None, tmp_path)
     page = (tmp_path / "patterns" / "store.md").read_text(encoding="utf-8")
-    assert "multi_buffer_rotation@1" in page and "physical_storage@1" in page
+    assert "multi_buffer_rotation@2" in page and "physical_storage@1" in page
     assert "bottleneck_dominance" in (tmp_path / "structures.md").read_text(encoding="utf-8")
     assert "(patterns/reduce.md)" in (tmp_path / "index.md").read_text(encoding="utf-8")
     overview = family_overview(pool, "store")

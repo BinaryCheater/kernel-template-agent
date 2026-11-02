@@ -22,9 +22,12 @@ contract:
   tolerances:
     # SYSDEBUG-2 D695: judged against the library (torch.matmul in bf16, cuBLAS) on the same
     # inputs, not element-wise against FP64: loose before measuring, strict for a round's
-    # best. The fixed rtol/atol/rel_l2 stay as reported information. Factors and floors
-    # are the assistant's proposal (needs user review).
-    bf16: {rtol: 0.02, atol: 0.02, rel_l2: 0.008, relative_to: library, loose: 4.0, strict: 1.5, rel_l2_floor: 1.0e-6, abs_floor: 1.0e-3}
+    # best. The fixed rtol/atol/rel_l2 stay as reported information.
+    # D703 (user, 2026-11-02: pass anything that is not obviously wrong): a relative L2
+    # error below the floor always passes (a correct kernel is near 1e-4, a wrong index or
+    # a missing k-tile is several percent); above it, within 20x (loose) / 10x (strict)
+    # of the library's own error. The exact numbers are the assistant's choice.
+    bf16: {rtol: 0.02, atol: 0.02, rel_l2: 0.008, relative_to: library, loose: 20.0, strict: 10.0, rel_l2_floor: 0.02, abs_floor: 1.0e-3}
   input_dists: [normal, zeros, extreme, cancellation, large_dynamic_range]
   # SYSDEBUG-2 D696: the case is three static shapes; the kernel is accountable for those
   # only (no hidden shapes outside them). The former edge shapes (1x1x1, 129x193x65,

@@ -1,5 +1,5 @@
 name: multi_buffer_rotation
-version: 1
+version: 2
 level_from: 4
 level_to: 5
 change: vertical
@@ -14,16 +14,22 @@ variables:
   - {name: S, kind: numeric, binding: compile, role: software, domain: {lo: 1, hi: 8}, meaning: "number of slots"}
   - {name: P, kind: numeric, binding: compile, role: software, domain: {lo: 0, hi: 7}, meaning: "prefetch distance in generations"}
   - {name: beta, kind: numeric, binding: compile, role: software, domain: [0, 1], meaning: "1 when a trailing barrier follows each consumption before the slot is refilled"}
+  - {name: late, kind: numeric, binding: compile, role: software, domain: [0, 1], meaning: "1 when the refill of generation p+P is issued after consuming p (after the trailing barrier when beta), not before the leading barrier"}
+  - {name: private, kind: numeric, binding: compile, role: software, domain: [0, 1], meaning: "1 when every thread owns its slots (register fragments): only its own program order protects them, no other consumer"}
 constraints:
-  - {id: c_lifetime, expr: "P <= S - 2 + beta", meaning: "a slot is refilled only after every consumer finished the generation it held (paper Listing, C3)", cls: semantic}
+  - {id: c_lifetime, expr: "P <= S - 2 + beta + private - beta * private + late", meaning: "a slot is refilled only after every consumer finished the generation it held; P <= S - 2 + max(beta, private) + late (paper Listing C3 when late = private = 0)", cls: semantic}
+  - {id: c_late, expr: "late <= P", meaning: "a refill issued after the consumption cannot be the generation just consumed", cls: semantic}
   - {id: c_capacity, expr: "S * p.size_bytes <= p.capacity_bytes", meaning: "S generations fit the capacity budget of the level (shared memory per block for smem tiles)", cls: resource}
 preconditions:
-  - {id: pre_lifetime, expr: "P <= S - 2 + beta", meaning: "generation correctness; the weakest precondition, exact on the paper's 24 cases", cls: semantic, same_as: c_lifetime}
+  - {id: pre_lifetime, expr: "P <= S - 2 + beta + private - beta * private + late", meaning: "generation correctness; with pre_late the weakest precondition, exact on the event model over the declared domains (the paper's 24 cases at late = private = 0)", cls: semantic, same_as: c_lifetime}
+  - {id: pre_late, expr: "late <= P", meaning: "readiness of a late refill", cls: semantic, same_as: c_late}
 program:
   description: >-
     for u in 0..P-1: load generation u -> slot u mod S;
-    for p in 0..n-1: if p+P < n: load generation p+P -> slot (p+P) mod S; barrier (leading);
-    consume slot p mod S; if beta: barrier (trailing).
+    for p in 0..n-1: if p+P < n and not late: load generation p+P -> slot (p+P) mod S;
+    barrier (leading); consume slot p mod S; if beta: barrier (trailing);
+    if p+P < n and late: load generation p+P -> slot (p+P) mod S.
+    With private every thread loads and consumes its own slots.
 backward_map: >-
   Forget the slots and the schedule: each consumption of slot p mod S reads generation p, so the
   computation equals the single-buffer one.
@@ -46,8 +52,10 @@ scope:
   text: >-
     A value consumed in generations by a loop, with a leading barrier before each consumption and
     loads that may be issued ahead (needs async_transfer for P >= 1 to overlap). Barrier semantics
-    are those of a CTA-wide barrier; register double buffering within one thread is a different
-    ordering model.
+    are those of a CTA-wide barrier. Thread-private register buffers (private = 1) and refills
+    issued after the consumption (late = 1) are covered since version 2 (SYSDEBUG-2 D704; the
+    v1 obligation rejected the correct register double buffering of CUTLASS and Marlin and the
+    single-slot refill of FlashAttention-2).
 requires: []
 probed_on: []
 relations:
@@ -62,5 +70,5 @@ numeric_risk: null
 summary: >-
   Paper GEMM step 4 (double buffering): one buffer per value becomes generations rotating through S
   slots, loaded P tiles ahead, with an optional trailing barrier. The lifetime condition becomes
-  P <= S - 2 + beta.
+  P <= S - 2 + beta (version 2: P <= S - 2 + max(beta, private) + late, late <= P).
 example_code: null

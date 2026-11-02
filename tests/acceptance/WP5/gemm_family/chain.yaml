@@ -43,12 +43,14 @@ items:
     after: [ab_smem]
     code_markers: [ab_async]
   - key: ab_stages
-    template: multi_buffer_rotation@1
+    template: multi_buffer_rotation@2
     applies_to: "k-tiles of A and B rotating through S stages"
     bindings:
       S: S
       P: P
       beta: 1
+      late: 0
+      private: 0
       p.size_bytes: "(BM + BN) * BK * 2"
       p.capacity_bytes: "hw.smem_per_cta"
       p.iterations: KT

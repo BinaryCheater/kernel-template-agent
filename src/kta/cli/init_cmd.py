@@ -6,6 +6,7 @@ import argparse
 from collections.abc import Callable
 from typing import Any
 
+from kta.agents import profile
 from kta.cli.output import emit_json, emit_text
 from kta.core.context import Context
 from kta.core.registry import resolve
@@ -48,6 +49,10 @@ def cmd_init(args: argparse.Namespace, make_ctx: ContextFactory) -> int:
         # SYSDEBUG-2 (D698): a fresh store measures nothing without the measurement Protocol;
         # write the default one here instead of letting the first loop block in measuring.
         out["protocol"] = protocol.ensure_v1(store, ctx.clock)
+        # SYSDEBUG-2 (D705): the newest agent profile is stored (never put in force here:
+        # that stays the user's approval), so Settings → Agent prompts shows the skills and
+        # prompts a fresh store's tasks would run with.
+        out["profile"] = profile.write_profile(store, ctx.clock.now(), profile.LATEST)
     except SeedError as exc:
         out["error"] = str(exc)
         code = 1

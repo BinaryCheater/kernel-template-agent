@@ -208,6 +208,10 @@ class Knobs(ABC):
         return {k: float(v) for k, v in self._map("judging.model_ranking").items()}
 
     @property
+    def defer_model_fix(self) -> bool:
+        return bool(self.value("judging.defer_model_fix"))
+
+    @property
     def explained_min(self) -> float:
         return float(self.value("judging.explained_min"))
 

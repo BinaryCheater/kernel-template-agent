@@ -25,7 +25,7 @@ Imported by `kta init` (`kta.knowledge.import_seed`, decision D204). Every YAML 
 | `reduction_partition@1` | reduce → reduce | `num_groups`, `group_size`, `assignment` | groups cover the reduction: `num_groups * group_size >= p.length` |
 | `physical_storage@1` | store → store, transfer | `level`, `buffer`, `share_order` | capacity; lifetime `p.last_read + p.delta <= p.next_write` |
 | `async_transfer@1` | transfer → transfer, sync | `mechanism`, `issue_point`, `complete_point`, `granularity_bytes` | aligned, whole copy operations |
-| `multi_buffer_rotation@1` | store → store, sync | `S`, `P`, `beta` | `P <= S - 2 + beta` (C and Pre, K1) and `S * p.size_bytes <= p.capacity_bytes` |
+| `multi_buffer_rotation@2` | store → store, sync | `S`, `P`, `beta`, `late`, `private` | `P <= S - 2 + max(beta, private) + late`, `late <= P` (C and Pre, K1; v2 D704) and `S * p.size_bytes <= p.capacity_bytes` |
 | `shared_resource_binding@1` | access → access | `binding`, `queue_depth` (hardware) | on GB10 `queue_depth == hw.smem_queue_depth` (fixed chip variable) |
 
 Variable names follow the assumed seed of WP10a (D103), so its reconstruction chains bind
@@ -42,5 +42,5 @@ place (versions kept) and can be re-run (it is idempotent). Each physical transa
 declared once, by the step that performs it: operand traffic by `async_transfer@1`, the
 contraction by `compute_instruction_selection@2`, compulsory DRAM traffic and launches by
 `output_tiling@2`, shared-memory accesses by `shared_resource_binding@1`, barriers and the
-load/compute overlap by `multi_buffer_rotation@1`, storage by `physical_storage@1`.
+load/compute overlap by `multi_buffer_rotation@2`, storage by `physical_storage@1`.
 

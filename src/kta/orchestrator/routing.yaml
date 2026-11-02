@@ -15,7 +15,7 @@
 #   escalate  none | user | knowledge (12 §4); closed routes always escalate
 #   improve   the improvement-loop class the summarize process counts (improve.CLASSES)
 
-version: 1
+version: 2
 
 order: [correctness, epsilon, delta, delta_pre, l_rep, irreducible]
 
@@ -77,6 +77,13 @@ escalations:
     goal: "Model error persists after calibration: the knowledge loop revises the model structure"
     escalate: knowledge
     improve: model
+  model_fix_deferred:        # judging.defer_model_fix (D702, version 2)
+    rule: 4
+    to: waiting
+    task: T1
+    goal: "Improve the kernel: the gap to the reference stays open; model diagnosis is deferred (judging.defer_model_fix)"
+    escalate: none
+    improve: space
   null_rounds:               # guard.null_round_limit
     rule: 6
     to: closed

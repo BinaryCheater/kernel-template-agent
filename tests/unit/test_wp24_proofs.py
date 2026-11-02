@@ -201,7 +201,8 @@ def test_seed_steps_end_with_recorded_outcomes(ctx: Context, store: SqliteStore)
     seeded(ctx, store)
     assert store.count("ProofOutline") == 7
     for name in SEED_TEMPLATES:
-        tid = template_id(store, f"{name}@1")
+        version = yaml.safe_load((SEED / "templates" / f"{name}.yaml").read_text())["version"]
+        tid = template_id(store, f"{name}@{version}")  # multi_buffer_rotation@2 (D704)
         p = prove_template(store, tid, T0)
         s = store.get(p.summary).body
         names = {c["obligation"] for c in s["checked"] if c["condition"] == "K2"}

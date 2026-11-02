@@ -1021,3 +1021,10 @@ Decisions made without the user that need review. Newest last. Each entry: quest
 - **Rationale:** best-calibrated on the kernels KTA generates (22 TileLang GEMMs, whole kernel median 5.3 %, worst 16 %; TMA warp specialization covered); the user's direction is one simulator copied and iterated.
 - **Cost of changing later:** the copy is self-contained (one package and one parameter file); switching base means replacing the package and re-running the replay; L1/L2 built on it would follow its parameter names.
 
+## D702, D703 — Deferred model fixes and obvious-error checks (SYSDEBUG-2)
+
+- **Question:** how strict should judging be before the system has run end to end once?
+- **Choice:** model-off rounds route to kernel improvement (T1) instead of model diagnosis, and correctness checks reject only clear errors (relative L2 below 1 % / 2 % always passes; otherwise within 20x / 10x of the library's own error).
+- **Rationale:** the user asked to run the system through first and not chase small numerical bugs; the model-off verdict rested on six tied pairs.
+- **Cost of changing later:** one controls version turns the deferral off; the tolerance numbers live in the seed contracts (a new Contract and Case for a fresh store). Kernels without a library baseline still need a decision on the reference.
+

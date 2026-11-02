@@ -52,9 +52,9 @@ GOOD_CHAIN: dict[str, Any] = {
         },
         {
             "key": "ab_stages",
-            "template": "multi_buffer_rotation@1",
+            "template": "multi_buffer_rotation@2",
             "applies_to": "A and B k-tiles",
-            "bindings": {"S": 3, "P": 1, "beta": 1},
+            "bindings": {"S": 3, "P": 1, "beta": 1, "late": 0, "private": 0},
             "after": ["ab_smem"],
         },
     ],
@@ -73,7 +73,8 @@ def kinds(t: Template, store: Store) -> set[str]:
 
 def test_seed_templates_pass_validate_template(pool: Store) -> None:
     for name in SEED_TEMPLATES:
-        hit = find_template(pool, f"{name}@1")
+        version = 2 if name == "multi_buffer_rotation" else 1  # v2: SYSDEBUG-2 D704
+        hit = find_template(pool, f"{name}@{version}")
         assert hit is not None, name
         issues = validate_template(hit[1], pool, None)
         assert errors_of(issues) == [], (name, issues)

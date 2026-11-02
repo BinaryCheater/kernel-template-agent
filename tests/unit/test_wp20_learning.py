@@ -82,7 +82,9 @@ def test_seven_decompositions_admitted_with_counted_language_gaps(
     gaps = {k: d["counts"]["language_gaps"] for k, d in data.items()}
     assert gaps["cutlass_ampere_tf32_gemm"] == 19 and gaps["vllm_rms_norm"] == 0
     explained = [w for d in data.values() for w in d["warnings"]]
-    assert len(explained) == 3 and all(w["explanation"] for w in explained)
+    # multi_buffer_rotation@2 (D704) matches the three register / late-refill rotations whose
+    # constraint_false warnings had to be explained under version 1
+    assert explained == []
     # Admitted at proposed: no StatusChange moved any imported Template.
     assert not store.query("StatusChange", limit=10)
     rep = coverage_report(store, None, random.Random(0))
@@ -99,6 +101,17 @@ def test_seven_decompositions_admitted_with_counted_language_gaps(
     assert tl["steps"] == 135 and tl["expressible"] == 0 and tl["intent_confirmed"] is None
 
 
+PRIVATE_FRAGS = b"{S: 2, P: 1, beta: 0, late: 0, private: 1}"
+SHARED_FRAGS = b"{S: 2, P: 1, beta: 0, late: 0, private: 0}"
+
+
+def _shared_frag_stages(chain: Path) -> None:
+    """CUTLASS's register fragment rotation bound as if its slots were shared: warns."""
+    raw = chain.read_bytes()
+    assert raw.count(PRIVATE_FRAGS) == 1
+    chain.write_bytes(raw.replace(PRIVATE_FRAGS, SHARED_FRAGS))
+
+
 def test_an_unexplained_warning_refuses_the_batch(
     ctx: Context, store: Store, tmp_path: Path
 ) -> None:
@@ -106,6 +119,7 @@ def test_an_unexplained_warning_refuses_the_batch(
     root = tmp_path / "refs"
     shutil.copytree(REFERENCES / "cutlass_ampere_tf32_gemm", root / "cutlass_ampere_tf32_gemm")
     (root / "cutlass_ampere_tf32_gemm" / "warnings.yaml").unlink()
+    _shared_frag_stages(root / "cutlass_ampere_tf32_gemm" / "chain.yaml")
     with pytest.raises(SeedError, match="unexplained_warning"):
         admit_references(ctx, store, root, CODE)
     assert not store.query("Reconstruction", limit=1)  # nothing written
@@ -176,13 +190,13 @@ def _family_and_chain() -> tuple[Family, Chain, dict[str, Template]]:
             "workload": "gemm",
             "items": [
                 {"key": "copy", "template": "async_transfer@1", "applies_to": "A"},
-                {"key": "ring", "template": "multi_buffer_rotation@1", "applies_to": "A"},
+                {"key": "ring", "template": "multi_buffer_rotation@2", "applies_to": "A"},
             ],
         }
     )
     ts = {
         "async_transfer@1": template("async_transfer"),
-        "multi_buffer_rotation@1": template("multi_buffer_rotation"),
+        "multi_buffer_rotation@2": template("multi_buffer_rotation"),
     }
     return fam, chain, ts
 
@@ -313,7 +327,10 @@ def test_t2_admission_rejection_goes_back_to_the_same_session(actx: Context) -> 
     with tracing(tracer):
         first = run_step(actx, q.get(task), deps=deps)
     files = t2_files("cutlass_ampere_tf32_gemm")
-    del files["warnings.yaml"]  # the deliverable leaves its admission warning unexplained
+    # the deliverable binds the register rotation as shared (private = 0): constraint_false,
+    # and leaves that admission warning unexplained
+    files["chain.yaml"] = files["chain.yaml"].replace(PRIVATE_FRAGS, SHARED_FRAGS)
+    del files["warnings.yaml"]
     q.submit(task, owner, files, NOTE.format(ref="cutlass", what="T2"), HUMAN)
     v = q.check(task)
     adm = next(o for o in v.outcomes if o.name == "admission")

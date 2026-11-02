@@ -401,9 +401,12 @@ def _seed_check(seed: Path, data: Path) -> tuple[CheckResult, CheckResult | None
         ), None
     findings: list[str] = []
     for name in WP4_SEED_TEMPLATES:
-        hit = find_template(store, f"{name}@1")
+        # the seed's own version (multi_buffer_rotation is at 2 since SYSDEBUG-2 D704)
+        raw = yaml.safe_load((seed / "templates" / f"{name}.yaml").read_text(encoding="utf-8"))
+        ref = f"{name}@{int(raw.get('version', 1)) if isinstance(raw, dict) else 1}"
+        hit = find_template(store, ref)
         if hit is None:
-            findings.append(f"Template {name}@1 missing")
+            findings.append(f"Template {ref} missing")
             continue
         findings += [f"{name}: {i}" for i in errors_of(validate_template(hit[1], store, None))]
     findings += [f"Pattern {p} missing" for p in WP4_PATTERNS if p not in names(store, "Pattern")]

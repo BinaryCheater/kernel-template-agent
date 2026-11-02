@@ -136,7 +136,7 @@ def test_import_references_in_readme_order(ctx: Context, store: Store, tmp_path:
 
 def test_pending_view_sees_batch_records(ctx: Context, store: Store) -> None:
     seed(ctx, store)
-    t = template("multi_buffer_rotation", name="ring_buffer", relations=[])
+    t = template("multi_buffer_rotation", name="ring_buffer", version=1, relations=[])
     rec = Record.new("Template", t, Actor(type="human", name="t"), T0)
     view = PendingView(store, [rec])
     assert find_template(view, "ring_buffer@1") is not None
@@ -151,7 +151,9 @@ def test_propose_template_writes_proposed_declared(ctx: Context, store: Store) -
     rid = propose_template(ctx, store, t, [src])
     assert store.status(rid) == ("proposed", None)  # no assurance change = declared (D203)
     assert propose_template(ctx, store, t, [src]) == rid
-    changed = template("multi_buffer_rotation", name="ring_buffer", summary="other words")
+    changed = template(
+        "multi_buffer_rotation", name="ring_buffer", version=1, summary="other words"
+    )
     with pytest.raises(SchemaError, match="bump the version"):
         propose_template(ctx, store, changed, [src])
     v2 = propose_template(
@@ -196,15 +198,19 @@ def _chain(**item: Any) -> Chain:
 
 def test_chain_constant_bindings_are_evaluated(ctx: Context, store: Store) -> None:
     seed(ctx, store)
-    issues = validate_chain(_chain(S=2, P=1, beta=0), store)
+    issues = validate_chain(_chain(S=2, P=1, beta=0, late=0, private=0), store)
     assert [i.kind for i in issues] == ["constraint_false"]
     assert issues[0].severity == "warning"
-    assert validate_chain(_chain(S=2, P=1, beta=1), store) == []
+    assert validate_chain(_chain(S=2, P=1, beta=1, late=0, private=0), store) == []
+    # version 2 (D704): the same rotation is correct for thread-private register slots
+    assert validate_chain(_chain(S=2, P=1, beta=0, late=0, private=1), store) == []
 
 
 def test_chain_may_bind_pattern_parameters(ctx: Context, store: Store) -> None:
     seed(ctx, store)
-    bound = _chain(S=4, P=3, beta=1, **{"p.size_bytes": 16384, "p.capacity_bytes": 32768})
+    bound = _chain(
+        S=4, P=3, beta=1, late=0, private=0, **{"p.size_bytes": 16384, "p.capacity_bytes": 32768}
+    )
     assert [i.kind for i in validate_chain(bound, store)] == ["constraint_false"]  # 4*16K > 32K
 
 

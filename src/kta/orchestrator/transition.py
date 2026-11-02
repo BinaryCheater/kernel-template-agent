@@ -90,6 +90,7 @@ class Settings:
     rank_n: int
     rel_error_max: float  # median |pred - meas| / meas above this -> rule 2
     explained_min: float  # share of the gap to the bound the model explains -> rule 3
+    defer_model_fix: bool  # rule 2 / epsilon route to T1 instead of T4 (D702)
     suspicious_vs_reference: float  # inbox: faster than the strongest reference by this
     suspicious_pct_of_bound: float  # inbox: closer to the bound than this
     attention_limit: int
@@ -130,6 +131,7 @@ class Settings:
             rank_n=int(rank["rank_n"]),
             rel_error_max=rank["rel_error_max"],
             explained_min=c.explained_min,
+            defer_model_fix=c.defer_model_fix,
             suspicious_vs_reference=suspicious["vs_reference"],
             suspicious_pct_of_bound=suspicious["pct_of_bound"],
             attention_limit=c.user_attention_cap["pending"],

@@ -91,9 +91,9 @@ items:
     after: [kv_smem]
     code_markers: []
   - key: kv_rotation
-    template: multi_buffer_rotation@1
-    applies_to: "K and V each have one slot; the K slot is refilled mid-iteration right after the barrier that follows its last read, giving one tile of lookahead with S = 1. Partial match, see gap ux-06."
-    bindings: {S: 1, P: 1, beta: 1}
+    template: multi_buffer_rotation@2
+    applies_to: "K and V each have one slot; the K slot is refilled mid-iteration right after the barrier that follows its last read, giving one tile of lookahead with S = 1. Refill after the consumption and its barrier, so late = 1; version 1 rejected it (gap ux-06), version 2 matches (SYSDEBUG-2 D704)."
+    bindings: {S: 1, P: 1, beta: 1, late: 1, private: 0}
     after: [kv_async]
     code_markers: []
   - key: vec
@@ -133,9 +133,9 @@ items:
     after: [mma, swizzle]
     code_markers: []
   - key: frag_prefetch
-    template: multi_buffer_rotation@1
+    template: multi_buffer_rotation@2
     applies_to: "inside each gemm call the k-slice i+1 is loaded into its own registers before MMA i; every slice has its own registers (S = number of k-slices), lookahead 1 (csrc/flash_attn/src/utils.h:149-158, 174-182)"
-    bindings: {S: MMA_K_slices, P: 1, beta: 0}
+    bindings: {S: MMA_K_slices, P: 1, beta: 0, late: 0, private: 1}
     after: [qk_frag, v_frag]
     code_markers: []
   - key: epi_stage

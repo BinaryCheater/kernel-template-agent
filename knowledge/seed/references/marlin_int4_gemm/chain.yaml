@@ -85,9 +85,9 @@ items:
     after: [ab_async]
     code_markers: []
   - key: stages
-    template: multi_buffer_rotation@1
+    template: multi_buffer_rotation@2
     applies_to: "4-stage ring, start_pipes fetches stages - 1, cp.async.wait_group<stages - 2> + __syncthreads before reuse (marlin/marlin_cuda_kernel.cu:417-422, 621-630, 706)"
-    bindings: {S: 4, P: 3, beta: 1}
+    bindings: {S: 4, P: 3, beta: 1, late: 0, private: 0}
     after: [ab_async]
     code_markers: []
   - key: a_swizzle
@@ -109,9 +109,9 @@ items:
     after: [mma, prepack]
     code_markers: []
   - key: frag_stages
-    template: multi_buffer_rotation@1
-    applies_to: "frag_a, frag_b_quant and frag_s double-buffered in registers by k % 2; sub-tile k+1 fetched before matmul(k). Partial match, see gap ux-06 (same finding as cutlass_ampere_tf32_gemm ux-09)."
-    bindings: {S: 2, P: 1, beta: 0}
+    template: multi_buffer_rotation@2
+    applies_to: "frag_a, frag_b_quant and frag_s double-buffered in registers by k % 2; sub-tile k+1 fetched before matmul(k). Thread-private, so private = 1; version 1 rejected it (gap ux-06, same finding as cutlass_ampere_tf32_gemm ux-09), version 2 matches (SYSDEBUG-2 D704)."
+    bindings: {S: 2, P: 1, beta: 0, late: 0, private: 1}
     after: [a_frag, b_frag]
     code_markers: []
   - key: vec

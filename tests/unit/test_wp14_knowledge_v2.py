@@ -177,7 +177,7 @@ def test_unprobed_template_is_filtered_on_gb10_and_counted(
     assert wgmma in hidden["unavailable"]
     assert "cluster_multicast@1" in hidden["unconfirmed"]
     shown = {c.name for c in retrieve_templates(store, k=500, target="gb10")}
-    assert wgmma not in shown and "multi_buffer_rotation@1" in shown
+    assert wgmma not in shown and "multi_buffer_rotation@2" in shown
     everywhere = {c.name for c in retrieve_templates(store, k=500)}
     assert wgmma in everywhere  # no target: nothing is filtered
     import random

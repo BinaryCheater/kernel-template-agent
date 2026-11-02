@@ -85,9 +85,9 @@ items:
     after: [kv_smem]
     code_markers: []
   - key: kv_stages
-    template: multi_buffer_rotation@1
+    template: multi_buffer_rotation@2
     applies_to: "num_stages_smem-slot ring; prologue issues S stages; a slot is refilled with tile iter+S after the barrier following its use (include/flashinfer/attention/decode.cuh:486, 503-528, 557, 583, 595)"
-    bindings: {S: num_stages_smem, P: "num_stages_smem - 1", beta: 1}
+    bindings: {S: num_stages_smem, P: "num_stages_smem - 1", beta: 1, late: 0, private: 0}
     after: [kv_async]
     code_markers: []
   - key: paged_gather
