@@ -10,6 +10,8 @@ without waiting.
 from __future__ import annotations
 
 import logging
+import os
+import socket
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -31,6 +33,7 @@ from kta.orchestrator.proc_summarize import summarize_tick
 from kta.orchestrator.runner import Runner
 from kta.store import controls as controls_store
 from kta.store.backup import check_owner
+from kta.store.sqlite_ops import SqliteOps
 
 log = logging.getLogger("kta.orchestrator.processes")
 ALL = ("solve", "learn", "calibrate", "maintain", "experiment", "summarize")
@@ -157,6 +160,37 @@ def request_stop(svc: Services, name: str) -> None:
         raise ConfigError(f"could not set {key}")
 
 
+def holder_id(name: str, ulid: str) -> str:
+    """A lock holder that names its host and pid, so a dead holder's lock is taken over."""
+    return f"{name}:{ulid}@{socket.gethostname()}:{os.getpid()}"
+
+
+def _dead(holder: str) -> bool:
+    _, _, where = holder.rpartition("@")
+    host, _, pid = where.partition(":")
+    if host != socket.gethostname() or not pid.isdigit():
+        return False
+    try:
+        os.kill(int(pid), 0)
+    except ProcessLookupError:
+        return True
+    except PermissionError:
+        return False
+    return False
+
+
+def take_lock(ops: SqliteOps, lock: str, holder: str, seconds: int) -> bool:
+    """Acquire ``lock``; a lock whose holder process on this host has died is taken over."""
+    if ops.acquire(lock, holder, seconds):
+        return True
+    old = ops.lock_holder(lock)
+    if old is not None and _dead(old):
+        log.warning("lock %s: holder %s is gone, taking over", lock, old)
+        ops.release(lock, old)
+        return ops.acquire(lock, holder, seconds)
+    return False
+
+
 def run(
     svc: Services, name: str, interval_s: float | None = None, max_ticks: int | None = None
 ) -> int:
@@ -167,10 +201,10 @@ def run(
         raise NotSupported(f"process {name} (WP6 implements {', '.join(IMPLEMENTED)}; WP11)")
     check_owner(svc.ctx.data_dir)  # one control plane per store (WP23, D601)
     started = svc.ctx.clock.now()
-    holder = f"{name}:{UlidFactory(svc.ctx.clock).new()}"
+    holder = holder_id(name, UlidFactory(svc.ctx.clock).new())
     lock = f"process:{name}"
     lease = int(max(60.0, 4 * (interval_s or 10.0)))
-    if not svc.ops.acquire(lock, holder, lease):
+    if not take_lock(svc.ops, lock, holder, lease):
         raise ConfigError(f"process {name} is already running (lock {lock})")
     configure_scopes(svc.ops, svc.ctx.config, svc.ctx.controls)
     quotas.apply_quotas(svc.ops, svc.ctx.controls)  # WP11: experiment share when none runs

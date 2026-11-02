@@ -219,9 +219,9 @@ def cmd_runner_start(args: argparse.Namespace, make_ctx: ContextFactory) -> int:
             raise ConfigError(f"slot {args.slot}: budget.agent_instances allows slots 1..{top}")
         q = TaskQueue(ctx, svc.store, svc.ops, svc)
         started = ctx.clock.now()
-        holder = f"{NAME}:{UlidFactory(ctx.clock).new()}"
+        holder = processes.holder_id(NAME, UlidFactory(ctx.clock).new())
         lock = f"process:{NAME}:{args.slot}"  # one runner per slot (D375)
-        if not svc.ops.acquire(lock, holder, 3600):
+        if not processes.take_lock(svc.ops, lock, holder, 3600):
             raise ConfigError(f"slot {args.slot} already has a runner (lock {lock})")
         pause = threading.Event()
         steps: list[dict[str, Any]] = []

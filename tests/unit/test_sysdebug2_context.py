@@ -313,3 +313,19 @@ def test_a_changed_build_script_invalidates_cached_builds() -> None:
         return common.build_key(gk, target, [], "img", put, tc).sha256  # pyright: ignore[reportArgumentType]
 
     assert key("a") != key("b") != key(None)
+
+
+def test_a_dead_holders_process_lock_is_taken_over(ops: Any) -> None:
+    import socket
+    import subprocess
+
+    from kta.orchestrator import processes
+
+    gone = subprocess.Popen(["true"])
+    gone.wait()
+    old = f"solve:X@{socket.gethostname()}:{gone.pid}"
+    assert ops.acquire("process:solve", old, 3600)
+    assert processes.take_lock(ops, "process:solve", processes.holder_id("solve", "Y"), 60)
+    # a live holder keeps its lock
+    me = processes.holder_id("solve", "Z")
+    assert not processes.take_lock(ops, "process:solve", me, 60)
