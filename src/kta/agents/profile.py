@@ -71,7 +71,12 @@ CODEX_V2 = ProfileSpec(name="codex-v2", version=2, skills_by_type=SKILLS_BY_TYPE
 CODEX_V3 = ProfileSpec(
     name="codex-v3", version=3, model="gpt-6.1-sol", skills_by_type=SKILLS_BY_TYPE_V2
 )
-LATEST = CODEX_V3  # what `kta init` stores for a fresh store (D705)
+# codex-v4 (SYSDEBUG-2, D707): a detailed T1 step template (where the task sits in the
+# round, what to change, how the delivery is judged); everything else as in codex-v3.
+CODEX_V4 = ProfileSpec(
+    name="codex-v4", version=4, model="gpt-6.1-sol", skills_by_type=SKILLS_BY_TYPE_V2
+)
+LATEST = CODEX_V4  # what `kta init` stores for a fresh store (D705)
 SUPPORTED_COMMANDS = [
     "show",
     "card",
@@ -139,8 +144,17 @@ def skill_description(text: str) -> str:
     raise ConfigError("skill without a description line in its front matter")
 
 
+def versioned(base: Path, name: str, version: int) -> Path:
+    """``base/v<N>/name`` for the highest N <= version (N >= 3) that has it, else ``base/name``:
+    a profile version takes every file of the newest variant written for it or before."""
+    for v in range(version, 2, -1):
+        if (base / f"v{v}" / name).exists():
+            return base / f"v{v}" / name
+    return base / name
+
+
 def skill_ref(store: Store, name: str, version: int = 1) -> str:
-    root = SKILLS / "v3" if version >= 3 and (SKILLS / "v3" / name).is_dir() else SKILLS
+    root = versioned(SKILLS, name, version).parent
     path = root / name / "SKILL.md"
     if not path.exists():
         raise ConfigError(f"runtime skill {name} has no {path}")
@@ -150,10 +164,7 @@ def skill_ref(store: Store, name: str, version: int = 1) -> str:
 
 def profile_body(store: Store, spec: ProfileSpec = CODEX_V1) -> AgentProfile:
     def blob(name: str, media: str = "text/markdown") -> str:
-        root = (
-            PROMPTS / "v3" if spec.version >= 3 and (PROMPTS / "v3" / name).is_file() else PROMPTS
-        )
-        return store.put_blob((root / name).read_bytes(), media)
+        return store.put_blob(versioned(PROMPTS, name, spec.version).read_bytes(), media)
 
     by_type = spec.skills_by_type
     refs = {

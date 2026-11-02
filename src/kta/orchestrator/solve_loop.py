@@ -16,10 +16,13 @@ Facts each state's work reports (``kta.orchestrator.solve_work``):
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from dataclasses import replace
 from typing import Any
 
 from kta.core.context import Context
-from kta.orchestrator import disciplines, gap
+from kta.core.errors import ConfigError
+from kta.core.schemas.plan import TaskHeader
+from kta.orchestrator import access, disciplines, gap
 from kta.orchestrator.transition import Draft, Loop, Settings, TaskRequest, Transition, hold
 
 # Which state a waiting instance resumes at, by the type of the accepted task (D261).
@@ -49,7 +52,12 @@ def step(loop: Loop, ctx: Context) -> Transition:
         return Transition(loop.state, LINEAR[loop.state], "normal", data=dict(f))
     if loop.state == "retrieving":
         if f.get("families"):
-            return Transition(loop.state, "solving", "normal", data={"families": f["families"]})
+            data = {"families": f["families"], "try_family": None}
+            if f.get("family_choice"):
+                data["family_choice"] = f["family_choice"]
+            if f.get("delivered_family_note"):
+                data["delivered_family_note"] = f["delivered_family_note"]
+            return Transition(loop.state, "solving", "normal", data=data)
         task = TaskRequest("T1", str(f["t1_goal"]), list(f["t1_inputs"]))
         return _wait(loop, None, task, "no legal family in the pool")
     if loop.state == "solving":
@@ -100,6 +108,8 @@ def resume(loop: Loop, s: Settings) -> Transition:
     task_type = str(loop.data.get("waiting_type", "T1"))
     to = RESUME_AT.get(task_type, "retrieving")
     data = {"round": rounds + 1, "waiting_on": None, "waiting_type": None, "escalated": False}
+    if loop.facts.get("delivered_family"):  # D706: the next round tries the delivery first
+        data["try_family"] = loop.facts["delivered_family"]
     if task_type == "T4":  # escalation.case_to_knowledge counts calibrations per case
         data["calibrations"] = int(loop.data.get("calibrations", 0)) + 1
     return Transition(loop.state, to, "resume", data=data, note=f"{task_type} accepted")
@@ -171,6 +181,69 @@ def _task(loop: Loop, f: Mapping[str, Any], cls: str, route: Mapping[str, Any]) 
     else:
         inputs = [str(f["family"]), loop.subject]
     return TaskRequest(task_type, goal, inputs)
+
+
+# The access-discipline row a routed task starts in (D707); other routes use situation_of.
+SITUATION = {"epsilon": "eps", "model_fix_deferred": "diagnostic", "correctness": "diagnostic"}
+TERMS = (("eps", "epsilon"), ("delta", "delta"), ("dpre", "delta_pre"), ("l_rep", "l_rep"),
+         ("irreducible", "irreducible"))  # fmt: skip
+
+
+def _header(
+    loop: Loop, s: Settings, name: str, decs: list[dict[str, Any]], task_type: str
+) -> TaskHeader | None:
+    """The case header of a routed task (SYSDEBUG-2 D707): what the round measured per
+    bucket against the reference, bound and prediction, the family it solved inside, and
+    the gap terms (mean over buckets). None when it does not fit the header limit."""
+    buckets: list[Mapping[str, Any]] = list(loop.facts.get("buckets", []))
+    gap_terms: dict[str, Any] = {}
+    for key, cls in TERMS:
+        known = [
+            float(d["terms"][cls]["us"])
+            for d in decs
+            if d.get("terms", {}).get(cls, {}).get("status") == "value"
+        ]
+        if known:
+            gap_terms[key] = sum(known) / len(known)
+    gap_terms["class"] = name
+    facts = [f"family `{loop.facts.get('family')}`: this round solved inside it (`kta show`)"]
+    bounds: list[float] = []
+    for b in buckets:
+        shape = "x".join(str(v) for v in dict(b.get("shape") or {}).values()) or b["name"]
+        if not b.get("pairs"):
+            facts.append(f"{b['name']} {shape}: no measured candidate")
+            continue
+        bounds.append(float(b["bound_us"]))
+        ref = b.get("reference_us")
+        rho = bucket_metrics(b)["rho"]
+        facts.append(
+            f"{b['name']} {shape}: best {float(b['best_us']):.4g} us"
+            + (f", reference {float(ref):.4g}" if ref is not None else ", no reference")
+            + f", bound {float(b['bound_us']):.4g}, predicted {float(b['predicted_us']):.4g}"
+            + (f", rank rho {rho:.2f}" if rho is not None else "")
+        )
+    budget = {
+        "wall_s": s.task_wall_s.get(task_type),
+        "gpu_s": s.task_gpu_s.get(task_type),
+        "steps": s.task_steps,
+    }
+    try:
+        return access.task_header(
+            case=str(loop.data.get("name") or loop.subject),
+            case_id=loop.subject,
+            bound_us=sum(bounds) / len(bounds) if bounds else None,
+            bottleneck=f"mean of {len(bounds)} buckets" if len(bounds) > 1 else None,
+            gap=gap_terms,
+            plan_id=None,
+            score=None,
+            budget=budget,
+            discipline=s.discipline,
+            max_lines=s.header_max_lines,
+            situation=SITUATION.get(name),
+            facts=facts,
+        )
+    except ConfigError:
+        return None
 
 
 def _decide(loop: Loop, s: Settings, decs: list[dict[str, Any]], d: Mapping[str, Any]) -> str:
@@ -254,6 +327,8 @@ def judge(loop: Loop, s: Settings) -> Transition:
         route = table.escalations.get(name) or table.classes[name]
     rule = int(route["rule"])
     task = _task(loop, f, name, route) if route["to"] == "waiting" else None
+    if task is not None:
+        task = replace(task, header=_header(loop, s, name, decs, task.type))
     units = [{"bucket": b["name"], **u} for b in buckets for u in b.get("units", [])]
     share = min((m["explained_share"] for m in metrics), default=0.0)
     data: dict[str, Any] = {
@@ -340,7 +415,8 @@ def _carry(
         "incumbent": verdict["incumbent"],
         "null_rounds": verdict["null_rounds"],
         "rolled_back_mechanisms": rolled,
-        # A rolled-back round's family is not preferred next round (work_retrieving).
+        # A rolled-back round's family is not preferred next round (work_retrieving); a
+        # family an agent delivers is tried before it (try_family, D706).
         "prefer_family": verdict["incumbent"].get("family"),
         # SYSDEBUG-2 (D701): the full checks of each bucket's best, for the case page
         "final_checks": dict(loop.facts.get("final_checks") or loop.data.get("final_checks") or {}),

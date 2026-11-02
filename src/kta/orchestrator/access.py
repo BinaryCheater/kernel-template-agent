@@ -15,7 +15,7 @@
 from __future__ import annotations
 
 from collections import Counter
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any
 
@@ -65,8 +65,10 @@ def task_header(
     discipline: str,
     max_lines: int = HEADER_MAX_LINES,
     situation: str | None = None,
+    facts: Sequence[str] = (),
 ) -> TaskHeader:
-    """The one-screen header; ConfigError when it does not fit ``max_lines``."""
+    """The one-screen header; ConfigError when it does not fit ``max_lines``. ``facts``
+    are extra bullet lines after the gap (SYSDEBUG-2 D707: per-bucket results, family)."""
     t = table(discipline)
     sit = situation or situation_of(gap)
     row = t.row(sit)
@@ -84,6 +86,7 @@ def task_header(
         lines.append(f"- last round's gap (us): {parts}; class {gap.get('class', '?')}{extra}")
     else:
         lines.append("- last round's gap: none (first round)")
+    lines += [f"- {x}" for x in facts]
     if plan_id:
         s = dict(score or {})
         keys = ("changes", "open_dims", "space", "bound_us")

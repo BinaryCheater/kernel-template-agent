@@ -45,19 +45,19 @@ machines:
       - {id: bounded, kind: step, work: orchestrator,
          does: Compute the theoretical lower bound per shape bucket}
       - {id: retrieving, kind: step, work: orchestrator,
-         does: Retrieve legal Templates from the current pool snapshot}
+         does: "Pick the family this round solves: one an agent just delivered, else the incumbent, else the best retrievable; none retrievable: retrieve chains and Templates for a T1 (D706)"}
       - {id: solving, kind: step, work: orchestrator,
-         does: Shortlist candidates with the pre-compile model (default 64)}
+         does: "Assemble the family's formulation (variables, constraints, cost) from its Templates, solve it per bucket with the pre-compile model (shortlist 64), and drop candidates the proof gate rules out (WP24)"}
       - {id: building, kind: step, work: executor,
-         does: Compile the shortlist and collect feedback, read feedback, check SASS, re-rank, keep top k (default 8)}
+         does: "Compile the best-predicted of the shortlist (default 16 per bucket) and the control arms; collect build feedback"}
       - {id: checking, kind: step, work: executor,
-         does: Full correctness checks on the top k}
+         does: "Quick correctness check (obvious errors only), anticheat and SASS on every built candidate; the strict full check runs on each bucket's best in judging (D694)"}
       - {id: measuring, kind: step, work: executor,
          does: Measure under the protocol; measure baselines if needed}
       - {id: judging, kind: step, work: orchestrator,
          does: Decompose the gap (eps, delta, dpre, L_rep, irreducible), apply the disciplines, route by routing.yaml}
       - {id: waiting, kind: wait, work: agent,
-         does: Wait for the created task to be accepted, then resume at the state that created it}
+         does: "An agent works on the created task (in S1 after your release); when it is accepted the loop resumes (T1/T6: a new round on the delivered family)"}
       - {id: accepted, kind: terminal, work: orchestrator,
          does: Criterion met; the Solution is recorded}
       - {id: closed, kind: terminal, work: orchestrator,

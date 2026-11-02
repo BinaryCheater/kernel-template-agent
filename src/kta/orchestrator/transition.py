@@ -100,6 +100,8 @@ class Settings:
     task_gpu_s: Mapping[str, float]  # per task type
     case_gpu_factor: float  # case (loop) GPU cap = factor x the largest task cap
     task_steps: int
+    discipline: str  # session.access_discipline_version, for task headers (D707)
+    header_max_lines: int  # session.task_header_max_lines
     solve_time_limit_s: float
     epsilon_rel: float  # expand: reproduction error allowed
     # WP18 loop disciplines and routing (12 §3, §4)
@@ -141,6 +143,8 @@ class Settings:
             task_gpu_s=gpu,
             case_gpu_factor=factor,
             task_steps=c.tool_call_steps,
+            discipline=c.access_discipline_version,
+            header_max_lines=c.task_header_max_lines,
             solve_time_limit_s=c.solve_time_limit_s,
             epsilon_rel=c.reproduction_epsilon,
             improvement_band=c.improvement_band,

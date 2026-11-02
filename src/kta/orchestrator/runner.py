@@ -34,7 +34,16 @@ Work = Callable[[Services, Loop], dict[str, Any]]
 
 
 def _waiting(svc: Services, loop: Loop) -> dict[str, Any]:
-    return {"tasks": expand_work.task_states(svc, loop)}
+    """Task states, and the Family an accepted T1/T6 delivered (SYSDEBUG-2 D706): the next
+    round tries it first instead of re-solving the incumbent's family."""
+    states = expand_work.task_states(svc, loop)
+    out: dict[str, Any] = {"tasks": states}
+    on = loop.data.get("waiting_on")
+    if on and states.get(str(on)) == "accepted":
+        family = expand_work.task_result(svc, str(on)).get("family")
+        if family:
+            out["delivered_family"] = family
+    return out
 
 
 WORK: dict[str, dict[str, Work]] = {

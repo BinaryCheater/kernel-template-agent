@@ -136,12 +136,34 @@ def work_retrieving(svc: Services, loop: Loop) -> Facts:
     def allowed(cards: list[Any]) -> list[Any]:
         return allowed_cards(cards, members, knowledge)
 
-    fams = allowed(retrieve_families(svc.store, cv.case, k=20, hw=hw.limits))[:5]
+    fams = allowed(retrieve_families(svc.store, cv.case, k=20, hw=hw.limits))
     if fams:
         ids = [c.id for c in fams]
-        # Rollback (D527): the incumbent's family goes first while it is still retrievable.
-        prefer = loop.data.get("prefer_family")
-        return {"families": sorted(ids, key=lambda i: i != prefer)}
+        # D706: a family an agent just delivered goes first, so the round measures the
+        # agent's change; the incumbent stays the baseline judging compares against.
+        # Rollback (D527): otherwise the incumbent's family goes first while retrievable.
+        tried = loop.data.get("try_family")
+        incumbent = loop.data.get("prefer_family")
+        prefer = tried if tried in ids else incumbent
+        order = sorted(ids, key=lambda i: i != prefer)[:5]
+        why = (
+            "delivered by the agent task of the last round"
+            if prefer == tried and tried
+            else "the incumbent (best earlier round)"
+            if prefer == incumbent and incumbent in ids
+            else "best retrievable for this case (scope, assurance, similarity)"
+        )
+        out: dict[str, Any] = {
+            "families": order,
+            "family_choice": {"picked": order[0], "why": why, "retrieved": len(ids)},
+        }
+        if tried and tried not in ids:
+            out["delivered_family_note"] = (
+                f"delivered family {tried} is not retrievable for this case (scope, "
+                "hardware or status); the round uses the best retrievable family"
+            )
+            out["family_choice"]["note"] = out["delivered_family_note"]
+        return out
     chains = allowed(nearest_chains(svc.store, cv.case, k=10))[:3]
     data: dict[str, Any] = {"nearest_chains": [asdict(c) for c in chains]}
     inputs = [cv.id]
@@ -210,6 +232,11 @@ def work_solving(svc: Services, loop: Loop) -> Facts:
             s.shortlist, s.solve_time_limit_s, svc.ctx.rng(f"relaxed:{loop.id}"),
         )  # fmt: skip
         solver[name] = {
+            # SYSDEBUG-2 (D708): what the round was made of, kept with the judgement so the
+            # case page can show family choice, formulation and proof gate per round
+            "family_choice": loop.data.get("family_choice"),
+            "formulation": formulation_summary(f),
+            "proof_gate": {"checked": len(checks), "kept": len(kept), "dropped": len(dropped)},
             "relaxed_pred_us": relaxed,
             "delta_pre_note": dpre_note,
             "method": res.method,
@@ -231,6 +258,34 @@ def work_solving(svc: Services, loop: Loop) -> Facts:
         "solver": solver,
         "arms": arms,
         "proof_gate": gate,
+    }
+
+
+def formulation_summary(f: Any) -> dict[str, Any]:
+    """The assembled formulation in a few numbers (D708): its variables, constraints by
+    kind and one row per chain block (Template, constraints, constants it fixes)."""
+    kinds: dict[str, int] = {}
+    for c in f.constraints:
+        kinds[c.kind] = kinds.get(c.kind, 0) + 1
+    return {
+        "family": f.family,
+        "fingerprint": f.fingerprint[:12],
+        "variables": sorted(f.variables),
+        "runtime_vars": list(f.runtime_vars),
+        "constraints": kinds,
+        "linear": f.linear,
+        "transactions": len(f.transactions),
+        "missing_hw": list(f.missing_hw),
+        "blocks": [
+            {
+                "key": k,
+                "template": b.template,
+                "constraints": len(b.constraints),
+                "fixed": dict(b.fixed),
+                "uses": sorted(b.uses),
+            }
+            for k, b in f.blocks.items()
+        ],
     }
 
 
@@ -537,6 +592,7 @@ def work_judging(svc: Services, loop: Loop) -> Facts:
         buckets.append(
             {
                 "name": name,
+                "shape": bucket_shape(_bucket(loop, name)),  # for the task header (D707)
                 "failed_checks": failed,
                 "pairs": [(r[2].total, r[3].median_us) for r in rows],
                 "evidence": [x for r in rows for x in (r[1], d["measurements"][r[0]])],

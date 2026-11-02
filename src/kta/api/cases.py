@@ -199,6 +199,11 @@ def _rounds(api: Api, loop_id: str | None, case_id: str) -> list[dict[str, Any]]
                     for s in ss
                 ],
                 "checks": _check_reasons(api, loop_data),
+                "made": _made(
+                    api,
+                    refs(api, out).get("decomposition") if out else None,
+                    loop_data if n == max(steps) else {},
+                ),
                 "tasks": [_round_task(api, t) for t in mine],
                 "summary": _round_summary(api, case_id, iso(lo), iso(hi), loop_data),
                 "outcome": {
@@ -214,6 +219,45 @@ def _rounds(api: Api, loop_id: str | None, case_id: str) -> list[dict[str, Any]]
             }
         )
     return rounds
+
+
+def _made(api: Api, decomposition: Any, live: dict[str, Any]) -> dict[str, Any] | None:
+    """How a round was made (SYSDEBUG-2 D708): which family and why, the formulation it
+    assembled, and per bucket the solve and its proof gate. From the round's judgement
+    (GapDecomposition inputs) once judged, else from the loop's current data."""
+    per: dict[str, dict[str, Any]] = {}
+    if isinstance(decomposition, str):
+        for b in body(api, decomposition).get("buckets", []):
+            per[str(b.get("name"))] = dict(b.get("inputs", {}).get("solver") or {})
+    else:
+        per = {str(k): dict(v) for k, v in (live.get("solver") or {}).items()}
+    if not per:
+        return None
+    first = next(iter(per.values()))
+    choice = first.get("family_choice") or live.get("family_choice")
+    fam = (first.get("formulation") or {}).get("family")
+    return {
+        "family_choice": {
+            **(choice or {}),
+            **({"picked_ref": _family_ref(api, choice["picked"])} if choice else {}),
+        }
+        if choice
+        else None,
+        "family": fam,
+        "formulation": first.get("formulation"),
+        "solve": [
+            {
+                "bucket": name,
+                "method": s.get("method"),
+                "exhaustive": s.get("exhaustive"),
+                "model_optimal": s.get("model_optimal"),
+                "top_pred_us": s.get("top_pred_us"),
+                "proof_gate": s.get("proof_gate"),
+                "report": s.get("report"),
+            }
+            for name, s in per.items()
+        ],
+    }
 
 
 def _round_summary(
@@ -323,7 +367,30 @@ def _round_task(api: Api, t: opsread.TaskRow) -> dict[str, Any]:
         if not r["passed"]
     ]
     ended = t.state in ("accepted", "cancelled", "escalated", "suspended")
+    card = body(api, t.card_id)
+    header = card.get("header") or {}
+    with api.store.db.read() as con:
+        run_ids = [
+            r[0]
+            for r in con.execute(
+                "SELECT id FROM records WHERE task = ? AND kind = 'AgentRun' ORDER BY created_at",
+                (t.id,),
+            ).fetchall()
+        ]
     return {
+        # SYSDEBUG-2 (D708): what the agent is given and what it did, for the case page
+        "inputs": list(card.get("inputs", [])),
+        "header": header.get("text"),
+        "situation": header.get("situation"),
+        "runs": [
+            {
+                "id": rid,
+                "exit": body(api, rid).get("exit"),
+                "wall_s": body(api, rid).get("wall_s"),
+                "model": body(api, rid).get("model"),
+            }
+            for rid in run_ids
+        ],
         "id": t.id,
         "type": t.card_type,
         "card": t.card_id,

@@ -15,14 +15,16 @@ from kta.core.context import Context
 from kta.core.errors import SchemaError
 from kta.core.ids import canonical_json
 from kta.core.schemas.evaluation import Contract
+from kta.knowledge import Card
 from kta.orchestrator import runner as runner_mod
-from kta.orchestrator import step
+from kta.orchestrator import solve_work, step
 from kta.orchestrator.pipeline import Services
 from kta.orchestrator.runner import Runner
+from kta.orchestrator.transition import Loop
 from kta.store.base import SpanRow
 from kta.store.sqlite import SqliteStore
 from kta.store.sqlite_ops import SqliteOps
-from orchesthelp import bucket, ctx_with, judging, world
+from orchesthelp import bucket, ctx_with, judging, loop, world
 from proofhelp import seeded, template_id
 from storehelp import T0
 
@@ -138,6 +140,11 @@ def test_a_model_off_round_creates_t4_unless_model_fixes_are_deferred(ctx: Conte
     assert (deferred.rule, [t.type for t in deferred.tasks]) == (4, ["T1"])
     data = deferred.records[-1].body["data"]
     assert data["gap_class"] == "model_fix_deferred" and data["settings"]["defer_model_fix"]
+    # D707: the T1 starts with the case header: per-bucket results, family, situation
+    header = deferred.tasks[0].header
+    assert header is not None and header.situation == "diagnostic"
+    assert "s0 " in header.text and "best 14 us, reference 10.5" in header.text
+    assert routed.tasks[0].header is not None and routed.tasks[0].header.situation == "eps"
     # the model metrics are still recorded on the decomposition
     assert deferred.records[-2].body["buckets"][0]["model_off"] is True
 
@@ -163,3 +170,38 @@ def test_rotation_v2_precondition_is_exact_on_the_event_model(
     rows = {(r["S"], r["P"], r["beta"], r["late"], r["private"]): r for r in table["data"]["table"]}
     assert rows[(2, 1, 0, 0, 1)]["safe"] and rows[(1, 1, 1, 1, 0)]["safe"]
     assert not rows[(2, 1, 0, 0, 0)]["safe"] and not rows[(1, 0, 1, 1, 0)]["safe"]
+
+
+# ---- D706: the next round tries the family an agent delivered -----------------------------
+
+
+def test_an_accepted_t1_hands_its_family_to_the_next_round(ctx: Context) -> None:
+    lp = loop(
+        "solve",
+        "waiting",
+        {"tasks": {"t1": "accepted"}, "delivered_family": "F2"},
+        waiting_on="t1",
+        waiting_type="T1",
+    )
+    t = step(lp, ctx)
+    assert (t.to, t.data["try_family"]) == ("retrieving", "F2")
+    # the retrieving transition consumes it
+    after = step(loop("solve", "retrieving", {"families": ["F2", "F1"]}, try_family="F2"), ctx)
+    assert after.data == {"families": ["F2", "F1"], "try_family": None}
+
+
+def test_retrieval_puts_the_delivered_family_before_the_incumbent(
+    ctx: Context, store: SqliteStore, ops: SqliteOps, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    svc = Services(ctx, store, ops)
+    w = world(svc)
+    cards = [Card(i, "Family", f"{i}@1", [], "proposed", "declared", False) for i in "ABC"]
+    monkeypatch.setattr(solve_work, "retrieve_families", lambda *_a, **_k: cards)
+    base = loop("solve", "retrieving", prefer_family="A")
+    lp = Loop(base.id, base.kind, w["case"], base.state, base.data, base.facts)
+    assert solve_work.work_retrieving(svc, lp)["families"][0] == "A"  # incumbent
+    tried = Loop(lp.id, lp.kind, lp.subject, lp.state, {**lp.data, "try_family": "C"}, {})
+    assert solve_work.work_retrieving(svc, tried)["families"][0] == "C"
+    gone = Loop(lp.id, lp.kind, lp.subject, lp.state, {**lp.data, "try_family": "Z"}, {})
+    out = solve_work.work_retrieving(svc, gone)
+    assert out["families"][0] == "A" and "not retrievable" in out["delivered_family_note"]

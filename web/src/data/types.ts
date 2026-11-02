@@ -264,6 +264,28 @@ export interface RoundTask {
   rejections: { at: string; reason: string; record: string }[];
   /** WP25: knowledge records the task wrote (what the round changed). */
   produced?: { id: string; kind: string; label: string }[];
+  /** SYSDEBUG-2 (D708): what the agent is given (card inputs, case header) and its runs. */
+  inputs?: string[];
+  header?: string | null;
+  situation?: string | null;
+  runs?: { id: string; exit?: string | null; wall_s?: number | null; model?: string | null }[];
+}
+/** SYSDEBUG-2 (D708): how a round was made — family choice, formulation, solve and proof gate. */
+export interface RoundMade {
+  family_choice: { picked: string; why: string; retrieved: number; note?: string; picked_ref?: { id: string; name: string; version: number | null } } | null;
+  family?: string | null;
+  formulation?: {
+    family: string;
+    fingerprint: string;
+    variables: string[];
+    runtime_vars: string[];
+    constraints: Record<string, number>;
+    linear: boolean;
+    transactions: number;
+    missing_hw: string[];
+    blocks: { key: string; template: string; constraints: number; fixed: Record<string, unknown>; uses: string[] }[];
+  } | null;
+  solve: { bucket: string; method?: string | null; exhaustive?: boolean | null; model_optimal?: boolean | null; top_pred_us?: number | null; proof_gate?: { checked: number; kept: number; dropped: number } | null; report?: string | null }[];
 }
 /** WP25: what one round used and produced. */
 export interface RoundSummary {
@@ -284,6 +306,7 @@ export interface Round {
   outcome?: { rule?: number | null; label: string; record: string; gap_class?: string | null; decomposition?: string | null } | null;
   /** SYSDEBUG-2 (D700): check results grouped by reason (quick = gate before measuring, full = each shape's best). */
   checks?: { quick: CheckLevel; full: CheckLevel };
+  made?: RoundMade | null;
 }
 export interface BucketResult {
   bucket: string;

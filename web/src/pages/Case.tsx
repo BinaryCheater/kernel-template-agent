@@ -4,7 +4,7 @@
 // then one card per round — the path it took, what it used, the candidate funnel, measured
 // against predicted against the bound, and how it was judged and what that changed. Raw
 // candidates, steps and records sit inside each card, collapsed.
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { api } from "../data/source";
 import type { ActiveRuns, CaseDetail, CaseIndexRow, CaseRoundProgress, CheckLevel, Machines, Round, RoundSummary, StepWork } from "../data/types";
@@ -289,6 +289,7 @@ function RoundCard({ r, c, m, open, current, a }: { r: Round; c: CaseDetail; m: 
       <StepPath r={r} m={m} stopped={stopped} held={current ? heldOf(c, a) : null} />
       {expanded && (
         <>
+          <RoundMadeView r={r} m={m} held={current ? heldOf(c, a) : null} />
           <div className="round-cols">
             <div><div className="caption">used</div>
               {s?.families.length ? s.families.map((f) => <div key={f.id}><Link to={`/families/${f.id}`} className="mono">{f.name}@{f.version}</Link></div>) : <span className="muted small">no family yet</span>}
@@ -329,6 +330,84 @@ function RoundCard({ r, c, m, open, current, a }: { r: Round; c: CaseDetail; m: 
           {current && c.candidates.length > 0 && <Candidates c={c} />}
         </>
       )}
+    </div>
+  );
+}
+
+const WHO: Record<string, string> = { kta: "KTA code", proof: "KTA code + proofs", job: "remote compile / GPU jobs", agent: "AI agent" };
+
+function MadeStage({ n, title, who, children }: { n: number; title: string; who: keyof typeof WHO; children: ReactNode }) {
+  return (
+    <div className={`made-stage w-${who}`}>
+      <div className="made-head"><span className="made-n">{n}</span><b>{title}</b><span className="made-who">{WHO[who]}</span></div>
+      <div className="made-body">{children}</div>
+    </div>
+  );
+}
+
+/** SYSDEBUG-2 (D708): the round as the stages that made it — which family and why, the
+ *  formulation assembled from its Templates, the solve with its proof gate, the evaluation,
+ *  the judgement, and the agent task it handed over (what the agent is given and did). */
+function RoundMadeView({ r, m, held }: { r: Round; m: Machines; held: string | null }) {
+  const made = r.made;
+  const s = r.summary;
+  const f = made?.formulation;
+  const fam = made?.family_choice?.picked_ref ?? s?.families[0];
+  return (
+    <div className="made">
+      <div className="caption">how this round was made</div>
+      <div className="made-row">
+        <MadeStage n={1} title="Pick family" who="kta">
+          {fam ? <Link to={`/families/${fam.id}`} className="mono">{fam.name}@{fam.version}</Link> : <span className="muted">—</span>}
+          {made?.family_choice && <div className="small ink2">{made.family_choice.why}; {made.family_choice.retrieved} retrievable</div>}
+          {made?.family_choice?.note && <div className="small warn-text">{made.family_choice.note}</div>}
+          <div className="small muted">family = Template chain + generator</div>
+        </MadeStage>
+        <MadeStage n={2} title="Formulation" who="kta">
+          {f ? <>
+            <div><b className="num">{f.variables.length}</b> variables · <b className="num">{Object.values(f.constraints).reduce((a, b) => a + b, 0)}</b> constraints</div>
+            <div className="small ink2">{Object.entries(f.constraints).map(([k, v]) => `${v} ${k}`).join(" · ")}{f.linear ? " · linear" : " · non-linear"}</div>
+            <div className="small mono ink2">{f.variables.join(", ")}</div>
+            <details className="made-blocks"><summary className="small">{f.blocks.length} blocks, one per Template step</summary>
+              <table className="t compact"><tbody>{f.blocks.map((b) => (
+                <tr key={b.key}><td className="mono small">{b.key}</td><td className="small">{b.template}</td><td className="small num">{b.constraints}</td>
+                  <td className="small ink2">{Object.keys(b.fixed).length ? Object.entries(b.fixed).map(([k, v]) => `${k}=${String(v)}`).join(", ") : b.uses.join(", ")}</td></tr>
+              ))}</tbody></table>
+            </details>
+            {f.missing_hw.length > 0 && <div className="small warn-text">missing hardware numbers: {f.missing_hw.join(", ")}</div>}
+          </> : <span className="muted small">not recorded for this round</span>}
+        </MadeStage>
+        <MadeStage n={3} title="Solve + proof gate" who="proof">
+          {made?.solve.length ? made.solve.map((x) => (
+            <div key={x.bucket} className="small">
+              <span className="mono">{x.bucket}</span> {x.method ?? "—"}{x.exhaustive ? ", exhaustive" : ""}{x.model_optimal ? ", model-optimal" : ""}
+              {x.proof_gate && <span className="ink2"> · proof gate {x.proof_gate.kept}/{x.proof_gate.checked} kept{x.proof_gate.dropped ? `, ${x.proof_gate.dropped} ruled out` : ""}</span>}
+              {x.top_pred_us != null && <span className="ink2"> · best predicted {us(x.top_pred_us)}</span>}
+            </div>
+          )) : <span className="muted small">—</span>}
+          <div className="small muted">the proof gate checks each candidate against the Templates' conditions before anything is compiled</div>
+        </MadeStage>
+        <MadeStage n={4} title="Compile · check · measure" who="job">
+          {s ? <Funnel s={s} /> : <span className="muted small">—</span>}
+          {r.checks && <div className="small ink2">quick {r.checks.quick.passed}/{r.checks.quick.total} · strict {r.checks.full.passed}/{r.checks.full.total}</div>}
+        </MadeStage>
+        <MadeStage n={5} title="Judge" who="kta">
+          {r.outcome ? <><b>{RULE[r.outcome.rule ?? 0]}</b><div className="small"><RecordLink id={r.outcome.record} label={r.outcome.label} /></div>
+            {r.outcome.gap_class && <div className="small muted">route {r.outcome.gap_class}</div>}</> : <span className="muted small">not judged yet</span>}
+        </MadeStage>
+        <MadeStage n={6} title="Agent task" who="agent">
+          {r.tasks.length ? r.tasks.map((t) => (
+            <div key={t.id} className="made-task">
+              <Link to={`/tasks/${t.id}`}><span className="tag task">{t.type}: {taskWord(t.type)}</span></Link> <Chip tone={stateTone(m.machines.find((x) => x.id === "task"), t.state)}>{t.state}</Chip>
+              {t.state === "queued" && held && <div className="small warn-text">not running: {held}</div>}
+              {t.goal && <div className="small">{t.goal}</div>}
+              <div className="small ink2">given: {t.inputs?.length ?? 0} input record(s){t.situation ? ` · starts in situation "${t.situation}"` : ""}{t.runs?.length ? ` · ${t.runs.length} run(s), last exit ${t.runs[t.runs.length - 1].exit ?? "—"}` : " · not run yet"}</div>
+              {t.header && <details><summary className="small">case header the agent reads first</summary><pre className="made-header">{t.header}</pre></details>}
+              {t.produced?.map((p) => <div key={p.id} className="small">delivered <RecordLink id={p.id} label={`${p.kind} ${p.label}`} /></div>)}
+            </div>
+          )) : <span className="muted small">{r.outcome ? "none: the round ended without one" : "—"}</span>}
+        </MadeStage>
+      </div>
     </div>
   );
 }
