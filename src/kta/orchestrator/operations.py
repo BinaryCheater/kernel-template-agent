@@ -166,8 +166,10 @@ class Operations:
         action = self.queue.cancel(task_id, reason, human)
         return {"task": task_id, "state": "cancelled", "action": action}
 
-    def retry_task(self, task_id: str, note: str, human: Actor) -> dict[str, Any]:
-        action = self.queue.retry(task_id, note, human, note=note)
+    def retry_task(
+        self, task_id: str, note: str, human: Actor, checker_fault: bool = False
+    ) -> dict[str, Any]:
+        action = self.queue.retry(task_id, note, human, note=note, checker_fault=checker_fault)
         return {"task": task_id, "state": "queued", "action": action}
 
     def create_task(self, spec: Any, reason: str, human: Actor) -> dict[str, Any]:

@@ -260,9 +260,9 @@ def cancel(api: Api, task_id: str, reason: str) -> dict[str, Any]:
     return api.orchestration.cancel_task(task_id, reason, operator(api))
 
 
-def retry(api: Api, task_id: str, note: str) -> dict[str, Any]:
+def retry(api: Api, task_id: str, note: str, checker_fault: bool = False) -> dict[str, Any]:
     _task_row(api, task_id)
-    return api.orchestration.retry_task(task_id, note, operator(api))
+    return api.orchestration.retry_task(task_id, note, operator(api), checker_fault)
 
 
 def priority(api: Api, task_id: str, value: int, reason: str) -> dict[str, Any]:

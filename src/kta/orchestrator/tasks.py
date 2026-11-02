@@ -382,11 +382,22 @@ class TaskQueue:
         )
 
     def retry(
-        self, task_id: str, reason: str, human: Actor | None = None, note: str | None = None
+        self,
+        task_id: str,
+        reason: str,
+        human: Actor | None = None,
+        note: str | None = None,
+        checker_fault: bool = False,
     ) -> str:
-        """escalated -> queued; ``note`` reaches the next TASK.md verbatim (D365)."""
+        """escalated -> queued; ``note`` reaches the next TASK.md verbatim (D365). With
+        ``checker_fault`` (D712) the rejections so far are recorded as the checker's fault:
+        their digests no longer make a resubmission a duplicate, and the next step is not
+        shown their failures."""
         task = self.get(task_id)
-        action = self._human(task, "retry", reason, human)
+        verb = "retry (checker fault: rejected digests cleared)" if checker_fault else "retry"
+        action = self._human(task, verb, reason, human)
+        if checker_fault:
+            self._set_info(task_id, rejected_digests=[], last_rejection=None)
         self._move(task, "queued", kind="human")
         if note:
             self._set_info(task_id, human_note=note)

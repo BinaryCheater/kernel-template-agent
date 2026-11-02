@@ -207,6 +207,11 @@ export function TaskActions({ task, label, small, retry = true, priority }: { ta
         <ActionButton op="retry" label="Retry with note" small={small} title={`Retry ${label}`} reasonLabel="Note for the next attempt"
           submit={(r) => act.retry(task, r)} />
       )}
+      {retry && (
+        <ActionButton op="retry" label="Retry: the checker was wrong" small={small} title={`Retry ${label} after a checker fault`} reasonLabel="Note for the next attempt"
+          explain="Use when a rejection was caused by the checker, not the agent: the same files may be submitted again (not a duplicate) and the agent is not shown those failures."
+          submit={(r) => act.retry(task, r, true)} />
+      )}
       <ActionButton op="cancel" label="Cancel task" tone="danger" small={small} title={`Cancel ${label}`}
         explain="Marks the task cancelled and releases its budget reservation." submit={(r) => act.cancel(task, r)} />
     </div>

@@ -50,7 +50,9 @@ class Orchestration(Protocol):
         ...
 
     def cancel_task(self, task_id: str, reason: str, human: Actor) -> dict[str, Any]: ...
-    def retry_task(self, task_id: str, note: str, human: Actor) -> dict[str, Any]: ...
+    def retry_task(
+        self, task_id: str, note: str, human: Actor, checker_fault: bool = False
+    ) -> dict[str, Any]: ...
     def create_task(self, spec: TaskSpec, reason: str, human: Actor) -> dict[str, Any]: ...
     def set_priority(
         self, task_id: str, priority: int, reason: str, human: Actor
@@ -114,7 +116,9 @@ class Unwired:
     def cancel_task(self, task_id: str, reason: str, human: Actor) -> dict[str, Any]:
         raise _no("cancel")
 
-    def retry_task(self, task_id: str, note: str, human: Actor) -> dict[str, Any]:
+    def retry_task(
+        self, task_id: str, note: str, human: Actor, checker_fault: bool = False
+    ) -> dict[str, Any]:
         raise _no("retry")
 
     def create_task(self, spec: TaskSpec, reason: str, human: Actor) -> dict[str, Any]:
@@ -181,8 +185,10 @@ class Wired(Unwired):
     def cancel_task(self, task_id: str, reason: str, human: Actor) -> dict[str, Any]:
         return self._card(self.operations.cancel_task(task_id, reason, human))
 
-    def retry_task(self, task_id: str, note: str, human: Actor) -> dict[str, Any]:
-        return self._card(self.operations.retry_task(task_id, note, human))
+    def retry_task(
+        self, task_id: str, note: str, human: Actor, checker_fault: bool = False
+    ) -> dict[str, Any]:
+        return self._card(self.operations.retry_task(task_id, note, human, checker_fault))
 
     def create_task(self, spec: TaskSpec, reason: str, human: Actor) -> dict[str, Any]:
         # TaskQueue.create writes the card and the human's HumanAction (D365); a task you

@@ -50,6 +50,9 @@ class TaskBody(_Body):
 class RetryBody(_Body):
     task: Id
     note: Reason
+    # SYSDEBUG-2 (D712): the last rejection was the checker's fault; a resubmission of the
+    # same files is not a duplicate and the agent is not shown those failures
+    checker_fault: bool = False
 
 
 class BudgetBody(_Body):
@@ -213,7 +216,7 @@ def router(api: Api) -> APIRouter:
 
     @r.post("/retry")
     def retry(b: RetryBody) -> dict[str, Any]:  # pyright: ignore[reportUnusedFunction]
-        return operate.retry(api, b.task, b.note)
+        return operate.retry(api, b.task, b.note, b.checker_fault)
 
     @r.post("/budget")
     def budget(b: BudgetBody) -> dict[str, Any]:  # pyright: ignore[reportUnusedFunction]

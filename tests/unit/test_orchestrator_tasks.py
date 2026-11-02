@@ -108,6 +108,23 @@ def test_rejections_retry_then_escalate(q: TaskQueue, store: SqliteStore) -> Non
     assert q.get(task).state == "queued"
 
 
+def test_a_retry_for_a_checker_fault_rechecks_the_same_files(
+    q: TaskQueue, store: SqliteStore
+) -> None:
+    """D712: rejections caused by the checker do not make a resubmission a duplicate."""
+    task = _t2(q, store)
+    files = _t2_files(store, unmatched=2, gaps=1)
+    names: list[list[str]] = []
+    for _ in range(3):
+        _submit(q, task, files)
+        names.append([o.name for o in q.check(task).outcomes])
+    assert names[1] == ["duplicate_proposal"] and q.get(task).state == "escalated"
+    q.retry(task, "the checker was wrong", None, note="resubmit", checker_fault=True)
+    assert q.info(task)["rejected_digests"] == [] and q.retry_context(task)[0] == []
+    _submit(q, task, files)
+    assert "duplicate_proposal" not in [o.name for o in q.check(task).outcomes]
+
+
 def test_delivery_note_is_required(q: TaskQueue, store: SqliteStore) -> None:
     task = _t2(q, store)
     _submit(q, task, _t2_files(store), note="did it")
