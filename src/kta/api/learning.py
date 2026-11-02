@@ -58,7 +58,8 @@ def _stages(api: Api, loop: opsread.LoopRow | None) -> list[dict[str, Any]]:
     if loop is not None:
         for ev in api.ops.events_for("loops", loop.id):
             state = ev.change.get("state")
-            if isinstance(state, str):
+            # every write of a loop row logs its state; a visit is a change of state
+            if isinstance(state, str) and (not order or order[-1] != state):
                 entered.setdefault(state, iso(ev.at) or "")
                 order.append(state)
     skipped = (
@@ -69,10 +70,10 @@ def _stages(api: Api, loop: opsread.LoopRow | None) -> list[dict[str, Any]]:
         sid = s["id"]
         if loop is not None and sid == loop.state:
             status = "current" if s["kind"] != "terminal" else "done"
+        elif sid in skipped:  # passed through without doing its work
+            status = "skipped"
         elif sid in entered:
             status = "done"
-        elif sid in skipped:
-            status = "skipped"
         else:
             status = "pending"
         out.append(

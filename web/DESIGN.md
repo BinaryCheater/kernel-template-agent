@@ -350,6 +350,32 @@ templates / Versions / Raw record (collapsed); a divider between the columns dra
 kind and name; hashes in a body show as the linked record's name; "Open as page" keeps it.
 An empty tab states what it will show and why it is empty.
 
+### 7.9 Learning from a reference (LEARNDEMO-1, D722; assistant draft for review)
+
+`/references/:id`, listed under Knowledge → "Learning from references".
+
+1. **Question:** how did the system learn from this repository, and what did it get? Asked per
+   reference while a learn loop runs and when its result is reviewed; answering it wrong means
+   trusting knowledge nobody checked against the code.
+2. **Awareness:** comprehension (each step beside the code it explains); perception through the
+   loop strip and the "Now" line.
+3. **Normal / abnormal:** normal: stages turn green left to right, T2 then T3s accepted, most
+   steps green ("already in the pool") or purple ("extracted from this reference"). Abnormal: a
+   red step ("missing") after the T3s settled, refused checks on a task, many unexplained
+   transactions, a loop held on one stage.
+4. **Cadence:** on demand. Blocks and escalations still reach the inbox through the loop.
+5. **Up and down:** up to Knowledge (the pool, coverage); down to the source lines, the Task page
+   (agent run, checks) and every record in the drawer.
+
+Sections, top to bottom in the loop's order: header (repository at commit, workload, frozen
+source, analysis-only mark, Now line); the expand loop's stages from machines.yaml with entry
+time and visits; agent tasks (T2 decompose, T3 extract) with the done-check verdicts and what
+each wrote; "What the code does, step by step": chain steps and unexplained transactions on the
+left, the selected one's Template card, the values chosen in this kernel and the cited frozen
+source lines on the right (round tabs when a re-match produced a second decomposition); the
+chain DAG coloured by origin; Gaps; what the reference added (Templates, admission, coverage);
+the agent's own notes collapsed.
+
 ## 8. Open questions for the user
 
 - Is the Overview's split (solve loop large, expand + task lifecycle small) the right emphasis?
