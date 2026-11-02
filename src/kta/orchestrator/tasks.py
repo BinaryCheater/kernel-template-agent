@@ -42,6 +42,9 @@ LIVE = ("queued", "leased", "running", "submitted", "checking", "rejected", "exp
 CHECKER_FAILURES = (KtaError,)
 
 
+SYSTEM_ERRORS_HOLD = 3  # D739: consecutive system-side step failures before a hold
+
+
 @dataclass(frozen=True)
 class Verdict:
     task_id: str
@@ -399,7 +402,8 @@ class TaskQueue:
         action = self._human(task, "force retry (clean start)" if force else "retry", reason, human)
         if force:
             self._set_info(task_id, rejected_digests=[], last_rejection=None, human_note=None,
-                           fresh_session=True, attempt_base=task.attempts)  # fmt: skip
+                           fresh_session=True, attempt_base=task.attempts,
+                           system_errors=0, agent_hold=None)  # fmt: skip
         if not (force and task.state == "queued"):  # D728: a force retry works on a queued task
             self._move(task, "queued", kind="human")
         if note:
@@ -476,6 +480,22 @@ class TaskQueue:
         self._move(task, "expired")
         self._move(self.get(task_id), "rejected")
         self._set_info(task_id, last_abandon=reason)
+        return self._after_rejection(task_id)
+
+    def system_error(self, task_id: str, reason: str) -> str:
+        """D739: the step failed on the system's side (no batch, a crashed tool), not the
+        agent's: the attempt does not count, and the agent is not told. After
+        SYSTEM_ERRORS_HOLD in a row the task is held until a force retry (the bug is fixed
+        outside), instead of spinning."""
+        info = self.info(task_id)
+        count = int(info.get("system_errors") or 0) + 1
+        hold = f"system error x{count}: {reason[:300]}" if count >= SYSTEM_ERRORS_HOLD else None
+        self._set_info(task_id, attempt_base=int(info.get("attempt_base") or 0) + 1,
+                       system_errors=count, last_system_error=reason[:2000],
+                       agent_hold=hold or info.get("agent_hold"))  # fmt: skip
+        task = self.get(task_id)
+        self._move(task, "expired")
+        self._move(self.get(task_id), "rejected")
         return self._after_rejection(task_id)
 
     def _settle(self, task_id: str) -> None:

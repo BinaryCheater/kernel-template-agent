@@ -282,3 +282,18 @@ def test_t1_family_validates_then_space_check_needs_a_real_generator(
     assert not by_name["verify_space"].passed
     assert "launch" in " ".join(by_name["verify_space"].failures)
     assert v.state == "queued"
+
+
+def test_a_system_error_does_not_use_an_attempt_and_holds_after_three(q: TaskQueue) -> None:
+    """D739: a step that fails on the system's side keeps the agent's retry budget."""
+    from kta.orchestrator import tasks as tasks_mod
+
+    task = q.create(TaskRequest("T5", "microbench", []), "L1", "calibrate")
+    for n in range(1, tasks_mod.SYSTEM_ERRORS_HOLD + 1):
+        q.lease(task, OWNER)
+        q.start(task, OWNER)
+        assert q.system_error(task, "ConfigError: no batch") == "queued"
+        assert q.info(task)["system_errors"] == n
+    assert "system error x3" in q.info(task)["agent_hold"]
+    q.retry(task, "fixed", force=True)
+    assert q.info(task)["agent_hold"] is None
