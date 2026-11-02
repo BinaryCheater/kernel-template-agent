@@ -295,6 +295,9 @@ def failure_reason(failures: list[dict[str, Any]]) -> str | None:
         for k in REASON_KEYS
         if f.get(k) is not None
     ]
+    detail = str(f.get("detail") or "").strip()
+    if detail:  # D723: an execution error's own last line (e.g. cuLaunchKernel failed: ...)
+        parts.append(detail.splitlines()[-1][:300])
     more = f" (+{len(failures) - 1} more)" if len(failures) > 1 else ""
     return (", ".join(parts) or str(f)[:200]) + more
 

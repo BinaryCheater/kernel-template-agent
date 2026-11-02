@@ -217,3 +217,27 @@ def test_task_md_states_an_open_task_after_a_submission(store: SqliteStore, tmp_
     assert "This task is open" not in cards.task_md("$previous", **kw)
     text = cards.task_md("$previous", **kw, last_submission="sub-1")
     assert "This task is open" in text and "`sub-1`" in text
+
+
+def test_a_launch_without_arguments_is_refused_before_the_gpu(tmp_path: Path) -> None:
+    """D723: a generator that listed no kernel arguments failed every point on the GPU with
+    CUDA_ERROR_INVALID_VALUE, and the rejection only said 'check numeric.run'."""
+    from kta.checks.full import failure_reason
+    from kta.orchestrator.pipeline import generate
+
+    gen = tmp_path / "gen.py"
+    gen.write_text(
+        "def generate(a, case):\n"
+        "    launch = {'grid': [1], 'block': [128]}\n"
+        "    return {'files': {'k.py': ''}, 'entry': 'main', 'launch': launch}\n"
+    )
+    fp = SimpleNamespace(gen_path=gen, gen_function="generate", path=tmp_path,
+                         family=SimpleNamespace(name="f", backend="tilelang"))  # fmt: skip
+    with pytest.raises(SchemaError, match=r"launch\.params is empty"):
+        generate(fp, {}, {})  # pyright: ignore[reportArgumentType]
+    detail = "Traceback ...\nkta.core.errors.ExecutionError: [nonzero] cuLaunchKernel failed: X\n"
+    reason = failure_reason([{"check": "numeric.run", "detail": detail}])
+    assert (
+        reason
+        == "check numeric.run, kta.core.errors.ExecutionError: [nonzero] cuLaunchKernel failed: X"
+    )

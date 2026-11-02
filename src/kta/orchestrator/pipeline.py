@@ -205,7 +205,9 @@ def _generator(fp: FamilyPackage) -> Callable[..., Any]:
 
 GENERATED_SHAPE = (
     "{'files': {name: source}, 'entry': kernel symbol, 'launch': {'grid': [x, y, z], "
-    "'block': [x, y, z], 'smem_bytes': int, 'params': [...]}, optional 'markers': [...]}"
+    "'block': [x, y, z], 'smem_bytes': dynamic shared memory in bytes, 'params': "
+    "[{'name': 'A', 'type': 'f16*'}, ...] the kernel arguments in order}, optional "
+    "'markers': [...]}"
 )
 
 
@@ -226,11 +228,18 @@ def generate(
             f"{fp.family.name}: generate() returned keys {sorted(map(str, g))}, lacks "
             f"{missing}; expected a mapping {GENERATED_SHAPE}"
         )
+    launch = LaunchSpec.from_dict(dict(g["launch"]))
+    if not launch.params:
+        # D723: a kernel launched with no arguments fails on the GPU as CUDA_ERROR_INVALID_VALUE
+        raise SchemaError(
+            f"{fp.family.name}: generate() launch.params is empty: list the kernel arguments "
+            f"in order; expected a mapping {GENERATED_SHAPE}"
+        )
     return GeneratedKernel(
         backend=str(g.get("backend", fp.family.backend)),
         files={str(k): str(v) for k, v in g["files"].items()},
         entry=str(g["entry"]),
-        launch=LaunchSpec.from_dict(dict(g["launch"])),
+        launch=launch,
         markers=[str(m) for m in g.get("markers", [])],
     )
 
