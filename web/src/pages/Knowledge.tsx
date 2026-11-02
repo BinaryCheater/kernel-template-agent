@@ -8,9 +8,11 @@ import { Pool } from "./Pool";
 import { Coverage } from "./Coverage";
 import { Model } from "./Model";
 import { TemplateList } from "./Templates";
+import { ReferenceList } from "./Learning";
 
 const TABS = [
   { id: "templates", label: "Templates" },
+  { id: "references", label: "Learning from references" },
   { id: "families", label: "Kernel families" },
   { id: "model", label: "Cost model" },
   { id: "pool", label: "Patterns, gaps, references" },
@@ -29,6 +31,7 @@ export function Knowledge() {
     <div className="stack">
       <div className="tabs">{TABS.map((t) => <button key={t.id} className={tab === t.id ? "on" : ""} onClick={() => pick(t.id)}>{t.label}</button>)}</div>
       {tab === "templates" && <TemplateList />}
+      {tab === "references" && <ReferenceList />}
       {tab === "families" && <FamilyList />}
       {tab === "model" && <Model />}
       {tab === "pool" && <Pool without="templates" />}
