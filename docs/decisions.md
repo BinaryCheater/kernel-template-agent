@@ -564,7 +564,6 @@
 | D735 | ncu on each bucket's best in judging | One profile per bucket with a fixed metric set: tensor pipe, L2 sectors, shared-memory wavefronts, DRAM (n/a on GB10), SM throughput, occupancy and warp stall ratios; feeds busy per unit, the bottleneck agreement and the stalls of the analysis. The analyst may later request targeted profiles | SYSDEBUG-2 |
 | D736 | An analyst agent (T7) between judging and the next task | Profile codex-v7 adds T7: a fresh session per round reads the system's analysis and writes out/analysis.md (main contradiction, direction from a fixed list, expected effect, refutation, per shape); the routed task follows with the report in its goal. Budget 1200 s until T7 is a column of the per-type knobs | SYSDEBUG-2 |
 | D737 | A retrieved family is re-checked before it is searched | Retrieving runs the hard expression check on the family it picked; a failing family (accepted before the check existed, or since the check changed) is not searched: a T1 gets the family and the errors to fix. SYSDEBUG11's family v2 was accepted with per-tile counts before D732 | SYSDEBUG-2 |
-| D738 | A work unit keeps its batch; a new profile's batch is built on first use | Approving codex-v7 left the running kernel unit (batch codex-v5-v5) without a usable batch and new units without any: the runner exited on 'no batch'. The runner now reuses the unit's recorded batch, and builds `<profile>-v<version>` the first time a new unit needs it | SYSDEBUG-2 |
 
 ## 已确认
 
