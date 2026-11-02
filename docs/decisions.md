@@ -563,7 +563,6 @@
 | D734 | Fewer measured candidates; no clock-span interference rule | 3 model points + 1 exploration per bucket, 4 compiled. GB10's sampled SM clocks are stale (208 MHz readings during kernels), so sm_clock_drop_max is 1.0 (off); sustained GEMM runs at 2.2-2.4 GHz and ~94 W with timings within 1% | SYSDEBUG-2 |
 | D735 | ncu on each bucket's best in judging | One profile per bucket with a fixed metric set: tensor pipe, L2 sectors, shared-memory wavefronts, DRAM (n/a on GB10), SM throughput, occupancy and warp stall ratios; feeds busy per unit, the bottleneck agreement and the stalls of the analysis. The analyst may later request targeted profiles | SYSDEBUG-2 |
 | D736 | An analyst agent (T7) between judging and the next task | Profile codex-v7 adds T7: a fresh session per round reads the system's analysis and writes out/analysis.md (main contradiction, direction from a fixed list, expected effect, refutation, per shape); the routed task follows with the report in its goal. Budget 1200 s until T7 is a column of the per-type knobs | SYSDEBUG-2 |
-| D737 | A retrieved family is re-checked before it is searched | Retrieving runs the hard expression check on the family it picked; a failing family (accepted before the check existed, or since the check changed) is not searched: a T1 gets the family and the errors to fix. SYSDEBUG11's family v2 was accepted with per-tile counts before D732 | SYSDEBUG-2 |
 
 ## 已确认
 

@@ -27,7 +27,7 @@ from kta.knowledge.findings import couplings
 from kta.measure.baseline import measure_baseline
 from kta.measure.profile import run_profile
 from kta.models import bound, min_work
-from kta.orchestrator import analysis, disciplines, pipeline, proofgate, space
+from kta.orchestrator import analysis, disciplines, pipeline, proofgate
 from kta.orchestrator.pipeline import Services, bucket_shape, case_view
 from kta.orchestrator.solve_baseline import baseline_us
 from kta.orchestrator.solve_evaluate import checkpoint, each_top, paused, pending
@@ -159,15 +159,6 @@ def work_retrieving(svc: Services, loop: Loop) -> Facts:
             "families": order,
             "family_choice": {"picked": order[0], "why": why, "retrieved": len(ids)},
         }
-        # D737: a family accepted before the expression checks existed (or since they
-        # changed) is not searched with a wrong expression; the agent fixes it first
-        errors, _ = space.expression_issues(svc, pipeline.family_package(svc, order[0]), cv)
-        if errors:
-            goal = (
-                "Fix the search expression of this family before it is searched: "
-                + " | ".join(errors)
-            )
-            return {"families": [], "t1_goal": goal, "t1_inputs": [order[0], cv.id]}
         if tried and tried not in ids:
             out["delivered_family_note"] = (
                 f"delivered family {tried} is not retrievable for this case (scope, "
