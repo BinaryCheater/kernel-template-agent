@@ -125,6 +125,8 @@ def test_a_retry_for_a_checker_fault_rechecks_the_same_files(
     assert q.retry_context(task) == ([], None)
     _submit(q, task, files)
     assert "duplicate_proposal" not in [o.name for o in q.check(task).outcomes]
+    # D721: the retry budget starts again at the force retry (one more rejection queues)
+    assert info["attempt_base"] == 3 and q.get(task).state == "queued"
 
 
 def test_delivery_note_is_required(q: TaskQueue, store: SqliteStore) -> None:

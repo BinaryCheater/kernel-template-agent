@@ -353,7 +353,9 @@ class TaskQueue:
         """rejected -> queued (retry) or escalated (over the retry limit)."""
         task = self.get(task_id)
         self._settle(task_id)
-        if task.attempts > self.settings.max_retries:
+        # D721: a force retry starts the retry budget again from the attempt it was made at
+        used = task.attempts - int(self.info(task_id).get("attempt_base") or 0)
+        if used > self.settings.max_retries:
             self._move(task, "escalated")
             return "escalated"
         self._move(task, "queued", kind="retry")
@@ -397,7 +399,7 @@ class TaskQueue:
         action = self._human(task, "force retry (clean start)" if force else "retry", reason, human)
         if force:
             self._set_info(task_id, rejected_digests=[], last_rejection=None, human_note=None,
-                           fresh_session=True)  # fmt: skip
+                           fresh_session=True, attempt_base=task.attempts)  # fmt: skip
         self._move(task, "queued", kind="human")
         if note:
             self._set_info(task_id, human_note=note)

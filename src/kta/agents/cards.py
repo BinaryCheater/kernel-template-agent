@@ -108,11 +108,20 @@ def task_md(
     used: dict[str, float],
     retry: RetryNote | None,
     policy: dict[str, Any],
+    last_submission: str | None = None,
 ) -> str:
     k = int(policy["cards_k"])
     previous = ""
+    if last_submission:
+        # D721: the task's state, from the queue: a fresh session must not take notes
+        # saying "submitted" for "done"
+        previous = (
+            "\n## Status of this task\n\nThis task is open. An earlier submission "
+            f"(`{last_submission}`) was not accepted; the task ends only when a submission "
+            "passes the done checks. Check `out/` against them and submit again.\n"
+        )
     if retry is not None and retry.failures:
-        previous = "\n## Previous attempt was rejected\n\n" + _bullets(failure_lines(retry))
+        previous += "\n## Previous attempt was rejected\n\n" + _bullets(failure_lines(retry))
     out = render(
         template,
         {

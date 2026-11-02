@@ -201,3 +201,19 @@ def test_a_long_rejection_does_not_stop_the_next_step() -> None:
     lines = failure_lines(RetryNote([("validate_family", long), ("verify_space", long)]))
     assert len(lines[0]) < FAILURE_CHARS + 120 and lines[0].endswith("to see all of it)")
     assert lines[1] == "`verify_space`: same failure as `validate_family`"
+
+
+def test_task_md_states_an_open_task_after_a_submission(store: SqliteStore, tmp_path: Path) -> None:
+    """D721: after a force retry the fresh session read 'submitted' in NOTES.md and stopped;
+    TASK.md now states that the task is open while no submission was accepted."""
+    from kta.agents import cards
+
+    card = TaskCard(type="T1", goal="g", profile="p", work_unit="u")
+    policy = {"cards_k": 5, "card_max_lines": 5, "step_header_max_chars": 6000}
+    kw: dict[str, Any] = dict(
+        task_id="T", card_id="c", card=card, cards=[], skills=[], commands=[], used={},
+        retry=None, policy=policy,
+    )  # fmt: skip
+    assert "This task is open" not in cards.task_md("$previous", **kw)
+    text = cards.task_md("$previous", **kw, last_submission="sub-1")
+    assert "This task is open" in text and "`sub-1`" in text

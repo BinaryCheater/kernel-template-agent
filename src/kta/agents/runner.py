@@ -293,6 +293,7 @@ def _plan(
         policy=policy.context_policy(controls),
         arm=arm,
         refs=workspace.reference_files(deps.config.refs_dir) if card.type == "T1" else None,
+        last_submission=arms.task_info(deps.ops, task.id).get("submission"),
     )
     limits = _limits(card, controls)
     spec = _spec(ctx, deps, task, card, profile, run, bundle, batch.root.name, arm, px)
