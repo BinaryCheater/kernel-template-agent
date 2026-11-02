@@ -36,6 +36,7 @@ from kta.core.ids import UlidFactory
 from kta.core.schemas import Actor
 from kta.core.schemas.evaluation import Case
 from kta.core.schemas.knowledge import Template
+from kta.core.schemas.process import TaskCard
 from kta.core.trace import TRACE_PARENT_VAR, new_tracer, span, tracing
 from kta.knowledge import (
     card,
@@ -46,7 +47,8 @@ from kta.knowledge import (
     validate_family,
     validate_template,
 )
-from kta.orchestrator import access
+from kta.knowledge.types import Issue
+from kta.orchestrator import access, space
 from kta.orchestrator.pipeline import (
     Services,
     build,
@@ -225,14 +227,33 @@ def router(api: Api) -> APIRouter:
     def check_family(
         b: FilesBody, authorization: str | None = Auth, parent: str | None = Parent
     ) -> dict[str, Any]:  # pyright: ignore[reportUnusedFunction]
-        with call("kta validate-family", authorization, parent):
+        with call("kta validate-family", authorization, parent) as task:
             files = decode_files(b.files)
             with tempfile.TemporaryDirectory(prefix="kta-api-family-") as tmp:
                 for rel, data in files.items():
                     path = Path(tmp) / rel
                     path.parent.mkdir(parents=True, exist_ok=True)
                     path.write_bytes(data)
-                return _issues(validate_family(load_family(Path(tmp)), api.store))
+                fp = load_family(Path(tmp))
+                return _issues(validate_family(fp, api.store) + formulation_issues(task, fp))
+
+    def formulation_issues(task: str, fp: Any) -> list[Issue]:
+        """D720: what the done check `verify_space` will refuse before it builds anything:
+        the formulation must assemble (every Template parameter bound) and have a feasible
+        point on the case's first shape. Without it the agent's self-check passed and the
+        submission was refused."""
+        card = TaskCard.model_validate(api.store.get(api.ops.task(task).card_id).body)
+        try:
+            cv = space.case_of(api.store, card)
+        except SchemaError:
+            return []  # not a case task: nothing to assemble against
+        try:
+            shape, found = space.points(svc, fp, cv)
+        except (SchemaError, NotSupported) as exc:
+            return [Issue("formulation", str(exc), "chain")]
+        if not found:
+            return [Issue("no_feasible_point", f"no feasible point on {shape}", "family")]
+        return []
 
     @r.post("/instantiate")
     def instantiate(

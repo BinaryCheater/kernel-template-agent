@@ -174,3 +174,32 @@ def test_experiment_state_and_quotas(api: Api) -> None:
     status, q = request(create_app(api), "GET", "/quotas")
     assert status == 200 and set(q) == {"configured", "in_force", "experiments"}
     assert q["in_force"]
+
+
+def test_validate_family_reports_what_verify_space_would_refuse(
+    api: Api, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """D720: an unbound Template parameter passed the agent's self-check and was refused only
+    by the done check verify_space; the self-check now assembles the formulation too."""
+    import yaml
+
+    from kta.knowledge import import_seed
+    from kta.orchestrator import space as orch_space
+    from kta.orchestrator.pipeline import Services, case_view
+    from orchesthelp import world
+
+    import_seed(api.ctx, api.store, ROOT / "knowledge" / "seed")  # the chain's Templates
+    case = world(Services(api.ctx, api.store, api.ops))["case"]  # a complete GEMM case
+    app = create_app(api)
+    task = _running(api)  # its card names no Case: give it the one above
+    monkeypatch.setattr(orch_space, "case_of", lambda store, _card: case_view(store, case))
+    files = {p.name: p.read_bytes() for p in FAMILY.iterdir() if p.is_file()}
+    chain = yaml.safe_load(files["chain.yaml"])
+    del chain["items"][0]["bindings"]["p.M"]
+    files["chain.yaml"] = yaml.safe_dump(chain).encode()
+    status, out = request(
+        app, "POST", "/agent/validate-family", {"files": agentapi.encode_files(files)},
+        _auth(api, tmp_path, task),
+    )  # fmt: skip
+    assert status == 200 and not out["ok"]
+    assert any(i["kind"] == "formulation" and "p.M" in i["message"] for i in out["issues"]), out
