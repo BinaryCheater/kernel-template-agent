@@ -329,3 +329,9 @@ def test_a_dead_holders_process_lock_is_taken_over(ops: Any) -> None:
     # a live holder keeps its lock
     me = processes.holder_id("solve", "Z")
     assert not processes.take_lock(ops, "process:solve", me, 60)
+
+
+def test_the_host_lock_span_lane_is_valid() -> None:
+    from kta.core import trace
+
+    assert trace.LANE_RE.match("host:spark-hk")  # the measurement window's host lock span

@@ -25,7 +25,7 @@ SpanStatus = Literal["ok", "fail", "cancelled", "running"]
 TRACE_PARENT_VAR = "KTA_TRACE_PARENT"
 # Open table of kinds (lower_snake_case); lanes use the prefixes of conventions §4.1.
 KIND_RE = re.compile(r"^[a-z][a-z0-9_]*$")
-LANE_RE = re.compile(r"^(?:(?:process|agent|gpu):\S+|worker:\S+:\S+|human)$")
+LANE_RE = re.compile(r"^(?:(?:process|agent|gpu|host):\S+|worker:\S+:\S+|human)$")
 
 
 @dataclass(frozen=True)
@@ -138,7 +138,7 @@ def span(kind: str, name: str, lane: str, **attrs: Any) -> Generator[SpanHandle]
     if not KIND_RE.match(kind):
         raise ConfigError(f"span kind {kind!r} must be lower_snake_case")
     if not LANE_RE.match(lane):
-        raise ConfigError(f"span lane {lane!r} must be process:/agent:/worker:h:pool/gpu:/human")
+        raise ConfigError(f"span lane {lane!r} does not match {LANE_RE.pattern}")
     parent = _current.get()
     handle = SpanHandle(tracer.ids.new(), tracer.trace_id)
     parent_id = parent.span_id if parent else tracer.root_parent
