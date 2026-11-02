@@ -75,6 +75,27 @@ def _budget(budget: dict[str, Any], used: dict[str, float]) -> str:
     return "\n".join(lines)
 
 
+FAILURE_CHARS = 700  # D719: per failing check in TASK.md; the full text is in the rejection report
+
+
+def failure_lines(retry: RetryNote) -> list[str]:
+    """One bounded line per failing check (D719). A check whose text repeats an earlier
+    one says so instead of repeating it, so a long failure cannot push TASK.md over
+    session.step_header_size and stop the step before the agent runs."""
+    out: list[str] = []
+    seen: dict[str, str] = {}
+    for name, text in retry.failures:
+        if text in seen:
+            out.append(f"`{name}`: same failure as `{seen[text]}`")
+            continue
+        seen[text] = name
+        short = " ".join(text.split())
+        if len(short) > FAILURE_CHARS:
+            short = short[:FAILURE_CHARS] + " … (cut; run the check again to see all of it)"
+        out.append(f"`{name}`: {short}")
+    return out
+
+
 def task_md(
     template: str,
     *,
@@ -91,9 +112,7 @@ def task_md(
     k = int(policy["cards_k"])
     previous = ""
     if retry is not None and retry.failures:
-        previous = "\n## Previous attempt was rejected\n\n" + _bullets(
-            [f"`{name}`: {text}" for name, text in retry.failures]
-        )
+        previous = "\n## Previous attempt was rejected\n\n" + _bullets(failure_lines(retry))
     out = render(
         template,
         {
@@ -125,7 +144,7 @@ def task_md(
 def rejection(template: str, task_id: str, retry: RetryNote) -> str:
     return render(
         template,
-        {"task_id": task_id, "failures": _bullets([f"`{n}`: {t}" for n, t in retry.failures])},
+        {"task_id": task_id, "failures": _bullets(failure_lines(retry))},
     )
 
 

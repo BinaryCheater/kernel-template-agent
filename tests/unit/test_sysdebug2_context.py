@@ -190,3 +190,14 @@ def test_a_malformed_family_yaml_names_its_fields(tmp_path: Path) -> None:
         load_family(tmp_path)
     assert "family.yaml: variables: Input should be a valid list" in str(err.value)
     assert "constraints: Extra inputs are not permitted" in str(err.value)
+
+
+def test_a_long_rejection_does_not_stop_the_next_step() -> None:
+    """D719: a long failure (two checks with the same pydantic text) pushed TASK.md over
+    step_header_max_chars, and the step stopped before the agent ran."""
+    from kta.agents.cards import FAILURE_CHARS, RetryNote, failure_lines
+
+    long = "ValidationError: " + "x " * 3000
+    lines = failure_lines(RetryNote([("validate_family", long), ("verify_space", long)]))
+    assert len(lines[0]) < FAILURE_CHARS + 120 and lines[0].endswith("to see all of it)")
+    assert lines[1] == "`verify_space`: same failure as `validate_family`"
