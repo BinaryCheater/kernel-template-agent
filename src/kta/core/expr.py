@@ -37,6 +37,10 @@ class ExprError(SchemaError):
     """Syntax, free-variable or evaluation error in an expression."""
 
 
+class MissingValue(ExprError):
+    """A variable the expression reads has no value in the environment."""
+
+
 def _ceil_div(a: Any, b: Any) -> int:
     if b == 0:
         raise ExprError("ceil_div by zero")
@@ -267,7 +271,7 @@ class _Evaluator:
                 return value
             case ast.Name(id=name):
                 if name not in self.env:
-                    raise ExprError(f"no value for variable {name!r}")
+                    raise MissingValue(f"no value for variable {name!r}")
                 return self.env[name]
             case ast.Attribute(value=ast.Name(id=root), attr=attr):
                 scope = self.scopes.get(root, {})

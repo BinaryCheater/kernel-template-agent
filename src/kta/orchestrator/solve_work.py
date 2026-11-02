@@ -41,6 +41,7 @@ from kta.solve import (
     solve,
     space_size,
 )
+from kta.solve.export import MipMismatch, check_export, export_text
 from kta.solve.plan import default_plan, plan_inputs
 from kta.solve.records import record_solve
 
@@ -214,6 +215,10 @@ def work_solving(svc: Services, loop: Loop) -> Facts:
                 rng=rng,
                 projection=proj,
             )
+            # D740: the compiled MIP agrees with direct pricing, or the round stops here
+            export = check_export(f, bucket_shape(b), hw, proj) if proj is not None else None
+        if export is not None and export.errors:
+            raise MipMismatch(f"bucket {b['name']}: " + " | ".join(export.errors))
         recs = record_solve(svc.ctx, svc.store, res, ACTOR, cv.id, family, hw_id, model_id)
         name = str(b["name"])
         # once per candidate (WP24): C and Γ at the assignment before anything is built
@@ -244,6 +249,8 @@ def work_solving(svc: Services, loop: Loop) -> Facts:
             "mip_status": res.mip_status,
             "plan": proj,
             "plan_note": plan_note,
+            "export": export.to_dict() if export else None,
+            "export_text": export_text([export]) if export else plan_note,
             "notes": res.notes,
             "space_size": res.space_size,
             "feasible": res.feasible,

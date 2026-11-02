@@ -300,7 +300,7 @@ export interface RoundMade {
     proof_gate?: { checked: number; kept: number; dropped: number } | null; report?: string | null;
     /** D715/D716 */
     mip_status?: string | null; mip_gap?: number | null; plan?: { fixed: Record<string, unknown>; menus: Record<string, unknown[]>; outer: string[] } | null;
-    plan_note?: string | null; notes?: string[]; space_size?: number | null; feasible?: number | null; pruned_by?: Record<string, number>;
+    plan_note?: string | null; export_text?: string | null; notes?: string[]; space_size?: number | null; feasible?: number | null; pruned_by?: Record<string, number>;
     shortlist?: ShortItem[]; compiled?: string[];
   }[];
   /** D716: the family's change against its previous version. */

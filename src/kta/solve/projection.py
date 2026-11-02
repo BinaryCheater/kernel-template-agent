@@ -43,8 +43,8 @@ from typing import Any
 
 import highspy
 
-from kta.core.errors import NotSupported
-from kta.core.expr import Expr, ExprError
+from kta.core.errors import KtaError, NotSupported
+from kta.core.expr import Expr, ExprError, MissingValue
 from kta.core.schemas.effects import SELECT_KIND, SELECT_PATTERN
 from kta.formulation import Formulation, evaluate_effects
 from kta.formulation.blocks import BoundExpr, BoundOverlap, BoundStorage, BoundTx
@@ -89,6 +89,15 @@ class ProjectionOutcome:
     menus: dict[str, int] = field(default_factory=lambda: dict[str, int]())  # var -> size
     rules: dict[str, int] = field(default_factory=lambda: dict[str, int]())  # rule -> uses
     notes: list[str] = field(default_factory=lambda: list[str]())
+
+
+class SupportError(KtaError):
+    """An atom read a variable outside its declared support: the compiler is wrong, and a
+    point it would exclude or price is not the formulation's (D740)."""
+
+
+def _support_error(a: Atom, exc: MissingValue) -> SupportError:
+    return SupportError(f"{a.rule} atom {a.source} ({a.row}) over {list(a.support)}: {exc}")
 
 
 class _NeedOuter(Exception):
@@ -418,14 +427,19 @@ def _size(menus: Mapping[str, list[Any]], support: Iterable[str]) -> int:
 
 def _tabulate(m: _Mip, a: Atom) -> Form:
     if not a.support:
-        return [], [], a.value({})
+        try:
+            return [], [], a.value({})
+        except MissingValue as exc:
+            raise _support_error(a, exc) from None
     idx: list[int] = []
     val: list[float] = []
     for cb, col in m.indicators(a.support).items():
         try:
             v = a.value(dict(zip(a.support, cb, strict=True)))
+        except MissingValue as exc:
+            raise _support_error(a, exc) from None
         except ExprError:
-            m.forbid(a.support, cb)  # undefined there (e.g. no CTA fits): not a point
+            m.forbid(a.support, cb)  # undefined there (e.g. ceil_div by zero): not a point
             continue
         if v:
             idx.append(col)
@@ -581,6 +595,8 @@ def _constraint(
     for cb in itertools.product(*(m.menus[x] for x in a.support)):
         try:
             ok = a.value(dict(zip(a.support, cb, strict=True)))
+        except MissingValue as exc:
+            raise _support_error(a, exc) from None
         except ExprError:
             ok = False
         if not ok:
@@ -704,8 +720,14 @@ def compile_and_solve(
 
 def projection_us(
     f: Formulation, assignment: Mapping[str, Any], shape: Mapping[str, Any], mm: MachineModel
-) -> float:
+) -> float | None:
     """L1's projection at one point at peak (eff = 1, no interaction terms): what the
-    compiled MIP's objective equals there (translation correctness)."""
-    parts = price_parts(evaluate_effects(f, assignment, shape, mm.hw), mm)[0]
+    compiled MIP's objective equals there (translation correctness). None when a wall
+    excludes the point (the MIP's wall rows)."""
+    effects = evaluate_effects(f, assignment, shape, mm.hw)
+    walls = check_walls(effects.storage, mm)
+    if not all(w.ok for w in walls):
+        return None
+    resident = [w.residency for w in walls if w.residency is not None]
+    parts = price_parts(effects, mm, min(resident) if resident else None)[0]
     return compose(parts).total_us

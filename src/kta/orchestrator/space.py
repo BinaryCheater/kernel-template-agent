@@ -24,6 +24,7 @@ from kta.models.l1 import price, sol_us
 from kta.orchestrator import pipeline
 from kta.orchestrator.pipeline import CaseView, Services, bucket_shape, case_view
 from kta.solve import enumerate_space, shape_buckets
+from kta.solve.export import ExportCheck, check_export
 from kta.store.base import Store
 
 SAMPLES = 4
@@ -124,6 +125,22 @@ def expression_issues(
         if v not in used and v not in f.runtime_vars
     ]
     return errors, hints
+
+
+def export_checks(svc: Services, fp: FamilyPackage, cv: CaseView) -> list[ExportCheck]:
+    """The MIP each shape's round will solve, checked against direct pricing (D740)."""
+    from kta.orchestrator.solve_work import projection_inputs
+
+    _, mm = svc.machine(cv.case.target)
+    f = assemble(fp, fp.chain, pipeline.templates_of(svc.store, fp), cv.case, mm.hw)
+    out: list[ExportCheck] = []
+    for b in shape_buckets(cv.case, fp):
+        inputs, note = projection_inputs(fp, f, mm, b)
+        if inputs is None:
+            out.append(ExportCheck(bucket_shape(b), "not exported", note))
+        else:
+            out.append(check_export(f, bucket_shape(b), mm, inputs))
+    return out
 
 
 def items(svc: Services, fp: FamilyPackage, cv: CaseView) -> list[SpaceItem]:

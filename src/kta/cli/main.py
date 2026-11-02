@@ -112,7 +112,11 @@ def _emit(args: argparse.Namespace, data: dict[str, Any], text: str) -> None:
 def _run(args: argparse.Namespace) -> int:
     if client.client_mode() and args.command != "doctor":
         data = client.dispatch(args)  # D370: no local store inside a workspace
-        _emit(args, data, json.dumps(data, indent=1, default=str)[:4000])
+        rest = {k: v for k, v in data.items() if k != "text"}
+        text = json.dumps(rest, indent=1, default=str)[:4000]
+        if data.get("text"):  # a readable part the endpoint wrote (D740)
+            text += "\n" + str(data["text"])[:30000]
+        _emit(args, data, text)
         failed = data.get("ok") is False or data.get("passed") is False
         return EXIT_FAIL if failed else EXIT_OK
     return int(args.func(args))

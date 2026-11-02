@@ -425,6 +425,11 @@ function MadeDetails({ made }: { made: RoundMade }) {
           </tbody></table>
         </details>
       )}
+      {made.solve.some((x) => x.export_text) && (
+        <details className="small"><summary>search expression (the compiled MIP, checked against direct pricing) per shape</summary>
+          {made.solve.map((x) => x.export_text && <pre key={x.bucket} className="made-header">{x.export_text}</pre>)}
+        </details>
+      )}
       {made.family_diff && (
         <details className="small"><summary>family change against the previous version</summary>
           {made.family_diff.text ? <pre className="made-header">{made.family_diff.text}</pre> : <span className="muted">no diff recorded</span>}

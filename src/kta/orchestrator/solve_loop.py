@@ -110,7 +110,10 @@ def resume(loop: Loop, s: Settings) -> Transition:
         task = follow_up(loop, str(loop.facts.get("analysis_report") or ""))
         return _wait(loop, None, task, "analysis accepted", after_analysis=None)
     to = RESUME_AT.get(task_type, "retrieving")
-    data = {"round": rounds + 1, "waiting_on": None, "waiting_type": None, "escalated": False}
+    # D741: a round is formulate + search + analysis; it ends when it is judged, so a task
+    # that comes back before the judgement (the first formulation, a fix) continues it
+    nxt = rounds + 1 if loop.data.get("judged") == rounds else rounds
+    data = {"round": nxt, "waiting_on": None, "waiting_type": None, "escalated": False}
     if loop.facts.get("delivered_family"):  # D706: the next round tries the delivery first
         data["try_family"] = loop.facts["delivered_family"]
     if task_type == "T4":  # escalation.case_to_knowledge counts calibrations per case
@@ -399,7 +402,7 @@ def judge(loop: Loop, s: Settings) -> Transition:
         data_key="judgement",
     )
     records.append(report)
-    upd = _carry(loop, verdict, suspicious, route)
+    upd = {**_carry(loop, verdict, suspicious, route), "judged": rounds}
     analysed: Mapping[str, Any] = f.get("analysis") or {}
     if task is not None and s.analyst and analysed.get("buckets"):
         # D736: the analyst reads the round first; the routed task follows its report

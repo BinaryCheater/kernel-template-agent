@@ -48,9 +48,12 @@ def test_projection_is_the_minimum_of_enumerated_projection(
     f = gemm_formulation(ctx, store, mm)
     shape = {"M": 1024, "N": 1024, "K": 16384}
     best: list[float] = []
-    enumerate_space(
-        f, shape, mm.hw, lambda a: best.append(projection.projection_us(f, a, shape, mm))
-    )
+
+    def offer(a: dict[str, object]) -> None:
+        if (us := projection.projection_us(f, a, shape, mm)) is not None:
+            best.append(us)
+
+    enumerate_space(f, shape, mm.hw, offer)
     out = projection.compile_and_solve(f, shape, mm, shortlist=1)
     assert out.objective_us[0] == pytest.approx(min(best), rel=1e-6)
 
@@ -330,3 +333,55 @@ def test_solve_selects_the_projection_arm(ctx: Context, store: Store, mm: Machin
     r = solve(f, case, SHAPE, UnitModel(target="gb10"), mm, shortlist=4, projection={})
     assert r.method == "projection" and r.candidates and r.mip_status == "Optimal"
     assert any(n.startswith("projection: outer") for n in r.notes)
+
+
+def test_the_export_check_agrees_with_direct_pricing_and_shows_the_terms(
+    ctx: Context, store: Store, mm: MachineModel
+) -> None:
+    """D740: the MIP each round solves is checked against direct pricing of the same
+    formulation; the best point's cost terms are shown per resource."""
+    from kta.solve.export import check_export, export_text
+
+    f = gemm_formulation(ctx, store, mm)
+    c = check_export(f, SHAPE, mm)
+    assert c.status == "Optimal" and not c.errors and c.checked > 0
+    assert c.best[0]["mip_us"] == pytest.approx(c.best[0]["direct_us"], rel=1e-6)
+    assert {r["resource"] for r in c.terms["rows"]} >= {"tensor", "dram"}
+    text = export_text([c])
+    assert "agrees" in text and "bottleneck" in text and "count = " in text
+
+
+def test_a_wrong_mip_is_a_system_error(
+    ctx: Context, store: Store, mm: MachineModel, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from kta.solve import export
+
+    f = gemm_formulation(ctx, store, mm)
+    real = projection.compile_and_solve
+
+    def off(*a: object, **k: object) -> projection.ProjectionOutcome:
+        out = real(*a, **k)  # type: ignore[arg-type]
+        out.objective_us = [2 * o for o in out.objective_us]
+        return out
+
+    monkeypatch.setattr(export, "compile_and_solve", off)
+    errors = export.check_export(f, SHAPE, mm).errors
+    assert any("MIP objective" in e for e in errors)
+    assert any("below the MIP optimum" in e for e in errors)
+    empty = projection.ProjectionOutcome(status="Infeasible")
+    monkeypatch.setattr(export, "compile_and_solve", lambda *a, **k: empty)  # type: ignore[misc]
+    assert "direct pricing prices" in export.check_export(f, SHAPE, mm).errors[0]
+
+
+def test_an_atom_reading_outside_its_support_is_a_compile_error() -> None:
+    """D740: a missing variable is the compiler's bug, not an undefined point; before, the
+    combination was excluded and a whole space could turn Infeasible (SYSDEBUG12)."""
+    from types import SimpleNamespace as NS
+
+    from kta.core.expr import Expr
+
+    e = Expr.parse("BM * threads", {"BM", "threads"})
+    a = projection.Atom("resmii", "tensor", "x", ("BM",), lambda v: float(e.eval(v)))
+    m: object = NS(indicators=lambda s: {(64,): 0}, forbid=lambda s, c: None)
+    with pytest.raises(projection.SupportError, match="threads"):
+        projection._tabulate(m, a)  # type: ignore[arg-type]

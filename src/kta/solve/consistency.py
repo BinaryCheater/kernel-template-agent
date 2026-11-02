@@ -98,6 +98,8 @@ def consistency_check(
         if not r.feasible:
             continue
         p = projection_us(f, a, shape, mm)
+        if p is None:
+            continue
         mip.append(p)
         l2.append(r.total_us)
         ours, theirs = _tx_times(f, a, shape, mm), _tx_times(f, a, shape, sim)

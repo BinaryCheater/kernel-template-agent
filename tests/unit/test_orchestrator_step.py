@@ -198,10 +198,20 @@ def test_bucket_metrics() -> None:
 )
 def test_resume_target_and_new_round(ctx: Context, task_type: str, to: str) -> None:
     lp = loop(
-        "solve", "waiting", {"tasks": {"T": "accepted"}}, waiting_on="T", waiting_type=task_type
+        "solve",
+        "waiting",
+        {"tasks": {"T": "accepted"}},
+        waiting_on="T",
+        waiting_type=task_type,
+        judged=1,
     )
     t = step(lp, ctx)
     assert (t.to, t.kind, t.data["round"]) == (to, "resume", 2)
+    # D741: a task back before the round was judged (first formulation, a fix) continues it
+    lp = loop(
+        "solve", "waiting", {"tasks": {"T": "accepted"}}, waiting_on="T", waiting_type=task_type
+    )
+    assert step(lp, ctx).data["round"] == 1
 
 
 def test_waiting_holds_until_accepted(ctx: Context) -> None:

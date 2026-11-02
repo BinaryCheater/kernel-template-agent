@@ -57,6 +57,7 @@ from kta.orchestrator.pipeline import (
     generate,
 )
 from kta.orchestrator.tasks import TaskQueue
+from kta.solve.export import export_text
 
 MAX_UPLOAD_BYTES = 32 * 1024 * 1024
 NOTE_FILE = "DELIVERY.md"  # the delivery note inside out/ (as `kta submit`)
@@ -109,6 +110,13 @@ def decode_files(files: Mapping[str, str]) -> dict[str, bytes]:
             raise ConfigError(f"upload larger than {MAX_UPLOAD_BYTES} bytes")
         out[rel.as_posix()] = raw
     return out
+
+
+MIP_HEADER = (
+    "The search problem the rounds will solve (the MIP compiled from your family, per "
+    "shape). Check that the best points and the cost terms make sense; if a term is "
+    "missing or a count is wrong, fix the family now.\n"
+)
 
 
 def _issues(issues: list[Any]) -> dict[str, Any]:
@@ -235,9 +243,11 @@ def router(api: Api) -> APIRouter:
                     path.parent.mkdir(parents=True, exist_ok=True)
                     path.write_bytes(data)
                 fp = load_family(Path(tmp))
-                return _issues(validate_family(fp, api.store) + formulation_issues(task, fp))
+                issues = validate_family(fp, api.store)
+                more, text = formulation_issues(task, fp)
+                return {**_issues(issues + more), "text": text}
 
-    def formulation_issues(task: str, fp: Any) -> list[Issue]:
+    def formulation_issues(task: str, fp: Any) -> tuple[list[Issue], str]:
         """D720: what the done check `verify_space` will refuse before it builds anything:
         the formulation must assemble (every Template parameter bound) and have a feasible
         point on the case's first shape. Without it the agent's self-check passed and the
@@ -246,21 +256,29 @@ def router(api: Api) -> APIRouter:
         try:
             cv = space.case_of(api.store, card)
         except SchemaError:
-            return []  # not a case task: nothing to assemble against
+            return [], ""  # not a case task: nothing to assemble against
         try:
             shape, found = space.points(svc, fp, cv)
         except (SchemaError, NotSupported) as exc:
-            return [Issue("formulation", str(exc), "chain")]
+            return [Issue("formulation", str(exc), "chain")], ""
         if not found:
-            return [Issue("no_feasible_point", f"no feasible point on {shape}", "family")]
+            return [Issue("no_feasible_point", f"no feasible point on {shape}", "family")], ""
         try:  # D722: verify_space generates code next; do it once here (no compile, no GPU)
             generate(fp, found[0], shape)
         except Exception as exc:  # noqa: BLE001 - any generator error is the author's to see
-            return [Issue("generation", f"{type(exc).__name__}: {exc}", "gen.py")]
+            return [Issue("generation", f"{type(exc).__name__}: {exc}", "gen.py")], ""
         errors, hints = space.expression_issues(svc, fp, cv)  # D732
-        return [Issue("expression", m, "chain") for m in errors] + [
+        issues = [Issue("expression", m, "chain") for m in errors] + [
             Issue("expression_hint", m, "chain", "warning") for m in hints
         ]
+        # D740: the MIP the rounds will solve, checked against direct pricing, as text
+        checks = space.export_checks(svc, fp, cv)
+        issues += [
+            Issue("mip_system_error", f"{m} (the system's compiler; do not change the family "
+                  "for it, the operator is told)", "system", "warning")
+            for c in checks for m in c.errors
+        ]  # fmt: skip
+        return issues, MIP_HEADER + export_text(checks)
 
     @r.post("/instantiate")
     def instantiate(

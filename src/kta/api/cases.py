@@ -262,6 +262,8 @@ def _made(api: Api, decomposition: Any, live: dict[str, Any]) -> dict[str, Any] 
                 "mip_gap": s.get("mip_gap"),
                 "plan": s.get("plan"),
                 "plan_note": s.get("plan_note"),
+                # D740: the compiled MIP checked against direct pricing, with its cost terms
+                "export_text": s.get("export_text"),
                 "notes": s.get("notes") or [],
                 "space_size": s.get("space_size"),
                 "feasible": s.get("feasible"),
