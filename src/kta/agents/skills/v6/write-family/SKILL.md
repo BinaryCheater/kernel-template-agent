@@ -111,6 +111,10 @@ def generate(assignment, case):
     }
 ```
 
+TileLang in this harness: kernels are launched from the cubin, so TMA and warp
+specialization are not available; the build turns them off for every kernel. Copies stay
+`cp.async` (TileLang's `T.copy` lowers to it when TMA is off).
+
 ## Changing one step
 
 1. Say in `NOTES.md` which item changes and why (which condition failed).

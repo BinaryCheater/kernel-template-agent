@@ -11,7 +11,8 @@ Writes out/kernel.cu and prints JSON: {"kernel_entry", "block", "params", "tilel
 "pass_configs", "dynamic_smem", "grid"}.
 
 ``kernel.py`` may define ``PASS_CONFIGS`` (a dict of TileLang pass-config keys); they are
-applied through a PassContext, as ``tilelang.jit`` does. ``dynamic_smem`` is the device
+applied through a PassContext, as ``tilelang.jit`` does, with HARNESS_CONFIGS on top.
+``dynamic_smem`` is the device
 function's ``dyn_shared_memory_buf`` attribute (bytes the launch must provide) and
 ``grid`` its blockIdx extents; both are null when the lowered IR does not state them.
 """
@@ -23,6 +24,11 @@ import sys
 
 import tilelang
 from tilelang import tvm
+
+# D725: what the harness cannot run. It launches cubins directly and cannot build the
+# host-side tensor maps TMA needs, so TMA lowering and warp specialization stay off for every
+# kernel, whatever its PASS_CONFIGS say (a TMA kernel fails with an illegal instruction).
+HARNESS_CONFIGS = {"tl.disable_tma_lower": True, "tl.disable_warp_specialized": True}
 
 KERNEL_DEF = re.compile(
     r'extern "C" __global__ void (?:__launch_bounds__\((\d+)[^)]*\) )?(\w+)\(([^)]*)\)\s*\{'
@@ -64,7 +70,7 @@ def main(path: str, entry: str, arch: str) -> None:
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     func = getattr(module, entry)
-    configs = dict(getattr(module, "PASS_CONFIGS", None) or {})
+    configs = {**dict(getattr(module, "PASS_CONFIGS", None) or {}), **HARNESS_CONFIGS}
     target = {"kind": "cuda", "arch": arch}
     with tvm.transform.PassContext(opt_level=3, config=configs), tvm.target.Target(target):
         artifact = tilelang.lower(func, target=target)

@@ -262,3 +262,33 @@ def test_the_write_family_example_is_valid(store: SqliteStore) -> None:
     assert any(k.startswith("p.") for k in chain.items[0].bindings)
     assert '"params"' in text and '"smem_bytes"' in text
     assert profile_body(store, CODEX_V6).skills  # the profile builds
+
+
+def test_the_harness_turns_tma_off_for_every_tilelang_kernel() -> None:
+    """D725: an agent's kernel used TMA (CUtensorMap) and failed with an illegal instruction:
+    the harness cannot build tensor maps. The codegen (it runs in the worker image and
+    imports tilelang, so it is read here, not imported) puts HARNESS_CONFIGS last."""
+    import ast
+    from importlib import resources
+
+    src = resources.files("kta.backends.tilelang").joinpath("gen.py").read_text()
+    tree = ast.parse(src)
+    consts = {
+        t.id: ast.literal_eval(n.value)
+        for n in tree.body
+        if isinstance(n, ast.Assign)
+        for t in n.targets
+        if isinstance(t, ast.Name) and t.id == "HARNESS_CONFIGS"
+    }
+    assert consts["HARNESS_CONFIGS"] == {
+        "tl.disable_tma_lower": True,
+        "tl.disable_warp_specialized": True,
+    }
+    merge = next(
+        n for n in ast.walk(tree)
+        if isinstance(n, ast.Assign) and getattr(n.targets[0], "id", "") == "configs"
+    )  # fmt: skip
+    assert (
+        isinstance(merge.value, ast.Dict)
+        and ast.unparse(merge.value.values[-1]) == "HARNESS_CONFIGS"
+    )

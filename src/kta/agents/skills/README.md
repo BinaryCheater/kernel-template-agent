@@ -38,3 +38,5 @@ Editing a file here changes the hash: the change reaches workers only through a 
 profile version and a new batch.
 
 The `v3` directory holds versioned overrides for `use-kta`, `write-family`, `diagnose-model` and `write-microbench`. Profile codex-v3 selects these overrides; original v1/v2 skill assets stay unchanged.
+
+The `v6` directory holds the versioned override of `write-family` for profile codex-v6 (D724): a complete, valid family.yaml, chain item and `generate()` mapping, and the harness note on TileLang TMA (D725). Earlier profiles keep their versions.
