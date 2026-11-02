@@ -455,7 +455,8 @@ function MadeDetails({ made }: { made: RoundMade }) {
 function StepPath({ r, m, stopped, held }: { r: Round; m: Machines; stopped: boolean; held?: string | null }) {
   const now = useNow();
   const solve = m.machines.find((x) => x.id === "solve");
-  const spans = r.steps.map((s) => ({ s, d: ((s.end ? Date.parse(s.end) : now) - Date.parse(s.start)) / 1000 }));
+  // retrieving only picks the family the agent delivered; formulation is the agent's step
+  const spans = r.steps.filter((s) => s.state !== "retrieving").map((s) => ({ s, d: ((s.end ? Date.parse(s.end) : now) - Date.parse(s.start)) / 1000 }));
   const total = spans.reduce((p, x) => p + x.d, 0) || 1;
   // D736: each waiting step waits on one agent task, in creation order (T7 analyses the
   // round, then T1/T6 formulates the next one)
