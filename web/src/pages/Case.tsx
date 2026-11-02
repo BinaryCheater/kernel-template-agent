@@ -346,7 +346,7 @@ function RoundCard({ r, prev, c, m, open, current, a }: { r: Round; prev?: Round
               ))}
             </div>
           </div>
-          {r.outcome?.analysis && <AnalysisPanel a={r.outcome.analysis} />}
+          {r.outcome?.analysis && <AnalysisPanel a={r.outcome.analysis} analyst={r.outcome.analyst} />}
           {r.made && <MadeDetails made={r.made} />}
           {r.checks && <CheckReasons checks={r.checks} />}
           <StepTable r={r} held={current ? heldOf(c, a) : null} stopped={stopped} />
@@ -362,7 +362,7 @@ const STATUS: Record<BucketAnalysis["status"], string> = {
 };
 
 /** D733: the analysis that judged the round: model alignment, bottleneck, main contradiction, next step. */
-function AnalysisPanel({ a }: { a: RoundAnalysis }) {
+function AnalysisPanel({ a, analyst }: { a: RoundAnalysis; analyst?: { task: string; state: string; text: string | null } | null }) {
   const pct = (x: number | null) => (x == null ? "—" : `${Math.round(100 * x)}%`);
   return (
     <div className="analysis">
@@ -375,13 +375,19 @@ function AnalysisPanel({ a }: { a: RoundAnalysis }) {
           <div><b>main contradiction:</b> {b.contradiction}</div>
           <div><b>next:</b> {b.next}</div>
           {b.verification.outcome !== "first" && <div className="small ink2">against the last round: {b.verification.outcome.replace("_", " ")} (was {us(b.verification.previous_best_us)} on {b.verification.previous_bottleneck ?? "—"}){b.verification.stuck ? `, stuck ${b.verification.stuck} round(s)` : ""}</div>}
-          <details className="small"><summary>units (model work at peak vs measured time)</summary>
-            <table className="t compact"><thead><tr><th>unit</th><th>speed of light</th><th>predicted</th><th>busy</th></tr></thead>
-              <tbody>{b.units.map((u) => <tr key={u.unit} className={u.unit === b.bottleneck ? "strong" : ""}><td className="mono">{u.unit}</td><td className="num">{us(u.sol_us)}</td><td className="num">{us(u.predicted_us)}</td><td className="num">{pct(u.busy)}</td></tr>)}</tbody>
+          {b.ncu_error ? <div className="small warn-text">ncu: {b.ncu_error}</div>
+            : b.top_stalls && b.top_stalls.length > 0 && <div className="small ink2">ncu: busiest {b.ncu_bottleneck ?? "—"} · occupancy {pct(b.occupancy ?? null)} · top stalls {b.top_stalls.map((x) => `${x.reason} ${x.per_issue.toFixed(2)}`).join(", ")} {b.ncu_profile && <RecordLink id={b.ncu_profile} label="profile" />}</div>}
+          <details className="small"><summary>units (model work at peak vs measured time; ncu counters)</summary>
+            <table className="t compact"><thead><tr><th>unit</th><th>speed of light</th><th>predicted</th><th>busy (model)</th><th>busy (ncu)</th></tr></thead>
+              <tbody>{b.units.map((u) => <tr key={u.unit} className={u.unit === b.bottleneck ? "strong" : ""}><td className="mono">{u.unit}</td><td className="num">{us(u.sol_us)}</td><td className="num">{u.predicted_us == null ? "—" : us(u.predicted_us)}</td><td className="num">{pct(u.busy)}</td><td className="num">{pct(u.ncu_busy ?? null)}</td></tr>)}</tbody>
             </table>
           </details>
         </div>
       ))}
+      {analyst && <div className="analysis-bucket">
+        <div><b>analyst</b> <Link to={`/tasks/${analyst.task}`} className="small">{analyst.state}</Link></div>
+        {analyst.text ? <pre className="made-header">{analyst.text}</pre> : <span className="small muted">the analyst has not delivered yet</span>}
+      </div>}
     </div>
   );
 }

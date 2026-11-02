@@ -12,6 +12,8 @@ from kta.core.errors import ConfigError
 
 RULES = ("step", "case", "case_role")
 OTHER = "other"
+# Roles whose every task is a fresh unit: the analyst must not defend an earlier analysis
+FRESH = ("analysis",)  # D736
 
 
 @cache
@@ -41,7 +43,7 @@ def unit_for(loop_id: str, task_type: str, rule: str, task_key: str) -> str:
         raise ConfigError(f"work-unit rule {rule!r}; one of {RULES}")
     if loop_id.startswith("human:") or rule == "case":
         return loop_id
-    if rule == "step":
+    if rule == "step" or role_of(task_type) in FRESH:
         return f"{loop_id}:step:{task_key}"
     return f"{loop_id}:{role_of(task_type)}"
 

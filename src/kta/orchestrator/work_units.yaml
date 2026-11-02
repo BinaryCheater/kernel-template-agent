@@ -15,3 +15,4 @@ roles:
   kernel: [T1, T6]
   model: [T4, T5]
   knowledge: [T2, T3]
+  analysis: [T7]  # D736: a fresh session per round (workunits.FRESH)

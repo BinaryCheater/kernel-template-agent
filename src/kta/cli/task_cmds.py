@@ -158,7 +158,7 @@ def add_task_commands(
     ls.add_argument("--state", help="comma-separated lifecycle states")
     add("show", cmd_show, "one task with its card")
     c = tc.add_parser("create", help="start a task yourself (T1-T6)")
-    c.add_argument("type", choices=["T1", "T2", "T3", "T4", "T5", "T6"])
+    c.add_argument("type", choices=["T1", "T2", "T3", "T4", "T5", "T6", "T7"])
     c.add_argument("--goal", required=True)
     c.add_argument("--input", action="append", help="input record ID (repeatable)")
     c.add_argument("--loop", help="attach to this loop instance instead of a human work unit")

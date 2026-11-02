@@ -137,6 +137,18 @@ def _microbench(inp: CheckInput, actor: Actor) -> dict[str, Any]:
     return dict(write_microbench(inp, actor))
 
 
+def _analysis(inp: CheckInput, actor: Actor) -> dict[str, Any]:
+    """D736: the analyst's report, kept as a Report the next task's goal quotes."""
+    text = (inp.workdir / "analysis.md").read_text(encoding="utf-8")
+    body = {
+        "title": "round analysis",
+        "subject": inp.card_id,
+        "summary": text.strip().splitlines()[0][:200] if text.strip() else "",
+        "data": {"text": text},
+    }
+    return {"analysis": _put(inp, actor, "Report", body, refs={"card": inp.card_id})}
+
+
 WRITERS = {
     "T1": _family,
     "T6": _family,
@@ -144,6 +156,7 @@ WRITERS = {
     "T3": _template,
     "T4": _model,
     "T5": _microbench,
+    "T7": _analysis,
 }
 
 

@@ -215,6 +215,7 @@ def _rounds(api: Api, loop_id: str | None, case_id: str) -> list[dict[str, Any]]
                     "decomposition": refs(api, out).get("decomposition"),
                     # D733: the bottleneck analysis that judged the round
                     "analysis": body(api, out)["data"].get("analysis"),
+                    "analyst": _analyst_report(api, mine),
                 }
                 if out
                 else None,
@@ -363,6 +364,21 @@ def _family_ref(api: Api, fid: str) -> dict[str, Any]:
 
 # Knowledge kinds a task may deliver (machines.yaml task_types: Family, Template, …).
 DELIVERED = ("Family", "Chain", "Template", "Reconstruction", "Gap", "HwModel", "Report")
+
+
+def _analyst_report(api: Api, tasks: list[opsread.TaskRow]) -> dict[str, Any] | None:
+    """D736: the T7 of the round and the report it delivered (None before it ran)."""
+    t7 = next((t for t in tasks if t.card_type == "T7"), None)
+    if t7 is None:
+        return None
+    with api.store.db.read() as con:
+        row = con.execute(
+            "SELECT id FROM records WHERE task = ? AND kind = 'Report' ORDER BY created_at",
+            (t7.id,),
+        ).fetchall()
+    texts = [body(api, r[0]).get("data", {}).get("text") for r in row]
+    text = next((x for x in texts if isinstance(x, str)), None)
+    return {"task": t7.id, "state": t7.state, "text": text}
 
 
 def _produced(api: Api, task_id: str) -> list[dict[str, Any]]:

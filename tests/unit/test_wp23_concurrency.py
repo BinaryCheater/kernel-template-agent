@@ -396,4 +396,5 @@ def test_work_unit_roles() -> None:
     assert workunits.loop_of("L1:model") == "L1" and workunits.loop_of("human:7") == "human:7"
     assert baseline().work_unit_rule == "case_role"
     kinds = {t for ts in workunits.roles().values() for t in ts}
-    assert kinds == {"T1", "T2", "T3", "T4", "T5", "T6"}
+    assert kinds == {"T1", "T2", "T3", "T4", "T5", "T6", "T7"}
+    assert u("L1", "T7", "case_role", "a") == "L1:step:a"  # D736: a fresh analyst per round

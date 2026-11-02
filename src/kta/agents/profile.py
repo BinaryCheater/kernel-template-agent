@@ -65,6 +65,7 @@ class ProfileSpec:
     reasoning_effort: str | None = "medium"
     isolation: str = "config+user"
     skills_by_type: dict[str, list[str]] = field(default_factory=lambda: dict(SKILLS_BY_TYPE))
+    task_types: tuple[str, ...] = TASK_TYPES  # codex-v7 adds T7 (D736)
 
 
 CODEX_V1 = ProfileSpec()
@@ -87,7 +88,16 @@ CODEX_V5 = ProfileSpec(
 CODEX_V6 = ProfileSpec(
     name="codex-v6", version=6, model="gpt-6.1-sol", skills_by_type=SKILLS_BY_TYPE_V2
 )
-LATEST = CODEX_V6  # what `kta init` stores for a fresh store (D705)
+# codex-v7 (SYSDEBUG-2, D736): the analyst task T7 (reads a judged round's analysis and
+# names the main contradiction and the direction of the next round).
+CODEX_V7 = ProfileSpec(
+    name="codex-v7",
+    version=7,
+    model="gpt-6.1-sol",
+    skills_by_type={**SKILLS_BY_TYPE_V2, "T7": ["use-kta"]},
+    task_types=(*TASK_TYPES, "T7"),
+)
+LATEST = CODEX_V7  # what `kta init` stores for a fresh store (D705)
 SUPPORTED_COMMANDS = [
     "show",
     "card",
@@ -198,12 +208,13 @@ def profile_body(store: Store, spec: ProfileSpec = CODEX_V1) -> AgentProfile:
         cli_flags=list(CODEX_FLAGS),
         home_files={"config.toml": blob("codex-config.toml", "application/toml")},
         prefix_template=blob("prefix.md"),
-        step_templates={t: blob(f"step-{t}.md") for t in TASK_TYPES},
+        step_templates={t: blob(f"step-{t}.md") for t in spec.task_types},
         message_templates=messages,
         skills={t: [refs[s] for s in names] for t, names in by_type.items()},
         skill_bundles={ref: ref.partition("@")[2] for ref in refs.values()},
         allowed_commands={
-            t: list(SUPPORTED_COMMANDS if spec.version >= 3 else AGENT_COMMANDS) for t in TASK_TYPES
+            t: list(SUPPORTED_COMMANDS if spec.version >= 3 else AGENT_COMMANDS)
+            for t in spec.task_types
         },
         context_policy=dict(CONTEXT_POLICY),
         loop_policy=dict(LOOP_POLICY),

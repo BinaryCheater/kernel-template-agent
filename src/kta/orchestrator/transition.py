@@ -18,6 +18,9 @@ from kta.core.schemas.plan import TaskHeader
 HOLD = "hold"  # not a machines.yaml kind: the instance stays where it is
 
 
+ANALYST_BUDGET = {"wall_s": 1200.0, "gpu_s": 300.0}  # D736: one analysis per round
+
+
 @dataclass(frozen=True)
 class Loop:
     id: str
@@ -30,7 +33,7 @@ class Loop:
 
 @dataclass(frozen=True)
 class TaskRequest:
-    type: str  # T1-T6
+    type: str  # T1-T7
     goal: str
     inputs: list[str]  # record IDs; the first is the main subject
     header: TaskHeader | None = None  # case-loop tasks: the one-screen header (WP19)
@@ -117,6 +120,7 @@ class Settings:
     to_user: Mapping[str, bool]
     canary: Mapping[str, Any]
     controls: str | None = None
+    analyst: bool = True  # D736: a T7 reads every judged round before its routed task
 
     @classmethod
     def of(cls, c: Controls) -> Settings:
@@ -163,9 +167,9 @@ class Settings:
 
     def card_budget(self, task_type: str) -> dict[str, Any]:
         """The budget a new TaskCard of ``task_type`` gets."""
-        return {
-            "wall_s": self.task_wall_s[task_type],
-            "gpu_s": self.task_gpu_s[task_type],
+        return {  # D736: T7 (the analyst) is not a column of the per-type knobs yet
+            "wall_s": self.task_wall_s.get(task_type, ANALYST_BUDGET["wall_s"]),
+            "gpu_s": self.task_gpu_s.get(task_type, ANALYST_BUDGET["gpu_s"]),
             "steps": self.task_steps,
         }
 

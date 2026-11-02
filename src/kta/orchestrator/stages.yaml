@@ -27,7 +27,7 @@ stages:
     name: hand-stepped
     runs: one task type on one case; you read card, pull log and plan before each step
     processes: [solve, calibrate, maintain]
-    task_types: [T1, T2, T3, T4, T5, T6]
+    task_types: [T1, T2, T3, T4, T5, T6, T7]
     agent_calls: gated
     exit:
       - you can predict the agent from its card and the access discipline
@@ -36,7 +36,7 @@ stages:
     name: one case loop
     runs: a handful of cases
     processes: [solve, calibrate, maintain]
-    task_types: [T1, T4, T5, T6]
+    task_types: [T1, T4, T5, T6, T7]
     agent_calls: automatic
     exit:
       - the router is correct on injected faults
@@ -46,7 +46,7 @@ stages:
     name: knowledge loop
     runs: learning and calibration on a batch
     processes: [solve, learn, calibrate, maintain, summarize]
-    task_types: [T1, T2, T3, T4, T5, T6]
+    task_types: [T1, T2, T3, T4, T5, T6, T7]
     agent_calls: automatic
     exit:
       - promotions and invalidations behave as 02 §2 says
@@ -55,6 +55,6 @@ stages:
     name: open
     runs: all loops, protocol
     processes: [solve, learn, calibrate, maintain, experiment, summarize]
-    task_types: [T1, T2, T3, T4, T5, T6]
+    task_types: [T1, T2, T3, T4, T5, T6, T7]
     agent_calls: automatic
     exit: []

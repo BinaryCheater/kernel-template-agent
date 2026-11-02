@@ -40,9 +40,12 @@ def _waiting(svc: Services, loop: Loop) -> dict[str, Any]:
     out: dict[str, Any] = {"tasks": states}
     on = loop.data.get("waiting_on")
     if on and states.get(str(on)) == "accepted":
-        family = expand_work.task_result(svc, str(on)).get("family")
+        result = expand_work.task_result(svc, str(on))
+        family = result.get("family")
         if family:
             out["delivered_family"] = family
+        if result.get("analysis"):  # D736: the analyst's report, for the routed task
+            out["analysis_report"] = svc.store.get(str(result["analysis"])).body["data"]["text"]
     return out
 
 

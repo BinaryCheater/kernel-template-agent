@@ -68,7 +68,7 @@ class PriorityBody(_Body):
 
 
 class CreateTaskBody(_Body):
-    type: Literal["T1", "T2", "T3", "T4", "T5", "T6"]
+    type: Literal["T1", "T2", "T3", "T4", "T5", "T6", "T7"]
     goal: Reason
     inputs: list[Id]
     priority: int | None = None  # default HUMAN_PRIORITY: tasks you start come first

@@ -5,7 +5,7 @@ import { ActionButton, RecordActions } from "../components/actions";
 import { Chip, Loading, Panel, RecordLink } from "../components/ui";
 import { hhmm, wordTone } from "../components/format";
 
-const TYPES = ["T1", "T2", "T3", "T4", "T5", "T6"];
+const TYPES = ["T1", "T2", "T3", "T4", "T5", "T6", "T7"];
 
 export function Agents() {
   const a = useApi(api.agents, []);

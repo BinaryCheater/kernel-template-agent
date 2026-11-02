@@ -36,6 +36,7 @@ export const TASK_WORDS: Record<string, string> = {
   T4: "fix the cost model",
   T5: "write a microbenchmark",
   T6: "fix a family or template",
+  T7: "analyse the round",
 };
 
 export const taskWord = (t: string) => TASK_WORDS[t] ?? t;

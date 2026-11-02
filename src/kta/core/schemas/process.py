@@ -26,7 +26,7 @@ class StatusChange(Body):
 
 
 class TaskCard(Body):
-    type: Literal["T1", "T2", "T3", "T4", "T5", "T6"]
+    type: Literal["T1", "T2", "T3", "T4", "T5", "T6", "T7"]
     goal: str
     inputs: list[str] = Field(default_factory=lambda: list[str]())
     done_checks: list[str] = Field(default_factory=lambda: list[str]())

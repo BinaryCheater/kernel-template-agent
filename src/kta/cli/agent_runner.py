@@ -40,7 +40,7 @@ from kta.store.base import Task
 
 log = logging.getLogger("kta.cli.agent_runner")
 NAME = "agent"
-AGENT_TYPES = ("T1", "T2", "T3", "T4", "T5", "T6")
+AGENT_TYPES = ("T1", "T2", "T3", "T4", "T5", "T6", "T7")
 CANCEL_POLL_S = 5.0
 
 

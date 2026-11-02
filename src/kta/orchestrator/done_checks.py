@@ -392,6 +392,30 @@ def microbench_repeats(inp: CheckInput) -> Outcome:
     return check(inp)
 
 
+ANALYSIS_FILE = "analysis.md"
+ANALYSIS_SECTIONS = (
+    "Main contradiction", "Direction", "Expected effect", "What would refute it", "Per shape",
+)  # fmt: skip
+DIRECTIONS = ("fix expression", "fix family", "widen space", "new technique", "done")
+
+
+def analysis_report(inp: CheckInput) -> Outcome:
+    """D736: the analyst's ``analysis.md`` has every section and names one direction."""
+    path = inp.workdir / ANALYSIS_FILE
+    if not path.is_file():
+        return Outcome("analysis_report", False, [f"out/{ANALYSIS_FILE} is missing"])
+    text = path.read_text(encoding="utf-8")
+    failures = [
+        f"{ANALYSIS_FILE} lacks a '## {name}' section"
+        for name in ANALYSIS_SECTIONS
+        if not re.search(rf"^#+\s*{re.escape(name)}\b", text, re.I | re.M)
+    ]
+    body = text.lower().split("direction", 1)[-1][:400]
+    if not any(d in body for d in DIRECTIONS):
+        failures.append(f"the Direction section names none of {', '.join(DIRECTIONS)}")
+    return Outcome("analysis_report", not failures, failures)
+
+
 CHECKS: Mapping[str, Callable[[CheckInput], Outcome]] = {
     "delivery_note": delivery_note,
     "validate_family": family_validates,
@@ -405,6 +429,7 @@ CHECKS: Mapping[str, Callable[[CheckInput], Outcome]] = {
     "template_fills_chain": template_fills_chain,
     "model_holdout_improves": model_improves,
     "microbench_repeats": microbench_repeats,
+    "analysis_report": analysis_report,
 }
 DONE_CHECKS: Mapping[str, tuple[str, ...]] = {
     "T1": ("delivery_note", "validate_family", "verify_space"),
@@ -419,6 +444,7 @@ DONE_CHECKS: Mapping[str, tuple[str, ...]] = {
     "T4": ("delivery_note", "model_holdout_improves"),
     "T5": ("delivery_note", "microbench_repeats"),
     "T6": ("delivery_note", "validate_family", "failing_cases_pass", "verify_space"),
+    "T7": ("delivery_note", "analysis_report"),
 }
 
 

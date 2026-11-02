@@ -27,7 +27,7 @@ from kta.store import controls as controls_store
 
 TOKEN_HEADER = "X-KTA-Operator-Token"
 DEFAULT_TOKEN_FILE = "~/.config/kta/operator-token"
-AGENT_TYPES = ("T1", "T2", "T3", "T4", "T5", "T6")
+AGENT_TYPES = ("T1", "T2", "T3", "T4", "T5", "T6", "T7")
 Reason = Annotated[str, StringConstraints(strip_whitespace=True)]  # D728: optional
 # What a held call's reader is shown besides the card (WP19): its pull log and its plan.
 PULL_LOG_NOTE = "no pulls logged for this task yet (it has not run)"

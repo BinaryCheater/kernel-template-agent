@@ -16,7 +16,7 @@ from typing import Any, cast
 from kta.checks.full import run_full, run_quick
 from kta.checks.sass import sass_check
 from kta.core import hostlock
-from kta.core.errors import NotSupported, SchemaError
+from kta.core.errors import ExecutionError, NotSupported, SchemaError
 from kta.core.ids import record_id
 from kta.core.schemas import Actor, Record
 from kta.core.schemas.evaluation import Bound, Build, Measurement, Prediction
@@ -25,6 +25,7 @@ from kta.formulation import assemble
 from kta.knowledge import retrieve_families
 from kta.knowledge.findings import couplings
 from kta.measure.baseline import measure_baseline
+from kta.measure.profile import run_profile
 from kta.models import bound, min_work
 from kta.orchestrator import analysis, disciplines, pipeline, proofgate
 from kta.orchestrator.pipeline import Services, bucket_shape, case_view
@@ -587,6 +588,57 @@ def _final_checked(
     return None, failed
 
 
+# D735: the per-unit counters read on each bucket's best candidate, by KTA resource. The
+# tensor pipe, L2 sectors and shared-memory wavefronts read on GB10; DRAM reads n/a there.
+NCU_UNITS = {
+    "tensor": "sm__pipe_tensor_cycles_active.avg.pct_of_peak_sustained_elapsed",
+    "l2": "lts__t_sectors.avg.pct_of_peak_sustained_elapsed",
+    "smem": "l1tex__data_pipe_lsu_wavefronts_mem_shared.avg.pct_of_peak_sustained_elapsed",
+    "dram": "dram__throughput.avg.pct_of_peak_sustained_elapsed",
+    "sm": "sm__throughput.avg.pct_of_peak_sustained_elapsed",
+    "occupancy": "sm__warps_active.avg.pct_of_peak_sustained_active",
+}
+NCU_STALLS = ("long_scoreboard", "barrier", "mio_throttle", "short_scoreboard",
+              "math_pipe_throttle", "wait", "not_selected", "lg_throttle", "selected")  # fmt: skip
+NCU_METRICS = [
+    "gpu__time_duration.sum",
+    *NCU_UNITS.values(),
+    *(f"smsp__average_warps_issue_stalled_{s}_per_issue_active.ratio" for s in NCU_STALLS),
+]
+
+
+def _ncu(svc: Services, loop: Loop, name: str, cid: str) -> dict[str, Any]:
+    """One ncu profile of the bucket's best candidate (checkpointed in loop data ``ncu`` so
+    a resumed judging step does not profile twice); an error is reported, not raised."""
+    done: dict[str, Any] = dict(svc.ops.get_loop(loop.id)["data"].get("ncu") or {})
+    if done.get(name, {}).get("candidate") == cid:
+        return dict(done[name])
+    cv = case_view(svc.store, loop.subject)
+    shape = bucket_shape(_bucket(loop, name))
+    try:
+        fp = pipeline.family_package(svc, str(loop.data["families"][0]))
+        a = CandidateBody.model_validate(svc.store.get(cid).body).assignment
+        _, module = pipeline.build(svc, pipeline.generate(fp, a, shape))
+        pid, body = run_profile(svc.measurer(), module, cv.case, shape, NCU_METRICS)
+        m = body.metrics
+        out: dict[str, Any] = {
+            "candidate": cid,
+            "profile": pid,
+            "time_us": m.get("gpu__time_duration.sum", 0.0) / 1e3 or None,
+            "busy": {u: m[k] / 100 for u, k in NCU_UNITS.items() if k in m},
+            "stalls": {
+                s: m[k]
+                for s in NCU_STALLS
+                if (k := f"smsp__average_warps_issue_stalled_{s}_per_issue_active.ratio") in m
+            },
+        }
+    except (NotSupported, ExecutionError, SchemaError) as exc:
+        out = {"candidate": cid, "error": f"{type(exc).__name__}: {exc}"}
+    done[name] = out
+    checkpoint(svc, loop, ncu=done)
+    return out
+
+
 def _final_map(svc: Services, loop: Loop) -> dict[str, str]:
     """The full checks judging recorded so far (checkpointed in loop data)."""
     return dict(svc.ops.get_loop(loop.id)["data"].get("final_checks") or {})
@@ -647,6 +699,7 @@ def work_judging(svc: Services, loop: Loop) -> Facts:
             )
             continue
         cid, pid, pred, meas = best[0]
+        ncu = _ncu(svc, loop, name, cid)
         solver = dict(d.get("solver", {}).get(name, {}))
         units = [
             {"unit": u, "bound_us": bnd.per_unit_us.get(u), "predicted_us": t, "measured_us": None}
@@ -677,6 +730,7 @@ def work_judging(svc: Services, loop: Loop) -> Facts:
                 "delta_pre_note": solver.get("delta_pre_note"),
                 "solver": solver,
                 "unpriced": dict(pred.unpriced),
+                "ncu": ncu,
                 "arms": arms,
                 "weight": float(_bucket(loop, name).get("weight", 1.0)),
             }

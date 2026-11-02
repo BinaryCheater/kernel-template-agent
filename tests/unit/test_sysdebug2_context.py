@@ -368,3 +368,29 @@ def test_the_recurrence_runs_once_per_wave() -> None:
     assert waves(2048, 1, mm) == 43  # one resident CTA per SM
     assert waves(None, 1, mm) == 1
     assert waves(2048, None, mm) == 2  # no residency wall: the optimistic hardware limit
+
+
+def test_the_routed_task_follows_the_analyst_with_its_report() -> None:
+    from kta.orchestrator import solve_loop
+    from kta.orchestrator.transition import Loop
+
+    stash = {"type": "T1", "goal": "Revise the family", "inputs": ["fam", "case"], "header": None}
+    loop = Loop("L", "solve", "case", "waiting", {"after_analysis": stash})
+    task = solve_loop.follow_up(loop, "## Main contradiction\nl2 does 3x the work")
+    assert task.type == "T1" and task.inputs == ["fam", "case"]
+    assert task.goal.startswith("Revise the family") and "l2 does 3x" in task.goal
+
+
+def test_the_analysis_report_needs_its_sections_and_a_direction(tmp_path: Path) -> None:
+    from kta.orchestrator import done_checks
+
+    inp: Any = SimpleNamespace(workdir=tmp_path)
+    assert not done_checks.analysis_report(inp).passed  # no file
+    sections = ["Main contradiction", "Direction", "Expected effect", "What would refute it",
+                "Per shape"]  # fmt: skip
+    (tmp_path / "analysis.md").write_text(
+        "\n".join(f"## {s}\ntext" for s in sections).replace(
+            "## Direction\ntext", "## Direction\nnew technique: swizzle"
+        )
+    )
+    assert done_checks.analysis_report(inp).passed

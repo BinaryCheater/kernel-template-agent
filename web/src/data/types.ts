@@ -97,7 +97,7 @@ export interface LoopInstance {
   trace_id: string;
 }
 
-export type TaskType = "T1" | "T2" | "T3" | "T4" | "T5" | "T6";
+export type TaskType = "T1" | "T2" | "T3" | "T4" | "T5" | "T6" | "T7";
 export interface TaskInstance {
   id: string;
   card: string; // TaskCard record id
@@ -322,7 +322,7 @@ export interface Round {
   steps: RoundStep[];
   tasks: RoundTask[];
   summary?: RoundSummary;
-  outcome?: { rule?: number | null; label: string; record: string; gap_class?: string | null; decomposition?: string | null; analysis?: RoundAnalysis | null } | null;
+  outcome?: { rule?: number | null; label: string; record: string; gap_class?: string | null; decomposition?: string | null; analysis?: RoundAnalysis | null; analyst?: { task: string; state: string; text: string | null } | null } | null;
   /** SYSDEBUG-2 (D700): check results grouped by reason (quick = gate before measuring, full = each shape's best). */
   checks?: { quick: CheckLevel; full: CheckLevel };
   made?: RoundMade | null;
@@ -1218,7 +1218,12 @@ export interface BucketAnalysis {
   bottleneck: string | null;
   bottleneck_busy: number | null;
   bottleneck_work_ratio: number | null;
-  units: { unit: string; sol_us: number | null; predicted_us: number; busy: number | null }[];
+  ncu_bottleneck?: string | null;
+  ncu_error?: string | null;
+  ncu_profile?: string | null;
+  occupancy?: number | null;
+  top_stalls?: { reason: string; per_issue: number }[];
+  units: { unit: string; sol_us: number | null; predicted_us: number | null; busy: number | null; ncu_busy?: number | null }[];
   status: "near_bound" | "model" | "inflation" | "idle" | "balanced";
   contradiction: string;
   next: string;

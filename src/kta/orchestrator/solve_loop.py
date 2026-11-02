@@ -106,6 +106,9 @@ def resume(loop: Loop, s: Settings) -> Transition:
         flag = bool(s.to_user["on_round_limit"])
         return hold(loop, f"round limit {s.max_rounds} reached", escalated=flag)
     task_type = str(loop.data.get("waiting_type", "T1"))
+    if task_type == "T7" and loop.data.get("after_analysis"):  # D736: now the routed task
+        task = follow_up(loop, str(loop.facts.get("analysis_report") or ""))
+        return _wait(loop, None, task, "analysis accepted", after_analysis=None)
     to = RESUME_AT.get(task_type, "retrieving")
     data = {"round": rounds + 1, "waiting_on": None, "waiting_type": None, "escalated": False}
     if loop.facts.get("delivered_family"):  # D706: the next round tries the delivery first
@@ -180,7 +183,8 @@ def _task(loop: Loop, f: Mapping[str, Any], cls: str, route: Mapping[str, Any]) 
         inputs = [refs[0], loop.subject]
     else:
         inputs = [str(f["family"]), loop.subject]
-    text = (f.get("analysis") or {}).get("text")
+    report: Mapping[str, Any] = f.get("analysis") or {}
+    text = report.get("text")
     if text:  # D733: the analysis is what the next task works on
         goal = f"{goal}\n\n{text}"
     return TaskRequest(task_type, goal, inputs)
@@ -396,6 +400,16 @@ def judge(loop: Loop, s: Settings) -> Transition:
     )
     records.append(report)
     upd = _carry(loop, verdict, suspicious, route)
+    analysed: Mapping[str, Any] = f.get("analysis") or {}
+    if task is not None and s.analyst and analysed.get("buckets"):
+        # D736: the analyst reads the round first; the routed task follows its report
+        upd["after_analysis"] = {
+            "type": task.type,
+            "goal": task.goal,
+            "inputs": list(task.inputs),
+            "header": task.header.model_dump(mode="json") if task.header else None,
+        }
+        task = _analyst_task(loop, f, task)
     if task is None:
         to = "accepted" if rule == 3 else "closed"
         return Transition(
@@ -411,6 +425,36 @@ def judge(loop: Loop, s: Settings) -> Transition:
         records=tuple(records),
         note=summary,
     )
+
+
+ANALYST_GOAL = (
+    "Analyse round {round} of case {case} and name the main contradiction and the direction "
+    "of the next round. The system routed the round to: {route} ({task_type}). Your analysis "
+    "is quoted to that task; if the evidence points elsewhere, say so in Direction."
+)
+
+
+def _analyst_task(loop: Loop, f: Mapping[str, Any], follow: TaskRequest) -> TaskRequest:
+    """The T7 that reads the judged round before ``follow`` starts (D736)."""
+    analysed: Mapping[str, Any] = f.get("analysis") or {}
+    text = str(analysed.get("text") or "")
+    goal = ANALYST_GOAL.format(
+        round=loop.data.get("round", 1),
+        case=f.get("case_name") or loop.subject[:12],
+        route=follow.goal.split("\n", 1)[0],
+        task_type=follow.type,
+    )
+    return TaskRequest("T7", f"{goal}\n\n{text}", [loop.subject, str(f.get("family", ""))])
+
+
+def follow_up(loop: Loop, report: str) -> TaskRequest:
+    """The routed task stashed while the analyst ran, with the analyst's report (D736)."""
+    after = dict(loop.data["after_analysis"])
+    goal = str(after["goal"])
+    if report:
+        goal = f"{goal}\n\n## The analyst's report\n\n{report}"
+    header = TaskHeader.model_validate(after["header"]) if after.get("header") else None
+    return TaskRequest(str(after["type"]), goal, list(after["inputs"]), header)
 
 
 def _carry(

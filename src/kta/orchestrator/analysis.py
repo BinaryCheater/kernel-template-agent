@@ -31,6 +31,8 @@ WORK_SLACK = 0.99
 NEAR_BOUND = 1.10  # measured within 10% of the bound: the bucket is done
 INFLATION = 1.20  # bottleneck work above 1.2x its minimum
 IDLE = 0.80  # bottleneck busy below 80% of the measured time
+BOTTLENECK_MARGIN = 0.15  # counters busier by 15 points on another unit
+COUNTED_UNITS = ("tensor", "l2", "smem", "dram")  # units with an ncu pct-of-peak counter
 PROGRESS = 0.02  # a best time 2% lower is progress (above the usual noise band)
 
 
@@ -84,10 +86,28 @@ def _bucket(b: Mapping[str, Any], prev: Mapping[str, Any] | None) -> dict[str, A
         misaligned.append("rate_or_composition")
     if rho is not None and rho < RANK_MIN and "missing_term" not in misaligned:
         misaligned.append("missing_term")
-    aligned = not misaligned
     top = max(units, key=lambda u: float(u["predicted_us"]), default=None)
     unit = str(top["unit"]) if top else None
+    ncu: Mapping[str, Any] = b.get("ncu") or {}
+    ncu_busy: dict[str, Any] = dict(ncu.get("busy") or {})
+    ncu_stalls: dict[str, Any] = dict(ncu.get("stalls") or {})
+    counted = {u: float(v) for u, v in ncu_busy.items() if u in COUNTED_UNITS}
+    ncu_unit = max(counted, key=lambda u: counted[u]) if counted else None
+    if (  # the counters name another bottleneck clearly: the model misses where time goes
+        ncu_unit
+        and unit
+        and ncu_unit != unit
+        and counted[ncu_unit] - counted.get(unit, 0.0) > BOTTLENECK_MARGIN
+    ):
+        misaligned.append("bottleneck_mismatch")
+    aligned = not misaligned
     busy = float(top["predicted_us"]) / best if top and best > 0 else None
+    if unit in counted:  # measured counters, when read, over the model's work at peak
+        busy = counted[unit]
+    stalls = sorted(
+        ((k, float(v)) for k, v in ncu_stalls.items() if k != "selected"),
+        key=lambda kv: -kv[1],
+    )[:3]
     sol_u = float(top["bound_us"]) if top and top.get("bound_us") else None
     work_ratio = float(top["predicted_us"]) / sol_u if top and sol_u else None
     if best <= NEAR_BOUND * bound:
@@ -116,14 +136,25 @@ def _bucket(b: Mapping[str, Any], prev: Mapping[str, Any] | None) -> dict[str, A
         "bottleneck": unit,
         "bottleneck_busy": busy,
         "bottleneck_work_ratio": work_ratio,
+        "ncu_bottleneck": ncu_unit,
+        "ncu_error": ncu.get("error"),
+        "ncu_profile": ncu.get("profile"),
+        "occupancy": ncu_busy.get("occupancy"),
+        "top_stalls": [{"reason": k, "per_issue": v} for k, v in stalls],
         "units": [
             {
                 "unit": u["unit"],
                 "sol_us": u.get("bound_us"),
                 "predicted_us": u["predicted_us"],
                 "busy": float(u["predicted_us"]) / best if best > 0 else None,
+                "ncu_busy": counted.get(str(u["unit"])),
             }
             for u in units
+        ]
+        + [
+            {"unit": u, "sol_us": None, "predicted_us": None, "busy": None, "ncu_busy": v}
+            for u, v in counted.items()
+            if u not in {str(x["unit"]) for x in units}
         ],
         "status": status,
     }
@@ -150,6 +181,8 @@ def _contradiction(a: Mapping[str, Any]) -> str:
             "expression)",
             "rate_or_composition": "predictions are off by a median "
             f"{_pct(a['median_rel_error'])} (a rate or the way terms combine is wrong)",
+            "bottleneck_mismatch": f"the model's bottleneck is {a['bottleneck']} but the "
+            f"counters show {a['ncu_bottleneck']} busiest (the expression misses that work)",
         }
         return "the model does not match the measurements: " + "; ".join(
             why[k] for k in a["misaligned"]
@@ -160,9 +193,14 @@ def _contradiction(a: Mapping[str, Any]) -> str:
             f"work (busy {_pct(a['bottleneck_busy'])} of the measured time)"
         )
     if s == "idle":
+        waits = ", ".join(f"{x['reason']} {x['per_issue']:.2g}" for x in a["top_stalls"])
         return (
-            f"{u} is the bottleneck but busy only {_pct(a['bottleneck_busy'])} of the measured "
-            "time: it waits (latency not hidden, synchronisation or low residency)"
+            f"{u} is the bottleneck but busy only {_pct(a['bottleneck_busy'])} of the time: it "
+            + (
+                f"waits (top stalls per issue: {waits})"
+                if waits
+                else "waits (latency not hidden, synchronisation or low residency)"
+            )
         )
     return f"{u} is the bottleneck, busy {_pct(a['bottleneck_busy'])}, with little excess work"
 
