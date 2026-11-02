@@ -430,8 +430,10 @@ def _final_checked(
 ) -> tuple[tuple[str, str, Prediction, Measurement] | None, list[list[str]]]:
     """The fastest measured candidate of a bucket that passes the full check at the strict
     level (D694), and the [check, candidate] pairs of those that did not. Results are kept
-    in loop data ``final_checks`` so a resumed judging step does not check twice."""
-    done: dict[str, str] = dict(loop.data.get("final_checks") or {})
+    in loop data ``final_checks`` so a resumed judging step does not check twice. The map is
+    read from the stored loop, not the step's snapshot: buckets checkpoint one after another,
+    and the snapshot would drop the entries of the buckets before this one (SYSDEBUG5)."""
+    done: dict[str, str] = _final_map(svc, loop)
     cv = case_view(svc.store, loop.subject)
     family = str(loop.data["families"][0])
     fp = pipeline.family_package(svc, family)
