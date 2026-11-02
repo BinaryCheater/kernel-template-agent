@@ -119,3 +119,29 @@ Median model error per shape: 23 %, 7.7 %, 3.5 %. cuBLAS on 4096³ sits at the l
 - The 6 control-arm builds ran one at a time (the page flags it); fixed after the round, not yet seen in a run. Quick checks also run one at a time (72 runs, 3.5 min).
 - The loop now waits on T4 (fix the cost model): moving on needs either an agent (stage S1) or a decision about the model.
 - Still the user's: tolerance factors, the lower bound's tensor rate, the quiet thresholds (shown as "set by you"), the reference-chain lifetime warnings.
+
+## Update 2026-11-02 04:00 — SYSDEBUG5 (S1, deferred model fixes)
+
+User requests: release S1; show the agent configuration in Settings; pass anything not obviously
+wrong; relax the buffer lifetime rule; do not fix the model yet, run the system through.
+
+- Code `7943bb5` (D702–D705 and the final-check fix). Store SYSDEBUG5 on spark-hk; web
+  `http://127.0.0.1:14176` (tunnel to 4176), API 17314 → 7314. SYSDEBUG4 (14174) is unchanged.
+- Controls v2: quiet thresholds as SYSDEBUG4 v2 (assistant values). v3: `judging.defer_model_fix`
+  true and `release.stage` S1, citing the user's words.
+- References now import with 0 warnings (multi_buffer_rotation@2).
+- Round 1 (no agent): build 63 s, quick checks 230 s (24/24 passed), measuring 329 s, judging
+  100 s (3/3 strict full checks passed; the loop data kept only one of them, fixed in `7943bb5`).
+
+| Shape | Ours | cuBLAS | Spearman | Median error |
+|---|---|---|---|---|
+| 4096³ | 2013.7 µs | 1482.7 µs | 0.83 | 23 % |
+| 8192×1024×4096 | 777.2 µs | 768.0 µs | -0.83 | 7 % |
+| 1024×1024×16384 | 515.8 µs | 428.8 µs | 0.65 | 4 % |
+
+  The 4096³ rank correlation went from 0.21 (SYSDEBUG4) to 0.83 on the same predictions: with six
+  pairs and tied predictions it is noise. cuBLAS again measured below the lower bound (1482.7 vs
+  1495.0 µs).
+- Route `model_fix_deferred` → T1 "Improve the kernel", held at S1. To run it: Settings → Agent
+  prompts → put codex-v3 in force (operator token, reason), then release the task (case page or
+  Release stage tab).
