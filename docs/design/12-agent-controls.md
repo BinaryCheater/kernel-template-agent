@@ -111,3 +111,28 @@ Thresholds that the code already used and that govern the loops, plus the D325 d
 | measurement batching window | ready-to-measure candidates collected and measured in one exclusive window | 30 s, 8 items, exclusive wait 900 s | one drain of the host per candidate | orch | default (11 §4.2, WP23) | — |
 | stage queue capacities | work-in-progress limit per pipeline stage; upstream stops while downstream is full | analyse 4, generate 4, build 6, check 4, ready-to-measure 8, measure 1, judge 4 | work piling up in front of the exclusive measurement stage | orch, UI | default (11 §4.3, WP23) | X12 |
 | work-unit rule | what shares an agent session in a case loop: every step, the case, or the case split by role | case × role | a kernel writer blaming the model in a session that also diagnoses it | orch | spec (user 2026-10-31, WP23) | X3 |
+
+### Proposed GB10 calibration controls (inactive)
+
+The calibration protocol in [26-gb10-calibration-method.md](26-gb10-calibration-method.md) section 8 requires a versioned pilot-derived manifest before fitting or promotion. No numerical default is activated here.
+
+| Knob | Default / status | Prevents | Proposed location |
+|---|---|---|---|
+| Domain, strata, coverage floor and valid sample floor | Unset; freeze after pilot | Unsupported or undersampled workloads hidden by aggregate accuracy | Evaluation manifest |
+| Repeatability, repetitions and rejection limits | Unset; inherit current protocol until pilot justifies change | Noise fitted as hardware behaviour | Measurement manifest |
+| Fit bounds, residual complexity and family weights | Unset; freeze before fitting | Compensation, memorization and dominant-family bias | Calibration manifest |
+| Accuracy, tail error, regret and per-stratum regression limits | Unset; existing gates unchanged | Average improvements masking harmful regressions | Evaluation manifest |
+| Audit submissions, run budget and stop rule | Unset; freeze before fitting | Adaptive audit leakage and unbounded experimentation | Calibration manifest |
+
+### Proposed architecture-discovery controls (2026-11-03; inactive)
+
+Document 26 extends the earlier calibration controls without changing runtime values.
+
+| Knob | Default / status | Prevents | Proposed location |
+|---|---|---|---|
+| Required mechanism and bound evidence by capability | Unset; freeze with capability contract | Runtime fitting substituting for architecture explanation | Evaluation manifest |
+| Simulation detail and execution-cost budget | Unset; pilot compares detail/cost curves | An unusably slow or silently approximated simulator | Model/run manifest |
+| Architecture-question versus workload-gap effort | Unset; explicit each round | Discovery disappearing behind benchmark fitting | Experiment manifest |
+| Claim applicability, uncertainty and escalation rules | Unset; record per claim before promotion | Inference or cross-chip priors becoming unqualified facts | Evidence/claim manifest |
+
+Both proposed tables above remain inactive; the rules now in force for the performance-model work are [28 §2](28-gb10-programme.md) (R1–R7), which replace the manifest-based controls with an error budget, a front-end check and a residual-term rule.

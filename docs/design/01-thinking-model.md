@@ -119,3 +119,15 @@ Workloads: GEMM, quantised GEMM/GEMV, attention prefill and decode, MoE grouped 
 ## 8. Maintenance
 
 This document is updated when the thinking changes, not per work package, and stays within about 250 lines. It records questions, judgements and decisions; mechanisms go to 02 and from there into the numbered documents; values go to 12; what changed and when goes to the change log. Obligations that are settled move to the claims ledger with their evidence.
+
+## GB10 calibration proposal (2026-11-02)
+
+Design-level defaults and research obligations for hardware-model calibration are recorded in [26-gb10-calibration-method.md](26-gb10-calibration-method.md), sections 8–10. Proposed defaults: shared-engine calibration, separate workload/mechanism coverage, grouped independent audit, and bounded feature-based residuals. Alternatives, reversal costs and tests of compact-model sufficiency, vendor capture, identifiability and residual transfer are explicit there. This proposal does not change runtime acceptance.
+
+### GB10 destination correction (2026-11-03)
+
+User-directed: architecture discovery and progressive white-box modelling are objectives in their own right. Runtime accuracy does not replace mechanisms, explicit optimisation, defensible performance bounds or KTA explanations. Build an executable coarse model and refine mechanisms through experiments; do not make filling a parameter catalogue the prerequisite. Document 26 now replaces its calibration-only framing and records the destination, chapter intake map, refinement packet, four scoreboards, defaults and outstanding research obligations. Pipeline bubbles are one observable, not the organising goal.
+
+### Performance model (2026-11-04)
+
+The model's architecture-neutral specification is [27](27-performance-model.md); the GB10 programme with its objective contract, governing rules and test set is [28](28-gb10-programme.md). These supersede the proposals above where they differ.
