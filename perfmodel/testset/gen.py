@@ -383,14 +383,15 @@ int main(int argc, char** argv) {
 """
 
 
-def _params(src: str, entry: str) -> list[str]:
-    """The parameter types of the kernel entry in TileLang's source, for the harness's casts."""
+def _params(src: str, entry: str) -> list[tuple[str, str]]:
+    """(type, name) of each parameter of the kernel entry in TileLang's source, in TileLang's order
+    (sorted by name, not the prim_func's order)."""
     m = re.search(rf"__global__ void(?: __launch_bounds__\([^)]*\))? {entry}\(([^)]*)\)", src)
     assert m, f"no parameter list for {entry}"
     out = []
     for p in m.group(1).split(","):
         words = p.replace("__restrict__", "").split()
-        out.append(" ".join(words[:-1]))
+        out.append((" ".join(words[:-1]), words[-1]))
     return out
 
 
@@ -418,7 +419,9 @@ def write(
     smem = int(packed[-1]) if packed and "dyn_shmem" in src else 0
     eb = elem_bytes or [2] * len(sizes)
     nbytes = [n * b for n, b in zip(sizes, eb, strict=True)]
-    types = _params(src, entry)
+    # buffers by the prim_func's parameter names; the kernel takes them in its own order
+    names = [p.name for p in func.params]
+    params = _params(src, entry)
     block = list(threads) if isinstance(threads, tuple) else [threads]
     d = out / name
     d.mkdir(parents=True, exist_ok=True)
@@ -433,7 +436,7 @@ def write(
             "entry": entry,
             "grid": ", ".join(str(g) for g in grid),
             "block": ", ".join(str(b) for b in block),
-            "args": ", ".join(f"({t})b[{i}]" for i, t in enumerate(types)),
+            "args": ", ".join(f"({t})b[{names.index(n)}]" for t, n in params),
             "name": name,
         }
     )

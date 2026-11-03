@@ -245,7 +245,15 @@ def import_(batch: str) -> int:
         "raw": str(raw.relative_to(ROOT)),
     }
     (d / "batch.json").write_text(json.dumps(batch_doc, indent=1) + "\n")
+    # cases whose run is known to be wrong (a harness fault found after the run), with the reason:
+    # kept out of the results, listed in the record (`invalid_cases.json` in the batch directory)
+    inv_p = d / "invalid_cases.json"
+    invalid = json.loads(inv_p.read_text()) if inv_p.exists() else {}
+    dropped = {k: {**results.pop(k), "reason": invalid[k]} for k in list(results) if k in invalid}
+    batch_doc["invalid_cases"] = invalid
+    (d / "batch.json").write_text(json.dumps(batch_doc, indent=1) + "\n")
     meas = {"batch": batch, "valid": valid, "clock_GHz": clock, "results": results}
+    meas["invalid_results"] = dropped
     meas["counters"] = counters
     (d / "measured.json").write_text(json.dumps(meas, indent=1) + "\n")
     print(f"{batch}: {'valid' if valid else 'INVALID'}; {len(results)} results; checks {checks}")

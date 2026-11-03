@@ -1,0 +1,9 @@
+{
+ "decode_gqa_comb_s4096_warm kernel": "harness fault: TileLang orders the kernel's parameters by name, the harness passed the buffers in the prim_func's order (wrong sizes, out-of-bounds reads); re-measured in batch r2b",
+ "decode_gqa_part_s4096_rotating kernel": "harness fault: TileLang orders the kernel's parameters by name, the harness passed the buffers in the prim_func's order (wrong sizes, out-of-bounds reads); re-measured in batch r2b",
+ "decode_gqa_part_s4096_warm kernel": "harness fault: TileLang orders the kernel's parameters by name, the harness passed the buffers in the prim_func's order (wrong sizes, out-of-bounds reads); re-measured in batch r2b",
+ "gemv_w4a16_n4096_k4096_rotating kernel": "harness fault: TileLang orders the kernel's parameters by name, the harness passed the buffers in the prim_func's order (wrong sizes, out-of-bounds reads); re-measured in batch r2b",
+ "gemv_w4a16_n4096_k4096_warm kernel": "harness fault: TileLang orders the kernel's parameters by name, the harness passed the buffers in the prim_func's order (wrong sizes, out-of-bounds reads); re-measured in batch r2b",
+ "rmsnorm_m512_n4096_rotating kernel": "harness fault: TileLang orders the kernel's parameters by name, the harness passed the buffers in the prim_func's order (wrong sizes, out-of-bounds reads); re-measured in batch r2b",
+ "rmsnorm_m512_n4096_warm kernel": "harness fault: TileLang orders the kernel's parameters by name, the harness passed the buffers in the prim_func's order (wrong sizes, out-of-bounds reads); re-measured in batch r2b"
+}
