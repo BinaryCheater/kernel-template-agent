@@ -57,12 +57,12 @@ def _sync() -> str:
     return head
 
 
-def build(batch: str) -> int:
+def build(batch: str, only: str = ".") -> int:
     head = _sync()
     rb = f"{REMOTE_DATA}/{batch}/build"
     _remote(
         f"mkdir -p ~/{REMOTE_DATA}/{batch} && cd src/{head} && "
-        f"PATH=/usr/local/cuda/bin:$PATH bash perfmodel/remote/build.sh ~/{rb} "
+        f"PATH=/usr/local/cuda/bin:$PATH ONLY={shlex.quote(only)} bash perfmodel/remote/build.sh ~/{rb} "
         f"> ~/{REMOTE_DATA}/{batch}/build.log 2>&1"
     )
     local = BATCHES / batch / "build"
@@ -84,6 +84,7 @@ def build(batch: str) -> int:
         "commit": head,
         "host": HOST,
         "remote_build": rb,
+        "only": only,
         "date": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "nvcc_host": (local / "nvcc-host.txt").read_text().strip(),
         "nvcc_image": (local / "nvcc-image.txt").read_text().strip(),
@@ -196,8 +197,10 @@ def import_(batch: str) -> int:
     ):
         b, a = before[k]["median"], after[k]["median"]
         checks[k] = {"before": b, "after": a, "drift": a / b - 1, "ok": abs(a / b - 1) < lim}
+    # validity is the machine's (clock and canaries, gb10-measure); a case whose run failed has no
+    # result and is listed, the rest of the batch stands
     failed = [s["step"] for s in run_doc["steps"] if s["rc"] != 0]
-    valid = all(c["ok"] for c in checks.values()) and not failed
+    valid = all(c["ok"] for c in checks.values())
     results: dict[str, Any] = {}
     counters: dict[str, Any] = {}
     for name, text in sorted(texts.items()):
@@ -248,8 +251,11 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="scripts/perfmodel-measure")
     ap.add_argument("command", choices=("build", "predict", "run", "import"))
     ap.add_argument("batch")
+    ap.add_argument("--only", default=".", help="build: regex over probe and kernel names")
     a = ap.parse_args(argv)
-    return {"build": build, "predict": predict, "run": run, "import": import_}[a.command](a.batch)
+    if a.command == "build":
+        return build(a.batch, a.only)
+    return {"predict": predict, "run": run, "import": import_}[a.command](a.batch)
 
 
 if __name__ == "__main__":

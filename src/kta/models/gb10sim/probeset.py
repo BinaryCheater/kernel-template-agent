@@ -444,18 +444,19 @@ def all_cases(batch_dir: Path) -> list[Case]:
     b = load(batch_dir)
     out: list[Case] = []
     builders = [
-        lambda: smem_cases(b),
-        lambda: shfl_cases(b),
-        lambda: ex2_cases(b),
-        lambda: bar_cases(b),
-        lambda: l1_cases(b),
-        lambda: store_cases(b),
-        lambda: l2share_cases(b),
-        lambda: dram_cases(b),
-        lambda: kernel_cases(b),
+        ("probe-smem_ldsts", smem_cases),
+        ("probe-shfl", shfl_cases),
+        ("probe-ex2_ffma", ex2_cases),
+        ("probe-namedbar", bar_cases),
+        ("probe-l1hit", l1_cases),
+        ("probe-store_tail", store_cases),
+        ("probe-l2share_copy", l2share_cases),
+        ("probe-dram_rotate", dram_cases),
+        ("testset", kernel_cases),
     ]
-    for f in builders:
-        out += f()
+    for unit, f in builders:  # a batch built with `--only` has a subset of the units
+        if (b.build / unit).is_dir():
+            out += f(b)
     return out
 
 

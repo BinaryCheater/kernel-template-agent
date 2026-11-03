@@ -5,8 +5,10 @@
 # control bits (`nvdisasm -hex` of the cubin, the form gb10sim.sass parses), the ptxas resource
 # report. Probes and protocol kernels use the host CUDA (13.0); TileLang kernels are generated and
 # compiled inside the worker image (its TileLang headers), with the image's nvcc.
+#   ONLY=<regex> limits the probes and test-set kernels to the matching names (protocol always).
 set -euo pipefail
 out="$(mkdir -p "$1" && cd "$1" && pwd)"
+only="${ONLY:-.}"
 root="$(pwd)"
 image="kta-worker:tilelang-0.1.15"
 flags=(-O3 -arch=sm_121a -std=c++17)
@@ -25,11 +27,12 @@ one protocol perfmodel/protocol/protocol.cu
 for p in perfmodel/probes/*/; do
   n="$(basename "$p")"
   [ "$n" = l2share_copy ] && continue   # TileLang headers: built in the image below
+  echo "probe-$n" | grep -Eq "$only" || continue
   one "probe-$n" "$p/probe.cu"
 done
 
 # TileLang: generate the test set, then compile it and the TileLang-based probe in the image
-docker run --rm --gpus all -u "$(id -u):$(id -g)" -e HOME=/tmp -v "$root":/w -v "$out":/o -w /w "$image" sh -ec '
+docker run --rm --gpus all -u "$(id -u):$(id -g)" -e HOME=/tmp -e ONLY="$only" -v "$root":/w -v "$out":/o -w /w "$image" sh -ec '
   python perfmodel/testset/gen.py /o/testset > /o/testset-gen.log 2>&1 || { tail -40 /o/testset-gen.log; exit 1; }
   tl=$(python -c "import tilelang, os; print(os.path.dirname(tilelang.__file__))")
   inc="-I$tl/src -I$tl/3rdparty/cutlass/include"
@@ -43,11 +46,14 @@ docker run --rm --gpus all -u "$(id -u):$(id -g)" -e HOME=/tmp -v "$root":/w -v 
     cuobjdump -res-usage $d/k.cubin > $d/res-usage.txt
   }
   for d in /o/testset/*/; do
+    echo "$(basename $d)" | grep -Eq "$ONLY" || { rm -rf $d; continue; }
     cp /w/perfmodel/probes/common.cuh /o/common.cuh
     sed -i "s|../../../probes/common.cuh|/o/common.cuh|" $d/harness.cu
     build $d $d/harness.cu
   done
-  mkdir -p /o/probe-l2share_copy
-  build /o/probe-l2share_copy /w/perfmodel/probes/l2share_copy/probe.cu
+  if echo probe-l2share_copy | grep -Eq "$ONLY"; then
+    mkdir -p /o/probe-l2share_copy
+    build /o/probe-l2share_copy /w/perfmodel/probes/l2share_copy/probe.cu
+  fi
 '
 echo "built into $out"

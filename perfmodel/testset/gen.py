@@ -166,8 +166,12 @@ def write(out: Path, name: str, func, sizes: list[int], grid: list[int], threads
     m = re.search(r"__global__ void(?: __launch_bounds__\([^)]*\))? (\w+)\(", src)
     assert m, "no kernel entry in TileLang's source"
     entry = m.group(1)
-    sm = re.search(r"cudaFuncAttributeMaxDynamicSharedMemorySize, (\d+)", k.get_host_source() or "")
-    smem = int(sm.group(1)) if sm else int(info["smem_estimate"])
+    # TileLang's host stub packs the launch as grid, block, dynamic shared memory: the last int64
+    # it stores is the dynamic shared memory (checked against 0.1.15's FA and GEMM stubs)
+    packed = re.findall(r"v_int64\) = \(\(int64_t\)(\d+)\)", k.get_host_source() or "")
+    if not packed:
+        raise RuntimeError(f"{name}: no launch values in TileLang's host source")
+    smem = int(packed[-1])
     d = out / name
     d.mkdir(parents=True, exist_ok=True)
     (d / "kernel.cu").write_text(src)

@@ -173,6 +173,17 @@ def batch_specs(root: Path = BATCHES) -> Iterator[dict[str, Any]]:
             yield spec
 
 
+def latest(rows: Iterator[dict[str, Any]]) -> list[dict[str, Any]]:
+    """One row per id across batches: the latest batch (by name order) that measured it, else the
+    latest that has it."""
+    by: dict[str, dict[str, Any]] = {}
+    for r in rows:
+        old = by.get(r["id"])
+        if old is None or r["measured"] == r["measured"] or old["measured"] != old["measured"]:
+            by[r["id"]] = r
+    return list(by.values())
+
+
 def specs(cal: Path, sets: tuple[str, ...] = SETS) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
     if "gemm" in sets:
@@ -182,7 +193,7 @@ def specs(cal: Path, sets: tuple[str, ...] = SETS) -> list[dict[str, Any]]:
     if "probes" in sets:
         out += probe_specs(cal)
     if "batches" in sets:
-        out += batch_specs()
+        out += latest(batch_specs())
     return out
 
 
@@ -432,6 +443,17 @@ def summary(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return out
 
 
+def summary_line(s: dict[str, Any]) -> str:
+    sp = f"{s['spearman']:.2f}" if "spearman" in s else ""
+    inv = str(s["inversions"]) if "inversions" in s else ""
+    r1 = f"{s['r1_pass']}/{s['r1_n']}" if "r1_n" in s else ""
+    bn = f"{s['bottleneck_agree']}/{s['r1_n']}" if "r1_n" in s else ""
+    return (
+        f"| {s['set']} | {s['n']} | {s['excluded']} | {100 * s['median_abs']:.1f} % | "
+        f"{_pct(s['worst'])} | {s['within_10']} | {sp} | {inv} | {r1} | {bn} |"
+    )
+
+
 def _fmt(x: float | None) -> str:
     if x is None:
         return "—"
@@ -459,15 +481,12 @@ def render(doc: dict[str, Any], top: int = 15) -> str:
         "",
         "## Summary",
         "",
-        "| Set | n | excluded | median abs error | worst | within 10 % | Spearman |",
-        "| --- | ---: | ---: | ---: | ---: | ---: | ---: |",
+        "| Set | n | excluded | median abs error | worst | within 10 % | Spearman | inversions "
+        "| counts check (R1) | bottleneck agrees |",
+        "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
     ]
     for s in doc["summary"]:
-        sp = f"{s['spearman']:.2f}" if "spearman" in s else ""
-        lines.append(
-            f"| {s['set']} | {s['n']} | {s['excluded']} | {100 * s['median_abs']:.1f} % | "
-            f"{_pct(s['worst'])} | {s['within_10']} | {sp} |"
-        )
+        lines.append(summary_line(s))
     ranked = sorted((r for r in rows if not r["excluded"]), key=lambda r: -abs(r["error"]))
     lines += ["", f"## Top {top} rows by absolute error", ""]
     lines += _table(ranked[:top])

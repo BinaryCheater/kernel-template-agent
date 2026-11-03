@@ -28,6 +28,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--jobs", type=int, default=table.default_jobs(), help="worker processes")
     ap.add_argument("--no-cache", action="store_true", help="replay every row")
     ap.add_argument("--all", action="store_true", help="also the slow rows (table.SLOW)")
+    ap.add_argument("--top", action="store_true", help="print the scorecard summary and top rows")
     ap.add_argument(
         "--cached-only", action="store_true", help="fail instead of replaying an uncached row"
     )
@@ -44,6 +45,8 @@ def main(argv: list[str] | None = None) -> int:
     )
     for r in table.run(cal, sha, rows, a.jobs, not a.no_cache, hint, a.all, a.cached_only):
         err = "" if r["error"] is None else f"{100 * r['error']:+7.1f} %"
+        if a.top:
+            continue
         print(
             f"{r['id']:48s} {r['measured']:12.2f} {table._fmt(r['predicted']):>12s} {err:>9s} "
             f"{r['wall_s']:6.1f} s {r['excluded'] or ''}",
@@ -62,9 +65,12 @@ def main(argv: list[str] | None = None) -> int:
         "cached_rows": sum(r["cached"] for r in rows),
         "rows": [{k: v for k, v in r.items() if k not in ("job", "cached")} for r in rows],
     }
-    for s in doc["summary"]:
-        print(json.dumps(s))
-    if not a.no_write:
+    if a.top:
+        print(table.render(doc, top=10).split("## All rows")[0])
+    else:
+        for s in doc["summary"]:
+            print(json.dumps(s))
+    if not a.no_write and not a.top:
         a.out.mkdir(parents=True, exist_ok=True)
         (a.out / "error-table.json").write_text(json.dumps(doc, indent=1) + "\n")
         (a.out / "error-table.md").write_text(table.render(doc))
