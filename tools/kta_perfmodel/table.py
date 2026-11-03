@@ -32,6 +32,15 @@ DROPPED = {"tma 8192 full"}
 SLOW: dict[str, str] = {}
 ENGINE = Path(validate.__file__).parent
 CACHE = Path(__file__).resolve().parents[2] / "data" / "perfmodel" / "cache"
+# LOOP §4.4 "mechanisms only": every fitted parameter the replays read, replaced by the probe value
+# of the same component (gb10.json) or by nothing when no probe measures it (D-number in
+# docs/decisions.md)
+MECH_ONLY: dict[str, Any] = {
+    "launch_stream_us": 2.05,  # launch_costs_us.stream_empty_back_to_back (probe launch.cu)
+    "tma_r_GBs_alone": 80.7,  # port_GBs_per_sm (probe mlp_stream.cu)
+    "tma_l2_aggregate_GBs": 2250,  # cpasync_l2_aggregate_GBs (probe tileload.cu)
+    "block_setup_us": 0.0,  # no probe
+}
 
 
 def _spec(rid, group, level, unit, measured, job, excluded=None, note=None) -> dict[str, Any]:
@@ -308,9 +317,9 @@ def engine_hash() -> str:
     return h.hexdigest()
 
 
-def _timed(cal: Path, job: list[Any]) -> dict[str, Any]:
+def _timed(cal: Path, job: list[Any], overrides: dict[str, Any] | None = None) -> dict[str, Any]:
     t = time.perf_counter()
-    out = run_job(cal, job)
+    out = run_job(cal, job, default_machine().with_overrides(overrides) if overrides else None)
     out["wall_s"] = round(time.perf_counter() - t, 2)
     return out
 
@@ -324,6 +333,7 @@ def run(
     hint: dict[str, float] | None = None,
     run_slow: bool = False,
     cached_only: bool = False,
+    overrides: dict[str, Any] | None = None,
 ) -> Iterator[dict[str, Any]]:
     """Fill each spec with its result, cached ones first, the rest from a pool of `jobs`
     processes (longest previous runs first); yields rows as they complete."""
@@ -331,7 +341,8 @@ def run(
     CACHE.mkdir(parents=True, exist_ok=True)
 
     def key(r: dict[str, Any]) -> Path:
-        k = hashlib.sha256(json.dumps([eng, upstream_rev, r["job"]]).encode()).hexdigest()
+        k = [eng, upstream_rev, r["job"]] + ([overrides] if overrides else [])
+        k = hashlib.sha256(json.dumps(k).encode()).hexdigest()
         return CACHE / f"{k}.json"
 
     todo = []
@@ -350,7 +361,7 @@ def run(
         raise SystemExit(f"{len(todo)} rows not in the cache, e.g. {todo[0]['id']!r}")
     todo.sort(key=lambda r: -(hint or {}).get(r["id"], 0.0))
     with ProcessPoolExecutor(max_workers=max(1, jobs)) as pool:
-        futs = {pool.submit(_timed, cal, r["job"]): r for r in todo}
+        futs = {pool.submit(_timed, cal, r["job"], overrides): r for r in todo}
         for f in as_completed(futs):
             r = futs[f]
             res = f.result()
@@ -430,9 +441,19 @@ def summary(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
             "worst": worst,
             "within_10": sum(abs(x) <= 0.1 for x in e),
         }
+        em = [r["error_mech"] for r in rs if r.get("error_mech") is not None]
+        if em:
+            item["median_abs_mech"] = statistics.median(abs(x) for x in em)
+            item["worst_mech"] = max(em, key=abs)
         if len(rs) >= 3 and (group.endswith("full") or group.startswith("testset")):
             item["spearman"] = spearman([r["predicted"] for r in rs], [r["measured"] for r in rs])
             item["inversions"] = inversions(rs)
+            if len(em) == len(rs):
+                rm = [{**r, "predicted": r["predicted_mech"]} for r in rs]
+                item["spearman_mech"] = spearman(
+                    [r["predicted"] for r in rm], [r["measured"] for r in rm]
+                )
+                item["inversions_mech"] = inversions(rm)
         r1 = [counts_check(r) for r in rs if r.get("counters")]
         if r1:
             item["r1_pass"] = sum(x["ok"] for x in r1)
@@ -448,9 +469,12 @@ def summary_line(s: dict[str, Any]) -> str:
     inv = str(s["inversions"]) if "inversions" in s else ""
     r1 = f"{s['r1_pass']}/{s['r1_n']}" if "r1_n" in s else ""
     bn = f"{s['bottleneck_agree']}/{s['r1_n']}" if "r1_n" in s else ""
+    mm = f"{100 * s['median_abs_mech']:.1f} %" if "median_abs_mech" in s else ""
+    mw = _pct(s["worst_mech"]) if "worst_mech" in s else ""
+    ms = f"{s['spearman_mech']:.2f} / {s['inversions_mech']}" if "spearman_mech" in s else ""
     return (
         f"| {s['set']} | {s['n']} | {s['excluded']} | {100 * s['median_abs']:.1f} % | "
-        f"{_pct(s['worst'])} | {s['within_10']} | {sp} | {inv} | {r1} | {bn} |"
+        f"{_pct(s['worst'])} | {mm} | {mw} | {s['within_10']} | {sp} | {inv} | {ms} | {r1} | {bn} |"
     )
 
 
@@ -477,13 +501,15 @@ def render(doc: dict[str, Any], top: int = 15) -> str:
         f"summed over rows (slowest row {slowest:.0f} s); this run {doc['wall_s']:.0f} s with "
         f"{doc['jobs']} processes, {doc['cached_rows']} rows from the cache. "
         "Error = predicted / measured − 1 (positive: the model is slow). "
-        "Machine-readable copy: `error-table.json`.",
+        "Machine-readable copy: `error-table.json`. Mechanisms only (LOOP §4.4): every fitted "
+        f"parameter replaced by its probe value or removed: {MECH_ONLY}.",
         "",
         "## Summary",
         "",
-        "| Set | n | excluded | median abs error | worst | within 10 % | Spearman | inversions "
-        "| counts check (R1) | bottleneck agrees |",
-        "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+        "| Set | n | excluded | median abs error | worst | median, mechanisms only | "
+        "worst, mechanisms only | within 10 % | Spearman | inversions | Spearman / inversions, "
+        "mechanisms only | counts check (R1) | bottleneck agrees |",
+        "| --- " + "| ---: " * 12 + "|",
     ]
     for s in doc["summary"]:
         lines.append(summary_line(s))

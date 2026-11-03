@@ -4,7 +4,8 @@
 // warp the loads form one dependent chain (latency), with 4-32 warps on one SM the array rate shows.
 // Kinds: LDS.32 / LDS.64 / LDS.128 (each lane 4 / 8 / 16 contiguous bytes, a warp 128 / 256 / 512 B,
 // conflict-free), STS.32 / STS.128. Reported: cycles per warp instruction per SM (clock64 of warp 0
-// around the loop, over ITERS x 8 x warps instructions).
+// around the loop, over ITERS x 8 x warps instructions). Round 2 adds 2, 3, 5 and 6 warps (STS.128 at
+// 4 warps, STATE.md open question 4: a per-sub-partition limit predicts 5 warps slower than 4).
 #include "../common.cuh"
 constexpr int ITERS = 256;
 template <int KIND>
@@ -42,7 +43,7 @@ int main() {
   void (*fs[5])(unsigned, unsigned long long*, unsigned*) = {k<0>, k<1>, k<2>, k<3>, k<4>};
   for (int f = 0; f < 5; f++) CK(cudaFuncSetAttribute(fs[f], cudaFuncAttributeMaxDynamicSharedMemorySize, 40 * 1024));
   for (int f = 0; f < 5; f++)
-    for (int warps : {1, 4, 8, 16, 32}) {
+    for (int warps : {1, 2, 3, 4, 5, 6, 8, 16, 32}) {
       unsigned long long h;
       Stat s = repeat([&] {
         fs[f]<<<1, 32 * warps, 40 * 1024>>>(0u, o, sink);

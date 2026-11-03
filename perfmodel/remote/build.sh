@@ -49,7 +49,7 @@ docker run --rm --gpus all -u "$(id -u):$(id -g)" -e HOME=/tmp -e ONLY="$only" -
     echo "$(basename $d)" | grep -Eq "$ONLY" || { rm -rf $d; continue; }
     cp /w/perfmodel/probes/common.cuh /o/common.cuh
     sed -i "s|../../../probes/common.cuh|/o/common.cuh|" $d/harness.cu
-    build $d $d/harness.cu
+    build $d $d/harness.cu || { echo "FAILED $(basename $d)" >> /o/testset-failed.txt; rm -rf $d; }
   done
   if echo probe-l2share_copy | grep -Eq "$ONLY"; then
     mkdir -p /o/probe-l2share_copy

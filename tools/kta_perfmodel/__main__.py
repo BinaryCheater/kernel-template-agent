@@ -52,6 +52,25 @@ def main(argv: list[str] | None = None) -> int:
             f"{r['wall_s']:6.1f} s {r['excluded'] or ''}",
             flush=True,
         )
+    # the "mechanisms only" column (LOOP §4.4): the same rows with every fitted parameter replaced
+    mech = {
+        r["id"]: r
+        for r in table.run(
+            cal,
+            sha,
+            [dict(r) for r in rows],
+            a.jobs,
+            not a.no_cache,
+            hint,
+            a.all,
+            a.cached_only,
+            table.MECH_ONLY,
+        )
+    }
+    for r in rows:
+        m = mech.get(r["id"])
+        r["predicted_mech"] = m["predicted"] if m else None
+        r["error_mech"] = m["error"] if m else None
     doc = {
         "kta_commit": head,
         "kta_dirty": dirty,

@@ -208,7 +208,10 @@ def import_(batch: str) -> int:
         if name.startswith("4-"):
             results.update(_results(text))
         elif name.startswith("5-ncu-"):
-            counters[name[len("5-ncu-") :]] = _ncu(text, run_doc["metrics"])
+            counters.setdefault(name[len("5-ncu-") :], {}).update(_ncu(text, run_doc["metrics"]))
+        elif name.startswith("5x-ncu-"):  # round 2: the extra metrics' own pass
+            x = _ncu(text, run_doc.get("metrics_x", ""))
+            counters.setdefault(name[len("5x-ncu-") :], {}).update(x)
     clock = statistics.mean(
         [before["clock chain_GHz"]["median"], after["clock chain_GHz"]["median"]]
     )
@@ -217,6 +220,9 @@ def import_(batch: str) -> int:
     for k in results:
         if k.startswith("dram_rotate"):
             cache[k] = "rotating"
+        unit = d / "build" / "testset" / k.removesuffix(" kernel") / "launch.json"
+        if unit.exists():  # the test set declares its cache state per kernel (gen.py)
+            cache[k] = json.loads(unit.read_text()).get("cache", "warm")
     built = json.loads((d / "build.json").read_text())
     batch_doc = {
         "batch": batch,

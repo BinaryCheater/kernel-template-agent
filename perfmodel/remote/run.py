@@ -9,7 +9,9 @@ Standard library only (runs with the host's python3). Order, all in one exclusiv
  6 canaries and clock again                       7 environment record again
 Each step's stdout goes to <out>/raw/<step>-<unit>.txt; <out>/run.json lists the steps.
 The profiler runs as `sudo -n /usr/local/cuda/bin/ncu` (the one command allowed with sudo on
-spark; the driver keeps RmProfilingAdminOnly=1), stdout captured here, no report files.
+spark; the driver keeps RmProfilingAdminOnly=1), stdout captured here, no report files. From
+round 2 with `--cache-control none`: the profiled launch sees the cache state the harness made
+(warm or rotating), not an L2 flushed by the profiler (round 1's counters were taken after a flush).
 """
 
 import json
@@ -56,6 +58,17 @@ METRICS = ",".join(
         "launch__occupancy_limit_shared_mem",
         "sm__warps_active.avg.pct_of_peak_sustained_active",
         "gpu__time_duration.sum",
+    ]
+)
+
+# round 2: metrics not used before on this GPU, in their own profiler pass (5x-ncu-<unit>), so that
+# an unknown name cannot cost the main counts
+METRICS_X = ",".join(
+    [
+        "dram__bytes_read.sum",
+        "dram__bytes_write.sum",
+        "lts__t_sectors_lookup_hit.sum",
+        "lts__t_sectors_lookup_miss.sum",
     ]
 )
 
@@ -107,10 +120,11 @@ def main(build: Path, out: Path) -> int:
     kernels = sorted(p for p in (build / "testset").iterdir() if (p / "bin").exists())
     for d in kernels:
         step(f"4-{d.name}", [str(d / "bin"), "30"], cwd=d)
-    for d in kernels:
+
+    def ncu(tag: str, d: Path, metrics: str) -> None:
         entry = json.loads((d / "launch.json").read_text())["entry"]
         step(
-            f"5-ncu-{d.name}",
+            f"{tag}-{d.name}",
             [
                 "sudo",
                 "-n",
@@ -119,7 +133,9 @@ def main(build: Path, out: Path) -> int:
                 "--page",
                 "raw",
                 "--metrics",
-                METRICS,
+                metrics,
+                "--cache-control",
+                "none",
                 "-k",
                 f"regex:^{entry}$",
                 "--launch-skip",
@@ -131,10 +147,20 @@ def main(build: Path, out: Path) -> int:
             ],
             cwd=d,
         )
+
+    for d in kernels:
+        ncu("5-ncu", d, METRICS)
+    for d in kernels:
+        ncu("5x-ncu", d, METRICS_X)
     protocol("6")
     env("after")
     owned = sh(["find", str(out), "-not", "-user", str(os.getuid())])[1].strip()
-    doc = {"steps": steps, "metrics": METRICS, "not_owned_by_user": owned}
+    doc = {
+        "steps": steps,
+        "metrics": METRICS,
+        "metrics_x": METRICS_X,
+        "not_owned_by_user": owned,
+    }
     (out / "run.json").write_text(json.dumps(doc, indent=1) + "\n")
     print("done", flush=True)
     return 0

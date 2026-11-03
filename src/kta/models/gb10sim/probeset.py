@@ -27,6 +27,8 @@ ITERS = 256  # smem_ldsts, shfl, ex2_ffma, l1hit tput
 BAR_ITERS = 128  # namedbar
 HOPS = 2048  # l1hit chase
 DRAM_BYTES = 48 * 1024 * 16 * 85  # dram_rotate: bytes per launch
+SMEM_WARPS = (1, 2, 3, 4, 5, 6, 8, 16, 32)  # smem_ldsts (2, 3, 5, 6 from round 2)
+MMA_SKEWS = (0, 4096, 16384)  # mma_pair: FFMA iterations before the loop of blocks 48..95
 L2SHARE_PICK = {
     "block_M": 128,
     "block_N": 256,
@@ -104,7 +106,7 @@ def smem_cases(b: Batch) -> list[Case]:
     out = []
     for kind, name in enumerate(["LDS.32", "LDS.64", "LDS.128", "STS.32", "STS.128"]):
         ins = _k(txt, f"_Z1kILi{kind}EEvjPyPj")
-        for w in (1, 4, 8, 16, 32):
+        for w in SMEM_WARPS:
             out.append(
                 _case(
                     b,
@@ -326,6 +328,91 @@ def dram_cases(b: Batch) -> list[Case]:
     return out
 
 
+class BlockMarked(SM):
+    """The SM simulator that records, per block, when the block's first warp reads the clock
+    (mma_pair: entry, after the skew, exit)."""
+
+    def __init__(self, *a: Any, **k: Any) -> None:
+        super().__init__(*a, **k)
+        self.bmarks: dict[int, list[float]] = {}
+
+    def issue(self, w, now):
+        if w.wid % self.wpb == 0 and "SR_CLOCKLO" in self.ins[w.pc].args:
+            self.bmarks.setdefault(w.block, []).append(now)
+        super().issue(w, now)
+
+
+def _span(sm: BlockMarked, r: dict) -> float:
+    m = [v for v in sm.bmarks.values() if v]
+    return max(v[-1] for v in m) - min(v[0] for v in m) if m else float(r["cycles"])
+
+
+def _first(sm: BlockMarked, r: dict) -> float:
+    m = [v for v in sm.bmarks.values() if v]
+    return min(v[-1] for v in m) - min(v[0] for v in m) if m else float(r["cycles"])
+
+
+def mma_pair_cases(b: Batch) -> list[Case]:
+    """Round 2: the HGEMM warp tile's mma + ldmatrix loop from shared memory, one block, one per
+    SM, two per SM with a start skew (probe mma_pair). The replay is one SM; the grid gives the
+    block indices (blocks 48..95 run the skew) and the chip share."""
+    txt = _sass(b, "probe-mma_pair")
+    out = []
+    for skew in MMA_SKEWS:
+        ins = _k(txt, f"_Z1kILi{skew}EEvjPyPf")
+        pts = [("b1", 1, 1), ("b48", 48, 1)] if skew == 0 else []
+        pts.append((f"b96_s{skew}", 96, 2))
+        for name, grid, per_sm in pts:
+
+            def build(ins=ins, grid=grid, per_sm=per_sm, **kw):
+                return BlockMarked(
+                    ins,
+                    128,
+                    per_sm,
+                    1,
+                    active_sms=min(grid, 48),
+                    resident=per_sm,
+                    grid_blocks=grid,
+                    grid_dim=(grid, 1, 1),
+                    **kw,
+                )
+
+            reads = [("span", _span)] + ([("first", _first)] if per_sm == 2 else [])
+            for what, read in reads:
+                out.append(
+                    _case(b, f"mma_pair {name}_{what}", "mma_pair", 3, "cycles", build, read)
+                )
+    return out
+
+
+L2STAGES_TILE = {"block_M": 128, "block_N": 256, "block_K": 32, "threads": 256}
+
+
+def l2stages_cases(b: Batch) -> list[Case]:
+    """Round 2, P-2's second experiment (probe l2share_stages): the lean cp.async loop by stages
+    and blocks, one block per SM, warm L2; the copy pattern of TileLang's 128x256x32 tile."""
+    txt = _sass(b, "probe-l2share_stages")
+    out = []
+    for st in (1, 2, 3, 4):
+        ins = _k(txt, f"_Z4loadILi{st}EEvPK6__halfS2_")
+        h = {**L2STAGES_TILE, "num_stages": st}
+        for blocks in (1, 16, 48):
+            out.append(
+                _case(
+                    b,
+                    f"l2share_stages s{st}_b{blocks}",
+                    "l2share_stages",
+                    4,
+                    "us",
+                    lambda ins=ins, h=h, blocks=blocks, **kw: SM(
+                        ins, 256, 1, 1, active_sms=blocks, copy_lines=copy_lines(h), **kw
+                    ),
+                    lambda sm, r: r["cycles"] / (_ghz(b, sm.m) * 1e3),
+                )
+            )
+    return out
+
+
 def _launch(b: Batch, unit: str) -> dict[str, Any]:
     return json.loads((b.build / "testset" / unit / "launch.json").read_text())
 
@@ -387,9 +474,11 @@ def _launch_diff(b: Batch, sm: Any) -> float:
 
 
 def _generic_case(b: Batch, d: Path, L: dict[str, Any], regs: int) -> Case:
-    """A cp.async kernel without a family front end (FA forward): the busiest SM of the grid with
-    block replacement, the chip's shares by blocks in flight, warm L2 (no DRAM misses), the main
-    loop's trip count from TileLang's source loop."""
+    """A kernel without a family front end (FA forward, decode attention, GEMV, RMSNorm, softmax):
+    the busiest SM of the grid with block replacement, the chip's shares by blocks in flight, the
+    main loop's trip count from TileLang's source loop. Warm: no DRAM misses. Rotating (round 2):
+    every load misses, the footprint read at the DRAM rate shared by the blocks in flight (as the
+    dram_rotate probe)."""
     ins = _k((d / "k.sass").read_text(), L["entry"])
     src = (d / "kernel.cu").read_text()
     loops = [int(x) for x in re.findall(r"for \(int k = 0; k < (\d+); \+\+k\)", src)]
@@ -402,6 +491,13 @@ def _generic_case(b: Batch, d: Path, L: dict[str, Any], regs: int) -> Case:
         rmax = occupancy(h, regs, L["smem"], m)
         per_sm = math.ceil(tiles / m.sms)
         eq = min(tiles, m.sms * rmax) / min(rmax, per_sm)
+        if L.get("cache") == "rotating":
+            fb = L["footprint_bytes"]
+            kw = {
+                **kw,
+                "miss_frac": 1.0,
+                "dram_clk_per_512B": dram_clk(fb, fb / (m.C["dram_read_GBs"] * 1e9), eq, m),
+            }
         return SM(
             ins,
             L["threads"],
@@ -462,6 +558,8 @@ def all_cases(batch_dir: Path) -> list[Case]:
         ("probe-store_tail", store_cases),
         ("probe-l2share_copy", l2share_cases),
         ("probe-dram_rotate", dram_cases),
+        ("probe-mma_pair", mma_pair_cases),
+        ("probe-l2share_stages", l2stages_cases),
         ("testset", kernel_cases),
     ]
     for unit, f in builders:  # a batch built with `--only` has a subset of the units
