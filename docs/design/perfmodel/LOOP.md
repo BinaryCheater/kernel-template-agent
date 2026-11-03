@@ -71,7 +71,10 @@ Residual fits are allowed because the model is never finished. The rules:
 | bottleneck agreement: the model's top critical-path unit vs the busiest counter pipe | is the bottleneck right | rows with counters |
 | counts check pass rate (R1) | is the execution path right | every kernel row |
 
-A round "improved the model" only if the targeted rows improve on absolute error **and** correlation/inversions do not worsen **and** no other row worsens beyond its tolerance.
+A round "improved the model" only if the targeted rows improve on absolute error **and** correlation/inversions do not worsen **and** no other row worsens beyond its tolerance. This is a record, not a veto. Acceptance is decided **per change**, with the scorecard run once per change switched off (ablation):
+
+- A change backed by a probe (a measured parameter, or a rule a probe discriminated) **stays even if the scorecard worsens**. Two wrong mechanisms can cancel; fixing one exposes the other. Each row that worsens beyond tolerance becomes an open question "compensating mechanism missing", with the row and the change named; the selection rule picks it up like any other row.
+- A fit, or a rule change without a probe behind it, is **rejected** if it lowers absolute error while adding inversions or lowering correlation (§4.5).
 
 ## 6. Round report — ten lines, appended to STATE.md
 
@@ -96,4 +99,8 @@ Only these: an administrative action on spark (clock setting, driver, packages);
 
 ## 8. Economy
 
-Read `STATE.md` top, the scorecard top, the inventory row. Do not re-read the design documents each round. Do not re-derive the engine's structure: ask the what-if script. Do not write documents other than the report. One GPU batch per round; put every queued measurement (new test kernels, re-measurements) into that same batch. Keep the round's commits small and named `PERFMODEL: round N — <batch>`. A round that produces infrastructure and no new measured parameter is a failed round unless it is the first.
+Read `STATE.md` top, the scorecard top, the inventory row. Do not re-read the design documents each round. Do not re-derive the engine's structure: ask the what-if script. Do not write documents other than the report. One GPU batch per round; put every queued measurement (new test kernels, re-measurements) into that same batch. Keep the round's commits small and named `PERFMODEL: round N — <batch>`. Predictions and table rows are independent replays: run them in parallel (the table's process pool), never one by one.
+
+**The test set grows every round.** A mechanism no test kernel exercises is never selected, so a narrow test set hides whole classes of mechanisms. Every batch adds at least one kernel from the 28 §5 table that is not on the scorecard yet (low-precision kernels included), until the table is covered; kernels the engine cannot express go on the scorecard as `unsupported: <missing primitive>`.
+
+**Mechanism depth.** The inventory records for each measured mechanism whether its rule is *structural* (a resource, a port, a pipe, a queue: carries over to another design by changing the description) or *empirical* (a formula fitted over the probe's points, e.g. a latency of 24 + bytes/32: valid over the measured range only, re-measured on a new design). An empirical rule on a design variable is a candidate for a structural one under §3 step 4. A round that produces infrastructure and no new measured parameter is a failed round unless it is the first.

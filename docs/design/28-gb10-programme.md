@@ -96,6 +96,8 @@ The aim is the fastest path to a usable model, because operator optimisation wai
 | quantised GEMV (w4a16) | DRAM, unpacking on the ALU, conversions |
 | RMSNorm / softmax | reductions, shuffles, LDS/STS, bandwidth floor |
 | MoE grouped GEMM | unequal per-CTA work, CTA scheduling |
+| FP8 GEMM, NVFP4 (block-scaled) GEMM | tensor pipe per data type, scale-factor loads and application, narrower operands changing the compute-to-memory ratio |
+| w4a16 GEMM (dequantisation fused into the main loop) | unpacking and conversions (`PRMT`, `LOP3`, `I2F`, `F2FP`) competing with the tensor pipe for issue |
 
 ### 6. Workspace and what is carried over
 
