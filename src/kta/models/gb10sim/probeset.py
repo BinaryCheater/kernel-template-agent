@@ -523,6 +523,39 @@ def row_reduce_cases(b: Batch) -> list[Case]:
     return out
 
 
+ST256_GRIDS = (1, 2, 16, 48, 96, 512)
+
+
+def st256_cases(b: Batch) -> list[Case]:
+    """Round 5: 32-byte-per-lane global stores and loads at grids 1-512 (probe st256), warm."""
+    txt = _sass(b, "probe-st256")
+    out = []
+    for name, (ld, st) in {"st": (0, 1), "ld": (1, 0), "ld_st": (1, 1)}.items():
+        kernel = f"_Z1kILi{ld}ELi{st}EEvPyPKyS0_Pj"
+        ins = _k(txt, kernel)
+        regs = regs_of(b, "probe-st256", kernel)
+        for grid in ST256_GRIDS:
+
+            def build(ins=ins, grid=grid, regs=regs, **kw):
+                m = kw.get("machine") or default_machine()
+                rmax = occupancy({"threads": 128}, regs, 0, m)
+                per_sm = math.ceil(grid / m.sms)
+                return BlockMarked(
+                    ins,
+                    128,
+                    per_sm,
+                    1,
+                    active_sms=min(grid, m.sms * rmax) / min(rmax, per_sm),
+                    resident=rmax,
+                    grid_blocks=grid,
+                    grid_dim=(grid, 1, 1),
+                    **kw,
+                )
+
+            out.append(_case(b, f"st256 {name}_g{grid}", "st256", 4, "cycles", build, _span))
+    return out
+
+
 L2STAGES_TILE = {"block_M": 128, "block_N": 256, "block_K": 32, "threads": 256}
 
 
@@ -902,6 +935,7 @@ def all_cases(batch_dir: Path) -> list[Case]:
         ("probe-mma_pair", mma_pair_cases),
         ("probe-mma_types", mma_types_cases),
         ("probe-row_reduce", row_reduce_cases),
+        ("probe-st256", st256_cases),
         ("probe-l2share_stages", l2stages_cases),
         ("probe-l2reuse", l2reuse_cases),
         ("probe-launch", launch_cases),
