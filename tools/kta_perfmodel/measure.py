@@ -243,7 +243,8 @@ def import_(batch: str) -> int:
     for k in results:
         if k.startswith("dram_rotate"):
             cache[k] = "rotating"
-        unit = d / "build" / "testset" / k.removesuffix(" kernel") / "launch.json"
+        # a test-set row is "<unit> kernel" (one launch), "<unit> b2b" or "<unit> graph" (round 4)
+        unit = d / "build" / "testset" / k.rsplit(" ", 1)[0] / "launch.json"
         if unit.exists():  # the test set declares its cache state per kernel (gen.py)
             cache[k] = json.loads(unit.read_text()).get("cache", "warm")
     built = json.loads((d / "build.json").read_text())

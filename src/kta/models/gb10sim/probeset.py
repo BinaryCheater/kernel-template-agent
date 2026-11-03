@@ -20,6 +20,7 @@ from typing import Any
 from .kernel import (
     copy_lines,
     dram_clk,
+    dram_mix_secs,
     l2_warm_miss,
     launch_us,
     occupancy,
@@ -334,6 +335,48 @@ def dram_cases(b: Batch) -> list[Case]:
     return out
 
 
+DRAM_RW_UN = 96 * 512 * 40  # dram_rw: int4 per plane
+DRAM_RW_MIX = ((2, 0), (2, 1), (1, 1), (1, 2), (0, 2))
+
+
+def dram_rw_cases(b: Batch) -> list[Case]:
+    """Round 4 (probe dram_rw): NR read and NW written planes of 30 MiB, rotating (every read a
+    miss, every written line back to DRAM), 96 blocks x 512 threads."""
+    txt = _sass(b, "probe-dram_rw")
+    out = []
+    for nr, nw in DRAM_RW_MIX:
+        ins = _k(txt, f"_Z2rwILi{nr}ELi{nw}EEvPK4int4PS0_Pi")
+
+        def build(ins=ins, nr=nr, nw=nw, **kw):
+            mm = kw.get("machine") or default_machine()
+            rb, wb = nr * DRAM_RW_UN * 16, nw * DRAM_RW_UN * 16
+            return SM(
+                ins,
+                512,
+                2,
+                1,
+                active_sms=48,
+                ldg_lines=[(4, 512, False)],
+                miss_frac=1.0,
+                dram_clk_per_512B=dram_clk(rb, dram_mix_secs(rb, wb, mm), 48, mm),
+                **kw,
+            )
+
+        out.append(
+            _case(
+                b,
+                f"dram_rw r{nr}_w{nw}",
+                "dram_rw",
+                5,
+                "us",
+                build,
+                lambda sm, r: r["cycles"] / (_ghz(b, sm.m) * 1e3) + _launch_event(sm.m),
+                limit=400_000_000,
+            )
+        )
+    return out
+
+
 class BlockMarked(SM):
     """The SM simulator that records, per block, when the block's first warp reads the clock
     (mma_pair: entry, after the skew, exit)."""
@@ -474,6 +517,9 @@ def l2reuse_cases(b: Batch) -> list[Case]:
 LAUNCH_GRIDS = ((1, 128), (48, 128), (96, 128), (512, 128), (1024, 128), (2048, 128), (4096, 128))
 LAUNCH_GRIDS += ((8192, 128), (48, 1024), (128, 1024), (256, 1024), (512, 1024))
 LAUNCH_WORK = (0, 64, 128, 256, 512, 1024, 4096, 16384)
+# round 4: launches in a sequence (b2b: back-to-back, graph: one CUDA graph)
+LAUNCH_SEQ_WORK = (0, 64, 256, 1024, 4096, 16384)
+LAUNCH_SEQ_GRIDS = ((1, 128), (512, 128), (4096, 128))
 
 
 def launch_cases(b: Batch) -> list[Case]:
@@ -505,6 +551,34 @@ def launch_cases(b: Batch) -> list[Case]:
                     lambda sm, r: r["cycles"] / (_ghz(b, sm.m) * 1e3) + _launch_event(sm.m),
                 )
             )
+    for g, t in LAUNCH_SEQ_GRIDS:
+        out.append(
+            _case(
+                b,
+                f"launch graph_g{g}_t{t}",
+                "launch",
+                1,
+                "us",
+                row(empty, t, g),
+                lambda sm, r: _launch_seq(sm.m, "graph", r["cycles"] / (_ghz(b, sm.m) * 1e3)),
+            )
+        )
+    for i in LAUNCH_SEQ_WORK:
+        ins = _k(txt, f"_Z4workILi{i}EEvPfPy")
+        for mode in ("b2b", "graph"):
+            out.append(
+                _case(
+                    b,
+                    f"launch {mode}_work_i{i}",
+                    "launch",
+                    1,
+                    "us",
+                    row(ins, 128, 48),
+                    lambda sm, r, mode=mode: _launch_seq(
+                        sm.m, mode, r["cycles"] / (_ghz(b, sm.m) * 1e3)
+                    ),
+                )
+            )
     for i in LAUNCH_WORK:
         ins = _k(txt, f"_Z4workILi{i}EEvPfPy")
         out.append(
@@ -527,6 +601,14 @@ def _launch_event(m: Machine) -> float:
     return m.param(m.desc.get("launch_event_us", m.desc["launch_us"]))
 
 
+def _launch_seq(m: Machine, mode: str, span_us: float) -> float:
+    """Per-launch time of a kernel in a sequence of launches (round 4, probe launch b2b/graph work
+    points): `b2b` back-to-back from one stream, `graph` inside one CUDA graph; the kernel's span
+    plus the gap between kernels, at least the submission rate."""
+    q = m.desc["launch_seq"][mode]
+    return max(m.param(q["submit"]), span_us + m.param(q["gap"]))
+
+
 def _launch(b: Batch, unit: str) -> dict[str, Any]:
     return json.loads((b.build / "testset" / unit / "launch.json").read_text())
 
@@ -540,7 +622,9 @@ def kernel_cases(b: Batch) -> list[Case]:
         L = _launch(b, d.name)
         regs = regs_of(b, f"testset/{d.name}", L["entry"])
         if L["family"] == "hgemm":
-            out.append(_hgemm_case(b, d, L, regs))
+            # round 4: the rotating variants are their own variant group
+            rot = " rotating" if L.get("cache") == "rotating" else ""
+            out.append(_hgemm_case(b, d, L, regs, "testset hgemm2048" + rot))
         elif L["family"] == "fp8gemm":
             # kta:fixture byte-equivalent mapping: the HGEMM front end counts 2-byte elements, so
             # an e4m3 tile of block_K bytes is replayed as a fp16 tile of block_K / 2 (same bytes,
@@ -552,7 +636,8 @@ def kernel_cases(b: Batch) -> list[Case]:
             }
             out.append(_hgemm_case(b, d, eq, regs, "testset fp8gemm2048"))
         else:
-            out.append(_generic_case(b, d, L, regs))
+            # round 4: the small kernels also as launched in a sequence (b2b, graph), own sets
+            out += [_generic_case(b, d, L, regs, mode) for mode in ("kernel", "b2b", "graph")]
     return out
 
 
@@ -599,7 +684,7 @@ def _launch_diff(b: Batch, sm: Any) -> float:
     return sim_us - sm.cycles / (b.clock_GHz * 1e3)
 
 
-def _generic_case(b: Batch, d: Path, L: dict[str, Any], regs: int) -> Case:
+def _generic_case(b: Batch, d: Path, L: dict[str, Any], regs: int, mode: str = "kernel") -> Case:
     """A kernel without a family front end (FA forward, decode attention, GEMV, RMSNorm, softmax):
     the busiest SM of the grid with block replacement, the chip's shares by blocks in flight, the
     main loop's trip count from TileLang's source loop. Warm (round 3, probe l2reuse): loads miss
@@ -620,8 +705,12 @@ def _generic_case(b: Batch, d: Path, L: dict[str, Any], regs: int) -> Case:
         per_sm = math.ceil(tiles / m.sms)
         eq = min(tiles, m.sms * rmax) / min(rmax, per_sm)
         fb = L["footprint_bytes"]
+        rb, wb = fb, 0
         if L.get("cache") == "rotating":
             miss = 1.0
+            # round 4: the written buffers (gen.py `write_bytes`) are DRAM traffic beside the reads
+            wb = L.get("write_bytes", 0)
+            rb = fb - wb
         else:  # warm (round 3, probe l2reuse): the re-read misses by the footprint
             ef = all(".EF" in x.op for x in ins if x.base == "LDG")
             miss = l2_warm_miss(fb, "cs" if ef else "ca", m)
@@ -629,7 +718,7 @@ def _generic_case(b: Batch, d: Path, L: dict[str, Any], regs: int) -> Case:
             kw = {
                 **kw,
                 "miss_frac": miss,
-                "dram_clk_per_512B": dram_clk(fb, fb / (m.C["dram_read_GBs"] * 1e9), eq, m),
+                "dram_clk_per_512B": dram_clk(rb, dram_mix_secs(rb, wb, m), eq, m),
             }
         return SM(
             ins,
@@ -645,14 +734,18 @@ def _generic_case(b: Batch, d: Path, L: dict[str, Any], regs: int) -> Case:
             **kw,
         )
 
+    def read(sm, r):
+        span = r["cycles"] / (_ghz(b, sm.m) * 1e3)
+        return span + _launch_event(sm.m) if mode == "kernel" else _launch_seq(sm.m, mode, span)
+
     return _case(
         b,
-        f"{d.name} kernel",
-        f"testset {L['family']}",
+        f"{d.name} {mode}",
+        f"testset {L['family']}" + ("" if mode == "kernel" else f" {mode}"),
         7,
         "us",
         build,
-        lambda sm, r: r["cycles"] / (_ghz(b, sm.m) * 1e3) + _launch_event(sm.m),
+        read,
     )
 
 
@@ -693,6 +786,7 @@ def all_cases(batch_dir: Path) -> list[Case]:
         ("probe-store_tail", store_cases),
         ("probe-l2share_copy", l2share_cases),
         ("probe-dram_rotate", dram_cases),
+        ("probe-dram_rw", dram_rw_cases),
         ("probe-mma_pair", mma_pair_cases),
         ("probe-l2share_stages", l2stages_cases),
         ("probe-l2reuse", l2reuse_cases),

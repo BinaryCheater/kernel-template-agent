@@ -161,6 +161,17 @@ def wave_dram(
     return wave["A"] + wave["B"] + c_r, secs
 
 
+def dram_mix_secs(read_bytes: float, write_bytes: float, machine: Machine | None = None) -> float:
+    """Seconds of DRAM time for a rotating stream of reads and writes (round 4, probe dram_rw):
+    the reads at dram_read_GBs, the writes at dram_write_GBs when `sim.dram_writes_paced`, else
+    not DRAM traffic (the rule before round 4)."""
+    m = machine or default_machine()
+    secs = read_bytes / (m.C["dram_read_GBs"] * 1e9)
+    if m.P["dram_writes_paced"]:
+        secs += write_bytes / (m.C["dram_write_GBs"] * 1e9)
+    return secs
+
+
 def dram_clk(
     read_bytes: float, secs: float, blocks_eq: float, machine: Machine | None = None
 ) -> float:

@@ -54,6 +54,13 @@ FP8 = {
     "c128x128x64_s3_t128": (128, 128, 64, 3, 128),
     "c128x256x64_s3_t256": (128, 256, 64, 3, 256),
 }
+# round 4: MoE grouped GEMM, E experts with an equal share of the tokens each (balanced routing),
+# tokens sorted by expert: C[t] = A[t] W[e(t)]
+MOE = {"E": 8, "T": 2048, "N": 1024, "K": 2048}
+MOE_TILES = {
+    "c128x128x32_s3_t128": (128, 128, 32, 3, 128),
+    "c64x128x32_s4_t128": (64, 128, 32, 4, 128),
+}
 GEMV = {"N": 4096, "K": 4096, "group": 128, "n_part": 4, "reduce": 32}
 ROWS = {"M": 512, "N": 4096}
 
@@ -104,6 +111,33 @@ def fp8gemm(BM: int, BN: int, BK: int, S: int, threads: int):
                 T.copy(A[by * BM, ko * BK], A_shared)
                 T.copy(B[bx * BN, ko * BK], B_shared)
                 T.gemm(A_shared, B_shared, C_local, transpose_B=True)
+            T.copy(C_local, C[by * BM, bx * BN])
+
+    return gemm
+
+
+def moe_gemm(E: int, T_: int, N: int, K: int, BM: int, BN: int, BK: int, S: int, threads: int):
+    """MoE expert GEMM over grouped tokens (the HGEMM template with a per-block expert): tokens
+    sorted by expert, T_/E per expert (a multiple of BM), expert weights E x K x N in fp16; block
+    row `by` belongs to expert by // (T_/E/BM)."""
+    per = T_ // E // BM
+
+    @T.prim_func
+    def gemm(
+        A: T.Tensor((T_, K), "float16"),
+        W: T.Tensor((E, K, N), "float16"),
+        C: T.Tensor((T_, N), "float16"),
+    ):
+        with T.Kernel(T.ceildiv(N, BN), T.ceildiv(T_, BM), threads=threads) as (bx, by):
+            A_shared = T.alloc_shared((BM, BK), "float16")
+            B_shared = T.alloc_shared((BK, BN), "float16")
+            C_local = T.alloc_fragment((BM, BN), "float32")
+            e = by // per
+            T.clear(C_local)
+            for ko in T.Pipelined(T.ceildiv(K, BK), num_stages=S):
+                T.copy(A[by * BM, ko * BK], A_shared)
+                T.copy(W[e, ko * BK, bx * BN], B_shared)
+                T.gemm(A_shared, B_shared, C_local)
             T.copy(C_local, C[by * BM, bx * BN])
 
     return gemm
@@ -398,16 +432,51 @@ int main(int argc, char** argv) {
   CK(cudaFuncSetAttribute(%(entry)s, cudaFuncAttributeMaxDynamicSharedMemorySize, smem));
   dim3 grid(%(grid)s), block(%(block)s);
   int next = 0;
-  auto launch = [&] { void** b = buf[next++ %% ROT]; %(entry)s<<<grid, block, smem>>>(%(args)s); };
+  auto launch = [&](cudaStream_t st = 0) {
+    void** b = buf[next++ %% ROT];
+    %(entry)s<<<grid, block, smem, st>>>(%(args)s);
+  };
   for (int i = 0; i < 10; i++) launch();
   CK(cudaDeviceSynchronize());
   if (reps == 1) { launch(); CK(cudaDeviceSynchronize()); printf("RESULT %(name)s once\n"); return 0; }
   std::vector<double> v;
-  for (int r = 0; r < reps; r++) v.push_back(event_us(launch));
+  for (int r = 0; r < reps; r++) v.push_back(event_us([&] { launch(); }));
   Stat s = stat_of(v);
   printf("RESULT %(name)s kernel median=%%.4f iqr=%%.4f unit=us n=%%d samples=", s.median, s.iqr, s.n);
   for (double x : v) printf("%%.3f,", x);
   printf("\n");
+  // round 4: the same kernel as inference runs it: B2B launches back-to-back between two events
+  // (per launch), and the same B2B launches captured in one CUDA graph (per launch)
+  const int B2B = 50;
+  std::vector<double> vb, vg;
+  for (int r = 0; r < 3 + reps / 2; r++) {
+    double x = event_us([&] { for (int i = 0; i < B2B; i++) launch(); }) / B2B;
+    if (r >= 3) vb.push_back(x);
+  }
+  cudaStream_t st;
+  CK(cudaStreamCreateWithFlags(&st, cudaStreamNonBlocking));
+  cudaGraph_t g;
+  cudaGraphExec_t ge;
+  CK(cudaStreamBeginCapture(st, cudaStreamCaptureModeGlobal));
+  for (int i = 0; i < B2B; i++) launch(st);
+  CK(cudaStreamEndCapture(st, &g));
+  CK(cudaGraphInstantiate(&ge, g, 0));
+  cudaEvent_t e0, e1;
+  CK(cudaEventCreate(&e0));
+  CK(cudaEventCreate(&e1));
+  for (int r = 0; r < 3 + reps / 2; r++) {
+    CK(cudaEventRecord(e0, st));
+    CK(cudaGraphLaunch(ge, st));
+    CK(cudaEventRecord(e1, st));
+    CK(cudaEventSynchronize(e1));
+    float ms;
+    CK(cudaEventElapsedTime(&ms, e0, e1));
+    if (r >= 3) vg.push_back(ms * 1e3 / B2B);
+  }
+  for (auto [tag, w] : {std::pair{"b2b", &vb}, std::pair{"graph", &vg}}) {
+    Stat t = stat_of(*w);
+    printf("RESULT %(name)s %%s median=%%.4f iqr=%%.4f unit=us n=%%d per_launch_of=%%d\n", tag, t.median, t.iqr, t.n, B2B);
+  }
   CK(cudaDeviceSynchronize());
   return 0;
 }
@@ -436,8 +505,10 @@ def write(
     info: dict,
     elem_bytes: list[int] | None = None,
     rot: int = 1,
+    writes: tuple[int, ...] = (-1,),
 ):
-    """`sizes` in elements of each buffer, `elem_bytes` per buffer (default 2, fp16)."""
+    """`sizes` in elements of each buffer, `elem_bytes` per buffer (default 2, fp16); `writes` the
+    indices of the buffers the kernel writes (default the last)."""
     k = tilelang.compile(func, target="cuda", pass_configs=PASS_CONFIGS)
     src = k.get_kernel_source()
     m = re.search(r"__global__ void(?: __launch_bounds__\([^)]*\))? (\w+)\(", src)
@@ -480,6 +551,7 @@ def write(
         "smem": smem,
         "rot": rot,
         "footprint_bytes": sum(nbytes),
+        "write_bytes": sum(nbytes[i] for i in writes),
         **info,
     }
     (d / "launch.json").write_text(json.dumps(launch, indent=1) + "\n")
@@ -497,23 +569,27 @@ def main(out: Path) -> None:
             "threads": th,
             "swizzle": panel,
         }
-        info = {
-            "family": "hgemm",
-            "shape": SHAPE,
-            "pick": h,
-            "smem_estimate": s * (bm + bn) * bk * 2,
-            "cache": "warm",
-        }
         grid = [-(-N // bn), -(-M // bm), 1]
-        write(
-            out,
-            f"hgemm2048_{name}",
-            hgemm(bm, bn, bk, s, th, panel),
-            [M * K, K * N, M * N],
-            grid,
-            th,
-            info,
-        )
+        # round 4: each variant also rotating (cold operands; the replay's DRAM rule without the
+        # warm L2 question)
+        for cache in ("warm", "rotating"):
+            info = {
+                "family": "hgemm",
+                "shape": SHAPE,
+                "pick": h,
+                "smem_estimate": s * (bm + bn) * bk * 2,
+                "cache": cache,
+            }
+            write(
+                out,
+                f"hgemm2048_{name}" + ("" if cache == "warm" else "_rotating"),
+                hgemm(bm, bn, bk, s, th, panel),
+                [M * K, K * N, M * N],
+                grid,
+                th,
+                info,
+                rot=1 if cache == "warm" else _rot((M * K + K * N + M * N) * 2),
+            )
     f = FA
     n = f["B"] * f["S"] * f["H"] * f["D"]
     info = {
@@ -525,7 +601,13 @@ def main(out: Path) -> None:
     }
     grid = [-(-f["S"] // f["BM"]), f["H"], f["B"]]
     write(out, "fa_fwd_s2048_h8_d128", fa_forward(**f), [n, n, n, n], grid, f["threads"], info)
-    for name, gen in (("decode", _decode), ("gemv", _gemv), ("rows", _rows), ("fp8", _fp8)):
+    for name, gen in (
+        ("decode", _decode),
+        ("gemv", _gemv),
+        ("rows", _rows),
+        ("fp8", _fp8),
+        ("moe", _moe),
+    ):
         try:  # a kernel that fails to generate is reported; the others stand
             gen(out)
         except Exception:  # noqa: BLE001 - reported, the batch keeps the other kernels
@@ -558,6 +640,7 @@ def _decode(out: Path) -> None:
             128,
             info,
             rot=rot,
+            writes=(3, 4),
         )
     info = {"family": "decode_gqa_combine", "shape": shape, "pick": pick, "cache": "warm"}
     write(
@@ -631,6 +714,23 @@ def _fp8(out: Path) -> None:
             th,
             info,
             elem_bytes=[1, 1, 2],
+        )
+
+
+def _moe(out: Path) -> None:
+    c = MOE
+    E, T_, N, K = c["E"], c["T"], c["N"], c["K"]
+    for name, (bm, bn, bk, s, th) in MOE_TILES.items():
+        h = {"block_M": bm, "block_N": bn, "block_K": bk, "num_stages": s, "threads": th}
+        info = {"family": "moe_gemm", "shape": c, "pick": h, "cache": "warm"}
+        write(
+            out,
+            f"moe_e{E}_t{T_}_n{N}_k{K}_{name}",
+            moe_gemm(E, T_, N, K, bm, bn, bk, s, th),
+            [T_ * K, E * K * N, T_ * N],
+            [-(-N // bn), -(-T_ // bm), 1],
+            th,
+            info,
         )
 
 

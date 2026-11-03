@@ -110,6 +110,11 @@ clock:
 launch_us: launch_stream_us
 # KTA batch rows (one launch between two events and a synchronize, probe launch, round 3)
 launch_event_us: launch_event_us
+# launches in a sequence (round 4, probe launch b2b/graph work points): per launch
+# max(submit, span + gap), back-to-back from one stream and inside one CUDA graph
+launch_seq:
+  b2b: {submit: launch_b2b_submit_us, gap: launch_b2b_gap_us}
+  graph: {submit: graph_launch_us, gap: launch_graph_gap_us}
 
 residency:  # bounds on blocks per SM (kernel.occupancy)
   registers: {per_sm: regs_per_sm, alloc_unit_per_warp: reg_alloc_unit_per_warp}

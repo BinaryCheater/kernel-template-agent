@@ -285,7 +285,8 @@
    "ldg_dram_latency_clk": 1100.0,
    "sts_read_clk_per_128B": 3.25,
    "ldg_lane_addresses": true,
-   "fchk_fast_path": true
+   "fchk_fast_path": true,
+   "dram_writes_paced": false
   },
   "source": "probe: instlat.cu (ldmatrix latency 38.4 cycles per dependent hop incl. the add; ldmatrix 4.0 cycles per x4 per SM with 8+ warps, 11.7 per warp alone; bar.sync 14.6 + ~2 cycles per warp; cp.async 16 B round trip from L2 350 cycles; cp.async 16.0 B per clock per SM within a block = one warp instruction per 32 cycles), mma_rate.cu (HMMA.16816 one per 16 cycles per sub-partition; 29-cycle dependent latency), mlp_stream (DRAM ~0.62 us = 1560 cycles). default_var_latency and rbar_release are assumptions, not measured; cpq.cu: one warp issues a 16 B x 32-lane cp.async every 6 cycles; 4 warps one every 4 cycles per SM (the shared-memory array, 128 B per clock, also used by ldmatrix); 4 warps x 64 copies land at ~64 B per clock per SM (the L2 return path); instlat's earlier 16 B/clk cp.async figure was the probe's own bank conflicts (lanes 128 B apart) and is withdrawn; the chip's L2 serves cp.async tile traffic at 2.25 TB/s with all SMs loading (tileload.cu, 96-192 blocks) = 893 B per clock, shared by the active SMs; loopsteps.cu (Oct 20): TileLang's loop shape (copy, commit, wait, two barriers) with compile-time addressing moves 78 GB/s per SM (30.7 B per clock: the port) up to ~24 SMs; the chip's L2 saturates at 2.07-2.10 TB/s; commit, wait and barriers cost nothing measurable. TileLang's own loads-only kernels confirm 76-80 GB/s with one block. tileload.cu's 37.8 GB/s single-block figure (and the 0.22 us per k-tile fixed cost derived from it) came from run-time integer division in that probe's address code and is withdrawn; the load unit's address stage looks up one 128-byte line per cycle per SM (design assumption, checked: cpq.cu contiguous 512 B = 4 lines -> 4 cycles per copy with 4 warps; predicts the single-block loss of 3 ablated kernels within 20 %); a copy releases its read barrier when that stage has processed it (ncu: the whole kernel gains long_scoreboard 0.80 and mio/lg throttle stalls over its mma-only version); storepat.cu: the two SMs of a pair (TPC) share one store path: every store pattern doubles from 1 to 2 busy SMs and stays flat to 8; TileLang's C store (4 B per lane, 8 rows x 16 B per instruction, half-sectors) takes 15 cycles per instruction (8.7 B per clock), 16 B per lane coalesced 14 cycles per 512 B instruction (37 B per clock); storepat.cu at 24/48/96 blocks: chip-wide store limit ~0.31-0.38 TB/s for TileLang's half-sector 4 B stores and ~1.4-1.5 TB/s for 16 B coalesced stores (the per-pair limit holds to 24 blocks); l2share.cu: the chip's L2 delivers 2.08-2.14 TB/s to the lean copy loop with 1, 2, 3 or 4 blocks resident per SM and 8-16 KB tiles: the share follows blocks in flight, not SMs; sfu.cu: MUFU (ex2, rsqrt, lg2, tanh; sin 22-cycle) 18-cycle latency and 16 lane results per clock per SM = one warp instruction per 8 cycles per sub-partition (one warp alone reaches 4 per clock); FFMA 124 per clock per SM, latency ~4.7. The rcp row was folded away by the compiler (unchecked); tmastore.cu (Oct 20): stmatrix x4 one warp every 10.77 cycles, 4.0 cycles per x4 per SM with 4+ warps (the shared array's 128 B/clk); TMA store of a 64 KB tile: one block 0.96 us, two blocks on a pair 1.74 us each, 48 blocks 2.75 us: 33.1 B/clk per pair (the slope), 457 cycles fixed, 482 B/clk chip; wait_group.read (TileLang's default) costs the same as the full wait; ldg_atomic.cu (Oct 20): dependent LDG 50.8 cycles per hop in a 16 KB ring (L1; about 45 after the loop's own instructions) and 342.5 in a 4 MB ring (L2); LDG.128 L1 hits 7.4-8.5 cycles per 512 B per SM (2 per line); ld.global.cg from L2 15.7 cycles per 512 B on one SM (the copy port) and 2.2 TB/s for the chip (the copy path's L2 limit); spills with one slot per warp 11.9 cycles per two loads and a store (4 per line); RED.F32 one warp instruction per 5 cycles per SM, RED.F32x2 per 10 (25.6 B/clk), chip 323-340 B/clk; every lane on one address about 3.3 cycles per add for the whole chip; ldg_atomic.cu redfrag (Oct 20): RED.F32x2 in the mma accumulator layout (8 rows x 32 B per warp instruction): one block 16 cycles per instruction, two blocks on a pair 32 each (2 cycles per line on the pair's store port), 48 and 96 blocks 225 B/clk for the chip; blocks adding into the same tile at once are not slower (redtile); stq.cu (Oct 20): with 4 warps about 16 store or atomic warp instructions per SM issue at once, then issue follows the drain (16 cycles per instruction per SM for accumulator-layout RED.F32x2 and for STG.128); one warp alone issues accumulator-layout RED.F32x2 every 21.25 cycles (2.65 per line); alu.cu, alumix.cu (Oct 20), warp instructions per clock per SM, 32 warps: FFMA 3.86, FADD 3.94; IMAD, LOP3, SHF, PRMT, HFMA2 2.0; HADD2.F32 with F2FP 2.0 together; F2I 0.5 (the SFU rate). Mixes: PRMT+IMAD 3.92 (two units), PRMT+LOP3 2.0 and HFMA2+IMAD 2.0 (one unit each), IMAD+FFMA 1.32+1.32 (FP32 1 cycle and IMAD 2 cycles on one FMA unit), HFMA2+LOP3 1.27+1.91; LOP3+FFMA 1.53+1.02 is about 23 % below the two-unit picture (unexplained); mbar.cu (Oct 20): one warp arrives on an mbarrier while another waits on the same SM: the waiter gets through 134 cycles later with try_wait (TileLang's form; 157 with a test_wait spin; an arrive with an earlier global store waits for it, 217); arrives from one lane cost 6.6 cycles each in a row; dramlat.cu (Oct 20): one TMA box loaded alone, issue to mbarrier complete: from DRAM 512/608/704/896 ns for 4/8/16/32 KB idle (about 460 ns, 1170 cycles, plus the TMA engine's transfer); from L2 224 ns for 4 KB (about 440 cycles plus transfer); under background load the box waits behind everyone's queued bytes (4 KB: 2.4 us at 208 GB/s, 3.6 us saturated), as base latency plus chip bytes in flight over the DRAM rate. Pointer chase: 421 ns idle, 554 at 121 GB/s, 1159 at 208, 1929 saturated",
   "status": "measured",
@@ -340,7 +341,8 @@
    "ldg_dram_latency_clk": "measured",
    "sts_read_clk_per_128B": "unidentified",
    "ldg_lane_addresses": "structural",
-   "fchk_fast_path": "assumed"
+   "fchk_fast_path": "assumed",
+   "dram_writes_paced": "assumed"
   },
   "value_source": {
    "mio_smem_op_clk": "probe smem_ldsts.cu STS.32 one warp 5.07 cycles per instruction, shfl.cu one warp 5.0 (batch r1)",
@@ -356,7 +358,8 @@
    "stg_tpc_clk_per_instr_16B": "probe store_tail.cu v16 pattern, 1-16 blocks: 0.67 / 1.23 us per block: replay within 2 % at 11 cycles per instruction per pair (batch r1; was 14)",
    "l2_aggregate_B_per_clk_cpasync": " Round 2 (batch r2, probe l2share_stages, stages 1-4 x blocks 1/16/48): with 1 stage the per-tile round trip is the same at 16 blocks as at 1 (15.35 vs 15.04 us), with 2-4 stages 16 blocks are 16-25 % slower than 1 (11.7-12.6 vs 10.0 us) at 0.98 TB/s for the chip, 48 blocks 17.4-19.1 us (about 794 B/clk); neither the flat chip share, a load-dependent latency (Little) nor a lower chip rate fits; a share below the chip (TPC pair or GPC) is a candidate. Frozen at 817.7 after 2 experiments (LOOP §3)",
    "ldg_lane_addresses": "KTA PERFMODEL round 3 (front end, no probe): an LDG's lines and sectors from its width and its lanes' addresses (lanes.py) and an L1 line cache over the kernel-parameter bases; checked against ncu global-load sectors (R1). false: the old default of 4 lines, 512 B, L1 miss per LDG (ablation)",
-   "fchk_fast_path": "KTA PERFMODEL round 3 (front end): FCHK's predicate taken as false (operands normal, the fast division; the slow-path call not replayed); checked against ncu instruction counts (softmax, decode partial). false: the predicate unknown, the old fall-through (ablation)"
+   "fchk_fast_path": "KTA PERFMODEL round 3 (front end): FCHK's predicate taken as false (operands normal, the fast division; the slow-path call not replayed); checked against ncu instruction counts (softmax, decode partial). false: the predicate unknown, the old fall-through (ablation)",
+   "dram_writes_paced": "KTA PERFMODEL round 4 (before the run): rotating rows of the generic front end and the dram_rw probe pace only their reads at dram_read_GBs; writes are not DRAM traffic. true: the controller serves a mix as each part at its own rate, reads / dram_read_GBs + writes / dram_write_GBs (as the HGEMM front end's wave_dram); probe dram_rw decides"
   }
  },
  "l2_hit_vs_reuse_distance": {
@@ -713,5 +716,20 @@
   "value": 2.8,
   "status": "measured",
   "source": "probe launch (batch r3): one launch between two events and a synchronize, as the test-set harness times every kernel: event time minus the in-kernel span (first block entry to last exit, %globaltimer) for a 48 x 128 FFMA chain of 0-16384 iterations, spans 0.1-151 us: 2.30, 2.08, 3.26, 2.08, 2.62, 3.23, 3.55, 2.98 us, median 2.80 (bimodal, about 2.1 or 3.2). An empty kernel's whole event time 2.43 us for grids up to 131 k threads, 2.9 at 262 k, 4.64 at 524 k, 6.69 at 1 M threads. Replaces launch_stream_us (fitted) for KTA batch rows"
+ },
+ "launch_b2b_submit_us": {
+  "value": 1.96,
+  "status": "measured",
+  "source": "probe launch (batch r3): 100 empty 1 x 128 kernels back-to-back between two events, 1.96 us per launch (the host's submission rate)"
+ },
+ "launch_b2b_gap_us": {
+  "value": 3.1,
+  "status": "measured",
+  "source": "upstream probe launch.cu (launch_costs_us): a 48-block kernel with about 21 us of work back-to-back leaves 3.1 us between kernels (launch, blocks starting, drain); round 4 re-measures it over spans (probe launch b2b_work_i*)"
+ },
+ "launch_graph_gap_us": {
+  "value": 0.43,
+  "status": "assumed",
+  "source": "round 4 before the run: the graph's per-kernel submission cost (graph_launch_us) taken as the gap between kernels with work too; probe launch graph_work_i* measures it"
  }
 }

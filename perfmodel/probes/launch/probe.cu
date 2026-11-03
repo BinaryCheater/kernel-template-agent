@@ -9,6 +9,10 @@
 //          own span from %globaltimer inside (first block entry to last exit) beside the event
 //          time: whether the event time is launch + span (additive) or hides part of the span.
 // Grids 1 .. 8192 at 128 threads; 48 .. 512 also at 1024 threads.
+// Round 4: the work points also back-to-back (50 launches between two events, per launch) and as
+// one CUDA graph of 50 launches (per launch), with the median in-kernel span of the 50; graph of
+// 100 empty launches per launch (graph_g*): whether a launch in a sequence costs span + a gap, or
+// hides behind the previous kernel down to the submission rate.
 #include "../common.cuh"
 __global__ void empty() {}
 __global__ void tiny(int* o) { o[blockIdx.x * blockDim.x + threadIdx.x] = threadIdx.x; }
@@ -51,13 +55,59 @@ static void work_point(float* o) {
   snprintf(x, sizeof x, "span_us=%.3f event_minus_span=%.3f", s.median, e.median - s.median);
   emit("launch", n, e, "us", x);
 }
+// back-to-back (graph = false) or one graph of 50 launches; per launch, and the spans' median
+template <int I>
+static void seq_point(float* o, bool graph) {
+  const int L = 50, R = 3 + 8;
+  static cudaStream_t st = nullptr;
+  if (!st) CK(cudaStreamCreateWithFlags(&st, cudaStreamNonBlocking));
+  cudaGraphExec_t ge = nullptr;
+  if (graph) {
+    cudaGraph_t g;
+    CK(cudaStreamBeginCapture(st, cudaStreamCaptureModeGlobal));
+    for (int i = 0; i < L; i++) work<I><<<48, 128, 0, st>>>(o, tdev + 96 * i);
+    CK(cudaStreamEndCapture(st, &g));
+    CK(cudaGraphInstantiate(&ge, g, 0));
+  }
+  cudaEvent_t e0, e1;
+  CK(cudaEventCreate(&e0));
+  CK(cudaEventCreate(&e1));
+  std::vector<double> ev, sp;
+  for (int r = 0; r < R; r++) {
+    CK(cudaEventRecord(e0, st));
+    if (graph) CK(cudaGraphLaunch(ge, st));
+    else
+      for (int i = 0; i < L; i++) work<I><<<48, 128, 0, st>>>(o, tdev + 96 * i);
+    CK(cudaEventRecord(e1, st));
+    CK(cudaEventSynchronize(e1));
+    float ms;
+    CK(cudaEventElapsedTime(&ms, e0, e1));
+    if (r >= 3) ev.push_back(ms * 1e3 / L);
+  }
+  std::vector<unsigned long long> h(96 * L);
+  CK(cudaMemcpy(h.data(), tdev, h.size() * sizeof(h[0]), cudaMemcpyDeviceToHost));
+  for (int k = 0; k < L; k++) {  // launch k of the last sequence wrote slot k
+    unsigned long long a = h[96 * k], b = h[96 * k + 1];
+    for (int i = 0; i < 48; i++) a = std::min(a, h[96 * k + 2 * i]), b = std::max(b, h[96 * k + 2 * i + 1]);
+    sp.push_back((b - a) * 1e-3);
+  }
+  Stat e = stat_of(ev), s = stat_of(sp);
+  char n[32], x[64];
+  snprintf(n, sizeof n, "%s_work_i%d", graph ? "graph" : "b2b", I);
+  snprintf(x, sizeof x, "span_us=%.3f per_launch_minus_span=%.3f", s.median, e.median - s.median);
+  emit("launch", n, e, "us", x);
+}
+template <int... Is>
+static void seq_points(float* o) {
+  for (bool g : {false, true}) (seq_point<Is>(o, g), ...);
+}
 int main() {
   int* o;
   CK(cudaMalloc(&o, 4096 * 1024 * sizeof(int)));
   for (int i = 0; i < 100; i++) empty<<<1, 32>>>();
   CK(cudaDeviceSynchronize());
   struct P { int g, t; };
-  CK(cudaMalloc(&tdev, 96 * (WARM + REPS) * sizeof(unsigned long long)));
+  CK(cudaMalloc(&tdev, 96 * std::max(WARM + REPS, 50) * sizeof(unsigned long long)));
   const P pts[] = {{1, 128},   {48, 128},   {96, 128},   {512, 128},  {1024, 128}, {2048, 128},
                    {4096, 128}, {8192, 128}, {48, 1024}, {128, 1024}, {256, 1024}, {512, 1024}};
   for (P p : pts) {
@@ -77,6 +127,31 @@ int main() {
          }),
          "us");
   }
+  for (P p : {P{1, 128}, P{512, 128}, P{4096, 128}}) {
+    cudaStream_t st;
+    CK(cudaStreamCreateWithFlags(&st, cudaStreamNonBlocking));
+    cudaGraph_t g;
+    cudaGraphExec_t ge;
+    CK(cudaStreamBeginCapture(st, cudaStreamCaptureModeGlobal));
+    for (int i = 0; i < 100; i++) empty<<<p.g, p.t, 0, st>>>();
+    CK(cudaStreamEndCapture(st, &g));
+    CK(cudaGraphInstantiate(&ge, g, 0));
+    cudaEvent_t e0, e1;
+    CK(cudaEventCreate(&e0));
+    CK(cudaEventCreate(&e1));
+    char n[48];
+    snprintf(n, sizeof n, "graph_g%d_t%d", p.g, p.t);
+    emit("launch", n, repeat([&] {
+           CK(cudaEventRecord(e0, st));
+           CK(cudaGraphLaunch(ge, st));
+           CK(cudaEventRecord(e1, st));
+           CK(cudaEventSynchronize(e1));
+           float ms;
+           CK(cudaEventElapsedTime(&ms, e0, e1));
+           return ms * 1e3 / 100;
+         }),
+         "us");
+  }
   float* f;
   CK(cudaMalloc(&f, 4));
   work_point<0>(f);
@@ -87,5 +162,6 @@ int main() {
   work_point<1024>(f);
   work_point<4096>(f);
   work_point<16384>(f);
+  seq_points<0, 64, 256, 1024, 4096, 16384>(f);
   return 0;
 }
