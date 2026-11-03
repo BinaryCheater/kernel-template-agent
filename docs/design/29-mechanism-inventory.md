@@ -41,7 +41,7 @@ Status: written 2026-11-04 for phase P0 of [28](28-gb10-programme.md) §5. It li
 
 | Mechanism | Sources | Status | Kernels | Var |
 | --- | --- | --- | --- | --- |
-| Tensor pipe per sub-partition: every `HMMA/IMMA/QMMA/OMMA` holds it 16 cycles; type sets FLOP/clk | gb10 §4.5 (`mma_rate.cu`, `mma_types.cu`); cov tensor; 26:04; probe `mma_pair` (round 2) | M; round 2 confirmed at chip scale in the HGEMM warp tile's loop (ldmatrix + 32 HMMA per k16): 310.5 k cycles at 1 and at 48 blocks (replay 316 k, +1.8 %), two blocks per SM 530 k (−1.0 %); no chip-level limit | G, F, E, D | S (dtype, mma shape), H |
+| Tensor pipe per sub-partition: every `HMMA/IMMA/QMMA/OMMA` holds it 16 cycles; type sets FLOP/clk | gb10 §4.5 (`mma_rate.cu`, `mma_types.cu`); cov tensor; 26:04; probe `mma_pair` (round 2) | M; round 2 confirmed at chip scale in the HGEMM warp tile's loop (ldmatrix + 32 HMMA per k16): 310.5 k cycles at 1 and at 48 blocks (replay 316 k, +1.8 %), two blocks per SM 530 k (−1.0 %); no chip-level limit; depth: structural (a pipe held 16 cycles per instruction) | G, F, E, D | S (dtype, mma shape), H |
 | mma issue beside FFMA on the same sub-partition (+43 % in B34) | gap#27; cov tensor | X | F (softmax beside mma) | H |
 | mma result latency beyond stall counts; accumulators in flight to saturate | gb10 §8.7; B31–B34 | X (stall counts only) | G, F | H |
 | FMA pipe: FFMA/FADD/FMUL 1 cycle; IMAD, IMUL, HFMA2, HADD2, HMUL2 2 cycles | gb10 §4.5 (`alu.cu`, `alumix.cu`) | M | all | H |
