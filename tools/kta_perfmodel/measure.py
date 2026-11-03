@@ -62,7 +62,8 @@ def build(batch: str, only: str = ".") -> int:
     rb = f"{REMOTE_DATA}/{batch}/build"
     _remote(
         f"mkdir -p ~/{REMOTE_DATA}/{batch} && cd src/{head} && "
-        f"PATH=/usr/local/cuda/bin:$PATH ONLY={shlex.quote(only)} bash perfmodel/remote/build.sh ~/{rb} "
+        f"PATH=/usr/local/cuda/bin:$PATH ONLY={shlex.quote(only)} "
+        f"bash perfmodel/remote/build.sh ~/{rb} "
         f"> ~/{REMOTE_DATA}/{batch}/build.log 2>&1"
     )
     local = BATCHES / batch / "build"
