@@ -237,3 +237,30 @@ The first implementation planning task is P0 plus a bounded P1 pilot, with a rep
 Research obligations: dynamic input sufficiency (real mapping pilot); abstraction transfer (held-out implementations); causal attribution (discriminating interventions); bound validity (explicit relaxation argument and empirical counterexamples); practical model cost (accuracy/cost curve); architecture identifiability (competing hypotheses and unresolved outcomes); AI reproducibility (independent rerun from stored packet); source completeness (finish all-paragraph/diagram review and obtain benchmark sources when accessible). No obligation is claimed proved.
 
 Manifest knobs: domain/regimes; minimum evidence per claim class; timing repeatability/rejection; fit bounds/residual scope; runtime and mechanism thresholds; bound assumptions/uncertainty; supported coverage floors; audit access/submission limits; simulation detail/cost; experiment budgets; effort between architecture and workload questions; stopping/escalation rules. Unset until the pilot; existing KTA controls remain in force. A stopped round records unresolved work and cannot redefine completion.
+
+## 12. Proposed controls (moved from 12 on 2026-11-04; inactive)
+
+These tables were drafted for document 12's registry but are proposals, not registered knobs, so they live here. Both remain inactive; the performance-model work follows [28 §2](28-gb10-programme.md) instead.
+
+### 12.1 Proposed GB10 calibration controls (inactive)
+
+The calibration protocol in [26-gb10-calibration-method.md](26-gb10-calibration-method.md) section 8 requires a versioned pilot-derived manifest before fitting or promotion. No numerical default is activated here.
+
+| Knob | Default / status | Prevents | Proposed location |
+|---|---|---|---|
+| Domain, strata, coverage floor and valid sample floor | Unset; freeze after pilot | Unsupported or undersampled workloads hidden by aggregate accuracy | Evaluation manifest |
+| Repeatability, repetitions and rejection limits | Unset; inherit current protocol until pilot justifies change | Noise fitted as hardware behaviour | Measurement manifest |
+| Fit bounds, residual complexity and family weights | Unset; freeze before fitting | Compensation, memorization and dominant-family bias | Calibration manifest |
+| Accuracy, tail error, regret and per-stratum regression limits | Unset; existing gates unchanged | Average improvements masking harmful regressions | Evaluation manifest |
+| Audit submissions, run budget and stop rule | Unset; freeze before fitting | Adaptive audit leakage and unbounded experimentation | Calibration manifest |
+
+### 12.2 Proposed architecture-discovery controls (2026-11-03; inactive)
+
+Document 26 extends the earlier calibration controls without changing runtime values.
+
+| Knob | Default / status | Prevents | Proposed location |
+|---|---|---|---|
+| Required mechanism and bound evidence by capability | Unset; freeze with capability contract | Runtime fitting substituting for architecture explanation | Evaluation manifest |
+| Simulation detail and execution-cost budget | Unset; pilot compares detail/cost curves | An unusably slow or silently approximated simulator | Model/run manifest |
+| Architecture-question versus workload-gap effort | Unset; explicit each round | Discovery disappearing behind benchmark fitting | Experiment manifest |
+| Claim applicability, uncertainty and escalation rules | Unset; record per claim before promotion | Inference or cross-chip priors becoming unqualified facts | Evidence/claim manifest |
