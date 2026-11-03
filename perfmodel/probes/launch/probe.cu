@@ -30,14 +30,20 @@ __global__ void work(float* o, unsigned long long* t) {
 static unsigned long long* tdev;
 template <int I>
 static void work_point(float* o) {
+  // as the harness: launches timed one by one, nothing in between; the spans stay on the device
+  // until all repetitions are done
+  const int R = WARM + REPS;
   std::vector<double> ev, sp;
-  for (int r = 0; r < WARM + REPS; r++) {
-    double e = event_us([&] { work<I><<<48, 128>>>(o, tdev); });
-    unsigned long long h[96];
-    CK(cudaMemcpy(h, tdev, sizeof h, cudaMemcpyDeviceToHost));
-    unsigned long long a = h[0], b = h[1];
-    for (int i = 0; i < 48; i++) a = std::min(a, h[2 * i]), b = std::max(b, h[2 * i + 1]);
-    if (r >= WARM) ev.push_back(e), sp.push_back((b - a) * 1e-3);
+  for (int r = 0; r < R; r++) {
+    double e = event_us([&] { work<I><<<48, 128>>>(o, tdev + 96 * r); });
+    if (r >= WARM) ev.push_back(e);
+  }
+  std::vector<unsigned long long> h(96 * R);
+  CK(cudaMemcpy(h.data(), tdev, h.size() * sizeof(h[0]), cudaMemcpyDeviceToHost));
+  for (int r = WARM; r < R; r++) {
+    unsigned long long a = h[96 * r], b = h[96 * r + 1];
+    for (int i = 0; i < 48; i++) a = std::min(a, h[96 * r + 2 * i]), b = std::max(b, h[96 * r + 2 * i + 1]);
+    sp.push_back((b - a) * 1e-3);
   }
   Stat e = stat_of(ev), s = stat_of(sp);
   char n[32], x[64];
@@ -51,7 +57,7 @@ int main() {
   for (int i = 0; i < 100; i++) empty<<<1, 32>>>();
   CK(cudaDeviceSynchronize());
   struct P { int g, t; };
-  CK(cudaMalloc(&tdev, 96 * sizeof(unsigned long long)));
+  CK(cudaMalloc(&tdev, 96 * (WARM + REPS) * sizeof(unsigned long long)));
   const P pts[] = {{1, 128},   {48, 128},   {96, 128},   {512, 128},  {1024, 128}, {2048, 128},
                    {4096, 128}, {8192, 128}, {48, 1024}, {128, 1024}, {256, 1024}, {512, 1024}};
   for (P p : pts) {
