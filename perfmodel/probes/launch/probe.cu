@@ -5,7 +5,7 @@
 //   empty  an empty kernel, grid G x T threads;
 //   tiny   each thread stores one int (one STG per warp);
 //   b2b    100 empty launches back-to-back between two events, per launch (the stream rate);
-//   work   48 blocks x 128 threads of a dependent FFMA chain of I iterations (I = 0 .. 16384), its
+//   work   48 blocks x 128 threads of a dependent FFMA chain of I iterations (I = 0 .. 16384, spans 0.1 .. 150 us), its
 //          own span from %globaltimer inside (first block entry to last exit) beside the event
 //          time: whether the event time is launch + span (additive) or hides part of the span.
 // Grids 1 .. 8192 at 128 threads; 48 .. 512 also at 1024 threads.
@@ -80,7 +80,10 @@ int main() {
   float* f;
   CK(cudaMalloc(&f, 4));
   work_point<0>(f);
+  work_point<64>(f);
+  work_point<128>(f);
   work_point<256>(f);
+  work_point<512>(f);
   work_point<1024>(f);
   work_point<4096>(f);
   work_point<16384>(f);

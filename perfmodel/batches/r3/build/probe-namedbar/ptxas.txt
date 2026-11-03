@@ -8,14 +8,14 @@ ptxas info    : Compiling entry function '_Z8arrive_kILi64EEvPyPf' for 'sm_121a'
 ptxas info    : Function properties for _Z8arrive_kILi64EEvPyPf
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 12 registers, used 3 barriers
-ptxas info    : Compile time = 3.423 ms
+ptxas info    : Compile time = 3.271 ms
 ptxas info    : Compiling entry function '_Z8arrive_kILi0EEvPyPf' for 'sm_121a'
 ptxas info    : Function properties for _Z8arrive_kILi0EEvPyPf
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 11 registers, used 3 barriers
-ptxas info    : Compile time = 1.533 ms
+ptxas info    : Compile time = 1.467 ms
 ptxas info    : Compiling entry function '_Z6sync_kPy' for 'sm_121a'
 ptxas info    : Function properties for _Z6sync_kPy
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 8 registers, used 1 barriers
-ptxas info    : Compile time = 1.059 ms
+ptxas info    : Compile time = 1.011 ms
