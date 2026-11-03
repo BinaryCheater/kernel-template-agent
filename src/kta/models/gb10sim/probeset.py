@@ -33,6 +33,7 @@ from .probes import Case, ClockMarked, marked_cycles
 from .sass import Ins, main_loop, parse
 from .sm import SM
 
+P0_SLOT = 0x380  # constant-bank offset of a kernel's first argument (sm_121, seen in every SASS)
 ITERS = 256  # smem_ldsts, shfl, ex2_ffma, l1hit tput
 BAR_ITERS = 128  # namedbar
 HOPS = 2048  # l1hit chase
@@ -561,6 +562,157 @@ def st256_cases(b: Batch) -> list[Case]:
     return out
 
 
+BRANCH_LOOPS = (4, 8, 16, 32, 64, 128, 256, 512, 1024)
+BRANCH_FLATS = (64, 256, 1024, 4096)
+BRANCH_PASSES = 512
+FWD_MASK_ARG = (0, 0x380)  # the `z` argument of the branch probe's fwd kernel
+
+
+def _warps_case(b, cid, probe, ins, warps, div, unit, const=None) -> Case:
+    return _case(
+        b,
+        cid,
+        probe,
+        2,
+        unit,
+        lambda ins=ins, warps=warps, **kw: ClockMarked(
+            ins, 32 * warps, 1, 1, const_bank=const, **kw
+        ),
+        per(div),
+    )
+
+
+def branch_cases(b: Batch) -> list[Case]:
+    """Round 6: taken-branch cost and instruction fetch (probe branch), FFMA loops and straight
+    lines on 1-32 warps, a forward branch taken and not."""
+    txt = _sass(b, "probe-branch")
+    out = []
+    for n in BRANCH_LOOPS:
+        ins = _k(txt, f"_Z4loopILi{n}EEvPyPf")
+        for w in (1, 4, 32):
+            out.append(
+                _warps_case(b, f"branch loop{n}_w{w}", "branch", ins, w, BRANCH_PASSES, "cycles")
+            )
+    for n in BRANCH_FLATS:
+        ins = _k(txt, f"_Z4flatILi{n}EEvPyPf")
+        for w in (1, 2, 4, 8, 32):
+            out.append(_warps_case(b, f"branch flat{n}_w{w}", "branch", ins, w, n, "cycles"))
+    ins = _k(txt, "_Z3fwdjPyPf")
+    for name, z in (("fwd_taken", 0xFFFFFFFF), ("fwd_not", 0)):
+        for w in (1, 4, 32):
+            out.append(
+                _warps_case(
+                    b,
+                    f"branch {name}_w{w}",
+                    "branch",
+                    ins,
+                    w,
+                    BRANCH_PASSES,
+                    "cycles",
+                    {FWD_MASK_ARG: z},
+                )
+            )
+    return out
+
+
+MMA_PASSES = ((2, 2048), (3, 1024), (4, 1024), (5, 1024), (8, 512), (16, 256), (32, 128), (64, 64))
+MMA_OTHER = {"fma": 0, "alu": 1, "lds": 2, "ldsm": 3}
+
+
+def mma_issue_cases(b: Batch) -> list[Case]:
+    """Round 6: mma per pass, other instructions beside it on the same warp and on warp 4 (probe
+    mma_issue); cycles per mma on warp 0."""
+    txt = _sass(b, "probe-mma_issue")
+    out = []
+    for na, it in MMA_PASSES:
+        ins = _k(txt, f"_Z4passILi{na}ELi{it}EEvjPyPj")
+        out.append(_warps_case(b, f"mma_issue n{na}", "mma_issue", ins, 1, na * it, "cycles/mma"))
+    for name, k in MMA_OTHER.items():
+        for m in (1, 2) if name == "ldsm" else (1, 2, 4, 8, 14):
+            ins = _k(txt, f"_Z6besideILi{k}ELi{m}EEvjPyPj")
+            out.append(
+                _warps_case(b, f"mma_issue m{name}_{m}", "mma_issue", ins, 1, 8 * 256, "cycles/mma")
+            )
+    for name, k in (("none", "n1"), ("fma", "0"), ("alu", "1"), ("lds", "2")):
+        ins = _k(txt, f"_Z3nbrILi{k}EEvjPyPj")
+        out.append(
+            _warps_case(b, f"mma_issue nbr_{name}", "mma_issue", ins, 5, 16 * 256, "cycles/mma")
+        )
+    return out
+
+
+def lds_narrow_cases(b: Batch) -> list[Case]:
+    """Round 6: LDS and STS by element size and lane stride on 1-32 warps (probe lds_narrow)."""
+    txt = _sass(b, "probe-lds_narrow")
+    out = []
+    names = (("LDS.U8", 1), ("LDS.U16", 2), ("LDS.32", 4), ("STS.U16", 2), ("STS.32", 4))
+    for kind, (name, elem) in enumerate(names):
+        ins = _k(txt, f"_Z1kILi{kind}EEvjjPyPj")
+        for st in (elem, 16, 64):
+            for w in (1, 4, 32):
+                # the `stride` argument: its first parameter, in the lanes' own addresses
+                out.append(
+                    _warps_case(
+                        b,
+                        f"lds_narrow {name}_s{st}_w{w}",
+                        "lds_narrow",
+                        ins,
+                        w,
+                        256 * 8 * w,
+                        "cycles/instr/SM",
+                        {(0, 0x380): st},
+                    )
+                )
+    return out
+
+
+LAUNCH_SHORT = (0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 128, 192, 256)
+
+
+def launch_short_cases(b: Batch) -> list[Case]:
+    """Round 6: the launch term around the kernel span where back-to-back launches leave the
+    submission rate (probe launch_short); the launch probe's replay on its kernel."""
+    txt = _sass(b, "probe-launch_short")
+
+    def row(ins):
+        def build(**kw):
+            m = kw.get("machine") or default_machine()
+            per_sm = math.ceil(48 / m.sms)
+            return SM(ins, 128, per_sm, 1, active_sms=min(48, m.sms), grid_blocks=48, **kw)
+
+        return build
+
+    out = []
+    for i in LAUNCH_SHORT:
+        ins = _k(txt, f"_Z4workILi{i}EEvPfPy")
+        out.append(
+            _case(
+                b,
+                f"launch_short work_i{i}",
+                "launch_short",
+                1,
+                "us",
+                row(ins),
+                lambda sm, r: r["cycles"] / (_ghz(b, sm.m) * 1e3) + _launch_event(sm.m),
+            )
+        )
+        for mode in ("b2b", "graph"):
+            out.append(
+                _case(
+                    b,
+                    f"launch_short {mode}_work_i{i}",
+                    "launch_short",
+                    1,
+                    "us",
+                    row(ins),
+                    lambda sm, r, mode=mode: _launch_seq(
+                        sm.m, mode, r["cycles"] / (_ghz(b, sm.m) * 1e3)
+                    ),
+                )
+            )
+    return out
+
+
 L2STAGES_TILE = {"block_M": 128, "block_N": 256, "block_K": 32, "threads": 256}
 
 
@@ -751,7 +903,8 @@ def kernel_cases(b: Batch) -> list[Case]:
         if L["family"] == "hgemm":
             # round 4: the rotating variants are their own variant group
             rot = " rotating" if L.get("cache") == "rotating" else ""
-            out.append(_hgemm_case(b, d, L, regs, "testset hgemm2048" + rot))
+            group = "testset " + L["set"] if "set" in L else "testset hgemm2048" + rot
+            out.append(_hgemm_case(b, d, L, regs, group))
         elif L["family"] == "fp8gemm":
             # kta:fixture byte-equivalent mapping: the HGEMM front end counts 2-byte elements, so
             # an e4m3 tile of block_K bytes is replayed as a fp16 tile of block_K / 2 (same bytes,
@@ -762,6 +915,8 @@ def kernel_cases(b: Batch) -> list[Case]:
                 "shape": {**L["shape"], "K": L["shape"]["K"] // 2},
             }
             out.append(_hgemm_case(b, d, eq, regs, "testset fp8gemm2048"))
+        elif L["family"] == "sequence":
+            out += [_sequence_case(b, d, L, mode) for mode in ("kernel", "b2b", "graph")]
         else:
             # round 4: the small kernels also as launched in a sequence (b2b, graph), own sets
             out += [_generic_case(b, d, L, regs, mode) for mode in ("kernel", "b2b", "graph")]
@@ -824,16 +979,18 @@ def _l2_replay(ins: list[Ins], L: dict[str, Any], trips: int, in_flight: int, m:
     return _l2_cache[key]
 
 
-def _generic_case(b: Batch, d: Path, L: dict[str, Any], regs: int, mode: str = "kernel") -> Case:
+def _generic_sm(d: Path, L: dict[str, Any], regs: int, carried: tuple[str, ...], **kw: Any) -> SM:
     """A kernel without a family front end (FA forward, decode attention, GEMV, RMSNorm, softmax):
     the busiest SM of the grid with block replacement, the chip's shares by blocks in flight, the
     main loop's trip count from TileLang's source loop. The L2 (round 5, l2.py): the loads' own
     addresses over the grid through one cache in launch order; rotating launches read that traffic
     at the DRAM rate shared by the blocks in flight (as the dram_rotate probe), warm launches the
     part the measured curve of the read footprint loses (plain loads; evict-first loads their own).
-    LDG lines, sectors and L1 hits from the lanes' addresses (sm.SM lane tracking, round 3)."""
+    LDG lines, sectors and L1 hits from the lanes' addresses (sm.SM lane tracking, round 3).
+    `carried`: buffers an earlier kernel of a sequence left in the L2 (round 6): loads from them
+    hit."""
     ins = _k((d / "k.sass").read_text(), L["entry"])
-    src = (d / "kernel.cu").read_text()
+    src = (d / L.get("source", "kernel.cu")).read_text()
     # the source loop of the kernel's main loop: `k`; a GEMM's k-loop may be called `ko` (MoE)
     lp = main_loop(ins)
     mma = lp and any(x.base in ("HMMA", "QMMA", "IMMA") for x in ins[lp[0] : lp[1] + 1])
@@ -843,46 +1000,61 @@ def _generic_case(b: Batch, d: Path, L: dict[str, Any], regs: int, mode: str = "
     ]
     src_trips = max(loops) if loops else 1
     tiles = math.prod(L["grid"])
-
-    def build(**kw):
-        m = kw.get("machine") or default_machine()
-        h = {"threads": L["threads"]}
-        rmax = occupancy(h, regs, L["smem"], m)
-        per_sm = math.ceil(tiles / m.sms)
-        eq = min(tiles, m.sms * rmax) / min(rmax, per_sm)
-        fb = L["footprint_bytes"]
-        rotating = L.get("cache") == "rotating"
-        kind = "cs" if all(".EF" in x.op for x in ins if x.base == "LDG") else "ca"
-        # round 4: the written buffers (gen.py `write_bytes`) are DRAM traffic beside the reads
-        wb = L.get("write_bytes", 0) if rotating else 0
-        if m.P["l2_replay"]:
-            r = _l2_replay(ins, L, src_trips, m.sms * rmax, m)
-            scale = 1.0 if rotating else l2_warm_miss(r.footprint, kind, m)
-            rb, miss = r.reads * scale, 1.0 if scale > 0 else 0.0
-            kw["miss_by_pc"] = {pc: v * scale for pc, v in r.miss_by_pc.items()}
-        elif rotating:
-            rb, miss = fb - wb, 1.0
-        else:  # warm (round 3, probe l2reuse): the re-read misses by the footprint
-            rb, miss = fb, l2_warm_miss(fb, kind, m)
-        if miss > 0:
-            kw = {
-                **kw,
-                "miss_frac": miss,
-                "dram_clk_per_512B": dram_clk(rb, dram_mix_secs(rb, wb, m), eq, m),
-            }
-        return SM(
-            ins,
-            L["threads"],
-            per_sm,
-            src_trips if main_loop(ins) else 1,
-            active_sms=eq,
-            resident=rmax,
-            grid_blocks=tiles,
-            grid_dim=tuple(L["grid"]),
-            block_dim=tuple(L.get("block", [L["threads"]])),
-            l1_bytes=m.C["l1_unified_bytes"] - rmax * L["smem"],
+    m = kw.get("machine") or default_machine()
+    h = {"threads": L["threads"]}
+    rmax = occupancy(h, regs, L["smem"], m)
+    per_sm = math.ceil(tiles / m.sms)
+    eq = min(tiles, m.sms * rmax) / min(rmax, per_sm)
+    fb = L["footprint_bytes"]
+    rotating = L.get("cache") == "rotating"
+    kind = "cs" if all(".EF" in x.op for x in ins if x.base == "LDG") else "ca"
+    # round 4: the written buffers (gen.py `write_bytes`) are DRAM traffic beside the reads
+    wb = L.get("write_bytes", 0) if rotating else 0
+    if m.P["l2_replay"]:
+        r = _l2_replay(ins, L, src_trips, m.sms * rmax, m)
+        scale = 1.0 if rotating else l2_warm_miss(r.footprint, kind, m)
+        # the kernel's arguments, 8 bytes each from the first parameter slot, by name
+        slots = {P0_SLOT + 8 * i: n for i, n in enumerate(L.get("params", ()))}
+        byname = {
+            pc: slots.get(sym[2])
+            for pc, base in r.base_by_pc.items()
+            for sym, _ in base or ()
+            if sym[0] == "c"
+        }
+        miss_pc = {
+            pc: 0.0 if byname.get(pc) in carried else v * scale for pc, v in r.miss_by_pc.items()
+        }
+        kept = sum(miss_pc.values()) / max(1e-9, sum(r.miss_by_pc.values()))
+        rb, miss = r.reads * kept, 1.0 if kept > 0 else 0.0
+        kw["miss_by_pc"] = miss_pc
+    elif rotating:
+        rb, miss = fb - wb, 1.0
+    else:  # warm (round 3, probe l2reuse): the re-read misses by the footprint
+        rb, miss = fb, l2_warm_miss(fb, kind, m)
+    if miss > 0:
+        kw = {
             **kw,
-        )
+            "miss_frac": miss,
+            "dram_clk_per_512B": dram_clk(rb, dram_mix_secs(rb, wb, m), eq, m),
+        }
+    return SM(
+        ins,
+        L["threads"],
+        per_sm,
+        src_trips if main_loop(ins) else 1,
+        active_sms=eq,
+        resident=rmax,
+        grid_blocks=tiles,
+        grid_dim=tuple(L["grid"]),
+        block_dim=tuple(L.get("block", [L["threads"]])),
+        l1_bytes=m.C["l1_unified_bytes"] - rmax * L["smem"],
+        **kw,
+    )
+
+
+def _generic_case(b: Batch, d: Path, L: dict[str, Any], regs: int, mode: str = "kernel") -> Case:
+    def build(**kw):
+        return _generic_sm(d, L, regs, (), **kw)
 
     def read(sm, r):
         span = r["cycles"] / (_ghz(b, sm.m) * 1e3)
@@ -896,6 +1068,61 @@ def _generic_case(b: Batch, d: Path, L: dict[str, Any], regs: int, mode: str = "
         "us",
         build,
         read,
+    )
+
+
+def _carried(L: dict[str, Any], m: Machine) -> list[tuple[str, ...]]:
+    """Per kernel of a sequence, the buffers earlier kernels left in the L2: what they read and
+    wrote, oldest dropped beyond the L2's effective capacity."""
+    held: dict[str, int] = {}
+    out = []
+    for k in L["kernels"]:
+        out.append(tuple(held))
+        for n in (*k["reads"], *k["writes"]):
+            held.pop(n, None)
+            held[n] = L["buffers"][n]
+        while sum(held.values()) > m.C["l2_effective_bytes"]:
+            held.pop(next(iter(held)))
+    return out
+
+
+def _sequence_case(b: Batch, d: Path, L: dict[str, Any], mode: str) -> Case:
+    """Kernels in order, the L2 state carried over (`_carried`), per sequence: a sequence of one
+    launch per kernel, the gaps of the launch mode; `kernel` = one sequence between two events."""
+
+    def build(**kw):
+        return _SeqRun(
+            [
+                lambda c=c, k=k, **a: _generic_sm(
+                    d,
+                    {**k, "cache": L["cache"]},
+                    regs_of(b, f"testset/{d.name}", k["entry"]),
+                    c,
+                    **a,
+                )
+                for k, c in zip(
+                    L["kernels"], _carried(L, kw.get("machine") or default_machine()), strict=True
+                )
+            ],
+            **kw,
+        )
+
+    def read(sm, r):
+        spans = [c / (_ghz(b, sm.m) * 1e3) for c in sm.spans]
+        if mode == "kernel":
+            gaps = sum(_launch_seq(sm.m, "b2b", x) for x in spans[:-1])
+            return gaps + spans[-1] + _launch_event(sm.m)
+        return sum(_launch_seq(sm.m, mode, x) for x in spans)
+
+    return _case(
+        b,
+        f"{d.name} {mode}",
+        f"testset {L['set']}" + ("" if mode == "kernel" else f" {mode}"),
+        7,
+        "us",
+        build,
+        read,
+        limit=0,
     )
 
 
@@ -924,6 +1151,28 @@ class _KernelRun:
         return self.sm.cycles
 
 
+class _SeqRun(_KernelRun):
+    """A Case build result for a sequence of kernels: `spans` the cycles of each, the SM kept for
+    attribution the longest."""
+
+    def __init__(self, makers, machine=None, trace: bool = False):
+        super().__init__(None, machine, trace)
+        self.makers = makers
+        self.spans: list[float] = []
+
+    def run(self, limit: int = 0) -> dict[str, Any]:
+        best = None
+        for make in self.makers:
+            sm = make(machine=self.machine, trace=self.trace)
+            r = sm.run()
+            self.spans.append(sm.cycles)
+            if best is None or sm.cycles > best[0].cycles:
+                best = (sm, r)
+        assert best is not None
+        self.sm = best[0]
+        return best[1]
+
+
 def all_cases(batch_dir: Path) -> list[Case]:
     b = load(batch_dir)
     out: list[Case] = []
@@ -941,6 +1190,10 @@ def all_cases(batch_dir: Path) -> list[Case]:
         ("probe-mma_types", mma_types_cases),
         ("probe-row_reduce", row_reduce_cases),
         ("probe-st256", st256_cases),
+        ("probe-branch", branch_cases),
+        ("probe-mma_issue", mma_issue_cases),
+        ("probe-lds_narrow", lds_narrow_cases),
+        ("probe-launch_short", launch_short_cases),
         ("probe-l2share_stages", l2stages_cases),
         ("probe-l2reuse", l2reuse_cases),
         ("probe-launch", launch_cases),

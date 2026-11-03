@@ -20,6 +20,9 @@ a w4a16 GEMV (TileLang's dequantize-GEMV pattern: int4 weights packed two per by
 scales of 128, fp32 accumulation, a thread all-reduce); RMSNorm and row softmax (one row per block,
 fp16 in and out, fp32 reductions). The DRAM-bound ones also run `rotating`: `rot` input sets used
 in turn, rot x footprint above the L2 (gb10-measure).
+
+Round 6: a blind set (HGEMM at two other shapes, FA, RMSNorm and softmax at other sizes) and the
+split-KV decode as one sequence of two kernels (`_decode_seq`: launch.json family `sequence`).
 """
 
 import json
@@ -67,12 +70,30 @@ MOE_TILES = {
     "c128x128x32_s3_t128": (128, 128, 32, 3, 128),
     "c64x128x32_s4_t128": (64, 128, 32, 4, 128),
 }
+# round 6, blind rows: scored by the engine as it stood before they were measured
+HGEMM_BLIND = {
+    (4096, 1024, 2048): {
+        "c128x128x32_s3_t128": (128, 128, 32, 3, 128, 0),
+        "c256x128x32_s3_t256": (256, 128, 32, 3, 256, 0),
+        "c128x256x64_s2_t256": (128, 256, 64, 2, 256, 0),
+    },
+    (1024, 1024, 1024): {
+        "c128x128x32_s4_t128": (128, 128, 32, 4, 128, 0),
+        "c64x128x32_s4_t128": (64, 128, 32, 4, 128, 0),
+        "c128x128x64_s3_t256": (128, 128, 64, 3, 256, 0),
+    },
+}
+FA_BLIND = {"B": 1, "S": 1024, "H": 16, "D": 64, "BM": 64, "BN": 64, "stages": 2, "threads": 128}
+RMS_BLIND = {"M": 2048, "N": 1024}
+SOFTMAX_BLIND = {"M": 1024, "N": 2048}
 GEMV = {"N": 4096, "K": 4096, "group": 128, "n_part": 4, "reduce": 32}
 ROWS = {"M": 512, "N": 4096}
 
 
-def hgemm(BM: int, BN: int, BK: int, S: int, threads: int, panel: int):
-    M, N, K = SHAPE["M"], SHAPE["N"], SHAPE["K"]
+def hgemm(
+    BM: int, BN: int, BK: int, S: int, threads: int, panel: int, shape: dict[str, int] = SHAPE
+):
+    M, N, K = shape["M"], shape["N"], shape["K"]
 
     @T.prim_func
     def gemm(
@@ -454,7 +475,7 @@ HARNESS = r"""// Test-set harness (perfmodel/testset/gen.py): TileLang's kernel,
 // launch after warm-up, for the profiler).
 #include <cuda.h>
 #include "../../../probes/common.cuh"
-#include "kernel.cu"
+%(includes)s
 __global__ void fill(half_t* p, size_t n, unsigned seed) {
   for (size_t i = blockIdx.x * (size_t)blockDim.x + threadIdx.x; i < n; i += (size_t)gridDim.x * blockDim.x) {
     unsigned x = (unsigned)i * 2654435761u ^ seed; x ^= x >> 13; x *= 0x5bd1e995u; x ^= x >> 15;
@@ -472,13 +493,11 @@ int main(int argc, char** argv) {
       fill<<<1024, 256>>>((half_t*)buf[r][i], bytes[i] / 2, 0x9E3779B9u * (i + 1) + 77u * r);
     }
   CK(cudaDeviceSynchronize());
-  const int smem = %(smem)d;
-  CK(cudaFuncSetAttribute(%(entry)s, cudaFuncAttributeMaxDynamicSharedMemorySize, smem));
-  dim3 grid(%(grid)s), block(%(block)s);
+%(setup)s
   int next = 0;
   auto launch = [&](cudaStream_t st = 0) {
     void** b = buf[next++ %% ROT];
-    %(entry)s<<<grid, block, smem, st>>>(%(args)s);
+%(launches)s
   };
   for (int i = 0; i < 10; i++) launch();
   CK(cudaDeviceSynchronize());
@@ -539,6 +558,41 @@ def _params(src: str, entry: str) -> list[tuple[str, str]]:
     return out
 
 
+def _compiled(func, buffers: list[str] | None = None) -> dict:
+    """TileLang's source of `func`: entry, dynamic shared memory and the launch arguments as
+    indices into `buffers` (default the prim_func's own parameters in order)."""
+    k = tilelang.compile(func, target="cuda", pass_configs=PASS_CONFIGS)
+    src = k.get_kernel_source()
+    m = re.search(r"__global__ void(?: __launch_bounds__\([^)]*\))? (\w+)\(", src)
+    assert m, "no kernel entry in TileLang's source"
+    entry = m.group(1)
+    # TileLang's host stub packs the launch as grid, block, dynamic shared memory: the last int64
+    # it stores is the dynamic shared memory (checked against 0.1.15's FA and GEMM stubs); a kernel
+    # without dynamic shared memory packs none
+    packed = re.findall(r"v_int64\) = \(\(int64_t\)(\d+)\)", k.get_host_source() or "")
+    smem = int(packed[-1]) if packed and "extern __shared__" in src else 0
+    # buffers by the prim_func's parameter names; the kernel takes them in its own order
+    names = [func.buffer_map[p].name for p in func.params]
+    params = _params(src, entry)
+    order = buffers or names
+    args = ", ".join(f"({t})b[{order.index(n)}]" for t, n in params)
+    return {
+        "src": src,
+        "entry": entry,
+        "smem": smem,
+        "args": args,
+        "params": [n for _, n in params],
+    }
+
+
+def _setup(entry: str, smem: int, tag: str = "") -> str:
+    return (
+        f"  const int smem{tag} = {smem};\n"
+        f"  CK(cudaFuncSetAttribute({entry}, cudaFuncAttributeMaxDynamicSharedMemorySize, "
+        f"smem{tag}));"
+    )
+
+
 def write(
     out: Path,
     name: str,
@@ -553,53 +607,99 @@ def write(
 ):
     """`sizes` in elements of each buffer, `elem_bytes` per buffer (default 2, fp16); `writes` the
     indices of the buffers the kernel writes (default the last)."""
-    k = tilelang.compile(func, target="cuda", pass_configs=PASS_CONFIGS)
-    src = k.get_kernel_source()
-    m = re.search(r"__global__ void(?: __launch_bounds__\([^)]*\))? (\w+)\(", src)
-    assert m, "no kernel entry in TileLang's source"
-    entry = m.group(1)
-    # TileLang's host stub packs the launch as grid, block, dynamic shared memory: the last int64
-    # it stores is the dynamic shared memory (checked against 0.1.15's FA and GEMM stubs); a kernel
-    # without dynamic shared memory packs none
-    packed = re.findall(r"v_int64\) = \(\(int64_t\)(\d+)\)", k.get_host_source() or "")
-    smem = int(packed[-1]) if packed and "extern __shared__" in src else 0
+    c = _compiled(func)
     eb = elem_bytes or [2] * len(sizes)
     nbytes = [n * b for n, b in zip(sizes, eb, strict=True)]
-    # buffers by the prim_func's parameter names; the kernel takes them in its own order
-    names = [func.buffer_map[p].name for p in func.params]
-    params = _params(src, entry)
     block = list(threads) if isinstance(threads, tuple) else [threads]
     d = out / name
     d.mkdir(parents=True, exist_ok=True)
-    (d / "kernel.cu").write_text(src)
+    (d / "kernel.cu").write_text(c["src"])
+    g = ", ".join(str(x) for x in grid)
+    b = ", ".join(str(x) for x in block)
     (d / "harness.cu").write_text(
         HARNESS
         % {
+            "includes": '#include "kernel.cu"',
             "sizes": ", ".join(str(s) for s in nbytes),
             "nbuf": len(sizes),
             "rot": rot,
-            "smem": smem,
-            "entry": entry,
-            "grid": ", ".join(str(g) for g in grid),
-            "block": ", ".join(str(b) for b in block),
-            "args": ", ".join(f"({t})b[{names.index(n)}]" for t, n in params),
+            "setup": _setup(c["entry"], c["smem"]) + f"\n  dim3 grid({g}), block({b});",
+            "launches": f"    {c['entry']}<<<grid, block, smem, st>>>({c['args']});",
             "name": name,
         }
     )
     nthreads = math.prod(block)
     launch = {
-        "entry": entry,
+        "entry": c["entry"],
         "grid": grid,
         "threads": nthreads,
         "block": block,
-        "smem": smem,
+        "smem": c["smem"],
         "rot": rot,
         "footprint_bytes": sum(nbytes),
         "write_bytes": sum(nbytes[i] for i in writes),
         **info,
     }
     (d / "launch.json").write_text(json.dumps(launch, indent=1) + "\n")
-    print(f"generated {name}: entry {entry}, grid {grid}, block {block}, smem {smem}, rot {rot}")
+    print(
+        f"generated {name}: entry {c['entry']}, grid {grid}, block {block}, smem {c['smem']}, rot {rot}"
+    )
+
+
+def write_sequence(out: Path, name: str, members: list[dict], buffers: dict[str, int], info: dict):
+    """Several kernels launched in order, one input set per sequence, as a generic program form:
+    `members` (func, grid, threads, reads, writes: buffer names), `buffers` name -> bytes. The
+    harness times the whole sequence (kernel, b2b, graph as `write`; per sequence)."""
+    order = list(buffers)
+    d = out / name
+    d.mkdir(parents=True, exist_ok=True)
+    fp = sum(buffers.values())
+    rot = 1 if info["cache"] == "warm" else _rot(fp)
+    includes, setup, launches, kernels = [], [], [], []
+    for i, mem in enumerate(members):
+        c = _compiled(mem["func"], order)
+        (d / f"kernel{i}.cu").write_text(c["src"])
+        includes.append(f'#include "kernel{i}.cu"')
+        g, b = (", ".join(str(x) for x in v) for v in (mem["grid"], [mem["threads"]]))
+        setup.append(_setup(c["entry"], c["smem"], str(i)))
+        launches.append(f"    {c['entry']}<<<dim3({g}), dim3({b}), smem{i}, st>>>({c['args']});")
+        kernels.append(
+            {
+                "source": f"kernel{i}.cu",
+                "entry": c["entry"],
+                "grid": mem["grid"],
+                "threads": mem["threads"],
+                "block": [mem["threads"]],
+                "smem": c["smem"],
+                "params": c["params"],
+                "reads": mem["reads"],
+                "writes": mem["writes"],
+                "footprint_bytes": sum(buffers[n] for n in c["params"]),
+                "write_bytes": sum(buffers[n] for n in mem["writes"]),
+            }
+        )
+    (d / "harness.cu").write_text(
+        HARNESS
+        % {
+            "includes": "\n".join(includes),
+            "sizes": ", ".join(str(buffers[n]) for n in order),
+            "nbuf": len(order),
+            "rot": rot,
+            "setup": "\n".join(setup),
+            "launches": "\n".join(launches),
+            "name": name,
+        }
+    )
+    launch = {
+        "entry": kernels[0]["entry"],
+        "kernels": kernels,
+        "buffers": buffers,
+        "rot": rot,
+        "footprint_bytes": fp,
+        **info,
+    }
+    (d / "launch.json").write_text(json.dumps(launch, indent=1) + "\n")
+    print(f"generated sequence {name}: {[k['entry'] for k in kernels]}, rot {rot}")
 
 
 def main(out: Path) -> None:
@@ -652,6 +752,8 @@ def main(out: Path) -> None:
         ("fp8", _fp8),
         ("moe", _moe),
         ("w4gemm", _w4gemm),
+        ("decode_seq", _decode_seq),
+        ("blind", _blind),
     ):
         try:  # a kernel that fails to generate is reported; the others stand
             gen(out)
@@ -697,6 +799,116 @@ def _decode(out: Path) -> None:
         D,
         info,
     )
+
+
+def _decode_seq(out: Path) -> None:
+    """Split-KV decode as it runs: the partial kernel, then the combine over its splits."""
+    c = DECODE
+    B, H, G, S, D, sp = c["B"], c["H"], c["G"], c["S"], c["D"], c["split"]
+    vh = min(c["BH"], H // G)
+    kv = B * S * G * D * 2
+    buffers = {
+        "Q": B * H * D * 2,
+        "K": kv,
+        "V": kv,
+        "glse": B * H * sp * 2,
+        "Opart": B * H * sp * D * 2,
+        "Out": B * H * D * 2,
+    }
+    for cache in ("warm", "rotating"):
+        members = [
+            {
+                "func": decode_partial(**c),
+                "grid": [B, H // vh, sp],
+                "threads": 128,
+                "reads": ["Q", "K", "V"],
+                "writes": ["glse", "Opart"],
+            },
+            {
+                "func": decode_combine(**c),
+                "grid": [H, B],
+                "threads": D,
+                "reads": ["glse", "Opart"],
+                "writes": ["Out"],
+            },
+        ]
+        info = {
+            "family": "sequence",
+            "set": "decode_gqa_seq",
+            "shape": {k: c[k] for k in ("B", "H", "G", "S", "D")},
+            "cache": cache,
+        }
+        write_sequence(out, f"decode_seq_s{S}_{cache}", members, buffers, info)
+
+
+def _blind(out: Path) -> None:
+    """Round 6: rows no engine change has seen."""
+    for (M, N, K), variants in HGEMM_BLIND.items():
+        shape = {"M": M, "N": N, "K": K}
+        for name, (bm, bn, bk, s, th, panel) in variants.items():
+            h = {
+                "block_M": bm,
+                "block_N": bn,
+                "block_K": bk,
+                "num_stages": s,
+                "threads": th,
+                "swizzle": panel,
+            }
+            for cache in ("warm", "rotating"):
+                info = {
+                    "family": "hgemm",
+                    "shape": shape,
+                    "pick": h,
+                    "smem_estimate": s * (bm + bn) * bk * 2,
+                    "cache": cache,
+                    "set": f"hgemm {M}x{N}x{K}" + (" rotating" if cache == "rotating" else ""),
+                }
+                fp = (M * K + K * N + M * N) * 2
+                write(
+                    out,
+                    f"hgemm_m{M}n{N}k{K}_{name}" + ("" if cache == "warm" else "_rotating"),
+                    hgemm(bm, bn, bk, s, th, panel, shape),
+                    [M * K, K * N, M * N],
+                    [-(-N // bn), -(-M // bm), 1],
+                    th,
+                    info,
+                    rot=1 if cache == "warm" else _rot(fp),
+                )
+    f = FA_BLIND
+    n = f["B"] * f["S"] * f["H"] * f["D"]
+    info = {
+        "family": "fa_forward",
+        "shape": {k: f[k] for k in ("B", "S", "H", "D")},
+        "pick": {k: f[k] for k in ("BM", "BN", "stages", "threads")},
+        "smem_estimate": (2 * f["BM"] + 2 * f["BN"]) * f["D"] * 2,
+        "cache": "warm",
+    }
+    write(
+        out,
+        f"fa_fwd_s{f['S']}_h{f['H']}_d{f['D']}",
+        fa_forward(**f),
+        [n, n, n, n],
+        [-(-f["S"] // f["BM"]), f["H"], f["B"]],
+        f["threads"],
+        info,
+    )
+    M, N = RMS_BLIND["M"], RMS_BLIND["N"]
+    for cache in ("warm", "rotating"):
+        rot = 1 if cache == "warm" else _rot((2 * M * N + N) * 2)
+        info = {"family": "rmsnorm", "shape": RMS_BLIND, "pick": {"threads": 128}, "cache": cache}
+        write(
+            out,
+            f"rmsnorm_m{M}_n{N}_{cache}",
+            rmsnorm(M, N),
+            [M * N, N, M * N],
+            [M],
+            128,
+            info,
+            rot=rot,
+        )
+    M, N = SOFTMAX_BLIND["M"], SOFTMAX_BLIND["N"]
+    info = {"family": "softmax", "shape": SOFTMAX_BLIND, "pick": {"threads": 128}, "cache": "warm"}
+    write(out, f"softmax_m{M}_n{N}_warm", softmax(M, N), [M * N, M * N], [M], 128, info)
 
 
 def _gemv(out: Path) -> None:

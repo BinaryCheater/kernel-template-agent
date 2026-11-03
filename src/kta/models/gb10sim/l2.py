@@ -206,6 +206,7 @@ class Replay:
     loaded: float  # bytes the blocks load (each block's lines per step)
     miss_by_pc: dict[int, float]  # per load instruction, the fraction of its lines that miss
     waves: list[float]
+    base_by_pc: dict[int, Any] = field(default_factory=dict)  # per load, its address's base
 
 
 class _Group:
@@ -306,4 +307,5 @@ def replay_walk(acc: Access, in_flight: int, cap: float) -> Replay:
         touch(groups[2], wave, 0)
         waves.append(reads - before)
     miss = {pc: min(1.0, r_pc.get(pc, 0.0) / v) for pc, v in l_pc.items() if v}
-    return Replay(reads, len(seen) * LINE, loaded, miss, waves)
+    base = {e.pc: e.base for e in acc.loads}
+    return Replay(reads, len(seen) * LINE, loaded, miss, waves, base)

@@ -174,9 +174,11 @@ def main(build: Path, out: Path) -> int:
             cwd=d,
         )
 
-    for d in kernels:
+    # a sequence's kernels have their counts on their own rows (one entry per profiler run)
+    single = [d for d in kernels if "kernels" not in json.loads((d / "launch.json").read_text())]
+    for d in single:
         ncu("5-ncu", d, METRICS)
-    for d in kernels:
+    for d in single:
         ncu("5x-ncu", d, METRICS_X)
     for d in sorted(build.glob("probe-*")):
         spec = Path("perfmodel/probes") / d.name.removeprefix("probe-") / "ncu.json"
