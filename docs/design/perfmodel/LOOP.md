@@ -44,6 +44,8 @@ The inventory lists every mechanism in advance with its status (measured / assum
 4. If every valid row is within budget (median ≤ 10 %, none > 25 %, no inversion among design variants of one shape): take the inventory row that is `assumed` or `absent`, affects a test-set kernel, and is a search-space or hardware design variable; cheapest probe first.
 5. If nothing qualifies: the loop is done for the current test set — write the final report and stop.
 
+**Absent mechanisms have no attribution.** A mechanism the engine does not model shows 0 % on every critical path, so the 3 % test cannot be read from attribution. Estimate its share as (occurrences in the row's replay) × (measured or probed cost) ÷ (row time), or add it behind a switch and read the what-if. A systematic sign (a family of rows all fast or all slow) is evidence of an absent mechanism even when each row is within budget.
+
 Hard limits that the scripts and the state file enforce:
 
 - **Two experiments per open question**, counted per mechanism, not per round. `STATE.md` keeps the count; at 2 without a discriminating result the parameter is frozen at the best value, marked `unidentified`, and the question closed. Reopening needs a new row on the scorecard that points at it.
@@ -62,7 +64,7 @@ Residual fits are allowed because the model is never finished. The rules:
 5. A fit that improves absolute error without improving ranking (fewer inversions, higher correlation) is rejected: it is hiding a mechanism.
 6. A fit on a search-space or hardware design variable is temporary by definition: it must be replaced by a mechanism before that variable is explored (what-if is refused on fitted parameters).
 
-## 5. Scorecard — four numbers, not one
+## 5. Scorecard — five numbers, not one
 
 | Metric | Answers | Computed from |
 | --- | --- | --- |
@@ -70,6 +72,7 @@ Residual fits are allowed because the model is never finished. The rules:
 | rank correlation (Spearman) and **inversion count** among design variants of one shape | can it choose designs | the variant groups of the test set |
 | bottleneck agreement: the model's top critical-path unit vs the busiest counter pipe | is the bottleneck right | rows with counters |
 | counts check pass rate (R1) | is the execution path right | every kernel row |
+| **blind error**: the error of a row at its first scoring, kept forever | does the model generalise | every kernel or variant at the batch that first measures it, with the prediction committed before the run |
 
 A round "improved the model" only if the targeted rows improve on absolute error **and** correlation/inversions do not worsen **and** no other row worsens beyond its tolerance. This is a record, not a veto. Acceptance is decided **per change**, with the scorecard run once per change switched off (ablation):
 
