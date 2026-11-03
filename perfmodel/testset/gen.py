@@ -23,10 +23,15 @@ in turn, rot x footprint above the L2 (gb10-measure).
 
 Round 6: a blind set (HGEMM at two other shapes, FA, RMSNorm and softmax at other sizes) and the
 split-KV decode as one sequence of two kernels (`_decode_seq`: launch.json family `sequence`).
+
+Round 7: one-change variants (`_whatif`: launch.json `whatif` names the base unit and the axis; the
+table scores predicted delta against measured delta) and larger blind groups (`_blind7`).
+`ONLY` limits generation to the matching names; `SHARD=i/n` generates one share of them.
 """
 
 import json
 import math
+import os
 import re
 import sys
 import traceback
@@ -83,6 +88,126 @@ HGEMM_BLIND = {
         "c128x128x64_s3_t256": (128, 128, 64, 3, 256, 0),
     },
 }
+# round 7: one blind shape, 14 variants (warm and rotating)
+HGEMM_BLIND7_SHAPE = {"M": 3072, "N": 1536, "K": 2048}
+HGEMM_BLIND7 = {
+    "c128x128x32_s3_t128": (128, 128, 32, 3, 128, 0),
+    "c128x128x32_s2_t128": (128, 128, 32, 2, 128, 0),
+    "c128x128x32_s4_t128": (128, 128, 32, 4, 128, 0),
+    "c128x128x64_s2_t128": (128, 128, 64, 2, 128, 0),
+    "c128x128x64_s3_t256": (128, 128, 64, 3, 256, 0),
+    "c128x256x32_s3_t256": (128, 256, 32, 3, 256, 0),
+    "c256x128x32_s3_t256": (256, 128, 32, 3, 256, 0),
+    "c64x128x32_s4_t128": (64, 128, 32, 4, 128, 0),
+    "c128x64x32_s4_t128": (128, 64, 32, 4, 128, 0),
+    "c128x256x64_s2_t256": (128, 256, 64, 2, 256, 0),
+    "c256x256x32_s2_t256": (256, 256, 32, 2, 256, 0),
+    "c64x64x32_s4_t64": (64, 64, 32, 4, 64, 0),
+    "c128x128x32_s3_t128_sw8": (128, 128, 32, 3, 128, 8),
+    "c128x256x32_s3_t256_sw4": (128, 256, 32, 3, 256, 4),
+}
+FA_BLIND7 = {"B": 1, "S": 1536, "H": 12, "D": 96}
+# BM, BN, stages, threads
+FA_BLIND7_V = {
+    "c64x64_s2_t128": (64, 64, 2, 128),
+    "c64x64_s3_t128": (64, 64, 3, 128),
+    "c64x64_s1_t128": (64, 64, 1, 128),
+    "c64x32_s3_t128": (64, 32, 3, 128),
+    "c64x128_s2_t128": (64, 128, 2, 128),
+    "c128x64_s2_t128": (128, 64, 2, 128),
+    "c128x64_s2_t256": (128, 64, 2, 256),
+    "c128x128_s2_t256": (128, 128, 2, 256),
+    "c64x64_s2_t64": (64, 64, 2, 64),
+    "c32x64_s2_t64": (32, 64, 2, 64),
+}
+# round 7, one change at a time from a base: name: (BM, BN, BK, stages, threads, panel, variant
+# options, axis); `base` names the row it is compared with (default the first row of its table)
+WI_HGEMM = {
+    "b": (128, 128, 32, 3, 128, 0, {}, "base"),
+    "s1": (128, 128, 32, 1, 128, 0, {}, "stages"),
+    "s2": (128, 128, 32, 2, 128, 0, {}, "stages"),
+    "s4": (128, 128, 32, 4, 128, 0, {}, "stages"),
+    "s6": (128, 128, 32, 6, 128, 0, {}, "stages"),
+    "direct": (128, 128, 32, 0, 128, 0, {}, "cp.async vs direct"),
+    "bk16": (128, 128, 16, 3, 128, 0, {}, "tile"),
+    "bk64": (128, 128, 64, 3, 128, 0, {}, "tile"),
+    "bm64": (64, 128, 32, 3, 128, 0, {}, "tile"),
+    "bn64": (128, 64, 32, 3, 128, 0, {}, "tile"),
+    "bm256": (256, 128, 32, 3, 256, 0, {}, "tile+threads"),
+    "bn256": (128, 256, 32, 3, 256, 0, {}, "tile+threads"),
+    "t64": (128, 128, 32, 3, 64, 0, {}, "threads"),
+    "t256": (128, 128, 32, 3, 256, 0, {}, "threads"),
+    "sw4": (128, 128, 32, 3, 128, 4, {}, "raster"),
+    "sw8": (128, 128, 32, 3, 128, 8, {}, "raster"),
+    "nocompute": (128, 128, 32, 3, 128, 0, {"compute": False}, "compute removed"),
+    "noload": (128, 128, 32, 0, 128, 0, {"load": False}, "loads removed"),
+    "nostore": (128, 128, 32, 3, 128, 0, {"store": "shared"}, "stores removed"),
+}
+# the overlap question at other load/compute balances
+WI_HGEMM2 = {
+    "L_s3": (128, 256, 64, 3, 256, 0, {}, "base"),
+    "L_s1": (128, 256, 64, 1, 256, 0, {}, "stages"),
+    "L_s2": (128, 256, 64, 2, 256, 0, {}, "stages"),
+}
+WI_HGEMM3 = {
+    "S_s4": (64, 128, 32, 4, 128, 0, {}, "base"),
+    "S_s1": (64, 128, 32, 1, 128, 0, {}, "stages"),
+    "S_s2": (64, 128, 32, 2, 128, 0, {}, "stages"),
+}
+WI_FA = {
+    "b": ({}, "base"),
+    "s1": ({"stages": 1}, "stages"),
+    "s3": ({"stages": 3}, "stages"),
+    "s4": ({"stages": 4}, "stages"),
+    "direct": ({"stages": 0}, "cp.async vs direct"),
+    "bn32": ({"BN": 32}, "tile"),
+    "bn128": ({"BN": 128}, "tile"),
+    "bm128": ({"BM": 128}, "tile"),
+    "t64": ({"threads": 64}, "threads"),
+    "bm128_t256": ({"BM": 128, "threads": 256, "base": "bm128"}, "threads"),
+    "nostore": ({"store": "shared"}, "stores removed"),
+    "nov": ({"second": False}, "compute removed"),
+    "noexp": ({"exp": False}, "compute removed"),
+}
+WI_GEMV = {
+    "b": ({}, "base"),
+    "np2": ({"n_part": 2}, "threads"),
+    "np8": ({"n_part": 8}, "threads"),
+    "r16": ({"reduce": 16}, "threads"),
+    "r64": ({"reduce": 64}, "threads"),
+    "mk4": ({"mk": 4}, "bytes per lane"),
+    "mk16": ({"mk": 16}, "bytes per lane"),
+    "nocompute": ({"compute": False}, "compute removed"),
+}
+WI_RMS = {
+    "b": ({}, "base"),
+    "t64": ({"threads": 64}, "threads"),
+    "t256": ({"threads": 256}, "threads"),
+    "fp32": ({"dtype": "float"}, "bytes per lane"),
+    "nocompute": ({"compute": False}, "compute removed"),
+    "nostore": ({"store": "shared"}, "stores removed"),
+}
+WI_SOFTMAX = {
+    "b": ({}, "base"),
+    "t64": ({"threads": 64}, "threads"),
+    "t256": ({"threads": 256}, "threads"),
+    "nostore": ({"store": "shared"}, "stores removed"),
+}
+WI_DECODE = {
+    "b": ({}, "base"),
+    "s1": ({"stages": 1}, "stages"),
+    "s3": ({"stages": 3}, "stages"),
+    "split4": ({"split": 4}, "blocks"),
+    "split16": ({"split": 16}, "blocks"),
+    "bn32": ({"BN": 32}, "tile"),
+    "S2048": ({"S": 2048}, "shape"),
+    "S8192": ({"S": 8192}, "shape"),
+}
+WI_W4 = {
+    "b": ({}, "base"),
+    "nocompute": ({"compute": False}, "compute removed"),
+    "nodequant": ({"dequant": False}, "dequantisation removed"),
+}
 FA_BLIND = {"B": 1, "S": 1024, "H": 16, "D": 64, "BM": 64, "BN": 64, "stages": 2, "threads": 128}
 RMS_BLIND = {"M": 2048, "N": 1024}
 SOFTMAX_BLIND = {"M": 1024, "N": 2048}
@@ -91,8 +216,20 @@ ROWS = {"M": 512, "N": 4096}
 
 
 def hgemm(
-    BM: int, BN: int, BK: int, S: int, threads: int, panel: int, shape: dict[str, int] = SHAPE
+    BM: int,
+    BN: int,
+    BK: int,
+    S: int,
+    threads: int,
+    panel: int,
+    shape: dict[str, int] = SHAPE,
+    load: bool = True,
+    compute: bool = True,
+    store: str = "global",
 ):
+    """Round 7, one-change variants: `S` 0 a synchronous copy (no cp.async), `load` False keeps the
+    tile in shared memory over the k-loop (no global reads), `compute` False drops the mma,
+    `store` "shared" writes the C tile to shared memory (no global stores)."""
     M, N, K = shape["M"], shape["N"], shape["K"]
 
     @T.prim_func
@@ -105,14 +242,22 @@ def hgemm(
             A_shared = T.alloc_shared((BM, BK), "float16")
             B_shared = T.alloc_shared((BK, BN), "float16")
             C_local = T.alloc_fragment((BM, BN), "float32")
+            O_shared = T.alloc_shared((BM, BN), "float16") if store == "shared" else None
             if panel:
                 T.use_swizzle(panel_size=panel)
             T.clear(C_local)
             for ko in T.Pipelined(T.ceildiv(K, BK), num_stages=S):
-                T.copy(A[by * BM, ko * BK], A_shared)
-                T.copy(B[ko * BK, bx * BN], B_shared)
-                T.gemm(A_shared, B_shared, C_local)
-            T.copy(C_local, C[by * BM, bx * BN])
+                if load:
+                    T.copy(A[by * BM, ko * BK], A_shared)
+                    T.copy(B[ko * BK, bx * BN], B_shared)
+                if compute:
+                    T.gemm(A_shared, B_shared, C_local)
+                else:  # the copies stay live: one element of each tile
+                    C_local[0, 0] = T.Cast("float", A_shared[0, 0]) + T.Cast("float", B_shared[0, 0])
+            if store == "shared":
+                T.copy(C_local, O_shared)
+            else:
+                T.copy(C_local, C[by * BM, bx * BN])
 
     return gemm
 
@@ -170,7 +315,16 @@ def moe_gemm(E: int, T_: int, N: int, K: int, BM: int, BN: int, BK: int, S: int,
     return gemm
 
 
-def w4gemm(BM: int, BN: int, BK: int, S: int, threads: int, group: int):
+def w4gemm(
+    BM: int,
+    BN: int,
+    BK: int,
+    S: int,
+    threads: int,
+    group: int,
+    compute: bool = True,
+    dequant: bool = True,
+):
     """GEMM with a w4a16 B dequantised in the main loop (TileLang's dequantize-GEMM pattern fused
     into the k-loop): each k-step copies A, the packed int4 B tile and its fp16 group scales to
     shared memory, the block's threads expand B to fp16 there, then the mma. Two int4 per int8."""
@@ -195,20 +349,41 @@ def w4gemm(BM: int, BN: int, BK: int, S: int, threads: int, group: int):
                 T.copy(A[by * BM, ko * BK], A_shared)
                 T.copy(Bq[bx * BN, ko * (BK // 2)], Bq_shared)
                 T.copy(Sc[bx * BN, ko * BK // group], Sc_shared)
-                for i, j in T.Parallel(BN, BK):
-                    B_shared[i, j] = (
-                        T.Cast(
-                            "float16", (T.Cast("int32", Bq_shared[i, j // 2]) >> ((j % 2) * 4)) & 15
-                        )
-                        - T.float16(8)
-                    ) * Sc_shared[i, 0]
-                T.gemm(A_shared, B_shared, C_local, transpose_B=True)
+                if dequant:
+                    for i, j in T.Parallel(BN, BK):
+                        B_shared[i, j] = (
+                            T.Cast(
+                                "float16",
+                                (T.Cast("int32", Bq_shared[i, j // 2]) >> ((j % 2) * 4)) & 15,
+                            )
+                            - T.float16(8)
+                        ) * Sc_shared[i, 0]
+                else:  # the copies stay live
+                    B_shared[0, 0] = T.Cast("float16", Bq_shared[0, 0]) * Sc_shared[0, 0]
+                if compute:
+                    T.gemm(A_shared, B_shared, C_local, transpose_B=True)
+                else:
+                    C_local[0, 0] = T.Cast("float", A_shared[0, 0]) + T.Cast("float", B_shared[0, 0])
             T.copy(C_local, C[by * BM, bx * BN])
 
     return gemm
 
 
-def fa_forward(B: int, S: int, H: int, D: int, BM: int, BN: int, stages: int, threads: int):
+def fa_forward(
+    B: int,
+    S: int,
+    H: int,
+    D: int,
+    BM: int,
+    BN: int,
+    stages: int,
+    threads: int,
+    store: str = "global",
+    second: bool = True,
+    exp: bool = True,
+):
+    """Round 7 variants: `store` "shared" ends in shared memory, `second` False drops V's load and
+    the second mma, `exp` False the exp2 of the online softmax."""
     shape = [B, S, H, D]
     scale = (1.0 / D) ** 0.5 * 1.44269504  # log2(e)
     dtype, accum = "float16", "float"
@@ -245,23 +420,29 @@ def fa_forward(B: int, S: int, H: int, D: int, BM: int, BN: int, stages: int, th
                 T.fill(m, -T.infinity(accum))
                 T.reduce_max(acc_s, m, dim=1, clear=False)
                 for i in T.Parallel(BM):
-                    sc[i] = T.exp2(m_prev[i] * scale - m[i] * scale)
+                    sc[i] = (T.exp2 if exp else _same)(m_prev[i] * scale - m[i] * scale)
                 for i, j in T.Parallel(BM, D):
                     acc_o[i, j] *= sc[i]
                 for i, j in T.Parallel(BM, BN):
-                    acc_s[i, j] = T.exp2(acc_s[i, j] * scale - m[i] * scale)
+                    acc_s[i, j] = (T.exp2 if exp else _same)(acc_s[i, j] * scale - m[i] * scale)
                 T.copy(acc_s, acc_s_cast)
-                T.copy(V[bz, k * BN : (k + 1) * BN, by, :], V_shared)
-                T.gemm(acc_s_cast, V_shared, acc_o, policy=T.GemmWarpPolicy.FullRow)
+                if second:
+                    T.copy(V[bz, k * BN : (k + 1) * BN, by, :], V_shared)
+                    T.gemm(acc_s_cast, V_shared, acc_o, policy=T.GemmWarpPolicy.FullRow)
                 T.reduce_sum(acc_s, ssum, dim=1)
                 for i in T.Parallel(BM):
                     lsum[i] = lsum[i] * sc[i] + ssum[i]
             for i, j in T.Parallel(BM, D):
                 acc_o[i, j] /= lsum[i]
             T.copy(acc_o, O_shared)
-            T.copy(O_shared, Out[bz, bx * BM : (bx + 1) * BM, by, :])
+            if store == "global":
+                T.copy(O_shared, Out[bz, bx * BM : (bx + 1) * BM, by, :])
 
     return fa
+
+
+def _same(x):
+    return x
 
 
 def decode_partial(
@@ -364,11 +545,13 @@ def decode_combine(B: int, H: int, D: int, split: int, **_):
     return comb
 
 
-def gemv_w4a16(N: int, K: int, group: int, n_part: int, reduce: int):
+def gemv_w4a16(
+    N: int, K: int, group: int, n_part: int, reduce: int, mk: int = 8, compute: bool = True
+):
     """TileLang's dequantize-GEMV pattern (examples/dequantize_gemm/example_dequant_gemv_fp16xint4):
     y = W x with W int4 (unsigned, offset 8) packed two per int8 along K, fp16 scale per group of
     `group` K elements; each warp one output row, 8 fp16 / 4 packed bytes per lane per step."""
-    mk = 8  # fp16 per 16-byte load
+    # mk: fp16 per load (8: a 16-byte load)
     mkc = mk // 2
     bk = reduce * mk
 
@@ -393,13 +576,19 @@ def gemv_w4a16(N: int, K: int, group: int, n_part: int, reduce: int):
                     a[v] = A[by, ko * bk + kr * mk + v]
                 for v in T.vectorized(mkc):
                     bq[v] = Bq[bx * n_part + ni, ko * (reduce * mkc) + kr * mkc + v]
+                if compute:
+                    for ki in T.serial(mk):
+                        bd[ki] = (
+                            T.Cast(
+                                "float16", (T.Cast("int32", bq[ki // 2]) >> ((ki % 2) * 4)) & 15
+                            )
+                            - T.float16(8)
+                        ) * Sc[bx * n_part + ni, (ko * bk + kr * mk) // group]
                 for ki in T.serial(mk):
-                    bd[ki] = (
-                        T.Cast("float16", (T.Cast("int32", bq[ki // 2]) >> ((ki % 2) * 4)) & 15)
-                        - T.float16(8)
-                    ) * Sc[bx * n_part + ni, (ko * bk + kr * mk) // group]
-                for ki in T.serial(mk):
-                    acc[0] += T.Cast("float", a[ki]) * T.Cast("float", bd[ki])
+                    if compute:
+                        acc[0] += T.Cast("float", a[ki]) * T.Cast("float", bd[ki])
+                    else:
+                        acc[0] += T.Cast("float", a[ki]) + T.Cast("float", bq[0])
             with T.attr(
                 T.comm_reducer(lambda x, y: x + y, [T.cast(0, "float")]),
                 "reduce_scope",
@@ -414,44 +603,57 @@ def gemv_w4a16(N: int, K: int, group: int, n_part: int, reduce: int):
     return gemv
 
 
-def rmsnorm(M: int, N: int):
+def rmsnorm(
+    M: int,
+    N: int,
+    threads: int = 128,
+    compute: bool = True,
+    store: str = "global",
+    dtype: str = "float16",
+):
     """RMSNorm with weight (TileLang's examples/norm/rms_norm.py, fp16 in and out): one row per
     block of 128 threads, the row in registers, an fp32 sum of squares."""
 
     @T.prim_func
     def rms(
-        X: T.Tensor((M, N), "float16"),
-        W: T.Tensor((N,), "float16"),
-        Y: T.Tensor((M, N), "float16"),
+        X: T.Tensor((M, N), dtype),
+        W: T.Tensor((N,), dtype),
+        Y: T.Tensor((M, N), dtype),
     ):
-        with T.Kernel(M, threads=128) as bx:
-            x = T.alloc_fragment((1, N), "float16")
+        with T.Kernel(M, threads=threads) as bx:
+            x = T.alloc_fragment((1, N), dtype)
             sq = T.alloc_fragment((1, N), "float")
             ss = T.alloc_fragment((1,), "float")
+            O = T.alloc_shared((1, N), dtype) if store == "shared" else None
             T.copy(X[bx : bx + 1, :], x)
-            for i, j in T.Parallel(1, N):
-                sq[i, j] = T.Cast("float", x[i, j]) * T.Cast("float", x[i, j])
-            T.reduce_sum(sq, ss, dim=1)
-            for i in T.Parallel(1):
-                ss[i] = T.rsqrt(ss[i] / N + 1e-6)
-            for i, j in T.Parallel(1, N):
-                x[i, j] = T.Cast(
-                    "float16", T.Cast("float", x[i, j]) * ss[i] * T.Cast("float", W[j])
-                )
-            T.copy(x, Y[bx : bx + 1, :])
+            if compute:
+                for i, j in T.Parallel(1, N):
+                    sq[i, j] = T.Cast("float", x[i, j]) * T.Cast("float", x[i, j])
+                T.reduce_sum(sq, ss, dim=1)
+                for i in T.Parallel(1):
+                    ss[i] = T.rsqrt(ss[i] / N + 1e-6)
+                for i, j in T.Parallel(1, N):
+                    x[i, j] = T.Cast(
+                        dtype, T.Cast("float", x[i, j]) * ss[i] * T.Cast("float", W[j])
+                    )
+            if store == "shared":
+                T.copy(x, O)
+            else:
+                T.copy(x, Y[bx : bx + 1, :])
 
     return rms
 
 
-def softmax(M: int, N: int):
+def softmax(M: int, N: int, threads: int = 128, store: str = "global"):
     """Row softmax (fp16 in and out, exp2 with the log2(e) scale, fp32 max and sum): one row per
     block of 128 threads."""
 
     @T.prim_func
     def smax(X: T.Tensor((M, N), "float16"), Y: T.Tensor((M, N), "float16")):
-        with T.Kernel(M, threads=128) as bx:
+        with T.Kernel(M, threads=threads) as bx:
             x = T.alloc_fragment((1, N), "float16")
             s = T.alloc_fragment((1, N), "float")
+            O = T.alloc_shared((1, N), "float16") if store == "shared" else None
             mx = T.alloc_fragment((1,), "float")
             sm = T.alloc_fragment((1,), "float")
             T.copy(X[bx : bx + 1, :], x)
@@ -463,7 +665,10 @@ def softmax(M: int, N: int):
             T.reduce_sum(s, sm, dim=1)
             for i, j in T.Parallel(1, N):
                 x[i, j] = T.Cast("float16", s[i, j] / sm[i])
-            T.copy(x, Y[bx : bx + 1, :])
+            if store == "shared":
+                T.copy(x, O)
+            else:
+                T.copy(x, Y[bx : bx + 1, :])
 
     return smax
 
@@ -593,6 +798,13 @@ def _setup(entry: str, smem: int, tag: str = "") -> str:
     )
 
 
+def _wanted(name: str) -> bool:
+    if not re.search(os.environ.get("ONLY", "."), name):
+        return False
+    i, n = (int(x) for x in os.environ.get("SHARD", "0/1").split("/"))
+    return sum(name.encode()) % n == i
+
+
 def write(
     out: Path,
     name: str,
@@ -607,6 +819,8 @@ def write(
 ):
     """`sizes` in elements of each buffer, `elem_bytes` per buffer (default 2, fp16); `writes` the
     indices of the buffers the kernel writes (default the last)."""
+    if not _wanted(name):
+        return
     c = _compiled(func)
     eb = elem_bytes or [2] * len(sizes)
     nbytes = [n * b for n, b in zip(sizes, eb, strict=True)]
@@ -650,6 +864,8 @@ def write_sequence(out: Path, name: str, members: list[dict], buffers: dict[str,
     """Several kernels launched in order, one input set per sequence, as a generic program form:
     `members` (func, grid, threads, reads, writes: buffer names), `buffers` name -> bytes. The
     harness times the whole sequence (kernel, b2b, graph as `write`; per sequence)."""
+    if not _wanted(name):
+        return
     order = list(buffers)
     d = out / name
     d.mkdir(parents=True, exist_ok=True)
@@ -754,6 +970,8 @@ def main(out: Path) -> None:
         ("w4gemm", _w4gemm),
         ("decode_seq", _decode_seq),
         ("blind", _blind),
+        ("whatif", _whatif),
+        ("blind7", _blind7),
     ):
         try:  # a kernel that fails to generate is reported; the others stand
             gen(out)
@@ -909,6 +1127,246 @@ def _blind(out: Path) -> None:
     M, N = SOFTMAX_BLIND["M"], SOFTMAX_BLIND["N"]
     info = {"family": "softmax", "shape": SOFTMAX_BLIND, "pick": {"threads": 128}, "cache": "warm"}
     write(out, f"softmax_m{M}_n{N}_warm", softmax(M, N), [M * N, M * N], [M], 128, info)
+
+
+def _wi(name: str, base: str, axis: str) -> dict:
+    return {} if axis == "base" else {"whatif": {"base": base, "axis": axis}}
+
+
+def _whatif(out: Path) -> None:
+    """Round 7: one change at a time from a base kernel, each measured and replayed from its own
+    compiled code; the base is in the same batch."""
+    for table, tag in ((WI_HGEMM, "b"), (WI_HGEMM2, "L_s3"), (WI_HGEMM3, "S_s4")):
+        for cache in ("warm", "rotating"):
+            for v, (bm, bn, bk, s, th, panel, opt, axis) in table.items():
+                sh = SHAPE
+                h = {
+                    "block_M": bm,
+                    "block_N": bn,
+                    "block_K": bk,
+                    "num_stages": s,
+                    "threads": th,
+                    "swizzle": panel,
+                }
+                info = {
+                    "family": "hgemm",
+                    "shape": sh,
+                    "pick": h,
+                    "smem_estimate": s * (bm + bn) * bk * 2,
+                    "cache": cache,
+                    "set": f"whatif hgemm {cache}",
+                    **_wi(v, f"wi_hg_{tag}_{cache}", axis),
+                }
+                M, N, K = sh["M"], sh["N"], sh["K"]
+                fp = (M * K + K * N + M * N) * 2
+                write(
+                    out,
+                    f"wi_hg_{v}_{cache}",
+                    hgemm(bm, bn, bk, s, th, panel, sh, **opt),
+                    [M * K, K * N, M * N],
+                    [-(-N // bn), -(-M // bm), 1],
+                    th,
+                    info,
+                    rot=1 if cache == "warm" else _rot(fp),
+                )
+    for v, (kw, axis) in WI_FA.items():
+        kw = dict(kw)
+        base = kw.pop("base", "b")
+        f = {**FA, **kw}
+        n = f["B"] * f["S"] * f["H"] * f["D"]
+        for cache in ("warm", "rotating"):
+            if cache == "rotating" and v not in ("b", "s1", "s3", "nostore"):
+                continue
+            info = {
+                "family": "fa_forward",
+                "shape": {k: f[k] for k in ("B", "S", "H", "D")},
+                "pick": {k: f[k] for k in ("BM", "BN", "stages", "threads")},
+                "cache": cache,
+                "set": f"whatif fa {cache}",
+                **_wi(v, f"wi_fa_{base}_{cache}", axis),
+            }
+            write(
+                out,
+                f"wi_fa_{v}_{cache}",
+                fa_forward(**f),
+                [n, n, n, n],
+                [-(-f["S"] // f["BM"]), f["H"], f["B"]],
+                f["threads"],
+                info,
+                rot=1 if cache == "warm" else _rot(4 * n * 2),
+            )
+    for v, (kw, axis) in WI_GEMV.items():
+        c = {**GEMV, **kw}
+        N, K, g = c["N"], c["K"], c["group"]
+        sizes, eb = [K, N * K // 2, N * K // g, N], [2, 1, 2, 2]
+        fp = sum(s * b for s, b in zip(sizes, eb, strict=True))
+        for cache in ("warm", "rotating"):
+            info = {
+                "family": "gemv_w4a16",
+                "shape": {"N": N, "K": K},
+                "pick": c,
+                "cache": cache,
+                "set": f"whatif gemv {cache}",
+                **_wi(v, f"wi_gemv_b_{cache}", axis),
+            }
+            write(
+                out,
+                f"wi_gemv_{v}_{cache}",
+                gemv_w4a16(**c),
+                sizes,
+                [-(-N // c["n_part"]), 1],
+                (c["reduce"], c["n_part"]),
+                info,
+                elem_bytes=eb,
+                rot=1 if cache == "warm" else _rot(fp),
+            )
+    M, N = ROWS["M"], ROWS["N"]
+    for v, (kw, axis) in WI_RMS.items():
+        eb = 4 if kw.get("dtype") == "float" else 2
+        for cache in ("warm", "rotating"):
+            info = {
+                "family": "rmsnorm",
+                "shape": ROWS,
+                "pick": {"threads": kw.get("threads", 128)},
+                "cache": cache,
+                "set": f"whatif rmsnorm {cache}",
+                **_wi(v, f"wi_rms_b_{cache}", axis),
+            }
+            write(
+                out,
+                f"wi_rms_{v}_{cache}",
+                rmsnorm(M, N, **kw),
+                [M * N, N, M * N],
+                [M],
+                kw.get("threads", 128),
+                info,
+                elem_bytes=[eb, eb, eb],
+                rot=1 if cache == "warm" else _rot((2 * M * N + N) * eb),
+            )
+    for v, (kw, axis) in WI_SOFTMAX.items():
+        info = {
+            "family": "softmax",
+            "shape": ROWS,
+            "pick": {"threads": kw.get("threads", 128)},
+            "cache": "warm",
+            "set": "whatif softmax warm",
+            **_wi(v, "wi_softmax_b_warm", axis),
+        }
+        write(
+            out,
+            f"wi_softmax_{v}_warm",
+            softmax(M, N, **kw),
+            [M * N, M * N],
+            [M],
+            kw.get("threads", 128),
+            info,
+        )
+    for v, (kw, axis) in WI_DECODE.items():
+        c = {**DECODE, **kw}
+        B, H, G, S, D, sp = c["B"], c["H"], c["G"], c["S"], c["D"], c["split"]
+        kv = B * S * G * D
+        sizes = [B * H * D, kv, kv, B * H * sp, B * H * sp * D]
+        vh = min(c["BH"], H // G)
+        for cache in ("warm", "rotating"):
+            info = {
+                "family": "decode_gqa",
+                "shape": {k: c[k] for k in ("B", "H", "G", "S", "D")},
+                "pick": {k: c[k] for k in ("BN", "BH", "split", "stages")},
+                "cache": cache,
+                "set": f"whatif decode {cache}",
+                **_wi(v, f"wi_dec_b_{cache}", axis),
+            }
+            write(
+                out,
+                f"wi_dec_{v}_{cache}",
+                decode_partial(**c),
+                sizes,
+                [B, H // vh, sp],
+                128,
+                info,
+                rot=1 if cache == "warm" else _rot(sum(sizes) * 2),
+                writes=(3, 4),
+            )
+    MM, NN, KK = SHAPE["M"], SHAPE["N"], SHAPE["K"]
+    bm, bn, bk, s, th = W4GEMM["c128x128x32_s3_t128"]
+    for v, (kw, axis) in WI_W4.items():
+        h = {"block_M": bm, "block_N": bn, "block_K": bk, "num_stages": s, "threads": th}
+        info = {
+            "family": "w4gemm",
+            "shape": SHAPE,
+            "pick": h,
+            "cache": "warm",
+            "set": "whatif w4gemm warm",
+            **_wi(v, "wi_w4_b_warm", axis),
+        }
+        write(
+            out,
+            f"wi_w4_{v}_warm",
+            w4gemm(bm, bn, bk, s, th, W4GEMM_GROUP, **kw),
+            [MM * KK, NN * KK // 2, NN * KK // W4GEMM_GROUP, MM * NN],
+            [-(-NN // bn), -(-MM // bm), 1],
+            th,
+            info,
+            elem_bytes=[2, 1, 2, 2],
+        )
+
+
+def _blind7(out: Path) -> None:
+    """Round 7: larger variant groups at a shape no engine has seen, for a blind Kendall tau."""
+    sh = HGEMM_BLIND7_SHAPE
+    M, N, K = sh["M"], sh["N"], sh["K"]
+    fp = (M * K + K * N + M * N) * 2
+    for name, (bm, bn, bk, s, th, panel) in HGEMM_BLIND7.items():
+        h = {
+            "block_M": bm,
+            "block_N": bn,
+            "block_K": bk,
+            "num_stages": s,
+            "threads": th,
+            "swizzle": panel,
+        }
+        for cache in ("warm", "rotating"):
+            info = {
+                "family": "hgemm",
+                "shape": sh,
+                "pick": h,
+                "smem_estimate": s * (bm + bn) * bk * 2,
+                "cache": cache,
+                "set": f"hgemm {M}x{N}x{K}" + (" rotating" if cache == "rotating" else ""),
+            }
+            write(
+                out,
+                f"hgemm_m{M}n{N}k{K}_{name}" + ("" if cache == "warm" else "_rotating"),
+                hgemm(bm, bn, bk, s, th, panel, sh),
+                [M * K, K * N, M * N],
+                [-(-N // bn), -(-M // bm), 1],
+                th,
+                info,
+                rot=1 if cache == "warm" else _rot(fp),
+            )
+    b = FA_BLIND7
+    n = b["B"] * b["S"] * b["H"] * b["D"]
+    for name, (bm, bn, s, th) in FA_BLIND7_V.items():
+        f = {**b, "BM": bm, "BN": bn, "stages": s, "threads": th}
+        info = {
+            "family": "fa_forward",
+            "shape": b,
+            "pick": {k: f[k] for k in ("BM", "BN", "stages", "threads")},
+            "cache": "warm",
+            "set": f"fa {b['S']}x{b['H']}x{b['D']}",
+        }
+        try:
+            write(
+                out,
+                f"fa_s{b['S']}_h{b['H']}_d{b['D']}_{name}",
+                fa_forward(**f),
+                [n, n, n, n],
+                [-(-b["S"] // bm), b["H"], b["B"]],
+                th,
+                info,
+            )
+        except Exception:  # noqa: BLE001 - a tile TileLang refuses leaves the group
+            print(f"FAILED fa {name}")
 
 
 def _gemv(out: Path) -> None:

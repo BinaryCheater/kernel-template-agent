@@ -219,7 +219,7 @@ def simulate_kernel(
     )
     tiles = math.ceil(M / h["block_M"]) * math.ceil(N / h["block_N"]) * split
     Rmax = occupancy(h, regs, smem, m)
-    trips = sass_trips(ins, h, KT - (h["num_stages"] - 1))
+    trips = sass_trips(ins, h, KT - (max(1, h["num_stages"]) - 1))
     if split == 1:
         sp = dram_split_kslice(h, shape, SMS * Rmax, cap=cap)
         if atomic_c:  # C added with atomics (fp32): lines not in the L2 are read from DRAM first

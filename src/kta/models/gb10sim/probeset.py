@@ -337,6 +337,45 @@ def dram_cases(b: Batch) -> list[Case]:
     return out
 
 
+def dram_burst_cases(b: Batch) -> list[Case]:
+    """Round 7: the dram_rotate replay at shorter bursts per launch (probe dram_burst)."""
+    txt = _sass(b, "probe-dram_burst")
+    out = []
+    for t in (256, 1024):
+        for n in (5, 10, 21, 42, 85):
+            ins = _k(txt, f"_Z6streamILi{t}ELi{n}EEvPK4int4Pi")
+            nbytes = 48 * 1024 * 16 * n
+
+            def build(ins=ins, t=t, nbytes=nbytes, **kw):
+                mm = kw.get("machine") or default_machine()
+                secs = nbytes / (mm.C["dram_read_GBs"] * 1e9)
+                return SM(
+                    ins,
+                    t,
+                    1,
+                    1,
+                    active_sms=48,
+                    ldg_lines=[(4, 512, False)],
+                    miss_frac=1.0,
+                    dram_clk_per_512B=dram_clk(nbytes, secs, 48, mm),
+                    **kw,
+                )
+
+            out.append(
+                _case(
+                    b,
+                    f"dram_burst t{t}_n{n}",
+                    "dram_burst",
+                    5,
+                    "us",
+                    build,
+                    lambda sm, r: r["cycles"] / (_ghz(b, sm.m) * 1e3) + _launch_event(sm.m),
+                    limit=200_000_000,
+                )
+            )
+    return out
+
+
 DRAM_RW_UN = 96 * 512 * 40  # dram_rw: int4 per plane
 DRAM_RW_MIX = ((2, 0), (2, 1), (1, 1), (1, 2), (0, 2))
 
@@ -559,6 +598,53 @@ def st256_cases(b: Batch) -> list[Case]:
                 )
 
             out.append(_case(b, f"st256 {name}_g{grid}", "st256", 4, "cycles", build, _span))
+    return out
+
+
+L2MIX_POINTS = (
+    *((x, 0, 32, 32, 0) for x in (1, 2, 4)),
+    *((0, x, 32, 32, 0) for x in (1, 2, 4)),
+    *(
+        (a, c, 32, 32, p)
+        for p in (0, 1)
+        for a, c in ((4, 1), (2, 1), (1, 1), (2, 2), (1, 2), (1, 4))
+    ),
+    *(
+        pt
+        for w, d in ((16, 16), (16, 64), (32, 64), (4, 4))
+        for pt in ((0, 2, w, d, 0), (2, 2, w, d, 0), (2, 2, w, d, 1))
+    ),
+)
+
+
+def l2mix_cases(b: Batch) -> list[Case]:
+    """Round 7: loads and stores per thread by byte ratio, store shape and phase (probe l2mix)."""
+    txt = _sass(b, "probe-l2mix")
+    out = []
+    for ld, st, w, d, p in L2MIX_POINTS:
+        kernel = f"_Z1kILi{ld}ELi{st}ELi{w}ELi{d}ELi{p}EEvPyPKyS0_Pj"
+        ins = _k(txt, kernel)
+        regs = regs_of(b, "probe-l2mix", kernel)
+        for grid in (96, 512):
+
+            def build(ins=ins, grid=grid, regs=regs, **kw):
+                m = kw.get("machine") or default_machine()
+                rmax = occupancy({"threads": 128}, regs, 0, m)
+                per_sm = math.ceil(grid / m.sms)
+                return BlockMarked(
+                    ins,
+                    128,
+                    per_sm,
+                    1,
+                    active_sms=min(grid, m.sms * rmax) / min(rmax, per_sm),
+                    resident=rmax,
+                    grid_blocks=grid,
+                    grid_dim=(grid, 1, 1),
+                    **kw,
+                )
+
+            cid = f"l2mix L{ld}_S{st}_W{w}_D{d}_P{p}_g{grid}"
+            out.append(_case(b, cid, "l2mix", 4, "cycles", build, _span))
     return out
 
 
@@ -1104,7 +1190,7 @@ def _generic_case(b: Batch, d: Path, L: dict[str, Any], regs: int, mode: str = "
     return _case(
         b,
         f"{d.name} {mode}",
-        f"testset {L['family']}" + ("" if mode == "kernel" else f" {mode}"),
+        f"testset {L.get('set', L['family'])}" + ("" if mode == "kernel" else f" {mode}"),
         7,
         "us",
         build,
@@ -1227,6 +1313,8 @@ def all_cases(batch_dir: Path) -> list[Case]:
         ("probe-l2share_copy", l2share_cases),
         ("probe-dram_rotate", dram_cases),
         ("probe-dram_rw", dram_rw_cases),
+        ("probe-dram_burst", dram_burst_cases),
+        ("probe-l2mix", l2mix_cases),
         ("probe-mma_pair", mma_pair_cases),
         ("probe-mma_types", mma_types_cases),
         ("probe-row_reduce", row_reduce_cases),

@@ -33,7 +33,11 @@ done
 
 # TileLang: generate the test set, then compile it and the TileLang-based probe in the image
 docker run --rm --gpus all -u "$(id -u):$(id -g)" -e HOME=/tmp -e ONLY="$only" -v "$root":/w -v "$out":/o -w /w "$image" sh -ec '
-  python perfmodel/testset/gen.py /o/testset > /o/testset-gen.log 2>&1 || { tail -40 /o/testset-gen.log; exit 1; }
+  for i in 0 1 2 3 4 5 6 7 8 9; do
+    SHARD=$i/10 python perfmodel/testset/gen.py /o/testset > /o/testset-gen-$i.log 2>&1 &
+  done
+  wait
+  cat /o/testset-gen-*.log > /o/testset-gen.log
   tl=$(python -c "import tilelang, os; print(os.path.dirname(tilelang.__file__))")
   inc="-I$tl/src -I$tl/3rdparty/cutlass/include"
   f="-O3 -arch=sm_121a -std=c++20 --expt-relaxed-constexpr -lcuda $inc"
@@ -45,12 +49,16 @@ docker run --rm --gpus all -u "$(id -u):$(id -g)" -e HOME=/tmp -e ONLY="$only" -
     nvdisasm -hex $d/k.cubin > $d/k.sass
     cuobjdump -res-usage $d/k.cubin > $d/res-usage.txt
   }
+  cp /w/perfmodel/probes/common.cuh /o/common.cuh
+  n=0
   for d in /o/testset/*/; do
     echo "$(basename $d)" | grep -Eq "$ONLY" || { rm -rf $d; continue; }
-    cp /w/perfmodel/probes/common.cuh /o/common.cuh
     sed -i "s|../../../probes/common.cuh|/o/common.cuh|" $d/harness.cu
-    build $d $d/harness.cu || { echo "FAILED $(basename $d)" >> /o/testset-failed.txt; rm -rf $d; }
+    ( build $d $d/harness.cu || { echo "FAILED $(basename $d)" >> /o/testset-failed.txt; rm -rf $d; } ) &
+    n=$((n + 1))
+    [ $((n % 12)) -eq 0 ] && wait
   done
+  wait
   # round 6: mma_pipe also from the image compiler (host build above), as the test set is built
   if echo probe-mma_pipe | grep -Eq "$ONLY"; then
     mkdir -p /o/probe-mma_pipe_i
