@@ -1,48 +1,53 @@
 # Performance model: state
 
-The single state file of the GB10 programme (28 §7, LOOP.md product 7). Updated 2026-11-04 at the end of round 1. Table: [error-table.md](error-table.md). Inventory: [29](../29-mechanism-inventory.md). Batches: `perfmodel/batches/<batch>/` (entry blocks, SASS, predictions, batch record, measured values); raw outputs `data/perfmodel/batches/<batch>/` (not in git).
+The single state file of the GB10 programme (28 §7, LOOP.md product 7). Updated 2026-11-04 at the end of round 2. Table: [error-table.md](error-table.md). Inventory: [29](../29-mechanism-inventory.md). Batches: `perfmodel/batches/<batch>/` (entry blocks, SASS, predictions, batch record, measured values); raw outputs `data/perfmodel/batches/<batch>/` (not in git).
 
 ## Where things stand
 
 | Item | State |
 | --- | --- |
-| GPU batches | r1 (probes + 10 HGEMMs; valid: clock drift −0.03 %, canaries +0.4 % / −0.4 %), r1fa (FA forward; valid). Clock 2.494 / 2.496 GHz, FFMA canary 490 µs, memory canary 2460 µs (the references for later batches) |
-| Test set | 10 TileLang HGEMMs at 2048³ (one shape, variants of tile, stages, threads, raster) and 1 TileLang FA forward (S 2048, H 8, D 128), warm. Decode attention, w4a16 GEMV, RMSNorm/softmax, grouped GEMM: not yet built |
-| Scorecard, test set | HGEMM 2048³: median 4.1 %, worst −12.4 %, 9/10 within 10 %, Spearman 0.65, 6 inversions, counts check 10/10, bottleneck 9/10. FA forward: −7.0 %, counts 1/1, bottleneck 1/1. The model is fast on 9 of 11 rows |
-| Scorecard, development rows | gemm1024 full median 4.4 % (was 5.3), worst −16.2 %, Spearman 0.82, 23 inversions; nocompute 5.2 % (was 6.7); noload 2.4 % (was 3.4); tma full 8.9 % (was 11.2) |
-| Probe set | 8 KTA probes, 72 points, all registered as table rows (tolerance 10 % per point; the open points below are the exceptions): smem_ldsts, shfl, ex2_ffma, namedbar, l1hit, store_tail (P-1), l2share_copy (P-2), dram_rotate |
-| Engine | New `smem_op` class (LDS, STS, SHFL); BAR.ARV does not block; streaming LDG DRAM latency; 11 parameters from probes (gb10.json `sim.value_source`) |
-| Not computed yet | the "mechanisms only" column (LOOP §4.4) |
+| GPU batches | r1, r1fa (round 1); r2 (probes, HGEMM and FA re-measured, softmax), r2b (decode, combine, GEMV), r2c (RMSNorm) in round 2, all valid: clock 2.485 / 2.485 / 2.484 GHz (drift −0.7 % to −0.8 %), canaries within +0.6 % |
+| Test set | 10 HGEMM 2048³ variants and FA forward (warm); round 2 added decode GQA split-KV partial (warm, rotating) and combine (warm), w4a16 GEMV 4096² (warm, rotating), RMSNorm 512×4096 (warm, rotating), softmax 512×4096 (warm). The split-KV sequence as a whole: `unsupported: multi-kernel sequence`. MoE grouped GEMM: not built |
+| Scorecard, test set (with fits / mechanisms only) | HGEMM 2048³ (r2 measurement): median 4.3 / 4.6 %, worst −12.1 / −12.3 %, Spearman 0.60 / 0.60, inversions 6 / 6, counts 10/10, bottleneck 9/10. FA −6.6 / −6.8 %. Decode partial warm −7.5 %, rotating +18.0 % (counts check fails both: not valid); combine +35 / +13 %; GEMV warm +215 %, rotating +1079 %; RMSNorm warm −44.5 %, rotating −48.1 %; softmax −21.7 % (counts check fails). Fits move only launch-dominated rows (combine, RMSNorm warm, softmax) |
+| Re-measurement | HGEMM r1 → r2 (second session): every variant within 0.4 % except c128x128x64_s2 (−0.9 %); FA +0.0 % (254.1 µs) |
+| Probe set | 10 KTA probes: round 1's 8 plus `mma_pair` (tensor pipe in the GEMM warp tile's loop, 1/48/96 blocks, start skew) and `l2share_stages` (P-2, stages × blocks); `smem_ldsts` gained 2, 3, 5, 6 warps |
+| Engine | rules unchanged in round 2; batch front end extended (probe builders, rotating rows in the generic front end); parameter statuses `l2_aggregate_B_per_clk_cpasync`, `sts_read_clk_per_128B` → `unidentified` |
 
 ## Error table: top valid rows
 
-Valid = counts check passed and cache state declared: the 11 test-set rows.
+Valid = counts check passed and cache state declared.
 
 | Row | Error | Attribution (top) |
 | --- | ---: | --- |
-| hgemm2048 c128x128x32_s3_t128_sw8 | −12.4 % | tensor queue (mma) 39 %, stall after mma 24 %, store queue 8 % |
-| hgemm2048 c128x128x32_s3_t128 | −7.3 % | tensor queue (mma) 41 % |
-| fa_fwd s2048 h8 d128 | −7.0 % | stall after mma 23 % |
-| hgemm2048 c128x256x32_s3_t256_sw4 | −5.4 % | tensor queue (mma) 46 % |
+| gemv_w4a16 n4096 k4096 rotating | +1079 % | load latency incl. DRAM queue 99 %; defaults: front end 4224 (ldg_lines), issue-only 6864 |
+| gemv_w4a16 n4096 k4096 warm | +215 % | chip L2 share queue 87 %; same defaults |
+| rmsnorm m512 n4096 rotating / warm | −48.1 / −44.5 % | DRAM latency 86 % / launch 50 % |
+| decode combine warm | +35.0 % | launch 78 % |
+| hgemm2048 c128x128x32_s3_t128_sw8 | −12.1 % | tensor queue (mma) 39 %, stall after mma 24 % |
 
-The two raster variants (sw8, sw4) measure the same as their unpanelled twins (221.7 vs 221.6 µs, 234.8 vs 236.7 µs); the model gives them 6–8 % from fewer DRAM misses.
+The GEMV and RMSNorm rows sit on the generic front end's load defaults (every LDG taken as 4 lines, 512 B, whatever its width: the `front end` default count) and, warm, on its all-hit L2 assumption (ncu without flush: L2 sector hit rate 6 % for GEMV, 2 % for decode, while GEMV warm runs at 506 GB/s).
 
 ## Open questions (experiment counts per mechanism, LOOP §3)
 
-1. **cp.async delivery under load (P-2, chip L2 share)** — 1 of 2. Per-SM delivery falls already at 16 blocks (13.6 µs vs 10.5), below the chip limit; none of flat chip rate / bytes-in-flight / lower chip rate survived. Next experiment: stages × blocks sweep (1, 2, 3 stages at 1, 16, 48 blocks) to test a load-dependent L2 latency with Little's law.
-2. **HGEMM 2048³ model fast** — 0 of 2. Tensor queue tops the path on 8 of 10 rows. Candidate: tensor pipe throughput or clock under full-chip mma load (the clock kernel is FFMA-only).
-3. **Raster panels give no gain on the GPU** — 0 of 2. L2 policy is `A` in the inventory (§5 row "L2 capacity and policy").
-4. **STS.128 at 4 warps** — 1 of 2. 7.02 measured vs 5.51 replayed (−22 %); all other STS points within 6 %.
-5. **Issue limit exceeded** — 1 of 2. `ex2_ffma E0_F32` (198 cycles for 280 instructions per sub-partition) and upstream F2I at 16 warps. Excluded (D758).
-6. **DRAM latency: copy 1560 vs streaming LDG 1100** — 0 of 2. Only LDG uses 1100.
-7. BAR.SYNC at 32 warps +19 %; L1 chase −4.3 %; dram_rotate at 128 threads −13 % (the knee). Below 3 % of any valid row's path: not refined.
-8. Decode rows' cache state (tma m128, m32): needs a rotating-input re-measurement of those upstream kernels. Not one of our test kernels.
-9. Silent default left: `BAR.RED` is treated as blocking. A TMA kernel without warp specialisation still gets the default latency.
-10. Two clocks: settled for KTA batches (measured per batch, D757); upstream rows keep 2.52 / 2.54.
+1. **Sharing between co-resident blocks** — 1 of 2. `mma_pair`: with a start skew the older block finishes almost as if alone (317 k cycles; alone 311 k; replay 356 k, +12 %), the pair's span is 694 k (replay 632 k, −9 %). The replay's sharing comes from the tensor pipe's queue order (swapping the issue pick to oldest-block-first changes no number). It is the replay's raster gap: the panelled twin's prologue desynchronises its pair. Next: find and change the queue-order rule, rescore the twins.
+2. **HGEMM 2048³ model fast** — 1 of 2. Not the tensor rate and not the clock: the warp tile's loop is replayed within 1.8 % at 1 and 48 blocks and −1.0 % at two blocks per SM; the in-kernel clock under full-chip tensor load is 2.493 GHz (alone 2.500). The loss is outside the mma loop (loads, block turnover, stores).
+3. **Raster panels give no gain on the GPU** — closed as an L2 question: the replay gives both twins the same DRAM traffic and ncu the same hit rate (93.2 / 92.8 % warm, r2; lookup misses 4.3 vs 8.5 MB). Moved to question 1.
+4. **Generic front end for non-GEMM kernels** — new, a front-end defect (system bug, no probe): LDG line counts by width and warm L2 hits (GEMV, RMSNorm); decode and softmax fail the counts check (branch fallbacks).
+5. **Issue limit exceeded** — 1 of 2 (unchanged): `ex2_ffma E0_F32`, upstream F2I at 16 warps. Excluded (D758).
+6. **DRAM latency: copy 1560 vs streaming LDG 1100** — 0 of 2 (unchanged).
+7. BAR.SYNC at 32 warps +19 %; L1 chase −4.3 %; dram_rotate at 128 threads −13 %: below 3 % of any valid row's path.
+8. Decode rows' cache state (tma m128, m32): needs a rotating re-measurement of those upstream kernels.
+9. Silent default: `BAR.RED` treated as blocking.
+10. Two clocks: settled for KTA batches (D757).
 
 ## Frozen parameters
 
-None frozen at `unidentified` yet. Values marked `fitted` that the table depends on: `launch_stream_us`, `tma_r_GBs_alone`, `tma_l2_aggregate_GBs`, `block_setup_us`. Still `assumed`: `sim.default_var_latency_clk` 20 and `sim.rbar_release_clk` 8.
+| Parameter | Value | Status | Why |
+| --- | --- | --- | --- |
+| `sim.l2_aggregate_B_per_clk_cpasync` (P-2) | 817.7 B/clk | `unidentified` | 2 experiments: 1 stage unchanged at 16 blocks (no latency rise), 2–4 stages −16 to −25 % at 16 blocks with the chip at 0.98 TB/s; flat share, Little's law and a lower chip rate all fail. Candidate on reopening: a share below the chip (TPC pair or GPC) |
+| `sim.sts_read_clk_per_128B` | 3.25 | `unidentified` | 2 experiments: STS.128 at 1–6 warps 23.1, 12.0, 8.7, 7.0, 5.6, 4.35; the rule is 4–22 % fast at 2–5 warps; a per-sub-partition limit (5 warps slower than 4) fails |
+
+Values marked `fitted` that the table depends on: `launch_stream_us`, `tma_r_GBs_alone`, `tma_l2_aggregate_GBs`, `block_setup_us`. Still `assumed`: `sim.default_var_latency_clk` 20 and `sim.rbar_release_clk` 8.
 
 ## Fit ledger
 
@@ -50,7 +55,7 @@ None frozen at `unidentified` yet. Values marked `fitted` that the table depends
 | --- | --- | --- | --- | --- |
 | launch_stream_us | launch | 2.6 µs | upstream ablation harness (fitted) | gemm1024 nocompute rows up to 12 %; test-set rows about 1 % |
 
-No fit was added in round 1.
+No fit was added in rounds 1 and 2. The mechanisms-only column (D760) shows the launch fit (2.6 vs 2.05 us) moving the launch-dominated new rows by up to 22 points (combine +35 to +13 %), the HGEMMs by 0.2-0.3.
 
 ## Round reports
 
@@ -64,4 +69,16 @@ Scorecard: test set first scored: HGEMM median 4.1 %, worst −12.4 %, Spearman 
 New mechanism: yes — inventory: LDS/STS X → M, SHFL X → M, ex2 beside FFMA X → M, BAR.ARV X → M, BAR.SYNC base A → M, clock A → M (KTA batches); store port and chip store limit re-measured; chip L2 share marked as a wrong rule.
 Fits: none added; largest fit share on a path: launch 12 % (gemm1024 nocompute rows), about 1 % on test-set rows.
 Next: worst valid row hgemm2048 c128x128x32_s3_t128_sw8 (−12.4 %): tensor queue 39 %, a measured mechanism, so the probe tests the rule: mma throughput and clock under full-chip tensor load; with P-2's second experiment (stages × blocks) in the same batch.
+```
+
+```
+Round 2: batches r2 + r2b + r2c — probes mma_pair (tensor pipe, block sharing, clock under load), l2share_stages (P-2 second experiment), STS.128 at 2–6 warps; HGEMM/FA re-measured; 7 new test rows (decode GQA, combine, w4a16 GEMV, RMSNorm, softmax; warm and rotating).
+Question: worst valid row hgemm2048 sw8 −12.4 % (tensor queue 39 %); raster twins measure equal, the replay gives the panel 5.5 %; P-2 and STS.128 at 1 of 2.
+Hypotheses: mma rule / clock drop under full-chip tensor load / chip tensor limit; block sharing fair / oldest-first; P-2 flat share / Little's law / lower chip rate; STS rule / per-sub-partition limit.
+Result: mma rule holds (+1.8 % at 1 and 48 blocks, −1.0 % at 2/SM), clock 2.493 GHz under load (alone 2.500); the older block of a skewed pair runs almost as alone (317 k vs 311 k; replay 356 k); raster: same DRAM traffic in the replay, same L2 hit in ncu, so the gap is the replay's block sharing; P-2: none survived; STS: none survived.
+Change: no engine rule; P-2 and STS parameters frozen `unidentified` (D764); mechanisms-only column (D760); ncu without its cache flush (D761); generic front end takes rotating rows (D763).
+Scorecard: HGEMM (r2 data, engine same) median 4.1 → 4.3 %, worst −12.4 → −12.1 %, Spearman 0.65 → 0.60, inversions 6 → 6; mechanisms only 4.6 % / 0.60 / 6; new rows GEMV +215 / +1079 %, RMSNorm −45 / −48 %, combine +35 %, softmax −22 %, decode −7.5 / +18 % (counts check fails).
+New mechanism: no; inventory warp scheduler M → P (between blocks), tensor pipe confirmed at chip scale, clock under tensor load measured, chip L2 share and STS `unidentified`.
+Fits: none added; mechanisms-only gap largest on launch-dominated new rows (combine 22 points), HGEMM 0.2.
+Next: worst valid row GEMV rotating +1079 %: the generic front end's LDG line count by width and its warm all-hit L2 (a front-end defect, fixed without a probe); then block sharing in the tensor queue (question 1) for the HGEMM ranking.
 ```

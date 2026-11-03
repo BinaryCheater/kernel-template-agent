@@ -302,7 +302,7 @@
    "mio_ldgsts_clk": "measured",
    "smem_array_clk_per_512B": "measured",
    "l2_return_clk_per_512B": "measured",
-   "l2_aggregate_B_per_clk_cpasync": "measured",
+   "l2_aggregate_B_per_clk_cpasync": "unidentified",
    "lsu_clk_per_line": "measured",
    "stg_tpc_clk_per_instr_4B": "measured",
    "stg_tpc_clk_per_instr_16B": "measured",
@@ -336,7 +336,7 @@
    "lds_latency_clk": "measured",
    "lds_latency_B_per_clk": "measured",
    "ldg_dram_latency_clk": "measured",
-   "sts_read_clk_per_128B": "measured"
+   "sts_read_clk_per_128B": "unidentified"
   },
   "value_source": {
    "mio_smem_op_clk": "probe smem_ldsts.cu STS.32 one warp 5.07 cycles per instruction, shfl.cu one warp 5.0 (batch r1)",
@@ -344,12 +344,13 @@
    "shfl_latency_clk": "probe shfl.cu: dependent SHFL.BFLY chain 28.0 cycles per hop (batch r1)",
    "lds_latency_clk": "probe smem_ldsts.cu: dependent LDS chains 41.4 / 46.0 / 55.4 cycles per hop for 4 / 8 / 16 B per lane, less the chain's ALU ops: 28 / 32 / 40 = 24 + bytes/32 (batch r1)",
    "lds_latency_B_per_clk": "probe smem_ldsts.cu (see lds_latency_clk)",
-   "sts_read_clk_per_128B": "probe smem_ldsts.cu: STS.128 one warp 23.1 cycles per store + its MOV (the MOV waits for the store's read counter); 3.25 cycles per 128 B after the array (batch r1); STS.128 at 4 warps stays 22 % off (7.02 measured, 5.51 replayed)",
+   "sts_read_clk_per_128B": "probe smem_ldsts.cu: STS.128 one warp 23.1 cycles per store + its MOV (the MOV waits for the store's read counter); 3.25 cycles per 128 B after the array (batch r1); STS.128 at 4 warps stays 22 % off (7.02 measured, 5.51 replayed) Round 2 (batch r2, 1-6 warps): STS.128 23.07, 12.04, 8.69, 7.02, 5.62, 4.35 cycles per instruction per SM at 1-6 warps, 4.01 from 8; the replay is 4-22 % fast at 2-5 warps; neither this rule nor a per-sub-partition limit (5 warps slower than 4) fits; frozen after 2 experiments (LOOP §3)",
    "ldg_dram_latency_clk": "probe dram_rotate.cu: one LDG.128 in flight per warp streaming from DRAM, 48 x 32/64 threads: 55.8 / 107.6 GB/s for 24 / 48 KB in flight = 440 / 446 ns = 1100 cycles (batch r1); the dependent-chase 1560 stays for cp.async misses",
    "l1_clk_per_line": "probe l1hit.cu: LDG.128 L1 hits 4.06 cycles per 512 B per SM at 16-32 warps = 1 cycle per line (batch r1; upstream ldg_atomic.cu 7.4-8.5 replaced)",
    "bar_base_clk": "probe namedbar.cu: back-to-back bar.sync, 26.1 / 30.1 / 38.1 / 57.1 / 89.2 cycles at 2-32 warps: replay with base 4 + 2 per warp within 3 % up to 16 warps (32 warps +19 %) (batch r1)",
    "stg_chip_B_per_clk_4B": "probe store_tail.cu tl pattern, 32 and 48 blocks: 6.78 / 10.20 us per block = 122 B/clk for the chip (batch r1; was 137.8)",
-   "stg_tpc_clk_per_instr_16B": "probe store_tail.cu v16 pattern, 1-16 blocks: 0.67 / 1.23 us per block: replay within 2 % at 11 cycles per instruction per pair (batch r1; was 14)"
+   "stg_tpc_clk_per_instr_16B": "probe store_tail.cu v16 pattern, 1-16 blocks: 0.67 / 1.23 us per block: replay within 2 % at 11 cycles per instruction per pair (batch r1; was 14)",
+   "l2_aggregate_B_per_clk_cpasync": " Round 2 (batch r2, probe l2share_stages, stages 1-4 x blocks 1/16/48): with 1 stage the per-tile round trip is the same at 16 blocks as at 1 (15.35 vs 15.04 us), with 2-4 stages 16 blocks are 16-25 % slower than 1 (11.7-12.6 vs 10.0 us) at 0.98 TB/s for the chip, 48 blocks 17.4-19.1 us (about 794 B/clk); neither the flat chip share, a load-dependent latency (Little) nor a lower chip rate fits; a share below the chip (TPC pair or GPC) is a candidate. Frozen at 817.7 after 2 experiments (LOOP §3)"
   }
  },
  "l2_hit_vs_reuse_distance": {

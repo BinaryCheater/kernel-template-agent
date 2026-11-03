@@ -24,7 +24,7 @@ Status: written 2026-11-04 for phase P0 of [28](28-gb10-programme.md) §5. It li
 
 | Mechanism | Sources | Status | Kernels | Var |
 | --- | --- | --- | --- | --- |
-| Warp scheduler: one instruction per cycle per sub-partition, greedy then oldest; warp i → sub-partition i mod 4 | gb10 §4.2; `sched.cu`; 25; 26:07; TG | M (replayed: 14.91 vs 15.10 cycles per add) | all | H (issue width, policy) |
+| Warp scheduler: one instruction per cycle per sub-partition, greedy then oldest; warp i → sub-partition i mod 4 | gb10 §4.2; `sched.cu`; 25; 26:07; TG | P: M within a block (replayed: 14.91 vs 15.10 cycles per add); between two co-resident blocks (round 2, probe `mma_pair`, batch r2) the older block of a skewed pair finishes almost as if alone (317 k vs 311 k cycles alone; replay 356 k, +12 %); the replay's share comes from the tensor pipe's queue order, not the issue pick; open, 1 of 2 experiments | all | H (issue width, policy) |
 | Yield bit, reuse bits | gb10 §4.1, §8.7 | X (parsed, ignored) | all | — |
 | Stall counts from the control bits cover fixed latencies | gb10 §4.1, §4.3 | M (structural: compiler bits); `hmma_latency_clk` 29 is measured but unread | all | — |
 | Six dependency counters, wait mask, `DEPBAR.LE` | gb10 §4.3; PTX | M for LDSM (34 + 4/way), MUFU/XU (18), LDG, cp.async groups, STSM, UTMACMDFLUSH; A elsewhere | all | — |
@@ -41,7 +41,7 @@ Status: written 2026-11-04 for phase P0 of [28](28-gb10-programme.md) §5. It li
 
 | Mechanism | Sources | Status | Kernels | Var |
 | --- | --- | --- | --- | --- |
-| Tensor pipe per sub-partition: every `HMMA/IMMA/QMMA/OMMA` holds it 16 cycles; type sets FLOP/clk | gb10 §4.5 (`mma_rate.cu`, `mma_types.cu`); cov tensor; 26:04 | M | G, F, E, D | S (dtype, mma shape), H |
+| Tensor pipe per sub-partition: every `HMMA/IMMA/QMMA/OMMA` holds it 16 cycles; type sets FLOP/clk | gb10 §4.5 (`mma_rate.cu`, `mma_types.cu`); cov tensor; 26:04; probe `mma_pair` (round 2) | M; round 2 confirmed at chip scale in the HGEMM warp tile's loop (ldmatrix + 32 HMMA per k16): 310.5 k cycles at 1 and at 48 blocks (replay 316 k, +1.8 %), two blocks per SM 530 k (−1.0 %); no chip-level limit | G, F, E, D | S (dtype, mma shape), H |
 | mma issue beside FFMA on the same sub-partition (+43 % in B34) | gap#27; cov tensor | X | F (softmax beside mma) | H |
 | mma result latency beyond stall counts; accumulators in flight to saturate | gb10 §8.7; B31–B34 | X (stall counts only) | G, F | H |
 | FMA pipe: FFMA/FADD/FMUL 1 cycle; IMAD, IMUL, HFMA2, HADD2, HMUL2 2 cycles | gb10 §4.5 (`alu.cu`, `alumix.cu`) | M | all | H |
@@ -65,7 +65,7 @@ Status: written 2026-11-04 for phase P0 of [28](28-gb10-programme.md) §5. It li
 | Shared-memory array: 128 B/clk per SM, one queue shared by LDSM, STSM, cp.async data, TMA boxes and TMA-store reads | gb10 §4.6 (`smem_bw.cu`) | M | G, F, E | H |
 | ldmatrix latency 34 + 4 per extra way | gb10 §4.6 (`instlat.cu`; derivation of 34 not recorded) | A | G, F, E | H |
 | Bank conflicts | gb10 §4.6 (`smem_bw.cu`: 4 cycles × ways); cov banks | P: ldmatrix ways from the tile config when `smem_layout` is `linear`; not from addresses; none for LDS/STS | F, N | S (layout, swizzle), H |
-| Plain shared loads/stores `LDS`, `STS` | gb10 §4.6, §8.6; probe `smem_ldsts` (round 1, batch r1) | M (round 1): MIO slot 5 cycles; array max(2, bytes/128 B/clk); LDS latency 24 + bytes/32; STS register read 3.25 per 128 B after the array (STS.128 at 4 warps −22 %) | F, N, D | H |
+| Plain shared loads/stores `LDS`, `STS` | gb10 §4.6, §8.6; probe `smem_ldsts` (round 1, batch r1) | M (round 1): MIO slot 5 cycles; array max(2, bytes/128 B/clk); LDS latency 24 + bytes/32; STS register read 3.25 per 128 B after the array (STS.128 at 4 warps −22 %); round 2 (2–6 warps): 12.0, 8.7, 7.0, 5.6, 4.35 cycles, neither this rule nor a per-sub-partition limit fits: `unidentified`, frozen after 2 experiments | F, N, D | H |
 | Shuffles `SHFL` | gap#33; cov shuffle; probe `shfl` (round 1, batch r1) | M (round 1): MIO slot 5 cycles, 2 cycles on the shared-memory array per instruction, latency 28 | N, F, D | H |
 | Shared-memory atomics `ATOMS`, CAS loops | gb10 §6.7 (GEMV driver, not copied) | X | Q (TileLang split GEMV reduction) | — |
 | Shared memory vs L1 carve-out | cov L1; gap#7 | P (smem capacity enters residency; L1 capacity does not exist) | all | S, H |
@@ -96,8 +96,8 @@ Status: written 2026-11-04 for phase P0 of [28](28-gb10-programme.md) §5. It li
 | Local memory (spills) `LDL`/`STL`: 4 cycles per line | gb10 §4.8 | M | any spilling kernel | S (registers) |
 | Constant loads `LDC` | — | X (default latency) | all (prologue) | — |
 | Per-SM L2 return port: 30.7 B/clk (16.7 cycles per 512 B) | gb10 §4.7 (`loopsteps.cu`) | M | G, E, D | H |
-| Chip L2 rate for copy traffic 817.7 B/clk, shared by blocks in flight | gb10 §4.7, §6.3 (`loopsteps.cu`, `l2share.cu`); probe `l2share_copy` = P-2 (round 1) | M, but the rule is wrong (round 1): per-SM delivery drops already at 16 blocks (13.6 µs vs 10.5 replayed); open, 1 of 2 experiments | G, E, D, Q | H |
-| L2 capacity (effective 16.78 MB) and policy: two-list LRU over k-slices of lockstep waves | gb10 §6.4, §8.2 (`l2policy.cu`) | A (capacity measured; policy chosen, over-counts panelled and multi-wave patterns by 20–35 %) | G, E, D | S (swizzle, raster), H |
+| Chip L2 rate for copy traffic 817.7 B/clk, shared by blocks in flight | gb10 §4.7, §6.3 (`loopsteps.cu`, `l2share.cu`); probe `l2share_copy` = P-2 (round 1) | M, rule wrong, `unidentified` (frozen after 2 experiments): round 1 per-SM delivery drops already at 16 blocks (13.6 µs vs 10.5 replayed); round 2 (probe `l2share_stages`, stages 1–4 × 1/16/48 blocks) the round trip with 1 stage is unchanged at 16 blocks, 2–4 stages lose 16–25 % at 16 blocks with the chip at 0.98 TB/s; not latency, not the chip rate; candidate: a share below the chip (TPC pair or GPC) | G, E, D, Q | H |
+| L2 capacity (effective 16.78 MB) and policy: two-list LRU over k-slices of lockstep waves | gb10 §6.4, §8.2 (`l2policy.cu`) | A (capacity measured; policy chosen, over-counts panelled and multi-wave patterns by 20–35 %); round 2: for the HGEMM 2048³ raster twins the replay gives both the same DRAM traffic (16.8 MB) and ncu the same L2 hit rate (93.3 / 92.7 %, batch r1): the replay's raster gap does not come from this row (see the warp scheduler row) | G, E, D | S (swizzle, raster), H |
 | L2 hit-vs-reuse-distance curve | `gb10.json` `l2_hit_vs_reuse_distance` | X in the engine (analytical model only) | G, D | H |
 | Back-to-back L2 carry-over between runs (`stream_b2b.cu`) | gb10 §6.7, §8.5 | X (GEMV driver not copied) | D, Q | — |
 | L2 latency under load | — | X (fixed) | all | H |
@@ -136,12 +136,12 @@ Status: written 2026-11-04 for phase P0 of [28](28-gb10-programme.md) §5. It li
 | Unequal per-CTA work, persistent / work-queue scheduling | 28 §5 (P4) | X | E, F (causal), D | S |
 | Launch overhead: 2.6 µs per stream launch; 0.43 µs per graph kernel | gb10 §6.6 (`launch.cu`) | M (stream); graph value unused by the table | all | S (graphs) |
 | Multi-kernel sequences (gaps between kernels with work: 3.1 µs) | gb10 §6.6 | X (one kernel per run) | D (split + combine) | S |
-| Clock: cycles → time | gb10 §6.6, §12 (`clock.cu`, `sustain.cu`); protocol clock kernel (round 1) | M for KTA batches: 2.494 GHz (r1), 2.496 (r1fa) from a dependent FFMA chain against event time; upstream rows keep 2.52 / 2.54 | all | — |
+| Clock: cycles → time | gb10 §6.6, §12 (`clock.cu`, `sustain.cu`); protocol clock kernel (round 1) | M for KTA batches: 2.494 GHz (r1), 2.496 (r1fa), 2.485 (r2) from a dependent FFMA chain against event time; under full-chip tensor load 2.493 GHz in the kernel (`mma_pair` b48, clock64 against globaltimer), as alone (2.500); upstream rows keep 2.52 / 2.54 | all | — |
 | Power and thermal states | 26:09 | X | all | H |
 
 ## 8. Counts
 
-Rows: 84. M 35, A 10, P 4, X 33, F 2 after round 1 (before: M 29, A 12, X 37; round 1 measured LDS/STS, SHFL, ex2 beside FFMA, BAR.ARV, the BAR.SYNC base and the clock). A row that carries two codes is counted by its first.
+Rows: 84. M 34, A 10, P 5, X 33, F 2 after round 2 (round 2: the warp scheduler row M → P between co-resident blocks; chip L2 share and STS frozen `unidentified`). After round 1: M 35, A 10, P 4, X 33, F 2 (before: M 29, A 12, X 37; round 1 measured LDS/STS, SHFL, ex2 beside FFMA, BAR.ARV, the BAR.SYNC base and the clock). A row that carries two codes is counted by its first.
 
 What this says, before any kernel error is examined:
 
