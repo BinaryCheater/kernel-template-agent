@@ -603,6 +603,7 @@ class SM:
         s = w.smsp
         self.count["issued"] += 1
         executes = x.pred != "@!PT"
+        pv = None
         if x.pred and x.pred != "@!PT":
             pv = self._pred(w, x.pred[1:])
             # a predicate known from the thread index decides; unknown ones keep the old rule (the
@@ -611,7 +612,8 @@ class SM:
                 executes = False
         pend = None
         if w.lanes is not None:
-            runs = True if not x.pred else (False if not executes else (pv if x.pred else True))
+            # the guard as the lane tracking sees it: none, known false, known true or unknown
+            runs = True if not x.pred else (False if not executes else pv)
             pend = w.lanes.step(x.base, x.op, x.args.split(","), w.vals, runs)
         self._eval_pred_ops(w, x)
         if pend is not None:

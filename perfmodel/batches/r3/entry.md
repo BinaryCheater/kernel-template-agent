@@ -41,3 +41,26 @@ Round 2's `mma_pair` (batch r2): with a start skew of 16384 FFMA iterations the 
 | FP8 GEMM (TileLang examples/gemm_fp8 pattern), 128×128×64 s3 t128 and 128×256×64 s3 t256 | 2048³, A M×K and B N×K e4m3, fp32 accumulation, fp16 C | warm | HGEMM front end on the byte-equivalent fp16 tile (block_K / 2, K / 2; `kta:fixture` in probeset.py): same bytes, lines and mma count; SASS `QMMA.16832.F32.E4M3.E4M3` (16 cycles on the tensor pipe, `mma_types.cu`) |
 
 Engine predictions (µs): 115.1 and 122.5. All round-2 kernels are re-measured in this batch with the same SASS.
+
+## After the run (round 3, step 4–5)
+
+Batch valid: clock 2.4938 → 2.4755 GHz (drift −0.7 %), canaries +0.6 % / +0.4 %.
+
+**l2reuse.** ca warm, µs (GB/s): 1.5 MiB 1.02 (1536), 6 MiB 3.36 (1873), 12 MiB 6.27 (2006), 15 MiB 8.99, 16.5 MiB 9.95, 18 MiB 14.9, 20.25 MiB 21.2, 24 MiB 71.4 (352), 32.25 MiB 124 (273); cold 235 GB/s at every size. Miss fraction (span between the all-hit 0.52 µs/MiB and the cold 4.45 µs/MiB): 0.02, 0.02, 0.08, 0.13, 0.62, 0.85 from 15 MiB up. cg the same. cs warm = cold from 6 MiB (all hits at 1.5 MiB). H-full rejected (24 MiB still 38 % hits, 18–20 MiB already missing); H-part survives (close to upstream `l2_carryover_b2b`); H-stream holds for cs only. in4 is not a clean re-read meter: at small sizes the four passes take the cold time (later passes hit lines still pending), so it is not used for the curve. Counters: H-ncu-flush — `lts__d_sectors_fill_sysmem` equals the read sectors in every profiled point, warm (n2, n16, n32, n43) and cold alike, and the profiled time is 62 µs against 6.3 µs un-profiled for n16 warm; `lts__t_sectors_lookup_hit/miss` cover a small subset; `srcunit_tex` lookups report 100 % hits even cold. → D766, D767.
+
+**launch.** Empty kernel 2.40–2.46 µs for 1–1024 × 128 and 48–128 × 1024 threads; 2.62–2.91 at 262 k threads, 4.64 at 524 k, 6.69 at 1 M (H-grid beyond 131 k threads). tiny = empty within 0.1 µs up to 131 k threads. Back-to-back 1.96 µs per launch (1 block), 1.69 (512), 4.10 (4096). Work points, event − span: 2.30, 2.08, 3.26, 2.08, 2.62, 3.23, 3.55, 2.98 µs for spans 0.10–151 µs: neither constant nor shrinking (H-hide rejected), median 2.80 → `launch_event_us` (D769). The FFMA loop runs 23.0 cycles per iteration (replay 17.6): open question 4.
+
+**Block sharing.** Tried as a rule change on r2's mma_pair: oldest-block-first gives s0 first 319 k (measured 530 k), s4096 314 k (469 k), s16384 310 k (317 k); the current rule 524 k, 482 k, 356 k. With the skew loop at 23 cycles per iteration (block 2 starts at ≈ 94 k and ≈ 377 k cycles) fair sharing predicts 464 k and 311 k / 688 k span: fair survives, oldest-first rejected; no change (D768).
+
+**FP8 GEMM.** 123.1 and 137.6 µs measured, 115.1 and 122.5 predicted before the run (−6.5 %, −11.0 %); after the round's changes −4.3 %, −8.9 %; R1 2/2.
+
+**Ablations** (scorecard with one change off, r3 data; error with the change off → on):
+
+| Change | Rows that move | R1 |
+| --- | --- | --- |
+| LDG from lane addresses (D765) | GEMV rotating +1052 → +21.5 %, warm +220 → −9.9 %; combine +42.8 → +23.3 %; RMSNorm −46.8 / −36.9 → −41.5 / −35.1 %; softmax −31.3 → −28.2 %; decode −3.2 / +16.2 → −5.4 / +15.0 % | adds the sector check: GEMV 1360 vs 1344 sectors per block, RMSNorm 512 = 512, softmax 256 = 256, combine 96 = 96 |
+| FCHK fast path (D770) | softmax −21.6 → −28.2 %, FA −5.4 → −6.7 %, decode −3.4 / +15.7 → −5.4 / +15.0 % | decode 0/2 → 2/2 (22516 vs 22413 instructions per block), softmax 0/1 → 1/1 (2756 = 2756) |
+| warm L2 by footprint (D766) | FA −7.7 → −6.7 %, GEMV warm −11.0 → −9.9 % | — |
+| launch_event_us 2.80 for 2.6 (D769) | combine +15.3 → +23.3 %; RMSNorm warm −37.4 → −35.1 %; softmax −30.3 → −28.2 %; HGEMM median 4.5 → 4.4 % | — |
+
+HGEMM Spearman 0.62 and 8 inversions with every change on or off; on r2's data the same engine gave 0.60 and 6: the difference is the re-measurement (every variant within 0.5 % of r2; pairs near the 2 % noise threshold flip).
