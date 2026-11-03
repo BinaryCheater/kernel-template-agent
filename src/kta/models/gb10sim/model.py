@@ -184,8 +184,8 @@ def dram_split_kslice(
     M, N, K = shape["M"], shape["N"], shape["K"]
     bm, bn, bk = h["block_M"], h["block_N"], h["block_K"]
     panel = int(h.get("swizzle", 0) or 0)
-    cap = C["l2_effective_bytes"] if cap is None else cap  # rows past M are never read
-    key = (M, N, K, bm, bn, bk, panel, resident_blocks, cap)
+    limit: float = C["l2_effective_bytes"] if cap is None else cap  # rows past M are never read
+    key = (M, N, K, bm, bn, bk, panel, resident_blocks, limit)
     if key in _kslice_cache:
         return _kslice_cache[key]
     # per wave: A and B read misses, and the rows and columns of tiles in flight (neighbouring
@@ -197,7 +197,7 @@ def dram_split_kslice(
     # survives a 64 MB stream): two LRU lists, slices seen once (probation) and slices hit at least
     # once (protected); a hit promotes; eviction takes the oldest probation slice first, then the
     # oldest protected one
-    cache = Cache(float(cap))
+    cache = Cache(limit)
     per_wave = []
     order = list(launch_order(tiles_m, tiles_n, panel))
     for w in range(0, len(order), resident_blocks):
