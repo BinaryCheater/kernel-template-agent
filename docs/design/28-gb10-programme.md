@@ -63,6 +63,8 @@ Existing material enters at its level: the ~40 upstream probes of `agentic/tilel
 4. **Repetition.** N warm-ups, M timed runs; report median and IQR. A compute canary and a memory canary bracket every batch; a canary outside its band invalidates the batch.
 5. **Isolation.** One measurement job at a time on spark; profiling through the WP27 profiler helper.
 6. **Profiler for counts only.** A fixed metric list; replay mode, cache control and clock control declared; profiler durations are never used as timing references, and utilisation percentages are converted to absolute active cycles over the un-profiled cycle count before any comparison.
+Two construction skills fix the operations this section and §3 depend on: `.agents/skills/gb10-measure` (one comparable batch on spark) and `.agents/skills/write-probe` (one mechanism per probe, prediction before measurement, registration as a regression). The loop of §7 itself is not a skill.
+
 7. **Test tiers.** After each model change: re-run the ladder and the validation set on CPU (no GPU). GPU only for new data. One script produces the error table, which is the sole progress indicator.
 
 ### 5. Deliverables and phases
