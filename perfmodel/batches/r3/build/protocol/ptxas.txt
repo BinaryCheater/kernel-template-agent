@@ -3,19 +3,19 @@ ptxas info    : Compiling entry function '_Z4copyPK4int4PS_m' for 'sm_121a'
 ptxas info    : Function properties for _Z4copyPK4int4PS_m
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 14 registers, used 0 barriers
-ptxas info    : Compile time = 2.441 ms
+ptxas info    : Compile time = 2.535 ms
 ptxas info    : Compiling entry function '_Z10fma_canaryPf' for 'sm_121a'
 ptxas info    : Function properties for _Z10fma_canaryPf
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 12 registers, used 0 barriers
-ptxas info    : Compile time = 2.589 ms
+ptxas info    : Compile time = 2.686 ms
 ptxas info    : Compiling entry function '_Z4spinxPyPf' for 'sm_121a'
 ptxas info    : Function properties for _Z4spinxPyPf
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 14 registers, used 0 barriers
-ptxas info    : Compile time = 1.706 ms
+ptxas info    : Compile time = 1.756 ms
 ptxas info    : Compiling entry function '_Z5chainPfPy' for 'sm_121a'
 ptxas info    : Function properties for _Z5chainPfPy
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 10 registers, used 0 barriers
-ptxas info    : Compile time = 1.628 ms
+ptxas info    : Compile time = 1.655 ms

@@ -414,6 +414,113 @@ def l2stages_cases(b: Batch) -> list[Case]:
     return out
 
 
+L2REUSE_N = (2, 8, 16, 20, 22, 24, 27, 32, 43)  # steps of 48 x 1024 x 16 B = 0.75 MiB
+L2REUSE_KINDS = ("cg", "ca", "cs")
+
+
+def l2reuse_cases(b: Batch) -> list[Case]:
+    """Round 3 (probe l2reuse): F = 0.75 n MiB read by 48 blocks x 1024 threads, one 16-byte load
+    per thread per step; the in-kernel span. Modes: cold (after a read flush: every load a DRAM
+    miss), warm (back-to-back), in4 (four passes after a flush). The engine is told the miss
+    fraction of each mode by the warm rule under test (`l2_warm_miss`): cold 1, warm the rule's,
+    in4 (1 + 3 x the rule's) / 4."""
+    from .kernel import l2_warm_miss
+
+    txt = _sass(b, "probe-l2reuse")
+    out = []
+    for n in L2REUSE_N:
+        nbytes = n * 48 * 1024 * 16
+        for k, kind in enumerate(L2REUSE_KINDS):
+            for mode in ("cold", "warm", "in4"):
+                passes = 4 if mode == "in4" else 1
+                ins = _k(txt, f"_Z2rdILi{n}ELi{k}ELi{passes}EEvPK4int4PyPi")
+
+                def build(ins=ins, nbytes=nbytes, mode=mode, kind=kind, passes=passes, **kw):
+                    mm = kw.get("machine") or default_machine()
+                    w = l2_warm_miss(nbytes, kind, mm)
+                    miss = {"cold": 1.0, "warm": w, "in4": (1 + 3 * w) / 4}[mode]
+                    secs = nbytes / (mm.C["dram_read_GBs"] * 1e9)
+                    return SM(
+                        ins,
+                        1024,
+                        1,
+                        1,
+                        active_sms=48,
+                        ldg_lines=[(4, 512, False)],
+                        miss_frac=miss,
+                        dram_clk_per_512B=dram_clk(nbytes, secs, 48, mm),
+                        **kw,
+                    )
+
+                out.append(
+                    _case(
+                        b,
+                        f"l2reuse n{n}_{kind}_{mode}",
+                        "l2reuse",
+                        5,
+                        "us",
+                        build,
+                        lambda sm, r: r["cycles"] / (_ghz(b, sm.m) * 1e3),
+                        limit=200_000_000,
+                    )
+                )
+    return out
+
+
+LAUNCH_GRIDS = ((1, 128), (48, 128), (96, 128), (512, 128), (1024, 128), (2048, 128), (4096, 128))
+LAUNCH_GRIDS += ((8192, 128), (48, 1024), (128, 1024), (256, 1024), (512, 1024))
+LAUNCH_WORK = (0, 64, 128, 256, 512, 1024, 4096, 16384)
+
+
+def launch_cases(b: Batch) -> list[Case]:
+    """Round 3 (probe launch): event time of one launch with a synchronize after it, as the
+    test-set harness times kernels; the engine's row time is its replay of the kernel on one SM
+    plus its launch term."""
+    txt = _sass(b, "probe-launch")
+    empty, tiny = _k(txt, "_Z5emptyv"), _k(txt, "_Z4tinyPi")
+
+    def row(ins, threads, grid):
+        def build(**kw):
+            m = kw.get("machine") or default_machine()
+            per_sm = math.ceil(grid / m.sms)
+            return SM(ins, threads, per_sm, 1, active_sms=min(grid, m.sms), grid_blocks=grid, **kw)
+
+        return build
+
+    out = []
+    for g, t in LAUNCH_GRIDS:
+        for name, ins in (("empty", empty), ("tiny", tiny)):
+            out.append(
+                _case(
+                    b,
+                    f"launch {name}_g{g}_t{t}",
+                    "launch",
+                    1,
+                    "us",
+                    row(ins, t, g),
+                    lambda sm, r: (
+                        r["cycles"] / (_ghz(b, sm.m) * 1e3) + sm.m.param(sm.m.desc["launch_us"])
+                    ),
+                )
+            )
+    for i in LAUNCH_WORK:
+        ins = _k(txt, f"_Z4workILi{i}EEvPfPy")
+        out.append(
+            _case(
+                b,
+                f"launch work_i{i}",
+                "launch",
+                1,
+                "us",
+                row(ins, 128, 48),
+                lambda sm, r: (
+                    r["cycles"] / (_ghz(b, sm.m) * 1e3) + sm.m.param(sm.m.desc["launch_us"])
+                ),
+            )
+        )
+    return out
+
+
 def _launch(b: Batch, unit: str) -> dict[str, Any]:
     return json.loads((b.build / "testset" / unit / "launch.json").read_text())
 
@@ -428,12 +535,24 @@ def kernel_cases(b: Batch) -> list[Case]:
         regs = regs_of(b, f"testset/{d.name}", L["entry"])
         if L["family"] == "hgemm":
             out.append(_hgemm_case(b, d, L, regs))
+        elif L["family"] == "fp8gemm":
+            # kta:fixture byte-equivalent mapping: the HGEMM front end counts 2-byte elements, so
+            # an e4m3 tile of block_K bytes is replayed as a fp16 tile of block_K / 2 (same bytes,
+            # lines, DRAM traffic and mma count per k-tile); B's K-major layout is not modelled
+            eq = {
+                **L,
+                "pick": {**L["pick"], "block_K": L["pick"]["block_K"] // 2},
+                "shape": {**L["shape"], "K": L["shape"]["K"] // 2},
+            }
+            out.append(_hgemm_case(b, d, eq, regs, "testset fp8gemm2048"))
         else:
             out.append(_generic_case(b, d, L, regs))
     return out
 
 
-def _hgemm_case(b: Batch, d: Path, L: dict[str, Any], regs: int) -> Case:
+def _hgemm_case(
+    b: Batch, d: Path, L: dict[str, Any], regs: int, probe: str = "testset hgemm2048"
+) -> Case:
     def build(**kw):
         return _KernelRun(
             lambda sm_hook, machine, trace: simulate_kernel(
@@ -454,7 +573,7 @@ def _hgemm_case(b: Batch, d: Path, L: dict[str, Any], regs: int) -> Case:
     return _case(
         b,
         f"{d.name} kernel",
-        "testset hgemm2048",
+        probe,
         7,
         "us",
         build,
@@ -561,6 +680,8 @@ def all_cases(batch_dir: Path) -> list[Case]:
         ("probe-dram_rotate", dram_cases),
         ("probe-mma_pair", mma_pair_cases),
         ("probe-l2share_stages", l2stages_cases),
+        ("probe-l2reuse", l2reuse_cases),
+        ("probe-launch", launch_cases),
         ("testset", kernel_cases),
     ]
     for unit, f in builders:  # a batch built with `--only` has a subset of the units

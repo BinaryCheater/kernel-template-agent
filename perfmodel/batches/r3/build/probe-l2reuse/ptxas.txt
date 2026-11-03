@@ -3,274 +3,274 @@ ptxas info    : Compiling entry function '_Z2rdILi43ELi2ELi4EEvPK4int4PyPi' for 
 ptxas info    : Function properties for _Z2rdILi43ELi2ELi4EEvPK4int4PyPi
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 42 registers, used 1 barriers
-ptxas info    : Compile time = 4.063 ms
+ptxas info    : Compile time = 2.380 ms
 ptxas info    : Compiling entry function '_Z2rdILi43ELi2ELi1EEvPK4int4PyPi' for 'sm_121a'
 ptxas info    : Function properties for _Z2rdILi43ELi2ELi1EEvPK4int4PyPi
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 34 registers, used 1 barriers
-ptxas info    : Compile time = 2.693 ms
+ptxas info    : Compile time = 1.394 ms
 ptxas info    : Compiling entry function '_Z2rdILi43ELi1ELi4EEvPK4int4PyPi' for 'sm_121a'
 ptxas info    : Function properties for _Z2rdILi43ELi1ELi4EEvPK4int4PyPi
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 42 registers, used 1 barriers
-ptxas info    : Compile time = 3.033 ms
+ptxas info    : Compile time = 1.572 ms
 ptxas info    : Compiling entry function '_Z2rdILi43ELi1ELi1EEvPK4int4PyPi' for 'sm_121a'
 ptxas info    : Function properties for _Z2rdILi43ELi1ELi1EEvPK4int4PyPi
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 30 registers, used 1 barriers
-ptxas info    : Compile time = 2.594 ms
+ptxas info    : Compile time = 1.253 ms
 ptxas info    : Compiling entry function '_Z2rdILi43ELi0ELi4EEvPK4int4PyPi' for 'sm_121a'
 ptxas info    : Function properties for _Z2rdILi43ELi0ELi4EEvPK4int4PyPi
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 42 registers, used 1 barriers
-ptxas info    : Compile time = 1.753 ms
+ptxas info    : Compile time = 1.396 ms
 ptxas info    : Compiling entry function '_Z2rdILi43ELi0ELi1EEvPK4int4PyPi' for 'sm_121a'
 ptxas info    : Function properties for _Z2rdILi43ELi0ELi1EEvPK4int4PyPi
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 34 registers, used 1 barriers
-ptxas info    : Compile time = 1.274 ms
+ptxas info    : Compile time = 1.211 ms
 ptxas info    : Compiling entry function '_Z2rdILi32ELi2ELi4EEvPK4int4PyPi' for 'sm_121a'
 ptxas info    : Function properties for _Z2rdILi32ELi2ELi4EEvPK4int4PyPi
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 28 registers, used 1 barriers
-ptxas info    : Compile time = 1.225 ms
+ptxas info    : Compile time = 1.180 ms
 ptxas info    : Compiling entry function '_Z2rdILi32ELi2ELi1EEvPK4int4PyPi' for 'sm_121a'
 ptxas info    : Function properties for _Z2rdILi32ELi2ELi1EEvPK4int4PyPi
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 26 registers, used 1 barriers
-ptxas info    : Compile time = 1.107 ms
+ptxas info    : Compile time = 1.136 ms
 ptxas info    : Compiling entry function '_Z2rdILi32ELi1ELi4EEvPK4int4PyPi' for 'sm_121a'
 ptxas info    : Function properties for _Z2rdILi32ELi1ELi4EEvPK4int4PyPi
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 28 registers, used 1 barriers
-ptxas info    : Compile time = 1.227 ms
+ptxas info    : Compile time = 1.190 ms
 ptxas info    : Compiling entry function '_Z2rdILi32ELi1ELi1EEvPK4int4PyPi' for 'sm_121a'
 ptxas info    : Function properties for _Z2rdILi32ELi1ELi1EEvPK4int4PyPi
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 26 registers, used 1 barriers
-ptxas info    : Compile time = 1.103 ms
+ptxas info    : Compile time = 1.069 ms
 ptxas info    : Compiling entry function '_Z2rdILi32ELi0ELi4EEvPK4int4PyPi' for 'sm_121a'
 ptxas info    : Function properties for _Z2rdILi32ELi0ELi4EEvPK4int4PyPi
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 28 registers, used 1 barriers
-ptxas info    : Compile time = 1.198 ms
+ptxas info    : Compile time = 1.157 ms
 ptxas info    : Compiling entry function '_Z2rdILi32ELi0ELi1EEvPK4int4PyPi' for 'sm_121a'
 ptxas info    : Function properties for _Z2rdILi32ELi0ELi1EEvPK4int4PyPi
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 26 registers, used 1 barriers
-ptxas info    : Compile time = 1.093 ms
+ptxas info    : Compile time = 1.047 ms
 ptxas info    : Compiling entry function '_Z2rdILi27ELi2ELi4EEvPK4int4PyPi' for 'sm_121a'
 ptxas info    : Function properties for _Z2rdILi27ELi2ELi4EEvPK4int4PyPi
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 42 registers, used 1 barriers
-ptxas info    : Compile time = 1.420 ms
+ptxas info    : Compile time = 1.375 ms
 ptxas info    : Compiling entry function '_Z2rdILi27ELi2ELi1EEvPK4int4PyPi' for 'sm_121a'
 ptxas info    : Function properties for _Z2rdILi27ELi2ELi1EEvPK4int4PyPi
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 34 registers, used 1 barriers
-ptxas info    : Compile time = 1.269 ms
+ptxas info    : Compile time = 1.222 ms
 ptxas info    : Compiling entry function '_Z2rdILi27ELi1ELi4EEvPK4int4PyPi' for 'sm_121a'
 ptxas info    : Function properties for _Z2rdILi27ELi1ELi4EEvPK4int4PyPi
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 42 registers, used 1 barriers
-ptxas info    : Compile time = 1.443 ms
+ptxas info    : Compile time = 1.393 ms
 ptxas info    : Compiling entry function '_Z2rdILi27ELi1ELi1EEvPK4int4PyPi' for 'sm_121a'
 ptxas info    : Function properties for _Z2rdILi27ELi1ELi1EEvPK4int4PyPi
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 30 registers, used 1 barriers
-ptxas info    : Compile time = 1.265 ms
+ptxas info    : Compile time = 1.220 ms
 ptxas info    : Compiling entry function '_Z2rdILi27ELi0ELi4EEvPK4int4PyPi' for 'sm_121a'
 ptxas info    : Function properties for _Z2rdILi27ELi0ELi4EEvPK4int4PyPi
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 42 registers, used 1 barriers
-ptxas info    : Compile time = 1.433 ms
+ptxas info    : Compile time = 1.394 ms
 ptxas info    : Compiling entry function '_Z2rdILi27ELi0ELi1EEvPK4int4PyPi' for 'sm_121a'
 ptxas info    : Function properties for _Z2rdILi27ELi0ELi1EEvPK4int4PyPi
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 34 registers, used 1 barriers
-ptxas info    : Compile time = 1.256 ms
+ptxas info    : Compile time = 1.204 ms
 ptxas info    : Compiling entry function '_Z2rdILi24ELi2ELi4EEvPK4int4PyPi' for 'sm_121a'
 ptxas info    : Function properties for _Z2rdILi24ELi2ELi4EEvPK4int4PyPi
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 28 registers, used 1 barriers
-ptxas info    : Compile time = 1.185 ms
+ptxas info    : Compile time = 1.155 ms
 ptxas info    : Compiling entry function '_Z2rdILi24ELi2ELi1EEvPK4int4PyPi' for 'sm_121a'
 ptxas info    : Function properties for _Z2rdILi24ELi2ELi1EEvPK4int4PyPi
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 26 registers, used 1 barriers
-ptxas info    : Compile time = 1.075 ms
+ptxas info    : Compile time = 1.064 ms
 ptxas info    : Compiling entry function '_Z2rdILi24ELi1ELi4EEvPK4int4PyPi' for 'sm_121a'
 ptxas info    : Function properties for _Z2rdILi24ELi1ELi4EEvPK4int4PyPi
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 28 registers, used 1 barriers
-ptxas info    : Compile time = 1.203 ms
+ptxas info    : Compile time = 1.181 ms
 ptxas info    : Compiling entry function '_Z2rdILi24ELi1ELi1EEvPK4int4PyPi' for 'sm_121a'
 ptxas info    : Function properties for _Z2rdILi24ELi1ELi1EEvPK4int4PyPi
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 26 registers, used 1 barriers
-ptxas info    : Compile time = 1.100 ms
+ptxas info    : Compile time = 1.084 ms
 ptxas info    : Compiling entry function '_Z2rdILi24ELi0ELi4EEvPK4int4PyPi' for 'sm_121a'
 ptxas info    : Function properties for _Z2rdILi24ELi0ELi4EEvPK4int4PyPi
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 28 registers, used 1 barriers
-ptxas info    : Compile time = 1.166 ms
+ptxas info    : Compile time = 1.165 ms
 ptxas info    : Compiling entry function '_Z2rdILi24ELi0ELi1EEvPK4int4PyPi' for 'sm_121a'
 ptxas info    : Function properties for _Z2rdILi24ELi0ELi1EEvPK4int4PyPi
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 26 registers, used 1 barriers
-ptxas info    : Compile time = 1.073 ms
+ptxas info    : Compile time = 1.074 ms
 ptxas info    : Compiling entry function '_Z2rdILi22ELi2ELi4EEvPK4int4PyPi' for 'sm_121a'
 ptxas info    : Function properties for _Z2rdILi22ELi2ELi4EEvPK4int4PyPi
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 38 registers, used 1 barriers
-ptxas info    : Compile time = 1.385 ms
+ptxas info    : Compile time = 1.353 ms
 ptxas info    : Compiling entry function '_Z2rdILi22ELi2ELi1EEvPK4int4PyPi' for 'sm_121a'
 ptxas info    : Function properties for _Z2rdILi22ELi2ELi1EEvPK4int4PyPi
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 28 registers, used 1 barriers
-ptxas info    : Compile time = 1.170 ms
+ptxas info    : Compile time = 1.147 ms
 ptxas info    : Compiling entry function '_Z2rdILi22ELi1ELi4EEvPK4int4PyPi' for 'sm_121a'
 ptxas info    : Function properties for _Z2rdILi22ELi1ELi4EEvPK4int4PyPi
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 38 registers, used 1 barriers
-ptxas info    : Compile time = 1.409 ms
+ptxas info    : Compile time = 1.381 ms
 ptxas info    : Compiling entry function '_Z2rdILi22ELi1ELi1EEvPK4int4PyPi' for 'sm_121a'
 ptxas info    : Function properties for _Z2rdILi22ELi1ELi1EEvPK4int4PyPi
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 28 registers, used 1 barriers
-ptxas info    : Compile time = 1.340 ms
+ptxas info    : Compile time = 1.176 ms
 ptxas info    : Compiling entry function '_Z2rdILi22ELi0ELi4EEvPK4int4PyPi' for 'sm_121a'
 ptxas info    : Function properties for _Z2rdILi22ELi0ELi4EEvPK4int4PyPi
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 38 registers, used 1 barriers
-ptxas info    : Compile time = 1.554 ms
+ptxas info    : Compile time = 1.443 ms
 ptxas info    : Compiling entry function '_Z2rdILi22ELi0ELi1EEvPK4int4PyPi' for 'sm_121a'
 ptxas info    : Function properties for _Z2rdILi22ELi0ELi1EEvPK4int4PyPi
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 28 registers, used 1 barriers
-ptxas info    : Compile time = 1.184 ms
+ptxas info    : Compile time = 1.142 ms
 ptxas info    : Compiling entry function '_Z2rdILi20ELi2ELi4EEvPK4int4PyPi' for 'sm_121a'
 ptxas info    : Function properties for _Z2rdILi20ELi2ELi4EEvPK4int4PyPi
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 28 registers, used 1 barriers
-ptxas info    : Compile time = 1.176 ms
+ptxas info    : Compile time = 1.147 ms
 ptxas info    : Compiling entry function '_Z2rdILi20ELi2ELi1EEvPK4int4PyPi' for 'sm_121a'
 ptxas info    : Function properties for _Z2rdILi20ELi2ELi1EEvPK4int4PyPi
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 26 registers, used 1 barriers
-ptxas info    : Compile time = 1.087 ms
+ptxas info    : Compile time = 1.046 ms
 ptxas info    : Compiling entry function '_Z2rdILi20ELi1ELi4EEvPK4int4PyPi' for 'sm_121a'
 ptxas info    : Function properties for _Z2rdILi20ELi1ELi4EEvPK4int4PyPi
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 28 registers, used 1 barriers
-ptxas info    : Compile time = 1.185 ms
+ptxas info    : Compile time = 1.147 ms
 ptxas info    : Compiling entry function '_Z2rdILi20ELi1ELi1EEvPK4int4PyPi' for 'sm_121a'
 ptxas info    : Function properties for _Z2rdILi20ELi1ELi1EEvPK4int4PyPi
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 26 registers, used 1 barriers
-ptxas info    : Compile time = 1.081 ms
+ptxas info    : Compile time = 1.056 ms
 ptxas info    : Compiling entry function '_Z2rdILi20ELi0ELi4EEvPK4int4PyPi' for 'sm_121a'
 ptxas info    : Function properties for _Z2rdILi20ELi0ELi4EEvPK4int4PyPi
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 28 registers, used 1 barriers
-ptxas info    : Compile time = 1.342 ms
+ptxas info    : Compile time = 1.258 ms
 ptxas info    : Compiling entry function '_Z2rdILi20ELi0ELi1EEvPK4int4PyPi' for 'sm_121a'
 ptxas info    : Function properties for _Z2rdILi20ELi0ELi1EEvPK4int4PyPi
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 26 registers, used 1 barriers
-ptxas info    : Compile time = 1.065 ms
+ptxas info    : Compile time = 1.035 ms
 ptxas info    : Compiling entry function '_Z2rdILi16ELi2ELi4EEvPK4int4PyPi' for 'sm_121a'
 ptxas info    : Function properties for _Z2rdILi16ELi2ELi4EEvPK4int4PyPi
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 28 registers, used 1 barriers
-ptxas info    : Compile time = 1.158 ms
+ptxas info    : Compile time = 1.127 ms
 ptxas info    : Compiling entry function '_Z2rdILi16ELi2ELi1EEvPK4int4PyPi' for 'sm_121a'
 ptxas info    : Function properties for _Z2rdILi16ELi2ELi1EEvPK4int4PyPi
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 26 registers, used 1 barriers
-ptxas info    : Compile time = 1.053 ms
+ptxas info    : Compile time = 1.038 ms
 ptxas info    : Compiling entry function '_Z2rdILi16ELi1ELi4EEvPK4int4PyPi' for 'sm_121a'
 ptxas info    : Function properties for _Z2rdILi16ELi1ELi4EEvPK4int4PyPi
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 28 registers, used 1 barriers
-ptxas info    : Compile time = 1.174 ms
+ptxas info    : Compile time = 1.154 ms
 ptxas info    : Compiling entry function '_Z2rdILi16ELi1ELi1EEvPK4int4PyPi' for 'sm_121a'
 ptxas info    : Function properties for _Z2rdILi16ELi1ELi1EEvPK4int4PyPi
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 26 registers, used 1 barriers
-ptxas info    : Compile time = 1.066 ms
+ptxas info    : Compile time = 1.042 ms
 ptxas info    : Compiling entry function '_Z2rdILi16ELi0ELi4EEvPK4int4PyPi' for 'sm_121a'
 ptxas info    : Function properties for _Z2rdILi16ELi0ELi4EEvPK4int4PyPi
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 28 registers, used 1 barriers
-ptxas info    : Compile time = 1.164 ms
+ptxas info    : Compile time = 1.145 ms
 ptxas info    : Compiling entry function '_Z2rdILi16ELi0ELi1EEvPK4int4PyPi' for 'sm_121a'
 ptxas info    : Function properties for _Z2rdILi16ELi0ELi1EEvPK4int4PyPi
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 26 registers, used 1 barriers
-ptxas info    : Compile time = 1.051 ms
+ptxas info    : Compile time = 1.032 ms
 ptxas info    : Compiling entry function '_Z2rdILi8ELi2ELi4EEvPK4int4PyPi' for 'sm_121a'
 ptxas info    : Function properties for _Z2rdILi8ELi2ELi4EEvPK4int4PyPi
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 28 registers, used 1 barriers
-ptxas info    : Compile time = 1.146 ms
+ptxas info    : Compile time = 1.122 ms
 ptxas info    : Compiling entry function '_Z2rdILi8ELi2ELi1EEvPK4int4PyPi' for 'sm_121a'
 ptxas info    : Function properties for _Z2rdILi8ELi2ELi1EEvPK4int4PyPi
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 26 registers, used 1 barriers
-ptxas info    : Compile time = 1.052 ms
+ptxas info    : Compile time = 1.036 ms
 ptxas info    : Compiling entry function '_Z2rdILi8ELi1ELi4EEvPK4int4PyPi' for 'sm_121a'
 ptxas info    : Function properties for _Z2rdILi8ELi1ELi4EEvPK4int4PyPi
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 28 registers, used 1 barriers
-ptxas info    : Compile time = 1.166 ms
+ptxas info    : Compile time = 1.149 ms
 ptxas info    : Compiling entry function '_Z2rdILi8ELi1ELi1EEvPK4int4PyPi' for 'sm_121a'
 ptxas info    : Function properties for _Z2rdILi8ELi1ELi1EEvPK4int4PyPi
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 26 registers, used 1 barriers
-ptxas info    : Compile time = 1.068 ms
+ptxas info    : Compile time = 1.051 ms
 ptxas info    : Compiling entry function '_Z2rdILi8ELi0ELi4EEvPK4int4PyPi' for 'sm_121a'
 ptxas info    : Function properties for _Z2rdILi8ELi0ELi4EEvPK4int4PyPi
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 28 registers, used 1 barriers
-ptxas info    : Compile time = 1.176 ms
+ptxas info    : Compile time = 1.127 ms
 ptxas info    : Compiling entry function '_Z2rdILi8ELi0ELi1EEvPK4int4PyPi' for 'sm_121a'
 ptxas info    : Function properties for _Z2rdILi8ELi0ELi1EEvPK4int4PyPi
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 26 registers, used 1 barriers
-ptxas info    : Compile time = 1.061 ms
+ptxas info    : Compile time = 1.031 ms
 ptxas info    : Compiling entry function '_Z2rdILi2ELi2ELi4EEvPK4int4PyPi' for 'sm_121a'
 ptxas info    : Function properties for _Z2rdILi2ELi2ELi4EEvPK4int4PyPi
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 20 registers, used 1 barriers
-ptxas info    : Compile time = 0.916 ms
+ptxas info    : Compile time = 0.887 ms
 ptxas info    : Compiling entry function '_Z2rdILi2ELi2ELi1EEvPK4int4PyPi' for 'sm_121a'
 ptxas info    : Function properties for _Z2rdILi2ELi2ELi1EEvPK4int4PyPi
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 20 registers, used 1 barriers
-ptxas info    : Compile time = 0.770 ms
+ptxas info    : Compile time = 0.740 ms
 ptxas info    : Compiling entry function '_Z2rdILi2ELi1ELi4EEvPK4int4PyPi' for 'sm_121a'
 ptxas info    : Function properties for _Z2rdILi2ELi1ELi4EEvPK4int4PyPi
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 20 registers, used 1 barriers
-ptxas info    : Compile time = 0.897 ms
+ptxas info    : Compile time = 0.875 ms
 ptxas info    : Compiling entry function '_Z2rdILi2ELi1ELi1EEvPK4int4PyPi' for 'sm_121a'
 ptxas info    : Function properties for _Z2rdILi2ELi1ELi1EEvPK4int4PyPi
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 20 registers, used 1 barriers
-ptxas info    : Compile time = 0.704 ms
+ptxas info    : Compile time = 0.686 ms
 ptxas info    : Compiling entry function '_Z2rdILi2ELi0ELi4EEvPK4int4PyPi' for 'sm_121a'
 ptxas info    : Function properties for _Z2rdILi2ELi0ELi4EEvPK4int4PyPi
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 20 registers, used 1 barriers
-ptxas info    : Compile time = 0.891 ms
+ptxas info    : Compile time = 0.881 ms
 ptxas info    : Compiling entry function '_Z2rdILi2ELi0ELi1EEvPK4int4PyPi' for 'sm_121a'
 ptxas info    : Function properties for _Z2rdILi2ELi0ELi1EEvPK4int4PyPi
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 20 registers, used 1 barriers
-ptxas info    : Compile time = 0.722 ms
+ptxas info    : Compile time = 0.700 ms
 ptxas info    : Compiling entry function '_Z5flushPK4int4mPi' for 'sm_121a'
 ptxas info    : Function properties for _Z5flushPK4int4mPi
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 12 registers, used 0 barriers
-ptxas info    : Compile time = 0.917 ms
+ptxas info    : Compile time = 0.882 ms

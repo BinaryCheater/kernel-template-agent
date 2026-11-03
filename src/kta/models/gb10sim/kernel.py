@@ -36,6 +36,13 @@ def launch_us(blocks: int = SMS, graph: bool = False) -> float:
     )
 
 
+def l2_warm_miss(footprint: float, kind: str = "ca", machine: Machine | None = None) -> float:
+    """Fraction of a warm (back-to-back) re-read that misses the L2. Before round 3 the generic
+    front end took every warm load as a hit (0.0 whatever the footprint): the rule probe l2reuse
+    tests."""
+    return 0.0
+
+
 def copy_lines(h: dict) -> list:
     def lines(row):
         rows = max(1, 512 // row)

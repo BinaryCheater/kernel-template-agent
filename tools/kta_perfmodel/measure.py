@@ -96,7 +96,24 @@ def build(batch: str, only: str = ".") -> int:
     return 0
 
 
+_pred_cases: dict[str, Any] = {}
+
+
+def _predict_one(args: tuple[str, str]) -> tuple[str, float, str]:
+    from kta.models.gb10sim import probeset
+
+    d, cid = args
+    if not _pred_cases:
+        _pred_cases.update((c.id, c) for c in probeset.all_cases(BATCHES / d))
+    c = _pred_cases[cid]
+    v, _, _ = probeset.run_case(c)
+    return cid, v, c.unit
+
+
 def predict(batch: str) -> int:
+    """The engine's replay of every case before the run, in parallel (LOOP §8)."""
+    from concurrent.futures import ProcessPoolExecutor
+
     from kta.models.gb10sim import probeset
 
     from . import table
@@ -104,11 +121,13 @@ def predict(batch: str) -> int:
     d = BATCHES / batch
     if (d / "measured.json").exists():
         raise SystemExit("refused: the batch is measured; a prediction must come before the run")
+    ids = [c.id for c in probeset.all_cases(d)]
     out = {}
-    for c in probeset.all_cases(d):
-        v, _, _ = probeset.run_case(c)
-        out[c.id] = round(v, 4)
-        print(f"{c.id:52s} {v:12.4f} {c.unit}", flush=True)
+    with ProcessPoolExecutor(table.default_jobs()) as ex:
+        for cid, v, unit in ex.map(_predict_one, [(batch, i) for i in ids]):
+            out[cid] = round(v, 4)
+            print(f"{cid:52s} {v:12.4f} {unit}", flush=True)
+    out = {i: out[i] for i in ids}
     doc = {
         "engine": table.engine_hash(),
         "kta_commit": upstream.kta_commit()[0],

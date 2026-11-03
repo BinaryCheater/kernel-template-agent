@@ -3,34 +3,49 @@ ptxas info    : Compiling entry function '_Z4workILi16384EEvPfPy' for 'sm_121a'
 ptxas info    : Function properties for _Z4workILi16384EEvPfPy
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 10 registers, used 1 barriers
-ptxas info    : Compile time = 2.614 ms
+ptxas info    : Compile time = 1.758 ms
 ptxas info    : Compiling entry function '_Z4workILi4096EEvPfPy' for 'sm_121a'
 ptxas info    : Function properties for _Z4workILi4096EEvPfPy
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 10 registers, used 1 barriers
-ptxas info    : Compile time = 1.644 ms
+ptxas info    : Compile time = 0.978 ms
 ptxas info    : Compiling entry function '_Z4workILi1024EEvPfPy' for 'sm_121a'
 ptxas info    : Function properties for _Z4workILi1024EEvPfPy
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 10 registers, used 1 barriers
-ptxas info    : Compile time = 1.421 ms
+ptxas info    : Compile time = 0.730 ms
+ptxas info    : Compiling entry function '_Z4workILi512EEvPfPy' for 'sm_121a'
+ptxas info    : Function properties for _Z4workILi512EEvPfPy
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 10 registers, used 1 barriers
+ptxas info    : Compile time = 0.710 ms
 ptxas info    : Compiling entry function '_Z4workILi256EEvPfPy' for 'sm_121a'
 ptxas info    : Function properties for _Z4workILi256EEvPfPy
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 10 registers, used 1 barriers
-ptxas info    : Compile time = 1.408 ms
+ptxas info    : Compile time = 0.709 ms
+ptxas info    : Compiling entry function '_Z4workILi128EEvPfPy' for 'sm_121a'
+ptxas info    : Function properties for _Z4workILi128EEvPfPy
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 10 registers, used 1 barriers
+ptxas info    : Compile time = 0.831 ms
+ptxas info    : Compiling entry function '_Z4workILi64EEvPfPy' for 'sm_121a'
+ptxas info    : Function properties for _Z4workILi64EEvPfPy
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 10 registers, used 1 barriers
+ptxas info    : Compile time = 0.675 ms
 ptxas info    : Compiling entry function '_Z4workILi0EEvPfPy' for 'sm_121a'
 ptxas info    : Function properties for _Z4workILi0EEvPfPy
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 10 registers, used 1 barriers
-ptxas info    : Compile time = 1.023 ms
+ptxas info    : Compile time = 0.448 ms
 ptxas info    : Compiling entry function '_Z4tinyPi' for 'sm_121a'
 ptxas info    : Function properties for _Z4tinyPi
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 10 registers, used 0 barriers
-ptxas info    : Compile time = 0.600 ms
+ptxas info    : Compile time = 0.309 ms
 ptxas info    : Compiling entry function '_Z5emptyv' for 'sm_121a'
 ptxas info    : Function properties for _Z5emptyv
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 4 registers, used 0 barriers
-ptxas info    : Compile time = 0.305 ms
+ptxas info    : Compile time = 0.145 ms
