@@ -1,6 +1,6 @@
 # Error table
 
-Produced by `scripts/perfmodel-table` from KTA commit `fdcb44c76cb03ba26d348fdbb20ca87f3ffa0bff` on 2026-11-03T17:38:01Z; upstream inputs `/Users/dingyi/Projects/ai-infra-codesign-ventus` at `a628c9d963cf9c029fa596b872d6e8920ca883e8`. CPU only: replay time 590 s summed over rows (slowest row 150 s); this run 0 s with 16 processes, 192 rows from the cache. Error = predicted / measured − 1 (positive: the model is slow). Machine-readable copy: `error-table.json`.
+Produced by `scripts/perfmodel-table` from KTA commit `8631cdd9eb6c9e4bba48e40a0f6fbf5fbee811c6` on 2026-11-03T17:54:46Z; upstream inputs `/Users/dingyi/Projects/ai-infra-codesign-ventus` at `a628c9d963cf9c029fa596b872d6e8920ca883e8`. CPU only: replay time 724 s summed over rows (slowest row 61 s); this run 0 s with 16 processes, 191 rows from the cache. Error = predicted / measured − 1 (positive: the model is slow). Machine-readable copy: `error-table.json`.
 
 ## Summary
 
@@ -9,7 +9,7 @@ Produced by `scripts/perfmodel-table` from KTA commit `fdcb44c76cb03ba26d348fdbb
 | gemm1024 full | 22 | 0 | 5.3 % | -15.5 % | 21 | 0.83 |
 | gemm1024 nocompute | 22 | 0 | 6.7 % | -23.7 % | 15 |  |
 | gemm1024 noload 1 block | 22 | 0 | 3.4 % | +17.1 % | 20 |  |
-| tma full | 7 | 0 | 11.1 % | +36.7 % | 3 | 0.96 |
+| tma full | 6 | 1 | 11.2 % | +36.7 % | 2 | 0.94 |
 | tma noload 1 block | 7 | 0 | 4.4 % | +15.4 % | 5 |  |
 | probe sched.cu | 2 | 0 | 3.8 % | -6.3 % | 2 |  |
 | probe alu.cu | 39 | 9 | 0.5 % | -11.8 % | 38 |  |
@@ -21,215 +21,215 @@ Produced by `scripts/perfmodel-table` from KTA commit `fdcb44c76cb03ba26d348fdbb
 
 | Row | Level | Unit | Measured | Predicted | Error | Attribution (critical path) | Defaults | Note |
 | --- | ---: | --- | ---: | ---: | ---: | --- | --- | --- |
-| tma m128 full | 7 | us | 162.11 | 221.59 | +36.7 % |  |  | measured warm in a session where part of B stayed in the L2; upstream compares the decode picks cold against a later flush measurement (gb10 design note §7) |
-| gemm1024 c128x256x64_st2_th256 nocompute | 7 | us | 27.71 | 21.14 | -23.7 % |  |  |  |
-| tma m32 full | 7 | us | 123.97 | 148.76 | +20.0 % |  |  | measured warm in a session where part of B stayed in the L2; upstream compares the decode picks cold against a later flush measurement (gb10 design note §7) |
-| gemm1024 c256x128x64_st2_th256 nocompute | 7 | us | 25.92 | 21.14 | -18.4 % |  |  |  |
-| gemm1024 c64x64x32_st3_th256 noload 1 block | 7 | us | 3.78 | 4.42 | +17.1 % |  |  |  |
-| gemm1024 c128x256x32_st3_th256 nocompute | 7 | us | 25.09 | 21.14 | -15.7 % |  |  |  |
-| gemm1024 c128x128x32_st3_th256 full | 7 | us | 41.38 | 34.94 | -15.5 % |  |  |  |
-| tma k1024 noload 1 block | 7 | us | 25.02 | 28.87 | +15.4 % |  |  |  |
-| gemm1024 c64x128x64_st3_th128 nocompute | 7 | us | 38.98 | 33.22 | -14.8 % |  |  |  |
-| gemm1024 c256x128x32_st3_th256 nocompute | 7 | us | 24.74 | 21.16 | -14.5 % |  |  |  |
-| gemm1024 c128x128x32_st3_th128 nocompute | 7 | us | 29.12 | 24.98 | -14.2 % |  |  |  |
-| gemm1024 c64x128x64_st3_th256 nocompute | 7 | us | 38.34 | 33.25 | -13.3 % |  |  |  |
-| alu F2F.F16.F32+HADD2.F32 w32 | 2 | cycles | 102,963.08 | 90,775.00 | -11.8 % |  |  |  |
-| tma 1024 full | 7 | us | 45.12 | 40.07 | -11.2 % |  |  |  |
-| tma k1024 full | 7 | us | 448.99 | 398.97 | -11.1 % |  |  |  |
+| tma m128 full | 7 | us | 162.11 | 221.59 | +36.7 % | tma_engine: transfer / DRAM queue 45 %; tensor: stall count after mma 19 %; tma_engine: L2 latency (TMA) 10 % | default latency 2208, default rbar 1832, issue-only 63986 | measured warm in a session where part of B stayed in the L2; upstream compares the decode picks cold against a later flush measurement (gb10 design note §7) |
+| gemm1024 c128x256x64_st2_th256 nocompute | 7 | us | 27.71 | 21.14 | -23.7 % | l2_return: queue (chip L2 share) 46 %; store_queue: queue (stg) 28 %; launch: launch 12 % | default latency 80, issue-only 1554 |  |
+| tma m32 full | 7 | us | 123.97 | 148.76 | +20.0 % | tma_engine: transfer / DRAM queue 84 %; tma_engine: queue 6 %; tma_engine: L2 latency (TMA) 2 % | branch fallback 16, default latency 372, default rbar 332, issue-only 6308 | measured warm in a session where part of B stayed in the L2; upstream compares the decode picks cold against a later flush measurement (gb10 design note §7) |
+| gemm1024 c256x128x64_st2_th256 nocompute | 7 | us | 25.92 | 21.14 | -18.4 % | l2_return: queue (chip L2 share) 46 %; store_queue: queue (stg) 28 %; launch: launch 12 % | default latency 80, issue-only 1554 |  |
+| gemm1024 c64x64x32_st3_th256 noload 1 block | 7 | us | 3.78 | 4.42 | +17.1 % | tensor: queue (mma) 21 %; issue: stall count after barrier 20 %; tensor: stall count after mma 13 % | default latency 64, issue-only 962 |  |
+| gemm1024 c128x256x32_st3_th256 nocompute | 7 | us | 25.09 | 21.14 | -15.7 % | l2_return: queue (chip L2 share) 44 %; store_queue: queue (stg) 28 %; launch: launch 12 % | default latency 80, issue-only 1554 |  |
+| gemm1024 c128x128x32_st3_th256 full | 7 | us | 41.38 | 34.94 | -15.5 % | tensor: queue (mma) 43 %; tensor: stall count after mma 15 %; store_queue: queue (stg) 8 % | default latency 160, issue-only 19556 |  |
+| tma k1024 noload 1 block | 7 | us | 25.02 | 28.87 | +15.4 % | tensor: queue (mma) 64 %; tensor: stall count after mma 14 %; smem_array: ldsm latency 4 % | default latency 2860, default rbar 1360, issue-only 15684 |  |
+| gemm1024 c64x128x64_st3_th128 nocompute | 7 | us | 38.98 | 33.22 | -14.8 % | l2_return: queue (chip L2 share) 61 %; store_queue: queue (stg) 16 %; launch: launch 8 % | default latency 120, issue-only 2334 |  |
+| gemm1024 c256x128x32_st3_th256 nocompute | 7 | us | 24.74 | 21.16 | -14.5 % | l2_return: queue (chip L2 share) 43 %; store_queue: queue (stg) 28 %; launch: launch 12 % | default latency 80, issue-only 1554 |  |
+| gemm1024 c128x128x32_st3_th128 nocompute | 7 | us | 29.12 | 24.98 | -14.2 % | l2_return: queue (chip L2 share) 53 %; store_queue: queue (stg) 23 %; launch: launch 10 % | default latency 80, issue-only 2068 |  |
+| gemm1024 c64x128x64_st3_th256 nocompute | 7 | us | 38.34 | 33.25 | -13.3 % | l2_return: queue (chip L2 share) 61 %; store_queue: queue (stg) 16 %; launch: launch 8 % | default latency 240, issue-only 2358 |  |
+| alu F2F.F16.F32+HADD2.F32 w32 | 2 | cycles | 102,963.08 | 90,775.00 | -11.8 % | fma: queue (fp32) 66 %; alu: queue (alu) 12 %; issue: stall count after half_to_float 8 % | default latency 97, issue-only 3201 |  |
+| tma 1024 full | 7 | us | 45.12 | 40.07 | -11.2 % | tma_engine: queue 32 %; tensor: stall count after mma 20 %; store_queue: queue (stg) 13 % | branch fallback 48, default latency 468, default rbar 444, issue-only 10755 |  |
+| tma k1024 full | 7 | us | 448.99 | 398.97 | -11.1 % | tensor: queue (mma) 23 %; store_queue: queue (stg) 22 %; tma_engine: transfer / DRAM queue 16 % | default latency 31922, default rbar 16016, issue-only 181115 |  |
 
 ## All rows
 
 | Row | Level | Unit | Measured | Predicted | Error | Attribution (critical path) | Defaults | Note |
 | --- | ---: | --- | ---: | ---: | ---: | --- | --- | --- |
-| gemm1024 c128x128x32_st3_th128 full | 7 | us | 39.46 | 36.07 | -8.6 % |  |  |  |
-| gemm1024 c128x128x32_st3_th128 nocompute | 7 | us | 29.12 | 24.98 | -14.2 % |  |  |  |
-| gemm1024 c128x128x32_st3_th128 noload 1 block | 7 | us | 17.54 | 16.99 | -3.1 % |  |  |  |
-| gemm1024 c128x128x32_st3_th256 full | 7 | us | 41.38 | 34.94 | -15.5 % |  |  |  |
-| gemm1024 c128x128x32_st3_th256 nocompute | 7 | us | 27.14 | 25.00 | -7.9 % |  |  |  |
-| gemm1024 c128x128x32_st3_th256 noload 1 block | 7 | us | 15.49 | 16.06 | +3.7 % |  |  |  |
-| gemm1024 c128x128x64_st3_th128 full | 7 | us | 46.85 | 42.50 | -9.3 % |  |  |  |
-| gemm1024 c128x128x64_st3_th128 nocompute | 7 | us | 30.34 | 29.34 | -3.3 % |  |  |  |
-| gemm1024 c128x128x64_st3_th128 noload 1 block | 7 | us | 16.26 | 15.61 | -3.9 % |  |  |  |
-| gemm1024 c128x128x64_st3_th256 full | 7 | us | 44.45 | 42.43 | -4.5 % |  |  |  |
-| gemm1024 c128x128x64_st3_th256 nocompute | 7 | us | 30.34 | 29.40 | -3.1 % |  |  |  |
-| gemm1024 c128x128x64_st3_th256 noload 1 block | 7 | us | 15.30 | 15.78 | +3.1 % |  |  |  |
-| gemm1024 c128x256x32_st3_th256 full | 7 | us | 43.58 | 41.23 | -5.4 % |  |  |  |
-| gemm1024 c128x256x32_st3_th256 nocompute | 7 | us | 25.09 | 21.14 | -15.7 % |  |  |  |
-| gemm1024 c128x256x32_st3_th256 noload 1 block | 7 | us | 32.48 | 32.39 | -0.3 % |  |  |  |
-| gemm1024 c128x256x64_st2_th256 full | 7 | us | 41.28 | 38.95 | -5.6 % |  |  |  |
-| gemm1024 c128x256x64_st2_th256 nocompute | 7 | us | 27.71 | 21.14 | -23.7 % |  |  |  |
-| gemm1024 c128x256x64_st2_th256 noload 1 block | 7 | us | 30.30 | 30.26 | -0.2 % |  |  |  |
-| gemm1024 c128x64x32_st3_th128 full | 7 | us | 37.41 | 37.40 | -0.0 % |  |  |  |
-| gemm1024 c128x64x32_st3_th128 nocompute | 7 | us | 33.09 | 32.71 | -1.1 % |  |  |  |
-| gemm1024 c128x64x32_st3_th128 noload 1 block | 7 | us | 8.35 | 8.86 | +6.1 % |  |  |  |
-| gemm1024 c128x64x32_st3_th256 full | 7 | us | 37.09 | 36.13 | -2.6 % |  |  |  |
-| gemm1024 c128x64x32_st3_th256 nocompute | 7 | us | 32.93 | 32.58 | -1.1 % |  |  |  |
-| gemm1024 c128x64x32_st3_th256 noload 1 block | 7 | us | 8.64 | 8.98 | +3.9 % |  |  |  |
-| gemm1024 c256x128x32_st3_th256 full | 7 | us | 43.26 | 41.36 | -4.4 % |  |  |  |
-| gemm1024 c256x128x32_st3_th256 nocompute | 7 | us | 24.74 | 21.16 | -14.5 % |  |  |  |
-| gemm1024 c256x128x32_st3_th256 noload 1 block | 7 | us | 30.02 | 30.57 | +1.9 % |  |  |  |
-| gemm1024 c256x128x64_st2_th256 full | 7 | us | 41.31 | 37.95 | -8.1 % |  |  |  |
-| gemm1024 c256x128x64_st2_th256 nocompute | 7 | us | 25.92 | 21.14 | -18.4 % |  |  |  |
-| gemm1024 c256x128x64_st2_th256 noload 1 block | 7 | us | 30.27 | 30.51 | +0.8 % |  |  |  |
-| gemm1024 c256x64x32_st3_th128 full | 7 | us | 47.42 | 48.42 | +2.1 % |  |  |  |
-| gemm1024 c256x64x32_st3_th128 nocompute | 7 | us | 33.15 | 34.09 | +2.8 % |  |  |  |
-| gemm1024 c256x64x32_st3_th128 noload 1 block | 7 | us | 16.03 | 16.31 | +1.7 % |  |  |  |
-| gemm1024 c256x64x32_st3_th256 full | 7 | us | 48.26 | 44.98 | -6.8 % |  |  |  |
-| gemm1024 c256x64x32_st3_th256 nocompute | 7 | us | 33.38 | 34.13 | +2.2 % |  |  |  |
-| gemm1024 c256x64x32_st3_th256 noload 1 block | 7 | us | 15.68 | 16.30 | +3.9 % |  |  |  |
-| gemm1024 c64x128x32_st3_th128 full | 7 | us | 39.26 | 37.26 | -5.1 % |  |  |  |
-| gemm1024 c64x128x32_st3_th128 nocompute | 7 | us | 35.20 | 32.68 | -7.1 % |  |  |  |
-| gemm1024 c64x128x32_st3_th128 noload 1 block | 7 | us | 9.22 | 9.49 | +3.0 % |  |  |  |
-| gemm1024 c64x128x32_st3_th256 full | 7 | us | 35.01 | 34.68 | -0.9 % |  |  |  |
-| gemm1024 c64x128x32_st3_th256 nocompute | 7 | us | 33.89 | 32.81 | -3.2 % |  |  |  |
-| gemm1024 c64x128x32_st3_th256 noload 1 block | 7 | us | 8.29 | 8.80 | +6.2 % |  |  |  |
-| gemm1024 c64x128x64_st3_th128 full | 7 | us | 40.32 | 37.45 | -7.1 % |  |  |  |
-| gemm1024 c64x128x64_st3_th128 nocompute | 7 | us | 38.98 | 33.22 | -14.8 % |  |  |  |
-| gemm1024 c64x128x64_st3_th128 noload 1 block | 7 | us | 8.38 | 8.54 | +1.9 % |  |  |  |
-| gemm1024 c64x128x64_st3_th256 full | 7 | us | 39.26 | 37.21 | -5.2 % |  |  |  |
-| gemm1024 c64x128x64_st3_th256 nocompute | 7 | us | 38.34 | 33.25 | -13.3 % |  |  |  |
-| gemm1024 c64x128x64_st3_th256 noload 1 block | 7 | us | 8.00 | 8.39 | +4.8 % |  |  |  |
-| gemm1024 c64x256x32_st3_th128 full | 7 | us | 49.63 | 47.29 | -4.7 % |  |  |  |
-| gemm1024 c64x256x32_st3_th128 nocompute | 7 | us | 36.29 | 34.10 | -6.0 % |  |  |  |
-| gemm1024 c64x256x32_st3_th128 noload 1 block | 7 | us | 17.54 | 17.33 | -1.2 % |  |  |  |
-| gemm1024 c64x256x32_st3_th256 full | 7 | us | 51.71 | 47.83 | -7.5 % |  |  |  |
-| gemm1024 c64x256x32_st3_th256 nocompute | 7 | us | 36.54 | 34.10 | -6.7 % |  |  |  |
-| gemm1024 c64x256x32_st3_th256 noload 1 block | 7 | us | 17.18 | 17.04 | -0.9 % |  |  |  |
-| gemm1024 c64x64x128_st3_th128 full | 7 | us | 50.37 | 46.97 | -6.7 % |  |  |  |
-| gemm1024 c64x64x128_st3_th128 nocompute | 7 | us | 42.40 | 42.94 | +1.3 % |  |  |  |
-| gemm1024 c64x64x128_st3_th128 noload 1 block | 7 | us | 3.94 | 4.21 | +7.0 % |  |  |  |
-| gemm1024 c64x64x128_st3_th256 full | 7 | us | 50.46 | 46.71 | -7.4 % |  |  |  |
-| gemm1024 c64x64x128_st3_th256 nocompute | 7 | us | 42.46 | 43.00 | +1.3 % |  |  |  |
-| gemm1024 c64x64x128_st3_th256 noload 1 block | 7 | us | 3.94 | 4.23 | +7.4 % |  |  |  |
-| gemm1024 c64x64x32_st3_th128 full | 7 | us | 38.88 | 40.04 | +3.0 % |  |  |  |
-| gemm1024 c64x64x32_st3_th128 nocompute | 7 | us | 37.22 | 40.02 | +7.5 % |  |  |  |
-| gemm1024 c64x64x32_st3_th128 noload 1 block | 7 | us | 4.51 | 4.97 | +10.2 % |  |  |  |
-| gemm1024 c64x64x32_st3_th256 full | 7 | us | 39.20 | 39.75 | +1.4 % |  |  |  |
-| gemm1024 c64x64x32_st3_th256 nocompute | 7 | us | 37.34 | 39.84 | +6.7 % |  |  |  |
-| gemm1024 c64x64x32_st3_th256 noload 1 block | 7 | us | 3.78 | 4.42 | +17.1 % |  |  |  |
-| tma 1024 full | 7 | us | 45.12 | 40.07 | -11.2 % |  |  |  |
-| tma 1024 noload 1 block | 7 | us | 7.58 | 8.41 | +10.9 % |  |  |  |
-| tma 4096 full | 7 | us | 1,510.56 | 1,568.87 | +3.9 % |  |  |  |
-| tma 4096 noload 1 block | 7 | us | 108.61 | 111.27 | +2.5 % |  |  |  |
-| tma m32 full | 7 | us | 123.97 | 148.76 | +20.0 % |  |  | measured warm in a session where part of B stayed in the L2; upstream compares the decode picks cold against a later flush measurement (gb10 design note §7) |
-| tma m32 noload 1 block | 7 | us | 15.62 | 16.31 | +4.4 % |  |  |  |
-| tma 2048 full | 7 | us | 203.30 | 190.95 | -6.1 % |  |  |  |
-| tma 2048 noload 1 block | 7 | us | 52.54 | 55.77 | +6.1 % |  |  |  |
-| tma 8192 full | 7 | us | 15,136.06 | 15,813.60 | +4.5 % |  |  |  |
-| tma 8192 noload 1 block | 7 | us | 211.33 | 211.48 | +0.1 % |  |  |  |
-| tma k1024 full | 7 | us | 448.99 | 398.97 | -11.1 % |  |  |  |
-| tma k1024 noload 1 block | 7 | us | 25.02 | 28.87 | +15.4 % |  |  |  |
-| tma m128 full | 7 | us | 162.11 | 221.59 | +36.7 % |  |  | measured warm in a session where part of B stayed in the L2; upstream compares the decode picks cold against a later flush measurement (gb10 design note §7) |
-| tma m128 noload 1 block | 7 | us | 60.58 | 60.24 | -0.6 % |  |  |  |
-| sched adds alone | 1 | cycles/add | 5.67 | 5.31 | -6.3 % |  |  |  |
-| sched adds beside FFMA | 3 | cycles/add | 15.10 | 14.91 | -1.2 % |  |  |  |
-| alu FFMA w4 | 2 | cycles | 4,616.51 | 4,513.00 | -2.2 % |  |  |  |
-| alu FFMA w8 | 2 | cycles | 8,526.67 | 8,680.00 | +1.8 % |  |  |  |
-| alu FFMA w16 | 2 | cycles | 16,868.98 | 17,115.00 | +1.5 % |  |  |  |
-| alu FFMA w32 | 2 | cycles | 33,947.68 | 34,050.00 | +0.3 % |  |  |  |
-| alu IMAD w4 | 2 | cycles | 8,346.41 | 8,305.00 | -0.5 % |  |  |  |
-| alu IMAD w8 | 2 | cycles | 16,425.06 | 16,429.00 | +0.0 % |  |  |  |
-| alu IMAD w16 | 2 | cycles | 32,800.80 | 32,831.00 | +0.1 % |  |  |  |
-| alu IMAD w32 | 2 | cycles | 65,601.60 | 65,631.00 | +0.0 % |  |  |  |
-| alu IADD3 w4 | 2 | cycles | 86.00 | 93.00 | +8.1 % |  |  | excluded: loop folded by the compiler (no loop in the SASS) |
-| alu IADD3 w8 | 2 | cycles | 107.00 | 101.00 | -5.6 % |  |  | excluded: loop folded by the compiler (no loop in the SASS) |
-| alu IADD3 w16 | 2 | cycles | 187.00 | 125.00 | -33.2 % |  |  | excluded: loop folded by the compiler (no loop in the SASS) |
-| alu IADD3 w32 | 2 | cycles | 350.00 | 174.00 | -50.3 % |  |  | excluded: loop folded by the compiler (no loop in the SASS) |
-| alu LOP3 w4 | 2 | cycles | 13,451.56 | 12,961.00 | -3.6 % |  |  |  |
-| alu LOP3 w8 | 2 | cycles | 24,824.24 | 24,621.00 | -0.8 % |  |  |  |
-| alu LOP3 w16 | 2 | cycles | 49,164.29 | 49,215.00 | +0.1 % |  |  |  |
-| alu LOP3 w32 | 2 | cycles | 98,402.40 | 98,399.00 | -0.0 % |  |  |  |
-| alu SHF w4 | 2 | cycles | 8,393.44 | 8,265.00 | -1.5 % |  |  |  |
-| alu SHF w8 | 2 | cycles | 16,441.55 | 16,429.00 | -0.1 % |  |  |  |
-| alu SHF w16 | 2 | cycles | 32,751.62 | 32,831.00 | +0.2 % |  |  |  |
-| alu SHF w32 | 2 | cycles | 65,568.78 | 65,631.00 | +0.1 % |  |  |  |
-| alu PRMT w4 | 2 | cycles | 8,489.12 | 8,385.00 | -1.2 % |  |  |  |
-| alu PRMT w8 | 2 | cycles | 16,474.61 | 16,429.00 | -0.3 % |  |  |  |
-| alu PRMT w16 | 2 | cycles | 32,833.67 | 32,831.00 | -0.0 % |  |  |  |
-| alu PRMT w32 | 2 | cycles | 65,339.98 | 65,631.00 | +0.4 % |  |  |  |
-| alu HFMA2 w4 | 2 | cycles | 8,397.74 | 8,265.00 | -1.6 % |  |  |  |
-| alu HFMA2 w8 | 2 | cycles | 16,408.61 | 16,429.00 | +0.1 % |  |  |  |
-| alu HFMA2 w16 | 2 | cycles | 32,751.62 | 32,831.00 | +0.2 % |  |  |  |
-| alu HFMA2 w32 | 2 | cycles | 65,437.84 | 65,631.00 | +0.3 % |  |  |  |
-| alu F2F.F16.F32+HADD2.F32 w4 | 2 | cycles | 15,922.25 | 15,041.00 | -5.5 % |  |  |  |
-| alu F2F.F16.F32+HADD2.F32 w8 | 2 | cycles | 26,489.89 | 24,488.00 | -7.6 % |  |  |  |
-| alu F2F.F16.F32+HADD2.F32 w16 | 2 | cycles | 51,481.54 | 46,584.00 | -9.5 % |  |  |  |
-| alu F2F.F16.F32+HADD2.F32 w32 | 2 | cycles | 102,963.08 | 90,775.00 | -11.8 % |  |  |  |
-| alu HADD2.F32(h2f) w4 | 2 | cycles | 40,655.09 | 40,353.00 | -0.7 % |  |  |  |
-| alu HADD2.F32(h2f) w8 | 2 | cycles | 66,064.52 | 66,232.00 | +0.3 % |  |  |  |
-| alu HADD2.F32(h2f) w16 | 2 | cycles | 131,598.39 | 132,194.00 | +0.5 % |  |  |  |
-| alu HADD2.F32(h2f) w32 | 2 | cycles | 260,580.52 | 263,615.00 | +1.2 % |  |  |  |
-| alu F2FP.PACK_AB w4 | 2 | cycles | 14,641.64 | 14,465.00 | -1.2 % |  |  |  |
-| alu F2FP.PACK_AB w8 | 2 | cycles | 23,076.06 | 23,599.00 | +2.3 % |  |  |  |
-| alu F2FP.PACK_AB w16 | 2 | cycles | 45,134.99 | 45,349.00 | +0.5 % |  |  |  |
-| alu F2FP.PACK_AB w32 | 2 | cycles | 89,898.49 | 87,920.00 | -2.2 % |  |  |  |
-| alu I2F w4 | 2 | cycles | 311.00 | 318.00 | +2.3 % |  |  | excluded: loop folded by the compiler (no loop in the SASS) |
-| alu I2F w8 | 2 | cycles | 343.00 | 326.00 | -5.0 % |  |  | excluded: loop folded by the compiler (no loop in the SASS) |
-| alu I2F w16 | 2 | cycles | 533.00 | 348.00 | -34.7 % |  |  | excluded: loop folded by the compiler (no loop in the SASS) |
-| alu I2F w32 | 2 | cycles | 1,042.00 | 392.00 | -62.4 % |  |  | excluded: loop folded by the compiler (no loop in the SASS) |
-| alu F2I w4 | 2 | cycles | 4,329.81 | 4,257.00 | -1.7 % |  |  |  |
-| alu F2I w8 | 2 | cycles | 8,302.00 | 8,333.00 | +0.4 % |  |  |  |
-| alu F2I w16 | 2 | cycles | 8,300.95 | 16,641.00 | +100.5 % |  |  | excluded: measured rate 7.895 exceeds the issue limit 4.0/clk/SM |
-| alu F2I w32 | 2 | cycles | 33,250.13 | 33,253.00 | +0.0 % |  |  |  |
-| alumix IMAD+LOP3 | 3 | cycles | 49,419.00 | 49,561.00 | +0.3 % |  |  |  |
-| alumix IMAD+FFMA | 3 | cycles | 49,601.00 | 49,503.00 | -0.2 % |  |  |  |
-| alumix LOP3+FFMA | 3 | cycles | 64,070.00 | 64,099.00 | +0.0 % |  |  |  |
-| alumix HFMA2+LOP3 | 3 | cycles | 51,505.00 | 49,247.00 | -4.4 % |  |  |  |
-| alumix HFMA2+IMAD | 3 | cycles | 65,069.00 | 65,631.00 | +0.9 % |  |  |  |
-| alumix HFMA2+FFMA | 3 | cycles | 55,908.00 | 49,759.00 | -11.0 % |  |  |  |
-| alumix PRMT+IMAD | 3 | cycles | 33,480.00 | 33,467.00 | -0.0 % |  |  |  |
-| alumix PRMT+LOP3 | 3 | cycles | 81,985.00 | 82,015.00 | +0.0 % |  |  |  |
-| alumix HADD2.F32+FADD+IMAD | 3 | cycles | 64,977.00 | 65,925.00 | +1.5 % |  |  |  |
-| alumix HADD2.F32+FADD+LOP3 | 3 | cycles | 76,227.00 | 81,328.00 | +6.7 % |  |  |  |
-| alumix IMAD+IMAD | 3 | cycles | 65,596.00 | 65,631.00 | +0.1 % |  |  |  |
-| alumix LOP3+LOP3 | 3 | cycles | 98,396.00 | 98,399.00 | +0.0 % |  |  |  |
-| alumix FFMA+FFMA | 3 | cycles | 34,117.00 | 34,050.00 | -0.2 % |  |  |  |
-| sfu ex2.f32 latency | 1 | cycles/op | 18.20 | 18.04 | -0.9 % |  |  |  |
-| sfu ex2.f32 w1 | 2 | cycles | 262,144.00 | 264,779.00 | +1.0 % |  |  |  |
-| sfu ex2.f32 w4 | 2 | cycles | 265,462.28 | 264,785.00 | -0.3 % |  |  |  |
-| sfu ex2.f32 w8 | 2 | cycles | 524,288.00 | 524,359.00 | +0.0 % |  |  |  |
-| sfu ex2.f32 w16 | 2 | cycles | 1,048,576 | 1,048,698 | +0.0 % |  |  |  |
-| sfu ex2.f32 w32 | 2 | cycles | 2,097,152 | 2,097,345 | +0.0 % |  |  |  |
-| sfu rcp.f32 latency | 1 | cycles/op | 0.10 | 0.02 | -81.7 % |  |  | excluded: withdrawn upstream: the rcp loop was folded away (gb10 design note §9.4) |
-| sfu rcp.f32 w1 | 2 | cycles | 201.00 | 69.00 | -65.7 % |  |  | excluded: withdrawn upstream: the rcp loop was folded away (gb10 design note §9.4) |
-| sfu rcp.f32 w4 | 2 | cycles | 746.00 | 75.00 | -89.9 % |  |  | excluded: withdrawn upstream: the rcp loop was folded away (gb10 design note §9.4) |
-| sfu rcp.f32 w8 | 2 | cycles | 505.00 | 83.00 | -83.6 % |  |  | excluded: withdrawn upstream: the rcp loop was folded away (gb10 design note §9.4) |
-| sfu rcp.f32 w16 | 2 | cycles | 455.00 | 172.00 | -62.2 % |  |  | excluded: withdrawn upstream: the rcp loop was folded away (gb10 design note §9.4) |
-| sfu rcp.f32 w32 | 2 | cycles | 381.00 | 352.00 | -7.6 % |  |  | excluded: withdrawn upstream: the rcp loop was folded away (gb10 design note §9.4) |
-| sfu rsqrt.f32 latency | 1 | cycles/op | 18.10 | 18.04 | -0.3 % |  |  |  |
-| sfu rsqrt.f32 w1 | 2 | cycles | 262,144.00 | 264,779.00 | +1.0 % |  |  |  |
-| sfu rsqrt.f32 w4 | 2 | cycles | 265,462.28 | 264,785.00 | -0.3 % |  |  |  |
-| sfu rsqrt.f32 w8 | 2 | cycles | 524,288.00 | 524,359.00 | +0.0 % |  |  |  |
-| sfu rsqrt.f32 w16 | 2 | cycles | 1,048,576 | 1,048,698 | +0.0 % |  |  |  |
-| sfu rsqrt.f32 w32 | 2 | cycles | 2,097,152 | 2,097,345 | +0.0 % |  |  |  |
-| sfu sin.f32 latency | 1 | cycles/op | 22.20 | 22.16 | -0.2 % |  |  |  |
-| sfu sin.f32 w1 | 2 | cycles | 268,865.64 | 266,827.00 | -0.8 % |  |  |  |
-| sfu sin.f32 w4 | 2 | cycles | 267,153.12 | 266,833.00 | -0.1 % |  |  |  |
-| sfu sin.f32 w8 | 2 | cycles | 524,288.00 | 525,410.00 | +0.2 % |  |  |  |
-| sfu sin.f32 w16 | 2 | cycles | 1,048,576 | 1,051,774 | +0.3 % |  |  |  |
-| sfu sin.f32 w32 | 2 | cycles | 2,097,152 | 2,103,515 | +0.3 % |  |  |  |
-| sfu lg2.f32 latency | 1 | cycles/op | 18.10 | 18.04 | -0.3 % |  |  |  |
-| sfu lg2.f32 w1 | 2 | cycles | 262,144.00 | 264,779.00 | +1.0 % |  |  |  |
-| sfu lg2.f32 w4 | 2 | cycles | 265,462.28 | 264,785.00 | -0.3 % |  |  |  |
-| sfu lg2.f32 w8 | 2 | cycles | 524,288.00 | 524,359.00 | +0.0 % |  |  |  |
-| sfu lg2.f32 w16 | 2 | cycles | 1,048,576 | 1,048,698 | +0.0 % |  |  |  |
-| sfu lg2.f32 w32 | 2 | cycles | 2,097,152 | 2,097,345 | +0.0 % |  |  |  |
-| sfu tanh.f32 latency | 1 | cycles/op | 18.10 | 18.04 | -0.3 % |  |  |  |
-| sfu tanh.f32 w1 | 2 | cycles | 262,144.00 | 264,779.00 | +1.0 % |  |  |  |
-| sfu tanh.f32 w4 | 2 | cycles | 265,462.28 | 264,785.00 | -0.3 % |  |  |  |
-| sfu tanh.f32 w8 | 2 | cycles | 524,288.00 | 524,359.00 | +0.0 % |  |  |  |
-| sfu tanh.f32 w16 | 2 | cycles | 1,048,576 | 1,048,698 | +0.0 % |  |  |  |
-| sfu tanh.f32 w32 | 2 | cycles | 2,097,152 | 2,097,345 | +0.0 % |  |  |  |
-| sfu ffma.f32 latency | 1 | cycles/op | 4.70 | 4.23 | -10.0 % |  |  |  |
-| sfu ffma.f32 w1 | 2 | cycles | 37,183.55 | 35,927.00 | -3.4 % |  |  |  |
-| sfu ffma.f32 w4 | 2 | cycles | 37,449.14 | 35,933.00 | -4.0 % |  |  |  |
-| sfu ffma.f32 w8 | 2 | cycles | 68,871.99 | 69,212.00 | +0.5 % |  |  |  |
-| sfu ffma.f32 w16 | 2 | cycles | 138,654.68 | 136,570.00 | -1.5 % |  |  |  |
-| sfu ffma.f32 w32 | 2 | cycles | 271,475.99 | 271,910.00 | +0.2 % |  |  |  |
-| cvt scaffold only (mov) | 2 | cycles/element/smsp | 4.04 | 4.01 | -0.8 % |  |  |  |
-| cvt I2F.F16 from s32 | 2 | cycles/element/smsp | 8.06 | 8.02 | -0.4 % |  |  |  |
-| cvt I2F.F16 from u32 | 2 | cycles/element/smsp | 8.05 | 8.02 | -0.3 % |  |  |  |
-| cvt int to fp32 | 2 | cycles/element/smsp | 4.03 | 4.01 | -0.5 % |  |  |  |
-| cvt fp32 to fp16 | 2 | cycles/element/smsp | 8.04 | 8.01 | -0.4 % |  |  |  |
-| cvt MUFU.EX2 ruler | 2 | cycles/element/smsp | 8.23 | 8.07 | -1.9 % |  |  |  |
-| cvt I2F.F16 + MUFU.EX2 alternating | 3 | cycles/element/smsp | 8.13 | 8.01 | -1.5 % |  |  |  |
+| gemm1024 c128x128x32_st3_th128 full | 7 | us | 39.46 | 36.07 | -8.6 % | tensor: stall count after mma 29 %; tensor: queue (mma) 25 %; store_queue: queue (stg) 14 % | default latency 80, default rbar 248, issue-only 18340 |  |
+| gemm1024 c128x128x32_st3_th128 nocompute | 7 | us | 29.12 | 24.98 | -14.2 % | l2_return: queue (chip L2 share) 53 %; store_queue: queue (stg) 23 %; launch: launch 10 % | default latency 80, issue-only 2068 |  |
+| gemm1024 c128x128x32_st3_th128 noload 1 block | 7 | us | 17.54 | 16.99 | -3.1 % | tensor: stall count after mma 63 %; issue: stall count after ldsm 9 %; store_queue: queue (stg) 8 % | default latency 32, default rbar 120, issue-only 8634 |  |
+| gemm1024 c128x128x32_st3_th256 full | 7 | us | 41.38 | 34.94 | -15.5 % | tensor: queue (mma) 43 %; tensor: stall count after mma 15 %; store_queue: queue (stg) 8 % | default latency 160, issue-only 19556 |  |
+| gemm1024 c128x128x32_st3_th256 nocompute | 7 | us | 27.14 | 25.00 | -7.9 % | l2_return: queue (chip L2 share) 54 %; store_queue: queue (stg) 23 %; launch: launch 10 % | default latency 160, issue-only 2084 |  |
+| gemm1024 c128x128x32_st3_th256 noload 1 block | 7 | us | 15.49 | 16.06 | +3.7 % | tensor: stall count after mma 29 %; tensor: queue (mma) 28 %; issue: stall count after barrier 12 % | default latency 64, default rbar 120, issue-only 6490 |  |
+| gemm1024 c128x128x64_st3_th128 full | 7 | us | 46.85 | 42.50 | -9.3 % | tensor: stall count after mma 48 %; store_queue: queue (stg) 16 %; issue: stall count after ldsm 9 % | default latency 80, default rbar 232, issue-only 16660 |  |
+| gemm1024 c128x128x64_st3_th128 nocompute | 7 | us | 30.34 | 29.34 | -3.3 % | l2_return: queue (chip L2 share) 37 %; store_queue: queue (stg) 24 %; l2_return: queue (SM port rate) 18 % | default latency 80, issue-only 2068 |  |
+| gemm1024 c128x128x64_st3_th128 noload 1 block | 7 | us | 16.26 | 15.61 | -3.9 % | tensor: stall count after mma 65 %; issue: stall count after ldsm 12 %; store_queue: queue (stg) 8 % | default latency 32, default rbar 168, issue-only 7478 |  |
+| gemm1024 c128x128x64_st3_th256 full | 7 | us | 44.45 | 42.43 | -4.5 % | tensor: stall count after mma 23 %; tensor: queue (mma) 22 %; store_queue: queue (stg) 16 % | default latency 160, default rbar 16, issue-only 16932 |  |
+| gemm1024 c128x128x64_st3_th256 nocompute | 7 | us | 30.34 | 29.40 | -3.1 % | l2_return: queue (chip L2 share) 37 %; store_queue: queue (stg) 24 %; l2_return: queue (SM port rate) 18 % | default latency 160, issue-only 2084 |  |
+| gemm1024 c128x128x64_st3_th256 noload 1 block | 7 | us | 15.30 | 15.78 | +3.1 % | tensor: queue (mma) 37 %; tensor: stall count after mma 30 %; issue: stall count after ldsm 8 % | default latency 64, issue-only 7474 |  |
+| gemm1024 c128x256x32_st3_th256 full | 7 | us | 43.58 | 41.23 | -5.4 % | tensor: stall count after mma 26 %; issue: stall count after barrier 17 %; tensor: queue (mma) 16 % | default latency 80, default rbar 248, issue-only 18314 |  |
+| gemm1024 c128x256x32_st3_th256 nocompute | 7 | us | 25.09 | 21.14 | -15.7 % | l2_return: queue (chip L2 share) 44 %; store_queue: queue (stg) 28 %; launch: launch 12 % | default latency 80, issue-only 1554 |  |
+| gemm1024 c128x256x32_st3_th256 noload 1 block | 7 | us | 32.48 | 32.39 | -0.3 % | tensor: queue (mma) 37 %; tensor: stall count after mma 33 %; store_queue: queue (stg) 8 % | default latency 64, default rbar 240, issue-only 17506 |  |
+| gemm1024 c128x256x64_st2_th256 full | 7 | us | 41.28 | 38.95 | -5.6 % | tensor: queue (mma) 32 %; tensor: stall count after mma 26 %; store_queue: queue (stg) 15 % | default latency 88, default rbar 8, issue-only 15642 |  |
+| gemm1024 c128x256x64_st2_th256 nocompute | 7 | us | 27.71 | 21.14 | -23.7 % | l2_return: queue (chip L2 share) 46 %; store_queue: queue (stg) 28 %; launch: launch 12 % | default latency 80, issue-only 1554 |  |
+| gemm1024 c128x256x64_st2_th256 noload 1 block | 7 | us | 30.30 | 30.26 | -0.2 % | tensor: stall count after mma 32 %; tensor: queue (mma) 32 %; issue: stall count after barrier 10 % | default latency 176, issue-only 14218 |  |
+| gemm1024 c128x64x32_st3_th128 full | 7 | us | 37.41 | 37.40 | -0.0 % | l2_return: queue (chip L2 share) 34 %; tensor: stall count after mma 19 %; store_queue: queue (stg) 13 % | default latency 120, issue-only 16170 |  |
+| gemm1024 c128x64x32_st3_th128 nocompute | 7 | us | 33.09 | 32.71 | -1.1 % | l2_return: queue (chip L2 share) 60 %; store_queue: queue (stg) 15 %; l2: L2 latency 9 % | default latency 120, issue-only 2334 |  |
+| gemm1024 c128x64x32_st3_th128 noload 1 block | 7 | us | 8.35 | 8.86 | +6.1 % | tensor: stall count after mma 51 %; issue: stall count after ldsm 7 %; store_queue: queue (stg) 6 % | default latency 32, default rbar 60, issue-only 3310 |  |
+| gemm1024 c128x64x32_st3_th256 full | 7 | us | 37.09 | 36.13 | -2.6 % | l2_return: queue (chip L2 share) 34 %; store_queue: queue (stg) 14 %; tensor: queue (mma) 9 % | default latency 240, default rbar 768, issue-only 11526 |  |
+| gemm1024 c128x64x32_st3_th256 nocompute | 7 | us | 32.93 | 32.58 | -1.1 % | l2_return: queue (chip L2 share) 57 %; store_queue: queue (stg) 17 %; l2: L2 latency 9 % | default latency 240, issue-only 2358 |  |
+| gemm1024 c128x64x32_st3_th256 noload 1 block | 7 | us | 8.64 | 8.98 | +3.9 % | tensor: stall count after mma 23 %; tensor: queue (mma) 19 %; issue: stall count after barrier 15 % | default latency 64, default rbar 360, issue-only 3450 |  |
+| gemm1024 c256x128x32_st3_th256 full | 7 | us | 43.26 | 41.36 | -4.4 % | tensor: stall count after mma 25 %; tensor: queue (mma) 21 %; store_queue: queue (stg) 14 % | default latency 80, default rbar 248, issue-only 17786 |  |
+| gemm1024 c256x128x32_st3_th256 nocompute | 7 | us | 24.74 | 21.16 | -14.5 % | l2_return: queue (chip L2 share) 43 %; store_queue: queue (stg) 28 %; launch: launch 12 % | default latency 80, issue-only 1554 |  |
+| gemm1024 c256x128x32_st3_th256 noload 1 block | 7 | us | 30.02 | 30.57 | +1.9 % | tensor: stall count after mma 31 %; tensor: queue (mma) 29 %; issue: stall count after barrier 11 % | default latency 64, default rbar 240, issue-only 12906 |  |
+| gemm1024 c256x128x64_st2_th256 full | 7 | us | 41.31 | 37.95 | -8.1 % | tensor: stall count after mma 25 %; tensor: queue (mma) 23 %; store_queue: queue (stg) 15 % | default latency 80, default rbar 16, issue-only 14866 |  |
+| gemm1024 c256x128x64_st2_th256 nocompute | 7 | us | 25.92 | 21.14 | -18.4 % | l2_return: queue (chip L2 share) 46 %; store_queue: queue (stg) 28 %; launch: launch 12 % | default latency 80, issue-only 1554 |  |
+| gemm1024 c256x128x64_st2_th256 noload 1 block | 7 | us | 30.27 | 30.51 | +0.8 % | tensor: queue (mma) 35 %; tensor: stall count after mma 31 %; issue: stall count after ldsm 9 % | default latency 176, default rbar 8, issue-only 13698 |  |
+| gemm1024 c256x64x32_st3_th128 full | 7 | us | 47.42 | 48.42 | +2.1 % | tensor: stall count after mma 42 %; store_queue: queue (stg) 14 %; lsu: queue 12 % | default latency 80, default rbar 248, issue-only 18812 |  |
+| gemm1024 c256x64x32_st3_th128 nocompute | 7 | us | 33.15 | 34.09 | +2.8 % | l2_return: queue (chip L2 share) 36 %; store_queue: queue (stg) 20 %; l2_return: queue (SM port rate) 16 % | default latency 80, issue-only 2580 |  |
+| gemm1024 c256x64x32_st3_th128 noload 1 block | 7 | us | 16.03 | 16.31 | +1.7 % | tensor: stall count after mma 58 %; issue: stall count after ldsm 9 %; store_queue: queue (stg) 8 % | default latency 32, default rbar 120, issue-only 6454 |  |
+| gemm1024 c256x64x32_st3_th256 full | 7 | us | 48.26 | 44.98 | -6.8 % | tensor: queue (mma) 17 %; tensor: stall count after mma 16 %; store_queue: queue (stg) 15 % | default latency 160, default rbar 1232, issue-only 12772 |  |
+| gemm1024 c256x64x32_st3_th256 nocompute | 7 | us | 33.38 | 34.13 | +2.2 % | l2_return: queue (chip L2 share) 36 %; store_queue: queue (stg) 21 %; l2_return: queue (SM port rate) 15 % | default latency 160, issue-only 2596 |  |
+| gemm1024 c256x64x32_st3_th256 noload 1 block | 7 | us | 15.68 | 16.30 | +3.9 % | tensor: stall count after mma 23 %; tensor: queue (mma) 23 %; issue: stall count after barrier 15 % | default latency 64, default rbar 496, issue-only 5586 |  |
+| gemm1024 c64x128x32_st3_th128 full | 7 | us | 39.26 | 37.26 | -5.1 % | l2_return: queue (chip L2 share) 35 %; tensor: stall count after mma 19 %; store_queue: queue (stg) 13 % | default latency 120, default rbar 12, issue-only 16170 |  |
+| gemm1024 c64x128x32_st3_th128 nocompute | 7 | us | 35.20 | 32.68 | -7.1 % | l2_return: queue (chip L2 share) 61 %; store_queue: queue (stg) 15 %; l2: L2 latency 9 % | default latency 120, issue-only 2334 |  |
+| gemm1024 c64x128x32_st3_th128 noload 1 block | 7 | us | 9.22 | 9.49 | +3.0 % | tensor: stall count after mma 55 %; issue: stall count after ldsm 11 %; issue: stall count after other 10 % | default latency 32, issue-only 4982 |  |
+| gemm1024 c64x128x32_st3_th256 full | 7 | us | 35.01 | 34.68 | -0.9 % | l2_return: queue (chip L2 share) 38 %; store_queue: queue (stg) 15 %; issue: stall count after barrier 11 % | default latency 240, default rbar 72, issue-only 7974 |  |
+| gemm1024 c64x128x32_st3_th256 nocompute | 7 | us | 33.89 | 32.81 | -3.2 % | l2_return: queue (chip L2 share) 59 %; store_queue: queue (stg) 17 %; l2: L2 latency 9 % | default latency 240, issue-only 2358 |  |
+| gemm1024 c64x128x32_st3_th256 noload 1 block | 7 | us | 8.29 | 8.80 | +6.2 % | tensor: stall count after mma 23 %; tensor: queue (mma) 19 %; issue: stall count after barrier 18 % | default latency 64, issue-only 3330 |  |
+| gemm1024 c64x128x64_st3_th128 full | 7 | us | 40.32 | 37.45 | -7.1 % | tensor: stall count after mma 30 %; l2_return: queue (chip L2 share) 18 %; store_queue: queue (stg) 14 % | default latency 120, default rbar 24, issue-only 13494 |  |
+| gemm1024 c64x128x64_st3_th128 nocompute | 7 | us | 38.98 | 33.22 | -14.8 % | l2_return: queue (chip L2 share) 61 %; store_queue: queue (stg) 16 %; launch: launch 8 % | default latency 120, issue-only 2334 |  |
+| gemm1024 c64x128x64_st3_th128 noload 1 block | 7 | us | 8.38 | 8.54 | +1.9 % | tensor: stall count after mma 56 %; issue: stall count after ldsm 15 %; issue: stall count after other 7 % | default latency 32, default rbar 4, issue-only 3902 |  |
+| gemm1024 c64x128x64_st3_th256 full | 7 | us | 39.26 | 37.21 | -5.2 % | tensor: queue (mma) 20 %; tensor: stall count after mma 16 %; store_queue: queue (stg) 14 % | default latency 240, issue-only 13542 |  |
+| gemm1024 c64x128x64_st3_th256 nocompute | 7 | us | 38.34 | 33.25 | -13.3 % | l2_return: queue (chip L2 share) 61 %; store_queue: queue (stg) 16 %; launch: launch 8 % | default latency 240, issue-only 2358 |  |
+| gemm1024 c64x128x64_st3_th256 noload 1 block | 7 | us | 8.00 | 8.39 | +4.8 % | tensor: queue (mma) 30 %; tensor: stall count after mma 26 %; mio: queue (ldsm) 12 % | default latency 64, default rbar 8, issue-only 4186 |  |
+| gemm1024 c64x256x32_st3_th128 full | 7 | us | 49.63 | 47.29 | -4.7 % | tensor: stall count after mma 45 %; store_queue: queue (stg) 14 %; lsu: queue 7 % | default latency 80, default rbar 8, issue-only 19316 |  |
+| gemm1024 c64x256x32_st3_th128 nocompute | 7 | us | 36.29 | 34.10 | -6.0 % | l2_return: queue (chip L2 share) 37 %; store_queue: queue (stg) 20 %; l2_return: queue (SM port rate) 17 % | default latency 80, issue-only 3092 |  |
+| gemm1024 c64x256x32_st3_th128 noload 1 block | 7 | us | 17.54 | 17.33 | -1.2 % | tensor: stall count after mma 61 %; issue: stall count after ldsm 10 %; mio: queue (ldsm) 8 % | default latency 32, issue-only 8738 |  |
+| gemm1024 c64x256x32_st3_th256 full | 7 | us | 51.71 | 47.83 | -7.5 % | tensor: stall count after mma 22 %; tensor: queue (mma) 21 %; store_queue: queue (stg) 15 % | default latency 160, default rbar 16, issue-only 22484 |  |
+| gemm1024 c64x256x32_st3_th256 nocompute | 7 | us | 36.54 | 34.10 | -6.7 % | l2_return: queue (chip L2 share) 37 %; store_queue: queue (stg) 21 %; l2_return: queue (SM port rate) 17 % | default latency 160, issue-only 2596 |  |
+| gemm1024 c64x256x32_st3_th256 noload 1 block | 7 | us | 17.18 | 17.04 | -0.9 % | tensor: stall count after mma 30 %; tensor: queue (mma) 29 %; mio: queue (ldsm) 12 % | default latency 64, issue-only 9962 |  |
+| gemm1024 c64x64x128_st3_th128 full | 7 | us | 50.37 | 46.97 | -6.7 % | l2_return: queue (chip L2 share) 42 %; tensor: stall count after mma 14 %; store_queue: queue (stg) 10 % | default latency 240, default rbar 24, issue-only 12324 |  |
+| gemm1024 c64x64x128_st3_th128 nocompute | 7 | us | 42.40 | 42.94 | +1.3 % | l2_return: queue (chip L2 share) 61 %; store_queue: queue (stg) 11 %; launch: launch 6 % | default latency 240, issue-only 3132 |  |
+| gemm1024 c64x64x128_st3_th128 noload 1 block | 7 | us | 3.94 | 4.21 | +7.0 % | tensor: stall count after mma 48 %; issue: stall count after ldsm 24 %; issue: stall count after other 6 % | default latency 32, default rbar 4, issue-only 1642 |  |
+| gemm1024 c64x64x128_st3_th256 full | 7 | us | 50.46 | 46.71 | -7.4 % | l2_return: queue (chip L2 share) 28 %; tensor: queue (mma) 12 %; store_queue: queue (stg) 11 % | default latency 480, default rbar 144, issue-only 12492 |  |
+| gemm1024 c64x64x128_st3_th256 nocompute | 7 | us | 42.46 | 43.00 | +1.3 % | l2_return: queue (chip L2 share) 61 %; store_queue: queue (stg) 11 %; launch: launch 6 % | default latency 480, issue-only 3180 |  |
+| gemm1024 c64x64x128_st3_th256 noload 1 block | 7 | us | 3.94 | 4.23 | +7.4 % | tensor: queue (mma) 30 %; tensor: stall count after mma 20 %; issue: stall count after ldsm 15 % | default latency 64, default rbar 16, issue-only 1658 |  |
+| gemm1024 c64x64x32_st3_th128 full | 7 | us | 38.88 | 40.04 | +3.0 % | l2_return: queue (chip L2 share) 62 %; store_queue: queue (stg) 10 %; l2: L2 latency 7 % | default latency 240, default rbar 24, issue-only 10932 |  |
+| gemm1024 c64x64x32_st3_th128 nocompute | 7 | us | 37.22 | 40.02 | +7.5 % | l2_return: queue (chip L2 share) 70 %; store_queue: queue (stg) 10 %; l2: L2 latency 8 % | default latency 240, issue-only 3132 |  |
+| gemm1024 c64x64x32_st3_th128 noload 1 block | 7 | us | 4.51 | 4.97 | +10.2 % | tensor: stall count after mma 41 %; issue: stall count after ldsm 10 %; issue: stall count after other 9 % | default latency 32, issue-only 1602 |  |
+| gemm1024 c64x64x32_st3_th256 full | 7 | us | 39.20 | 39.75 | +1.4 % | l2_return: queue (chip L2 share) 60 %; store_queue: queue (stg) 10 %; l2: L2 latency 8 % | default latency 480, default rbar 96, issue-only 5820 |  |
+| gemm1024 c64x64x32_st3_th256 nocompute | 7 | us | 37.34 | 39.84 | +6.7 % | l2_return: queue (chip L2 share) 69 %; store_queue: queue (stg) 11 %; l2: L2 latency 8 % | default latency 528, issue-only 3228 |  |
+| gemm1024 c64x64x32_st3_th256 noload 1 block | 7 | us | 3.78 | 4.42 | +17.1 % | tensor: queue (mma) 21 %; issue: stall count after barrier 20 %; tensor: stall count after mma 13 % | default latency 64, issue-only 962 |  |
+| tma 1024 full | 7 | us | 45.12 | 40.07 | -11.2 % | tma_engine: queue 32 %; tensor: stall count after mma 20 %; store_queue: queue (stg) 13 % | branch fallback 48, default latency 468, default rbar 444, issue-only 10755 |  |
+| tma 1024 noload 1 block | 7 | us | 7.58 | 8.41 | +10.9 % | tensor: stall count after mma 55 %; issue: stall count after ldsm 16 %; store_queue: queue (stg) 7 % | branch fallback 16, default latency 155, default rbar 148, issue-only 3521 |  |
+| tma 4096 full | 7 | us | 1,510.56 | 1,568.87 | +3.9 % | tma_engine: transfer / DRAM queue 42 %; tensor: queue (mma) 16 %; tma_engine: queue 16 % | branch fallback 440, default latency 74184, default rbar 56078, issue-only 790086 |  |
+| tma 4096 noload 1 block | 7 | us | 108.61 | 111.27 | +2.5 % | tensor: queue (mma) 61 %; tensor: stall count after mma 16 %; alu: stall count after alu 5 % | branch fallback 40, default latency 6437, default rbar 4398, issue-only 64084 |  |
+| tma m32 full | 7 | us | 123.97 | 148.76 | +20.0 % | tma_engine: transfer / DRAM queue 84 %; tma_engine: queue 6 %; tma_engine: L2 latency (TMA) 2 % | branch fallback 16, default latency 372, default rbar 332, issue-only 6308 | measured warm in a session where part of B stayed in the L2; upstream compares the decode picks cold against a later flush measurement (gb10 design note §7) |
+| tma m32 noload 1 block | 7 | us | 15.62 | 16.31 | +4.4 % | tensor: stall count after mma 43 %; issue: stall count after ldsm 27 %; issue: stall count after other 6 % | branch fallback 16, default latency 371, default rbar 204, issue-only 5553 |  |
+| tma 2048 full | 7 | us | 203.30 | 190.95 | -6.1 % | tensor: queue (mma) 27 %; tensor: stall count after mma 21 %; store_queue: queue (stg) 12 % | default latency 1992, default rbar 2004, issue-only 84063 |  |
+| tma 2048 noload 1 block | 7 | us | 52.54 | 55.77 | +6.1 % | tensor: queue (mma) 42 %; tensor: stall count after mma 34 %; issue: stall count after ldsm 10 % | default latency 675, default rbar 572, issue-only 27381 |  |
+| tma 8192 full | 7 | us | 15,136.06 | — | — |  |  | excluded: not run by default: replay 150-300 s (scripts/perfmodel-table --all) |
+| tma 8192 noload 1 block | 7 | us | 211.33 | 211.48 | +0.1 % | tensor: queue (mma) 70 %; tensor: stall count after mma 18 %; issue: stall count after ldsm 5 % | branch fallback 40, default latency 4387, default rbar 4268, issue-only 109013 |  |
+| tma k1024 full | 7 | us | 448.99 | 398.97 | -11.1 % | tensor: queue (mma) 23 %; store_queue: queue (stg) 22 %; tma_engine: transfer / DRAM queue 16 % | default latency 31922, default rbar 16016, issue-only 181115 |  |
+| tma k1024 noload 1 block | 7 | us | 25.02 | 28.87 | +15.4 % | tensor: queue (mma) 64 %; tensor: stall count after mma 14 %; smem_array: ldsm latency 4 % | default latency 2860, default rbar 1360, issue-only 15684 |  |
+| tma m128 full | 7 | us | 162.11 | 221.59 | +36.7 % | tma_engine: transfer / DRAM queue 45 %; tensor: stall count after mma 19 %; tma_engine: L2 latency (TMA) 10 % | default latency 2208, default rbar 1832, issue-only 63986 | measured warm in a session where part of B stayed in the L2; upstream compares the decode picks cold against a later flush measurement (gb10 design note §7) |
+| tma m128 noload 1 block | 7 | us | 60.58 | 60.24 | -0.6 % | tensor: stall count after mma 69 %; issue: stall count after ldsm 13 %; issue: stall count after other 7 % | default latency 981, default rbar 660, issue-only 30087 |  |
+| sched adds alone | 1 | cycles/add | 5.67 | 5.31 | -6.3 % | alu: stall count after alu 94 %; issue: stall count after other 6 % |  |  |
+| sched adds beside FFMA | 3 | cycles/add | 15.10 | 14.91 | -1.2 % | issue: scheduler (another warp issued) 64 %; alu: stall count after alu 34 %; issue: stall count after other 2 % | issue-only 12000 |  |
+| alu FFMA w4 | 2 | cycles | 4,616.51 | 4,513.00 | -2.2 % | fma: stall count after fp32 85 %; issue: stall count after other 8 %; xu: xu result latency 3 % | default latency 13, default rbar 8, issue-only 401 |  |
+| alu FFMA w8 | 2 | cycles | 8,526.67 | 8,680.00 | +1.8 % | issue: scheduler (another warp issued) 46 %; fma: stall count after fp32 45 %; issue: stall count after other 4 % | default latency 25, default rbar 16, issue-only 801 |  |
+| alu FFMA w16 | 2 | cycles | 16,868.98 | 17,115.00 | +1.5 % | fma: queue (fma_half_rate) 29 %; fma: queue (fp32) 29 %; fma: stall count after fp32 23 % | default latency 49, default rbar 32, issue-only 1601 |  |
+| alu FFMA w32 | 2 | cycles | 33,947.68 | 34,050.00 | +0.3 % | fma: queue (fp32) 68 %; fma: stall count after fp32 12 %; fma: queue (fma_half_rate) 10 % | default latency 97, default rbar 64, issue-only 3201 |  |
+| alu IMAD w4 | 2 | cycles | 8,346.41 | 8,305.00 | -0.5 % | fma: stall count after fma_half_rate 95 %; issue: stall count after other 2 %; xu: xu result latency 2 % | default latency 13, default rbar 8, issue-only 209 |  |
+| alu IMAD w8 | 2 | cycles | 16,425.06 | 16,429.00 | +0.0 % | fma: stall count after fma_half_rate 48 %; fma: queue (fma_half_rate) 48 %; issue: stall count after other 1 % | default latency 25, default rbar 16, issue-only 417 |  |
+| alu IMAD w16 | 2 | cycles | 32,800.80 | 32,831.00 | +0.1 % | fma: queue (fma_half_rate) 73 %; fma: stall count after fma_half_rate 24 %; xu: queue (xu) 1 % | default latency 49, default rbar 32, issue-only 833 |  |
+| alu IMAD w32 | 2 | cycles | 65,601.60 | 65,631.00 | +0.0 % | fma: queue (fma_half_rate) 85 %; fma: stall count after fma_half_rate 12 %; xu: queue (xu) 1 % | default latency 97, default rbar 64, issue-only 1665 |  |
+| alu IADD3 w4 | 2 | cycles | 86.00 | 93.00 | +8.1 % | alu: stall count after alu 35 %; xu: xu result latency 28 %; barrier: release latency 11 % | default latency 13, issue-only 13 | excluded: loop folded by the compiler (no loop in the SASS) |
+| alu IADD3 w8 | 2 | cycles | 107.00 | 101.00 | -5.6 % | xu: queue (xu) 29 %; alu: stall count after alu 24 %; xu: xu result latency 13 % | default latency 25, issue-only 25 | excluded: loop folded by the compiler (no loop in the SASS) |
+| alu IADD3 w16 | 2 | cycles | 187.00 | 125.00 | -33.2 % | xu: queue (xu) 37 %; alu: queue (alu) 23 %; alu: stall count after alu 14 % | default latency 49, issue-only 49 | excluded: loop folded by the compiler (no loop in the SASS) |
+| alu IADD3 w32 | 2 | cycles | 350.00 | 174.00 | -50.3 % | xu: queue (xu) 37 %; alu: queue (alu) 34 %; alu: stall count after alu 8 % | default latency 97, issue-only 97 | excluded: loop folded by the compiler (no loop in the SASS) |
+| alu LOP3 w4 | 2 | cycles | 13,451.56 | 12,961.00 | -3.6 % | alu: stall count after alu 90 %; issue: stall count after other 8 %; xu: xu result latency 1 % | default latency 13, default rbar 4, issue-only 1553 |  |
+| alu LOP3 w8 | 2 | cycles | 24,824.24 | 24,621.00 | -0.8 % | alu: stall count after alu 48 %; alu: queue (alu) 47 %; issue: stall count after other 4 % | default latency 25, default rbar 8, issue-only 3105 |  |
+| alu LOP3 w16 | 2 | cycles | 49,164.29 | 49,215.00 | +0.1 % | alu: queue (alu) 73 %; alu: stall count after alu 24 %; issue: stall count after other 2 % | default latency 49, default rbar 16, issue-only 6209 |  |
+| alu LOP3 w32 | 2 | cycles | 98,402.40 | 98,399.00 | -0.0 % | alu: queue (alu) 86 %; alu: stall count after alu 12 %; issue: stall count after other 1 % | default latency 97, default rbar 32, issue-only 12417 |  |
+| alu SHF w4 | 2 | cycles | 8,393.44 | 8,265.00 | -1.5 % | alu: stall count after alu 96 %; xu: xu result latency 1 %; issue: stall count after other 1 % | default latency 13, default rbar 8, issue-only 113 |  |
+| alu SHF w8 | 2 | cycles | 16,441.55 | 16,429.00 | -0.1 % | alu: stall count after alu 49 %; alu: queue (alu) 49 %; xu: queue (xu) 1 % | default latency 25, default rbar 16, issue-only 225 |  |
+| alu SHF w16 | 2 | cycles | 32,751.62 | 32,831.00 | +0.2 % | alu: queue (alu) 73 %; alu: stall count after alu 24 %; xu: queue (xu) 1 % | default latency 49, default rbar 32, issue-only 449 |  |
+| alu SHF w32 | 2 | cycles | 65,568.78 | 65,631.00 | +0.1 % | alu: queue (alu) 86 %; alu: stall count after alu 12 %; xu: queue (xu) 1 % | default latency 97, default rbar 64, issue-only 897 |  |
+| alu PRMT w4 | 2 | cycles | 8,489.12 | 8,385.00 | -1.2 % | alu: stall count after alu 94 %; issue: stall count after other 3 %; xu: xu result latency 1 % | default latency 13, default rbar 8, issue-only 401 |  |
+| alu PRMT w8 | 2 | cycles | 16,474.61 | 16,429.00 | -0.3 % | alu: stall count after alu 48 %; alu: queue (alu) 48 %; issue: stall count after other 2 % | default latency 25, default rbar 16, issue-only 801 |  |
+| alu PRMT w16 | 2 | cycles | 32,833.67 | 32,831.00 | -0.0 % | alu: queue (alu) 73 %; alu: stall count after alu 24 %; xu: queue (xu) 1 % | default latency 49, default rbar 32, issue-only 1601 |  |
+| alu PRMT w32 | 2 | cycles | 65,339.98 | 65,631.00 | +0.4 % | alu: queue (alu) 86 %; alu: stall count after alu 12 %; xu: queue (xu) 1 % | default latency 97, default rbar 64, issue-only 3201 |  |
+| alu HFMA2 w4 | 2 | cycles | 8,397.74 | 8,265.00 | -1.6 % | fma: stall count after fma_half_rate 95 %; xu: xu result latency 1 %; issue: stall count after other 1 % | default latency 13, issue-only 113 |  |
+| alu HFMA2 w8 | 2 | cycles | 16,408.61 | 16,429.00 | +0.1 % | fma: stall count after fma_half_rate 48 %; fma: queue (fma_half_rate) 48 %; xu: queue (xu) 1 % | default latency 25, issue-only 225 |  |
+| alu HFMA2 w16 | 2 | cycles | 32,751.62 | 32,831.00 | +0.2 % | fma: queue (fma_half_rate) 73 %; fma: stall count after fma_half_rate 24 %; xu: queue (xu) 1 % | default latency 49, issue-only 449 |  |
+| alu HFMA2 w32 | 2 | cycles | 65,437.84 | 65,631.00 | +0.3 % | fma: queue (fma_half_rate) 85 %; fma: stall count after fma_half_rate 12 %; xu: queue (xu) 1 % | default latency 97, issue-only 897 |  |
+| alu F2F.F16.F32+HADD2.F32 w4 | 2 | cycles | 15,922.25 | 15,041.00 | -5.5 % | issue: stall count after half_to_float 47 %; fma: stall count after fp32 28 %; alu: stall count after alu 18 % | default latency 13, issue-only 401 |  |
+| alu F2F.F16.F32+HADD2.F32 w8 | 2 | cycles | 26,489.89 | 24,488.00 | -7.6 % | issue: stall count after half_to_float 29 %; fma: queue (fp32) 21 %; fma: stall count after fp32 17 % | default latency 25, issue-only 801 |  |
+| alu F2F.F16.F32+HADD2.F32 w16 | 2 | cycles | 51,481.54 | 46,584.00 | -9.5 % | fma: queue (fp32) 43 %; alu: queue (alu) 17 %; issue: stall count after half_to_float 15 % | default latency 49, issue-only 1601 |  |
+| alu F2F.F16.F32+HADD2.F32 w32 | 2 | cycles | 102,963.08 | 90,775.00 | -11.8 % | fma: queue (fp32) 66 %; alu: queue (alu) 12 %; issue: stall count after half_to_float 8 % | default latency 97, issue-only 3201 |  |
+| alu HADD2.F32(h2f) w4 | 2 | cycles | 40,655.09 | 40,353.00 | -0.7 % | xu: xu result latency 91 %; alu: stall count after alu 5 %; issue: stall count after half_to_float 2 % | default latency 13, default rbar 260, issue-only 785 |  |
+| alu HADD2.F32(h2f) w8 | 2 | cycles | 66,064.52 | 66,232.00 | +0.3 % | xu: xu result latency 44 %; xu: queue (xu) 40 %; alu: queue (alu) 5 % | default latency 25, default rbar 520, issue-only 1569 |  |
+| alu HADD2.F32(h2f) w16 | 2 | cycles | 131,598.39 | 132,194.00 | +0.5 % | xu: queue (xu) 70 %; xu: xu result latency 19 %; alu: queue (alu) 3 % | default latency 49, default rbar 1040, issue-only 3137 |  |
+| alu HADD2.F32(h2f) w32 | 2 | cycles | 260,580.52 | 263,615.00 | +1.2 % | xu: queue (xu) 85 %; xu: xu result latency 11 %; alu: queue (alu) 1 % | default latency 97, default rbar 2080, issue-only 6273 |  |
+| alu F2FP.PACK_AB w4 | 2 | cycles | 14,641.64 | 14,465.00 | -1.2 % | issue: stall count after half_to_float 49 %; fma: stall count after fp32 28 %; alu: stall count after alu 15 % | default latency 13, issue-only 401 |  |
+| alu F2FP.PACK_AB w8 | 2 | cycles | 23,076.06 | 23,599.00 | +2.3 % | issue: stall count after half_to_float 30 %; alu: queue (alu) 17 %; fma: stall count after fp32 17 % | default latency 25, issue-only 801 |  |
+| alu F2FP.PACK_AB w16 | 2 | cycles | 45,134.99 | 45,349.00 | +0.5 % | fma: queue (fp32) 51 %; issue: stall count after half_to_float 16 %; alu: queue (alu) 13 % | default latency 49, issue-only 1601 |  |
+| alu F2FP.PACK_AB w32 | 2 | cycles | 89,898.49 | 87,920.00 | -2.2 % | fma: queue (fp32) 71 %; alu: queue (alu) 9 %; issue: stall count after half_to_float 8 % | default latency 97, issue-only 3201 |  |
+| alu I2F w4 | 2 | cycles | 311.00 | 318.00 | +2.3 % | fma: stall count after fma_half_rate 38 %; alu: stall count after alu 23 %; xu: xu result latency 18 % | default latency 13, default rbar 8, issue-only 13 | excluded: loop folded by the compiler (no loop in the SASS) |
+| alu I2F w8 | 2 | cycles | 343.00 | 326.00 | -5.0 % | fma: stall count after fma_half_rate 30 %; alu: stall count after alu 18 %; xu: queue (xu) 14 % | default latency 25, default rbar 16, issue-only 25 | excluded: loop folded by the compiler (no loop in the SASS) |
+| alu I2F w16 | 2 | cycles | 533.00 | 348.00 | -34.7 % | fma: queue (fma_half_rate) 21 %; fma: stall count after fma_half_rate 20 %; alu: queue (alu) 18 % | default latency 49, default rbar 32, issue-only 49 | excluded: loop folded by the compiler (no loop in the SASS) |
+| alu I2F w32 | 2 | cycles | 1,042.00 | 392.00 | -62.4 % | fma: queue (fma_half_rate) 43 %; alu: queue (alu) 17 %; fma: stall count after fma_half_rate 12 % | default latency 97, default rbar 64, issue-only 97 | excluded: loop folded by the compiler (no loop in the SASS) |
+| alu F2I w4 | 2 | cycles | 4,329.81 | 4,257.00 | -1.7 % | fma: stall count after fp32 89 %; xu: xu result latency 4 %; issue: stall count after other 3 % | default latency 13, default rbar 8, issue-only 209 |  |
+| alu F2I w8 | 2 | cycles | 8,302.00 | 8,333.00 | +0.4 % | fma: stall count after fp32 46 %; issue: scheduler (another warp issued) 46 %; xu: queue (xu) 2 % | default latency 25, default rbar 16, issue-only 417 |  |
+| alu F2I w16 | 2 | cycles | 8,300.95 | 16,641.00 | +100.5 % | issue: scheduler (another warp issued) 70 %; fma: stall count after fp32 23 %; xu: queue (xu) 3 % | default latency 49, default rbar 32, issue-only 833 | excluded: measured rate 7.895 exceeds the issue limit 4.0/clk/SM |
+| alu F2I w32 | 2 | cycles | 33,250.13 | 33,253.00 | +0.0 % | issue: scheduler (another warp issued) 82 %; fma: stall count after fp32 12 %; xu: queue (xu) 4 % | default latency 97, default rbar 64, issue-only 1665 |  |
+| alumix IMAD+LOP3 | 3 | cycles | 49,419.00 | 49,561.00 | +0.3 % | alu: queue (alu) 77 %; alu: stall count after alu 10 %; fma: stall count after fma_half_rate 6 % | default latency 97, issue-only 3201 |  |
+| alumix IMAD+FFMA | 3 | cycles | 49,601.00 | 49,503.00 | -0.2 % | fma: queue (fma_half_rate) 85 %; fma: stall count after fma_half_rate 8 %; fma: stall count after fp32 4 % | default latency 97, default rbar 64, issue-only 1665 |  |
+| alumix LOP3+FFMA | 3 | cycles | 64,070.00 | 64,099.00 | +0.0 % | alu: queue (alu) 85 %; alu: stall count after alu 9 %; fma: stall count after fp32 3 % | default latency 97, default rbar 64, issue-only 3201 |  |
+| alumix HFMA2+LOP3 | 3 | cycles | 51,505.00 | 49,247.00 | -4.4 % | alu: queue (alu) 84 %; alu: stall count after alu 7 %; fma: stall count after fma_half_rate 4 % | default latency 97, issue-only 12577 |  |
+| alumix HFMA2+IMAD | 3 | cycles | 65,069.00 | 65,631.00 | +0.9 % | fma: queue (fma_half_rate) 85 %; fma: stall count after fma_half_rate 12 %; xu: queue (xu) 1 % | default latency 97, default rbar 32, issue-only 3361 |  |
+| alumix HFMA2+FFMA | 3 | cycles | 55,908.00 | 49,759.00 | -11.0 % | fma: queue (fma_half_rate) 84 %; fma: stall count after fma_half_rate 8 %; fma: stall count after fp32 4 % | default latency 97, default rbar 32, issue-only 3361 |  |
+| alumix PRMT+IMAD | 3 | cycles | 33,480.00 | 33,467.00 | -0.0 % | fma: queue (fma_half_rate) 72 %; alu: queue (alu) 12 %; alu: stall count after alu 6 % | default latency 97, default rbar 64, issue-only 1665 |  |
+| alumix PRMT+LOP3 | 3 | cycles | 81,985.00 | 82,015.00 | +0.0 % | alu: queue (alu) 86 %; alu: stall count after alu 12 %; xu: queue (xu) 1 % | default latency 97, default rbar 32, issue-only 6273 |  |
+| alumix HADD2.F32+FADD+IMAD | 3 | cycles | 64,977.00 | 65,925.00 | +1.5 % | fma: queue (fp32) 66 %; fma: queue (fma_half_rate) 16 %; fma: stall count after fma_half_rate 5 % | default latency 129, issue-only 4225 |  |
+| alumix HADD2.F32+FADD+LOP3 | 3 | cycles | 76,227.00 | 81,328.00 | +6.7 % | alu: queue (alu) 85 %; alu: stall count after alu 8 %; fma: stall count after fp32 2 % | default latency 129, default rbar 64, issue-only 6721 |  |
+| alumix IMAD+IMAD | 3 | cycles | 65,596.00 | 65,631.00 | +0.1 % | fma: queue (fma_half_rate) 85 %; fma: stall count after fma_half_rate 12 %; xu: queue (xu) 1 % | default latency 97, default rbar 64, issue-only 1665 |  |
+| alumix LOP3+LOP3 | 3 | cycles | 98,396.00 | 98,399.00 | +0.0 % | alu: queue (alu) 86 %; alu: stall count after alu 12 %; issue: stall count after other 1 % | default latency 97, default rbar 32, issue-only 12417 |  |
+| alumix FFMA+FFMA | 3 | cycles | 34,117.00 | 34,050.00 | -0.2 % | fma: queue (fp32) 68 %; fma: stall count after fp32 12 %; fma: queue (fma_half_rate) 10 % | default latency 97, default rbar 64, issue-only 3201 |  |
+| sfu ex2.f32 latency | 1 | cycles/op | 18.20 | 18.04 | -0.9 % | xu: xu result latency 100 % | branch fallback 1, default latency 5, default rbar 256, issue-only 794 |  |
+| sfu ex2.f32 w1 | 2 | cycles | 262,144.00 | 264,779.00 | +1.0 % | xu: queue (xu) 85 %; xu: stall count after xu 12 %; xu: xu result latency 2 % | default latency 5, default rbar 1792, issue-only 782 |  |
+| sfu ex2.f32 w4 | 2 | cycles | 265,462.28 | 264,785.00 | -0.3 % | xu: queue (xu) 85 %; xu: stall count after xu 12 %; xu: xu result latency 2 % | default latency 17, default rbar 7168, issue-only 3125 |  |
+| sfu ex2.f32 w8 | 2 | cycles | 524,288.00 | 524,359.00 | +0.0 % | xu: queue (xu) 93 %; xu: stall count after xu 6 % | default latency 33, default rbar 14336, issue-only 6249 |  |
+| sfu ex2.f32 w16 | 2 | cycles | 1,048,576 | 1,048,698 | +0.0 % | xu: queue (xu) 97 %; xu: stall count after xu 3 % | default latency 65, default rbar 28672, issue-only 12497 |  |
+| sfu ex2.f32 w32 | 2 | cycles | 2,097,152 | 2,097,345 | +0.0 % | xu: queue (xu) 98 %; xu: stall count after xu 2 % | default latency 129, default rbar 57344, issue-only 24993 |  |
+| sfu rcp.f32 latency | 1 | cycles/op | 0.10 | 0.02 | -81.7 % | issue: default result latency (LDC) 22 %; issue: stall count after other 22 %; barrier: release latency 17 % | default latency 5, issue-only 10 | excluded: withdrawn upstream: the rcp loop was folded away (gb10 design note §9.4) |
+| sfu rcp.f32 w1 | 2 | cycles | 201.00 | 69.00 | -65.7 % | fma: stall count after fp32 18 %; issue: default result latency (LDC) 17 %; issue: stall count after other 17 % | branch fallback 1, default latency 5, issue-only 11 | excluded: withdrawn upstream: the rcp loop was folded away (gb10 design note §9.4) |
+| sfu rcp.f32 w4 | 2 | cycles | 746.00 | 75.00 | -89.9 % | store_port: drain after the last instruction 16 %; fma: stall count after fp32 15 %; barrier: release latency 15 % | branch fallback 4, default latency 17, issue-only 41 | excluded: withdrawn upstream: the rcp loop was folded away (gb10 design note §9.4) |
+| sfu rcp.f32 w8 | 2 | cycles | 505.00 | 83.00 | -83.6 % | store_port: drain after the last instruction 27 %; fma: stall count after fp32 11 %; issue: default result latency (LDC) 10 % | branch fallback 8, default latency 33, issue-only 81 | excluded: withdrawn upstream: the rcp loop was folded away (gb10 design note §9.4) |
+| sfu rcp.f32 w16 | 2 | cycles | 455.00 | 172.00 | -62.2 % | store_port: drain after the last instruction 36 %; alu: queue (alu) 15 %; issue: stall count after barrier 8 % | branch fallback 16, default latency 65, issue-only 161 | excluded: withdrawn upstream: the rcp loop was folded away (gb10 design note §9.4) |
+| sfu rcp.f32 w32 | 2 | cycles | 381.00 | 352.00 | -7.6 % | alu: queue (alu) 22 %; store_port: drain after the last instruction 22 %; store_queue: queue (stg) 18 % | branch fallback 32, default latency 129, issue-only 321 | excluded: withdrawn upstream: the rcp loop was folded away (gb10 design note §9.4) |
+| sfu rsqrt.f32 latency | 1 | cycles/op | 18.10 | 18.04 | -0.3 % | xu: xu result latency 100 % | branch fallback 1, default latency 5, default rbar 256, issue-only 794 |  |
+| sfu rsqrt.f32 w1 | 2 | cycles | 262,144.00 | 264,779.00 | +1.0 % | xu: queue (xu) 85 %; xu: stall count after xu 12 %; xu: xu result latency 2 % | default latency 5, default rbar 1792, issue-only 782 |  |
+| sfu rsqrt.f32 w4 | 2 | cycles | 265,462.28 | 264,785.00 | -0.3 % | xu: queue (xu) 85 %; xu: stall count after xu 12 %; xu: xu result latency 2 % | default latency 17, default rbar 7168, issue-only 3125 |  |
+| sfu rsqrt.f32 w8 | 2 | cycles | 524,288.00 | 524,359.00 | +0.0 % | xu: queue (xu) 93 %; xu: stall count after xu 6 % | default latency 33, default rbar 14336, issue-only 6249 |  |
+| sfu rsqrt.f32 w16 | 2 | cycles | 1,048,576 | 1,048,698 | +0.0 % | xu: queue (xu) 97 %; xu: stall count after xu 3 % | default latency 65, default rbar 28672, issue-only 12497 |  |
+| sfu rsqrt.f32 w32 | 2 | cycles | 2,097,152 | 2,097,345 | +0.0 % | xu: queue (xu) 98 %; xu: stall count after xu 2 % | default latency 129, default rbar 57344, issue-only 24993 |  |
+| sfu sin.f32 latency | 1 | cycles/op | 22.20 | 22.16 | -0.2 % | xu: xu result latency 81 %; fma: stall count after fp32 18 %; issue: stall count after other 1 % | branch fallback 1, default latency 5, issue-only 794 |  |
+| sfu sin.f32 w1 | 2 | cycles | 268,865.64 | 266,827.00 | -0.8 % | xu: xu result latency 71 %; xu: queue (xu) 24 %; fma: stall count after fp32 5 % | default latency 5, default rbar 1536, issue-only 782 |  |
+| sfu sin.f32 w4 | 2 | cycles | 267,153.12 | 266,833.00 | -0.1 % | xu: xu result latency 71 %; xu: queue (xu) 24 %; fma: stall count after fp32 5 % | default latency 17, default rbar 6144, issue-only 3125 |  |
+| sfu sin.f32 w8 | 2 | cycles | 524,288.00 | 525,410.00 | +0.2 % | xu: queue (xu) 62 %; xu: xu result latency 35 %; fma: stall count after fp32 2 % | default latency 33, default rbar 12288, issue-only 6249 |  |
+| sfu sin.f32 w16 | 2 | cycles | 1,048,576 | 1,051,774 | +0.3 % | xu: queue (xu) 81 %; xu: xu result latency 18 %; fma: stall count after fp32 1 % | default latency 65, default rbar 24576, issue-only 12497 |  |
+| sfu sin.f32 w32 | 2 | cycles | 2,097,152 | 2,103,515 | +0.3 % | xu: queue (xu) 90 %; xu: xu result latency 9 %; fma: stall count after fp32 1 % | default latency 129, default rbar 49152, issue-only 24993 |  |
+| sfu lg2.f32 latency | 1 | cycles/op | 18.10 | 18.04 | -0.3 % | xu: xu result latency 100 % | branch fallback 1, default latency 5, default rbar 256, issue-only 794 |  |
+| sfu lg2.f32 w1 | 2 | cycles | 262,144.00 | 264,779.00 | +1.0 % | xu: queue (xu) 85 %; xu: stall count after xu 12 %; xu: xu result latency 2 % | default latency 5, default rbar 1792, issue-only 782 |  |
+| sfu lg2.f32 w4 | 2 | cycles | 265,462.28 | 264,785.00 | -0.3 % | xu: queue (xu) 85 %; xu: stall count after xu 12 %; xu: xu result latency 2 % | default latency 17, default rbar 7168, issue-only 3125 |  |
+| sfu lg2.f32 w8 | 2 | cycles | 524,288.00 | 524,359.00 | +0.0 % | xu: queue (xu) 93 %; xu: stall count after xu 6 % | default latency 33, default rbar 14336, issue-only 6249 |  |
+| sfu lg2.f32 w16 | 2 | cycles | 1,048,576 | 1,048,698 | +0.0 % | xu: queue (xu) 97 %; xu: stall count after xu 3 % | default latency 65, default rbar 28672, issue-only 12497 |  |
+| sfu lg2.f32 w32 | 2 | cycles | 2,097,152 | 2,097,345 | +0.0 % | xu: queue (xu) 98 %; xu: stall count after xu 2 % | default latency 129, default rbar 57344, issue-only 24993 |  |
+| sfu tanh.f32 latency | 1 | cycles/op | 18.10 | 18.04 | -0.3 % | xu: xu result latency 100 % | branch fallback 1, default latency 5, default rbar 256, issue-only 794 |  |
+| sfu tanh.f32 w1 | 2 | cycles | 262,144.00 | 264,779.00 | +1.0 % | xu: queue (xu) 85 %; xu: stall count after xu 12 %; xu: xu result latency 2 % | default latency 5, default rbar 1792, issue-only 782 |  |
+| sfu tanh.f32 w4 | 2 | cycles | 265,462.28 | 264,785.00 | -0.3 % | xu: queue (xu) 85 %; xu: stall count after xu 12 %; xu: xu result latency 2 % | default latency 17, default rbar 7168, issue-only 3125 |  |
+| sfu tanh.f32 w8 | 2 | cycles | 524,288.00 | 524,359.00 | +0.0 % | xu: queue (xu) 93 %; xu: stall count after xu 6 % | default latency 33, default rbar 14336, issue-only 6249 |  |
+| sfu tanh.f32 w16 | 2 | cycles | 1,048,576 | 1,048,698 | +0.0 % | xu: queue (xu) 97 %; xu: stall count after xu 3 % | default latency 65, default rbar 28672, issue-only 12497 |  |
+| sfu tanh.f32 w32 | 2 | cycles | 2,097,152 | 2,097,345 | +0.0 % | xu: queue (xu) 98 %; xu: stall count after xu 2 % | default latency 129, default rbar 57344, issue-only 24993 |  |
+| sfu ffma.f32 latency | 1 | cycles/op | 4.70 | 4.23 | -10.0 % | fma: stall count after fp32 81 %; issue: stall count after other 18 % | branch fallback 1, default latency 5, issue-only 794 |  |
+| sfu ffma.f32 w1 | 2 | cycles | 37,183.55 | 35,927.00 | -3.4 % | fma: stall count after fp32 91 %; issue: stall count after other 9 % | default latency 5, issue-only 1038 |  |
+| sfu ffma.f32 w4 | 2 | cycles | 37,449.14 | 35,933.00 | -4.0 % | fma: stall count after fp32 91 %; issue: stall count after other 9 % | default latency 17, issue-only 4149 |  |
+| sfu ffma.f32 w8 | 2 | cycles | 68,871.99 | 69,212.00 | +0.5 % | issue: scheduler (another warp issued) 48 %; fma: stall count after fp32 47 %; issue: stall count after other 5 % | default latency 33, issue-only 8297 |  |
+| sfu ffma.f32 w16 | 2 | cycles | 138,654.68 | 136,570.00 | -1.5 % | issue: scheduler (another warp issued) 73 %; fma: stall count after fp32 24 %; issue: stall count after other 2 % | default latency 65, issue-only 16593 |  |
+| sfu ffma.f32 w32 | 2 | cycles | 271,475.99 | 271,910.00 | +0.2 % | issue: scheduler (another warp issued) 87 %; fma: stall count after fp32 12 %; issue: stall count after other 1 % | default latency 129, issue-only 33185 |  |
+| cvt scaffold only (mov) | 2 | cycles/element/smsp | 4.04 | 4.01 | -0.8 % | alu: queue (alu) 85 %; alu: stall count after alu 15 % | default latency 192, front end 256, issue-only 24640 |  |
+| cvt I2F.F16 from s32 | 2 | cycles/element/smsp | 8.06 | 8.02 | -0.4 % | xu: queue (xu) 85 %; xu: xu result latency 14 %; alu: stall count after alu 1 % | default latency 192, front end 256, issue-only 24640 |  |
+| cvt I2F.F16 from u32 | 2 | cycles/element/smsp | 8.05 | 8.02 | -0.3 % | xu: queue (xu) 85 %; xu: xu result latency 14 %; alu: stall count after alu 1 % | default latency 192, front end 256, issue-only 24640 |  |
+| cvt int to fp32 | 2 | cycles/element/smsp | 4.03 | 4.01 | -0.5 % | alu: queue (alu) 87 %; alu: stall count after alu 12 % | default latency 192, front end 256, issue-only 24640 |  |
+| cvt fp32 to fp16 | 2 | cycles/element/smsp | 8.04 | 8.01 | -0.4 % | alu: queue (alu) 87 %; alu: stall count after alu 12 % | default latency 192, front end 256, issue-only 98368 |  |
+| cvt MUFU.EX2 ruler | 2 | cycles/element/smsp | 8.23 | 8.07 | -1.9 % | xu: queue (xu) 85 %; alu: stall count after alu 6 %; xu: xu result latency 3 % | default latency 192, default rbar 65536, front end 256, issue-only 98368 |  |
+| cvt I2F.F16 + MUFU.EX2 alternating | 3 | cycles/element/smsp | 8.13 | 8.01 | -1.5 % | xu: queue (xu) 86 %; alu: stall count after alu 5 %; xu: xu result latency 4 % | default latency 192, default rbar 98304, front end 256, issue-only 49216 |  |
