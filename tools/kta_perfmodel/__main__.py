@@ -32,7 +32,15 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument(
         "--cached-only", action="store_true", help="fail instead of replaying an uncached row"
     )
+    ap.add_argument(
+        "--override",
+        default=None,
+        help="JSON {param: value} applied to every row (an ablation: printed, not written)",
+    )
     a = ap.parse_args(argv)
+    over = json.loads(a.override) if a.override else None
+    if over:
+        a.no_write = True
     cal, sha = upstream.calibration_dir(a.upstream, a.rev)
     head, dirty = upstream.kta_commit()
     t0 = time.perf_counter()
@@ -43,7 +51,7 @@ def main(argv: list[str] | None = None) -> int:
         if prev.exists()
         else {}
     )
-    for r in table.run(cal, sha, rows, a.jobs, not a.no_cache, hint, a.all, a.cached_only):
+    for r in table.run(cal, sha, rows, a.jobs, not a.no_cache, hint, a.all, a.cached_only, over):
         err = "" if r["error"] is None else f"{100 * r['error']:+7.1f} %"
         if a.top:
             continue
@@ -64,7 +72,7 @@ def main(argv: list[str] | None = None) -> int:
             hint,
             a.all,
             a.cached_only,
-            table.MECH_ONLY,
+            {**table.MECH_ONLY, **(over or {})},
         )
     }
     for r in rows:

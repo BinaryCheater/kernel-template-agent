@@ -108,6 +108,8 @@ clock:
   block_level_GHz: clock_GHz               # validate.py (block and kernel level of the 22 GEMMs)
   kernel_GHz: clock_under_load_GHz          # kernel.py, ws.py, ws_validate.py
 launch_us: launch_stream_us
+# KTA batch rows (one launch between two events and a synchronize, probe launch, round 3)
+launch_event_us: launch_event_us
 
 residency:  # bounds on blocks per SM (kernel.occupancy)
   registers: {per_sm: regs_per_sm, alloc_unit_per_warp: reg_alloc_unit_per_warp}

@@ -279,10 +279,8 @@ def run_job(
             _batch_cases.update(((job[1], c.id), c) for c in probeset.all_cases(d))
         predicted, sm, _ = probeset.run_case(_batch_cases[(job[1], job[2])], machine=m, trace=True)
         if job[2].endswith(" kernel"):
-            extra["launch"] = (
-                launch * m.param(m.desc["clock"]["kernel_GHz"]) * 1e3,
-                m.desc["launch_us"],
-            )
+            ref = m.desc.get("launch_event_us", m.desc["launch_us"])
+            extra["launch"] = (m.param(ref) * m.param(m.desc["clock"]["kernel_GHz"]) * 1e3, ref)
         got.append(sm)
     else:
         raise ValueError(f"unknown job {job}")
@@ -293,6 +291,10 @@ def run_job(
         "counts": {
             "issued": sm.count["issued"],
             "HMMA": sm.count.get("HMMA", 0),
+            "LDGSTS": sm.count.get("LDGSTS", 0),
+            "ldg_sectors": sm.count.get("ldg_sectors", 0),
+            "ldg_miss_sectors": sm.count.get("ldg_miss_sectors", 0),
+            "lane_track": getattr(sm, "lane_track", False),
             "blocks": sm.blocks,
             "busy": {k: v / max(1.0, sm.cycles) for k, v in sm.busy.items()},
         },
@@ -402,7 +404,22 @@ def counts_check(r: dict[str, Any]) -> dict[str, Any]:
     mt = float(c.get("smsp__inst_executed_pipe_tensor.sum") or 0) / grid
     kt = k.get("HMMA", 0) / max(1, k.get("blocks", 1))
     ok = bool(meas) and abs(model / meas - 1) <= R1_TOL and (not mt or abs(kt / mt - 1) <= R1_TOL)
-    return {"inst_model": model, "inst_meas": meas, "mma_model": kt, "mma_meas": mt, "ok": ok}
+    out = {"inst_model": model, "inst_meas": meas, "mma_model": kt, "mma_meas": mt, "ok": ok}
+    # round 3: global-load sectors per block where the replay counts them from the lanes'
+    # addresses (LDG only; cp.async sectors are counted by the copy front end, not here), and the
+    # L1 misses against the L2 read sectors (a record, not part of R1: ncu's replay refills the L2)
+    if k.get("lane_track") and not k.get("LDGSTS"):
+        blocks = max(1, k.get("blocks", 1))
+        sm_, sx = k["ldg_sectors"] / blocks, float(c.get(SECT_LD) or 0) / grid
+        out.update(sect_model=sm_, sect_meas=sx)
+        out["sect_ok"] = bool(sx) and abs(sm_ / sx - 1) <= R1_TOL
+        out["ok"] = ok and out["sect_ok"]
+        out["l2_read_model"] = k["ldg_miss_sectors"] / blocks
+        out["l2_read_meas"] = float(c.get("lts__t_sectors_op_read.sum") or 0) / grid
+    return out
+
+
+SECT_LD = "l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum"
 
 
 # counter pipes and the model resources they stand for (bottleneck agreement, LOOP §5)

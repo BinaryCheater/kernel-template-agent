@@ -26,10 +26,12 @@ from __future__ import annotations
 
 import heapq
 import re
+from collections import OrderedDict
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from .lanes import Lanes, footprint, width_of
 from .machine import Machine, OpClass, default_machine
 from .sass import Ins, main_loop, parse
 
@@ -73,6 +75,7 @@ class Warp:
     why: Any = None
     sbsrc: dict[int, list[Any]] = field(default_factory=dict)
     bar_src: list[Any] = field(default_factory=list)
+    lanes: Any = None
 
 
 class SM:
@@ -99,6 +102,8 @@ class SM:
         const_bank: dict[tuple[int, int], int] | None = None,
         machine: Machine | None = None,
         trace: bool = False,
+        block_dim: tuple | None = None,
+        l1_bytes: int | None = None,
     ):
         self.ins = ins
         # KTA (PERFMODEL): with `trace`, every issue and the binding reason of every wait is kept
@@ -211,6 +216,15 @@ class SM:
         # stage, L2 or DRAM, the SM's return port) into registers
         self.ldg_default = ldg_lines is None
         self.ldg_lines = ldg_lines or [(4, 512, False)]
+        # KTA (PERFMODEL round 3): without a driver-supplied list, an LDG's lines and sectors come
+        # from its width and its 32 lanes' addresses (lanes.py), and a line another load of this SM
+        # brought into the L1 (LRU over `l1_bytes`, kernel-parameter bases only) is a hit
+        self.lane_track = (
+            P["ldg_lane_addresses"] and self.ldg_default and any(x.base == "LDG" for x in ins)
+        )
+        bd = tuple([*(block_dim or (threads,)), 1, 1][:3])
+        self.l1: OrderedDict = OrderedDict()
+        self.l1_lines = (l1_bytes if l1_bytes is not None else m.C["l1_unified_bytes"]) // 128
         # global atomics: lines one warp instruction touches (8 for a C tile added from mma
         # accumulators: 8 rows x 32 B)
         self.red_lines = red_lines
@@ -218,13 +232,45 @@ class SM:
         self.loop_trips = loop_trips or {}
         for w in self.warps:
             w.nldg = 0
+            if self.lane_track:
+                w.lanes = Lanes(w.tid0, bd)  # type: ignore[arg-type]
         self.events = []  # (time, seq, kind, warp, arg)
         self.seq = 0
         self.bar_arrived = {}
         self.last_issue: list[Warp | None] = [None] * n
         self.count: dict[str, Any] = {"issued": 0, "HMMA": 0, "LDSM": 0, "LDGSTS": 0, "BAR": 0}
+        self.count.update(ldg_sectors=0, ldg_miss_sectors=0.0)
         self.assumed_latency: dict[str, int] = {}
         self.busy: dict[str, float] = {"tensor": 0, "smem": 0, "fill": 0}
+
+    def _ldg_lanes(self, w: Warp, x: Ins) -> tuple[int, float, int]:
+        """KTA (PERFMODEL round 3): (lines, bytes that miss the L1, lines that hit) of one LDG from
+        its width and its lanes' addresses; an address the lane tracking does not know is taken as
+        32 contiguous lanes (a front-end default)."""
+        width = width_of(x.op)
+        addr = w.lanes.address(x.args, w.vals)
+        if addr is None:
+            self._dflt("front_end", "ldg address unknown (32 contiguous lanes)")
+            n_sect = width
+            keys: list = []
+            lines = max(1, 32 * width // 128)
+        else:
+            keys, n_sect = footprint(addr, width)
+            lines = len(keys)
+        self.count["ldg_sectors"] += n_sect
+        hits = 0
+        if addr is not None and all(sym[0] == "c" for sym, _ in addr[0]):
+            for k in keys:
+                if k in self.l1:
+                    hits += 1
+                    self.l1.move_to_end(k)
+                else:
+                    self.l1[k] = True
+                    if len(self.l1) > self.l1_lines:
+                        self.l1.popitem(last=False)
+        miss = (lines - hits) / lines
+        self.count["ldg_miss_sectors"] += n_sect * miss
+        return lines, n_sect * 32 * miss, hits
 
     def ev(self, t, kind, w, arg=None):
         self.seq += 1
@@ -415,6 +461,12 @@ class SM:
         args = [a.strip() for a in x.args.split(",")]
         if x.base == "S2R" and "SR_TID.X" in x.args:
             w.regs_tid.add(args[0])
+        elif x.base == "FCHK" and self.P["fchk_fast_path"]:
+            # KTA (PERFMODEL round 3): FCHK sets its predicate for operands the fast division
+            # cannot take (denormals, infinities, zero divisors); the replay takes them as normal,
+            # so the guarded slow path is not run (a visible default, softmax / RMSNorm divisions)
+            w.preds[args[0]] = False
+            self._dflt("branch_fallback", "FCHK: operands normal (fast division)")
         elif x.base == "ELECT":
             w.preds[args[0]] = True  # lane 0 is the elected lane
         elif x.base in ("ISETP", "UISETP"):
@@ -557,7 +609,13 @@ class SM:
             # instruction runs)
             if pv is False:
                 executes = False
+        pend = None
+        if w.lanes is not None:
+            runs = True if not x.pred else (False if not executes else (pv if x.pred else True))
+            pend = w.lanes.step(x.base, x.op, x.args.split(","), w.vals, runs)
         self._eval_pred_ops(w, x)
+        if pend is not None:
+            pend(w.vals)
         lat_done = None
         lsu_done = now
         h = cls.handler
@@ -713,22 +771,27 @@ class SM:
                 else:
                     self.ev(ret, "write", w, w.gid)
             elif h == "ldg":
-                lines, nbytes, hit = self.ldg_lines[w.nldg % len(self.ldg_lines)]
+                if w.lanes is not None:
+                    lines, nbytes, hit_lines = self._ldg_lanes(w, x)
+                else:
+                    lines, nbytes, hit = self.ldg_lines[w.nldg % len(self.ldg_lines)]
+                    if self.ldg_default:
+                        self._dflt("front_end", "ldg_lines (4 lines, 512 B, L1 miss)")
+                    hit_lines = lines if hit else 0
                 w.nldg += 1
                 t_lsu = max(now, t["lsu"])
                 t["lsu"] = t_lsu + lines * P["lsu_clk_per_line"]
                 self.busy["lsu"] = self.busy.get("lsu", 0) + lines
                 lsu_done = t["lsu"]
-                if self.ldg_default:
-                    self._dflt("front_end", "ldg_lines (4 lines, 512 B, L1 miss)")
                 if tr:
                     trr = [
                         (now, t_lsu, "lsu", "queue", None),
                         (t_lsu, lsu_done, "lsu", "address stage", "sim.lsu_clk_per_line"),
                     ]
-                if hit:
+                lat_done = lsu_done
+                if hit_lines:
                     t1 = max(lsu_done, t["l1"])
-                    t["l1"] = t1 + lines * P["l1_clk_per_line"]
+                    t["l1"] = t1 + hit_lines * P["l1_clk_per_line"]
                     lat_done = t["l1"] + P["l1_hit_latency_clk"]
                     if trr is not None:
                         trw = [
@@ -737,7 +800,7 @@ class SM:
                             (t1, t["l1"], "l1", "hit path", "sim.l1_clk_per_line"),
                             (t["l1"], lat_done, "l1", "hit latency", "sim.l1_hit_latency_clk"),
                         ]
-                else:
+                if hit_lines < lines:
                     self.miss_acc += self.miss_frac
                     if self.miss_acc >= 1.0:
                         self.miss_acc -= 1.0
@@ -752,20 +815,27 @@ class SM:
                     ret = max(arrive, t["l2_return"])
                     t["l2_return"] = ret + self.ret_clk * nbytes / 512
                     self.busy["fill"] += self.ret_clk * nbytes / 512
-                    lat_done = t["l2_return"]
-                    if trr is not None:
-                        trw = [
-                            *trr,
-                            (
-                                lsu_done,
-                                arrive,
-                                "l2/dram",
-                                "load latency (incl. DRAM queue)",
-                                "sim.ldg_l2_latency_clk",
-                            ),
-                            self._return_stage(arrive, ret),
-                            (ret, lat_done, "l2_return", "transfer", "sim.l2_return_clk_per_512B"),
-                        ]
+                    if t["l2_return"] >= lat_done:
+                        lat_done = t["l2_return"]
+                        if trr is not None:
+                            trw = [
+                                *trr,
+                                (
+                                    lsu_done,
+                                    arrive,
+                                    "l2/dram",
+                                    "load latency (incl. DRAM queue)",
+                                    "sim.ldg_l2_latency_clk",
+                                ),
+                                self._return_stage(arrive, ret),
+                                (
+                                    ret,
+                                    lat_done,
+                                    "l2_return",
+                                    "transfer",
+                                    "sim.l2_return_clk_per_512B",
+                                ),
+                            ]
             elif h == "local":
                 # local memory (register spills, one slot per warp): 4 cycles per line through L1,
                 # then the L1 latency

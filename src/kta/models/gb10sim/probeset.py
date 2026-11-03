@@ -17,7 +17,15 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from .kernel import copy_lines, dram_clk, occupancy, sass_trips, simulate_kernel
+from .kernel import (
+    copy_lines,
+    dram_clk,
+    l2_warm_miss,
+    launch_us,
+    occupancy,
+    sass_trips,
+    simulate_kernel,
+)
 from .machine import Machine, default_machine
 from .probes import Case, ClockMarked, marked_cycles
 from .sass import Ins, main_loop, parse
@@ -319,9 +327,7 @@ def dram_cases(b: Batch) -> list[Case]:
                 5,
                 "us",
                 build,
-                lambda sm, r: (
-                    r["cycles"] / (_ghz(b, sm.m) * 1e3) + sm.m.param(sm.m.desc["launch_us"])
-                ),
+                lambda sm, r: r["cycles"] / (_ghz(b, sm.m) * 1e3) + _launch_event(sm.m),
                 limit=200_000_000,
             )
         )
@@ -424,8 +430,6 @@ def l2reuse_cases(b: Batch) -> list[Case]:
     miss), warm (back-to-back), in4 (four passes after a flush). The engine is told the miss
     fraction of each mode by the warm rule under test (`l2_warm_miss`): cold 1, warm the rule's,
     in4 (1 + 3 x the rule's) / 4."""
-    from .kernel import l2_warm_miss
-
     txt = _sass(b, "probe-l2reuse")
     out = []
     for n in L2REUSE_N:
@@ -498,9 +502,7 @@ def launch_cases(b: Batch) -> list[Case]:
                     1,
                     "us",
                     row(ins, t, g),
-                    lambda sm, r: (
-                        r["cycles"] / (_ghz(b, sm.m) * 1e3) + sm.m.param(sm.m.desc["launch_us"])
-                    ),
+                    lambda sm, r: r["cycles"] / (_ghz(b, sm.m) * 1e3) + _launch_event(sm.m),
                 )
             )
     for i in LAUNCH_WORK:
@@ -513,12 +515,16 @@ def launch_cases(b: Batch) -> list[Case]:
                 1,
                 "us",
                 row(ins, 128, 48),
-                lambda sm, r: (
-                    r["cycles"] / (_ghz(b, sm.m) * 1e3) + sm.m.param(sm.m.desc["launch_us"])
-                ),
+                lambda sm, r: r["cycles"] / (_ghz(b, sm.m) * 1e3) + _launch_event(sm.m),
             )
         )
     return out
+
+
+def _launch_event(m: Machine) -> float:
+    """The launch term of a KTA batch row: one launch between two events and a synchronize (probe
+    launch, round 3; before it the fitted back-to-back `launch_us`)."""
+    return m.param(m.desc.get("launch_event_us", m.desc["launch_us"]))
 
 
 def _launch(b: Batch, unit: str) -> dict[str, Any]:
@@ -577,7 +583,7 @@ def _hgemm_case(
         7,
         "us",
         build,
-        lambda sm, r: r["us"] - _launch_diff(b, sm),
+        lambda sm, r: r["us"] - _launch_diff(b, sm) - launch_us() + _launch_event(sm.m),
         limit=0,
     )
 
@@ -596,9 +602,11 @@ def _launch_diff(b: Batch, sm: Any) -> float:
 def _generic_case(b: Batch, d: Path, L: dict[str, Any], regs: int) -> Case:
     """A kernel without a family front end (FA forward, decode attention, GEMV, RMSNorm, softmax):
     the busiest SM of the grid with block replacement, the chip's shares by blocks in flight, the
-    main loop's trip count from TileLang's source loop. Warm: no DRAM misses. Rotating (round 2):
-    every load misses, the footprint read at the DRAM rate shared by the blocks in flight (as the
-    dram_rotate probe)."""
+    main loop's trip count from TileLang's source loop. Warm (round 3, probe l2reuse): loads miss
+    the L2 by the footprint's measured curve (plain loads; evict-first loads their own). Rotating
+    (round 2): every load misses, the footprint read at the DRAM rate shared by the blocks in
+    flight (as the dram_rotate probe). LDG lines, sectors and L1 hits from the lanes' addresses
+    (sm.SM lane tracking, round 3)."""
     ins = _k((d / "k.sass").read_text(), L["entry"])
     src = (d / "kernel.cu").read_text()
     loops = [int(x) for x in re.findall(r"for \(int k = 0; k < (\d+); \+\+k\)", src)]
@@ -611,11 +619,16 @@ def _generic_case(b: Batch, d: Path, L: dict[str, Any], regs: int) -> Case:
         rmax = occupancy(h, regs, L["smem"], m)
         per_sm = math.ceil(tiles / m.sms)
         eq = min(tiles, m.sms * rmax) / min(rmax, per_sm)
+        fb = L["footprint_bytes"]
         if L.get("cache") == "rotating":
-            fb = L["footprint_bytes"]
+            miss = 1.0
+        else:  # warm (round 3, probe l2reuse): the re-read misses by the footprint
+            ef = all(".EF" in x.op for x in ins if x.base == "LDG")
+            miss = l2_warm_miss(fb, "cs" if ef else "ca", m)
+        if miss > 0:
             kw = {
                 **kw,
-                "miss_frac": 1.0,
+                "miss_frac": miss,
                 "dram_clk_per_512B": dram_clk(fb, fb / (m.C["dram_read_GBs"] * 1e9), eq, m),
             }
         return SM(
@@ -627,6 +640,8 @@ def _generic_case(b: Batch, d: Path, L: dict[str, Any], regs: int) -> Case:
             resident=rmax,
             grid_blocks=tiles,
             grid_dim=tuple(L["grid"]),
+            block_dim=tuple(L.get("block", [L["threads"]])),
+            l1_bytes=m.C["l1_unified_bytes"] - rmax * L["smem"],
             **kw,
         )
 
@@ -637,7 +652,7 @@ def _generic_case(b: Batch, d: Path, L: dict[str, Any], regs: int) -> Case:
         7,
         "us",
         build,
-        lambda sm, r: r["cycles"] / (_ghz(b, sm.m) * 1e3) + sm.m.param(sm.m.desc["launch_us"]),
+        lambda sm, r: r["cycles"] / (_ghz(b, sm.m) * 1e3) + _launch_event(sm.m),
     )
 
 

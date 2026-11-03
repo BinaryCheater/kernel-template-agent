@@ -37,9 +37,17 @@ def launch_us(blocks: int = SMS, graph: bool = False) -> float:
 
 
 def l2_warm_miss(footprint: float, kind: str = "ca", machine: Machine | None = None) -> float:
-    """Fraction of a warm (back-to-back) re-read that misses the L2. Before round 3 the generic
-    front end took every warm load as a hit (0.0 whatever the footprint): the rule probe l2reuse
-    tests."""
+    """Fraction of a warm (back-to-back) re-read of `footprint` bytes that misses the L2 (probe
+    l2reuse, batch r3): plain and .cg loads by `l2_warm_miss_by_MiB`, evict-first (`cs`) loads by
+    their own curve. Before round 3 the generic front end took every warm load as a hit."""
+    C = (machine or default_machine()).C
+    pts = C["l2_warm_miss_evict_first_by_MiB" if kind == "cs" else "l2_warm_miss_by_MiB"]
+    x = footprint / 2**20
+    if x >= pts[-1][0]:
+        return float(pts[-1][1])
+    for (x0, y0), (x1, y1) in itertools.pairwise(pts):
+        if x0 <= x <= x1:
+            return y0 + (y1 - y0) * (x - x0) / (x1 - x0)
     return 0.0
 
 
