@@ -1,0 +1,3 @@
+# Batch r2c: entry block
+
+Supplementary to r2/r2b (same round, same protocol). RMSNorm faulted in r2 and r2b: its block all-reduce uses a dynamic shared workspace (`extern __shared__ float workspace[]`), and the generator took the dynamic shared memory from TileLang's host stub only when the source named `dyn_shmem`, so it launched with 0 bytes. The generator now reads it whenever the source declares `extern __shared__`. Only RMSNorm (warm, rotating) and the protocol kernels run. Kernel, shapes, cache states and front end as in r2's entry block; prediction in `predicted.json`, written before the run.

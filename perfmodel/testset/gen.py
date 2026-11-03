@@ -416,7 +416,7 @@ def write(
     # it stores is the dynamic shared memory (checked against 0.1.15's FA and GEMM stubs); a kernel
     # without dynamic shared memory packs none
     packed = re.findall(r"v_int64\) = \(\(int64_t\)(\d+)\)", k.get_host_source() or "")
-    smem = int(packed[-1]) if packed and "dyn_shmem" in src else 0
+    smem = int(packed[-1]) if packed and "extern __shared__" in src else 0
     eb = elem_bytes or [2] * len(sizes)
     nbytes = [n * b for n, b in zip(sizes, eb, strict=True)]
     # buffers by the prim_func's parameter names; the kernel takes them in its own order
