@@ -651,6 +651,7 @@ def main(out: Path) -> None:
         ("rows", _rows),
         ("fp8", _fp8),
         ("moe", _moe),
+        ("w4gemm", _w4gemm),
     ):
         try:  # a kernel that fails to generate is reported; the others stand
             gen(out)

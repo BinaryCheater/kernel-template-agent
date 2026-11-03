@@ -497,7 +497,7 @@ def row_reduce_cases(b: Batch) -> list[Case]:
                 m = kw.get("machine") or default_machine()
                 rmax = occupancy({"threads": 128}, regs, 512, m)
                 per_sm = math.ceil(grid / m.sms)
-                return SM(
+                return BlockMarked(
                     ins,
                     128,
                     per_sm,
@@ -517,7 +517,7 @@ def row_reduce_cases(b: Batch) -> list[Case]:
                     4,
                     "cycles",
                     build,
-                    lambda sm, r: r["cycles"],
+                    _span,
                 )
             )
     return out
