@@ -1,0 +1,11 @@
+{
+ "batch": "r5b",
+ "commit": "b8f62e0bbfd26b0f337bcdfcc80cbe18a4e3425c",
+ "host": "spark",
+ "remote_build": "kta-work/data/perfmodel/batches/r5b/build",
+ "only": "probe-st256",
+ "date": "2026-11-03T21:40:05Z",
+ "nvcc_host": "Cuda compilation tools, release 13.0, V13.0.88\nBuild cuda_13.0.r13.0/compiler.36424714_0",
+ "nvcc_image": "Cuda compilation tools, release 13.2, V13.2.51\nBuild cuda_13.2.r13.2/compiler.37434383_0",
+ "tilelang": "0.1.15"
+}

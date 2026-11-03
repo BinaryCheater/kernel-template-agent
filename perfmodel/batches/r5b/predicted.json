@@ -1,0 +1,26 @@
+{
+ "engine": "898890b42ab87a4f738aac8f8e01ac8fa40641937e4b891d200ac150e37e785c",
+ "kta_commit": "b8f62e0bbfd26b0f337bcdfcc80cbe18a4e3425c",
+ "date": "2026-11-03T21:40:06Z",
+ "clock_GHz": "description kernel clock (no batch clock before the run)",
+ "predicted": {
+  "st256 st_g1": 115.0,
+  "st256 st_g2": 175.0,
+  "st256 st_g16": 175.0,
+  "st256 st_g48": 256.4426,
+  "st256 st_g96": 660.3279,
+  "st256 st_g512": 6055.2133,
+  "st256 ld_g1": 579.0,
+  "st256 ld_g2": 579.0,
+  "st256 ld_g16": 579.0,
+  "st256 ld_g48": 712.5503,
+  "st256 ld_g96": 1193.4308,
+  "st256 ld_g512": 5383.5266,
+  "st256 ld_st_g1": 704.2,
+  "st256 ld_st_g2": 704.2,
+  "st256 ld_st_g16": 704.2,
+  "st256 ld_st_g48": 917.8805,
+  "st256 ld_st_g96": 1465.9602,
+  "st256 ld_st_g512": 6673.7722
+ }
+}
