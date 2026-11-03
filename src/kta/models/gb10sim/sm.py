@@ -126,8 +126,10 @@ class SM:
         resident: int | None = None,
         grid_blocks: int | None = None,
         grid_dim: tuple | None = None,
+        const_bank: dict[tuple[int, int], int] | None = None,
     ):
         self.ins = ins
+        self.const_bank = const_bank or {}
         self.trips = trips
         self.mem = mem
         # this SM's share of the chip's L2 return bandwidth (or its own return path, if fewer SMs
@@ -362,6 +364,12 @@ class SM:
                     v = a if pv else b
             elif x.base in ("R2UR",):
                 v = self._val(w, args[1])
+            elif x.base in ("LDC", "LDCU") and self.const_bank and ".64" not in op:
+                # KTA: kernel arguments the caller declares (27 §2.1 dynamic facts), by
+                # (bank, offset); without them a run-time loop count stays unknown
+                m = re.search(r"c\[0x([0-9a-f]+)\]\[0x([0-9a-f]+)\]", x.args)
+                if m:
+                    v = self.const_bank.get((int(m.group(1), 16), int(m.group(2), 16)))
         except (ValueError, TypeError, IndexError):
             v = None
         if v is None:

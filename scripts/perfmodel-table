@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# The performance model's error table (docs/design/28 §4.7): scripts/perfmodel-table [--help]
+set -euo pipefail
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+export PYTHONPATH="$root/tools${PYTHONPATH:+:$PYTHONPATH}"
+exec uv run --project "$root" --frozen --quiet python -m kta_perfmodel "$@"
