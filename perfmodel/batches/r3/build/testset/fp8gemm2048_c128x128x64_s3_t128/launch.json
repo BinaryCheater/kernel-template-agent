@@ -1,0 +1,31 @@
+{
+ "entry": "gemm_kernel",
+ "grid": [
+  16,
+  16,
+  1
+ ],
+ "threads": 128,
+ "block": [
+  128
+ ],
+ "smem": 49152,
+ "rot": 1,
+ "footprint_bytes": 16777216,
+ "family": "fp8gemm",
+ "shape": {
+  "M": 2048,
+  "N": 2048,
+  "K": 2048
+ },
+ "pick": {
+  "block_M": 128,
+  "block_N": 128,
+  "block_K": 64,
+  "num_stages": 3,
+  "threads": 128
+ },
+ "elem_bytes": 1,
+ "smem_estimate": 49152,
+ "cache": "warm"
+}
