@@ -256,12 +256,16 @@ def _pct(x: float | None) -> str:
 
 def render(doc: dict[str, Any], top: int = 15) -> str:
     rows = doc["rows"]
+    replay = sum(r["wall_s"] for r in rows)
+    slowest = max(r["wall_s"] for r in rows)
     lines = [
         "# Error table",
         "",
         f"Produced by `scripts/perfmodel-table` from KTA commit `{doc['kta_commit']}`"
         f"{' (dirty)' if doc['kta_dirty'] else ''} on {doc['date']}; upstream inputs "
-        f"`{doc['upstream']}` at `{doc['upstream_rev']}`. CPU only, {doc['wall_s']:.0f} s. "
+        f"`{doc['upstream']}` at `{doc['upstream_rev']}`. CPU only: replay time {replay:.0f} s "
+        f"summed over rows (slowest row {slowest:.0f} s); this run {doc['wall_s']:.0f} s with "
+        f"{doc['jobs']} processes, {doc['cached_rows']} rows from the cache. "
         "Error = predicted / measured − 1 (positive: the model is slow). "
         "Machine-readable copy: `error-table.json`.",
         "",
