@@ -164,8 +164,7 @@ class SM:
         self.busy_key = {r: d.get("busy", r) for r, d in m.desc["resources"].items()}
         # lines each copy of a k-tile touches, in program order (A rows then B rows); cycles them
         # per warp
-        if copy_lines is None:
-            self.defaults["front_end"]["copy_lines (4 lines per copy)"] = 1
+        self.copy_default = copy_lines is None
         self.copy_lines = copy_lines or [4]
         # the store path is shared with the partner SM of the pair when the chip runs more than one
         # block
@@ -641,6 +640,8 @@ class SM:
                 # address registers there
                 lines = self.copy_lines[w.ncopy % len(self.copy_lines)]
                 w.ncopy += 1
+                if self.copy_default:
+                    self._dflt("front_end", "copy_lines (4 lines per copy)")
                 t_lsu = max(now, t["lsu"])
                 t["lsu"] = t_lsu + lines * P["lsu_clk_per_line"]
                 self.busy["lsu"] = self.busy.get("lsu", 0) + lines
