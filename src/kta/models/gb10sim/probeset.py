@@ -198,7 +198,9 @@ def bar_cases(b: Batch) -> list[Case]:
                 "namedbar",
                 3,
                 "cycles/arrive",
-                lambda ins=ins, **kw: ClockMarked(ins, 256, 1, 1, **kw),
+                # the loop counter starts from an HFMA2 used as a move, which the value tracking
+                # does not evaluate: the loop's trip count is given
+                lambda ins=ins, **kw: ClockMarked(ins, 256, 1, BAR_ITERS, **kw),
                 _pair_sum,
             )
         )
