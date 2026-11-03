@@ -1,0 +1,150 @@
+# 29 Mechanism inventory of the GB10 resource network
+
+Status: written 2026-11-04 for phase P0 of [28](28-gb10-programme.md) §5. It lists what the GB10 instance of the performance model ([27](27-performance-model.md)) must eventually contain and what the current engine (`src/kta/models/gb10sim/`, a copy of upstream `agentic/gb10` at commit `0eef497`) actually contains. It answers "what is still missing" from the hardware side; it is **not** derived from kernel errors (the error table in `docs/design/perfmodel/` does that). Status was read from the engine's code, not from upstream prose.
+
+## Legend
+
+**Status in the current engine**
+
+| Code | Meaning |
+| --- | --- |
+| M | modelled, parameter measured by a probe that isolates it |
+| A | modelled, but a parameter is assumed, fitted on an ablation, or a structural choice not checked by a probe (named in the row) |
+| P | partly modelled: the mechanism exists for some operation classes or configurations only |
+| X | absent: nothing in the engine; an instruction that needs it gets the default rule (issue slot only, or the assumed 20-cycle result) |
+| F | front-end input, not a hardware mechanism, but it decides how much of one is exercised |
+
+**Test-set kernels** (28 §5): G HGEMM · F FA forward · D decode attention (GQA split-KV) · Q quantised GEMV w4a16 · N RMSNorm/softmax · E MoE grouped GEMM.
+
+**Variable**: S = the search space changes how much of it is used (tile, stages, copy path, warp specialisation, store path, split, launch order, dtype); H = a hardware design variable (count, rate, capacity, latency, sharing); — = neither (a fixed rule).
+
+**Sources**: `gb10` = upstream `notes/gb10_simulator_design.md` (origin/main) §; `cov` = upstream `calibration/spark-6951/coverage.md` row; `gap#` = upstream `notes/sim_gaps.md` row (that log belongs to the older `agentic/sim`); `25` = [25](25-hardware-model-sources.md) §2; `26:nn` = [26](26-gb10-calibration-method.md) §5 SM120-reference chapter nn; `PTX`, `TG`, `NCU` = the official PTX ISA, Blackwell tuning guide, Nsight Compute profiling guide. Probe names are upstream `agentic/tilelang/microbench/*.cu`.
+
+## 1. Issue, scheduling and dependencies
+
+| Mechanism | Sources | Status | Kernels | Var |
+| --- | --- | --- | --- | --- |
+| Warp scheduler: one instruction per cycle per sub-partition, greedy then oldest; warp i → sub-partition i mod 4 | gb10 §4.2; `sched.cu`; 25; 26:07; TG | M (replayed: 14.91 vs 15.10 cycles per add) | all | H (issue width, policy) |
+| Yield bit, reuse bits | gb10 §4.1, §8.7 | X (parsed, ignored) | all | — |
+| Stall counts from the control bits cover fixed latencies | gb10 §4.1, §4.3 | M (structural: compiler bits); `hmma_latency_clk` 29 is measured but unread | all | — |
+| Six dependency counters, wait mask, `DEPBAR.LE` | gb10 §4.3; PTX | M for LDSM (34 + 4/way), MUFU/XU (18), LDG, cp.async groups, STSM, UTMACMDFLUSH; A elsewhere | all | — |
+| Result latency of every other counted instruction (LDS, STS, LDC, SHFL, S2R, ATOMS, uniform ops, MEMBAR, …) | gb10 §4.11, §8.6 | A: `default_var_latency_clk` 20 (assumed), counted per opcode | F, N, D, Q | — |
+| Read-counter release of non-memory instructions | gb10 §4.3 | A: `rbar_release_clk` 8 (assumed) | all | — |
+| Register-file bank conflicts, operand collector, reuse cache | gb10 §8.7; 25; gap list "not measurable from user space" | X | all | H |
+| Instruction cache / fetch | gb10 §8.7 (`icache.cu`: full rate to 32 KB of loop, −10 % at 64 KB) | X (measured, not modelled) | F, E (large unrolled bodies) | S (unroll), H |
+| Intra-warp divergence and reconvergence (`BSSY`/`BSYNC`, `BRA.DIV`) | gb10 §4.4, §8.7 | X (lane 0 stands for the warp; `BRA.DIV` never taken) | N (tails), E, D | — |
+| Branch and loop resolution from warp-uniform values | gb10 §4.4 (`audit_values`: 46/46) | F (fallback rules: main-loop trip count, unconditional taken, else fall through) | all | — |
+| Issue interference: a copy or ldmatrix beside an mma stream on one sub-partition | gb10 §8 (`interfere.cu`: 2.3 cycles per copy) | X (measured, judged negligible) | G, F | H |
+| Uniform datapath (`U*` ops) | — | X (issue slot only; no unit) | all | H |
+
+## 2. Compute pipes
+
+| Mechanism | Sources | Status | Kernels | Var |
+| --- | --- | --- | --- | --- |
+| Tensor pipe per sub-partition: every `HMMA/IMMA/QMMA/OMMA` holds it 16 cycles; type sets FLOP/clk | gb10 §4.5 (`mma_rate.cu`, `mma_types.cu`); cov tensor; 26:04 | M | G, F, E, D | S (dtype, mma shape), H |
+| mma issue beside FFMA on the same sub-partition (+43 % in B34) | gap#27; cov tensor | X | F (softmax beside mma) | H |
+| mma result latency beyond stall counts; accumulators in flight to saturate | gb10 §8.7; B31–B34 | X (stall counts only) | G, F | H |
+| FMA pipe: FFMA/FADD/FMUL 1 cycle; IMAD, IMUL, HFMA2, HADD2, HMUL2 2 cycles | gb10 §4.5 (`alu.cu`, `alumix.cu`) | M | all | H |
+| ALU pipe: LOP3, PRMT, SHF, IADD3, ISETP, SEL, LEA, F2FP, min/max, compares, … 2 cycles | gb10 §4.5 | M | all | H |
+| `HADD2.F32` on whichever of FMA/ALU is free | gb10 §4.5 (`alumix.cu`) | M | Q, N | — |
+| LOP3 + FFMA mix runs 23 % below two independent pipes | gb10 §4.5; 28 §3 level 3 | X (measured, unexplained) | Q (unpack), N | H |
+| SFU/XU: `MUFU` 8 cycles per instruction per sub-partition, 18-cycle result | gb10 §4.5 (`sfu.cu`); cov SFU | M | F, N | H |
+| Conversions `F2I`, `I2F` (incl. `I2F.F16`), `F2F`, `FRND`, `F2IP` on the XU | gb10 §4.5 (`cvt.cu`) | M | Q, F | H |
+| `I2FP.F32.S32` (int → fp32) pipe | upstream `ee6534c` (`cvt.cu`: ALU, 2 cycles) | A: this copy (upstream `0eef497`) still puts it on the XU; upstream main moved it to the ALU | Q | — |
+| ex2 with FFMAs between them from one warp | gap#35 | X | F, N | H |
+| FP64, DP4A/IDP, bit-count and other untabled ALU ops | — | X (issue slot only) | — | H |
+
+## 3. Memory-instruction slot, LSU and shared memory
+
+| Mechanism | Sources | Status | Kernels | Var |
+| --- | --- | --- | --- | --- |
+| Memory-instruction slot per sub-partition (MIO): LDSM 11.7, STSM 10.8, LDGSTS 6.0 cycles; RED 2.65 per line | gb10 §4.6, §4.7, §4.9 (`instlat.cu`, `tmastore.cu`, `cpq.cu`, `stq.cu`) | M | G, F, E | H |
+| MIO slot for `LDG` | engine code | P (LDG waits for the slot but never holds it) | D, Q, N | H |
+| Scheduler-to-LSU queue depth, LSU acceptance rate by residency | cov LSU queue; gap#9, #13, #16; 25 | X | F, N, D | H |
+| Address stage: one 128-byte line per cycle per SM | gb10 §4.7 | A ("design assumption, checked" with `cpq.cu`) | G, F, E, D, Q | H |
+| Shared-memory array: 128 B/clk per SM, one queue shared by LDSM, STSM, cp.async data, TMA boxes and TMA-store reads | gb10 §4.6 (`smem_bw.cu`) | M | G, F, E | H |
+| ldmatrix latency 34 + 4 per extra way | gb10 §4.6 (`instlat.cu`; derivation of 34 not recorded) | A | G, F, E | H |
+| Bank conflicts | gb10 §4.6 (`smem_bw.cu`: 4 cycles × ways); cov banks | P: ldmatrix ways from the tile config when `smem_layout` is `linear`; not from addresses; none for LDS/STS | F, N | S (layout, swizzle), H |
+| Plain shared loads/stores `LDS`, `STS` | gb10 §4.6, §8.6 | X (no array time; default latency) | F, N, D | H |
+| Shuffles `SHFL` (in the LSU queue, one wavefront each, per `agentic/sim` B39) | gap#33; cov shuffle | X | N, F, D | H |
+| Shared-memory atomics `ATOMS`, CAS loops | gb10 §6.7 (GEMV driver, not copied) | X | Q (TileLang split GEMV reduction) | — |
+| Shared memory vs L1 carve-out | cov L1; gap#7 | P (smem capacity enters residency; L1 capacity does not exist) | all | S, H |
+
+## 4. Asynchronous copies, TMA and mbarriers
+
+| Mechanism | Sources | Status | Kernels | Var |
+| --- | --- | --- | --- | --- |
+| cp.async path: MIO → address stage → L2 (350) or DRAM (1560 + queue) → return port → array write → group | gb10 §4.7 | M | G, E | S (copy path, stages), H |
+| cp.async completion spread under load | cov cp.async; gap#23, #24, #40 | X (fixed latency, even miss spreading) | G, E | H |
+| cp.async beside TMA traffic (mixed 1.94 TB/s > either alone) | gap#31 | X | — (mixed lowerings) | S |
+| TMA engine per SM: min(81 GB/s alone, 1.86 TB/s chip ÷ share) | gb10 §5 | A (both rates fitted on the TMA loads-only ablation) | G, F, E, D | S, H |
+| TMA box latency: 440 cycles from L2, 1170 from DRAM, before transfer | gb10 §5 (`dramlat.cu`) | M | G, F, D | H |
+| TMA box latency spread under load (a box waits for its slowest line) | gb10 §8.1 | X (decode pipeline depth gain missed) | D, G (decode shapes) | S (stages), H |
+| mbarrier hand-off: arrive → waiter passes 134 cycles later (try_wait) | gb10 §5 (`mbar.cu`) | M | G, F, D, E | H |
+| mbarrier arrive after a global store (217), arrive cost per lane (6.6) | gb10 §8.9 (`mbar.cu`) | X | F, D | H |
+| Warp-specialised roles and waits matched by order | gb10 §5 | P (structural; TileLang WS lowering only; a TMA kernel without warp specialisation silently gets the default latency instead of NotSupported) | G, F, E | S |
+| Register reallocation `USETMAXREG` hand-off | gb10 §5 | M (structural) | G, F | — |
+| TMA store `UTMASTG`: pair 33.1 B/clk, chip 482 B/clk, fixed 457 | gb10 §4.9 (`tmastore.cu`) | M | G, F, E | S (store path), H |
+| TMA multicast, clusters, DSMEM | gap#36, #37; upstream tier-4 probes | X (measured, not modelled) | E, F | S, H |
+
+## 5. L1, L2 and DRAM
+
+| Mechanism | Sources | Status | Kernels | Var |
+| --- | --- | --- | --- | --- |
+| L1 hit path: 2 cycles per line, 45-cycle latency; LDG miss 342 cycles to L2 | gb10 §4.8 (`ldg_atomic.cu`) | M; hit/miss per load is a driver-supplied list (default 4 lines, 512 B, miss) | D, Q, N | H |
+| L1 capacity, replacement, sectors and coalescing from addresses | cov L1; gap#7; 26:02 | X (P2 front end computes sectors) | D, Q, N | H |
+| Local memory (spills) `LDL`/`STL`: 4 cycles per line | gb10 §4.8 | M | any spilling kernel | S (registers) |
+| Constant loads `LDC` | — | X (default latency) | all (prologue) | — |
+| Per-SM L2 return port: 30.7 B/clk (16.7 cycles per 512 B) | gb10 §4.7 (`loopsteps.cu`) | M | G, E, D | H |
+| Chip L2 rate for copy traffic 817.7 B/clk, shared by blocks in flight | gb10 §4.7, §6.3 (`loopsteps.cu`, `l2share.cu`) | M | G, E, D, Q | H |
+| L2 capacity (effective 16.78 MB) and policy: two-list LRU over k-slices of lockstep waves | gb10 §6.4, §8.2 (`l2policy.cu`) | A (capacity measured; policy chosen, over-counts panelled and multi-wave patterns by 20–35 %) | G, E, D | S (swizzle, raster), H |
+| L2 hit-vs-reuse-distance curve | `gb10.json` `l2_hit_vs_reuse_distance` | X in the engine (analytical model only) | G, D | H |
+| Back-to-back L2 carry-over between runs (`stream_b2b.cu`) | gb10 §6.7, §8.5 | X (GEMV driver not copied) | D, Q | — |
+| L2 latency under load | — | X (fixed) | all | H |
+| L2 persistence window, set aside 18 MB | upstream tier-4 (`l2persist.cu`) | X | D, Q | S |
+| L2 slices, set hash, NoC | gap list; 26:02 | X | — | H |
+| Dirty-L2 write-back paid by a flush (`dirty_l2_extra_us`) | `gb10.json` | X in the engine (analytical model only) | measurement protocol | — |
+| DRAM read rate by run length (204/233/237 GB/s), write 197, mix rule | gb10 §6.4 (`tileload.cu`, `mlp_stream.cu`, `dram.cu`) | M (wave-level) | G, D, Q, E | H |
+| DRAM queue per SM: wave DRAM time spread over read misses, fair share by SM-equivalents | gb10 §6.4 | A (structural: even spreading, fair share) | G, D, Q, E | H |
+| DRAM latency: 1560 cycles (copy/load), 1170 (TMA) | gb10 §4.7, §5 | M | D, Q | H |
+| DRAM latency spread, channels, banks | gb10 §8.4; gap (B18) | X | D, Q | H |
+| CPU contention for LPDDR5X | gb10 §6.4 (`cpuhog.c`: 237 → 214/171/138 GB/s) | F (an input, `CPU_DRAM_GBs` = 0) | D, Q | — |
+| TLB misses (random chase beyond 1 MB: ~400 ns) | `gb10.json` `lat_l2_ns` source | X | D (large KV), Q | H |
+
+## 6. Stores and atomics
+
+| Mechanism | Sources | Status | Kernels | Var |
+| --- | --- | --- | --- | --- |
+| Store port shared by the two SMs of a TPC: 15 (4 B/lane) or 14 (16 B/lane) cycles per instruction per pair | gb10 §4.9 (`storepat.cu`) | M; partner assumed busy whenever the share is ≥ 2 (A) | all | S (store width), H |
+| Chip store limit 137.8 / 570.9 B/clk | gb10 §4.9 | M | all | H |
+| 8-byte-per-lane stores (`STG.64`) | engine code | A (256 B at the 4-byte rates) | N, Q | — |
+| Store queue: 16 STG/RED instructions before issue waits | gb10 §4.9 (`stq.cu`) | M | all | H |
+| Global reductions without return `RED`: SM 25.6 B/clk, pair 2 cycles per line, chip 330 / 225 B/clk | gb10 §4.9 (`ldg_atomic.cu`, `stq.cu`) | M | G (split-K), E | S (split), H |
+| Global atomics with return `ATOMG`, CAS | — | X (default latency) | E (work queues), D | H |
+
+## 7. Synchronisation, residency, dispatch, launch, clock
+
+| Mechanism | Sources | Status | Kernels | Var |
+| --- | --- | --- | --- | --- |
+| Block barrier `BAR.SYNC`: release 13 + 2 per warp after the last arrival; named barriers with a count | gb10 §4.10 (`instlat.cu`; base 13 not derived) | A (base) / M (per warp) | all | H |
+| `BAR.ARV`, `BAR.RED` | engine code | X (every `BAR*` opcode is treated as a blocking sync) | F (named-barrier producer/consumer) | — |
+| Memory fences `MEMBAR`, `FENCE` | — | X (default latency) | F, D, E | H |
+| Flag polling on global memory | 27 §2.3 | X (primitive missing) | D (split-KV combine), E (persistent) | — |
+| CTA residency: registers (256-register units), shared memory (+1 KB), threads, 24 blocks | gb10 §6.1 | M (structural driver limits); WS path forced to 1 block/SM | all | S (tile, threads), H |
+| Dispatch: blocks go round the SMs in launch order; the busiest SM simulated; other SMs progress alike | gb10 §6.2, §6.3, §8.8 | A (structural) | E, F (causal), D | S (grid, raster), H |
+| Block replacement when a block exits (FLOW) | gb10 §6.2 | M (structural) | all | — |
+| Unequal per-CTA work, persistent / work-queue scheduling | 28 §5 (P4) | X | E, F (causal), D | S |
+| Launch overhead: 2.6 µs per stream launch; 0.43 µs per graph kernel | gb10 §6.6 (`launch.cu`) | M (stream); graph value unused by the table | all | S (graphs) |
+| Multi-kernel sequences (gaps between kernels with work: 3.1 µs) | gb10 §6.6 | X (one kernel per run) | D (split + combine) | S |
+| Clock: cycles → time | gb10 §6.6, §12 (`clock.cu`, `sustain.cu`) | A: 2.52 GHz in `validate`, 2.54 in `kernel`/`ws`; sustained runs 2.476–2.496 | all | — |
+| Power and thermal states | 26:09 | X | all | H |
+
+## 8. Counts
+
+Rows: 84. M 29, A 12, P 4, X 37, F 2 (a row that carries two codes is counted by its first).
+
+What this says, before any kernel error is examined:
+
+1. **Everything the HGEMM loop needs is modelled**, most of it measured (tensor, ldmatrix, cp.async, TMA, return port, chip L2, stores). The open items there are structural choices (L2 policy, DRAM fair share, dispatch symmetry), two fitted TMA rates, and latency spreads.
+2. **The other five test-set kernels lean on absent mechanisms**: plain shared loads/stores, shuffles, the LSU queue (N, F, D), shared atomics (Q), mma beside FFMA and ex2 beside FFMA (F), L1 behaviour and coalescing (D, Q, N), flag polling and multi-kernel sequences (D), uneven per-CTA work (E, F causal). Each needs a probe at ladder level 1–5 before those kernels can be scored on mechanism.
+3. **Two silent defaults violate 27 §2.3** and should become named "unsupported" or be modelled: a non-warp-specialised TMA kernel, and `BAR.ARV`/`BAR.RED` treated as blocking.
