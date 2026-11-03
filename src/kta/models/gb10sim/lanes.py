@@ -313,20 +313,23 @@ class Lanes:
         return out
 
 
-def footprint(addr: Val, width: int) -> tuple[list[tuple], int]:
-    """(lines as (base, line index), sectors) the 32 lanes touch with `width`-byte accesses."""
-    lines, sectors = set(), set()
+def footprint(addr: Val, width: int) -> tuple[dict[tuple, int], int]:
+    """(line (base, line index) -> mask of its 32-byte sectors, sectors) the 32 lanes touch with
+    `width`-byte accesses."""
+    lines: dict[tuple, int] = {}
+    sectors = set()
     for o in addr[1]:
-        lo, hi = o, o + width - 1
-        for s in range(lo // 32, hi // 32 + 1):
+        for s in range(o // 32, (o + width - 1) // 32 + 1):
             sectors.add(s)
-        for ln in range(lo // 128, hi // 128 + 1):
-            lines.add(ln)
-    return [(addr[0], ln) for ln in sorted(lines)], len(sectors)
+            k = (addr[0], s // 4)
+            lines[k] = lines.get(k, 0) | 1 << (s % 4)
+    return lines, len(sectors)
 
 
 def width_of(op: str) -> int:
     parts = op.split(".")
+    if "256" in parts:
+        return 32
     if "128" in parts:
         return 16
     if "64" in parts:

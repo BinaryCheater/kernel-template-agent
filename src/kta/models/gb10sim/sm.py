@@ -264,7 +264,7 @@ class SM:
         if addr is None:
             self._dflt("front_end", "ldg address unknown (32 contiguous lanes)")
             n_sect = width
-            keys: list = []
+            keys: dict = {}
             lines = max(1, 32 * width // 128)
         else:
             keys, n_sect = footprint(addr, width)
@@ -272,12 +272,15 @@ class SM:
         self.count["ldg_sectors"] += n_sect
         hits = 0
         if addr is not None and all(sym[0] == "c" for sym, _ in addr[0]):
-            for k in keys:
-                if k in self.l1:
+            # round 5 (probe row_reduce): the L1 fills sectors; a line hits only for those it holds
+            for k, mask in keys.items():
+                have = self.l1.get(k, 0)
+                if have and mask & ~have == 0:
                     hits += 1
                     self.l1.move_to_end(k)
                 else:
-                    self.l1[k] = True
+                    self.l1[k] = have | mask
+                    self.l1.move_to_end(k)
                     if len(self.l1) > self.l1_lines:
                         self.l1.popitem(last=False)
         miss = (lines - hits) / lines
@@ -942,17 +945,14 @@ class SM:
                         if tr:
                             o.bar_src.append((rel, now, w.wid))
             elif h == "stg":
-                wide = ".128" in x.op
-                nbytes = 512 if wide else (256 if ".64" in x.op else 128)
+                # bytes per warp instruction and rates by store width (round 5: 32 B per lane,
+                # probe st256; 8 B per lane uses the 4-byte rates)
+                w_ = "32B" if ".256" in x.op else ("16B" if ".128" in x.op else "4B")
+                nbytes = {"32B": 1024, "16B": 512}.get(w_, 256 if ".64" in x.op else 128)
                 # the larger of the pair's shared store port and this SM's share of the chip's store
                 # limit
-                pair = (
-                    P["stg_tpc_clk_per_instr_16B"] if wide else P["stg_tpc_clk_per_instr_4B"]
-                ) * self.stg_share
-                chip = nbytes / (
-                    (P["stg_chip_B_per_clk_16B"] if wide else P["stg_chip_B_per_clk_4B"])
-                    / self.active_sms
-                )
+                pair = P[f"stg_tpc_clk_per_instr_{w_}"] * self.stg_share
+                chip = nbytes / (P[f"stg_chip_B_per_clk_{w_}"] / self.active_sms)
                 per = max(pair, chip)
                 start = max(now, t["store_port"])
                 t["store_port"] = start + per

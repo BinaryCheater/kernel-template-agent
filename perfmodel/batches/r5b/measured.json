@@ -1,0 +1,143 @@
+{
+ "batch": "r5b",
+ "valid": true,
+ "clock_GHz": 2.49235,
+ "results": {
+  "st256 st_g1": {
+   "median": 205.0,
+   "iqr": 378.0,
+   "unit": "cycles",
+   "n": 15,
+   "event_us": 4.128
+  },
+  "st256 st_g2": {
+   "median": 205.0,
+   "iqr": 0.0,
+   "unit": "cycles",
+   "n": 15,
+   "event_us": 4.288
+  },
+  "st256 st_g16": {
+   "median": 205.0,
+   "iqr": 0.0,
+   "unit": "cycles",
+   "n": 15,
+   "event_us": 4.448
+  },
+  "st256 st_g48": {
+   "median": 194.0,
+   "iqr": 0.0,
+   "unit": "cycles",
+   "n": 15,
+   "event_us": 5.504
+  },
+  "st256 st_g96": {
+   "median": 463.0,
+   "iqr": 0.0,
+   "unit": "cycles",
+   "n": 15,
+   "event_us": 5.76
+  },
+  "st256 st_g512": {
+   "median": 8949.0,
+   "iqr": 96.0,
+   "unit": "cycles",
+   "n": 15,
+   "event_us": 9.984
+  },
+  "st256 ld_g1": {
+   "median": 564.0,
+   "iqr": 405.0,
+   "unit": "cycles",
+   "n": 15,
+   "event_us": 5.44
+  },
+  "st256 ld_g2": {
+   "median": 580.0,
+   "iqr": 27.0,
+   "unit": "cycles",
+   "n": 15,
+   "event_us": 4.48
+  },
+  "st256 ld_g16": {
+   "median": 577.0,
+   "iqr": 15.0,
+   "unit": "cycles",
+   "n": 15,
+   "event_us": 5.632
+  },
+  "st256 ld_g48": {
+   "median": 677.0,
+   "iqr": 11.0,
+   "unit": "cycles",
+   "n": 15,
+   "event_us": 5.472
+  },
+  "st256 ld_g96": {
+   "median": 1208.0,
+   "iqr": 6.0,
+   "unit": "cycles",
+   "n": 15,
+   "event_us": 5.792
+  },
+  "st256 ld_g512": {
+   "median": 5034.0,
+   "iqr": 26.0,
+   "unit": "cycles",
+   "n": 15,
+   "event_us": 7.552
+  },
+  "st256 ld_st_g1": {
+   "median": 613.0,
+   "iqr": 405.0,
+   "unit": "cycles",
+   "n": 15,
+   "event_us": 5.728
+  },
+  "st256 ld_st_g2": {
+   "median": 618.0,
+   "iqr": 29.0,
+   "unit": "cycles",
+   "n": 15,
+   "event_us": 5.92
+  },
+  "st256 ld_st_g16": {
+   "median": 626.0,
+   "iqr": 13.0,
+   "unit": "cycles",
+   "n": 15,
+   "event_us": 5.568
+  },
+  "st256 ld_st_g48": {
+   "median": 724.0,
+   "iqr": 7.0,
+   "unit": "cycles",
+   "n": 15,
+   "event_us": 6.08
+  },
+  "st256 ld_st_g96": {
+   "median": 1293.0,
+   "iqr": 12.0,
+   "unit": "cycles",
+   "n": 15,
+   "event_us": 5.6
+  },
+  "st256 ld_st_g512": {
+   "median": 11195.0,
+   "iqr": 72.0,
+   "unit": "cycles",
+   "n": 15,
+   "event_us": 9.952
+  },
+  "clock chain_GHz": {
+   "median": 2.49235,
+   "iqr": 0.0078,
+   "unit": "GHz",
+   "n": 15,
+   "chain_cycles": 19136544.0,
+   "cycles_per_ffma": 4.563
+  }
+ },
+ "invalid_results": {},
+ "counters": {}
+}

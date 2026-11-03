@@ -143,7 +143,7 @@ def walk(
 ) -> Access:
     """The kernel's global loads over the whole grid, from its own SASS (module docstring)."""
     lp = main_loop(ins)
-    g = (tuple(grid) + (1, 1))[:3]
+    g = (*grid, 1, 1)[:3]
 
     stride_seen = [False]
 
@@ -195,7 +195,8 @@ def walk(
                         table[v] = _shifts(loads, one(v * unit[ax]))
         for i, e in enumerate(loads):
             e.shift.append({v: t[i] for v, t in table.items()})
-    return Access(trips if extended else 1, g, loads, sum(e.offs is None for e in loads))
+    grid3 = (g[0], g[1], g[2])
+    return Access(trips if extended else 1, grid3, loads, sum(e.offs is None for e in loads))
 
 
 @dataclass

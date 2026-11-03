@@ -477,6 +477,11 @@ def mma_types_cases(b: Batch) -> list[Case]:
                     "cycles/instr/subpartition",
                     lambda ins=ins, warps=warps, **kw: ClockMarked(ins, 32 * warps, 1, 1, **kw),
                     per(256 * na),
+                    excluded=(
+                        "s4 k64 has no native mma on sm_121a: the compiler expands it, no test row"
+                        if name == "s32_s4"
+                        else None
+                    ),
                 )
             )
     return out
