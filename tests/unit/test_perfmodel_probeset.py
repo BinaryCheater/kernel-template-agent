@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from kta.models.gb10sim import probeset
+from kta.models.gb10sim.probes import Case
 
 R1 = Path(__file__).resolve().parents[2] / "perfmodel" / "batches" / "r1"
 POINTS = {  # id: tolerance
@@ -22,7 +23,7 @@ POINTS = {  # id: tolerance
 
 
 @pytest.fixture(scope="module")
-def cases() -> dict[str, probeset.Case]:
+def cases() -> dict[str, Case]:
     return {c.id: c for c in probeset.all_cases(R1)}
 
 
