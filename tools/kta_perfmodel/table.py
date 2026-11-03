@@ -19,15 +19,17 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any
 
-from kta.models.gb10sim import attribution, probes, validate, ws_validate
+from kta.models.gb10sim import attribution, probes, probeset, validate, ws_validate
 from kta.models.gb10sim.machine import Machine, default_machine
 from kta.models.gb10sim.model import C
 from kta.models.regression import spearman
 
-SETS = ("gemm", "tma", "probes")
-# rows skipped unless --all: replay time far above the 28 §4 budget (8192^3: 150 s untraced,
-# 300 s traced); kept in the table as "not run"
-SLOW = {"tma 8192 full": "not run by default: replay 150-300 s (scripts/perfmodel-table --all)"}
+SETS = ("gemm", "tma", "probes", "batches")
+BATCHES = Path(__file__).resolve().parents[2] / "perfmodel" / "batches"
+# rows left out of the table: `tma 8192 full` (replay 150-300 s, far above the 28 §4 budget;
+# deleted at the user's request, round 1)
+DROPPED = {"tma 8192 full"}
+SLOW: dict[str, str] = {}
 ENGINE = Path(validate.__file__).parent
 CACHE = Path(__file__).resolve().parents[2] / "data" / "perfmodel" / "cache"
 
@@ -98,9 +100,16 @@ def tma_specs(cal: Path) -> Iterator[dict[str, Any]]:
             if name in ("m32", "m128")
             else None
         )
-        yield _spec(
-            f"tma {name} full", "tma full", 7, "us", r["full_event_us"], ["tma", name], note=note
-        )
+        if f"tma {name} full" not in DROPPED:
+            yield _spec(
+                f"tma {name} full",
+                "tma full",
+                7,
+                "us",
+                r["full_event_us"],
+                ["tma", name],
+                note=note,
+            )
         setup = r.get("block_setup_us") or C["block_setup_us"]
         yield _spec(
             f"tma {name} noload 1 block",
@@ -125,6 +134,45 @@ def probe_specs(cal: Path) -> Iterator[dict[str, Any]]:
         )
 
 
+def _batch_key(d: Path) -> str:
+    """What a batch row's replay depends on beyond the engine: its SASS, launch files and the
+    clock it measured."""
+    h = hashlib.sha256()
+    for p in sorted((d / "build").rglob("*")):
+        if p.name in ("k.sass", "launch.json", "res-usage.txt", "kernel.cu"):
+            h.update(str(p.relative_to(d)).encode())
+            h.update(p.read_bytes())
+    h.update(str(probeset.load(d).clock_GHz).encode())
+    return h.hexdigest()[:16]
+
+
+def batch_specs(root: Path = BATCHES) -> Iterator[dict[str, Any]]:
+    """KTA's own measurement batches (perfmodel/batches/<batch>/): probes and test-set kernels.
+    A batch that is not valid (gb10-measure) contributes no measured values."""
+    for d in sorted(p for p in root.iterdir() if (p / "build").is_dir()) if root.exists() else []:
+        b = probeset.load(d)
+        meas = d / "measured.json"
+        mdoc = json.loads(meas.read_text()) if meas.exists() else {}
+        valid = mdoc.get("valid", False)
+        counters = mdoc.get("counters", {})
+        key = _batch_key(d)
+        for case in probeset.all_cases(d):
+            spec = _spec(
+                case.id,
+                case.probe if case.probe.startswith("testset") else f"probe {case.probe}",
+                case.level,
+                case.unit,
+                case.measured if valid else float("nan"),
+                ["batch", d.name, case.id, key],
+                excluded=None if valid else ("batch not valid" if meas.exists() else None),
+                note=f"batch {b.name}",
+            )
+            unit = case.id.removesuffix(" kernel")
+            if unit in counters:
+                spec["counters"] = counters[unit]
+            yield spec
+
+
 def specs(cal: Path, sets: tuple[str, ...] = SETS) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
     if "gemm" in sets:
@@ -133,10 +181,13 @@ def specs(cal: Path, sets: tuple[str, ...] = SETS) -> list[dict[str, Any]]:
         out += tma_specs(cal)
     if "probes" in sets:
         out += probe_specs(cal)
+    if "batches" in sets:
+        out += batch_specs()
     return out
 
 
 _cases: dict[str, probes.Case] = {}
+_batch_cases: dict[tuple[str, str], probes.Case] = {}
 
 
 def _regs(cal: Path) -> dict[str, str]:
@@ -202,12 +253,29 @@ def run_job(
             _cases.update((c.id, c) for c in probes.all_cases(cal))
         predicted, sm, _ = probes.run_case(_cases[job[1]], machine=m, trace=True)
         got.append(sm)
+    elif kind == "batch":
+        if (job[1], job[2]) not in _batch_cases:
+            d = BATCHES / job[1]
+            _batch_cases.update(((job[1], c.id), c) for c in probeset.all_cases(d))
+        predicted, sm, _ = probeset.run_case(_batch_cases[(job[1], job[2])], machine=m, trace=True)
+        if job[2].endswith(" kernel"):
+            extra["launch"] = (
+                launch * m.param(m.desc["clock"]["kernel_GHz"]) * 1e3,
+                m.desc["launch_us"],
+            )
+        got.append(sm)
     else:
         raise ValueError(f"unknown job {job}")
     sm = got[-1]
     a = attribution.analyse(sm, sm.cycles, extra)
     return {
         "predicted": predicted,
+        "counts": {
+            "issued": sm.count["issued"],
+            "HMMA": sm.count.get("HMMA", 0),
+            "blocks": sm.blocks,
+            "busy": {k: v / max(1.0, sm.cycles) for k, v in sm.busy.items()},
+        },
         "attribution": [
             {k: d[k] for k in ("resource", "mechanism", "share", "param")}
             for d in a["path"]
@@ -244,6 +312,7 @@ def run(
     use_cache: bool = True,
     hint: dict[str, float] | None = None,
     run_slow: bool = False,
+    cached_only: bool = False,
 ) -> Iterator[dict[str, Any]]:
     """Fill each spec with its result, cached ones first, the rest from a pool of `jobs`
     processes (longest previous runs first); yields rows as they complete."""
@@ -266,6 +335,8 @@ def run(
             yield _finish(r)
         else:
             todo.append(r)
+    if cached_only and todo:
+        raise SystemExit(f"{len(todo)} rows not in the cache, e.g. {todo[0]['id']!r}")
     todo.sort(key=lambda r: -(hint or {}).get(r["id"], 0.0))
     with ProcessPoolExecutor(max_workers=max(1, jobs)) as pool:
         futs = {pool.submit(_timed, cal, r["job"]): r for r in todo}
@@ -282,6 +353,50 @@ def _finish(r: dict[str, Any]) -> dict[str, Any]:
     ok = ok and r["predicted"] is not None
     r["error"] = r["predicted"] / r["measured"] - 1 if ok else None
     return r
+
+
+def inversions(rs: list[dict[str, Any]], noise: float = 0.02) -> int:
+    """Pairs of design variants the model orders the other way round from the measurement (pairs
+    whose measured times differ by less than `noise` are not counted)."""
+    n = 0
+    for i, a in enumerate(rs):
+        for b in rs[i + 1 :]:
+            if abs(a["measured"] / b["measured"] - 1) < noise:
+                continue
+            if (a["measured"] - b["measured"]) * (a["predicted"] - b["predicted"]) < 0:
+                n += 1
+    return n
+
+
+# R1 (28 §4): instructions per block executed by the model's replay vs the profiler's count
+R1_TOL = 0.02
+
+
+def counts_check(r: dict[str, Any]) -> dict[str, Any]:
+    c, k = r["counters"], r.get("counts") or {}
+    grid = float(c.get("launch__grid_size") or 1)
+    meas = float(c.get("smsp__inst_executed.sum") or 0) / grid
+    model = k.get("issued", 0) / max(1, k.get("blocks", 1))
+    mt = float(c.get("smsp__inst_executed_pipe_tensor.sum") or 0) / grid
+    kt = k.get("HMMA", 0) / max(1, k.get("blocks", 1))
+    ok = bool(meas) and abs(model / meas - 1) <= R1_TOL and (not mt or abs(kt / mt - 1) <= R1_TOL)
+    return {"inst_model": model, "inst_meas": meas, "mma_model": kt, "mma_meas": mt, "ok": ok}
+
+
+# counter pipes and the model resources they stand for (bottleneck agreement, LOOP §5)
+PIPES = {
+    "sm__pipe_tensor_cycles_active.sum": "tensor",
+    "sm__pipe_fma_cycles_active.sum": "fma",
+    "sm__pipe_alu_cycles_active.sum": "alu",
+}
+
+
+def bottleneck(r: dict[str, Any]) -> dict[str, Any]:
+    """The busiest counter pipe against the model's top critical-path resource."""
+    c = r["counters"]
+    busiest = max(PIPES, key=lambda m: float(c.get(m) or 0))
+    top = r["attribution"][0]["resource"] if r.get("attribution") else None
+    return {"busiest_pipe": PIPES[busiest], "model_top": top, "agree": top == PIPES[busiest]}
 
 
 def default_jobs() -> int:
@@ -304,8 +419,15 @@ def summary(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
             "worst": worst,
             "within_10": sum(abs(x) <= 0.1 for x in e),
         }
-        if len(rs) >= 3 and group.endswith("full"):
+        if len(rs) >= 3 and (group.endswith("full") or group.startswith("testset")):
             item["spearman"] = spearman([r["predicted"] for r in rs], [r["measured"] for r in rs])
+            item["inversions"] = inversions(rs)
+        r1 = [counts_check(r) for r in rs if r.get("counters")]
+        if r1:
+            item["r1_pass"] = sum(x["ok"] for x in r1)
+            item["r1_n"] = len(r1)
+            bn = [bottleneck(r) for r in rs if r.get("counters")]
+            item["bottleneck_agree"] = sum(x["agree"] for x in bn)
         out.append(item)
     return out
 

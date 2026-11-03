@@ -14,7 +14,7 @@ from kta_gate.result import CheckResult
 ROOT = Path(__file__).resolve().parents[2]
 WP_NAME = (
     "WP0 WP1 WP2 WP3 WP4 WP5 WP6 WP7 WP8 WP9a WP9b WP10a WP10b WP11 WP12 WP13 "
-    "WP14 WP15 WP16 WP17 WP18 WP19 WP20 WP21 WP22 WP23 WP24 WP25 WP26"
+    "WP14 WP15 WP16 WP17 WP18 WP19 WP20 WP21 WP22 WP23 WP24 WP25 WP26 PERFMODEL"
 ).split()
 
 
@@ -85,6 +85,8 @@ def main(argv: list[str] | None = None) -> int:
     with tempfile.TemporaryDirectory(prefix="kta-gate-") as scratch:
         data_root = Path(data_env) if data_env else Path(scratch)
         results = static_checks(ROOT)
+        if args.quick and args.wp == "PERFMODEL":  # seconds: run them on every commit
+            results += specific.run_specific(args.wp, ROOT, set())
         if not args.quick:
             results += full_checks(ROOT, args.wp, data_root, args.stage)
     for r in results:

@@ -48,6 +48,8 @@ ignore = ["RUF001", "RUF002", "RUF003"]
 "src/kta/cli/output.py" = ["T20"]
 "tools/**" = ["T20"]
 "scripts/**" = ["T20"]
+"perfmodel/**" = ["T20"]
+"perfmodel/testset/gen.py" = ["T20", "E501"]  # the C++ harness template
 "tests/**" = ["T20", "S110"]
 
 [tool.pyright]

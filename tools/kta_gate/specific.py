@@ -25,6 +25,7 @@ import yaml
 
 from kta_gate.delivery import split_sections
 from kta_gate.result import CheckResult, from_findings
+from kta_gate.specific_perfmodel import perfmodel
 from kta_gate.specific_wp3 import wp3
 from kta_gate.specific_wp7 import wp7
 from kta_gate.specific_wp8 import wp8
@@ -751,6 +752,7 @@ SPECIFIC: dict[str, Callable[[Path, set[str]], list[CheckResult]]] = {
     "WP24": wp24,
     "WP25": wp25,
     "WP26": wp26,
+    "PERFMODEL": perfmodel,
 }
 
 

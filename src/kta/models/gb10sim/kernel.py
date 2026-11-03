@@ -179,6 +179,8 @@ def simulate_kernel(
     kernel: str = "matmul_kernel",
     atomic_c: bool = False,
     machine: Machine | None = None,
+    sm_hook=None,
+    trace: bool = False,
 ) -> dict:
     """split > 1: split-K, a third grid dimension (outermost in launch order); each block runs
     K/split and adds its C
@@ -259,8 +261,11 @@ def simulate_kernel(
             grid_blocks=tiles,
             grid_dim=(math.ceil(N / h["block_N"]), math.ceil(M / h["block_M"]), split),
             machine=m,
+            trace=trace,
         )
         r = sm.run()
+        if sm_hook is not None:  # KTA (PERFMODEL): the simulator for attribution
+            sm_hook(sm)
         us = r["cycles"] / F
         part = {
             "counts": {k: v for k, v in r.items() if k in ("STSM", "UTMASTG")},

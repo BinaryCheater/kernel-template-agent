@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# One GPU batch of the performance-model loop (docs/design/perfmodel/LOOP.md step 3):
+# scripts/perfmodel-measure {build|predict|run|import} <batch>
+set -euo pipefail
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+export PYTHONPATH="$root/tools${PYTHONPATH:+:$PYTHONPATH}"
+exec uv run --project "$root" --frozen --quiet python -m kta_perfmodel.measure "$@"

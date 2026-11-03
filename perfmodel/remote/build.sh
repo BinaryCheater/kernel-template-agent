@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+# Build every probe, the protocol kernels and the test-set kernels on spark (perfmodel-measure build).
+#   perfmodel/remote/build.sh <out_dir>
+# Run from the root of a deployed tree. For each unit: the executable, the cubin, the SASS with
+# control bits (`nvdisasm -hex` of the cubin, the form gb10sim.sass parses), the ptxas resource
+# report. Probes and protocol kernels use the host CUDA (13.0); TileLang kernels are generated and
+# compiled inside the worker image (its TileLang headers), with the image's nvcc.
+set -euo pipefail
+out="$(mkdir -p "$1" && cd "$1" && pwd)"
+root="$(pwd)"
+image="kta-worker:tilelang-0.1.15"
+flags=(-O3 -arch=sm_121a -std=c++17)
+nvcc --version | tail -2 > "$out/nvcc-host.txt"
+
+one() { # <name> <src> [extra nvcc flags...] (host nvcc)
+  local name="$1" src="$2"; shift 2
+  local d="$out/$name"; mkdir -p "$d"
+  nvcc "${flags[@]}" "$@" -Xptxas -v -o "$d/bin" "$src" 2> "$d/ptxas.txt"
+  nvcc "${flags[@]}" "$@" -cubin -o "$d/k.cubin" "$src"
+  nvdisasm -hex "$d/k.cubin" > "$d/k.sass"
+  cuobjdump -res-usage "$d/k.cubin" > "$d/res-usage.txt"
+}
+
+one protocol perfmodel/protocol/protocol.cu
+for p in perfmodel/probes/*/; do
+  n="$(basename "$p")"
+  [ "$n" = l2share_copy ] && continue   # TileLang headers: built in the image below
+  one "probe-$n" "$p/probe.cu"
+done
+
+# TileLang: generate the test set, then compile it and the TileLang-based probe in the image
+docker run --rm --gpus all -u "$(id -u):$(id -g)" -e HOME=/tmp -v "$root":/w -v "$out":/o -w /w "$image" sh -ec '
+  python perfmodel/testset/gen.py /o/testset > /o/testset-gen.log 2>&1 || { tail -40 /o/testset-gen.log; exit 1; }
+  tl=$(python -c "import tilelang, os; print(os.path.dirname(tilelang.__file__))")
+  inc="-I$tl/src -I$tl/3rdparty/cutlass/include"
+  f="-O3 -arch=sm_121a -std=c++20 --expt-relaxed-constexpr -lcuda $inc"
+  nvcc --version | tail -2 > /o/nvcc-image.txt
+  python -c "import tilelang; print(tilelang.__version__)" > /o/tilelang-version.txt
+  build() { d=$1; src=$2
+    nvcc $f -Xptxas -v -o $d/bin $src 2> $d/ptxas.txt
+    nvcc $f -cubin -o $d/k.cubin $src
+    nvdisasm -hex $d/k.cubin > $d/k.sass
+    cuobjdump -res-usage $d/k.cubin > $d/res-usage.txt
+  }
+  for d in /o/testset/*/; do
+    cp /w/perfmodel/probes/common.cuh /o/common.cuh
+    sed -i "s|../../../probes/common.cuh|/o/common.cuh|" $d/harness.cu
+    build $d $d/harness.cu
+  done
+  mkdir -p /o/probe-l2share_copy
+  build /o/probe-l2share_copy /w/perfmodel/probes/l2share_copy/probe.cu
+'
+echo "built into $out"
