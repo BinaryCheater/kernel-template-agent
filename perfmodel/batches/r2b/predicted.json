@@ -1,0 +1,15 @@
+{
+ "engine": "340e099f2336438e2a5f3404269f5a161aeee65b48f986b4d4b1dbb26d32069c",
+ "kta_commit": "69594143e537c9290145314dfd609258553851bf",
+ "date": "2026-11-03T19:47:39Z",
+ "clock_GHz": "description kernel clock (no batch clock before the run)",
+ "predicted": {
+  "decode_gqa_comb_s4096_warm kernel": 3.3534,
+  "decode_gqa_part_s4096_rotating kernel": 80.9983,
+  "decode_gqa_part_s4096_warm kernel": 23.663,
+  "gemv_w4a16_n4096_k4096_rotating kernel": 430.8871,
+  "gemv_w4a16_n4096_k4096_warm kernel": 51.7795,
+  "rmsnorm_m512_n4096_rotating kernel": 20.9645,
+  "rmsnorm_m512_n4096_warm kernel": 5.2296
+ }
+}
