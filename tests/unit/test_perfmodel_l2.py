@@ -7,7 +7,7 @@ from kta.models.gb10sim.l2 import Access, Cache, Load, replay_walk, warm_miss
 
 def _load(pc: int, offs: tuple, gx: int, shift: int) -> Load:
     return Load(
-        0, pc, 0, -1, 4, ((("c", 0, 0), 1),), offs,
+        0, pc, 0, -1, 4, ((("c", 0, pc), 1),), offs,
         shift=[{v: v * shift for v in range(gx)}, {0: 0}, {0: 0}],
     )  # fmt: skip
 
@@ -26,8 +26,8 @@ def test_reuse_shows_per_load_instruction() -> None:
     offs = tuple(i * 128 for i in range(32))
     acc = Access(1, (8, 1, 1), [_load(1, offs, 8, 1 << 20), _load(2, offs, 8, 0)])
     r = replay_walk(acc, 8, 1e9)
-    assert r.reads == 2 * 32 * 128 * 8 - 7 * 32 * 128  # the vector is read once
-    assert r.miss_by_pc[1] == 1.0 or r.miss_by_pc[2] == 1.0
+    assert r.reads == (8 + 1) * 32 * 128  # the vector is read once
+    assert r.miss_by_pc == {1: 1.0, 2: 1 / 8}
     assert r.footprint == r.reads
 
 
