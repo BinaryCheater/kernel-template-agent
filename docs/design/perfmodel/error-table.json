@@ -1,9 +1,9 @@
 {
- "kta_commit": "fb66f5370b472426ccd53d9fe3bf7fa7741a9780",
+ "kta_commit": "fdcb44c76cb03ba26d348fdbb20ca87f3ffa0bff",
  "kta_dirty": false,
  "upstream": "/Users/dingyi/Projects/ai-infra-codesign-ventus",
  "upstream_rev": "a628c9d963cf9c029fa596b872d6e8920ca883e8",
- "date": "2026-11-03T17:34:46Z",
+ "date": "2026-11-03T17:38:01Z",
  "sets": [
   "gemm",
   "tma",
@@ -65,16 +65,16 @@
    "set": "probe alu.cu",
    "n": 39,
    "excluded": 9,
-   "median_abs": 0.00496124267578113,
-   "worst": -0.11836358642578138,
+   "median_abs": 0.004741638183593633,
+   "worst": -0.11837329864501966,
    "within_10": 38
   },
   {
    "set": "probe alumix.cu",
    "n": 13,
    "excluded": 0,
-   "median_abs": 0.0018749621983428222,
-   "worst": -0.10989482721614086,
+   "median_abs": 0.0019757666176085653,
+   "worst": -0.10998425985547688,
    "within_10": 12
   },
   {
@@ -89,9 +89,9 @@
    "set": "probe cvt.cu",
    "n": 7,
    "excluded": 0,
-   "median_abs": 0.007941425436794103,
-   "worst": 1.0044400615076863,
-   "within_10": 6
+   "median_abs": 0.005479741628945045,
+   "worst": -0.01931396521455908,
+   "within_10": 7
   }
  ],
  "jobs": 16,
@@ -106,7 +106,7 @@
    "excluded": null,
    "note": null,
    "predicted": 36.068087972136155,
-   "wall_s": 0.29,
+   "wall_s": 0.27,
    "error": -0.08586557248235627
   },
   {
@@ -130,7 +130,7 @@
    "excluded": null,
    "note": null,
    "predicted": 16.986507936507923,
-   "wall_s": 0.1,
+   "wall_s": 0.09,
    "error": -0.0313350857374588
   },
   {
@@ -154,7 +154,7 @@
    "excluded": null,
    "note": null,
    "predicted": 25.00310469053555,
-   "wall_s": 0.15,
+   "wall_s": 0.14,
    "error": -0.0786002104018444
   },
   {
@@ -166,7 +166,7 @@
    "excluded": null,
    "note": null,
    "predicted": 16.062857142857133,
-   "wall_s": 0.13,
+   "wall_s": 0.12,
    "error": 0.03711629279811035
   },
   {
@@ -178,7 +178,7 @@
    "excluded": null,
    "note": null,
    "predicted": 42.49707863462843,
-   "wall_s": 0.18,
+   "wall_s": 0.17,
    "error": -0.0928731507294136
   },
   {
@@ -202,7 +202,7 @@
    "excluded": null,
    "note": null,
    "predicted": 15.614166666666689,
-   "wall_s": 0.07,
+   "wall_s": 0.06,
    "error": -0.03948285761154724
   },
   {
@@ -214,7 +214,7 @@
    "excluded": null,
    "note": null,
    "predicted": 42.42818974573945,
-   "wall_s": 0.26,
+   "wall_s": 0.25,
    "error": -0.04544209535323407
   },
   {
@@ -226,7 +226,7 @@
    "excluded": null,
    "note": null,
    "predicted": 29.395027488458847,
-   "wall_s": 0.08,
+   "wall_s": 0.07,
    "error": -0.031018344921583285
   },
   {
@@ -238,7 +238,7 @@
    "excluded": null,
    "note": null,
    "predicted": 15.776587301587343,
-   "wall_s": 0.1,
+   "wall_s": 0.09,
    "error": 0.03141914890084618
   },
   {
@@ -262,7 +262,7 @@
    "excluded": null,
    "note": null,
    "predicted": 21.14355752918478,
-   "wall_s": 0.06,
+   "wall_s": 0.05,
    "error": -0.15722426940430567
   },
   {
@@ -310,7 +310,7 @@
    "excluded": null,
    "note": null,
    "predicted": 30.255793650793557,
-   "wall_s": 0.21,
+   "wall_s": 0.2,
    "error": -0.0015907586195367251
   },
   {
@@ -334,7 +334,7 @@
    "excluded": null,
    "note": null,
    "predicted": 32.707863067297346,
-   "wall_s": 0.09,
+   "wall_s": 0.08,
    "error": -0.01148866455218367
   },
   {
@@ -346,7 +346,7 @@
    "excluded": null,
    "note": null,
    "predicted": 8.863611111111126,
-   "wall_s": 0.06,
+   "wall_s": 0.05,
    "error": 0.06125611962537425
   },
   {
@@ -382,7 +382,7 @@
    "excluded": null,
    "note": null,
    "predicted": 8.980912698412745,
-   "wall_s": 0.09,
+   "wall_s": 0.08,
    "error": 0.039457488242215843
   },
   {
@@ -394,7 +394,7 @@
    "excluded": null,
    "note": null,
    "predicted": 41.35778954076931,
-   "wall_s": 0.23,
+   "wall_s": 0.22,
    "error": -0.04405996808502899
   },
   {
@@ -418,7 +418,7 @@
    "excluded": null,
    "note": null,
    "predicted": 30.57484126984115,
-   "wall_s": 0.23,
+   "wall_s": 0.22,
    "error": 0.018618112667948772
   },
   {
@@ -454,7 +454,7 @@
    "excluded": null,
    "note": null,
    "predicted": 30.508174603174478,
-   "wall_s": 0.17,
+   "wall_s": 0.16,
    "error": 0.0078017508976770955
   },
   {
@@ -466,7 +466,7 @@
    "excluded": null,
    "note": null,
    "predicted": 48.415840230742724,
-   "wall_s": 0.2,
+   "wall_s": 0.19,
    "error": 0.020914309858778735
   },
   {
@@ -490,7 +490,7 @@
    "excluded": null,
    "note": null,
    "predicted": 16.30623015873018,
-   "wall_s": 0.09,
+   "wall_s": 0.08,
    "error": 0.017105174571493187
   },
   {
@@ -502,7 +502,7 @@
    "excluded": null,
    "note": null,
    "predicted": 44.97893946281265,
-   "wall_s": 0.39,
+   "wall_s": 0.37,
    "error": -0.06790990834688648
   },
   {
@@ -526,7 +526,7 @@
    "excluded": null,
    "note": null,
    "predicted": 16.29825396825398,
-   "wall_s": 0.14,
+   "wall_s": 0.12,
    "error": 0.03942946226109578
   },
   {
@@ -538,7 +538,7 @@
    "excluded": null,
    "note": null,
    "predicted": 37.25546334289673,
-   "wall_s": 0.25,
+   "wall_s": 0.24,
    "error": -0.051154662212287816
   },
   {
@@ -574,7 +574,7 @@
    "excluded": null,
    "note": null,
    "predicted": 34.68020200076546,
-   "wall_s": 0.29,
+   "wall_s": 0.27,
    "error": -0.00936351688855519
   },
   {
@@ -586,7 +586,7 @@
    "excluded": null,
    "note": null,
    "predicted": 32.81187883435424,
-   "wall_s": 0.15,
+   "wall_s": 0.14,
    "error": -0.031755227975854505
   },
   {
@@ -598,7 +598,7 @@
    "excluded": null,
    "note": null,
    "predicted": 8.802182539682555,
-   "wall_s": 0.08,
+   "wall_s": 0.07,
    "error": 0.0620393990929724
   },
   {
@@ -610,7 +610,7 @@
    "excluded": null,
    "note": null,
    "predicted": 37.44512142162513,
-   "wall_s": 0.17,
+   "wall_s": 0.16,
    "error": -0.07130155204302746
   },
   {
@@ -646,7 +646,7 @@
    "excluded": null,
    "note": null,
    "predicted": 37.20907665028647,
-   "wall_s": 0.29,
+   "wall_s": 0.27,
    "error": -0.052336067382679596
   },
   {
@@ -682,7 +682,7 @@
    "excluded": null,
    "note": null,
    "predicted": 47.28726880217114,
-   "wall_s": 0.22,
+   "wall_s": 0.23,
    "error": -0.04724232748688062
   },
   {
@@ -694,7 +694,7 @@
    "excluded": null,
    "note": null,
    "predicted": 34.099506971173376,
-   "wall_s": 0.1,
+   "wall_s": 0.09,
    "error": -0.06030900101484293
   },
   {
@@ -718,7 +718,7 @@
    "excluded": null,
    "note": null,
    "predicted": 47.82930343944186,
-   "wall_s": 0.33,
+   "wall_s": 0.32,
    "error": -0.07508308633505079
   },
   {
@@ -730,7 +730,7 @@
    "excluded": null,
    "note": null,
    "predicted": 34.10261303701529,
-   "wall_s": 0.1,
+   "wall_s": 0.09,
    "error": -0.06680677985400363
   },
   {
@@ -742,7 +742,7 @@
    "excluded": null,
    "note": null,
    "predicted": 17.037142857142857,
-   "wall_s": 0.12,
+   "wall_s": 0.11,
    "error": -0.00854615589252461
   },
   {
@@ -754,7 +754,7 @@
    "excluded": null,
    "note": null,
    "predicted": 46.97224628276009,
-   "wall_s": 0.19,
+   "wall_s": 0.18,
    "error": -0.06741887145091952
   },
   {
@@ -778,7 +778,7 @@
    "excluded": null,
    "note": null,
    "predicted": 4.211746031746031,
-   "wall_s": 0.03,
+   "wall_s": 0.02,
    "error": 0.0700574267647438
   },
   {
@@ -790,7 +790,7 @@
    "excluded": null,
    "note": null,
    "predicted": 46.70532129377642,
-   "wall_s": 0.37,
+   "wall_s": 0.36,
    "error": -0.07448237765978871
   },
   {
@@ -826,7 +826,7 @@
    "excluded": null,
    "note": null,
    "predicted": 40.03505041493682,
-   "wall_s": 0.56,
+   "wall_s": 0.51,
    "error": 0.029708086803930556
   },
   {
@@ -838,7 +838,7 @@
    "excluded": null,
    "note": null,
    "predicted": 40.01579563458043,
-   "wall_s": 0.2,
+   "wall_s": 0.19,
    "error": 0.07523096610544999
   },
   {
@@ -862,7 +862,7 @@
    "excluded": null,
    "note": null,
    "predicted": 39.74794009429375,
-   "wall_s": 0.62,
+   "wall_s": 0.61,
    "error": 0.013978063629942694
   },
   {
@@ -898,7 +898,7 @@
    "excluded": null,
    "note": null,
    "predicted": 40.07348560443804,
-   "wall_s": 0.19,
+   "wall_s": 0.18,
    "error": -0.11184650699383769
   },
   {
@@ -922,7 +922,7 @@
    "excluded": null,
    "note": null,
    "predicted": 1568.8714351385681,
-   "wall_s": 33.61,
+   "wall_s": 33.0,
    "error": 0.03860252829319477
   },
   {
@@ -934,7 +934,7 @@
    "excluded": null,
    "note": null,
    "predicted": 111.27472440945101,
-   "wall_s": 2.75,
+   "wall_s": 2.68,
    "error": 0.024553664642116724
   },
   {
@@ -946,7 +946,7 @@
    "excluded": null,
    "note": "measured warm in a session where part of B stayed in the L2; upstream compares the decode picks cold against a later flush measurement (gb10 design note \u00a77)",
    "predicted": 148.7609382802612,
-   "wall_s": 0.17,
+   "wall_s": 0.15,
    "error": 0.19999466217298978
   },
   {
@@ -970,7 +970,7 @@
    "excluded": null,
    "note": null,
    "predicted": 190.9543045518577,
-   "wall_s": 1.64,
+   "wall_s": 1.57,
    "error": -0.060708009248299555
   },
   {
@@ -982,7 +982,7 @@
    "excluded": null,
    "note": null,
    "predicted": 55.77114173228319,
-   "wall_s": 0.45,
+   "wall_s": 0.44,
    "error": 0.061417892286144804
   },
   {
@@ -994,7 +994,7 @@
    "excluded": null,
    "note": null,
    "predicted": 15813.601615493437,
-   "wall_s": 146.35,
+   "wall_s": 150.24,
    "error": 0.044763130989234456
   },
   {
@@ -1006,7 +1006,7 @@
    "excluded": null,
    "note": null,
    "predicted": 211.48425196850917,
-   "wall_s": 4.73,
+   "wall_s": 4.52,
    "error": 0.0007393812864795457
   },
   {
@@ -1018,7 +1018,7 @@
    "excluded": null,
    "note": null,
    "predicted": 398.9701693936887,
-   "wall_s": 8.54,
+   "wall_s": 8.15,
    "error": -0.11140918013307877
   },
   {
@@ -1030,7 +1030,7 @@
    "excluded": null,
    "note": null,
    "predicted": 28.871771653543227,
-   "wall_s": 0.72,
+   "wall_s": 0.7,
    "error": 0.15376325341844743
   },
   {
@@ -1054,7 +1054,7 @@
    "excluded": null,
    "note": null,
    "predicted": 60.237007874015625,
-   "wall_s": 0.34,
+   "wall_s": 0.31,
    "error": -0.005596145767042704
   },
   {
@@ -1066,7 +1066,7 @@
    "excluded": null,
    "note": null,
    "predicted": 5.31225,
-   "wall_s": 0.76,
+   "wall_s": 0.73,
    "error": -0.0630952380952381
   },
   {
@@ -1078,7 +1078,7 @@
    "excluded": null,
    "note": null,
    "predicted": 14.91225,
-   "wall_s": 1.59,
+   "wall_s": 1.58,
    "error": -0.012433774834437084
   },
   {
@@ -1089,8 +1089,8 @@
    "measured": 4616.511693434771,
    "excluded": null,
    "note": null,
-   "predicted": 4513.0,
-   "wall_s": 0.61,
+   "predicted": 4513,
+   "wall_s": 0.6,
    "error": -0.022422058105468823
   },
   {
@@ -1101,9 +1101,9 @@
    "measured": 8526.671870934166,
    "excluded": null,
    "note": null,
-   "predicted": 8683.0,
-   "wall_s": 0.7,
-   "error": 0.018334014892578132
+   "predicted": 8680,
+   "wall_s": 0.68,
+   "error": 0.017982177734374938
   },
   {
    "id": "alu FFMA w16",
@@ -1113,9 +1113,9 @@
    "measured": 16868.98326898327,
    "excluded": null,
    "note": null,
-   "predicted": 17118.0,
-   "wall_s": 0.89,
-   "error": 0.014761810302734268
+   "predicted": 17115.0,
+   "wall_s": 0.85,
+   "error": 0.014583969116210849
   },
   {
    "id": "alu FFMA w32",
@@ -1125,9 +1125,9 @@
    "measured": 33947.681947681944,
    "excluded": null,
    "note": null,
-   "predicted": 34056.0,
-   "wall_s": 1.34,
-   "error": 0.0031907348632813637
+   "predicted": 34050,
+   "wall_s": 1.31,
+   "error": 0.0030139923095704457
   },
   {
    "id": "alu IMAD w4",
@@ -1137,7 +1137,7 @@
    "measured": 8346.408558329087,
    "excluded": null,
    "note": null,
-   "predicted": 8305.0,
+   "predicted": 8305,
    "wall_s": 0.64,
    "error": -0.00496124267578113
   },
@@ -1149,9 +1149,9 @@
    "measured": 16425.062656641603,
    "excluded": null,
    "note": null,
-   "predicted": 16432.0,
-   "wall_s": 0.76,
-   "error": 0.00042236328125011546
+   "predicted": 16429,
+   "wall_s": 0.75,
+   "error": 0.0002397155761719727
   },
   {
    "id": "alu IMAD w16",
@@ -1161,9 +1161,9 @@
    "measured": 32800.800800800804,
    "excluded": null,
    "note": null,
-   "predicted": 32836.0,
-   "wall_s": 1.03,
-   "error": 0.0010731201171874094
+   "predicted": 32831.0,
+   "wall_s": 1.02,
+   "error": 0.0009206848144529545
   },
   {
    "id": "alu IMAD w32",
@@ -1173,9 +1173,9 @@
    "measured": 65601.60160160161,
    "excluded": null,
    "note": null,
-   "predicted": 65636.0,
-   "wall_s": 1.76,
-   "error": 0.0005243530273437713
+   "predicted": 65631,
+   "wall_s": 1.73,
+   "error": 0.0004481353759764328
   },
   {
    "id": "alu IADD3 w4",
@@ -1185,7 +1185,7 @@
    "measured": 85.99983203157807,
    "excluded": "loop folded by the compiler (no loop in the SASS)",
    "note": null,
-   "predicted": 93.0,
+   "predicted": 93,
    "wall_s": 0.0,
    "error": 0.08139746093749989
   },
@@ -1197,9 +1197,9 @@
    "measured": 106.99999673461924,
    "excluded": "loop folded by the compiler (no loop in the SASS)",
    "note": null,
-   "predicted": 112.0,
+   "predicted": 101,
    "wall_s": 0.0,
-   "error": 0.04672900390625001
+   "error": -0.05607473754882819
   },
   {
    "id": "alu IADD3 w16",
@@ -1209,9 +1209,9 @@
    "measured": 186.99994293214633,
    "excluded": "loop folded by the compiler (no loop in the SASS)",
    "note": null,
-   "predicted": 127.0,
+   "predicted": 125.0,
    "wall_s": 0.01,
-   "error": -0.3208554077148438
+   "error": -0.33155059814453125
   },
   {
    "id": "alu IADD3 w32",
@@ -1221,9 +1221,9 @@
    "measured": 350.0004005436713,
    "excluded": "loop folded by the compiler (no loop in the SASS)",
    "note": null,
-   "predicted": 175.0,
-   "wall_s": 0.03,
-   "error": -0.5000005722045898
+   "predicted": 174.0,
+   "wall_s": 0.02,
+   "error": -0.5028577117919921
   },
   {
    "id": "alu LOP3 w4",
@@ -1233,7 +1233,7 @@
    "measured": 13451.559934318555,
    "excluded": null,
    "note": null,
-   "predicted": 12961.0,
+   "predicted": 12961,
    "wall_s": 0.14,
    "error": -0.036468627929687525
   },
@@ -1245,9 +1245,9 @@
    "measured": 24824.242424242424,
    "excluded": null,
    "note": null,
-   "predicted": 24624.0,
-   "wall_s": 0.33,
-   "error": -0.008066406249999991
+   "predicted": 24621,
+   "wall_s": 0.32,
+   "error": -0.008187255859374964
   },
   {
    "id": "alu LOP3 w16",
@@ -1257,9 +1257,9 @@
    "measured": 49164.291072768196,
    "excluded": null,
    "note": null,
-   "predicted": 49220.0,
-   "wall_s": 0.77,
-   "error": 0.00113311767578117
+   "predicted": 49215.0,
+   "wall_s": 0.76,
+   "error": 0.0010314178466797053
   },
   {
    "id": "alu LOP3 w32",
@@ -1269,9 +1269,9 @@
    "measured": 98402.4024024024,
    "excluded": null,
    "note": null,
-   "predicted": 98404.0,
-   "wall_s": 1.93,
-   "error": 1.6235351562476907e-05
+   "predicted": 98399,
+   "wall_s": 1.91,
+   "error": -3.4576416015563716e-05
   },
   {
    "id": "alu SHF w4",
@@ -1281,7 +1281,7 @@
    "measured": 8393.442622950819,
    "excluded": null,
    "note": null,
-   "predicted": 8265.0,
+   "predicted": 8265,
    "wall_s": 0.07,
    "error": -0.01530273437499996
   },
@@ -1293,9 +1293,9 @@
    "measured": 16441.54540893126,
    "excluded": null,
    "note": null,
-   "predicted": 16432.0,
-   "wall_s": 0.18,
-   "error": -0.0005805664062499272
+   "predicted": 16429,
+   "wall_s": 0.19,
+   "error": -0.0007630310058593937
   },
   {
    "id": "alu SHF w16",
@@ -1305,9 +1305,9 @@
    "measured": 32751.624187906047,
    "excluded": null,
    "note": null,
-   "predicted": 32836.0,
+   "predicted": 32831.0,
    "wall_s": 0.44,
-   "error": 0.0025762329101561843
+   "error": 0.0024235687255860228
   },
   {
    "id": "alu SHF w32",
@@ -1317,9 +1317,9 @@
    "measured": 65568.78439219609,
    "excluded": null,
    "note": null,
-   "predicted": 65636.0,
-   "wall_s": 1.16,
-   "error": 0.0010251159667971077
+   "predicted": 65631,
+   "wall_s": 1.15,
+   "error": 0.0009488601684570774
   },
   {
    "id": "alu PRMT w4",
@@ -1329,7 +1329,7 @@
    "measured": 8489.119170984457,
    "excluded": null,
    "note": null,
-   "predicted": 8385.0,
+   "predicted": 8385,
    "wall_s": 0.06,
    "error": -0.012265014648437655
   },
@@ -1341,9 +1341,9 @@
    "measured": 16474.610356963298,
    "excluded": null,
    "note": null,
-   "predicted": 16432.0,
+   "predicted": 16429,
    "wall_s": 0.15,
-   "error": -0.0025864257812500124
+   "error": -0.0027685241699219043
   },
   {
    "id": "alu PRMT w16",
@@ -1353,9 +1353,9 @@
    "measured": 32833.667334669335,
    "excluded": null,
    "note": null,
-   "predicted": 32836.0,
-   "wall_s": 0.39,
-   "error": 7.104492187504086e-05
+   "predicted": 32831.0,
+   "wall_s": 0.36,
+   "error": -8.123779296864697e-05
   },
   {
    "id": "alu PRMT w32",
@@ -1365,9 +1365,9 @@
    "measured": 65339.98005982055,
    "excluded": null,
    "note": null,
-   "predicted": 65636.0,
-   "wall_s": 1.0,
-   "error": 0.004530456542968686
+   "predicted": 65631,
+   "wall_s": 1.01,
+   "error": 0.004453933715820257
   },
   {
    "id": "alu HFMA2 w4",
@@ -1377,7 +1377,7 @@
    "measured": 8397.744746283957,
    "excluded": null,
    "note": null,
-   "predicted": 8265.0,
+   "predicted": 8265,
    "wall_s": 0.63,
    "error": -0.015807189941406286
   },
@@ -1389,9 +1389,9 @@
    "measured": 16408.61291937907,
    "excluded": null,
    "note": null,
-   "predicted": 16432.0,
-   "wall_s": 0.15,
-   "error": 0.001425292968749936
+   "predicted": 16429,
+   "wall_s": 0.14,
+   "error": 0.001242462158203006
   },
   {
    "id": "alu HFMA2 w16",
@@ -1401,9 +1401,9 @@
    "measured": 32751.624187906047,
    "excluded": null,
    "note": null,
-   "predicted": 32836.0,
-   "wall_s": 0.37,
-   "error": 0.0025762329101561843
+   "predicted": 32831.0,
+   "wall_s": 0.36,
+   "error": 0.0024235687255860228
   },
   {
    "id": "alu HFMA2 w32",
@@ -1413,9 +1413,9 @@
    "measured": 65437.84323514727,
    "excluded": null,
    "note": null,
-   "predicted": 65636.0,
+   "predicted": 65631,
    "wall_s": 1.0,
-   "error": 0.003028167724609565
+   "error": 0.0029517593383789897
   },
   {
    "id": "alu F2F.F16.F32+HADD2.F32 w4",
@@ -1437,9 +1437,9 @@
    "measured": 26489.894907033144,
    "excluded": null,
    "note": null,
-   "predicted": 24487.0,
-   "wall_s": 0.35,
-   "error": -0.07560977172851557
+   "predicted": 24488.0,
+   "wall_s": 0.34,
+   "error": -0.07557202148437492
   },
   {
    "id": "alu F2F.F16.F32+HADD2.F32 w16",
@@ -1450,7 +1450,7 @@
    "excluded": null,
    "note": null,
    "predicted": 46584.0,
-   "wall_s": 0.88,
+   "wall_s": 0.85,
    "error": -0.0951319580078126
   },
   {
@@ -1461,9 +1461,9 @@
    "measured": 102963.07934014141,
    "excluded": null,
    "note": null,
-   "predicted": 90776.0,
-   "wall_s": 2.31,
-   "error": -0.11836358642578138
+   "predicted": 90775.0,
+   "wall_s": 2.26,
+   "error": -0.11837329864501966
   },
   {
    "id": "alu HADD2.F32(h2f) w4",
@@ -1485,9 +1485,9 @@
    "measured": 66064.51612903226,
    "excluded": null,
    "note": null,
-   "predicted": 66237.0,
-   "wall_s": 0.62,
-   "error": 0.0026108398437501013
+   "predicted": 66232.0,
+   "wall_s": 0.59,
+   "error": 0.0025351562500000036
   },
   {
    "id": "alu HADD2.F32(h2f) w16",
@@ -1497,9 +1497,9 @@
    "measured": 131598.3935742972,
    "excluded": null,
    "note": null,
-   "predicted": 132056.0,
-   "wall_s": 1.5,
-   "error": 0.003477294921874874
+   "predicted": 132194.0,
+   "wall_s": 1.51,
+   "error": 0.004525939941406154
   },
   {
    "id": "alu HADD2.F32(h2f) w32",
@@ -1509,9 +1509,9 @@
    "measured": 260580.51689860836,
    "excluded": null,
    "note": null,
-   "predicted": 263701.0,
-   "wall_s": 4.06,
-   "error": 0.011975120544433615
+   "predicted": 263615.0,
+   "wall_s": 3.85,
+   "error": 0.01164508819580079
   },
   {
    "id": "alu F2FP.PACK_AB w4",
@@ -1533,9 +1533,9 @@
    "measured": 23076.05633802817,
    "excluded": null,
    "note": null,
-   "predicted": 23601.0,
-   "wall_s": 0.35,
-   "error": 0.022748413085937447
+   "predicted": 23599.0,
+   "wall_s": 0.34,
+   "error": 0.02266174316406233
   },
   {
    "id": "alu F2FP.PACK_AB w16",
@@ -1545,9 +1545,9 @@
    "measured": 45134.98622589532,
    "excluded": null,
    "note": null,
-   "predicted": 45377.0,
-   "wall_s": 0.86,
-   "error": 0.005361999511718674
+   "predicted": 45349.0,
+   "wall_s": 0.87,
+   "error": 0.004741638183593633
   },
   {
    "id": "alu F2FP.PACK_AB w32",
@@ -1557,9 +1557,9 @@
    "measured": 89898.49108367627,
    "excluded": null,
    "note": null,
-   "predicted": 87907.0,
-   "wall_s": 2.32,
-   "error": -0.022152664184570292
+   "predicted": 87920.0,
+   "wall_s": 2.22,
+   "error": -0.022008056640624996
   },
   {
    "id": "alu I2F w4",
@@ -1569,7 +1569,7 @@
    "measured": 310.9980638548271,
    "excluded": "loop folded by the compiler (no loop in the SASS)",
    "note": null,
-   "predicted": 318.0,
+   "predicted": 318,
    "wall_s": 0.0,
    "error": 0.022514404296875012
   },
@@ -1581,9 +1581,9 @@
    "measured": 342.9983042686373,
    "excluded": "loop folded by the compiler (no loop in the SASS)",
    "note": null,
-   "predicted": 347.0,
+   "predicted": 326,
    "wall_s": 0.01,
-   "error": 0.011666809082031326
+   "error": -0.04955798339843742
   },
   {
    "id": "alu I2F w16",
@@ -1605,9 +1605,9 @@
    "measured": 1041.998902924739,
    "excluded": "loop folded by the compiler (no loop in the SASS)",
    "note": null,
-   "predicted": 394.0,
+   "predicted": 392.0,
    "wall_s": 0.04,
-   "error": -0.6218805999755859
+   "error": -0.6237999877929687
   },
   {
    "id": "alu F2I w4",
@@ -1617,7 +1617,7 @@
    "measured": 4329.809725158562,
    "excluded": null,
    "note": null,
-   "predicted": 4257.0,
+   "predicted": 4257,
    "wall_s": 0.05,
    "error": -0.016815917968749927
   },
@@ -1629,9 +1629,9 @@
    "measured": 8302.00152014188,
    "excluded": null,
    "note": null,
-   "predicted": 8336.0,
-   "wall_s": 0.13,
-   "error": 0.0040952148437500835
+   "predicted": 8333,
+   "wall_s": 0.12,
+   "error": 0.003733856201171948
   },
   {
    "id": "alu F2I w16",
@@ -1641,9 +1641,9 @@
    "measured": 8300.94996833439,
    "excluded": "measured rate 7.895 exceeds the issue limit 4.0/clk/SM",
    "note": null,
-   "predicted": 16646.0,
-   "wall_s": 0.3,
-   "error": 1.0053126525878904
+   "predicted": 16641.0,
+   "wall_s": 0.28,
+   "error": 1.0047103118896485
   },
   {
    "id": "alu F2I w32",
@@ -1653,9 +1653,9 @@
    "measured": 33250.12683916793,
    "excluded": null,
    "note": null,
-   "predicted": 33258.0,
-   "wall_s": 0.7,
-   "error": 0.00023678588867181993
+   "predicted": 33253,
+   "wall_s": 1.28,
+   "error": 8.64105224609446e-05
   },
   {
    "id": "alumix IMAD+LOP3",
@@ -1665,9 +1665,9 @@
    "measured": 49419.0,
    "excluded": null,
    "note": null,
-   "predicted": 49624.0,
-   "wall_s": 1.92,
-   "error": 0.004148202108500865
+   "predicted": 49561,
+   "wall_s": 1.32,
+   "error": 0.0028733887775955758
   },
   {
    "id": "alumix IMAD+FFMA",
@@ -1677,9 +1677,9 @@
    "measured": 49601.0,
    "excluded": null,
    "note": null,
-   "predicted": 49508.0,
-   "wall_s": 0.96,
-   "error": -0.0018749621983428222
+   "predicted": 49503,
+   "wall_s": 0.98,
+   "error": -0.0019757666176085653
   },
   {
    "id": "alumix LOP3+FFMA",
@@ -1689,9 +1689,9 @@
    "measured": 64070.0,
    "excluded": null,
    "note": null,
-   "predicted": 64108.0,
+   "predicted": 64099,
    "wall_s": 1.33,
-   "error": 0.0005931012954580872
+   "error": 0.0004526299360074759
   },
   {
    "id": "alumix HFMA2+LOP3",
@@ -1701,8 +1701,8 @@
    "measured": 51505.0,
    "excluded": null,
    "note": null,
-   "predicted": 49247.0,
-   "wall_s": 1.22,
+   "predicted": 49247,
+   "wall_s": 1.17,
    "error": -0.043840403844287
   },
   {
@@ -1713,8 +1713,8 @@
    "measured": 65069.0,
    "excluded": null,
    "note": null,
-   "predicted": 65631.0,
-   "wall_s": 1.12,
+   "predicted": 65631,
+   "wall_s": 1.11,
    "error": 0.00863698535400892
   },
   {
@@ -1725,9 +1725,9 @@
    "measured": 55908.0,
    "excluded": null,
    "note": null,
-   "predicted": 49764.0,
-   "wall_s": 0.88,
-   "error": -0.10989482721614086
+   "predicted": 49759,
+   "wall_s": 0.91,
+   "error": -0.10998425985547688
   },
   {
    "id": "alumix PRMT+IMAD",
@@ -1737,8 +1737,8 @@
    "measured": 33480.0,
    "excluded": null,
    "note": null,
-   "predicted": 33467.0,
-   "wall_s": 0.87,
+   "predicted": 33467,
+   "wall_s": 0.83,
    "error": -0.00038829151732378
   },
   {
@@ -1749,9 +1749,9 @@
    "measured": 81985.0,
    "excluded": null,
    "note": null,
-   "predicted": 82020.0,
-   "wall_s": 1.54,
-   "error": 0.0004269073611027352
+   "predicted": 82015,
+   "wall_s": 1.44,
+   "error": 0.00036592059523088416
   },
   {
    "id": "alumix HADD2.F32+FADD+IMAD",
@@ -1762,7 +1762,7 @@
    "excluded": null,
    "note": null,
    "predicted": 65925.0,
-   "wall_s": 1.65,
+   "wall_s": 1.49,
    "error": 0.014589777921418356
   },
   {
@@ -1773,9 +1773,9 @@
    "measured": 76227.0,
    "excluded": null,
    "note": null,
-   "predicted": 81407.0,
-   "wall_s": 2.04,
-   "error": 0.06795492410825554
+   "predicted": 81328.0,
+   "wall_s": 1.91,
+   "error": 0.06691854592204871
   },
   {
    "id": "alumix IMAD+IMAD",
@@ -1785,9 +1785,9 @@
    "measured": 65596.0,
    "excluded": null,
    "note": null,
-   "predicted": 65636.0,
-   "wall_s": 1.25,
-   "error": 0.0006097932800781525
+   "predicted": 65631,
+   "wall_s": 1.16,
+   "error": 0.0005335691200683002
   },
   {
    "id": "alumix LOP3+LOP3",
@@ -1797,9 +1797,9 @@
    "measured": 98396.0,
    "excluded": null,
    "note": null,
-   "predicted": 98404.0,
-   "wall_s": 2.04,
-   "error": 8.13041180536267e-05
+   "predicted": 98399,
+   "wall_s": 1.9,
+   "error": 3.0489044270165522e-05
   },
   {
    "id": "alumix FFMA+FFMA",
@@ -1809,9 +1809,9 @@
    "measured": 34117.0,
    "excluded": null,
    "note": null,
-   "predicted": 34056.0,
-   "wall_s": 0.83,
-   "error": -0.0017879649441627787
+   "predicted": 34050,
+   "wall_s": 0.77,
+   "error": -0.0019638303485065567
   },
   {
    "id": "sfu ex2.f32 latency",
@@ -1834,7 +1834,7 @@
    "excluded": null,
    "note": null,
    "predicted": 264779.0,
-   "wall_s": 0.25,
+   "wall_s": 0.24,
    "error": 0.010051727294921875
   },
   {
@@ -1846,7 +1846,7 @@
    "excluded": null,
    "note": null,
    "predicted": 264785.0,
-   "wall_s": 0.7,
+   "wall_s": 0.64,
    "error": -0.0025513172149657093
   },
   {
@@ -1857,9 +1857,9 @@
    "measured": 524288.0,
    "excluded": null,
    "note": null,
-   "predicted": 524396.0,
-   "wall_s": 1.88,
-   "error": 0.00020599365234375
+   "predicted": 524359.0,
+   "wall_s": 1.72,
+   "error": 0.0001354217529296875
   },
   {
    "id": "sfu ex2.f32 w16",
@@ -1869,9 +1869,9 @@
    "measured": 1048576.0,
    "excluded": null,
    "note": null,
-   "predicted": 1048750.0,
-   "wall_s": 4.73,
-   "error": 0.0001659393310546875
+   "predicted": 1048698.0,
+   "wall_s": 4.33,
+   "error": 0.0001163482666015625
   },
   {
    "id": "sfu ex2.f32 w32",
@@ -1881,9 +1881,9 @@
    "measured": 2097152.0,
    "excluded": null,
    "note": null,
-   "predicted": 2097684.0,
-   "wall_s": 12.64,
-   "error": 0.0002536773681640625
+   "predicted": 2097345.0,
+   "wall_s": 12.5,
+   "error": 9.202957153320312e-05
   },
   {
    "id": "sfu rcp.f32 latency",
@@ -1894,7 +1894,7 @@
    "excluded": "withdrawn upstream: the rcp loop was folded away (gb10 design note \u00a79.4)",
    "note": null,
    "predicted": 0.018310546875,
-   "wall_s": 0.62,
+   "wall_s": 0.58,
    "error": -0.81689453125
   },
   {
@@ -1905,7 +1905,7 @@
    "measured": 200.99984664928692,
    "excluded": "withdrawn upstream: the rcp loop was folded away (gb10 design note \u00a79.4)",
    "note": null,
-   "predicted": 69.0,
+   "predicted": 69,
    "wall_s": 0.0,
    "error": -0.6567161560058594
   },
@@ -1917,7 +1917,7 @@
    "measured": 745.9988616960729,
    "excluded": "withdrawn upstream: the rcp loop was folded away (gb10 design note \u00a79.4)",
    "note": null,
-   "predicted": 75.0,
+   "predicted": 75,
    "wall_s": 0.0,
    "error": -0.8994636535644531
   },
@@ -1929,9 +1929,9 @@
    "measured": 505.00015050177296,
    "excluded": "withdrawn upstream: the rcp loop was folded away (gb10 design note \u00a79.4)",
    "note": null,
-   "predicted": 133.0,
+   "predicted": 83,
    "wall_s": 0.0,
-   "error": -0.7366337418556214
+   "error": -0.8356436133384705
   },
   {
    "id": "sfu rcp.f32 w16",
@@ -1941,9 +1941,9 @@
    "measured": 455.00002712011496,
    "excluded": "withdrawn upstream: the rcp loop was folded away (gb10 design note \u00a79.4)",
    "note": null,
-   "predicted": 213.0,
+   "predicted": 172,
    "wall_s": 0.0,
-   "error": -0.5318681597709656
+   "error": -0.6219780445098877
   },
   {
    "id": "sfu rcp.f32 w32",
@@ -1953,9 +1953,9 @@
    "measured": 380.9998932659925,
    "excluded": "withdrawn upstream: the rcp loop was folded away (gb10 design note \u00a79.4)",
    "note": null,
-   "predicted": 560.0,
+   "predicted": 352,
    "wall_s": 0.01,
-   "error": 0.4698166847229004
+   "error": -0.07611522674560545
   },
   {
    "id": "sfu rsqrt.f32 latency",
@@ -1978,7 +1978,7 @@
    "excluded": null,
    "note": null,
    "predicted": 264779.0,
-   "wall_s": 0.25,
+   "wall_s": 0.24,
    "error": 0.010051727294921875
   },
   {
@@ -1990,7 +1990,7 @@
    "excluded": null,
    "note": null,
    "predicted": 264785.0,
-   "wall_s": 0.69,
+   "wall_s": 0.65,
    "error": -0.0025513172149657093
   },
   {
@@ -2001,9 +2001,9 @@
    "measured": 524288.0,
    "excluded": null,
    "note": null,
-   "predicted": 524396.0,
-   "wall_s": 1.84,
-   "error": 0.00020599365234375
+   "predicted": 524359.0,
+   "wall_s": 1.72,
+   "error": 0.0001354217529296875
   },
   {
    "id": "sfu rsqrt.f32 w16",
@@ -2013,9 +2013,9 @@
    "measured": 1048576.0,
    "excluded": null,
    "note": null,
-   "predicted": 1048750.0,
-   "wall_s": 4.57,
-   "error": 0.0001659393310546875
+   "predicted": 1048698.0,
+   "wall_s": 4.41,
+   "error": 0.0001163482666015625
   },
   {
    "id": "sfu rsqrt.f32 w32",
@@ -2025,9 +2025,9 @@
    "measured": 2097152.0,
    "excluded": null,
    "note": null,
-   "predicted": 2097684.0,
-   "wall_s": 12.82,
-   "error": 0.0002536773681640625
+   "predicted": 2097345.0,
+   "wall_s": 12.28,
+   "error": 9.202957153320312e-05
   },
   {
    "id": "sfu sin.f32 latency",
@@ -2050,7 +2050,7 @@
    "excluded": null,
    "note": null,
    "predicted": 266827.0,
-   "wall_s": 0.38,
+   "wall_s": 0.35,
    "error": -0.0075823783874513495
   },
   {
@@ -2062,7 +2062,7 @@
    "excluded": null,
    "note": null,
    "predicted": 266833.0,
-   "wall_s": 1.1,
+   "wall_s": 1.05,
    "error": -0.0011982679367065208
   },
   {
@@ -2073,9 +2073,9 @@
    "measured": 524288.0,
    "excluded": null,
    "note": null,
-   "predicted": 525461.0,
-   "wall_s": 2.74,
-   "error": 0.0022373199462890625
+   "predicted": 525410.0,
+   "wall_s": 2.55,
+   "error": 0.002140045166015625
   },
   {
    "id": "sfu sin.f32 w16",
@@ -2085,9 +2085,9 @@
    "measured": 1048576.0,
    "excluded": null,
    "note": null,
-   "predicted": 1050870.0,
-   "wall_s": 6.72,
-   "error": 0.0021877288818359375
+   "predicted": 1051774.0,
+   "wall_s": 6.22,
+   "error": 0.0030498504638671875
   },
   {
    "id": "sfu sin.f32 w32",
@@ -2097,9 +2097,9 @@
    "measured": 2097152.0,
    "excluded": null,
    "note": null,
-   "predicted": 2102913.0,
-   "wall_s": 17.78,
-   "error": 0.002747058868408203
+   "predicted": 2103515.0,
+   "wall_s": 17.13,
+   "error": 0.0030341148376464844
   },
   {
    "id": "sfu lg2.f32 latency",
@@ -2110,7 +2110,7 @@
    "excluded": null,
    "note": null,
    "predicted": 18.0380859375,
-   "wall_s": 0.04,
+   "wall_s": 0.03,
    "error": -0.0034206664364642148
   },
   {
@@ -2122,7 +2122,7 @@
    "excluded": null,
    "note": null,
    "predicted": 264779.0,
-   "wall_s": 0.26,
+   "wall_s": 0.25,
    "error": 0.010051727294921875
   },
   {
@@ -2134,7 +2134,7 @@
    "excluded": null,
    "note": null,
    "predicted": 264785.0,
-   "wall_s": 0.71,
+   "wall_s": 0.66,
    "error": -0.0025513172149657093
   },
   {
@@ -2145,9 +2145,9 @@
    "measured": 524288.0,
    "excluded": null,
    "note": null,
-   "predicted": 524396.0,
-   "wall_s": 1.87,
-   "error": 0.00020599365234375
+   "predicted": 524359.0,
+   "wall_s": 1.71,
+   "error": 0.0001354217529296875
   },
   {
    "id": "sfu lg2.f32 w16",
@@ -2157,9 +2157,9 @@
    "measured": 1048576.0,
    "excluded": null,
    "note": null,
-   "predicted": 1048750.0,
-   "wall_s": 4.65,
-   "error": 0.0001659393310546875
+   "predicted": 1048698.0,
+   "wall_s": 4.38,
+   "error": 0.0001163482666015625
   },
   {
    "id": "sfu lg2.f32 w32",
@@ -2169,9 +2169,9 @@
    "measured": 2097152.0,
    "excluded": null,
    "note": null,
-   "predicted": 2097684.0,
-   "wall_s": 12.89,
-   "error": 0.0002536773681640625
+   "predicted": 2097345.0,
+   "wall_s": 12.42,
+   "error": 9.202957153320312e-05
   },
   {
    "id": "sfu tanh.f32 latency",
@@ -2194,7 +2194,7 @@
    "excluded": null,
    "note": null,
    "predicted": 264779.0,
-   "wall_s": 0.25,
+   "wall_s": 0.24,
    "error": 0.010051727294921875
   },
   {
@@ -2206,7 +2206,7 @@
    "excluded": null,
    "note": null,
    "predicted": 264785.0,
-   "wall_s": 0.69,
+   "wall_s": 0.65,
    "error": -0.0025513172149657093
   },
   {
@@ -2217,9 +2217,9 @@
    "measured": 524288.0,
    "excluded": null,
    "note": null,
-   "predicted": 524396.0,
-   "wall_s": 1.84,
-   "error": 0.00020599365234375
+   "predicted": 524359.0,
+   "wall_s": 1.75,
+   "error": 0.0001354217529296875
   },
   {
    "id": "sfu tanh.f32 w16",
@@ -2229,9 +2229,9 @@
    "measured": 1048576.0,
    "excluded": null,
    "note": null,
-   "predicted": 1048750.0,
-   "wall_s": 4.64,
-   "error": 0.0001659393310546875
+   "predicted": 1048698.0,
+   "wall_s": 4.34,
+   "error": 0.0001163482666015625
   },
   {
    "id": "sfu tanh.f32 w32",
@@ -2241,9 +2241,9 @@
    "measured": 2097152.0,
    "excluded": null,
    "note": null,
-   "predicted": 2097684.0,
-   "wall_s": 12.64,
-   "error": 0.0002536773681640625
+   "predicted": 2097345.0,
+   "wall_s": 12.57,
+   "error": 9.202957153320312e-05
   },
   {
    "id": "sfu ffma.f32 latency",
@@ -2254,7 +2254,7 @@
    "excluded": null,
    "note": null,
    "predicted": 4.228759765625,
-   "wall_s": 0.03,
+   "wall_s": 0.02,
    "error": -0.10026387965425532
   },
   {
@@ -2265,8 +2265,8 @@
    "measured": 37183.54609929078,
    "excluded": null,
    "note": null,
-   "predicted": 35927.0,
-   "wall_s": 0.14,
+   "predicted": 35927,
+   "wall_s": 0.12,
    "error": -0.033793067932128995
   },
   {
@@ -2277,8 +2277,8 @@
    "measured": 37449.142857142855,
    "excluded": null,
    "note": null,
-   "predicted": 35933.0,
-   "wall_s": 0.44,
+   "predicted": 35933,
+   "wall_s": 0.41,
    "error": -0.040485382080078125
   },
   {
@@ -2289,9 +2289,9 @@
    "measured": 68871.986863711,
    "excluded": null,
    "note": null,
-   "predicted": 69263.0,
-   "wall_s": 1.09,
-   "error": 0.005677390098571822
+   "predicted": 69212,
+   "wall_s": 1.04,
+   "error": 0.00493688583374019
   },
   {
    "id": "sfu ffma.f32 w16",
@@ -2301,9 +2301,9 @@
    "measured": 138654.67768595042,
    "excluded": null,
    "note": null,
-   "predicted": 136641.0,
-   "wall_s": 2.64,
-   "error": -0.014522969722747803
+   "predicted": 136570,
+   "wall_s": 2.49,
+   "error": -0.015035033226013184
   },
   {
    "id": "sfu ffma.f32 w32",
@@ -2313,9 +2313,9 @@
    "measured": 271475.9870550162,
    "excluded": null,
    "note": null,
-   "predicted": 272064.0,
-   "wall_s": 6.59,
-   "error": 0.0021659851074218306
+   "predicted": 271910,
+   "wall_s": 6.9,
+   "error": 0.0015987157821653053
   },
   {
    "id": "cvt scaffold only (mov)",
@@ -2326,7 +2326,7 @@
    "excluded": null,
    "note": null,
    "predicted": 4.007916641235352,
-   "wall_s": 19.96,
+   "wall_s": 19.36,
    "error": -0.007941425436794103
   },
   {
@@ -2338,7 +2338,7 @@
    "excluded": null,
    "note": null,
    "predicted": 8.024761199951172,
-   "wall_s": 32.95,
+   "wall_s": 32.24,
    "error": -0.004372059559408004
   },
   {
@@ -2350,7 +2350,7 @@
    "excluded": null,
    "note": null,
    "predicted": 8.024761199951172,
-   "wall_s": 32.32,
+   "wall_s": 32.1,
    "error": -0.0031352546644507484
   },
   {
@@ -2361,9 +2361,9 @@
    "measured": 4.03,
    "excluded": null,
    "note": null,
-   "predicted": 8.077893447875976,
-   "wall_s": 27.33,
-   "error": 1.0044400615076863
+   "predicted": 4.007916641235352,
+   "wall_s": 18.52,
+   "error": -0.005479741628945045
   },
   {
    "id": "cvt fp32 to fp16",
@@ -2374,7 +2374,7 @@
    "excluded": null,
    "note": null,
    "predicted": 8.00791664123535,
-   "wall_s": 35.43,
+   "wall_s": 35.58,
    "error": -0.003990467508040885
   },
   {
@@ -2386,7 +2386,7 @@
    "excluded": null,
    "note": null,
    "predicted": 8.071046066284179,
-   "wall_s": 37.2,
+   "wall_s": 36.94,
    "error": -0.01931396521455908
   },
   {
@@ -2398,7 +2398,7 @@
    "excluded": null,
    "note": null,
    "predicted": 8.007710647583007,
-   "wall_s": 35.42,
+   "wall_s": 35.26,
    "error": -0.015041740764697886
   }
  ]
