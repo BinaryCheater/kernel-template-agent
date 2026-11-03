@@ -14,7 +14,8 @@ FMA_FP32 = {"FFMA", "FADD", "FMUL"}
 FMA_2 = {"IMAD", "HFMA2", "HADD2", "HMUL2", "IMUL"}
 ALU_2 = {"LOP3", "PRMT", "SHF", "IADD3", "ISETP", "SEL", "LEA", "F2FP", "IMNMX", "FMNMX"}
 ALU_2 |= {"FSETP", "FSEL", "PLOP3", "LOP", "IABS", "SHL", "SHR"}
-XU = {"F2I", "I2F", "F2F", "FRND", "I2FP", "F2IP", "MUFU"}
+ALU_2 |= {"I2FP"}  # upstream ee6534c (cvt.cu): int -> fp32 on the ALU
+XU = {"F2I", "I2F", "F2F", "FRND", "F2IP", "MUFU"}
 
 
 def test_opcode_classes_match_the_upstream_sets() -> None:

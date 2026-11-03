@@ -85,9 +85,9 @@ classes:
   - {name: fma_half_rate, base: [IMAD, HFMA2, HADD2, HMUL2, IMUL], gates: [fma], handler: pipe,
      hold: {fma: sim.alu_half_rate_clk}, latency: sim.default_var_latency_clk}
   - {name: alu, base: [LOP3, PRMT, SHF, IADD3, ISETP, SEL, LEA, F2FP, IMNMX, FMNMX, FSETP, FSEL,
-                        PLOP3, LOP, IABS, SHL, SHR],
+                        PLOP3, LOP, IABS, SHL, SHR, I2FP],   # I2FP: cvt.cu, upstream ee6534c
      gates: [alu], handler: pipe, hold: {alu: sim.alu_half_rate_clk}, latency: sim.default_var_latency_clk}
-  - {name: xu, base: [F2I, I2F, F2F, FRND, I2FP, F2IP, MUFU], gates: [xu], handler: pipe,
+  - {name: xu, base: [F2I, I2F, F2F, FRND, F2IP, MUFU], gates: [xu], handler: pipe,
      hold: {xu: sim.mufu_smsp_clk_per_instr}, latency: sim.mufu_latency_clk}
   - {name: stg, base: [STG], gates: [store_queue], handler: stg, rbar: lsu}
   - {name: exit, base: [EXIT], handler: exit}
