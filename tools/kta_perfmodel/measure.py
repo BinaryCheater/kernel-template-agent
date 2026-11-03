@@ -212,6 +212,10 @@ def import_(batch: str) -> int:
         elif name.startswith("5x-ncu-"):  # round 2: the extra metrics' own pass
             x = _ncu(text, run_doc.get("metrics_x", ""))
             counters.setdefault(name[len("5x-ncu-") :], {}).update(x)
+        elif name[:7] in ("5p-ncu-", "5q-ncu-"):  # round 3: probe profiler points
+            key = "metrics_p" if name.startswith("5p") else "metrics_q"
+            x = _ncu(text, run_doc.get(key, ""))
+            counters.setdefault(name[7:], {}).update(x)
     clock = statistics.mean(
         [before["clock chain_GHz"]["median"], after["clock chain_GHz"]["median"]]
     )

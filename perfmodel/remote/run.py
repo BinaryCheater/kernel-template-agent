@@ -73,6 +73,32 @@ METRICS_X = ",".join(
 )
 
 
+# round 3: probes that declare profiler points (perfmodel/probes/<name>/ncu.json: a list of
+# {"tag", "args", "kernel", "skip"}) are profiled after the test set, L2 counters in one pass and
+# candidate metrics not used before on this GPU in a second (5p-ncu-<tag>, 5q-ncu-<tag>)
+METRICS_P = ",".join(
+    [
+        "lts__t_sectors_op_read.sum",
+        "lts__t_sectors_lookup_hit.sum",
+        "lts__t_sectors_lookup_miss.sum",
+        "lts__t_sector_hit_rate.pct",
+        "l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum",
+        "gpu__time_duration.sum",
+    ]
+)
+METRICS_Q = ",".join(
+    [
+        "lts__t_sectors_srcunit_tex_op_read.sum",
+        "lts__t_sectors_srcunit_tex_op_read_lookup_hit.sum",
+        "lts__t_sectors_srcunit_tex_op_read_lookup_miss.sum",
+        "lts__t_sector_op_read_hit_rate.pct",
+        "dram__sectors_read.sum",
+        "lts__d_sectors_fill_sysmem.sum",
+        "lts__d_sectors_fill_device.sum",
+    ]
+)
+
+
 def sh(cmd: list[str], cwd: Path | None = None, timeout: int = 1800) -> tuple[int, str]:
     p = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=timeout, check=False)
     return p.returncode, p.stdout + (("\n# stderr\n" + p.stderr) if p.stderr.strip() else "")
@@ -152,6 +178,36 @@ def main(build: Path, out: Path) -> int:
         ncu("5-ncu", d, METRICS)
     for d in kernels:
         ncu("5x-ncu", d, METRICS_X)
+    for d in sorted(build.glob("probe-*")):
+        spec = Path("perfmodel/probes") / d.name.removeprefix("probe-") / "ncu.json"
+        if not spec.exists():
+            continue
+        for pt in json.loads(spec.read_text()):
+            for tag, metrics in (("5p-ncu", METRICS_P), ("5q-ncu", METRICS_Q)):
+                step(
+                    f"{tag}-{d.name}-{pt['tag']}",
+                    [
+                        "sudo",
+                        "-n",
+                        NCU,
+                        "--csv",
+                        "--page",
+                        "raw",
+                        "--metrics",
+                        metrics,
+                        "--cache-control",
+                        "none",
+                        "-k",
+                        f"regex:{pt['kernel']}",
+                        "--launch-skip",
+                        str(pt["skip"]),
+                        "--launch-count",
+                        "1",
+                        str(d / "bin"),
+                        *pt["args"],
+                    ],
+                    cwd=d,
+                )
     protocol("6")
     env("after")
     owned = sh(["find", str(out), "-not", "-user", str(os.getuid())])[1].strip()
@@ -159,6 +215,8 @@ def main(build: Path, out: Path) -> int:
         "steps": steps,
         "metrics": METRICS,
         "metrics_x": METRICS_X,
+        "metrics_p": METRICS_P,
+        "metrics_q": METRICS_Q,
         "not_owned_by_user": owned,
     }
     (out / "run.json").write_text(json.dumps(doc, indent=1) + "\n")

@@ -49,6 +49,11 @@ HGEMM = {
 }
 FA = {"B": 1, "S": 2048, "H": 8, "D": 128, "BM": 64, "BN": 64, "stages": 2, "threads": 128}
 DECODE = {"B": 1, "H": 32, "G": 8, "S": 4096, "D": 128, "BN": 64, "BH": 64, "split": 8, "stages": 2}
+# round 3: FP8 GEMM (e4m3 inputs, B stored N x K, fp32 accumulation, fp16 out) at 2048^3
+FP8 = {
+    "c128x128x64_s3_t128": (128, 128, 64, 3, 128),
+    "c128x256x64_s3_t256": (128, 256, 64, 3, 256),
+}
 GEMV = {"N": 4096, "K": 4096, "group": 128, "n_part": 4, "reduce": 32}
 ROWS = {"M": 512, "N": 4096}
 
@@ -73,6 +78,32 @@ def hgemm(BM: int, BN: int, BK: int, S: int, threads: int, panel: int):
                 T.copy(A[by * BM, ko * BK], A_shared)
                 T.copy(B[ko * BK, bx * BN], B_shared)
                 T.gemm(A_shared, B_shared, C_local)
+            T.copy(C_local, C[by * BM, bx * BN])
+
+    return gemm
+
+
+def fp8gemm(BM: int, BN: int, BK: int, S: int, threads: int):
+    """TileLang's FP8 GEMM pattern (examples/gemm_fp8): C = A B^T, A M x K and B N x K in e4m3, fp32
+    accumulation, fp16 out; the same pass configs as the HGEMMs."""
+    M, N, K = SHAPE["M"], SHAPE["N"], SHAPE["K"]
+    f8 = "float8_e4m3"
+
+    @T.prim_func
+    def gemm(
+        A: T.Tensor((M, K), f8),
+        B: T.Tensor((N, K), f8),
+        C: T.Tensor((M, N), "float16"),
+    ):
+        with T.Kernel(T.ceildiv(N, BN), T.ceildiv(M, BM), threads=threads) as (bx, by):
+            A_shared = T.alloc_shared((BM, BK), f8)
+            B_shared = T.alloc_shared((BN, BK), f8)
+            C_local = T.alloc_fragment((BM, BN), "float32")
+            T.clear(C_local)
+            for ko in T.Pipelined(T.ceildiv(K, BK), num_stages=S):
+                T.copy(A[by * BM, ko * BK], A_shared)
+                T.copy(B[bx * BN, ko * BK], B_shared)
+                T.gemm(A_shared, B_shared, C_local, transpose_B=True)
             T.copy(C_local, C[by * BM, bx * BN])
 
     return gemm
@@ -494,7 +525,7 @@ def main(out: Path) -> None:
     }
     grid = [-(-f["S"] // f["BM"]), f["H"], f["B"]]
     write(out, "fa_fwd_s2048_h8_d128", fa_forward(**f), [n, n, n, n], grid, f["threads"], info)
-    for name, gen in (("decode", _decode), ("gemv", _gemv), ("rows", _rows)):
+    for name, gen in (("decode", _decode), ("gemv", _gemv), ("rows", _rows), ("fp8", _fp8)):
         try:  # a kernel that fails to generate is reported; the others stand
             gen(out)
         except Exception:  # noqa: BLE001 - reported, the batch keeps the other kernels
@@ -577,6 +608,30 @@ def _rows(out: Path) -> None:
         )
     info = {"family": "softmax", "shape": ROWS, "pick": {"threads": 128}, "cache": "warm"}
     write(out, f"softmax_m{M}_n{N}_warm", softmax(M, N), [M * N, M * N], [M], 128, info)
+
+
+def _fp8(out: Path) -> None:
+    M, N, K = SHAPE["M"], SHAPE["N"], SHAPE["K"]
+    for name, (bm, bn, bk, s, th) in FP8.items():
+        h = {"block_M": bm, "block_N": bn, "block_K": bk, "num_stages": s, "threads": th}
+        info = {
+            "family": "fp8gemm",
+            "shape": SHAPE,
+            "pick": h,
+            "elem_bytes": 1,
+            "smem_estimate": s * (bm + bn) * bk,
+            "cache": "warm",
+        }
+        write(
+            out,
+            f"fp8gemm2048_{name}",
+            fp8gemm(bm, bn, bk, s, th),
+            [M * K, N * K, M * N],
+            [-(-N // bn), -(-M // bm), 1],
+            th,
+            info,
+            elem_bytes=[1, 1, 2],
+        )
 
 
 if __name__ == "__main__":
