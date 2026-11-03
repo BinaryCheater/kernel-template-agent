@@ -1,13 +1,21 @@
 """The error table (docs/design/28 §4.7): every validation kernel and probe replayed on CPU,
-measured against predicted, one row each."""
+measured against predicted, one row each.
+
+A row is a spec (identity, measured value) plus a job (what to replay). Jobs run in a process
+pool, and each result is cached under a key made of the engine's source and parameter files, the
+upstream input commit and the job, so a rerun after a change only replays what the change can
+affect (any engine file change replays everything)."""
 
 from __future__ import annotations
 
+import hashlib
 import json
 import math
+import os
 import statistics
 import time
-from collections.abc import Callable, Iterator
+from collections.abc import Iterator
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any
 
@@ -16,20 +24,11 @@ from kta.models.gb10sim.model import C
 from kta.models.regression import spearman
 
 SETS = ("gemm", "tma", "probes")
+ENGINE = Path(validate.__file__).parent
+CACHE = Path(__file__).resolve().parents[2] / "data" / "perfmodel" / "cache"
 
 
-def _row(
-    rid: str,
-    group: str,
-    level: int,
-    unit: str,
-    measured: float,
-    run: Callable[[], float],
-    excluded: str | None = None,
-    note: str | None = None,
-) -> dict[str, Any]:
-    t = time.perf_counter()
-    predicted = run()
+def _spec(rid, group, level, unit, measured, job, excluded=None, note=None) -> dict[str, Any]:
     ok = measured == measured and measured > 0
     return {
         "id": rid,
@@ -37,42 +36,26 @@ def _row(
         "level": level,
         "unit": unit,
         "measured": measured,
-        "predicted": predicted,
-        "error": predicted / measured - 1 if ok else None,
         "excluded": excluded if ok else (excluded or "no measured value"),
         "note": note,
-        "wall_s": round(time.perf_counter() - t, 2),
+        "job": job,
     }
 
 
-def gemm_rows(cal: Path, names: list[str] | None = None) -> Iterator[dict[str, Any]]:
+def gemm_specs(cal: Path) -> Iterator[dict[str, Any]]:
     """The 22 cp.async GEMMs at 1024^3 (upstream validate.kernel_level), warm: the whole kernel,
     its loads-only variant at the grid, and its mma-only variant on one block (block_level)."""
     m = json.loads((cal / "ablation_cpasync" / "mechanisms.json").read_text())
-    regs = dict(
-        line.split()
-        for line in (cal / "ablation_cpasync" / "regs.txt").read_text().splitlines()
-        if line.strip()
-    )
     abl = [
         json.loads(line)
         for line in (cal / "ablation_cpasync" / "ablation.jsonl").read_text().splitlines()
         if line
     ]
-    for name in names or sorted(m):
+    for name in sorted(m):
         r = m[name]
-        h = r["pick"]
-        tiles = r["blocks"]
-        rmax = validate._rmax(h, int(regs[name]))
-        yield _row(
-            f"gemm1024 {name} full",
-            "gemm1024 full",
-            7,
-            "us",
-            r["full_event_us"],
-            lambda name=name, h=h, tiles=tiles, rmax=rmax: validate.kernel_us(
-                cal, name, "full", h, tiles, rmax
-            ),
+        g = "gemm1024"
+        yield _spec(
+            f"{g} {name} full", f"{g} full", 7, "us", r["full_event_us"], ["gemm", name, "full"]
         )
         nc = [
             x
@@ -80,81 +63,165 @@ def gemm_rows(cal: Path, names: list[str] | None = None) -> Iterator[dict[str, A
             if x["name"] == name
             and x["variant"] == "nocompute"
             and x.get("ok")
-            and int(x["blocks"]) == tiles
+            and int(x["blocks"]) == r["blocks"]
         ]
-        yield _row(
-            f"gemm1024 {name} nocompute",
-            "gemm1024 nocompute",
+        yield _spec(
+            f"{g} {name} nocompute",
+            f"{g} nocompute",
             7,
             "us",
             nc[0]["median_us"] if nc else float("nan"),
-            lambda name=name, h=h, tiles=tiles, rmax=rmax: validate.kernel_us(
-                cal, name, "nocompute", h, tiles, rmax
-            ),
+            ["gemm", name, "nocompute"],
         )
-        yield _row(
-            f"gemm1024 {name} noload 1 block",
-            "gemm1024 noload 1 block",
+        yield _spec(
+            f"{g} {name} noload 1 block",
+            f"{g} noload 1 block",
             7,
             "us",
             r["compute_per_ktile_us"] * r["KT"] + r["overlap"]["setup_us"],
-            lambda name=name: validate.simulate(cal, name, "noload", 1, 1)["us"],
+            ["gemm_block", name, "noload"],
         )
 
 
-def tma_rows(cal: Path, names: list[str] | None = None) -> Iterator[dict[str, Any]]:
+def tma_specs(cal: Path) -> Iterator[dict[str, Any]]:
     """The 7 warp-specialised TMA picks (upstream ws_validate): whole kernel at its grid (warm),
     and the mma-only variant on one block."""
     m = json.loads((cal / "ablation" / "mechanisms.json").read_text())
-    for name in names or list(m):
-        r = m[name]
-        h, s, kt = r["pick"], r["shape"], r["KT"]
+    for name, r in m.items():
         note = (
             "measured warm in a session where part of B stayed in the L2; upstream compares the "
             "decode picks cold against a later flush measurement (gb10 design note §7)"
             if name in ("m32", "m128")
             else None
         )
-        yield _row(
-            f"tma {name} full",
-            "tma full",
-            7,
-            "us",
-            r["full_event_us"],
-            lambda name=name, h=h, s=s: ws_validate.kernel_us(cal, name, h, s),
-            note=note,
+        yield _spec(
+            f"tma {name} full", "tma full", 7, "us", r["full_event_us"], ["tma", name], note=note
         )
         setup = r.get("block_setup_us") or C["block_setup_us"]
-        yield _row(
+        yield _spec(
             f"tma {name} noload 1 block",
             "tma noload 1 block",
             7,
             "us",
-            r["compute_per_ktile_us"] * kt + setup,
-            lambda name=name, h=h, s=s: ws_validate.ws_sim(cal, name, "noload", h, s)["us"],
+            r["compute_per_ktile_us"] * r["KT"] + setup,
+            ["tma_block", name],
         )
 
 
-def probe_rows(cal: Path) -> Iterator[dict[str, Any]]:
+def probe_specs(cal: Path) -> Iterator[dict[str, Any]]:
     for case in probes.all_cases(cal):
-        yield _row(
+        yield _spec(
             case.id,
             f"probe {case.probe}",
             case.level,
             case.unit,
             case.measured,
-            lambda case=case: probes.run_case(case)[0],
+            ["probe", case.id],
             excluded=case.excluded,
         )
 
 
-def build(cal: Path, sets: tuple[str, ...] = SETS) -> Iterator[dict[str, Any]]:
+def specs(cal: Path, sets: tuple[str, ...] = SETS) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
     if "gemm" in sets:
-        yield from gemm_rows(cal)
+        out += gemm_specs(cal)
     if "tma" in sets:
-        yield from tma_rows(cal)
+        out += tma_specs(cal)
     if "probes" in sets:
-        yield from probe_rows(cal)
+        out += probe_specs(cal)
+    return out
+
+
+_cases: dict[str, probes.Case] = {}
+
+
+def run_job(cal: Path, job: list[Any]) -> dict[str, Any]:
+    """Replay one job; the result holds at least `predicted`."""
+    kind = job[0]
+    if kind == "gemm":
+        r = json.loads((cal / "ablation_cpasync" / "mechanisms.json").read_text())[job[1]]
+        regs = dict(
+            line.split()
+            for line in (cal / "ablation_cpasync" / "regs.txt").read_text().splitlines()
+            if line.strip()
+        )
+        rmax = validate._rmax(r["pick"], int(regs[job[1]]))
+        return {"predicted": validate.kernel_us(cal, job[1], job[2], r["pick"], r["blocks"], rmax)}
+    if kind == "gemm_block":
+        return {"predicted": validate.simulate(cal, job[1], job[2], 1, 1)["us"]}
+    if kind in ("tma", "tma_block"):
+        r = json.loads((cal / "ablation" / "mechanisms.json").read_text())[job[1]]
+        if kind == "tma":
+            return {"predicted": ws_validate.kernel_us(cal, job[1], r["pick"], r["shape"])}
+        return {"predicted": ws_validate.ws_sim(cal, job[1], "noload", r["pick"], r["shape"])["us"]}
+    if kind == "probe":
+        if not _cases:
+            _cases.update((c.id, c) for c in probes.all_cases(cal))
+        return {"predicted": probes.run_case(_cases[job[1]])[0]}
+    raise ValueError(f"unknown job {job}")
+
+
+def engine_hash() -> str:
+    """sha256 over the engine's code, description and parameter files and this table code."""
+    h = hashlib.sha256()
+    files = sorted(p for p in ENGINE.iterdir() if p.suffix in (".py", ".json", ".yaml"))
+    for p in [*files, Path(__file__)]:
+        h.update(p.name.encode())
+        h.update(p.read_bytes())
+    return h.hexdigest()
+
+
+def _timed(cal: Path, job: list[Any]) -> dict[str, Any]:
+    t = time.perf_counter()
+    out = run_job(cal, job)
+    out["wall_s"] = round(time.perf_counter() - t, 2)
+    return out
+
+
+def run(
+    cal: Path,
+    upstream_rev: str,
+    rows: list[dict[str, Any]],
+    jobs: int,
+    use_cache: bool = True,
+    hint: dict[str, float] | None = None,
+) -> Iterator[dict[str, Any]]:
+    """Fill each spec with its result, cached ones first, the rest from a pool of `jobs`
+    processes (longest previous runs first); yields rows as they complete."""
+    eng = engine_hash()
+    CACHE.mkdir(parents=True, exist_ok=True)
+
+    def key(r: dict[str, Any]) -> Path:
+        k = hashlib.sha256(json.dumps([eng, upstream_rev, r["job"]]).encode()).hexdigest()
+        return CACHE / f"{k}.json"
+
+    todo = []
+    for r in rows:
+        p = key(r)
+        if use_cache and p.exists():
+            r.update(json.loads(p.read_text()), cached=True)
+            yield _finish(r)
+        else:
+            todo.append(r)
+    todo.sort(key=lambda r: -(hint or {}).get(r["id"], 0.0))
+    with ProcessPoolExecutor(max_workers=max(1, jobs)) as pool:
+        futs = {pool.submit(_timed, cal, r["job"]): r for r in todo}
+        for f in as_completed(futs):
+            r = futs[f]
+            res = f.result()
+            key(r).write_text(json.dumps(res))
+            r.update(res, cached=False)
+            yield _finish(r)
+
+
+def _finish(r: dict[str, Any]) -> dict[str, Any]:
+    ok = r["measured"] == r["measured"] and r["measured"] > 0
+    r["error"] = r["predicted"] / r["measured"] - 1 if ok else None
+    return r
+
+
+def default_jobs() -> int:
+    return max(1, (os.cpu_count() or 2) - 2)
 
 
 def summary(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:

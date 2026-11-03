@@ -25,13 +25,20 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--rev", default=upstream.UPSTREAM_REV)
     ap.add_argument("--out", type=Path, default=OUT)
     ap.add_argument("--no-write", action="store_true", help="print only")
+    ap.add_argument("--jobs", type=int, default=table.default_jobs(), help="worker processes")
+    ap.add_argument("--no-cache", action="store_true", help="replay every row")
     a = ap.parse_args(argv)
     cal, sha = upstream.calibration_dir(a.upstream, a.rev)
     head, dirty = upstream.kta_commit()
     t0 = time.perf_counter()
-    rows = []
-    for r in table.build(cal, tuple(a.sets)):
-        rows.append(r)
+    rows = table.specs(cal, tuple(a.sets))
+    prev = a.out / "error-table.json"
+    hint = (
+        {r["id"]: r.get("wall_s", 0.0) for r in json.loads(prev.read_text())["rows"]}
+        if prev.exists()
+        else {}
+    )
+    for r in table.run(cal, sha, rows, a.jobs, not a.no_cache, hint):
         err = "" if r["error"] is None else f"{100 * r['error']:+7.1f} %"
         print(
             f"{r['id']:48s} {r['measured']:12.2f} {r['predicted']:12.2f} {err:>9s} "
@@ -47,7 +54,9 @@ def main(argv: list[str] | None = None) -> int:
         "sets": a.sets,
         "wall_s": round(time.perf_counter() - t0, 1),
         "summary": table.summary(rows),
-        "rows": rows,
+        "jobs": a.jobs,
+        "cached_rows": sum(r["cached"] for r in rows),
+        "rows": [{k: v for k, v in r.items() if k not in ("job", "cached")} for r in rows],
     }
     for s in doc["summary"]:
         print(json.dumps(s))
