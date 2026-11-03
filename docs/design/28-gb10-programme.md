@@ -107,6 +107,8 @@ Not carried over: the 24 per-case contracts and family binding modules; the hash
 
 ### 7. Agent working loop and stop conditions
 
+The operative version of this section is [perfmodel/LOOP.md](perfmodel/LOOP.md): the seven products, the six-step round, the selection rule, the fitting policy, the four-number scorecard and the ten-line report. A round reads that file, not this document.
+
 One research agent; a measurement script; a validation script; one state file (open questions, budget ledger, fixed parameters, next step with its expected gain on the error table). No queue, no multi-agent, no database until an observed need.
 
 The loop: pick the largest budget-exceeding attribution on the validation set → hypothesis → the smallest discriminating probe → predict → measure → update description or engine → re-run ladder and error table → record. Each work package states up front which error-table rows it expects to improve and by how much, and closes against that.
