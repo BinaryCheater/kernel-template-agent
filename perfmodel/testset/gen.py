@@ -420,7 +420,7 @@ def write(
     eb = elem_bytes or [2] * len(sizes)
     nbytes = [n * b for n, b in zip(sizes, eb, strict=True)]
     # buffers by the prim_func's parameter names; the kernel takes them in its own order
-    names = [p.name for p in func.params]
+    names = [func.buffer_map[p].name for p in func.params]
     params = _params(src, entry)
     block = list(threads) if isinstance(threads, tuple) else [threads]
     d = out / name
