@@ -1,0 +1,115 @@
+# GB10 machine description: the structure of the resource network (docs/design/27 §2.2).
+#
+# Numbers live in gb10.json next to this file, each with its source and status (measured, fitted,
+# structural, assumed, withdrawn); this file names them: `sim.<key>` is gb10.json["sim"]["value"]
+# [<key>], a bare `<key>` is gb10.json[<key>]["value"]. The engine (sm.py, ws.py, kernel.py) builds
+# its resources and its opcode table from here; what remains in code is the service rule of each
+# path stage (how a stage combines its parameters), listed per class under `handler`.
+
+name: gb10
+
+hierarchy:            # levels, outermost first; count = instances per parent
+  chip: {count: 1}
+  tpc: {per: chip, count: 24}        # SM pairs (TPCs); sms / sms_per_tpc
+  sm: {per: tpc, count: 2, total: sms}
+  smsp: {per: sm, count: smsp_per_sm}
+
+execution:
+  context: warp
+  issue_per_cycle_per_smsp: 1
+  warp_to_smsp: modulo              # warp i of a block -> sub-partition i mod smsp_per_sm
+  scheduler: greedy_then_oldest     # keep the last warp if eligible, else fewest loop passes, lowest id
+  dependency_counters: 6
+
+# scope: smsp | sm | tpc | chip.  gates_issue: an instruction of a class that names the resource
+# cannot issue while it is busy (and the engine wakes when it frees).  busy: the key of the
+# per-resource busy-cycle counter in run() results.
+resources:
+  tensor: {scope: smsp, kind: pipe, gates_issue: true, busy: tensor}
+  fma: {scope: smsp, kind: pipe, gates_issue: true, busy: fma}
+  alu: {scope: smsp, kind: pipe, gates_issue: true, busy: alu}
+  xu: {scope: smsp, kind: pipe, gates_issue: true, busy: sfu}
+  mio: {scope: smsp, kind: slot, gates_issue: true, doc: memory-instruction slot}
+  smem_array:
+    scope: sm
+    kind: port
+    busy: smem
+    rate_B_per_clk: smem_bytes_per_clk_per_sm
+    users: [ldsm, stsm, cp.async data, tma box write, tma store read]
+  lsu: {scope: sm, kind: port, busy: lsu, doc: address stage, one 128-byte line per sim.lsu_clk_per_line}
+  l1: {scope: sm, kind: port, doc: L1 data path for hits and local memory}
+  l2_return:
+    scope: sm
+    kind: port
+    busy: fill
+    doc: per-SM L2 return port; its rate is the larger of the port and this SM's share of the chip L2
+    chip_share: {own_clk_per_512B: sim.l2_return_clk_per_512B, chip_B_per_clk: sim.l2_aggregate_B_per_clk_cpasync}
+  dram_queue: {scope: sm, kind: queue, busy: dram, doc: this SM's share of the chip DRAM rate (per wave)}
+  store_port:
+    scope: tpc
+    kind: port
+    busy: stg
+    doc: shared by the SMs of a TPC; the partner counts as busy when the chip runs at least sms_per_tpc SM-equivalents
+  store_queue: {scope: sm, kind: queue, gates_issue: true, capacity: sim.st_queue_instr}
+  tma_engine:
+    scope: sm
+    kind: engine
+    busy: tma
+    chip_share: {alone_GBs: tma_r_GBs_alone, chip_GBs: tma_l2_aggregate_GBs}
+
+sms_per_tpc: 2
+
+# Operation classes, first match wins: `base` (opcode without modifiers), `op_prefix`, and
+# `op_contains` (all given conditions must hold).  gates: resources that must be free to issue.
+# hold: resource -> cycles parameter (pipe classes).  latency: result latency (write counter).
+# rbar: when the read counter clears (lsu = when the path stage has read the operands; a parameter
+# otherwise).  handler: the engine's service rule for the class (sm.py SM.issue).
+classes:
+  - {name: mma, base: [HMMA, IMMA, QMMA, OMMA], gates: [tensor], handler: pipe,
+     hold: {tensor: sim.hmma_16816_pipe_clk}, count: HMMA}
+  - {name: ldsm, base: [LDSM], gates: [mio], handler: ldsm, rbar: sim.rbar_release_clk, count: LDSM}
+  - {name: stsm, base: [STSM], gates: [mio], handler: stsm, rbar: lsu, count: STSM}
+  - {name: tma_store, base: [UTMASTG], handler: tma_store, rbar: sim.rbar_release_clk, count: UTMASTG}
+  - {name: cp_async, base: [LDGSTS], gates: [mio], handler: cp_async, rbar: lsu, count: LDGSTS}
+  - {name: ldg, base: [LDG], gates: [mio], handler: ldg, rbar: lsu, count: LDG}
+  - {name: local, base: [LDL, STL], handler: local, rbar: lsu}
+  - {name: red, base: [REDG], gates: [mio, store_queue], handler: red, rbar: lsu}
+  - {name: red, base: [RED], op_contains: ".E.", gates: [store_queue], handler: red, rbar: lsu}
+  - {name: red_other, base: [RED], handler: other, rbar: lsu}
+  - {name: commit, base: [LDGDEPBAR], handler: commit}
+  - {name: barrier, base: [BAR], handler: barrier, count: BAR}
+  - {name: half_to_float, op_prefix: HADD2.F32, gates: [either: [alu, fma]], handler: pipe,
+     hold: {either: sim.alu_half_rate_clk}, latency: sim.default_var_latency_clk}
+  - {name: fp32, base: [FFMA, FADD, FMUL], gates: [fma], handler: pipe,
+     hold: {fma: sim.fma_fp32_clk}, latency: sim.default_var_latency_clk}
+  - {name: fma_half_rate, base: [IMAD, HFMA2, HADD2, HMUL2, IMUL], gates: [fma], handler: pipe,
+     hold: {fma: sim.alu_half_rate_clk}, latency: sim.default_var_latency_clk}
+  - {name: alu, base: [LOP3, PRMT, SHF, IADD3, ISETP, SEL, LEA, F2FP, IMNMX, FMNMX, FSETP, FSEL,
+                        PLOP3, LOP, IABS, SHL, SHR],
+     gates: [alu], handler: pipe, hold: {alu: sim.alu_half_rate_clk}, latency: sim.default_var_latency_clk}
+  - {name: xu, base: [F2I, I2F, F2F, FRND, I2FP, F2IP, MUFU], gates: [xu], handler: pipe,
+     hold: {xu: sim.mufu_smsp_clk_per_instr}, latency: sim.mufu_latency_clk}
+  - {name: stg, base: [STG], gates: [store_queue], handler: stg, rbar: lsu}
+  - {name: exit, base: [EXIT], handler: exit}
+  # handled by the warp-specialised extension (ws.py WSSM) before the base rule; in the base SM they
+  # fall to `other`
+  - {name: tma_load, base: [UTMALDG], handler: other}
+  - {name: tma_store_flush, base: [UTMACMDFLUSH], handler: other, rbar: tma_store_flush}
+  - {name: mbarrier, op_prefix: SYNCS, handler: other}
+  - {name: regalloc, base: [USETMAXREG], handler: other}
+
+# anything not matched: an issue slot and its stall count; a write counter clears after the assumed
+# default latency (counted per opcode), a read counter after the assumed rbar release (counted)
+default_class: {name: other, handler: other, latency: sim.default_var_latency_clk, rbar: sim.rbar_release_clk}
+
+# conversion of cycles to time, per driver (two clocks are in use upstream; open question)
+clock:
+  block_level_GHz: clock_GHz               # validate.py (block and kernel level of the 22 GEMMs)
+  kernel_GHz: clock_under_load_GHz          # kernel.py, ws.py, ws_validate.py
+launch_us: launch_stream_us
+
+residency:  # bounds on blocks per SM (kernel.occupancy)
+  registers: {per_sm: regs_per_sm, alloc_unit_per_warp: reg_alloc_unit_per_warp}
+  shared_memory: {per_sm: smem_per_sm_bytes, reserved_per_block: smem_reserved_per_block_bytes}
+  threads: max_threads_per_sm
+  blocks: max_blocks_per_sm

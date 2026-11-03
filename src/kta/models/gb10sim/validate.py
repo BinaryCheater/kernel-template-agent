@@ -21,6 +21,7 @@ from typing import Any
 from kta.models.regression import spearman
 
 from .kernel import occupancy
+from .machine import Machine, default_machine
 from .model import SMS, C
 from .sass import main_loop
 from .sm import SM, kernel_sass
@@ -89,7 +90,11 @@ def simulate(
     active: float = 1,
     resident: int | None = None,
     grid: int | None = None,
+    machine: Machine | None = None,
+    sm_hook=None,
 ) -> dict:
+    """One SM on a variant's SASS. `sm_hook(sm)` is called with the simulator after its run."""
+    m = machine or default_machine()
     ins = kernel_sass(cal / "sass" / f"{name}__{variant}.sass")
     h = _mechanisms(cal)[name]["pick"]
     sm = SM(
@@ -101,17 +106,20 @@ def simulate(
         copy_lines=copy_lines(h),
         resident=resident,
         grid_blocks=grid,
+        machine=m,
     )
     t = time.time()
     r = sm.run()
     r["wall_s"] = round(time.time() - t, 2)
-    r["us"] = r["cycles"] / F
+    r["us"] = r["cycles"] / (m.param(m.desc["clock"]["block_level_GHz"]) * 1e3)
+    if sm_hook is not None:
+        sm_hook(sm)
     return r
 
 
-def _rmax(h: dict, regs: int) -> int:
+def _rmax(h: dict, regs: int, machine: Machine | None = None) -> int:
     smem = h["num_stages"] * (h["block_M"] + h["block_N"]) * h["block_K"] * 2
-    return occupancy(h, regs, smem)
+    return occupancy(h, regs, smem, machine)
 
 
 def block_level(cal: Path, names: list[str] | None = None) -> list[dict]:
@@ -150,12 +158,23 @@ def block_level(cal: Path, names: list[str] | None = None) -> list[dict]:
     return rows
 
 
-def kernel_us(cal: Path, name: str, variant: str, h: dict, tiles: int, rmax: int) -> float:
+def kernel_us(
+    cal: Path,
+    name: str,
+    variant: str,
+    h: dict,
+    tiles: int,
+    rmax: int,
+    machine: Machine | None = None,
+    sm_hook=None,
+) -> float:
     """Simulated kernel time: the block scheduler fills each SM up to Rmax blocks; each wave is
     simulated with its own
     blocks per SM and number of busy SMs; plus the launch (2.6 us, probe)."""
     from .kernel import FLOW
 
+    m = machine or default_machine()
+    C, SMS = m.C, m.sms
     if FLOW:
         # the busiest SM runs its share of the blocks, at most Rmax at a time, a new one starting
         # when one exits; the chip's L2 and store limits are shared by the blocks in flight (as
@@ -170,6 +189,8 @@ def kernel_us(cal: Path, name: str, variant: str, h: dict, tiles: int, rmax: int
                 min(tiles, SMS * rmax) / min(rmax, math.ceil(tiles / SMS)),
                 resident=rmax,
                 grid=tiles,
+                machine=m,
+                sm_hook=sm_hook,
             )["us"]
         )
     left, t = tiles, C["launch_stream_us"]
@@ -179,7 +200,7 @@ def kernel_us(cal: Path, name: str, variant: str, h: dict, tiles: int, rmax: int
         # the chip's L2 and store limits are shared by the blocks in flight: an SM holding R blocks
         # gets R/n of them, i.e. it behaves as one of n/R equal SMs (measured: the L2 rate is the
         # same for 1 to 4 blocks per SM)
-        t += simulate(cal, name, variant, res, n / res)["us"]
+        t += simulate(cal, name, variant, res, n / res, machine=m)["us"]
         left -= n
     return t
 

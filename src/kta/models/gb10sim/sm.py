@@ -15,62 +15,27 @@ bits). Resources:
   (write and read barriers). Control flow: the k-loop's back edge is taken trip-count times; EXIT
   ends a warp.
 Constants: calibration/spark-6951/gb10.json["sim"], each measured by a probe except two marked as
-assumptions."""
+assumptions.
+
+KTA: the resources, their scope and the opcode -> operation-class table (which resources an
+instruction gates on and holds, its latency and read-counter rule) come from the machine description
+(machine.yaml, read through machine.Machine); the service rule of each class stays here (`handler`).
+"""
 
 from __future__ import annotations
 
 import heapq
-import json
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from .machine import Machine, OpClass, default_machine
 from .sass import Ins, main_loop, parse
 
-_PARAMS = json.loads(Path(__file__).with_name("gb10.json").read_text())
-P = _PARAMS["sim"]["value"]
-SMS = _PARAMS["sms"]["value"]
-
-
-FMA_FP32 = {"FFMA", "FADD", "FMUL"}
-FMA_2 = {"IMAD", "HFMA2", "HADD2", "HMUL2", "IMUL"}
-ALU_2 = {
-    "LOP3",
-    "PRMT",
-    "SHF",
-    "IADD3",
-    "ISETP",
-    "SEL",
-    "LEA",
-    "F2FP",
-    "IMNMX",
-    "FMNMX",
-    "FSETP",
-    "FSEL",
-    "PLOP3",
-    "LOP",
-    "IABS",
-    "SHL",
-    "SHR",
-}
-XU_OPS = {"F2I", "I2F", "F2F", "FRND", "I2FP", "F2IP"}
-
-
-def unit(x) -> str | None:
-    if x.op.startswith("HADD2.F32"):
-        return "either"  # the half-to-float conversion runs on either unit
-    if x.base in FMA_FP32 or x.base in FMA_2:
-        return "fma"
-    if x.base in ALU_2:
-        return "alu"
-    return None
-
-
-def unit_clk(x) -> float:
-    if x.base in FMA_FP32:
-        return P["fma_fp32_clk"]
-    return P["alu_half_rate_clk"]
+# the default machine's parameters, for callers that read them directly
+P = default_machine().P
+SMS = default_machine().sms
 
 
 @dataclass
@@ -127,9 +92,17 @@ class SM:
         grid_blocks: int | None = None,
         grid_dim: tuple | None = None,
         const_bank: dict[tuple[int, int], int] | None = None,
+        machine: Machine | None = None,
     ):
         self.ins = ins
         self.const_bank = const_bank or {}
+        m = machine or default_machine()
+        self.m = m
+        P = self.P = m.P
+        n = self.nsp = m.smsp_per_sm
+        # each instruction's operation class (machine.yaml `classes`)
+        self.icls: list[OpClass] = [m.classify(x.base, x.op) for x in ins]
+        self.gate_smsp = m.gating("smsp")
         self.trips = trips
         self.mem = mem
         # this SM's share of the chip's L2 return bandwidth (or its own return path, if fewer SMs
@@ -143,7 +116,7 @@ class SM:
         wpb = threads // 32
         for b in range(blocks):
             for w in range(wpb):
-                self.warps.append(Warp(wid=len(self.warps), block=b, smsp=w % 4))
+                self.warps.append(Warp(wid=len(self.warps), block=b, smsp=w % n))
         self.wpb = wpb
         self.blocks = blocks
         # block replacement: `blocks` run on this SM, at most `resident` at a time; when one exits
@@ -165,25 +138,18 @@ class SM:
                 w.ready = INF
         for b in range(min(blocks, self.resident)):
             self.live[b] = wpb
-        self.tensor_free: list[float] = [0] * 4
-        self.smem_free = 0
-        self.fill_free = 0
-        self.mio_free: list[float] = [0] * 4
-        self.mufu_free: list[float] = [0] * 4
-        # the arithmetic units of a sub-partition (probes alu.cu, alumix.cu): an FMA unit (FP32
-        # add/multiply 1 cycle; IMAD and packed half math 2 cycles, which also hold off FP32) and an
-        # ALU unit (logic, shifts, byte permutes, integer add/compare, half<->float conversions: 2
-        # cycles); conversions to and from integers use the SFU
-        self.fma_free: list[float] = [0] * 4
-        self.alu_free: list[float] = [0] * 4
+        # per sub-partition resources (tensor, FMA, ALU, XU pipes; the memory-instruction slot):
+        # the time each instance is free again; per SM resources: one time each (machine.yaml)
+        self.free: dict[str, list[float]] = {r: [0] * n for r in m.resources("smsp")}
+        self.t: dict[str, float] = {r: 0 for r in m.resources("sm") + m.resources("tpc")}
+        self.busy_key = {r: d.get("busy", r) for r, d in m.desc["resources"].items()}
         # lines each copy of a k-tile touches, in program order (A rows then B rows); cycles them
         # per warp
         self.copy_lines = copy_lines or [4]
-        self.lsu_free = 0
         # the store path is shared with the partner SM of the pair when the chip runs more than one
         # block
-        self.stg_share = 2 if active_sms >= 2 else 1
-        self.stg_free = 0
+        tpc = m.sms_per_tpc
+        self.stg_share = tpc if active_sms >= tpc else 1
         self.active_sms = active_sms
         # copies that miss the L2 (this wave's share, from the launch-order L2 simulation) pay the
         # DRAM round trip and this SM's share of the DRAM rate; misses are spread evenly over the
@@ -191,7 +157,6 @@ class SM:
         self.miss_frac = miss_frac
         self.miss_acc = 0.0
         self.dram_clk = dram_clk_per_512B
-        self.dram_free = 0
         # TMA stores (UTMASTG): the block's C tile split evenly over the store boxes in the code;
         # the TMA unit reads the shared-memory array as fast as the pair's store port drains it
         # (probe tmastore.cu: 33 B/clk per pair, chip 482 B/clk, 457 cycles fixed; waiting for the
@@ -225,8 +190,6 @@ class SM:
         # cycles per line of the L1 data path and its latency; a miss takes the copy path (address
         # stage, L2 or DRAM, the SM's return port) into registers
         self.ldg_lines = ldg_lines or [(4, 512, False)]
-        self.l1_free = 0
-        self.red_free = 0
         # global atomics: lines one warp instruction touches (8 for a C tile added from mma
         # accumulators: 8 rows x 32 B)
         self.red_lines = red_lines
@@ -237,7 +200,7 @@ class SM:
         self.events = []  # (time, seq, kind, warp, arg)
         self.seq = 0
         self.bar_arrived = {}
-        self.last_issue: list[Warp | None] = [None] * 4
+        self.last_issue: list[Warp | None] = [None] * n
         self.count: dict[str, Any] = {"issued": 0, "HMMA": 0, "LDSM": 0, "LDGSTS": 0, "BAR": 0}
         self.assumed_latency: dict[str, int] = {}
         self.busy: dict[str, float] = {"tensor": 0, "smem": 0, "fill": 0}
@@ -309,7 +272,7 @@ class SM:
                     v = 0
                 elif "SR_CTAID" in x.args and self.grid_dim:
                     gx, gy, gz = [*self.grid_dim, 1, 1][:3]
-                    lin = (w.block * SMS) % (gx * gy * gz)
+                    lin = (w.block * self.m.sms) % (gx * gy * gz)
                     v = {"X": lin % gx, "Y": (lin // gx) % gy, "Z": lin // (gx * gy)}[
                         x.args.split("SR_CTAID.")[1][0]
                     ]
@@ -488,28 +451,37 @@ class SM:
             m = re.search(r"SB(\d),\s*0x([0-9a-f]+)", x.args)
             if m and w.sb[int(m.group(1))] > int(m.group(2), 16):
                 return False
-        if x.base in ("HMMA", "IMMA", "QMMA", "OMMA") and self.tensor_free[w.smsp] > now:
-            return False
-        if (x.base == "MUFU" or x.base in XU_OPS) and self.mufu_free[w.smsp] > now:
-            return False
-        u = unit(x)
-        if u == "fma" and self.fma_free[w.smsp] > now:
-            return False
-        if u == "alu" and self.alu_free[w.smsp] > now:
-            return False
-        if u == "either" and min(self.fma_free[w.smsp], self.alu_free[w.smsp]) > now:
-            return False
-        if x.base in ("LDSM", "LDGSTS", "STSM", "LDG", "REDG") and self.mio_free[w.smsp] > now:
-            return False
-        if x.base in ("STG", "REDG") or (x.base == "RED" and ".E." in x.op):
-            while self.stq and self.stq[0] <= now:
-                heapq.heappop(self.stq)
-            if len(self.stq) >= P["st_queue_instr"]:
+        cls = self.icls[w.pc]
+        for g in cls.gates:
+            if g == "store_queue":
+                while self.stq and self.stq[0] <= now:
+                    heapq.heappop(self.stq)
+                if len(self.stq) >= self.P["st_queue_instr"]:
+                    return False
+            elif g == "either":
+                if min(self.free[r][w.smsp] for r in cls.either) > now:
+                    return False
+            elif self.free[g][w.smsp] > now:
                 return False
         return True
 
+    def _hold(self, cls: OpClass, s: int, now: float) -> None:
+        """A pipe class: hold its resource(s) for their parameter's cycles; `either` takes the
+        first free of its resources (the earliest, ties to the first listed)."""
+        for res, ref in cls.hold:
+            c = self.m.param(ref)
+            if res == "either":
+                res = min(cls.either, key=lambda r: self.free[r][s])
+            self.free[res][s] = now + c
+            k = self.busy_key[res]
+            self.busy[k] = self.busy.get(k, 0) + c
+
     def issue(self, w: Warp, now: float):
         x = self.ins[w.pc]
+        cls = self.icls[w.pc]
+        P = self.P
+        free, t = self.free, self.t
+        s = w.smsp
         self.count["issued"] += 1
         executes = x.pred != "@!PT"
         if x.pred and x.pred != "@!PT":
@@ -521,34 +493,38 @@ class SM:
         self._eval_pred_ops(w, x)
         lat_done = None
         lsu_done = now
+        h = cls.handler
         if executes:
-            if x.base in ("HMMA", "IMMA", "QMMA", "OMMA"):
-                # every mma.sync shape and type holds the tensor pipe 16 cycles (probe mma_types.cu)
-                self.tensor_free[w.smsp] = now + P["hmma_16816_pipe_clk"]
-                self.count["HMMA"] += 1
-                self.busy["tensor"] += P["hmma_16816_pipe_clk"]
-            elif x.base == "LDSM":
+            if cls.count:
+                self.count[cls.count] = self.count.get(cls.count, 0) + 1
+            if h == "pipe":
+                # every mma.sync shape and type holds the tensor pipe 16 cycles (probe
+                # mma_types.cu); FMA, ALU and XU pipes per probes alu.cu, alumix.cu, sfu.cu, cvt.cu
+                self._hold(cls, s, now)
+                if cls.latency is not None:
+                    lat_done = now + self.m.param(cls.latency)
+                    if x.wbar is not None and self.m.status(cls.latency) == "assumed":
+                        self._assumed(x)
+            elif h == "ldsm":
                 # the sub-partition's memory-instruction slot, then the SM's shared-memory array
                 # (512 B per x4)
-                self.mio_free[w.smsp] = now + P["mio_ldsm_clk"]
+                free["mio"][s] = now + P["mio_ldsm_clk"]
                 ways = self.ldsm_ways[1] if "MT88" in x.op else self.ldsm_ways[0]
                 cost = P["smem_array_clk_per_512B"] * ways
-                start = max(now, self.smem_free)
-                self.smem_free = start + cost
+                start = max(now, t["smem_array"])
+                t["smem_array"] = start + cost
                 self.busy["smem"] += cost
                 lat_done = start + P["ldsm_latency_clk"] + cost - P["smem_array_clk_per_512B"]
-                self.count["LDSM"] += 1
-            elif x.base == "STSM":
+            elif h == "stsm":
                 # stmatrix: like ldmatrix in the other direction (probe tmastore.cu: one warp every
                 # 10.8 cycles, 4 or more warps 4 cycles per x4 on the shared-memory array); the
                 # source registers are free once the array takes them
-                self.mio_free[w.smsp] = now + P["mio_stsm_clk"]
-                start = max(now, self.smem_free)
-                self.smem_free = start + P["smem_array_clk_per_512B"]
+                free["mio"][s] = now + P["mio_stsm_clk"]
+                start = max(now, t["smem_array"])
+                t["smem_array"] = start + P["smem_array_clk_per_512B"]
                 self.busy["smem"] += P["smem_array_clk_per_512B"]
                 lsu_done = start + P["smem_array_clk_per_512B"]
-                self.count["STSM"] = self.count.get("STSM", 0) + 1
-            elif x.base == "UTMASTG":
+            elif h == "tma_store":
                 # a TMA store box: read from the shared array and sent through the pair's store port
                 # (shared with plain stores) at the larger of the pair's rate and this SM's share of
                 # the chip's TMA-store limit
@@ -557,76 +533,73 @@ class SM:
                     self.stg_share / P["tma_st_tpc_B_per_clk"],
                     self.active_sms / P["tma_st_chip_B_per_clk"],
                 )
-                start = max(now, self.stg_free)
-                self.stg_free = start + nb * per_B
+                start = max(now, t["store_port"])
+                t["store_port"] = start + nb * per_B
                 self.busy["stg"] = self.busy.get("stg", 0) + nb * per_B
                 rd = nb / 512 * P["smem_array_clk_per_512B"]
-                self.smem_free = max(self.smem_free, start) + rd
+                t["smem_array"] = max(t["smem_array"], start) + rd
                 self.busy["smem"] += rd
-                w.st_done = max(w.st_done, self.stg_free)
-                self.count["UTMASTG"] = self.count.get("UTMASTG", 0) + 1
-            elif x.base == "LDGSTS":
+                w.st_done = max(w.st_done, t["store_port"])
+            elif h == "cp_async":
                 # issue holds the sub-partition's memory slot; the data comes back through the SM's
                 # L2 return path after the round trip and is written into the shared-memory array
                 # (the same array ldmatrix reads)
-                self.mio_free[w.smsp] = now + P["mio_ldgsts_clk"]
+                free["mio"][s] = now + P["mio_ldgsts_clk"]
                 # the load unit's address stage: one 128-byte line per cycle; the copy reads its
                 # address registers there
                 lines = self.copy_lines[w.ncopy % len(self.copy_lines)]
                 w.ncopy += 1
-                t_lsu = max(now, self.lsu_free)
-                self.lsu_free = t_lsu + lines * P["lsu_clk_per_line"]
+                t_lsu = max(now, t["lsu"])
+                t["lsu"] = t_lsu + lines * P["lsu_clk_per_line"]
                 self.busy["lsu"] = self.busy.get("lsu", 0) + lines
-                lsu_done = self.lsu_free
+                lsu_done = t["lsu"]
                 self.miss_acc += self.miss_frac
                 if self.miss_acc >= 1.0:
                     self.miss_acc -= 1.0
-                    t_d = max(lsu_done + P["ldgsts_dram_latency_clk"], self.dram_free)
-                    self.dram_free = t_d + self.dram_clk
+                    t_d = max(lsu_done + P["ldgsts_dram_latency_clk"], t["dram_queue"])
+                    t["dram_queue"] = t_d + self.dram_clk
                     self.busy["dram"] = self.busy.get("dram", 0) + self.dram_clk
                     arrive = t_d
                 else:
                     arrive = lsu_done + P["ldgsts_l2_latency_clk"]
-                ret = max(arrive, self.fill_free)
-                self.fill_free = ret + self.ret_clk
+                ret = max(arrive, t["l2_return"])
+                t["l2_return"] = ret + self.ret_clk
                 self.busy["fill"] += self.ret_clk
                 w.pending[w.gid] = w.pending.get(w.gid, 0) + 1
                 self.ev(ret, "write", w, w.gid)
-                self.count["LDGSTS"] += 1
-            elif x.base == "LDG":
+            elif h == "ldg":
                 lines, nbytes, hit = self.ldg_lines[w.nldg % len(self.ldg_lines)]
                 w.nldg += 1
-                t_lsu = max(now, self.lsu_free)
-                self.lsu_free = t_lsu + lines * P["lsu_clk_per_line"]
+                t_lsu = max(now, t["lsu"])
+                t["lsu"] = t_lsu + lines * P["lsu_clk_per_line"]
                 self.busy["lsu"] = self.busy.get("lsu", 0) + lines
-                lsu_done = self.lsu_free
+                lsu_done = t["lsu"]
                 if hit:
-                    t1 = max(lsu_done, self.l1_free)
-                    self.l1_free = t1 + lines * P["l1_clk_per_line"]
-                    lat_done = self.l1_free + P["l1_hit_latency_clk"]
+                    t1 = max(lsu_done, t["l1"])
+                    t["l1"] = t1 + lines * P["l1_clk_per_line"]
+                    lat_done = t["l1"] + P["l1_hit_latency_clk"]
                 else:
                     self.miss_acc += self.miss_frac
                     if self.miss_acc >= 1.0:
                         self.miss_acc -= 1.0
-                        t_d = max(lsu_done + P["ldgsts_dram_latency_clk"], self.dram_free)
-                        self.dram_free = t_d + self.dram_clk * nbytes / 512
+                        t_d = max(lsu_done + P["ldgsts_dram_latency_clk"], t["dram_queue"])
+                        t["dram_queue"] = t_d + self.dram_clk * nbytes / 512
                         self.busy["dram"] = self.busy.get("dram", 0) + self.dram_clk * nbytes / 512
                         arrive = t_d
                     else:
                         arrive = lsu_done + P["ldg_l2_latency_clk"]
-                    ret = max(arrive, self.fill_free)
-                    self.fill_free = ret + self.ret_clk * nbytes / 512
+                    ret = max(arrive, t["l2_return"])
+                    t["l2_return"] = ret + self.ret_clk * nbytes / 512
                     self.busy["fill"] += self.ret_clk * nbytes / 512
-                    lat_done = self.fill_free
-                self.count["LDG"] = self.count.get("LDG", 0) + 1
-            elif x.base in ("LDL", "STL"):
+                    lat_done = t["l2_return"]
+            elif h == "local":
                 # local memory (register spills, one slot per warp): 4 cycles per line through L1,
                 # then the L1 latency
-                t1 = max(now, self.l1_free)
-                self.l1_free = t1 + P["local_clk_per_line"]
-                lat_done = self.l1_free + P["l1_hit_latency_clk"]
-                lsu_done = self.l1_free
-            elif x.base == "REDG" or (x.base == "RED" and ".E." in x.op):
+                t1 = max(now, t["l1"])
+                t["l1"] = t1 + P["local_clk_per_line"]
+                lat_done = t["l1"] + P["l1_hit_latency_clk"]
+                lsu_done = t["l1"]
+            elif h == "red":
                 # global atomics without a return value: bytes-limited, per SM and for the chip
                 # (probe ldg_atomic.cu) the pair's store port per line (shared with plain stores),
                 # the SM's byte rate, the chip's rate for the pattern
@@ -639,16 +612,16 @@ class SM:
                     self.red_lines * P["red_pair_clk_per_line"] * self.stg_share,
                     nb * self.active_sms / chip,
                 )
-                start = max(now, self.stg_free)
-                self.stg_free = start + per
+                start = max(now, t["store_port"])
+                t["store_port"] = start + per
                 self.busy["red"] = self.busy.get("red", 0) + per
-                heapq.heappush(self.stq, self.stg_free)
-                self.mio_free[w.smsp] = max(
-                    self.mio_free[w.smsp], now + self.red_lines * P["red_smsp_clk_per_line"]
+                heapq.heappush(self.stq, t["store_port"])
+                free["mio"][s] = max(
+                    free["mio"][s], now + self.red_lines * P["red_smsp_clk_per_line"]
                 )
                 lsu_done = start
-                self.end = max(getattr(self, "end", 0), self.stg_free)
-            elif x.base == "LDGDEPBAR":
+                self.end = max(getattr(self, "end", 0), t["store_port"])
+            elif h == "commit":
                 # commit: the group's dependency counter stays set until its last copy has landed in
                 # shared memory
                 g = w.gid
@@ -659,10 +632,9 @@ class SM:
                         self.ev(now + 1, "sb", w, x.wbar)
                     else:
                         w.committed[g] = x.wbar
-            elif x.base == "BAR":
+            elif h == "barrier":
                 # BAR.SYNC id[, threads]: a named barrier waits for the threads it names; without a
                 # count, for the whole block (warps that already exited count as arrived)
-                self.count["BAR"] += 1
                 w.at_bar = True
                 ba = [a.strip() for a in x.args.split(",")]
                 bid = self._imm(ba[0]) if ba and ba[0] else 0
@@ -677,31 +649,7 @@ class SM:
                     rel = now + P["bar_base_clk"] + P["bar_per_warp_clk"] * need
                     for o in self.bar_arrived.pop(key):
                         self.ev(rel, "bar", o)
-            elif unit(x) in ("fma", "alu", "either"):
-                c = unit_clk(x)
-                u = unit(x)
-                if u == "either":
-                    u = "alu" if self.alu_free[w.smsp] <= self.fma_free[w.smsp] else "fma"
-                assert u is not None  # unit(x) is one of the three here
-                if u == "fma":
-                    self.fma_free[w.smsp] = now + c
-                else:
-                    self.alu_free[w.smsp] = now + c
-                self.busy[u] = self.busy.get(u, 0) + c
-                if x.wbar is not None:
-                    lat_done = now + P["default_var_latency_clk"]
-                    self._assumed(x)
-            elif x.base in XU_OPS:
-                self.mufu_free[w.smsp] = now + P["mufu_smsp_clk_per_instr"]
-                self.busy["sfu"] = self.busy.get("sfu", 0) + P["mufu_smsp_clk_per_instr"]
-                lat_done = now + P["mufu_latency_clk"]
-            elif x.base == "MUFU":
-                # the special function unit: one warp instruction per 8 cycles per sub-partition,
-                # 18-cycle results
-                self.mufu_free[w.smsp] = now + P["mufu_smsp_clk_per_instr"]
-                self.busy["sfu"] = self.busy.get("sfu", 0) + P["mufu_smsp_clk_per_instr"]
-                lat_done = now + P["mufu_latency_clk"]
-            elif x.base == "STG":
+            elif h == "stg":
                 wide = ".128" in x.op
                 nbytes = 512 if wide else (256 if ".64" in x.op else 128)
                 # the larger of the pair's shared store port and this SM's share of the chip's store
@@ -714,31 +662,28 @@ class SM:
                     / self.active_sms
                 )
                 per = max(pair, chip)
-                start = max(now, self.stg_free)
-                self.stg_free = start + per
+                start = max(now, t["store_port"])
+                t["store_port"] = start + per
                 self.busy["stg"] = self.busy.get("stg", 0) + per
-                heapq.heappush(self.stq, self.stg_free)
+                heapq.heappush(self.stq, t["store_port"])
                 if x.rbar is not None:
                     lsu_done = start
-            elif x.base == "EXIT":
+            elif h == "exit":
                 # the block is finished only when its stores have left the SM
                 w.done = True
-                self.end = max(getattr(self, "end", 0), self.stg_free)
+                self.end = max(getattr(self, "end", 0), t["store_port"])
                 self.exited[w.block] = self.exited.get(w.block, 0) + 1
                 self.block_exit(w.block, now)
             elif x.wbar is not None:
-                lat_done = now + P["default_var_latency_clk"]
+                lat_done = now + self.m.param(cls.latency or self.m.default.latency or "")
                 self._assumed(x)
-            if x.wbar is not None and lat_done is not None and x.base != "LDGDEPBAR":
+            if x.wbar is not None and lat_done is not None and h != "commit":
                 w.sb[x.wbar] += 1
                 self.ev(lat_done, "sb", w, x.wbar)
             if x.rbar is not None:
-                if (
-                    x.base in ("LDGSTS", "STG", "STSM", "LDG", "LDL", "STL", "REDG", "RED")
-                    and executes
-                ):
+                if cls.rbar == "lsu":
                     rel = lsu_done
-                elif x.base == "UTMACMDFLUSH":
+                elif cls.rbar == "tma_store_flush":
                     # the bulk-store group's counter clears when every box has been read out and
                     # sent, plus the fixed delay
                     rel = max(now + P["rbar_release_clk"], w.st_done + P["tma_st_fixed_clk"])
@@ -787,9 +732,10 @@ class SM:
         """SM-equivalents sharing the chip's limits once this SM has finished `finished` blocks."""
         if not self.grid_blocks:
             return self.eq0
-        q, r = divmod(self.grid_blocks, SMS)
+        sms = self.m.sms
+        q, r = divmod(self.grid_blocks, sms)
         R = self.resident
-        counts = [q + 1] * r + [q] * (SMS - r)
+        counts = [q + 1] * r + [q] * (sms - r)
         mine = max(counts)
         chip = sum(max(0, min(R, c - finished)) for c in counts)
         own = max(1, min(R, mine - finished))
@@ -797,6 +743,7 @@ class SM:
 
     def set_share(self, eq: float):
         self.active_sms = eq
+        P = self.P
         self.ret_clk = max(
             P["l2_return_clk_per_512B"], 512 * eq / P["l2_aggregate_B_per_clk_cpasync"]
         )
@@ -833,11 +780,11 @@ class SM:
         INF = float("inf")
         self._live_dirty = True
         live: list[Warp] = []
-        by_smsp: list[list[Warp]] = [[] for _ in range(4)]
+        by_smsp: list[list[Warp]] = [[] for _ in range(self.nsp)]
         while now < limit:
             if self._live_dirty:
                 live = [w for w in self.warps if not w.done and w.ready < INF]
-                by_smsp = [[w for w in live if w.smsp == s] for s in range(4)]
+                by_smsp = [[w for w in live if w.smsp == s] for s in range(self.nsp)]
                 self._live_dirty = False
             while self.events and self.events[0][0] <= now:
                 _, _, kind, w, arg = heapq.heappop(self.events)
@@ -846,10 +793,11 @@ class SM:
                 elif kind == "write":
                     # the returned 512 B are written into the shared-memory array (shared with
                     # ldmatrix), then counted as landed
-                    t_w = max(now, self.smem_free)
-                    self.smem_free = t_w + P["smem_array_clk_per_512B"]
-                    self.busy["smem"] += P["smem_array_clk_per_512B"]
-                    self.ev(t_w + P["smem_array_clk_per_512B"], "landed", w, arg)
+                    c = self.P["smem_array_clk_per_512B"]
+                    t_w = max(now, self.t["smem_array"])
+                    self.t["smem_array"] = t_w + c
+                    self.busy["smem"] += c
+                    self.ev(t_w + c, "landed", w, arg)
                 elif kind == "landed":
                     w.pending[arg] -= 1
                     if w.pending[arg] == 0 and arg in w.committed:
@@ -864,7 +812,7 @@ class SM:
             if any(w.done for w in live):
                 self._live_dirty = True
             issued = False
-            for s in range(4):
+            for s in range(self.nsp):
                 cand = [w for w in by_smsp[s] if self.eligible(w, now)]
                 if not cand:
                     continue
@@ -885,12 +833,8 @@ class SM:
                     last_yield[w.wid] = yb
             # jump to the next cycle where something can change
             nxt = [w.ready for w in live if not w.done and not w.at_bar and now < w.ready < INF]
-            nxt += (
-                [t for t in self.tensor_free if t > now]
-                + [t for t in self.mio_free if t > now]
-                + [t for t in self.mufu_free if t > now]
-            )
-            nxt += [t for t in self.fma_free if t > now] + [t for t in self.alu_free if t > now]
+            for r in self.gate_smsp:
+                nxt += [t for t in self.free[r] if t > now]
             if self.events:
                 nxt.append(self.events[0][0])
             nxt += [t for t in self.stq if t > now][:1]

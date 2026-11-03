@@ -12,6 +12,7 @@ from __future__ import annotations
 import itertools
 import math
 
+from .machine import Machine, default_machine
 from .model import SMS, bank_conflict_ways, dram_split_kslice
 from .model import C as MC
 from .sass import main_loop
@@ -62,7 +63,8 @@ def sass_trips(ins, h: dict, src_trips: int) -> int:
     return max(1, round(src_trips / max(1, round(u))))
 
 
-def occupancy(h: dict, regs: int, smem: int) -> int:
+def occupancy(h: dict, regs: int, smem: int, machine: Machine | None = None) -> int:
+    MC = (machine or default_machine()).C
     warps = h["threads"] // 32
     unit = MC["reg_alloc_unit_per_warp"]
     rw = math.ceil(regs * 32 / unit) * unit
@@ -81,11 +83,12 @@ def occupancy(h: dict, regs: int, smem: int) -> int:
 CPU_DRAM_GBs = 0.0
 
 
-def dram_peak(run_bytes: float) -> float:
+def dram_peak(run_bytes: float, machine: Machine | None = None) -> float:
     """DRAM read rate for misses that arrive as contiguous runs of run_bytes (probe tileload.cu,
     DRAM source, 48-96
     blocks: 64-byte runs 201-204 GB/s, 256-byte 230-234; mlp_stream contiguous 237), less what the
     CPU is using."""
+    MC = (machine or default_machine()).C
     pts = MC["dram_peak_by_segment_GBs"]
     peak = pts[-1][1]
     if run_bytes <= pts[0][0]:
@@ -102,7 +105,9 @@ def dram_peak(run_bytes: float) -> float:
     )
 
 
-def wave_dram(h: dict, shape: dict, wave: dict, warm: bool = True) -> tuple[float, float]:
+def wave_dram(
+    h: dict, shape: dict, wave: dict, warm: bool = True, machine: Machine | None = None
+) -> tuple[float, float]:
     """One wave's DRAM work: (read-miss bytes, seconds of DRAM time for the whole chip).
     A misses come as block_K*2-byte pieces of rows far apart; B misses come as pieces of the same B
     rows that the
@@ -113,6 +118,7 @@ def wave_dram(h: dict, shape: dict, wave: dict, warm: bool = True) -> tuple[floa
     is evicted before the next run writes it), at the write rate; the controller serves the mix as
     each part at its own
     rate (probe dram.cu: 1 / (f_read/242 + f_write/197) within 4 %)."""
+    MC = (machine or default_machine()).C
     M, N, K = shape["M"], shape["N"], shape["K"]
     bm, bn, bk = h["block_M"], h["block_N"], h["block_K"]
     if warm and (M * K + K * N + M * N) * 2 <= MC["l2_effective_bytes"]:
@@ -132,14 +138,21 @@ def wave_dram(h: dict, shape: dict, wave: dict, warm: bool = True) -> tuple[floa
         MC["dram_write_GBs"] - CPU_DRAM_GBs * (MC["dram_write_GBs"] / MC["dram_datasheet_GBs"]),
     )
     c_r = 0.0 if warm else wave.get("c_read", 0.0)  # C rows are contiguous: streamed like B
-    secs = (wave["A"] / dram_peak(run_a) + (wave["B"] + c_r) / dram_peak(run_b) + c_w / wpeak) / 1e9
+    secs = (
+        wave["A"] / dram_peak(run_a, machine)
+        + (wave["B"] + c_r) / dram_peak(run_b, machine)
+        + c_w / wpeak
+    ) / 1e9
     return wave["A"] + wave["B"] + c_r, secs
 
 
-def dram_clk(read_bytes: float, secs: float, blocks_eq: float) -> float:
+def dram_clk(
+    read_bytes: float, secs: float, blocks_eq: float, machine: Machine | None = None
+) -> float:
     """Cycles per 512 B of read misses for one SM: the wave's DRAM time spread over its read misses
     (writes folded in),
     shared by the blocks in flight."""
+    MC = (machine or default_machine()).C
     if read_bytes <= 0:
         return 512 / (MC["dram_read_GBs"] * 1e9 / (MC["clock_under_load_GHz"] * 1e9) / blocks_eq)
     return 512 * (secs / read_bytes) * (MC["clock_under_load_GHz"] * 1e9) * blocks_eq
@@ -165,10 +178,15 @@ def simulate_kernel(
     split: int = 1,
     kernel: str = "matmul_kernel",
     atomic_c: bool = False,
+    machine: Machine | None = None,
 ) -> dict:
     """split > 1: split-K, a third grid dimension (outermost in launch order); each block runs
     K/split and adds its C
     tile with global atomics (in the machine code)."""
+    m = machine or default_machine()
+    MC, SMS = m.C, m.sms
+    F = MC["clock_under_load_GHz"] * 1e3
+    cap = MC["l2_effective_bytes"]
     ins = kernel_sass(sass_path, kernel=kernel)
     M, N, K = shape["M"], shape["N"], shape["K"]
     KT = math.ceil(K / split / h["block_K"])
@@ -178,10 +196,10 @@ def simulate_kernel(
         else h["num_stages"] * (h["block_M"] + h["block_N"]) * h["block_K"] * 2
     )
     tiles = math.ceil(M / h["block_M"]) * math.ceil(N / h["block_N"]) * split
-    Rmax = occupancy(h, regs, smem)
+    Rmax = occupancy(h, regs, smem, m)
     trips = sass_trips(ins, h, KT - (h["num_stages"] - 1))
     if split == 1:
-        sp = dram_split_kslice(h, shape, SMS * Rmax)
+        sp = dram_split_kslice(h, shape, SMS * Rmax, cap=cap)
         if atomic_c:  # C added with atomics (fp32): lines not in the L2 are read from DRAM first
             sp = {
                 "waves": [
@@ -193,7 +211,7 @@ def simulate_kernel(
     else:
         # each split is its own GEMM over K/split with its own A columns and B rows; spread its
         # misses over its blocks
-        one = dram_split_kslice(h, {"M": M, "N": N, "K": K // split}, SMS * Rmax)
+        one = dram_split_kslice(h, {"M": M, "N": N, "K": K // split}, SMS * Rmax, cap=cap)
         t1 = tiles // split
         a_b = sum(w["A"] for w in one["waves"]) / t1
         b_b = sum(w["B"] for w in one["waves"]) / t1
@@ -220,7 +238,7 @@ def simulate_kernel(
     if FLOW:
         rb = secs = 0.0
         for wv in sp["waves"]:
-            r_, s_ = wave_dram(h, shape, wv, warm)
+            r_, s_ = wave_dram(h, shape, wv, warm, m)
             rb += r_
             secs += s_
         copy_bytes = tiles * KT * (h["block_M"] + h["block_N"]) * h["block_K"] * 2
@@ -234,12 +252,13 @@ def simulate_kernel(
             active_sms=eq,
             copy_lines=copy_lines(h),
             miss_frac=miss,
-            dram_clk_per_512B=dram_clk(rb, secs, eq),
+            dram_clk_per_512B=dram_clk(rb, secs, eq, m),
             ctile_bytes=min(h["block_M"], M) * min(h["block_N"], N) * 2,
             ldsm_ways=ldsm_ways(h),
             resident=Rmax,
             grid_blocks=tiles,
             grid_dim=(math.ceil(N / h["block_N"]), math.ceil(M / h["block_M"]), split),
+            machine=m,
         )
         r = sm.run()
         us = r["cycles"] / F
@@ -269,7 +288,7 @@ def simulate_kernel(
         wv = (
             sp["waves"][w] if w < len(sp["waves"]) else {"A": 0.0, "B": 0.0, "cols": 1, "blocks": n}
         )
-        rb, secs = wave_dram(h, shape, wv, warm)
+        rb, secs = wave_dram(h, shape, wv, warm, m)
         traffic += rb
         miss = min(1.0, rb / copy_bytes) if copy_bytes else 0.0
         sm = SM(
@@ -280,9 +299,10 @@ def simulate_kernel(
             active_sms=eq,
             copy_lines=copy_lines(h),
             miss_frac=miss,
-            dram_clk_per_512B=dram_clk(rb, secs, eq),
+            dram_clk_per_512B=dram_clk(rb, secs, eq, m),
             ctile_bytes=min(h["block_M"], M) * min(h["block_N"], N) * 2,
             ldsm_ways=ldsm_ways(h),
+            machine=m,
         )
         r = sm.run()
         us = r["cycles"] / F

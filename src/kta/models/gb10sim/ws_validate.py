@@ -15,7 +15,8 @@ import time
 from pathlib import Path
 
 from .kernel import dram_clk, wave_dram
-from .model import SMS, C, dram_split_kslice
+from .machine import Machine, default_machine
+from .model import C, dram_split_kslice
 from .sass import main_loop
 from .sm import kernel_sass
 from .ws import WSSM
@@ -35,7 +36,10 @@ def ws_sim(
     sass_path=None,
     nblocks: int = 1,
     grid: int | None = None,
+    machine: Machine | None = None,
+    sm_hook=None,
 ) -> dict:
+    m = machine or default_machine()
     ins = kernel_sass(sass_path or cal / "sass" / f"tma_{name}__{variant}.sass")
     kt = math.ceil(shape["K"] / h["block_K"])
     lp = main_loop(ins)
@@ -72,30 +76,45 @@ def ws_sim(
         kt=kt,
         active_sms=blocks_eq,
         miss_frac=miss,
-        dram_clk_per_512B=dclk if dclk is not None else dram_clk(0.0, 0.0, blocks_eq),
+        dram_clk_per_512B=dclk if dclk is not None else dram_clk(0.0, 0.0, blocks_eq, m),
         ctile_bytes=min(h["block_M"], shape["M"]) * min(h["block_N"], shape["N"]) * 2,
         resident=1,
         grid_blocks=grid,
+        machine=m,
     )
     t = time.time()
     r = sm.run(limit=3_000_000 * nblocks)
-    r["us"] = r["cycles"] / F
+    r["us"] = r["cycles"] / (m.param(m.desc["clock"]["kernel_GHz"]) * 1e3)
+    if sm_hook is not None:
+        sm_hook(sm)
     r["wall_s"] = round(time.time() - t, 1)
     r["warps_done"] = sum(w.done for w in sm.warps)
     r["warps"] = len(sm.warps)
     return r
 
 
-def kernel_us(cal: Path, name, h, shape, variant="full", warm=True, sass_path=None):
+def kernel_us(
+    cal: Path,
+    name,
+    h,
+    shape,
+    variant="full",
+    warm=True,
+    sass_path=None,
+    machine: Machine | None = None,
+    sm_hook=None,
+):
+    m = machine or default_machine()
+    C, SMS = m.C, m.sms
     tiles = math.ceil(shape["M"] / h["block_M"]) * math.ceil(shape["N"] / h["block_N"])
     kt = math.ceil(shape["K"] / h["block_K"])
-    sp = dram_split_kslice(h, shape, SMS)
+    sp = dram_split_kslice(h, shape, SMS, cap=C["l2_effective_bytes"])
     from .kernel import FLOW
 
     if FLOW:
         rb = secs = 0.0
         for wv in sp["waves"]:
-            r_, s_ = wave_dram(h, shape, wv, warm)
+            r_, s_ = wave_dram(h, shape, wv, warm, m)
             rb += r_
             secs += s_
         # TMA moves only rows and columns inside the matrix (out-of-range rows of a box are
@@ -118,10 +137,12 @@ def kernel_us(cal: Path, name, h, shape, variant="full", warm=True, sass_path=No
                 shape,
                 eq,
                 min(1.0, rb / cb) if cb else 0.0,
-                dram_clk(rb, secs, eq),
+                dram_clk(rb, secs, eq, m),
                 sass_path,
                 nblocks=math.ceil(tiles / SMS),
                 grid=tiles,
+                machine=m,
+                sm_hook=sm_hook,
             )["us"]
         )
     left, t, w = tiles, C["launch_stream_us"], 0

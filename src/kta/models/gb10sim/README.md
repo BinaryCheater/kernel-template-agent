@@ -35,3 +35,9 @@ Behaviour-preserving only; the replay on slai checks it (`scripts/gb10sim-replay
 ## Next steps (WP26)
 
 L3 runs this engine on a compiled candidate's SASS; L2 and L1 read the same engine and parameters.
+
+## Performance-model step (PERFMODEL; docs/design/27, 28, 29)
+
+- `machine.yaml` is the machine description (27 §2.2): hierarchy, resources and their scope, the opcode → operation-class table; `machine.py` loads it with `gb10.json` into a `Machine`, which every entry point takes as an optional `machine` argument (D743). `Machine.with_overrides` makes what-if copies.
+- `probes.py` replays upstream microbenchmarks from their own SASS (D745).
+- The error table: `scripts/perfmodel-table` → `docs/design/perfmodel/error-table.{json,md}` (D744).

@@ -166,7 +166,11 @@ def dram_waves_kslice(
 
 
 def dram_split_kslice(
-    h: dict, shape: dict, resident_blocks: int = SMS, policy: str = "protect"
+    h: dict,
+    shape: dict,
+    resident_blocks: int = SMS,
+    policy: str = "protect",
+    cap: float | None = None,
 ) -> dict:
     """DRAM traffic at k-slice granularity: the blocks of a wave (launch order) walk k in lockstep;
     at each k-step each
@@ -181,7 +185,8 @@ def dram_split_kslice(
     M, N, K = shape["M"], shape["N"], shape["K"]
     bm, bn, bk = h["block_M"], h["block_N"], h["block_K"]
     panel = int(h.get("swizzle", 0) or 0)
-    key = (M, N, K, bm, bn, bk, panel, resident_blocks, policy)
+    cap = C["l2_effective_bytes"] if cap is None else cap  # rows past M are never read
+    key = (M, N, K, bm, bn, bk, panel, resident_blocks, policy, cap)
     if key in _kslice_cache:
         return _kslice_cache[key]
     # per wave: A and B read misses, and the rows and columns of tiles in flight (neighbouring
@@ -189,7 +194,6 @@ def dram_split_kslice(
     # long run)
     tiles_m, tiles_n, KT = math.ceil(M / bm), math.ceil(N / bn), math.ceil(K / bk)
     a_sz, b_sz = min(bm, M) * bk * 2, bk * min(bn, N) * 2
-    cap = C["l2_effective_bytes"]  # rows past M are never read
     # the L2 protects reused data from single-use data (probe l2policy.cu: a re-read 4-8 MB set
     # survives a 64 MB stream): two LRU lists, slices seen once (probation) and slices hit at least
     # once (protected); a hit promotes; eviction takes the oldest probation slice first, then the
