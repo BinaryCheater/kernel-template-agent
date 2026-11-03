@@ -1,0 +1,10 @@
+{
+ "engine": "340e099f2336438e2a5f3404269f5a161aeee65b48f986b4d4b1dbb26d32069c",
+ "kta_commit": "964bd1352c45459210d80215da13b1e199cc4579",
+ "date": "2026-11-03T19:49:32Z",
+ "clock_GHz": "description kernel clock (no batch clock before the run)",
+ "predicted": {
+  "rmsnorm_m512_n4096_rotating kernel": 20.9645,
+  "rmsnorm_m512_n4096_warm kernel": 5.2296
+ }
+}
