@@ -1,0 +1,240 @@
+{
+ "batch": "r6b",
+ "commit": "a82b75bc75d9d5409bcb7cb5dde9ce37058f8eb6",
+ "build_commit": "358ae5db230a932c038b2f609fcedd099d9b259c",
+ "entry": "entry.md",
+ "prediction": "predicted.json",
+ "clock_GHz": 2.4930000000000003,
+ "checks": {
+  "clock chain_GHz": {
+   "before": 2.4933,
+   "after": 2.4927,
+   "drift": -0.00024064492840814022,
+   "ok": true
+  },
+  "canary fma_us": {
+   "before": 489.472,
+   "after": 489.408,
+   "drift": -0.0001307531380752014,
+   "ok": true
+  },
+  "canary mem_us": {
+   "before": 2453.7599,
+   "after": 2451.808,
+   "drift": -0.0007954731023194217,
+   "ok": true
+  }
+ },
+ "failed_steps": [],
+ "valid": true,
+ "cache_state": {
+  "mma_pipe v13_0_a1_b1_w1": "warm",
+  "mma_pipe v13_0_a1_b1_w8": "warm",
+  "mma_pipe v13_0_a2_b1_w1": "warm",
+  "mma_pipe v13_0_a2_b1_w8": "warm",
+  "mma_pipe v13_0_a4_b1_w1": "warm",
+  "mma_pipe v13_0_a4_b1_w8": "warm",
+  "mma_pipe v13_0_a8_b1_w1": "warm",
+  "mma_pipe v13_0_a8_b1_w8": "warm",
+  "mma_pipe v13_0_a1_b2_w1": "warm",
+  "mma_pipe v13_0_a1_b2_w8": "warm",
+  "mma_pipe v13_0_a1_b4_w1": "warm",
+  "mma_pipe v13_0_a1_b4_w8": "warm",
+  "mma_pipe v13_0_a1_b8_w1": "warm",
+  "mma_pipe v13_0_a1_b8_w8": "warm",
+  "mma_pipe v13_0_a2_b2_w1": "warm",
+  "mma_pipe v13_0_a2_b2_w8": "warm",
+  "mma_pipe v13_0_a4_b4_w1": "warm",
+  "mma_pipe v13_0_a4_b4_w8": "warm",
+  "mma_pipe v13_0_a8_b8_w1": "warm",
+  "mma_pipe v13_0_a8_b8_w8": "warm",
+  "mma_pipe v13_2_a1_b1_w1": "warm",
+  "mma_pipe v13_2_a1_b1_w8": "warm",
+  "mma_pipe v13_2_a2_b1_w1": "warm",
+  "mma_pipe v13_2_a2_b1_w8": "warm",
+  "mma_pipe v13_2_a4_b1_w1": "warm",
+  "mma_pipe v13_2_a4_b1_w8": "warm",
+  "mma_pipe v13_2_a8_b1_w1": "warm",
+  "mma_pipe v13_2_a8_b1_w8": "warm",
+  "mma_pipe v13_2_a1_b2_w1": "warm",
+  "mma_pipe v13_2_a1_b2_w8": "warm",
+  "mma_pipe v13_2_a1_b4_w1": "warm",
+  "mma_pipe v13_2_a1_b4_w8": "warm",
+  "mma_pipe v13_2_a1_b8_w1": "warm",
+  "mma_pipe v13_2_a1_b8_w8": "warm",
+  "mma_pipe v13_2_a2_b2_w1": "warm",
+  "mma_pipe v13_2_a2_b2_w8": "warm",
+  "mma_pipe v13_2_a4_b4_w1": "warm",
+  "mma_pipe v13_2_a4_b4_w8": "warm",
+  "mma_pipe v13_2_a8_b8_w1": "warm",
+  "mma_pipe v13_2_a8_b8_w8": "warm",
+  "clock chain_GHz": "warm"
+ },
+ "environment": {
+  "1-env-before-apps": "",
+  "1-env-after-apps": "",
+  "1-env-after-uptime": " 23:00:33 up 88 days, 12:20,  2 users,  load average: 0.68, 0.24, 0.08\n",
+  "1-env-before-uptime": " 23:00:29 up 88 days, 12:19,  2 users,  load average: 0.65, 0.23, 0.08\n",
+  "1-env-versions": "NVIDIA-SMI version  : 580.95.05\nNVML version        : 580.95\nDRIVER version      : 580.95.05\nCUDA Version        : 13.0\nCuda compilation tools, release 13.0, V13.0.88\nBuild cuda_13.0.r13.0/compiler.36424714_0\n"
+ },
+ "smi_before": "\n==============NVSMI LOG==============\n\nTimestamp                                 : Tue Nov  3 23:00:29 2026\nDriver Version                            : 580.95.05\nCUDA Version                              : 13.0\n\nAttached GPUs                             : 1\nGPU 0000000F:01:00.0\n    Performance State                     : P8\n    Clocks Event Reasons\n        Idle                              : Not Active\n        Applications Clocks Setting       : Not Active\n        SW Power Cap                      : Not Active\n        HW Slowdown                       : Not Active\n            HW Thermal Slowdown           : Not Active\n            HW Power Brake Slowdown       : Not Active\n        Sync Boost                        : Not Active\n        SW Thermal Slowdown               : Not Active\n        Display Clock Setting             : Not Active\n    Clocks Event Reasons Counters\n        SW Power Capping                  : 522431387628 us\n        Sync Boost                        : 0 us\n        SW Thermal Slowdown               : 39163253 us\n        HW Thermal Slowdown               : 1474702 us\n        HW Power Braking                  : 0 us\n    Sparse Operation Mode                 : N/A\n    Temperature\n        GPU Current Temp                  : 41 C\n        GPU T.Limit Temp                  : 55 C\n        GPU Shutdown T.Limit Temp         : -5 C\n        GPU Slowdown T.Limit Temp         : -2 C\n        GPU Max Operating T.Limit Temp    : 0 C\n        GPU Target Temperature            : N/A\n        Memory Current Temp               : N/A\n        Memory Max Operating T.Limit Temp : N/A\n    GPU Power Readings\n        Average Power Draw                : 6.10 W\n        Instantaneous Power Draw          : 6.10 W\n        Current Power Limit               : N/A\n        Requested Power Limit             : N/A\n        Default Power Limit               : N/A\n        Min Power Limit                   : N/A\n        Max Power Limit                   : N/A\n    Power Samples\n        Duration                          : Not Found\n        Number of Samples                 : Not Found\n        Max                               : Not Found\n        Min                               : Not Found\n        Avg                               : Not Found\n    GPU Memory Power Readings \n        Average Power Draw                : N/A\n        Instantaneous Power Draw          : N/A\n    Module Power Readings\n        Average Power Draw                : N/A\n        Instantaneous Power Draw          : N/A\n        Current Power Limit               : N/A\n        Requested Power Limit             : N/A\n        Default Power Limit               : N/A\n        Min Power Limit                   : N/A\n        Max Power Limit                   : N/A\n    Clocks\n        Graphics                          : 208 MHz\n        SM                                : 208 MHz\n        Memory                            : N/A\n        Video                             : 598 MHz\n    Applications Clocks\n        Graphics                          : 2418 MHz\n        Memory                            : N/A\n    Default Applications Clocks\n        Graphics                          : 2418 MHz\n        Memory                            : N/A\n    Deferred Clocks\n        Memory                            : N/A\n    Max Clocks\n        Graphics                          : 3003 MHz\n        SM                                : 3003 MHz\n        Memory                            : N/A\n        Video                             : 3003 MHz\n    Max Customer Boost Clocks\n        Graphics                          : N/A\n    SM Clock Samples\n        Duration                          : N/A\n        Number of Samples                 : N/A\n        Max                               : N/A\n        Min                               : N/A\n        Avg                               : N/A\n    Memory Clock Samples\n        Duration                          : N/A\n        Number of Samples                 : N/A\n        Max                               : N/A\n        Min                               : N/A\n        Avg                               : N/A\n    Clock Policy\n        Auto Boost                        : N/A\n        Auto Boost Default                : N/A\n\n",
+ "smi_after": "\n==============NVSMI LOG==============\n\nTimestamp                                 : Tue Nov  3 23:00:33 2026\nDriver Version                            : 580.95.05\nCUDA Version                              : 13.0\n\nAttached GPUs                             : 1\nGPU 0000000F:01:00.0\n    Performance State                     : P0\n    Clocks Event Reasons\n        Idle                              : Not Active\n        Applications Clocks Setting       : Not Active\n        SW Power Cap                      : Not Active\n        HW Slowdown                       : Not Active\n            HW Thermal Slowdown           : Not Active\n            HW Power Brake Slowdown       : Not Active\n        Sync Boost                        : Not Active\n        SW Thermal Slowdown               : Not Active\n        Display Clock Setting             : Not Active\n    Clocks Event Reasons Counters\n        SW Power Capping                  : 522432203056 us\n        Sync Boost                        : 0 us\n        SW Thermal Slowdown               : 39163253 us\n        HW Thermal Slowdown               : 1474702 us\n        HW Power Braking                  : 0 us\n    Sparse Operation Mode                 : N/A\n    Temperature\n        GPU Current Temp                  : 42 C\n        GPU T.Limit Temp                  : 54 C\n        GPU Shutdown T.Limit Temp         : -5 C\n        GPU Slowdown T.Limit Temp         : -2 C\n        GPU Max Operating T.Limit Temp    : 0 C\n        GPU Target Temperature            : N/A\n        Memory Current Temp               : N/A\n        Memory Max Operating T.Limit Temp : N/A\n    GPU Power Readings\n        Average Power Draw                : 17.75 W\n        Instantaneous Power Draw          : 16.80 W\n        Current Power Limit               : N/A\n        Requested Power Limit             : N/A\n        Default Power Limit               : N/A\n        Min Power Limit                   : N/A\n        Max Power Limit                   : N/A\n    Power Samples\n        Duration                          : Not Found\n        Number of Samples                 : Not Found\n        Max                               : Not Found\n        Min                               : Not Found\n        Avg                               : Not Found\n    GPU Memory Power Readings \n        Average Power Draw                : N/A\n        Instantaneous Power Draw          : N/A\n    Module Power Readings\n        Average Power Draw                : N/A\n        Instantaneous Power Draw          : N/A\n        Current Power Limit               : N/A\n        Requested Power Limit             : N/A\n        Default Power Limit               : N/A\n        Min Power Limit                   : N/A\n        Max Power Limit                   : N/A\n    Clocks\n        Graphics                          : 2496 MHz\n        SM                                : 2496 MHz\n        Memory                            : N/A\n        Video                             : 2203 MHz\n    Applications Clocks\n        Graphics                          : 2418 MHz\n        Memory                            : N/A\n    Default Applications Clocks\n        Graphics                          : 2418 MHz\n        Memory                            : N/A\n    Deferred Clocks\n        Memory                            : N/A\n    Max Clocks\n        Graphics                          : 3003 MHz\n        SM                                : 3003 MHz\n        Memory                            : N/A\n        Video                             : 3003 MHz\n    Max Customer Boost Clocks\n        Graphics                          : N/A\n    SM Clock Samples\n        Duration                          : N/A\n        Number of Samples                 : N/A\n        Max                               : N/A\n        Min                               : N/A\n        Avg                               : N/A\n    Memory Clock Samples\n        Duration                          : N/A\n        Number of Samples                 : N/A\n        Max                               : N/A\n        Min                               : N/A\n        Avg                               : N/A\n    Clock Policy\n        Auto Boost                        : N/A\n        Auto Boost Default                : N/A\n\n",
+ "steps": [
+  {
+   "step": "1-env-before-smi",
+   "cmd": [
+    "nvidia-smi",
+    "-q",
+    "-d",
+    "CLOCK,TEMPERATURE,POWER,PERFORMANCE"
+   ],
+   "rc": 0,
+   "t0": 1793746829.1968164,
+   "s": 0.1
+  },
+  {
+   "step": "1-env-before-apps",
+   "cmd": [
+    "nvidia-smi",
+    "--query-compute-apps=pid,process_name",
+    "--format=csv,noheader"
+   ],
+   "rc": 0,
+   "t0": 1793746829.2898095,
+   "s": 0.0
+  },
+  {
+   "step": "1-env-before-uptime",
+   "cmd": [
+    "uptime"
+   ],
+   "rc": 0,
+   "t0": 1793746829.3127232,
+   "s": 0.0
+  },
+  {
+   "step": "1-env-versions",
+   "cmd": [
+    "sh",
+    "-c",
+    "nvidia-smi --version; nvcc --version | tail -2"
+   ],
+   "rc": 0,
+   "t0": 1793746829.3139918,
+   "s": 0.0
+  },
+  {
+   "step": "2-protocol-clock",
+   "cmd": [
+    "/home/memx/kta-work/data/perfmodel/batches/r6b/build/protocol/bin",
+    "clock"
+   ],
+   "rc": 0,
+   "t0": 1793746829.336933,
+   "s": 0.7
+  },
+  {
+   "step": "2-protocol-fma",
+   "cmd": [
+    "/home/memx/kta-work/data/perfmodel/batches/r6b/build/protocol/bin",
+    "fma"
+   ],
+   "rc": 0,
+   "t0": 1793746830.0221026,
+   "s": 0.4
+  },
+  {
+   "step": "2-protocol-mem",
+   "cmd": [
+    "/home/memx/kta-work/data/perfmodel/batches/r6b/build/protocol/bin",
+    "mem"
+   ],
+   "rc": 0,
+   "t0": 1793746830.4447417,
+   "s": 0.5
+  },
+  {
+   "step": "4-probe-mma_pipe",
+   "cmd": [
+    "/home/memx/kta-work/data/perfmodel/batches/r6b/build/probe-mma_pipe/bin"
+   ],
+   "rc": 0,
+   "t0": 1793746830.9214501,
+   "s": 0.5
+  },
+  {
+   "step": "4-probe-mma_pipe_i",
+   "cmd": [
+    "/home/memx/kta-work/data/perfmodel/batches/r6b/build/probe-mma_pipe_i/bin"
+   ],
+   "rc": 0,
+   "t0": 1793746831.4652963,
+   "s": 0.6
+  },
+  {
+   "step": "6-protocol-clock",
+   "cmd": [
+    "/home/memx/kta-work/data/perfmodel/batches/r6b/build/protocol/bin",
+    "clock"
+   ],
+   "rc": 0,
+   "t0": 1793746832.0326915,
+   "s": 0.6
+  },
+  {
+   "step": "6-protocol-fma",
+   "cmd": [
+    "/home/memx/kta-work/data/perfmodel/batches/r6b/build/protocol/bin",
+    "fma"
+   ],
+   "rc": 0,
+   "t0": 1793746832.6575294,
+   "s": 0.4
+  },
+  {
+   "step": "6-protocol-mem",
+   "cmd": [
+    "/home/memx/kta-work/data/perfmodel/batches/r6b/build/protocol/bin",
+    "mem"
+   ],
+   "rc": 0,
+   "t0": 1793746833.0724645,
+   "s": 0.5
+  },
+  {
+   "step": "1-env-after-smi",
+   "cmd": [
+    "nvidia-smi",
+    "-q",
+    "-d",
+    "CLOCK,TEMPERATURE,POWER,PERFORMANCE"
+   ],
+   "rc": 0,
+   "t0": 1793746833.545917,
+   "s": 0.1
+  },
+  {
+   "step": "1-env-after-apps",
+   "cmd": [
+    "nvidia-smi",
+    "--query-compute-apps=pid,process_name",
+    "--format=csv,noheader"
+   ],
+   "rc": 0,
+   "t0": 1793746833.6083605,
+   "s": 0.0
+  },
+  {
+   "step": "1-env-after-uptime",
+   "cmd": [
+    "uptime"
+   ],
+   "rc": 0,
+   "t0": 1793746833.6271582,
+   "s": 0.0
+  }
+ ],
+ "not_owned_by_user": "",
+ "raw": "data/perfmodel/batches/r6b",
+ "invalid_cases": {}
+}

@@ -53,3 +53,31 @@ Written before the timed run (write-probe). The engine's replay of every case's 
 ## Sequence
 
 `decode_seq_s4096_{warm,rotating}`, kernel / b2b / graph. Prediction: spans of the two kernels from their own SASS, combine's loads of `glse` and `Opart` hit (the partial kernel just wrote them), gaps by mode.
+
+## After the run (round 6, step 4–5)
+
+r6 valid: clock 2.494 → 2.476 GHz (drift −0.7 %), canaries +0.5 / +0.4 %. The branch points carried a unit with spaces, which the import did not parse; raw kept, the unit corrected in the raw file and the probe, re-imported.
+
+**Blind** (no engine change before this score; `kernel` rows, 18): median 9.4 %, worst −30.1 %, all but 3 fast. HGEMM warm 1024³ 5.4 / −5.7 %, 4096×1024×2048 8.8 / −10.0 %; rotating 12.6 / −13.1 %, 7.9 / −15.9 %; Spearman 1.00, 0 inversions in each group of three. FA −15.1 %, RMSNorm warm −30.1 %, rotating +4.8 %, softmax −18.8 %, decode sequence warm −6.5 %, rotating +14.9 %. So the −1 to −13 % on the tuned rows understated it.
+
+**branch**: H-floor survives: loop4/8 +6.0 at BRA stall 5, loop16–256 +5.0 at stall 6, mma loop at stall 15 +0; w4 as w1; w32 loses nothing to the other warps (H-smsp rejected). H-add rejected (the stall-15 loop). Only in arithmetic loops: `smem_ldsts` STS and `namedbar` show none. Fetch: H-fetch: 1.125 cycles per instruction on straight lines of 256 and 1024, 1.18 at 4096; loops of 256 free, 512 +79 per pass; two warps per sub-partition no loss. Warp 0's clock window is not the block's at w8/w32, points excluded; 32-warp rates above the issue limit stay question 9.
+
+**mma_issue**: per pass = replay + (N − 2) (n2 45.0, n3 62.0, n4 79.0, n8 147.1 cycles), so neither H-pass nor H-hold alone. Beside: H-B34: FFMA 0.9, LOP3 0.3 cycles per instruction, LDS and ldmatrix none, the same from another warp.
+
+**lds_narrow**: H-span: U8, U16, 32 alike; 2 / 4 / 16 cycles at 32 warps at lanes 4 / 16 / 64 B apart; latency + (extent − bytes) / 64; STS slot max(5, 2 per line).
+
+**launch_short**: H-max rejected, H-step with a second level: b2b 1.84–2.14 µs to span 0.51, 2.96 at 0.58, 3.53 at 0.64, 4.06–4.11 at 0.86–1.92, then span + gap. Graph additive throughout. One launch 2.43–2.62 to 0.74, 4.5–4.7 from 1.0, bimodal between.
+
+**Ablation**, one change off, test rows (`kernel`), final engine:
+
+| Off | Moves |
+| --- | --- |
+| branch redirect | launch work rows back to −20 %; mma_pair s16384 +2.5 → +15.9 %; test rows ≤ 0.3 points |
+| instruction buffer | FP8 median 5.7 from 4.5, FA 0.5, GEMV 0.5, HGEMM warm median 1.2 from 2.2 (the rule moves it the wrong way by 1 point): kept, probe-backed |
+| FFMA / ALU beside | FA −11.3 worst from −3.7, HGEMM 4096 rows −8.2 from −4.2; w4gemm 0.6 better without |
+| copy beside | HGEMM warm worst −11.6 from −5.3, rotating −10.0 from −7.6 |
+| operand sets | HGEMM warm median 3.8, worst −10.9; 4096 rows −12.2; FP8 6.2; mma_pair +1.8 from +2.8; `noload` rows better without |
+| extent | no test row |
+| read share | RMSNorm warm −23 from −17.5 mean, softmax −17.5 from −13.8; st256 ld_st_g512 −1.7 from +13.4 |
+
+Ranking: HGEMM Spearman 0.77, inversions 4 before and after; rotating 0.93, 2 before and after. Every change was checked on them: none moves them.

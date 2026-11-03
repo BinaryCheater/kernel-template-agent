@@ -11,3 +11,7 @@ Written before the timed run; `predicted.json` is the engine at this commit. Two
    - H-operands: the pipe's rate grows with the operand sets the stream cycles through: w8 above 16.
    - H-compiler: the 17 belongs to the NOP spacing of the host compiler: image build at 16 + loop share.
 4. Engine prediction: `predicted.json` (per-warp 17, pipe 16). Smoke run seen before this block (nothing recorded): w8 16.0 at one set, 16.86 at a8_b1, 18.85 at a8_b8; image build w1 16.84 at one set, host 17.72.
+
+## After the run
+
+r6b valid: clock drift −0.02 %, canaries within 0.1 %. H-compiler for the 17: image build one warp 16.84 at one set (spacing 12, the replay's 16.83), host 17.72; two warps per sub-partition 16.015 in both. H-warp rejected: the per-warp rule tried from r6 predicts the image build 0.86 too slow, and mma_pair b1 +6.7 %. H-operands survives with a replay of the extra moves included: w8 above replay 0.06 / 0.09–0.31 / 0.41 at 2 / 4 / 8 sets of A, 0.03 at 8 of B; 0.6 at 4×4, 2.4 at 8×8. D783. Two experiments on the question: frozen `unidentified`.

@@ -44,6 +44,7 @@ resources:
     busy: fill
     doc: per-SM L2 return port; its rate is the larger of the port and this SM's share of the chip L2
     chip_share: {own_clk_per_512B: sim.l2_return_clk_per_512B, chip_B_per_clk: sim.l2_aggregate_B_per_clk_cpasync}
+  l2_chip: {scope: sm, kind: port, doc: this SM's share of the chip's L2 path; stores at the chip's limit wait for sim.l2_chip_read_share of the reads' time}
   dram_queue: {scope: sm, kind: queue, busy: dram, doc: this SM's share of the chip DRAM rate (per wave)}
   store_port:
     scope: tpc
@@ -67,8 +68,7 @@ sms_per_tpc: 2
 # otherwise).  handler: the engine's service rule for the class (sm.py SM.issue).
 classes:
   - {name: mma, base: [HMMA, IMMA, QMMA, OMMA], gates: [tensor], handler: pipe,
-     hold: {tensor: sim.hmma_16816_pipe_clk}, warp_rate: sim.mma_warp_clk,
-     credit: sim.mma_issue_credit_clk, count: HMMA}
+     hold: {tensor: sim.hmma_16816_pipe_clk}, count: HMMA}
   - {name: smem_op, base: [LDS, STS, SHFL], gates: [mio], handler: smem_op, rbar: lsu, count: SMEMOP}
   - {name: ldsm, base: [LDSM], gates: [mio], handler: ldsm, rbar: sim.rbar_release_clk, count: LDSM}
   - {name: stsm, base: [STSM], gates: [mio], handler: stsm, rbar: lsu, count: STSM}

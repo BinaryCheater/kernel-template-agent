@@ -660,7 +660,9 @@ def mma_pipe_cases(b: Batch) -> list[Case]:
             for w in (1, 8):
                 name = f"mma_pipe {tag}_a{sa}_b{sb}_w{w}"
                 out.append(
-                    _warps_case(b, name, "mma_pipe", ins, w, 256 * 16 * max(1, w // 4), "cycles/mma")
+                    _warps_case(
+                        b, name, "mma_pipe", ins, w, 256 * 16 * max(1, w // 4), "cycles/mma"
+                    )
                 )
     return out
 

@@ -70,9 +70,6 @@ class Warp:
     k_prod: int = -1
     n_full: int = 0
     n_empty_arrive: int = 0
-    # KTA (PERFMODEL round 6): the warp's own rate into a pipe (OpClass.warp_rate)
-    pipe_done: float = 0.0
-    pipe_next: float = 0.0
     # KTA (PERFMODEL) trace: the reason the current instruction was last found blocked; per
     # dependency counter its releases (time, producer issue time, path stages); barrier releases
     why: Any = None
@@ -172,7 +169,31 @@ class SM:
         # the time each instance is free again; per SM resources: one time each (machine.yaml)
         self.free: dict[str, list[float]] = {r: [0] * n for r in m.resources("smsp")}
         self.t: dict[str, float] = {r: 0 for r in m.resources("sm") + m.resources("tpc")}
-        self.served: dict[str, list[float]] = {}
+        # round 6 (probe mma_pipe): the tensor pipe's stream slows with the operand sets it cycles
+        # through: the main loop's A register groups (the kernel's, without a loop)
+        self.mma_extra = 0.0
+        lp0 = main_loop(ins)
+        mm = [
+            x.args.split(",")
+            for x in (ins[lp0[0] : lp0[1] + 1] if lp0 else ins)
+            if x.base in ("HMMA", "IMMA", "QMMA", "OMMA")
+        ]
+        if not mm:
+            mm = [x.args.split(",") for x in ins if x.base in ("HMMA", "IMMA", "QMMA", "OMMA")]
+        sa = len({a[1].strip() for a in mm})
+        if sa > 1:
+            self.mma_extra = P["mma_operand_clk_per_set"] * sa
+        # round 6 (probes branch, launch, smem_ldsts, namedbar): a branch costs its redirect only in
+        # code that issues at the full rate: FFMA loops pay it, a warp's fetch has run ahead in
+        # loops of memory instructions or barriers. Over the loop body, or the 8 instructions before
+        # a forward branch
+        self.redirect = [False] * len(ins)
+        at = {y.addr: i for i, y in enumerate(ins)}
+        for i, y in enumerate(ins):
+            if y.base == "BRA":
+                t0 = at.get(y.target, i + 1) if y.target is not None else i + 1
+                body = range(t0, i) if t0 <= i else range(max(0, i - 8), i)
+                self.redirect[i] = all(self.icls[j].handler in ("pipe", "other") for j in body)
         # round 6 (probe branch): instruction lines a sub-partition holds, in LRU order
         self.l0: list[OrderedDict] = [OrderedDict() for _ in range(n)]
         self.busy_key = {r: d.get("busy", r) for r, d in m.desc["resources"].items()}
@@ -294,6 +315,13 @@ class SM:
         self.count["ldg_miss_sectors"] += n_sect * miss
         return lines, n_sect * 32 * miss, hits
 
+    def _chip_bound(self) -> bool:
+        """Round 6 (probes row_reduce, st256): this SM's reads run at its share of the chip's L2;
+        stores at the chip's limit wait for `l2_chip_read_share` of the reads' time."""
+        return self.P["l2_chip_read_share"] > 0 and (
+            self.ret_clk > self.P["l2_return_clk_per_512B"]
+        )
+
     def _l2_miss(self, pc: int) -> bool:
         """This load misses the L2: misses spread evenly over the load's executions."""
         if self.miss_by_pc is None:
@@ -345,8 +373,6 @@ class SM:
             if m and w.sb[int(m.group(1))] > int(m.group(2), 16):
                 return ("sb", int(m.group(1)))
         cls = self.icls[w.pc]
-        if cls.warp_rate and w.pipe_next > now:
-            return ("res", cls.gates[0], cls.name)
         for g in cls.gates:
             if g == "store_queue":
                 if sum(1 for q in self.stq if q > now) >= self.P["st_queue_instr"]:
@@ -623,8 +649,6 @@ class SM:
             if m and w.sb[int(m.group(1))] > int(m.group(2), 16):
                 return False
         cls = self.icls[w.pc]
-        if cls.warp_rate and w.pipe_next > now:
-            return False
         for g in cls.gates:
             if g == "store_queue":
                 while self.stq and self.stq[0] <= now:
@@ -652,17 +676,12 @@ class SM:
             c = self.m.param(ref)
             if res == "either":
                 res = min(cls.either, key=lambda r: self.free[r][s])
+            if cls.name == "mma":
+                c += self.mma_extra
             self.free[res][s] = now + c
             k = self.busy_key[res]
             self.busy[k] = self.busy.get(k, 0) + c
         self._beside(cls, s, now)
-        if cls.warp_rate:
-            # round 6 (probes mma_issue, mma_pair): one warp feeds the pipe one instruction per
-            # `warp_rate` (other warps may take the pipe at its hold), but takes the next `credit`
-            # cycles early, once: a warp's stream at the compiler's spacing loses a cycle per
-            # instruction after the second
-            w.pipe_done = max(now, w.pipe_done) + self.m.param(cls.warp_rate)
-            w.pipe_next = w.pipe_done - self.m.param(cls.credit)
 
     def issue(self, w: Warp, now: float):
         x = self.ins[w.pc]
@@ -758,7 +777,7 @@ class SM:
                 # line per cycle, whatever the element size; a store's slot 2 cycles per line
                 nb = 0 if x.base == "SHFL" else _smem_bytes(x.op)
                 span = nb
-                if addr0 is not None and nb:
+                if addr0 is not None and nb and P["smem_by_extent"]:
                     span = len(footprint(addr0, width_of(x.op))[0]) * 128
                 slot = P["mio_smem_op_clk"]
                 if x.base == "STS":
@@ -847,6 +866,8 @@ class SM:
                     lat = ((lsu_done, arrive, "l2", "L2 latency", "sim.ldgsts_l2_latency_clk"),)
                 ret = max(arrive, t["l2_return"])
                 t["l2_return"] = ret + self.ret_clk
+                if self._chip_bound():
+                    t["l2_chip"] = max(t["l2_chip"], now) + P["l2_chip_read_share"] * self.ret_clk
                 self.busy["fill"] += self.ret_clk
                 w.pending[w.gid] = w.pending.get(w.gid, 0) + 1
                 if tr:
@@ -901,6 +922,11 @@ class SM:
                         arrive = lsu_done + P["ldg_l2_latency_clk"]
                     ret = max(arrive, t["l2_return"])
                     t["l2_return"] = ret + self.ret_clk * nbytes / 512
+                    if self._chip_bound():
+                        t["l2_chip"] = (
+                            max(t["l2_chip"], now)
+                            + P["l2_chip_read_share"] * self.ret_clk * nbytes / 512
+                        )
                     self.busy["fill"] += self.ret_clk * nbytes / 512
                     if t["l2_return"] >= lat_done:
                         lat_done = t["l2_return"]
@@ -1010,6 +1036,10 @@ class SM:
                 chip = nbytes / (P[f"stg_chip_B_per_clk_{w_}"] / self.active_sms)
                 per = max(pair, chip)
                 start = max(now, t["store_port"])
+                if P["l2_chip_read_share"] > 0 and chip >= pair:
+                    # at the chip's limit reads and stores share one L2 path
+                    start = max(start, t["l2_chip"])
+                    t["l2_chip"] = start + per
                 t["store_port"] = start + per
                 self.busy["stg"] = self.busy.get("stg", 0) + per
                 heapq.heappush(self.stq, t["store_port"])
@@ -1064,7 +1094,7 @@ class SM:
                 if tr:
                     self._rel(w, x.rbar, rel, now, stages)
         w.ready = now + max(1, x.stall)
-        if x.base == "BRA":
+        if x.base == "BRA" and self.redirect[w.pc]:
             # round 6 (probe branch): fetch resumes this long after a branch, whichever way it went
             w.ready = max(w.ready, now + P["branch_redirect_clk"])
         # next pc: the k-loop back edge is taken trips-1 times; other branches fall through unless
@@ -1251,7 +1281,6 @@ class SM:
                     last_yield[w.wid] = yb
             # jump to the next cycle where something can change
             nxt = [w.ready for w in live if not w.done and not w.at_bar and now < w.ready < INF]
-            nxt += [w.pipe_next for w in live if not w.done and now < w.pipe_next]
             for r in self.gate_smsp:
                 nxt += [t for t in self.free[r] if t > now]
             if self.events:

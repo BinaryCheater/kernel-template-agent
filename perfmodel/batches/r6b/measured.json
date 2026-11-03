@@ -1,0 +1,257 @@
+{
+ "batch": "r6b",
+ "valid": true,
+ "clock_GHz": 2.4930000000000003,
+ "results": {
+  "mma_pipe v13_0_a1_b1_w1": {
+   "median": 17.7156,
+   "iqr": 0.0859,
+   "unit": "cycles/mma/subpartition",
+   "n": 15
+  },
+  "mma_pipe v13_0_a1_b1_w8": {
+   "median": 16.0151,
+   "iqr": 0.0,
+   "unit": "cycles/mma/subpartition",
+   "n": 15
+  },
+  "mma_pipe v13_0_a2_b1_w1": {
+   "median": 17.9656,
+   "iqr": 0.092,
+   "unit": "cycles/mma/subpartition",
+   "n": 15
+  },
+  "mma_pipe v13_0_a2_b1_w8": {
+   "median": 16.14,
+   "iqr": 0.0,
+   "unit": "cycles/mma/subpartition",
+   "n": 15
+  },
+  "mma_pipe v13_0_a4_b1_w1": {
+   "median": 17.9666,
+   "iqr": 0.0876,
+   "unit": "cycles/mma/subpartition",
+   "n": 15
+  },
+  "mma_pipe v13_0_a4_b1_w8": {
+   "median": 16.578,
+   "iqr": 0.0,
+   "unit": "cycles/mma/subpartition",
+   "n": 15
+  },
+  "mma_pipe v13_0_a8_b1_w1": {
+   "median": 18.4478,
+   "iqr": 0.0,
+   "unit": "cycles/mma/subpartition",
+   "n": 15
+  },
+  "mma_pipe v13_0_a8_b1_w8": {
+   "median": 16.875,
+   "iqr": 0.0,
+   "unit": "cycles/mma/subpartition",
+   "n": 15
+  },
+  "mma_pipe v13_0_a1_b2_w1": {
+   "median": 17.7791,
+   "iqr": 0.0862,
+   "unit": "cycles/mma/subpartition",
+   "n": 15
+  },
+  "mma_pipe v13_0_a1_b2_w8": {
+   "median": 16.0157,
+   "iqr": 0.0,
+   "unit": "cycles/mma/subpartition",
+   "n": 15
+  },
+  "mma_pipe v13_0_a1_b4_w1": {
+   "median": 17.8853,
+   "iqr": 0.0,
+   "unit": "cycles/mma/subpartition",
+   "n": 15
+  },
+  "mma_pipe v13_0_a1_b4_w8": {
+   "median": 16.0635,
+   "iqr": 0.0,
+   "unit": "cycles/mma/subpartition",
+   "n": 15
+  },
+  "mma_pipe v13_0_a1_b8_w1": {
+   "median": 18.1357,
+   "iqr": 0.0,
+   "unit": "cycles/mma/subpartition",
+   "n": 15
+  },
+  "mma_pipe v13_0_a1_b8_w8": {
+   "median": 16.3213,
+   "iqr": 0.0,
+   "unit": "cycles/mma/subpartition",
+   "n": 15
+  },
+  "mma_pipe v13_0_a2_b2_w1": {
+   "median": 18.0291,
+   "iqr": 0.0918,
+   "unit": "cycles/mma/subpartition",
+   "n": 15
+  },
+  "mma_pipe v13_0_a2_b2_w8": {
+   "median": 16.203,
+   "iqr": 0.0,
+   "unit": "cycles/mma/subpartition",
+   "n": 15
+  },
+  "mma_pipe v13_0_a4_b4_w1": {
+   "median": 18.9478,
+   "iqr": 0.0,
+   "unit": "cycles/mma/subpartition",
+   "n": 15
+  },
+  "mma_pipe v13_0_a4_b4_w8": {
+   "median": 16.8185,
+   "iqr": 0.0,
+   "unit": "cycles/mma/subpartition",
+   "n": 15
+  },
+  "mma_pipe v13_0_a8_b8_w1": {
+   "median": 21.2607,
+   "iqr": 0.0,
+   "unit": "cycles/mma/subpartition",
+   "n": 15
+  },
+  "mma_pipe v13_0_a8_b8_w8": {
+   "median": 18.8478,
+   "iqr": 0.0,
+   "unit": "cycles/mma/subpartition",
+   "n": 15
+  },
+  "mma_pipe v13_2_a1_b1_w1": {
+   "median": 16.8418,
+   "iqr": 0.0918,
+   "unit": "cycles/mma/subpartition",
+   "n": 15
+  },
+  "mma_pipe v13_2_a1_b1_w8": {
+   "median": 16.0151,
+   "iqr": 0.0,
+   "unit": "cycles/mma/subpartition",
+   "n": 15
+  },
+  "mma_pipe v13_2_a2_b1_w1": {
+   "median": 17.0918,
+   "iqr": 0.0906,
+   "unit": "cycles/mma/subpartition",
+   "n": 15
+  },
+  "mma_pipe v13_2_a2_b1_w8": {
+   "median": 16.1403,
+   "iqr": 0.0,
+   "unit": "cycles/mma/subpartition",
+   "n": 15
+  },
+  "mma_pipe v13_2_a4_b1_w1": {
+   "median": 17.5305,
+   "iqr": 0.0845,
+   "unit": "cycles/mma/subpartition",
+   "n": 15
+  },
+  "mma_pipe v13_2_a4_b1_w8": {
+   "median": 16.3588,
+   "iqr": 0.0,
+   "unit": "cycles/mma/subpartition",
+   "n": 15
+  },
+  "mma_pipe v13_2_a8_b1_w1": {
+   "median": 17.76,
+   "iqr": 0.0,
+   "unit": "cycles/mma/subpartition",
+   "n": 15
+  },
+  "mma_pipe v13_2_a8_b1_w8": {
+   "median": 16.8578,
+   "iqr": 0.0,
+   "unit": "cycles/mma/subpartition",
+   "n": 15
+  },
+  "mma_pipe v13_2_a1_b2_w1": {
+   "median": 16.9055,
+   "iqr": 0.0874,
+   "unit": "cycles/mma/subpartition",
+   "n": 15
+  },
+  "mma_pipe v13_2_a1_b2_w8": {
+   "median": 16.0159,
+   "iqr": 0.0,
+   "unit": "cycles/mma/subpartition",
+   "n": 15
+  },
+  "mma_pipe v13_2_a1_b4_w1": {
+   "median": 17.0105,
+   "iqr": 0.0,
+   "unit": "cycles/mma/subpartition",
+   "n": 15
+  },
+  "mma_pipe v13_2_a1_b4_w8": {
+   "median": 16.0438,
+   "iqr": 0.0,
+   "unit": "cycles/mma/subpartition",
+   "n": 15
+  },
+  "mma_pipe v13_2_a1_b8_w1": {
+   "median": 17.2607,
+   "iqr": 0.0,
+   "unit": "cycles/mma/subpartition",
+   "n": 15
+  },
+  "mma_pipe v13_2_a1_b8_w8": {
+   "median": 16.2938,
+   "iqr": 0.0,
+   "unit": "cycles/mma/subpartition",
+   "n": 15
+  },
+  "mma_pipe v13_2_a2_b2_w1": {
+   "median": 17.1555,
+   "iqr": 0.0896,
+   "unit": "cycles/mma/subpartition",
+   "n": 15
+  },
+  "mma_pipe v13_2_a2_b2_w8": {
+   "median": 16.2032,
+   "iqr": 0.0,
+   "unit": "cycles/mma/subpartition",
+   "n": 15
+  },
+  "mma_pipe v13_2_a4_b4_w1": {
+   "median": 18.7605,
+   "iqr": 0.0,
+   "unit": "cycles/mma/subpartition",
+   "n": 15
+  },
+  "mma_pipe v13_2_a4_b4_w8": {
+   "median": 16.8206,
+   "iqr": 0.0,
+   "unit": "cycles/mma/subpartition",
+   "n": 15
+  },
+  "mma_pipe v13_2_a8_b8_w1": {
+   "median": 21.1357,
+   "iqr": 0.0,
+   "unit": "cycles/mma/subpartition",
+   "n": 15
+  },
+  "mma_pipe v13_2_a8_b8_w8": {
+   "median": 18.8829,
+   "iqr": 0.0,
+   "unit": "cycles/mma/subpartition",
+   "n": 15
+  },
+  "clock chain_GHz": {
+   "median": 2.4930000000000003,
+   "iqr": 0.0038,
+   "unit": "GHz",
+   "n": 15,
+   "chain_cycles": 19136544.0,
+   "cycles_per_ffma": 4.563
+  }
+ },
+ "invalid_results": {},
+ "counters": {}
+}

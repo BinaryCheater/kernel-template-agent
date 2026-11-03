@@ -10,9 +10,9 @@ from __future__ import annotations
 
 import hashlib
 import json
-import re
 import math
 import os
+import re
 import statistics
 import time
 from collections.abc import Iterator
@@ -532,9 +532,13 @@ def blind_summary(rows: list[dict[str, Any]], batch: str) -> list[dict[str, Any]
         }
         if len(rs) >= 3 and group.startswith("testset"):
             first = [{**r, "predicted": r["blind_predicted"]} for r in rs]
-            item["spearman"] = spearman([r["predicted"] for r in first], [r["measured"] for r in rs])
+            item["spearman"] = spearman(
+                [r["predicted"] for r in first], [r["measured"] for r in rs]
+            )
             item["inversions"] = inversions(first)
-            item["now_spearman"] = spearman([r["predicted"] for r in rs], [r["measured"] for r in rs])
+            item["now_spearman"] = spearman(
+                [r["predicted"] for r in rs], [r["measured"] for r in rs]
+            )
             item["now_inversions"] = inversions(rs)
         out.append(item)
     return out
