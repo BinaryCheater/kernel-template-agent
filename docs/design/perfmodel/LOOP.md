@@ -35,7 +35,7 @@ Rounds do not overlap. A round that cannot finish its step writes the report wit
 
 The inventory lists every mechanism in advance with its status (measured / assumed / absent / partial). The scorecard says which of them currently costs accuracy. The rule:
 
-1. Take the scorecard row with the largest absolute error among rows that are **valid**: counts check passed (R1) and cache state declared.
+1. Take the scorecard row with the largest absolute error among rows that are **valid**: counts check passed (R1) and cache state declared. **In the same round, also** take the variant group with the most inversions and its worst-inverted pair: the mechanism that differs most between the two replays (by attribution) is selected like a row's top mechanism. Ranking is what design choice uses; it must not wait until every absolute error is in budget.
 2. Take the mechanism with the largest share of that row's critical path.
 3. Look it up in the inventory:
    - status `assumed` or `absent`, share ≥ 3 % → **probe it** (this round);
