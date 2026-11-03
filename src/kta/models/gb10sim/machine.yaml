@@ -51,6 +51,7 @@ resources:
     busy: stg
     doc: shared by the SMs of a TPC; the partner counts as busy when the chip runs at least sms_per_tpc SM-equivalents
   store_queue: {scope: sm, kind: queue, gates_issue: true, capacity: sim.st_queue_instr}
+  instruction_buffer: {scope: smsp, kind: fetch, lines: sim.fetch_l0_lines, doc: lines of 128 B; a warp waits sim.fetch_line_clk per line outside it}
   tma_engine:
     scope: sm
     kind: engine
@@ -66,12 +67,14 @@ sms_per_tpc: 2
 # otherwise).  handler: the engine's service rule for the class (sm.py SM.issue).
 classes:
   - {name: mma, base: [HMMA, IMMA, QMMA, OMMA], gates: [tensor], handler: pipe,
-     hold: {tensor: sim.hmma_16816_pipe_clk}, count: HMMA}
+     hold: {tensor: sim.hmma_16816_pipe_clk}, warp_rate: sim.mma_warp_clk,
+     credit: sim.mma_issue_credit_clk, count: HMMA}
   - {name: smem_op, base: [LDS, STS, SHFL], gates: [mio], handler: smem_op, rbar: lsu, count: SMEMOP}
   - {name: ldsm, base: [LDSM], gates: [mio], handler: ldsm, rbar: sim.rbar_release_clk, count: LDSM}
   - {name: stsm, base: [STSM], gates: [mio], handler: stsm, rbar: lsu, count: STSM}
   - {name: tma_store, base: [UTMASTG], handler: tma_store, rbar: sim.rbar_release_clk, count: UTMASTG}
-  - {name: cp_async, base: [LDGSTS], gates: [mio], handler: cp_async, rbar: lsu, count: LDGSTS}
+  - {name: cp_async, base: [LDGSTS], gates: [mio], handler: cp_async, rbar: lsu, count: LDGSTS,
+     beside: {tensor: sim.tensor_beside_copy_clk}}
   - {name: ldg, base: [LDG], gates: [mio], handler: ldg, rbar: lsu, count: LDG}
   - {name: local, base: [LDL, STL], handler: local, rbar: lsu}
   - {name: red, base: [REDG], gates: [mio, store_queue], handler: red, rbar: lsu}
@@ -80,14 +83,18 @@ classes:
   - {name: commit, base: [LDGDEPBAR], handler: commit}
   - {name: barrier, base: [BAR], handler: barrier, count: BAR}
   - {name: half_to_float, op_prefix: HADD2.F32, gates: [either: [alu, fma]], handler: pipe,
-     hold: {either: sim.alu_half_rate_clk}, latency: sim.default_var_latency_clk}
+     hold: {either: sim.alu_half_rate_clk}, latency: sim.default_var_latency_clk,
+     beside: {tensor: sim.tensor_beside_fma_clk}}
   - {name: fp32, base: [FFMA, FADD, FMUL], gates: [fma], handler: pipe,
-     hold: {fma: sim.fma_fp32_clk}, latency: sim.default_var_latency_clk}
+     hold: {fma: sim.fma_fp32_clk}, latency: sim.default_var_latency_clk,
+     beside: {tensor: sim.tensor_beside_fma_clk}}
   - {name: fma_half_rate, base: [IMAD, HFMA2, HADD2, HMUL2, IMUL], gates: [fma], handler: pipe,
-     hold: {fma: sim.alu_half_rate_clk}, latency: sim.default_var_latency_clk}
+     hold: {fma: sim.alu_half_rate_clk}, latency: sim.default_var_latency_clk,
+     beside: {tensor: sim.tensor_beside_fma_clk}}
   - {name: alu, base: [LOP3, PRMT, SHF, IADD3, ISETP, SEL, LEA, F2FP, IMNMX, FMNMX, FSETP, FSEL,
                         PLOP3, LOP, IABS, SHL, SHR, I2FP],   # I2FP: cvt.cu, upstream ee6534c
-     gates: [alu], handler: pipe, hold: {alu: sim.alu_half_rate_clk}, latency: sim.default_var_latency_clk}
+     gates: [alu], handler: pipe, hold: {alu: sim.alu_half_rate_clk}, latency: sim.default_var_latency_clk,
+     beside: {tensor: sim.tensor_beside_alu_clk}}
   - {name: xu, base: [F2I, I2F, F2F, FRND, F2IP, MUFU], gates: [xu], handler: pipe,
      hold: {xu: sim.mufu_smsp_clk_per_instr}, latency: sim.mufu_latency_clk}
   - {name: stg, base: [STG], gates: [store_queue], handler: stg, rbar: lsu}
@@ -113,8 +120,16 @@ launch_event_us: launch_event_us
 # launches in a sequence (round 4, probe launch b2b/graph work points): per launch
 # max(submit, span + gap), back-to-back from one stream and inside one CUDA graph
 launch_seq:
-  b2b: {submit: launch_b2b_submit_us, gap: launch_b2b_gap_us}
+  b2b: {submit: launch_b2b_submit_us, gap: launch_b2b_gap_us,
+        short_below: launch_b2b_short_below_us, short_gap: launch_b2b_short_gap_us,
+        floor: launch_b2b_floor_us}
   graph: {submit: graph_launch_us, gap: launch_graph_gap_us}
+# one launch between two events (round 6, probe launch_short): a kernel gone before the launch
+# finishes is hidden in it; a longer one pays the event gap with a floor
+launch_kernel:
+  short_below: launch_event_short_below_us
+  short: launch_event_short_us
+  floor: launch_event_floor_us
 
 residency:  # bounds on blocks per SM (kernel.occupancy)
   registers: {per_sm: regs_per_sm, alloc_unit_per_warp: reg_alloc_unit_per_warp}

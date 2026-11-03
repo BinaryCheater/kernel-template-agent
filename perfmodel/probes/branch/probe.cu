@@ -78,7 +78,7 @@ static void point(const char* name, int warps, double per, F launch) {
   });
   char p[48];
   snprintf(p, sizeof p, "%s_w%d", name, warps);
-  emit("branch", p, s, "cycles/pass or /instr");
+  emit("branch", p, s, "cycles");
 }
 template <int N>
 static void sweep() {

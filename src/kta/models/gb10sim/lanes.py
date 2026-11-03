@@ -110,7 +110,10 @@ class Lanes:
     """Per-warp lane values; `vals` is the warp's lane-0 value map (sm.Warp.vals), consulted for
     uniform registers the tracker computes no value for."""
 
-    def __init__(self, tid0: int, block_dim: tuple[int, int, int]) -> None:
+    def __init__(
+        self, tid0: int, block_dim: tuple[int, int, int], const_bank: dict | None = None
+    ) -> None:
+        self.const_bank = const_bank or {}
         self.v: dict[str, Val] = {}
         self.unknown: set[str] = set()
         self.tid0 = tid0
@@ -165,6 +168,15 @@ class Lanes:
             self._set(d, None, op)
             return None
         out = self._eval(base, op, args, vals)
+        if base in ("LDC", "LDCU") and ".64" in op and isinstance(out, tuple) and not out[0]:
+            # both halves of a declared 64-bit read (the replay's pairs track the low half)
+            m = re.search(r"c\[0x([0-9a-f]+)\]\[0x([0-9a-f]+)\]", ",".join(args[1:]))
+            hi = self.const_bank.get((int(m.group(1), 16), int(m.group(2), 16) + 4)) if m else None
+            self._set(d, out, op)
+            r = re.match(r"^(U?R)(\d+)$", d)
+            if hi is not None and r:
+                self._set(f"{r.group(1)}{int(r.group(2)) + 1}", ((), (hi & M32,) * 32), "")
+            return None
         if out == "uniform":  # the lane-0 value once the warp's value tracking has computed it
 
             def done(vals_after: dict[str, Any], d: str = d, op: str = op) -> None:
@@ -212,7 +224,10 @@ class Lanes:
         if base in ("LDC", "LDCU"):
             m = re.search(r"c\[0x([0-9a-f]+)\]\[0x([0-9a-f]+)\]", ",".join(a[1:]))
             if m and "R" not in a[1].split("[")[-1]:
-                return (((("c", int(m.group(1), 16), int(m.group(2), 16)), 1),), ZERO)
+                c = (int(m.group(1), 16), int(m.group(2), 16))
+                if c in self.const_bank:  # an argument the caller declares
+                    return ((), (self.const_bank[c] & M32,) * 32)
+                return ((("c", *c), 1),), ZERO
             return "uniform"
         if base in WRITES_UNKNOWN:
             return None
@@ -257,6 +272,10 @@ class Lanes:
 
         if base in ("MOV", "UMOV", "MOV32I", "R2UR") and g and g[0] is not None:
             return g[0]
+        if base == "LOP3" and len(g) >= 4 and g[3] == ((), (0xC0,) * 32):
+            # a & b with one of them known to be zero: the other need not be known
+            if any(x is not None and x == ((), ZERO) for x in g[:2]):
+                return ((), ZERO)
         if op.startswith("IMAD.MOV"):
             return g[-1] if g and g[-1] is not None else None
         if None in g:

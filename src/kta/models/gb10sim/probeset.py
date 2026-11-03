@@ -589,14 +589,19 @@ def branch_cases(b: Batch) -> list[Case]:
     out = []
     for n in BRANCH_LOOPS:
         ins = _k(txt, f"_Z4loopILi{n}EEvPyPf")
-        for w in (1, 4, 32):
-            out.append(
-                _warps_case(b, f"branch loop{n}_w{w}", "branch", ins, w, BRANCH_PASSES, "cycles")
-            )
+        # 32 warps at 512 and 1024 are measured, not replayed: millions of issues per row
+        for w in (1, 4) if n >= 512 else (1, 4, 32):
+            c = _warps_case(b, f"branch loop{n}_w{w}", "branch", ins, w, BRANCH_PASSES, "cycles")
+            if w == 32 and 16 <= n <= 256:
+                c.excluded = "measured rate above the issue limit: question 9"
+            out.append(c)
     for n in BRANCH_FLATS:
         ins = _k(txt, f"_Z4flatILi{n}EEvPyPf")
         for w in (1, 2, 4, 8, 32):
-            out.append(_warps_case(b, f"branch flat{n}_w{w}", "branch", ins, w, n, "cycles"))
+            c = _warps_case(b, f"branch flat{n}_w{w}", "branch", ins, w, n, "cycles")
+            if w >= 8:  # warp 0 reads its clock after a barrier, the others may already be running
+                c.excluded = "warp 0's clock window is not the block's at several warps per pipe"
+            out.append(c)
     ins = _k(txt, "_Z3fwdjPyPf")
     for name, z in (("fwd_taken", 0xFFFFFFFF), ("fwd_not", 0)):
         for w in (1, 4, 32):
@@ -641,6 +646,25 @@ def mma_issue_cases(b: Batch) -> list[Case]:
     return out
 
 
+MMA_PIPE_SETS = ((1, 1), (2, 1), (4, 1), (8, 1), (1, 2), (1, 4), (1, 8), (2, 2), (4, 4), (8, 8))
+
+
+def mma_pipe_cases(b: Batch) -> list[Case]:
+    """Round 6: the tensor pipe's rate by compiler, operands and warps per sub-partition (probe
+    mma_pipe, built by the host's and by the image's nvcc)."""
+    out = []
+    for unit, tag in (("probe-mma_pipe", "v13_0"), ("probe-mma_pipe_i", "v13_2")):
+        txt = _sass(b, unit)
+        for sa, sb in MMA_PIPE_SETS:
+            ins = _k(txt, f"_Z1kILi{sa}ELi{sb}EEvjPyPj")
+            for w in (1, 8):
+                name = f"mma_pipe {tag}_a{sa}_b{sb}_w{w}"
+                out.append(
+                    _warps_case(b, name, "mma_pipe", ins, w, 256 * 16 * max(1, w // 4), "cycles/mma")
+                )
+    return out
+
+
 def lds_narrow_cases(b: Batch) -> list[Case]:
     """Round 6: LDS and STS by element size and lane stride on 1-32 warps (probe lds_narrow)."""
     txt = _sass(b, "probe-lds_narrow")
@@ -650,7 +674,7 @@ def lds_narrow_cases(b: Batch) -> list[Case]:
         ins = _k(txt, f"_Z1kILi{kind}EEvjjPyPj")
         for st in (elem, 16, 64):
             for w in (1, 4, 32):
-                # the `stride` argument: its first parameter, in the lanes' own addresses
+                # the arguments `stride` and `zero` enter the lanes' addresses
                 out.append(
                     _warps_case(
                         b,
@@ -660,7 +684,7 @@ def lds_narrow_cases(b: Batch) -> list[Case]:
                         w,
                         256 * 8 * w,
                         "cycles/instr/SM",
-                        {(0, 0x380): st},
+                        {(0, 0x380): st, (0, 0x384): 0},
                     )
                 )
     return out
@@ -693,7 +717,7 @@ def launch_short_cases(b: Batch) -> list[Case]:
                 1,
                 "us",
                 row(ins),
-                lambda sm, r: r["cycles"] / (_ghz(b, sm.m) * 1e3) + _launch_event(sm.m),
+                lambda sm, r: _launch_kernel(sm.m, r["cycles"] / (_ghz(b, sm.m) * 1e3)),
             )
         )
         for mode in ("b2b", "graph"):
@@ -883,9 +907,24 @@ def _launch_event(m: Machine) -> float:
 def _launch_seq(m: Machine, mode: str, span_us: float) -> float:
     """Per-launch time of a kernel in a sequence of launches (round 4, probe launch b2b/graph work
     points): `b2b` back-to-back from one stream, `graph` inside one CUDA graph; the kernel's span
-    plus the gap between kernels, at least the submission rate."""
+    plus the gap between kernels, at least the submission rate. Round 6 (probe launch_short): a
+    back-to-back kernel gone before the next launch is ready leaves a smaller gap; one still
+    running makes the next wait for it, with a floor."""
     q = m.desc["launch_seq"][mode]
+    if "short_below" in q:
+        if span_us < m.param(q["short_below"]):
+            return max(m.param(q["submit"]), span_us + m.param(q["short_gap"]))
+        return max(m.param(q["floor"]), span_us + m.param(q["gap"]))
     return max(m.param(q["submit"]), span_us + m.param(q["gap"]))
+
+
+def _launch_kernel(m: Machine, span_us: float) -> float:
+    """One launch between two events with a synchronize after it (round 6, probe launch_short):
+    a kernel shorter than the launch itself is hidden in it, a longer one pays the event gap."""
+    q = m.desc["launch_kernel"]
+    if span_us < m.param(q["short_below"]):
+        return m.param(q["short"])
+    return max(m.param(q["floor"]), span_us + _launch_event(m))
 
 
 def _launch(b: Batch, unit: str) -> dict[str, Any]:
@@ -1058,7 +1097,7 @@ def _generic_case(b: Batch, d: Path, L: dict[str, Any], regs: int, mode: str = "
 
     def read(sm, r):
         span = r["cycles"] / (_ghz(b, sm.m) * 1e3)
-        return span + _launch_event(sm.m) if mode == "kernel" else _launch_seq(sm.m, mode, span)
+        return _launch_kernel(sm.m, span) if mode == "kernel" else _launch_seq(sm.m, mode, span)
 
     return _case(
         b,
@@ -1111,7 +1150,7 @@ def _sequence_case(b: Batch, d: Path, L: dict[str, Any], mode: str) -> Case:
         spans = [c / (_ghz(b, sm.m) * 1e3) for c in sm.spans]
         if mode == "kernel":
             gaps = sum(_launch_seq(sm.m, "b2b", x) for x in spans[:-1])
-            return gaps + spans[-1] + _launch_event(sm.m)
+            return gaps + _launch_kernel(sm.m, spans[-1])
         return sum(_launch_seq(sm.m, mode, x) for x in spans)
 
     return _case(
@@ -1194,6 +1233,7 @@ def all_cases(batch_dir: Path) -> list[Case]:
         ("probe-mma_issue", mma_issue_cases),
         ("probe-lds_narrow", lds_narrow_cases),
         ("probe-launch_short", launch_short_cases),
+        ("probe-mma_pipe", mma_pipe_cases),
         ("probe-l2share_stages", l2stages_cases),
         ("probe-l2reuse", l2reuse_cases),
         ("probe-launch", launch_cases),

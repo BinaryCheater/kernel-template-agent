@@ -70,6 +70,9 @@ class Warp:
     k_prod: int = -1
     n_full: int = 0
     n_empty_arrive: int = 0
+    # KTA (PERFMODEL round 6): the warp's own rate into a pipe (OpClass.warp_rate)
+    pipe_done: float = 0.0
+    pipe_next: float = 0.0
     # KTA (PERFMODEL) trace: the reason the current instruction was last found blocked; per
     # dependency counter its releases (time, producer issue time, path stages); barrier releases
     why: Any = None
@@ -169,6 +172,9 @@ class SM:
         # the time each instance is free again; per SM resources: one time each (machine.yaml)
         self.free: dict[str, list[float]] = {r: [0] * n for r in m.resources("smsp")}
         self.t: dict[str, float] = {r: 0 for r in m.resources("sm") + m.resources("tpc")}
+        self.served: dict[str, list[float]] = {}
+        # round 6 (probe branch): instruction lines a sub-partition holds, in LRU order
+        self.l0: list[OrderedDict] = [OrderedDict() for _ in range(n)]
         self.busy_key = {r: d.get("busy", r) for r, d in m.desc["resources"].items()}
         # lines each copy of a k-tile touches, in program order (A rows then B rows); cycles them
         # per warp
@@ -230,7 +236,9 @@ class SM:
         # from its width and its 32 lanes' addresses (lanes.py), and a line another load of this SM
         # brought into the L1 (LRU over `l1_bytes`, kernel-parameter bases only) is a hit
         self.lane_track = addr_log is not None or (
-            P["ldg_lane_addresses"] and self.ldg_default and any(x.base == "LDG" for x in ins)
+            P["ldg_lane_addresses"]
+            and self.ldg_default
+            and any(x.base in ("LDG", "LDS", "STS") for x in ins)
         )
         bd = tuple([*(block_dim or (threads,)), 1, 1][:3])
         self.l1: OrderedDict = OrderedDict()
@@ -243,7 +251,7 @@ class SM:
         for w in self.warps:
             w.nldg = 0
             if self.lane_track:
-                w.lanes = Lanes(w.tid0, bd)  # type: ignore[arg-type]
+                w.lanes = Lanes(w.tid0, bd, self.const_bank)  # type: ignore[arg-type]
         self.events = []  # (time, seq, kind, warp, arg)
         self.seq = 0
         self.bar_arrived = {}
@@ -253,12 +261,11 @@ class SM:
         self.assumed_latency: dict[str, int] = {}
         self.busy: dict[str, float] = {"tensor": 0, "smem": 0, "fill": 0}
 
-    def _ldg_lanes(self, w: Warp, x: Ins) -> tuple[int, float, int]:
+    def _ldg_lanes(self, w: Warp, x: Ins, addr: Any) -> tuple[int, float, int]:
         """KTA (PERFMODEL round 3): (lines, bytes that miss the L1, lines that hit) of one LDG from
         its width and its lanes' addresses; an address the lane tracking does not know is taken as
         32 contiguous lanes (a front-end default)."""
         width = width_of(x.op)
-        addr = w.lanes.address(x.args, w.vals)
         if self.addr_log is not None:
             self.addr_log.append((w.wid, w.loops, w.pc, width, addr))
         if addr is None:
@@ -338,6 +345,8 @@ class SM:
             if m and w.sb[int(m.group(1))] > int(m.group(2), 16):
                 return ("sb", int(m.group(1)))
         cls = self.icls[w.pc]
+        if cls.warp_rate and w.pipe_next > now:
+            return ("res", cls.gates[0], cls.name)
         for g in cls.gates:
             if g == "store_queue":
                 if sum(1 for q in self.stq if q > now) >= self.P["st_queue_instr"]:
@@ -532,6 +541,18 @@ class SM:
                     return
                 v = (v and o) if m.group(3) == "AND" else (v or o)
             w.preds[dst] = v
+        elif x.base == "ULOP3" and args and args[0].startswith("UP"):
+            # ULOP3.LUT UPd, URZ, URa, URb, URc, lut, UPq: UPd = (lut(a, b, c) != 0)
+            if len(args) >= 6:
+                a, b, c, lut = (self._val(w, t) for t in args[2:6])
+                if None in (a, b, c, lut):
+                    w.preds.pop(args[0], None)
+                else:
+                    r = 0
+                    for bit in range(32):
+                        i = (((a >> bit) & 1) << 2) | (((b >> bit) & 1) << 1) | ((c >> bit) & 1)
+                        r |= ((lut >> i) & 1) << bit
+                    w.preds[args[0]] = r != 0
         elif x.base == "LOP3" and args and args[0].startswith("P"):
             # LOP3.LUT Pd, Rd, Ra, Rb, Rc, lut, Pq: Pd = (lut(Ra, Rb, Rc) != 0)
             if (
@@ -602,6 +623,8 @@ class SM:
             if m and w.sb[int(m.group(1))] > int(m.group(2), 16):
                 return False
         cls = self.icls[w.pc]
+        if cls.warp_rate and w.pipe_next > now:
+            return False
         for g in cls.gates:
             if g == "store_queue":
                 while self.stq and self.stq[0] <= now:
@@ -615,7 +638,14 @@ class SM:
                 return False
         return True
 
-    def _hold(self, cls: OpClass, s: int, now: float) -> None:
+    def _beside(self, cls: OpClass, s: int, now: float) -> None:
+        """Round 6 (probe mma_issue; upstream interfere.cu for copies): an instruction issued while
+        the sub-partition's resource is held delays it (operand reads beside the pipe's)."""
+        for res, ref in cls.beside:
+            if self.free[res][s] > now:
+                self.free[res][s] += self.m.param(ref)
+
+    def _hold(self, cls: OpClass, s: int, now: float, w: Warp) -> None:
         """A pipe class: hold its resource(s) for their parameter's cycles; `either` takes the
         first free of its resources (the earliest, ties to the first listed)."""
         for res, ref in cls.hold:
@@ -625,6 +655,14 @@ class SM:
             self.free[res][s] = now + c
             k = self.busy_key[res]
             self.busy[k] = self.busy.get(k, 0) + c
+        self._beside(cls, s, now)
+        if cls.warp_rate:
+            # round 6 (probes mma_issue, mma_pair): one warp feeds the pipe one instruction per
+            # `warp_rate` (other warps may take the pipe at its hold), but takes the next `credit`
+            # cycles early, once: a warp's stream at the compiler's spacing loses a cycle per
+            # instruction after the second
+            w.pipe_done = max(now, w.pipe_done) + self.m.param(cls.warp_rate)
+            w.pipe_next = w.pipe_done - self.m.param(cls.credit)
 
     def issue(self, w: Warp, now: float):
         x = self.ins[w.pc]
@@ -642,7 +680,11 @@ class SM:
             if pv is False:
                 executes = False
         pend = None
+        addr0 = None
         if w.lanes is not None:
+            # round 6: read before the step, a load may overwrite its own address register
+            if cls.handler in ("ldg", "smem_op", "cp_async"):
+                addr0 = w.lanes.address(x.args, w.vals)
             # the guard as the lane tracking sees it: none, known false, known true or unknown
             runs = True if not x.pred else (False if not executes else pv)
             pend = w.lanes.step(x.base, x.op, x.args.split(","), w.vals, runs)
@@ -661,7 +703,7 @@ class SM:
             if h == "pipe":
                 # every mma.sync shape and type holds the tensor pipe 16 cycles (probe
                 # mma_types.cu); FMA, ALU and XU pipes per probes alu.cu, alumix.cu, sfu.cu, cvt.cu
-                self._hold(cls, s, now)
+                self._hold(cls, s, now, w)
                 if cls.latency is not None:
                     lat_done = now + self.m.param(cls.latency)
                     if x.wbar is not None and self.m.status(cls.latency) == "assumed":
@@ -712,9 +754,17 @@ class SM:
                 # array for max(2 cycles, bytes at 128 B/clk); a load's result follows after a
                 # latency that grows with its width, a shuffle's after its own latency; a store
                 # releases its source registers after the array, in proportion to its bytes
-                free["mio"][s] = now + P["mio_smem_op_clk"]
+                # Round 6 (probe lds_narrow): the array is held by the lanes' extent, one 128-byte
+                # line per cycle, whatever the element size; a store's slot 2 cycles per line
                 nb = 0 if x.base == "SHFL" else _smem_bytes(x.op)
-                cost = max(P["smem_op_min_clk"], nb * P["smem_array_clk_per_512B"] / 512)
+                span = nb
+                if addr0 is not None and nb:
+                    span = len(footprint(addr0, width_of(x.op))[0]) * 128
+                slot = P["mio_smem_op_clk"]
+                if x.base == "STS":
+                    slot = max(slot, P["sts_mio_clk_per_line"] * span / 128)
+                free["mio"][s] = now + slot
+                cost = max(P["smem_op_min_clk"], span * P["smem_array_clk_per_512B"] / 512)
                 start = max(now, t["smem_array"])
                 t["smem_array"] = start + cost
                 self.busy["smem"] += cost
@@ -722,7 +772,12 @@ class SM:
                     lat_done = start + P["shfl_latency_clk"]
                     lat_ref = "sim.shfl_latency_clk"
                 else:
-                    lat_done = start + P["lds_latency_clk"] + nb / P["lds_latency_B_per_clk"]
+                    lat_done = (
+                        start
+                        + P["lds_latency_clk"]
+                        + nb / P["lds_latency_B_per_clk"]
+                        + max(0, span - nb) / P["lds_extent_B_per_clk"]
+                    )
                     lat_ref = "sim.lds_latency_clk"
                 lsu_done = start + cost + P["sts_read_clk_per_128B"] * nb / 128
                 if tr:
@@ -753,9 +808,9 @@ class SM:
                 # L2 return path after the round trip and is written into the shared-memory array
                 # (the same array ldmatrix reads)
                 free["mio"][s] = now + P["mio_ldgsts_clk"]
+                self._beside(cls, s, now)
                 if self.addr_log is not None:
-                    addr = w.lanes.address(x.args, w.vals)
-                    self.addr_log.append((w.wid, w.loops, w.pc, width_of(x.op), addr))
+                    self.addr_log.append((w.wid, w.loops, w.pc, width_of(x.op), addr0))
                 # the load unit's address stage: one 128-byte line per cycle; the copy reads its
                 # address registers there
                 lines = self.copy_lines[w.ncopy % len(self.copy_lines)]
@@ -806,7 +861,7 @@ class SM:
                     self.ev(ret, "write", w, w.gid)
             elif h == "ldg":
                 if w.lanes is not None:
-                    lines, nbytes, hit_lines = self._ldg_lanes(w, x)
+                    lines, nbytes, hit_lines = self._ldg_lanes(w, x, addr0)
                 else:
                     lines, nbytes, hit = self.ldg_lines[w.nldg % len(self.ldg_lines)]
                     if self.ldg_default:
@@ -1009,6 +1064,9 @@ class SM:
                 if tr:
                     self._rel(w, x.rbar, rel, now, stages)
         w.ready = now + max(1, x.stall)
+        if x.base == "BRA":
+            # round 6 (probe branch): fetch resumes this long after a branch, whichever way it went
+            w.ready = max(w.ready, now + P["branch_redirect_clk"])
         # next pc: the k-loop back edge is taken trips-1 times; other branches fall through unless
         # unconditional
         if x.op.startswith("BRA.DIV"):
@@ -1049,6 +1107,18 @@ class SM:
             w.done = True
             self.exited[w.block] = self.exited.get(w.block, 0) + 1
             self.block_exit(w.block, now)
+        elif not w.done and P["fetch_l0_lines"]:
+            # round 6 (probe branch): straight code at 9 cycles per 8 instructions past the
+            # sub-partition's instruction buffer; a warp's wait, the others issue meanwhile
+            line = self.ins[w.pc].addr >> 7
+            l0 = self.l0[s]
+            if line in l0:
+                l0.move_to_end(line)
+            else:
+                l0[line] = True
+                w.ready += P["fetch_line_clk"]
+                if len(l0) > P["fetch_l0_lines"]:
+                    l0.popitem(last=False)
 
     def share(self, finished: int) -> float:
         """SM-equivalents sharing the chip's limits once this SM has finished `finished` blocks."""
@@ -1181,6 +1251,7 @@ class SM:
                     last_yield[w.wid] = yb
             # jump to the next cycle where something can change
             nxt = [w.ready for w in live if not w.done and not w.at_bar and now < w.ready < INF]
+            nxt += [w.pipe_next for w in live if not w.done and now < w.pipe_next]
             for r in self.gate_smsp:
                 nxt += [t for t in self.free[r] if t > now]
             if self.events:

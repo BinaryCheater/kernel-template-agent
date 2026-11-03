@@ -36,6 +36,9 @@ class OpClass:
     latency: str | None = None
     rbar: str | None = None
     count: str | None = None
+    beside: tuple[tuple[str, str], ...] = ()  # (resource, delay it suffers if held at this issue)
+    warp_rate: str | None = None  # cycles per instruction of this class from one warp
+    credit: str | None = None  # cycles a warp may enter ahead of `warp_rate`, once
 
 
 @dataclass(frozen=True)
@@ -144,6 +147,9 @@ def _op_class(rule: dict[str, Any]) -> OpClass:
         latency=rule.get("latency"),
         rbar=rule.get("rbar"),
         count=rule.get("count"),
+        beside=tuple(rule.get("beside", {}).items()),
+        warp_rate=rule.get("warp_rate"),
+        credit=rule.get("credit"),
     )
 
 
@@ -158,7 +164,7 @@ def _check(m: Machine) -> None:
     """Every parameter the description names exists; every gate and hold names a resource."""
     known = set(m.desc["resources"]) | {"either"}
     for _, c in m.classes:
-        for ref in [*(p for _, p in c.hold), c.latency, c.rbar]:
+        for ref in [*(p for _, p in (*c.hold, *c.beside)), c.latency, c.rbar, c.warp_rate, c.credit]:
             if ref and ref not in ("lsu", "tma_store_flush"):
                 try:
                     m.param(ref)

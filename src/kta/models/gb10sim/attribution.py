@@ -169,7 +169,8 @@ def critical_path(sm: SM, cycles: float) -> list[Seg]:
                 more, w2, t2 = got
                 segs += [s for s in more if s[1] > s[0]]
                 jump = (w2, t2)
-        if jump is not None:
+        # a warp that is itself the last to arrive at its barrier has no earlier binding
+        if jump is not None and (jump[0] != wid or _index_at(times[wid], jump[1]) < i):
             wid = jump[0]
             i = _index_at(times[wid], jump[1])
             continue

@@ -79,6 +79,12 @@ def main(argv: list[str] | None = None) -> int:
         m = mech.get(r["id"])
         r["predicted_mech"] = m["predicted"] if m else None
         r["error_mech"] = m["error"] if m else None
+    first = table.first_scores()
+    for r in rows:
+        f = first.get(r["id"])
+        if f:
+            r.update(blind=f["error"], blind_batch=f["batch"], blind_predicted=f["predicted"])
+    latest_batch = max((f["batch"] for f in first.values()), default=None, key=table.batch_order)
     doc = {
         "kta_commit": head,
         "kta_dirty": dirty,
@@ -88,6 +94,8 @@ def main(argv: list[str] | None = None) -> int:
         "sets": a.sets,
         "wall_s": round(time.perf_counter() - t0, 1),
         "summary": table.summary(rows),
+        "blind_batch": latest_batch,
+        "blind": table.blind_summary(rows, latest_batch) if latest_batch else [],
         "jobs": a.jobs,
         "cached_rows": sum(r["cached"] for r in rows),
         "rows": [{k: v for k, v in r.items() if k not in ("job", "cached")} for r in rows],

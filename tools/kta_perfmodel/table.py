@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import math
 import os
 import statistics
@@ -379,6 +380,35 @@ def _finish(r: dict[str, Any]) -> dict[str, Any]:
     return r
 
 
+def batch_order(name: str) -> tuple[int, str]:
+    """Batches in the order they ran: r2c before r10."""
+    return (int(re.sub(r"\D", "", name)), name)
+
+
+def first_scores(root: Path = BATCHES) -> dict[str, dict[str, Any]]:
+    """Per row, the first score it ever had (LOOP §5, blind error): the prediction committed before
+    the batch that first measured it, against that measurement. Later rows' engines have seen it."""
+    out: dict[str, dict[str, Any]] = {}
+    done = (p for p in root.iterdir() if (p / "predicted.json").exists())
+    for d in sorted(done, key=lambda p: batch_order(p.name)):
+        mp = d / "measured.json"
+        if not mp.exists():
+            continue
+        doc = json.loads(mp.read_text())
+        if not doc.get("valid"):
+            continue
+        pred = json.loads((d / "predicted.json").read_text())["predicted"]
+        for cid, v in doc["results"].items():
+            if cid not in out and cid in pred and v["median"] > 0:
+                out[cid] = {
+                    "batch": d.name,
+                    "predicted": pred[cid],
+                    "measured": v["median"],
+                    "error": pred[cid] / v["median"] - 1,
+                }
+    return out
+
+
 def inversions(rs: list[dict[str, Any]], noise: float = 0.02) -> int:
     """Pairs of design variants the model orders the other way round from the measurement (pairs
     whose measured times differ by less than `noise` are not counted)."""
@@ -471,12 +501,41 @@ def summary(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
                     [r["predicted"] for r in rm], [r["measured"] for r in rm]
                 )
                 item["inversions_mech"] = inversions(rm)
+        b = [r["blind"] for r in rs if r.get("blind") is not None]
+        if b:
+            item["blind_median"] = statistics.median(abs(x) for x in b)
+            item["blind_worst"] = max(b, key=abs)
         r1 = [counts_check(r) for r in rs if r.get("counters")]
         if r1:
             item["r1_pass"] = sum(x["ok"] for x in r1)
             item["r1_n"] = len(r1)
             bn = [bottleneck(r) for r in rs if r.get("counters")]
             item["bottleneck_agree"] = sum(x["agree"] for x in bn)
+        out.append(item)
+    return out
+
+
+def blind_summary(rows: list[dict[str, Any]], batch: str) -> list[dict[str, Any]]:
+    """The rows `batch` measured first, by set, at their first score (no engine had seen them)."""
+    out = []
+    picked = [r for r in rows if r.get("blind_batch") == batch and not r["excluded"]]
+    for group in dict.fromkeys(r["set"] for r in picked):
+        rs = [r for r in picked if r["set"] == group]
+        b = [r["blind"] for r in rs]
+        item: dict[str, Any] = {
+            "set": group,
+            "n": len(rs),
+            "median_abs": statistics.median(abs(x) for x in b),
+            "worst": max(b, key=abs),
+            "now_median": statistics.median(abs(r["error"]) for r in rs),
+            "now_worst": max((r["error"] for r in rs), key=abs),
+        }
+        if len(rs) >= 3 and group.startswith("testset"):
+            first = [{**r, "predicted": r["blind_predicted"]} for r in rs]
+            item["spearman"] = spearman([r["predicted"] for r in first], [r["measured"] for r in rs])
+            item["inversions"] = inversions(first)
+            item["now_spearman"] = spearman([r["predicted"] for r in rs], [r["measured"] for r in rs])
+            item["now_inversions"] = inversions(rs)
         out.append(item)
     return out
 
@@ -489,9 +548,13 @@ def summary_line(s: dict[str, Any]) -> str:
     mm = f"{100 * s['median_abs_mech']:.1f} %" if "median_abs_mech" in s else ""
     mw = _pct(s["worst_mech"]) if "worst_mech" in s else ""
     ms = f"{s['spearman_mech']:.2f} / {s['inversions_mech']}" if "spearman_mech" in s else ""
+    bl = ""
+    if "blind_median" in s:
+        bl = f"{100 * s['blind_median']:.1f} % / {_pct(s['blind_worst'])}"
     return (
         f"| {s['set']} | {s['n']} | {s['excluded']} | {100 * s['median_abs']:.1f} % | "
-        f"{_pct(s['worst'])} | {mm} | {mw} | {s['within_10']} | {sp} | {inv} | {ms} | {r1} | {bn} |"
+        f"{_pct(s['worst'])} | {mm} | {mw} | {bl} | {s['within_10']} | {sp} | {inv} | {ms} | {r1} "
+        f"| {bn} |"
     )
 
 
@@ -524,12 +587,31 @@ def render(doc: dict[str, Any], top: int = 15) -> str:
         "## Summary",
         "",
         "| Set | n | excluded | median abs error | worst | median, mechanisms only | "
-        "worst, mechanisms only | within 10 % | Spearman | inversions | Spearman / inversions, "
-        "mechanisms only | counts check (R1) | bottleneck agrees |",
-        "| --- " + "| ---: " * 12 + "|",
+        "worst, mechanisms only | blind median / worst | within 10 % | Spearman | inversions | "
+        "Spearman / inversions, mechanisms only | counts check (R1) | bottleneck agrees |",
+        "| --- " + "| ---: " * 13 + "|",
     ]
     for s in doc["summary"]:
         lines.append(summary_line(s))
+    if doc.get("blind"):
+        lines += [
+            "",
+            f"## Blind rows of batch {doc['blind_batch']}",
+            "",
+            "First score: the prediction committed before the batch, engine unchanged. Now: "
+            "the current engine on the same rows, no longer blind.",
+            "",
+            "| Set | n | first: median | first: worst | first: Spearman / inversions | "
+            "now: median | now: worst | now: Spearman / inversions |",
+            "| --- " + "| ---: " * 7 + "|",
+        ]
+        for s in doc["blind"]:
+            f = f"{s['spearman']:.2f} / {s['inversions']}" if "spearman" in s else ""
+            n = f"{s['now_spearman']:.2f} / {s['now_inversions']}" if "now_spearman" in s else ""
+            lines.append(
+                f"| {s['set']} | {s['n']} | {100 * s['median_abs']:.1f} % | {_pct(s['worst'])} | "
+                f"{f} | {100 * s['now_median']:.1f} % | {_pct(s['now_worst'])} | {n} |"
+            )
     ranked = sorted((r for r in rows if not r["excluded"]), key=lambda r: -abs(r["error"]))
     lines += ["", f"## Top {top} rows by absolute error", ""]
     lines += _table(ranked[:top])
@@ -540,9 +622,9 @@ def render(doc: dict[str, Any], top: int = 15) -> str:
 
 def _table(rows: list[dict[str, Any]]) -> list[str]:
     out = [
-        "| Row | Level | Unit | Measured | Predicted | Error | Attribution (critical path) | "
-        "Defaults | Note |",
-        "| --- | ---: | --- | ---: | ---: | ---: | --- | --- | --- |",
+        "| Row | Level | Unit | Measured | Predicted | Error | Blind error | "
+        "Attribution (critical path) | Defaults | Note |",
+        "| --- | ---: | --- | ---: | ---: | ---: | ---: | --- | --- | --- |",
     ]
     for r in rows:
         att = "; ".join(
@@ -551,8 +633,9 @@ def _table(rows: list[dict[str, Any]]) -> list[str]:
         )
         defaults = ", ".join(f"{k} {v}" for k, v in sorted(r.get("defaults", {}).items()))
         note = (r["excluded"] and f"excluded: {r['excluded']}") or r["note"] or ""
+        blind = _pct(r["blind"]) + f" ({r['blind_batch']})" if r.get("blind") is not None else ""
         out.append(
             f"| {r['id']} | {r['level']} | {r['unit']} | {_fmt(r['measured'])} | "
-            f"{_fmt(r['predicted'])} | {_pct(r['error'])} | {att} | {defaults} | {note} |"
+            f"{_fmt(r['predicted'])} | {_pct(r['error'])} | {blind} | {att} | {defaults} | {note} |"
         )
     return out

@@ -51,6 +51,11 @@ docker run --rm --gpus all -u "$(id -u):$(id -g)" -e HOME=/tmp -e ONLY="$only" -
     sed -i "s|../../../probes/common.cuh|/o/common.cuh|" $d/harness.cu
     build $d $d/harness.cu || { echo "FAILED $(basename $d)" >> /o/testset-failed.txt; rm -rf $d; }
   done
+  # round 6: mma_pipe also from the image compiler (host build above), as the test set is built
+  if echo probe-mma_pipe | grep -Eq "$ONLY"; then
+    mkdir -p /o/probe-mma_pipe_i
+    build /o/probe-mma_pipe_i /w/perfmodel/probes/mma_pipe/probe.cu
+  fi
   if echo probe-l2share_copy | grep -Eq "$ONLY"; then
     mkdir -p /o/probe-l2share_copy
     build /o/probe-l2share_copy /w/perfmodel/probes/l2share_copy/probe.cu
