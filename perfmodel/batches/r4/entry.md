@@ -54,3 +54,20 @@ No. `machine.yaml` gives HMMA, IMMA, QMMA and OMMA the same hold (`sim.hmma_1681
 ## Smoke run
 
 Seen before this block was finished (one run each on spark, nothing recorded; the timed batch repeats them): dram_rw 266.0, 429.2, 289.9, 435.2, 319.7 µs (2:0 … 0:2); launch b2b work points span + 1.8–3.2 µs, graph span + 0.60–0.65 µs; graph empty 0.44 / 0.60 / 2.52 µs; RMSNorm rotating kernel / b2b / graph 42.3 / 38.9 / 35.6 µs; combine 3.6 / 2.0 / 0.83; MoE 128×128 171.5 µs; HGEMM s2 t128 rotating 245.8 µs (warm r3 224.5). The hypotheses above were written from the engine and upstream numbers, not tuned to these.
+
+## After the run (round 4, step 4–5)
+
+Batch valid: clock 2.4942 → 2.4757 GHz (drift −0.7 %), canaries +0.4 % / +0.1 %; 155 results.
+
+**dram_rw** (µs; total GB/s): 2:0 267.5 (235), 2:1 428.3 (220), 1:1 289.2 (218), 1:2 432.2 (218), 0:2 319.8 (197). H-sum 265 / 425 / 293 / 452 / 319: within 1 % except 1:2 (−4.4 %); H-total (265 / 398 / 265 / 398 / 265) and H-reads rejected. → `sim.dram_writes_paced` true (D771). Replay after: 274.5, 437.7, 302.0, 465.1 µs (+2.2 to +7.6 %); 0:2 47.2 (−85 %: no pacing without reads, question 17). RMSNorm rotating 41.22 measured: 23.7 → 47.8 µs (−42.4 → +16.0 %).
+
+**HGEMM rotating** (µs, rotating / warm): s3_t128 230.8 / 222.6 (+3.7 %), sw8 222.8 / 222.7 (0.0), s4 267.6 / 249.0 (+7.5), c128x128x64 s2 246.0 / 225.7 (+9.0), c128x128x64 s3 t256 248.0 / 226.7 (+9.4), c128x256x32 239.6 / 237.0 (+1.1), sw4 237.8 / 236.9 (+0.4), c128x256x64 s2 230.0 / 222.7 (+3.3), c256x128 239.9 / 233.8 (+2.6), c64x128 251.1 / 231.8 (+8.3). H-warm-hits survives: warm launches pay little DRAM; panels gain only when cold (sw8 −3.5 % against s3_t128 rotating). → warm HGEMM DRAM reads by the warm-miss curve on A + B (D772). Ablation (r4 data, D772 off → on): HGEMM median 4.5 → 3.9 %, worst −12.4 → −13.4 %, Spearman 0.59 → 0.77, inversions 8 → 4; the worst-inverted pair now s2 −1.4 % / sw4 −6.2 % (measured gap −4.7 %, replay +0.2 %, inside the 2 % noise threshold). Rotating set (engine unchanged by D772): median 7.3 %, worst −12.5 %, Spearman 0.93, 2 inversions.
+
+**launch sequences** (per launch minus span, µs): b2b 1.80 (span 0.1), 2.96, 2.35, 2.74, 3.12, 2.70 (spans 0.74–151); graph 0.61, 0.77, 0.69, 0.59, 0.60, 0.59; graph empty g1 / g512 / g4096 0.44 / 0.60 / 2.52. H-add survives with gaps 2.74 (b2b) and 0.60 (graph), H-hide rejected; below 0.5 µs span b2b runs at the submission rate (question 14). → `launch_b2b_gap_us` 2.74, `launch_graph_gap_us` 0.60 measured (D773). Ablation (pre-run 3.1 / 0.43 → measured): combine b2b +76.6 → +57.8 %, graph −14.9 → +5.5 %; RMSNorm warm b2b −27.6 → −32.0 %, softmax b2b −21.0 → −24.8 % (the kernels' own spans are fast: question 15).
+
+**Test kernels, three ways** (kernel / b2b / graph, µs measured): combine 2.50 / 1.91 / 0.83; RMSNorm warm 8.61 / 8.22 / 6.97, rotating 41.22 / 40.06 / 36.91; softmax 9.60 / 9.24 / 7.38; GEMV warm 16.74 / 16.08 / 13.35, rotating 37.34 / 36.87 / 34.02; decode partial warm 25.89 / 24.79 / 23.42, rotating 71.04 / 70.81 / 69.36; FA 253.5 / 255.2 / 255.7; HGEMM within ±3 % of `kernel` in every mode. With launch 0.6 µs in a graph, RMSNorm warm's own span is ≈ 6.4 µs (replay 2.8) and softmax's ≈ 6.8 (replay 4.2).
+
+**MoE grouped GEMM**: 179.6 / 173.1 µs (128×128 s3 / 64×128 s4); replay 594 / 63 (+231 / −63 %), R1 1/2; generic front end (D774), question 16.
+
+**FP8**: 123.2 and 137.7 µs (r3 123.1, 137.6); −4.4 / −9.0 %. QMMA shares the HMMA hold; per-type tensor rate not exercised.
+

@@ -1,17 +1,17 @@
 # Performance model: state
 
-The single state file of the GB10 programme (28 §7, LOOP.md product 7). Updated 2026-11-04 at the end of round 3. Table: [error-table.md](error-table.md). Inventory: [29](../29-mechanism-inventory.md). Batches: `perfmodel/batches/<batch>/` (entry blocks, SASS, predictions, batch record, measured values); raw outputs `data/perfmodel/batches/<batch>/` (not in git).
+The single state file of the GB10 programme (28 §7, LOOP.md product 7). Updated 2026-11-04 at the end of round 4. Table: [error-table.md](error-table.md). Inventory: [29](../29-mechanism-inventory.md). Batches: `perfmodel/batches/<batch>/` (entry blocks, SASS, predictions, batch record, measured values); raw outputs `data/perfmodel/batches/<batch>/` (not in git).
 
 ## Where things stand
 
 | Item | State |
 | --- | --- |
-| GPU batches | r1, r1fa (round 1); r2, r2b, r2c (round 2); r3 (round 3: probes l2reuse, launch; every test kernel re-measured; FP8 GEMM), all valid: r3 clock 2.485 GHz (drift −0.7 %), canaries within +0.6 % |
-| Test set | 10 HGEMM 2048³ variants, FA forward, decode GQA split-KV partial (warm, rotating) and combine, w4a16 GEMV 4096² (warm, rotating), RMSNorm 512×4096 (warm, rotating), softmax 512×4096; round 3 added 2 FP8 GEMMs 2048³ (e4m3, QMMA.16832). The split-KV sequence: `unsupported: multi-kernel sequence`. MoE grouped GEMM: not built |
-| Scorecard, test set (with fits / mechanisms only; r3 data) | HGEMM: median 4.4 / 4.7 %, worst −12.0 / −12.3 %, Spearman 0.62 / 0.62, inversions 8 / 8, counts 10/10, bottleneck 9/10. FP8 GEMM −4.3 / −8.9 %. FA −6.7 %. GEMV warm −9.9 %, rotating +21.5 %; RMSNorm warm −35.1 %, rotating −41.5 %; softmax −28.2 %; combine +23.3 %; decode partial warm −5.4 %, rotating +15.0 %. Counts check (R1) passes on every test row, now including global-load sectors per block for LDG kernels. No fitted parameter left on a KTA batch row |
-| Re-measurement r2 → r3 | HGEMM within 0.5 % per variant, FA 0.0 %; small kernels move more between sessions (RMSNorm warm −8.7 %, softmax +6.3 %, decode warm −3.8 %) |
-| Probe set | 12 KTA probes: round 2's 10 plus `l2reuse` (footprint 1.5–32 MiB × load kind cg / ca / cs × cold / warm / four passes in one kernel; profiler points) and `launch` (empty and tiny kernels over grids, back-to-back, known-work spans) |
-| Engine | round 3: LDG lines, sectors and L1 hits from lane addresses (D765); FCHK fast path (D770); warm L2 misses by footprint (D766); `launch_event_us` for batch rows (D769); scheduler unchanged (D768) |
+| GPU batches | r1, r1fa (round 1); r2, r2b, r2c (round 2); r3 (round 3); r4 (round 4: probes dram_rw, launch sequences; every test kernel re-measured and timed three ways; HGEMM rotating; MoE grouped GEMM), all valid: r4 clock 2.485 GHz (drift −0.7 %), canaries within +0.5 % |
+| Test set | 10 HGEMM 2048³ variants warm and (round 4) rotating, FA forward, decode GQA split-KV partial (warm, rotating) and combine, w4a16 GEMV 4096² (warm, rotating), RMSNorm 512×4096 (warm, rotating), softmax 512×4096, 2 FP8 GEMMs 2048³ (e4m3), (round 4) MoE grouped GEMM 8 experts × 256 tokens, K 2048, N 1024, two tiles. Every test kernel has three rows (D773): `kernel` (one launch between events), `b2b` (50 back-to-back launches, per launch), `graph` (50 launches in one CUDA graph, per launch). The split-KV sequence: `unsupported: multi-kernel sequence`. NVFP4 GEMM: not built |
+| Scorecard, test set (with fits / mechanisms only; r4 data, `kernel` rows) | HGEMM warm: median 3.9 / 4.1 %, worst −13.4 / −13.6 %, Spearman 0.77 / 0.77, inversions 4 / 4, counts 10/10, bottleneck 9/10; HGEMM rotating: 7.3 %, worst −12.5 %, Spearman 0.93, 2 inversions. FP8 GEMM −4.4 / −9.0 %. FA −6.5 %. RMSNorm rotating +16.0 %, warm −34.4 %; softmax −27.1 %; combine +23.3 %; GEMV rotating +24.5 %, warm −10.6 %; decode partial warm −8.4 %, rotating +15.2 %; MoE +231 % / −63 % (generic front end). `graph` rows (launch 0.6 µs): RMSNorm warm −50.5 %, softmax −35.0 %, combine +5.5 %; `b2b`: combine +57.8 %. R1 passes on every test row except MoE 1/2. No fitted parameter on a KTA batch row |
+| Re-measurement r3 → r4 | HGEMM within 1.6 % per variant (s4 +1.5 %), FA −0.3 %, small kernels within 3.2 % (decode warm +3.2 %, GEMV rotating −2.4 %) |
+| Probe set | 13 KTA probes: round 3's 12 plus `dram_rw` (read:write mixes over 30 MiB planes, rotating); `launch` gains sequence points (b2b and graph, FFMA spans 0.1–151 µs; graph empty grids) |
+| Engine | round 4: DRAM writes paced in rotating rows (D771); warm HGEMM DRAM reads by the warm-miss curve on A + B (D772); launch sequences max(submit, span + gap) (D773) |
 
 ## Error table: top valid rows
 
@@ -19,30 +19,35 @@ Valid = counts check passed and cache state declared.
 
 | Row | Error | Attribution (top) |
 | --- | ---: | --- |
-| rmsnorm m512 n4096 rotating | −41.5 % | load latency incl. DRAM queue 84 %, launch 12 % |
-| rmsnorm m512 n4096 warm | −35.1 % | launch 50 %, chip L2 share 28 % |
-| softmax m512 n4096 warm | −28.2 % | launch 41 %, ALU queue 10 % |
-| decode combine warm | +23.3 % | launch 91 % |
-| gemv_w4a16 rotating | +21.5 % | load latency incl. DRAM queue 89 % |
-| hgemm2048 c128x128x32_s3_t128_sw8 | −12.0 % | tensor queue 39 %, stall after mma 24 % |
+| moe c128x128x32_s3_t128 kernel (also b2b, graph) | +231 % | DRAM queue 89 % (generic front end: every load misses by the 44 MiB footprint curve, the GEMM's reuse ignored) |
+| moe c64x128x32_s4_t128 kernel (R1 fails) | −63 % | DRAM queue 80 % |
+| decode combine b2b | +57.8 % | launch gap (span 0.3 µs: below 0.5 µs the GPU runs back-to-back launches at the submission rate, 1.9 µs) |
+| rmsnorm warm graph | −50.5 % | chip L2 share 56 % (span replayed 2.8 µs, measured ≈ 6.4) |
+| softmax warm graph | −35.0 % | ALU queue 17 %, stall after FP32 14 % (span replayed 4.2 µs, measured ≈ 6.8) |
+| rmsnorm warm kernel | −34.4 % | launch 50 %, chip L2 share 28 % |
+| gemv_w4a16 rotating graph | +30.2 % | load latency incl. DRAM queue 95 % |
 
-RMSNorm rotating runs at 207 GB/s on the GPU and 354 GB/s in the replay, above the DRAM plateau: the rotating front end counts only the reads as DRAM traffic at `dram_read_GBs`, while RMSNorm writes as much as it reads (Y, 4 MB).
+The `graph` rows carry almost no launch (0.6 µs): RMSNorm and softmax are slow in the kernel itself, not in the launch.
 
 ## Open questions (experiment counts per mechanism, LOOP §3)
 
-1. **Sharing between co-resident blocks** — closed at 2 of 2 (D768): fair sharing; the replay's rule holds. The mma_pair residuals (span −9 %, first +12 % at s16384) are the skew loop's speed (below).
-2. **Raster panels give no gain on the GPU, the replay gives 5.5 %** — reopened from question 1, 0 of 2: not L2 traffic (round 2), not the sharing rule (round 3). Candidate: the panelled prologue (integer division, a fallback branch) in the replay.
-3. **HGEMM 2048³ model fast** — 1 of 2 (unchanged): the loss is outside the mma loop (loads, block turnover, stores).
-4. **Taken-branch cost** — new, 0 of 2: a 4-instruction FFMA loop takes 23.0 cycles per iteration on the GPU, 17.6 in the replay (the stall counts add to 18): about 5 cycles per taken BRA (probe launch work points; mma_pair skew). Below 3 % of every valid test row's path: not refined until a row points at it.
-5. **Launch hidden behind short kernels** — new, 1 of 2: combine (2.50 µs measured in total) is below `launch_event_us` 2.80; the probe's event − span is bimodal (2.1 / 3.2 µs) and an empty kernel takes 2.43 µs. Combine +15.3 → +23.3 % by this change (compensating mechanism missing, LOOP §5).
-6. **Softmax and FA after the FCHK fix** — compensating mechanism missing: softmax −21.6 → −28.2 %, FA −5.4 → −6.7 % once the slow-division path is no longer replayed.
-7. **DRAM writes in rotating rows** — new, 0 of 2: RMSNorm rotating (reads 4 MB, writes 4 MB) faster than DRAM in the replay.
-8. **Hits on pending misses** — new, 0 of 2: four passes in one kernel take about the cold time at small footprints (l2reuse in4 rows up to +188 %: the replay serialises passes that the GPU merges on outstanding lines). No test row attributes to it. Related: the l2reuse warm rows at 18–27 MiB are 35–41 % fast with the measured miss fraction (the replay spreads misses evenly; a cyclic scan beyond capacity misses in runs and exposes the DRAM latency); no test row's footprint is there yet.
-9. **Issue limit exceeded** — 1 of 2 (unchanged): `ex2_ffma E0_F32`, upstream F2I at 16 warps. Excluded (D758).
+1. **Sharing between co-resident blocks** — closed at 2 of 2 (D768): fair sharing.
+2. **Raster panels** — 1 of 2: on the GPU the panel gains nothing warm (sw8 +0.1 %, sw4 0.0 %) and 3.5 % / 0.8 % rotating (r4); the replay gives sw8 5.1 % warm even with almost no warm DRAM traffic (D772), so the replay's gain is not DRAM. Candidate: the panelled prologue (integer division, a fallback branch) or the taken-branch cost (question 4).
+3. **HGEMM 2048³ model fast** — 1 of 2: warm −1 to −13 %, rotating −4 to −12.5 % (r4); the loss is outside the DRAM path (loads from L2, block turnover, stores); the 128-thread 128×128×32 variants are the worst both ways.
+4. **Taken-branch cost** — 0 of 2: the FFMA loop takes 23.0 cycles per iteration on the GPU, 17.6 in the replay; now visible on the launch probe's sequence rows (b2b / graph work points −16 to −21 %); still below 3 % of every test row.
+5. **Launch hidden behind short kernels** — closed at 2 of 2 (D773): not hidden; back-to-back span + 2.74 µs, graph span + 0.60 µs at spans 0.7–151 µs. Below 0.5 µs span the back-to-back gap shrinks to the submission rate (empty chain 1.90 µs, combine 1.91 µs): new question 14.
+6. **Softmax and FA after the FCHK fix** — compensating mechanism missing (unchanged); softmax graph −35 % shows the kernel span itself.
+7. **DRAM writes in rotating rows** — closed at 1 of 2 (D771): reads / 237 + writes / 197 GB/s (dram_rw r4). RMSNorm rotating −41.5 → +16.0 % (now slow: the replay's DRAM queue for a 512-block, one-row-per-block stream; question 15).
+8. **Hits on pending misses** — 0 of 2 (unchanged); no test row.
+9. **Issue limit exceeded** — 1 of 2 (unchanged). Excluded (D758).
 10. **DRAM latency: copy 1560 vs streaming LDG 1100** — 0 of 2 (unchanged).
-11. BAR.SYNC at 32 warps +19 %; L1 chase −4.3 %; dram_rotate at 128 threads −13 %; tiny-kernel store path at large grids (launch tiny rows): below 3 % of any valid row's path.
+11. BAR.SYNC at 32 warps +19 %; L1 chase −4.3 %; dram_rotate at 128 threads −13 %; tiny-kernel store path at large grids; graph of 4096 empty blocks 2.52 µs (replay 0.67): below 3 % of any valid row's path.
 12. Decode rows' cache state (tma m128, m32): needs a rotating re-measurement of those upstream kernels.
 13. Silent default: `BAR.RED` treated as blocking.
+14. **Back-to-back launches of sub-0.5 µs kernels** — new, 0 of 2: combine b2b +57.8 %.
+15. **Small-kernel spans: RMSNorm warm and softmax replayed 1.6–2.3× fast** — new, 0 of 2 (graph rows −50.5 / −35 %); RMSNorm rotating +16 %. 512 blocks of 128 threads, one row each: block turnover and the chip L2 share for warm LDG traffic are the candidates.
+16. **MoE grouped GEMM on the generic front end** — new (D774): +231 % / −63 %, R1 1/2; a front-end defect (GEMM reuse, per-expert B), fixed by routing it through the HGEMM front end with E operand matrices, checked against R1, not a probe.
+17. **Write-only streams** — new: no DRAM pacing without reads (dram_rw 0:2 −85 %); no test row.
 
 ## Frozen parameters
 
@@ -97,4 +102,16 @@ Scorecard: GEMV +1079 → +21.5 %, +215 → −9.9 %; RMSNorm −48 / −45 → 
 New mechanism: yes — inventory: L2 capacity A → M (curve, empirical), launch M re-measured as the harness times it, L1 hit path driver list → lane addresses, warp scheduler P → M (fair between blocks).
 Fits: launch_stream_us off every KTA batch row (measured launch_event_us instead); none added; largest fit share on a path: launch 12 % (upstream gemm1024 nocompute).
 Next: worst valid row RMSNorm rotating −41.5 % (DRAM load latency/queue 84 %): the rotating front end ignores DRAM write traffic and uses the datasheet read rate — a probe of mixed read/write streaming (question 7); then launch hidden behind short kernels (question 5).
+```
+
+```
+Round 4: batch r4 — probe dram_rw (DRAM read/write mix), probe launch sequence points (b2b, graph); every test kernel timed three ways (kernel / b2b / graph); HGEMM rotating; MoE grouped GEMM added.
+Question: worst row RMSNorm rotating −41.5 % (DRAM 84 %, writes not paced); worst-inverted HGEMM pair c128x128x64_s2_t128 vs c128x256x32_sw4 (measured −4.8 %, replay +6.2 %): the diff is 87 µs of DRAM latency+queue on s2 only, because every warm replay read A+B from DRAM; launch term 41–91 % of small rows.
+Hypotheses: DRAM mix reads-only / sum of rates / one rate; warm HGEMM reads A+B from DRAM / hits the L2; launch in a sequence additive gap / hidden behind the kernel.
+Result: dram_rw 267, 428, 289, 432, 320 µs = reads/237 + writes/197 (sum survives); HGEMM rotating costs +0 to +9.4 % over warm (warm mostly L2 hits; panels gain only cold); b2b span + 2.74 µs, graph span + 0.60 µs (additive), b2b at sub-0.5 µs spans = submission rate 1.9 µs.
+Change: sim.dram_writes_paced (D771), sim.hgemm_warm_reads_by_curve (D772), launch_seq rule with launch_b2b_gap_us 2.74 / launch_graph_gap_us 0.60 measured (D773); gen.py write_bytes, b2b/graph rows, HGEMM rotating, MoE (D774).
+Scorecard: RMSNorm rotating −41.5 → +16.0 %; HGEMM median 4.4 → 3.9 %, worst −12.0 → −13.4 %, Spearman 0.62 → 0.77, inversions 8 → 4 (D772 off: 0.59 / 8); HGEMM rotating 0.93 / 2; combine graph +5.5 %, b2b +57.8 %; graph rows show RMSNorm warm −50.5 %, softmax −35 % in the kernel itself; MoE +231 / −63 %; others within re-measurement.
+New mechanism: yes — DRAM read/write mix X → M in KTA (dram_rw), launch sequences X → M (b2b, graph), L2 for warm HGEMM: launch-order sim → measured warm-miss curve.
+Fits: none added; largest fit share on a path unchanged (launch 12 %, upstream gemm1024 nocompute). FP8 rows: QMMA replayed at the HMMA hold (16 cycles); the tensor-pipe rate per data type is not exercised (no per-type parameter).
+Next: MoE through the HGEMM front end with per-expert B (front end, R1); then small-kernel spans (question 15: RMSNorm warm graph −50 %) by a row-reduction probe; HGEMM pair sw8 vs s3_t128 (question 2, prologue / taken branch).
 ```

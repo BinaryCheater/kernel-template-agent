@@ -138,6 +138,12 @@ def wave_dram(
     bm, bn, bk = h["block_M"], h["block_N"], h["block_K"]
     if warm and (M * K + K * N + M * N) * 2 <= MC["l2_effective_bytes"]:
         return 0.0, 0.0
+    # round 4 (batch r4, HGEMM warm vs rotating): a warm launch misses by the measured warm-miss
+    # curve on the operands' read footprint; the cold wave's traffic scaled by that fraction
+    if warm and (machine or default_machine()).P["hgemm_warm_reads_by_curve"]:
+        f = l2_warm_miss((M * K + K * N) * 2, "ca", machine)
+        r_, s_ = wave_dram(h, shape, wave, False, machine)
+        return r_ * f, s_ * f
     run_a = min(bk, K) * 2 if K > bk else min(bm, M) * K * 2
     run_b = min(N, wave["cols"] * bn) * 2
     c_w = wave.get("c_bytes", wave["blocks"] * min(bm, M) * min(bn, N) * 2)
