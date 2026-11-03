@@ -104,6 +104,9 @@ class SM:
         trace: bool = False,
         block_dim: tuple | None = None,
         l1_bytes: int | None = None,
+        block_ids: list[int] | None = None,
+        addr_log: list | None = None,
+        miss_by_pc: dict[int, float] | None = None,
     ):
         self.ins = ins
         # KTA (PERFMODEL): with `trace`, every issue and the binding reason of every wait is kept
@@ -181,6 +184,9 @@ class SM:
         # copies
         self.miss_frac = miss_frac
         self.miss_acc = 0.0
+        # KTA (PERFMODEL round 5, l2.py): misses per load instruction, from the kernel's addresses
+        self.miss_by_pc = miss_by_pc
+        self.miss_acc_pc: dict[int, float] = {}
         self.dram_clk = dram_clk_per_512B
         # TMA stores (UTMASTG): the block's C tile split evenly over the store boxes in the code;
         # the TMA unit reads the shared-memory array as fast as the pair's store port drains it
@@ -201,6 +207,10 @@ class SM:
         # block indices: this SM's j-th block is the grid's block j x 48 (blocks go round the SMs in
         # launch order)
         self.grid_dim = grid_dim
+        # KTA (PERFMODEL round 5, l2.py): an address walk replays chosen grid blocks and logs each
+        # global load's lanes
+        self.block_ids = block_ids
+        self.addr_log = addr_log
         # block -> warps that have exited (they count as arrived at a block-wide barrier)
         self.exited = {}
         # shared-memory bank conflicts of ldmatrix: (A reads, LDSM.M88; B reads, LDSM.MT88), from
@@ -219,7 +229,7 @@ class SM:
         # KTA (PERFMODEL round 3): without a driver-supplied list, an LDG's lines and sectors come
         # from its width and its 32 lanes' addresses (lanes.py), and a line another load of this SM
         # brought into the L1 (LRU over `l1_bytes`, kernel-parameter bases only) is a hit
-        self.lane_track = (
+        self.lane_track = addr_log is not None or (
             P["ldg_lane_addresses"] and self.ldg_default and any(x.base == "LDG" for x in ins)
         )
         bd = tuple([*(block_dim or (threads,)), 1, 1][:3])
@@ -249,6 +259,8 @@ class SM:
         32 contiguous lanes (a front-end default)."""
         width = width_of(x.op)
         addr = w.lanes.address(x.args, w.vals)
+        if self.addr_log is not None:
+            self.addr_log.append((w.wid, w.loops, w.pc, width, addr))
         if addr is None:
             self._dflt("front_end", "ldg address unknown (32 contiguous lanes)")
             n_sect = width
@@ -271,6 +283,18 @@ class SM:
         miss = (lines - hits) / lines
         self.count["ldg_miss_sectors"] += n_sect * miss
         return lines, n_sect * 32 * miss, hits
+
+    def _l2_miss(self, pc: int) -> bool:
+        """This load misses the L2: misses spread evenly over the load's executions."""
+        if self.miss_by_pc is None:
+            self.miss_acc += self.miss_frac
+            if self.miss_acc >= 1.0:
+                self.miss_acc -= 1.0
+                return True
+            return False
+        a = self.miss_acc_pc.get(pc, 0.0) + self.miss_by_pc.get(pc, 0.0)
+        self.miss_acc_pc[pc] = a - 1.0 if a >= 1.0 else a
+        return a >= 1.0
 
     def ev(self, t, kind, w, arg=None):
         self.seq += 1
@@ -385,7 +409,11 @@ class SM:
                     v = 0
                 elif "SR_CTAID" in x.args and self.grid_dim:
                     gx, gy, gz = [*self.grid_dim, 1, 1][:3]
-                    lin = (w.block * self.m.sms) % (gx * gy * gz)
+                    lin = (
+                        self.block_ids[w.block]
+                        if self.block_ids
+                        else (w.block * self.m.sms) % (gx * gy * gz)
+                    )
                     v = {"X": lin % gx, "Y": (lin // gx) % gy, "Z": lin // (gx * gy)}[
                         x.args.split("SR_CTAID.")[1][0]
                     ]
@@ -722,6 +750,9 @@ class SM:
                 # L2 return path after the round trip and is written into the shared-memory array
                 # (the same array ldmatrix reads)
                 free["mio"][s] = now + P["mio_ldgsts_clk"]
+                if self.addr_log is not None:
+                    addr = w.lanes.address(x.args, w.vals)
+                    self.addr_log.append((w.wid, w.loops, w.pc, width_of(x.op), addr))
                 # the load unit's address stage: one 128-byte line per cycle; the copy reads its
                 # address registers there
                 lines = self.copy_lines[w.ncopy % len(self.copy_lines)]
@@ -732,9 +763,7 @@ class SM:
                 t["lsu"] = t_lsu + lines * P["lsu_clk_per_line"]
                 self.busy["lsu"] = self.busy.get("lsu", 0) + lines
                 lsu_done = t["lsu"]
-                self.miss_acc += self.miss_frac
-                if self.miss_acc >= 1.0:
-                    self.miss_acc -= 1.0
+                if self._l2_miss(w.pc):
                     t_d = max(lsu_done + P["ldgsts_dram_latency_clk"], t["dram_queue"])
                     t["dram_queue"] = t_d + self.dram_clk
                     self.busy["dram"] = self.busy.get("dram", 0) + self.dram_clk
@@ -803,9 +832,7 @@ class SM:
                             (t["l1"], lat_done, "l1", "hit latency", "sim.l1_hit_latency_clk"),
                         ]
                 if hit_lines < lines:
-                    self.miss_acc += self.miss_frac
-                    if self.miss_acc >= 1.0:
-                        self.miss_acc -= 1.0
+                    if self._l2_miss(w.pc):
                         # KTA (PERFMODEL round 1, probe dram_rotate.cu, batch r1): a streaming LDG
                         # miss waits ldg_dram_latency_clk, not the copy path's chase latency
                         t_d = max(lsu_done + P["ldg_dram_latency_clk"], t["dram_queue"])

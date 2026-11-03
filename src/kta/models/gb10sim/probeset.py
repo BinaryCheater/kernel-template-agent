@@ -27,6 +27,7 @@ from .kernel import (
     sass_trips,
     simulate_kernel,
 )
+from .l2 import replay_walk, walk
 from .machine import Machine, default_machine
 from .probes import Case, ClockMarked, marked_cycles
 from .sass import Ins, main_loop, parse
@@ -434,6 +435,94 @@ def mma_pair_cases(b: Batch) -> list[Case]:
     return out
 
 
+MMA_TYPES = (
+    "f32_f16",
+    "f16_f16",
+    "f32_bf16",
+    "f32_e4m3",
+    "f16_e4m3",
+    "f32_e5m2",
+    "s32_s8",
+    "s32_s4",
+)
+# the kernel template's type index per point (the probe's POINT list)
+MMA_TYPE_INDEX = dict(zip(MMA_TYPES, (0, 1, 2, 4, 5, 6, 7, 8), strict=True))
+ROW_POINTS = {
+    "empty": (0, 0, 0),
+    "ld": (1, 0, 0),
+    "red": (0, 1, 0),
+    "st": (0, 0, 1),
+    "ld_st": (1, 0, 1),
+    "ld_red": (1, 1, 0),
+    "ld_red_st": (1, 1, 1),
+}
+
+
+def mma_types_cases(b: Batch) -> list[Case]:
+    """Round 5: independent mma per opcode and type on one and four warps, and chained (probe
+    mma_types); cycles per instruction on one sub-partition."""
+    txt = _sass(b, "probe-mma_types")
+    out = []
+    for name in MMA_TYPES:
+        t = MMA_TYPE_INDEX[name]
+        i16 = _k(txt, f"_Z1kILi{t}ELi16EEvjPyPj")
+        i1 = _k(txt, f"_Z1kILi{t}ELi1EEvjPyPj")
+        for pt, ins, warps, na in (("w1", i16, 1, 16), ("w4", i16, 4, 16), ("chain", i1, 1, 1)):
+            out.append(
+                _case(
+                    b,
+                    f"mma_types {name}_{pt}",
+                    "mma_types",
+                    2,
+                    "cycles/instr/subpartition",
+                    lambda ins=ins, warps=warps, **kw: ClockMarked(ins, 32 * warps, 1, 1, **kw),
+                    per(256 * na),
+                )
+            )
+    return out
+
+
+def row_reduce_cases(b: Batch) -> list[Case]:
+    """Round 5: the steps of a row kernel's block at 1 and 11 blocks per SM (probe row_reduce);
+    the span of the busiest SM, warm (every load a hit), the chip's shares by blocks in flight."""
+    txt = _sass(b, "probe-row_reduce")
+    out = []
+    for name, (ld, red, st) in ROW_POINTS.items():
+        kernel = f"_Z1kILi{ld}ELi{red}ELi{st}EEvPyPKfPfPj"
+        ins = _k(txt, kernel)
+        regs = regs_of(b, "probe-row_reduce", kernel)
+        for grid in (48, 512):
+
+            def build(ins=ins, grid=grid, regs=regs, **kw):
+                m = kw.get("machine") or default_machine()
+                rmax = occupancy({"threads": 128}, regs, 512, m)
+                per_sm = math.ceil(grid / m.sms)
+                return SM(
+                    ins,
+                    128,
+                    per_sm,
+                    1,
+                    active_sms=min(grid, m.sms * rmax) / min(rmax, per_sm),
+                    resident=rmax,
+                    grid_blocks=grid,
+                    grid_dim=(grid, 1, 1),
+                    **kw,
+                )
+
+            out.append(
+                _case(
+                    b,
+                    f"row_reduce {name}_g{grid}_span",
+                    "row_reduce",
+                    4,
+                    "cycles",
+                    build,
+                    lambda sm, r: r["cycles"],
+                )
+            )
+    return out
+
+
 L2STAGES_TILE = {"block_M": 128, "block_N": 256, "block_K": 32, "threads": 256}
 
 
@@ -684,17 +773,36 @@ def _launch_diff(b: Batch, sm: Any) -> float:
     return sim_us - sm.cycles / (b.clock_GHz * 1e3)
 
 
+_l2_cache: dict[tuple, Any] = {}
+
+
+def _l2_replay(ins: list[Ins], L: dict[str, Any], trips: int, in_flight: int, m: Machine) -> Any:
+    cap = m.C["l2_effective_bytes"]
+    key = (L["entry"], json.dumps(L, sort_keys=True), len(ins), trips, in_flight, cap)
+    if key not in _l2_cache:
+        block = tuple(L.get("block", [L["threads"]]))
+        acc = walk(ins, L["threads"], trips, tuple(L["grid"]), block, m)
+        _l2_cache[key] = replay_walk(acc, in_flight, cap)
+    return _l2_cache[key]
+
+
 def _generic_case(b: Batch, d: Path, L: dict[str, Any], regs: int, mode: str = "kernel") -> Case:
     """A kernel without a family front end (FA forward, decode attention, GEMV, RMSNorm, softmax):
     the busiest SM of the grid with block replacement, the chip's shares by blocks in flight, the
-    main loop's trip count from TileLang's source loop. Warm (round 3, probe l2reuse): loads miss
-    the L2 by the footprint's measured curve (plain loads; evict-first loads their own). Rotating
-    (round 2): every load misses, the footprint read at the DRAM rate shared by the blocks in
-    flight (as the dram_rotate probe). LDG lines, sectors and L1 hits from the lanes' addresses
-    (sm.SM lane tracking, round 3)."""
+    main loop's trip count from TileLang's source loop. The L2 (round 5, l2.py): the loads' own
+    addresses over the grid through one cache in launch order; rotating launches read that traffic
+    at the DRAM rate shared by the blocks in flight (as the dram_rotate probe), warm launches the
+    part the measured curve of the read footprint loses (plain loads; evict-first loads their own).
+    LDG lines, sectors and L1 hits from the lanes' addresses (sm.SM lane tracking, round 3)."""
     ins = _k((d / "k.sass").read_text(), L["entry"])
     src = (d / "kernel.cu").read_text()
-    loops = [int(x) for x in re.findall(r"for \(int k = 0; k < (\d+); \+\+k\)", src)]
+    # the source loop of the kernel's main loop: `k`; a GEMM's k-loop may be called `ko` (MoE)
+    lp = main_loop(ins)
+    mma = lp and any(x.base in ("HMMA", "QMMA", "IMMA") for x in ins[lp[0] : lp[1] + 1])
+    name = "ko?" if mma else "k"
+    loops = [
+        int(x) for x in re.findall(rf"for \(int {name} = 0; {name} < (\d+); \+\+{name}\)", src)
+    ]
     src_trips = max(loops) if loops else 1
     tiles = math.prod(L["grid"])
 
@@ -705,15 +813,19 @@ def _generic_case(b: Batch, d: Path, L: dict[str, Any], regs: int, mode: str = "
         per_sm = math.ceil(tiles / m.sms)
         eq = min(tiles, m.sms * rmax) / min(rmax, per_sm)
         fb = L["footprint_bytes"]
-        rb, wb = fb, 0
-        if L.get("cache") == "rotating":
-            miss = 1.0
-            # round 4: the written buffers (gen.py `write_bytes`) are DRAM traffic beside the reads
-            wb = L.get("write_bytes", 0)
-            rb = fb - wb
+        rotating = L.get("cache") == "rotating"
+        kind = "cs" if all(".EF" in x.op for x in ins if x.base == "LDG") else "ca"
+        # round 4: the written buffers (gen.py `write_bytes`) are DRAM traffic beside the reads
+        wb = L.get("write_bytes", 0) if rotating else 0
+        if m.P["l2_replay"]:
+            r = _l2_replay(ins, L, src_trips, m.sms * rmax, m)
+            scale = 1.0 if rotating else l2_warm_miss(r.footprint, kind, m)
+            rb, miss = r.reads * scale, 1.0 if scale > 0 else 0.0
+            kw["miss_by_pc"] = {pc: v * scale for pc, v in r.miss_by_pc.items()}
+        elif rotating:
+            rb, miss = fb - wb, 1.0
         else:  # warm (round 3, probe l2reuse): the re-read misses by the footprint
-            ef = all(".EF" in x.op for x in ins if x.base == "LDG")
-            miss = l2_warm_miss(fb, "cs" if ef else "ca", m)
+            rb, miss = fb, l2_warm_miss(fb, kind, m)
         if miss > 0:
             kw = {
                 **kw,
@@ -788,6 +900,8 @@ def all_cases(batch_dir: Path) -> list[Case]:
         ("probe-dram_rotate", dram_cases),
         ("probe-dram_rw", dram_rw_cases),
         ("probe-mma_pair", mma_pair_cases),
+        ("probe-mma_types", mma_types_cases),
+        ("probe-row_reduce", row_reduce_cases),
         ("probe-l2share_stages", l2stages_cases),
         ("probe-l2reuse", l2reuse_cases),
         ("probe-launch", launch_cases),

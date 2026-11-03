@@ -56,6 +56,12 @@ FP8 = {
 }
 # round 4: MoE grouped GEMM, E experts with an equal share of the tokens each (balanced routing),
 # tokens sorted by expert: C[t] = A[t] W[e(t)]
+# w4a16 B dequantised in the main loop (round 5; sm_121a's ptxas refuses the NVFP4 block-scaled mma)
+W4GEMM = {
+    "c128x128x32_s3_t128": (128, 128, 32, 3, 128),
+    "c64x128x32_s4_t128": (64, 128, 32, 4, 128),
+}
+W4GEMM_GROUP = 32
 MOE = {"E": 8, "T": 2048, "N": 1024, "K": 2048}
 MOE_TILES = {
     "c128x128x32_s3_t128": (128, 128, 32, 3, 128),
@@ -138,6 +144,44 @@ def moe_gemm(E: int, T_: int, N: int, K: int, BM: int, BN: int, BK: int, S: int,
                 T.copy(A[by * BM, ko * BK], A_shared)
                 T.copy(W[e, ko * BK, bx * BN], B_shared)
                 T.gemm(A_shared, B_shared, C_local)
+            T.copy(C_local, C[by * BM, bx * BN])
+
+    return gemm
+
+
+def w4gemm(BM: int, BN: int, BK: int, S: int, threads: int, group: int):
+    """GEMM with a w4a16 B dequantised in the main loop (TileLang's dequantize-GEMM pattern fused
+    into the k-loop): each k-step copies A, the packed int4 B tile and its fp16 group scales to
+    shared memory, the block's threads expand B to fp16 there, then the mma. Two int4 per int8."""
+    M, N, K = SHAPE["M"], SHAPE["N"], SHAPE["K"]
+    SC = BK // group if BK >= group else 1
+
+    @T.prim_func
+    def gemm(
+        A: T.Tensor((M, K), "float16"),
+        Bq: T.Tensor((N, K // 2), "int8"),
+        Sc: T.Tensor((N, K // group), "float16"),
+        C: T.Tensor((M, N), "float16"),
+    ):
+        with T.Kernel(T.ceildiv(N, BN), T.ceildiv(M, BM), threads=threads) as (bx, by):
+            A_shared = T.alloc_shared((BM, BK), "float16")
+            Bq_shared = T.alloc_shared((BN, BK // 2), "int8")
+            Sc_shared = T.alloc_shared((BN, SC), "float16")
+            B_shared = T.alloc_shared((BN, BK), "float16")
+            C_local = T.alloc_fragment((BM, BN), "float32")
+            T.clear(C_local)
+            for ko in T.Pipelined(T.ceildiv(K, BK), num_stages=S):
+                T.copy(A[by * BM, ko * BK], A_shared)
+                T.copy(Bq[bx * BN, ko * (BK // 2)], Bq_shared)
+                T.copy(Sc[bx * BN, ko * BK // group], Sc_shared)
+                for i, j in T.Parallel(BN, BK):
+                    B_shared[i, j] = (
+                        T.Cast(
+                            "float16", (T.Cast("int32", Bq_shared[i, j // 2]) >> ((j % 2) * 4)) & 15
+                        )
+                        - T.float16(8)
+                    ) * Sc_shared[i, 0]
+                T.gemm(A_shared, B_shared, C_local, transpose_B=True)
             T.copy(C_local, C[by * BM, bx * BN])
 
     return gemm
@@ -732,6 +776,28 @@ def _moe(out: Path) -> None:
             th,
             info,
         )
+
+
+def _w4gemm(out: Path) -> None:
+    M, N, K = SHAPE["M"], SHAPE["N"], SHAPE["K"]
+    group = W4GEMM_GROUP
+    sizes = [M * K, N * K // 2, N * K // group, M * N]
+    for name, (bm, bn, bk, s, th) in W4GEMM.items():
+        h = {"block_M": bm, "block_N": bn, "block_K": bk, "num_stages": s, "threads": th}
+        info = {"family": "w4gemm", "shape": SHAPE, "pick": h}
+        fp = sum(x * b for x, b in zip(sizes, [2, 1, 2, 2], strict=True))
+        for cache, rot in (("warm", 1), ("rotating", _rot(fp))):
+            write(
+                out,
+                f"w4gemm2048_{name}_{cache}",
+                w4gemm(bm, bn, bk, s, th, group),
+                sizes,
+                [-(-N // bn), -(-M // bm), 1],
+                th,
+                {**info, "cache": cache},
+                elem_bytes=[2, 1, 2, 2],
+                rot=rot,
+            )
 
 
 if __name__ == "__main__":

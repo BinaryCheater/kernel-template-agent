@@ -12,6 +12,7 @@ from __future__ import annotations
 import itertools
 import math
 
+from .l2 import warm_miss as l2_warm_miss
 from .machine import Machine, default_machine
 from .model import SMS, bank_conflict_ways, dram_split_kslice
 from .model import C as MC
@@ -34,21 +35,6 @@ def launch_us(blocks: int = SMS, graph: bool = False) -> float:
         if graph
         else MC["launch_stream_us"]
     )
-
-
-def l2_warm_miss(footprint: float, kind: str = "ca", machine: Machine | None = None) -> float:
-    """Fraction of a warm (back-to-back) re-read of `footprint` bytes that misses the L2 (probe
-    l2reuse, batch r3): plain and .cg loads by `l2_warm_miss_by_MiB`, evict-first (`cs`) loads by
-    their own curve. Before round 3 the generic front end took every warm load as a hit."""
-    C = (machine or default_machine()).C
-    pts = C["l2_warm_miss_evict_first_by_MiB" if kind == "cs" else "l2_warm_miss_by_MiB"]
-    x = footprint / 2**20
-    if x >= pts[-1][0]:
-        return float(pts[-1][1])
-    for (x0, y0), (x1, y1) in itertools.pairwise(pts):
-        if x0 <= x <= x1:
-            return y0 + (y1 - y0) * (x - x0) / (x1 - x0)
-    return 0.0
 
 
 def copy_lines(h: dict) -> list:
@@ -136,11 +122,13 @@ def wave_dram(
     MC = (machine or default_machine()).C
     M, N, K = shape["M"], shape["N"], shape["K"]
     bm, bn, bk = h["block_M"], h["block_N"], h["block_K"]
-    if warm and (M * K + K * N + M * N) * 2 <= MC["l2_effective_bytes"]:
+    P = (machine or default_machine()).P
+    if warm and not P["l2_replay"] and (M * K + K * N + M * N) * 2 <= MC["l2_effective_bytes"]:
         return 0.0, 0.0
     # round 4 (batch r4, HGEMM warm vs rotating): a warm launch misses by the measured warm-miss
-    # curve on the operands' read footprint; the cold wave's traffic scaled by that fraction
-    if warm and (machine or default_machine()).P["hgemm_warm_reads_by_curve"]:
+    # curve on the operands' read footprint; the cold wave's traffic scaled by that fraction.
+    # Round 5: the one rule of l2.py for every warm launch, small footprints included
+    if warm and (P["hgemm_warm_reads_by_curve"] or P["l2_replay"]):
         f = l2_warm_miss((M * K + K * N) * 2, "ca", machine)
         r_, s_ = wave_dram(h, shape, wave, False, machine)
         return r_ * f, s_ * f

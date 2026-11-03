@@ -27,6 +27,8 @@ import json
 import math
 from pathlib import Path
 
+from .l2 import Cache
+
 PARAMS = Path(__file__).with_name("gb10.json")  # KTA: the copied calibration/spark-6951/gb10.json
 C = {k: v["value"] for k, v in json.loads(PARAMS.read_text()).items() if not k.startswith("_")}
 F = C["clock_GHz"] * 1e9
@@ -169,7 +171,6 @@ def dram_split_kslice(
     h: dict,
     shape: dict,
     resident_blocks: int = SMS,
-    policy: str = "protect",
     cap: float | None = None,
 ) -> dict:
     """DRAM traffic at k-slice granularity: the blocks of a wave (launch order) walk k in lockstep;
@@ -180,13 +181,11 @@ def dram_split_kslice(
     and B columns). Between
     waves only what is still resident carries over. Checked against ncu's L2 read misses
     (agentic/gb10, Oct 20)."""
-    from collections import OrderedDict
-
     M, N, K = shape["M"], shape["N"], shape["K"]
     bm, bn, bk = h["block_M"], h["block_N"], h["block_K"]
     panel = int(h.get("swizzle", 0) or 0)
     cap = C["l2_effective_bytes"] if cap is None else cap  # rows past M are never read
-    key = (M, N, K, bm, bn, bk, panel, resident_blocks, policy, cap)
+    key = (M, N, K, bm, bn, bk, panel, resident_blocks, cap)
     if key in _kslice_cache:
         return _kslice_cache[key]
     # per wave: A and B read misses, and the rows and columns of tiles in flight (neighbouring
@@ -198,9 +197,7 @@ def dram_split_kslice(
     # survives a 64 MB stream): two LRU lists, slices seen once (probation) and slices hit at least
     # once (protected); a hit promotes; eviction takes the oldest probation slice first, then the
     # oldest protected one
-    prob = OrderedDict()
-    prot = OrderedDict()
-    used = 0.0
+    cache = Cache(cap)
     per_wave = []
     order = list(launch_order(tiles_m, tiles_n, panel))
     for w in range(0, len(order), resident_blocks):
@@ -211,22 +208,8 @@ def dram_split_kslice(
         for k in range(KT):
             for kind, ids, sz in (("A", rows, a_sz), ("B", cols, b_sz)):
                 for i in ids:
-                    t = (kind, i, k)
-                    if t in prot:
-                        prot.move_to_end(t)
-                    elif t in prob:
-                        if policy == "protect":
-                            prot[t] = prob.pop(t)
-                        else:
-                            prob.move_to_end(t)
-                    else:
-                        prob[t] = sz
-                        used += sz
+                    if cache.touch((kind, i, k), sz):
                         reads[kind] += sz
-                        while used > cap:
-                            victim = prob if prob else prot
-                            _, v = victim.popitem(last=False)
-                            used -= v
         per_wave.append(
             {
                 "A": reads["A"],
