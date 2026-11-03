@@ -19,11 +19,15 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any
 
-from kta.models.gb10sim import probes, validate, ws_validate
+from kta.models.gb10sim import attribution, probes, validate, ws_validate
+from kta.models.gb10sim.machine import Machine, default_machine
 from kta.models.gb10sim.model import C
 from kta.models.regression import spearman
 
 SETS = ("gemm", "tma", "probes")
+# rows skipped unless --all: replay time far above the 28 §4 budget (8192^3: 150 s untraced,
+# 300 s traced); kept in the table as "not run"
+SLOW = {"tma 8192 full": "not run by default: replay 150-300 s (scripts/perfmodel-table --all)"}
 ENGINE = Path(validate.__file__).parent
 CACHE = Path(__file__).resolve().parents[2] / "data" / "perfmodel" / "cache"
 
@@ -135,30 +139,84 @@ def specs(cal: Path, sets: tuple[str, ...] = SETS) -> list[dict[str, Any]]:
 _cases: dict[str, probes.Case] = {}
 
 
-def run_job(cal: Path, job: list[Any]) -> dict[str, Any]:
-    """Replay one job; the result holds at least `predicted`."""
+def _regs(cal: Path) -> dict[str, str]:
+    text = (cal / "ablation_cpasync" / "regs.txt").read_text()
+    return dict(line.split() for line in text.splitlines() if line.strip())
+
+
+def run_job(
+    cal: Path, job: list[Any], machine: Machine | None = None, program: dict | None = None
+) -> dict[str, Any]:
+    """Replay one job with tracing: `predicted`, the critical-path attribution and the ledger.
+    `program` overrides the kernel's model inputs (`h.<key>` in its tile config, `regs`); the SASS
+    stays the compiled one."""
+    m = machine or default_machine()
+    program = program or {}
+
+    def pick(r: dict) -> dict:
+        h = dict(r["pick"])
+        h.update({k[2:]: v for k, v in program.items() if k.startswith("h.")})
+        return h
+
+    got: list[Any] = []
     kind = job[0]
-    if kind == "gemm":
+    launch = m.param(m.desc["launch_us"])
+    extra: dict[str, tuple[float, str | None]] = {}
+    if kind in ("gemm", "gemm_block"):
+        f = m.param(m.desc["clock"]["block_level_GHz"]) * 1e3
         r = json.loads((cal / "ablation_cpasync" / "mechanisms.json").read_text())[job[1]]
-        regs = dict(
-            line.split()
-            for line in (cal / "ablation_cpasync" / "regs.txt").read_text().splitlines()
-            if line.strip()
-        )
-        rmax = validate._rmax(r["pick"], int(regs[job[1]]))
-        return {"predicted": validate.kernel_us(cal, job[1], job[2], r["pick"], r["blocks"], rmax)}
-    if kind == "gemm_block":
-        return {"predicted": validate.simulate(cal, job[1], job[2], 1, 1)["us"]}
-    if kind in ("tma", "tma_block"):
+        if kind == "gemm":
+            regs = int(program.get("regs", _regs(cal)[job[1]]))
+            rmax = validate._rmax(pick(r), regs, m)
+            predicted = validate.kernel_us(
+                cal, job[1], job[2], pick(r), r["blocks"], rmax, m, got.append, True
+            )
+            extra["launch"] = (launch * f, m.desc["launch_us"])
+        else:
+            res = validate.simulate(
+                cal, job[1], job[2], 1, 1, machine=m, sm_hook=got.append, trace=True
+            )
+            predicted = res["us"]
+    elif kind in ("tma", "tma_block"):
+        f = m.param(m.desc["clock"]["kernel_GHz"]) * 1e3
         r = json.loads((cal / "ablation" / "mechanisms.json").read_text())[job[1]]
         if kind == "tma":
-            return {"predicted": ws_validate.kernel_us(cal, job[1], r["pick"], r["shape"])}
-        return {"predicted": ws_validate.ws_sim(cal, job[1], "noload", r["pick"], r["shape"])["us"]}
-    if kind == "probe":
+            predicted = ws_validate.kernel_us(
+                cal, job[1], pick(r), r["shape"], machine=m, sm_hook=got.append, trace=True
+            )
+            extra["launch"] = (launch * f, m.desc["launch_us"])
+        else:
+            res = ws_validate.ws_sim(
+                cal,
+                job[1],
+                "noload",
+                r["pick"],
+                r["shape"],
+                machine=m,
+                sm_hook=got.append,
+                trace=True,
+            )
+            predicted = res["us"]
+    elif kind == "probe":
         if not _cases:
             _cases.update((c.id, c) for c in probes.all_cases(cal))
-        return {"predicted": probes.run_case(_cases[job[1]])[0]}
-    raise ValueError(f"unknown job {job}")
+        predicted, sm, _ = probes.run_case(_cases[job[1]], machine=m, trace=True)
+        got.append(sm)
+    else:
+        raise ValueError(f"unknown job {job}")
+    sm = got[-1]
+    a = attribution.analyse(sm, sm.cycles, extra)
+    return {
+        "predicted": predicted,
+        "attribution": [
+            {k: d[k] for k in ("resource", "mechanism", "share", "param")}
+            for d in a["path"]
+            if d["share"] >= 0.005
+        ],
+        "coverage": a["covered_cycles"] / a["cycles"] if a["cycles"] else 1.0,
+        "defaults": attribution.default_counts(a["ledger"]),
+        "ledger": a["ledger"],
+    }
 
 
 def engine_hash() -> str:
@@ -185,6 +243,7 @@ def run(
     jobs: int,
     use_cache: bool = True,
     hint: dict[str, float] | None = None,
+    run_slow: bool = False,
 ) -> Iterator[dict[str, Any]]:
     """Fill each spec with its result, cached ones first, the rest from a pool of `jobs`
     processes (longest previous runs first); yields rows as they complete."""
@@ -198,6 +257,10 @@ def run(
     todo = []
     for r in rows:
         p = key(r)
+        if r["id"] in SLOW and not run_slow and not (use_cache and p.exists()):
+            r.update(predicted=None, excluded=SLOW[r["id"]], cached=False, wall_s=0.0)
+            yield _finish(r)
+            continue
         if use_cache and p.exists():
             r.update(json.loads(p.read_text()), cached=True)
             yield _finish(r)
@@ -216,6 +279,7 @@ def run(
 
 def _finish(r: dict[str, Any]) -> dict[str, Any]:
     ok = r["measured"] == r["measured"] and r["measured"] > 0
+    ok = ok and r["predicted"] is not None
     r["error"] = r["predicted"] / r["measured"] - 1 if ok else None
     return r
 
@@ -246,7 +310,9 @@ def summary(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return out
 
 
-def _fmt(x: float) -> str:
+def _fmt(x: float | None) -> str:
+    if x is None:
+        return "—"
     return f"{x:,.2f}" if abs(x) < 1e6 else f"{x:,.0f}"
 
 

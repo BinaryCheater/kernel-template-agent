@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# What-if on one error-table row (docs/design/27 §3 item 5): scripts/perfmodel-whatif --help
+set -euo pipefail
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+export PYTHONPATH="$root/tools${PYTHONPATH:+:$PYTHONPATH}"
+exec uv run --project "$root" --frozen --quiet python -m kta_perfmodel.whatif "$@"

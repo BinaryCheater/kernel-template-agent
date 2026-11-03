@@ -86,7 +86,7 @@ class Case:
     level: int
     unit: str
     measured: float
-    build: Callable[[], SM]
+    build: Callable[..., SM]  # keyword arguments (machine, trace) go to the simulator
     read: Callable[[SM, dict], float]
     excluded: str | None = None
     limit: int = 50_000_000
@@ -124,7 +124,7 @@ def alu_cases(cal: Path) -> list[Case]:
                 level=2,
                 unit="cycles",
                 measured=N_IT * 8 * warps / rate,
-                build=lambda ins=ins, warps=warps: ClockMarked(ins, 32 * warps, 1, 1),
+                build=lambda ins=ins, warps=warps, **kw: ClockMarked(ins, 32 * warps, 1, 1, **kw),
                 read=marked_cycles,  # type: ignore[arg-type]
                 excluded=excluded,
             )
@@ -149,7 +149,7 @@ def alumix_cases(cal: Path) -> list[Case]:
                 level=3,
                 unit="cycles",
                 measured=float(m.group(3)),
-                build=lambda ins=ins: ClockMarked(ins, 1024, 1, 1),
+                build=lambda ins=ins, **kw: ClockMarked(ins, 1024, 1, 1, **kw),
                 read=marked_cycles,  # type: ignore[arg-type]
                 excluded=None if not _loop_folded(ins) else "loop folded by the compiler",
             )
@@ -182,7 +182,7 @@ def sfu_cases(cal: Path) -> list[Case]:
                 level=1,
                 unit="cycles/op",
                 measured=float(m.group(2)),
-                build=lambda ins=ins1: ClockMarked(ins, 32, 1, 1, const_bank=const),
+                build=lambda ins=ins1, **kw: ClockMarked(ins, 32, 1, 1, const_bank=const, **kw),
                 read=lambda sm, r: marked_cycles(sm, r) / SFU_ITERS,  # type: ignore[arg-type]
                 excluded=excluded,
             )
@@ -197,8 +197,8 @@ def sfu_cases(cal: Path) -> list[Case]:
                     level=2,
                     unit="cycles",
                     measured=32 * warps * 8 * SFU_ITERS / float(rate),
-                    build=lambda ins=ins8, warps=warps: ClockMarked(
-                        ins, 32 * warps, 1, 1, const_bank=const
+                    build=lambda ins=ins8, warps=warps, **kw: ClockMarked(
+                        ins, 32 * warps, 1, 1, const_bank=const, **kw
                     ),
                     read=marked_cycles,  # type: ignore[arg-type]
                     excluded=excluded,
@@ -230,7 +230,7 @@ def cvt_cases(cal: Path) -> list[Case]:
                 level=3 if mode == 6 else 2,
                 unit="cycles/element/smsp",
                 measured=measured[label],
-                build=lambda ins=ins: SM(ins, 1024, 1, 1),
+                build=lambda ins=ins, **kw: SM(ins, 1024, 1, 1, **kw),
                 read=lambda sm, r: r["cycles"] / per,
                 limit=50_000_000,
             )
@@ -245,8 +245,10 @@ class SchedProbe(SM):
     HOG = (0x210, 0x440)
     ADD = (0x7C0, 0x8E0)
 
-    def __init__(self, ins: list[Ins], with_hog: bool, n_hog: int = 6000, n_add: int = 1250):
-        super().__init__(ins, 160, 1, 1)
+    def __init__(
+        self, ins: list[Ins], with_hog: bool, n_hog: int = 6000, n_add: int = 1250, **kw: Any
+    ):
+        super().__init__(ins, 160, 1, 1, **kw)
         idx = {x.addr: i for i, x in enumerate(ins)}
         self.loops = {
             0: (idx[self.HOG[0]], idx[self.HOG[1]]),
@@ -300,7 +302,7 @@ def sched_cases(cal: Path) -> list[Case]:
                 level=3 if hog else 1,
                 unit="cycles/add",
                 measured=float(m.group(2)),
-                build=lambda hog=hog: SchedProbe(ins, hog),
+                build=lambda hog=hog, **kw: SchedProbe(ins, hog, **kw),
                 read=read,
                 limit=3_000_000,
             )
@@ -318,7 +320,7 @@ def all_cases(cal: Path) -> list[Case]:
     ]
 
 
-def run_case(case: Case) -> tuple[float, SM, dict]:
-    sm = case.build()
+def run_case(case: Case, **kw: Any) -> tuple[float, SM, dict]:
+    sm = case.build(**kw)
     r = sm.run(limit=case.limit)
     return case.read(sm, r), sm, r

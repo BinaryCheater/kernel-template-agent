@@ -83,3 +83,20 @@ def test_kernel_arguments_decide_a_run_time_loop() -> None:
         runs[n] = sm.run()
     # the loop count comes from the declared argument, not from the fallback trip count
     assert runs[50]["issued"] - runs[5]["issued"] == 45 * 4
+
+
+def test_trace_keeps_the_result_and_the_path_covers_every_cycle() -> None:
+    from kta.models.gb10sim import attribution
+
+    ins = parse(LOOP, kernel="k")
+    plain = SM(ins, 128, 2, 1, const_bank={(0, 0x380): 20}).run()
+    sm = SM(ins, 128, 2, 1, const_bank={(0, 0x380): 20}, resident=1, trace=True)
+    traced = sm.run()
+    sm2 = SM(ins, 128, 2, 1, const_bank={(0, 0x380): 20}, resident=1)
+    assert traced["cycles"] == sm2.run()["cycles"] and plain["issued"] == traced["issued"]
+    a = attribution.analyse(sm, sm.cycles, {"launch": (100.0, "launch_stream_us")})
+    assert a["covered_cycles"] == sm.cycles
+    assert abs(sum(d["share"] for d in a["path"]) - 1.0) < 1e-9
+    # the second block starts when the first exits: the path crosses the block replacement
+    assert any(d["resource"] == "cta_dispatch" for d in a["path"])
+    assert a["ledger"]["assumed_or_fitted_on_path"]["launch_stream_us"]["status"] == "fitted"

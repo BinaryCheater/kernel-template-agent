@@ -38,6 +38,7 @@ def ws_sim(
     grid: int | None = None,
     machine: Machine | None = None,
     sm_hook=None,
+    trace: bool = False,
 ) -> dict:
     m = machine or default_machine()
     ins = kernel_sass(sass_path or cal / "sass" / f"tma_{name}__{variant}.sass")
@@ -81,6 +82,7 @@ def ws_sim(
         resident=1,
         grid_blocks=grid,
         machine=m,
+        trace=trace,
     )
     t = time.time()
     r = sm.run(limit=3_000_000 * nblocks)
@@ -103,6 +105,7 @@ def kernel_us(
     sass_path=None,
     machine: Machine | None = None,
     sm_hook=None,
+    trace: bool = False,
 ):
     m = machine or default_machine()
     C, SMS = m.C, m.sms
@@ -143,6 +146,7 @@ def kernel_us(
                 grid=tiles,
                 machine=m,
                 sm_hook=sm_hook,
+                trace=trace,
             )["us"]
         )
     left, t, w = tiles, C["launch_stream_us"], 0

@@ -68,6 +68,11 @@ class Warp:
     k_prod: int = -1
     n_full: int = 0
     n_empty_arrive: int = 0
+    # KTA (PERFMODEL) trace: the reason the current instruction was last found blocked; per
+    # dependency counter its releases (time, producer issue time, path stages); barrier releases
+    why: Any = None
+    sbsrc: dict[int, list[Any]] = field(default_factory=dict)
+    bar_src: list[Any] = field(default_factory=list)
 
 
 class SM:
@@ -93,8 +98,22 @@ class SM:
         grid_dim: tuple | None = None,
         const_bank: dict[tuple[int, int], int] | None = None,
         machine: Machine | None = None,
+        trace: bool = False,
     ):
         self.ins = ins
+        # KTA (PERFMODEL): with `trace`, every issue and the binding reason of every wait is kept
+        # for critical-path attribution (attribution.py); results are the same either way
+        self.trace = trace
+        self.hist: dict[int, list[tuple]] = {}
+        self.block_pred: dict[int, tuple[int, float]] = {}
+        # defaults used (assumption ledger): opcodes whose read counter takes the assumed release,
+        # opcodes with no measured cost (issue slot only), branches decided by a fallback rule
+        self.defaults: dict[str, dict[str, int]] = {
+            "rbar_default": {},
+            "issue_only": {},
+            "branch_fallback": {},
+            "front_end": {},
+        }
         self.const_bank = const_bank or {}
         m = machine or default_machine()
         self.m = m
@@ -145,6 +164,8 @@ class SM:
         self.busy_key = {r: d.get("busy", r) for r, d in m.desc["resources"].items()}
         # lines each copy of a k-tile touches, in program order (A rows then B rows); cycles them
         # per warp
+        if copy_lines is None:
+            self.defaults["front_end"]["copy_lines (4 lines per copy)"] = 1
         self.copy_lines = copy_lines or [4]
         # the store path is shared with the partner SM of the pair when the chip runs more than one
         # block
@@ -189,6 +210,7 @@ class SM:
         # touches, bytes it uses, whether L1 already holds them); cycled per warp. An L1 hit costs 2
         # cycles per line of the L1 data path and its latency; a miss takes the copy path (address
         # stage, L2 or DRAM, the SM's return port) into registers
+        self.ldg_default = ldg_lines is None
         self.ldg_lines = ldg_lines or [(4, 512, False)]
         # global atomics: lines one warp instruction touches (8 for a C tile added from mma
         # accumulators: 8 rows x 32 B)
@@ -208,6 +230,52 @@ class SM:
     def ev(self, t, kind, w, arg=None):
         self.seq += 1
         heapq.heappush(self.events, (t, self.seq, kind, w, arg))
+
+    def _dflt(self, kind: str, key: str) -> None:
+        d = self.defaults[kind]
+        d[key] = d.get(key, 0) + 1
+
+    def _rel(self, w: Warp, b: int, t_rel: float, now: float, stages: list | None) -> None:
+        """Trace: counter b of w is released at t_rel by an instruction issued at `now`."""
+        if stages is not None:
+            w.sbsrc.setdefault(b, []).append((t_rel, now, stages))
+
+    def _return_stage(self, arrive: float, ret: float) -> tuple:
+        """Trace: the wait at the L2 return port, named by the term that sets its rate."""
+        if self.ret_clk > self.P["l2_return_clk_per_512B"]:
+            return (
+                arrive,
+                ret,
+                "l2_return",
+                "queue (chip L2 share)",
+                "sim.l2_aggregate_B_per_clk_cpasync",
+            )
+        return (arrive, ret, "l2_return", "queue (SM port rate)", "sim.l2_return_clk_per_512B")
+
+    def why_blocked(self, w: Warp, now: float) -> tuple:
+        """Trace: why an eligible-looking warp cannot issue now (the first failing condition in
+        the order eligible() checks them); no side effects."""
+        if w.at_bar:
+            return ("bar",)
+        x = self.ins[w.pc]
+        for b in range(6):
+            if (x.wait >> b) & 1 and w.sb[b] > 0:
+                return ("sb", b)
+        if x.base == "DEPBAR":
+            m = re.search(r"SB(\d),\s*0x([0-9a-f]+)", x.args)
+            if m and w.sb[int(m.group(1))] > int(m.group(2), 16):
+                return ("sb", int(m.group(1)))
+        cls = self.icls[w.pc]
+        for g in cls.gates:
+            if g == "store_queue":
+                if sum(1 for q in self.stq if q > now) >= self.P["st_queue_instr"]:
+                    return ("res", g, cls.name)
+            elif g == "either":
+                if min(self.free[r][w.smsp] for r in cls.either) > now:
+                    return ("res", "/".join(cls.either), cls.name)
+            elif self.free[g][w.smsp] > now:
+                return ("res", g, cls.name)
+        return ("unknown",)
 
     def _assumed(self, x) -> None:
         """KTA (WP26): count instructions whose result latency is the assumed
@@ -494,6 +562,9 @@ class SM:
         lat_done = None
         lsu_done = now
         h = cls.handler
+        tr = self.trace
+        trw: list | None = None  # path stages to the write-counter release (trace)
+        trr: list | None = None  # path stages to the read-counter release (trace)
         if executes:
             if cls.count:
                 self.count[cls.count] = self.count.get(cls.count, 0) + 1
@@ -505,6 +576,11 @@ class SM:
                     lat_done = now + self.m.param(cls.latency)
                     if x.wbar is not None and self.m.status(cls.latency) == "assumed":
                         self._assumed(x)
+                    if tr:
+                        res = cls.hold[0][0] if cls.hold else "issue"
+                        if res == "either":
+                            res = "/".join(cls.either)
+                        trw = [(now, lat_done, res, f"{cls.name} result latency", cls.latency)]
             elif h == "ldsm":
                 # the sub-partition's memory-instruction slot, then the SM's shared-memory array
                 # (512 B per x4)
@@ -515,6 +591,11 @@ class SM:
                 t["smem_array"] = start + cost
                 self.busy["smem"] += cost
                 lat_done = start + P["ldsm_latency_clk"] + cost - P["smem_array_clk_per_512B"]
+                if tr:
+                    trw = [
+                        (now, start, "smem_array", "queue (ldsm)", None),
+                        (start, lat_done, "smem_array", "ldsm latency", "sim.ldsm_latency_clk"),
+                    ]
             elif h == "stsm":
                 # stmatrix: like ldmatrix in the other direction (probe tmastore.cu: one warp every
                 # 10.8 cycles, 4 or more warps 4 cycles per x4 on the shared-memory array); the
@@ -524,6 +605,17 @@ class SM:
                 t["smem_array"] = start + P["smem_array_clk_per_512B"]
                 self.busy["smem"] += P["smem_array_clk_per_512B"]
                 lsu_done = start + P["smem_array_clk_per_512B"]
+                if tr:
+                    trr = [
+                        (now, start, "smem_array", "queue (stsm)", None),
+                        (
+                            start,
+                            lsu_done,
+                            "smem_array",
+                            "stsm write",
+                            "sim.smem_array_clk_per_512B",
+                        ),
+                    ]
             elif h == "tma_store":
                 # a TMA store box: read from the shared array and sent through the pair's store port
                 # (shared with plain stores) at the larger of the pair's rate and this SM's share of
@@ -560,13 +652,39 @@ class SM:
                     t["dram_queue"] = t_d + self.dram_clk
                     self.busy["dram"] = self.busy.get("dram", 0) + self.dram_clk
                     arrive = t_d
+                    lat = (
+                        (
+                            lsu_done,
+                            lsu_done + P["ldgsts_dram_latency_clk"],
+                            "dram",
+                            "DRAM latency",
+                            "sim.ldgsts_dram_latency_clk",
+                        ),
+                        (
+                            lsu_done + P["ldgsts_dram_latency_clk"],
+                            t_d,
+                            "dram_queue",
+                            "queue (DRAM share)",
+                            None,
+                        ),
+                    )
                 else:
                     arrive = lsu_done + P["ldgsts_l2_latency_clk"]
+                    lat = ((lsu_done, arrive, "l2", "L2 latency", "sim.ldgsts_l2_latency_clk"),)
                 ret = max(arrive, t["l2_return"])
                 t["l2_return"] = ret + self.ret_clk
                 self.busy["fill"] += self.ret_clk
                 w.pending[w.gid] = w.pending.get(w.gid, 0) + 1
-                self.ev(ret, "write", w, w.gid)
+                if tr:
+                    trr = [
+                        (now, t_lsu, "lsu", "queue", None),
+                        (t_lsu, lsu_done, "lsu", "address stage", "sim.lsu_clk_per_line"),
+                    ]
+                    path = [*trr, *lat]
+                    path.append(self._return_stage(arrive, ret))
+                    self.ev(ret, "write", w, (w.gid, path))
+                else:
+                    self.ev(ret, "write", w, w.gid)
             elif h == "ldg":
                 lines, nbytes, hit = self.ldg_lines[w.nldg % len(self.ldg_lines)]
                 w.nldg += 1
@@ -574,10 +692,24 @@ class SM:
                 t["lsu"] = t_lsu + lines * P["lsu_clk_per_line"]
                 self.busy["lsu"] = self.busy.get("lsu", 0) + lines
                 lsu_done = t["lsu"]
+                if self.ldg_default:
+                    self._dflt("front_end", "ldg_lines (4 lines, 512 B, L1 miss)")
+                if tr:
+                    trr = [
+                        (now, t_lsu, "lsu", "queue", None),
+                        (t_lsu, lsu_done, "lsu", "address stage", "sim.lsu_clk_per_line"),
+                    ]
                 if hit:
                     t1 = max(lsu_done, t["l1"])
                     t["l1"] = t1 + lines * P["l1_clk_per_line"]
                     lat_done = t["l1"] + P["l1_hit_latency_clk"]
+                    if trr is not None:
+                        trw = [
+                            *trr,
+                            (lsu_done, t1, "l1", "queue", None),
+                            (t1, t["l1"], "l1", "hit path", "sim.l1_clk_per_line"),
+                            (t["l1"], lat_done, "l1", "hit latency", "sim.l1_hit_latency_clk"),
+                        ]
                 else:
                     self.miss_acc += self.miss_frac
                     if self.miss_acc >= 1.0:
@@ -592,6 +724,19 @@ class SM:
                     t["l2_return"] = ret + self.ret_clk * nbytes / 512
                     self.busy["fill"] += self.ret_clk * nbytes / 512
                     lat_done = t["l2_return"]
+                    if trr is not None:
+                        trw = [
+                            *trr,
+                            (
+                                lsu_done,
+                                arrive,
+                                "l2/dram",
+                                "load latency (incl. DRAM queue)",
+                                "sim.ldg_l2_latency_clk",
+                            ),
+                            self._return_stage(arrive, ret),
+                            (ret, lat_done, "l2_return", "transfer", "sim.l2_return_clk_per_512B"),
+                        ]
             elif h == "local":
                 # local memory (register spills, one slot per warp): 4 cycles per line through L1,
                 # then the L1 latency
@@ -599,6 +744,12 @@ class SM:
                 t["l1"] = t1 + P["local_clk_per_line"]
                 lat_done = t["l1"] + P["l1_hit_latency_clk"]
                 lsu_done = t["l1"]
+                if tr:
+                    trr = [
+                        (now, t1, "l1", "queue", None),
+                        (t1, lsu_done, "l1", "local path", "sim.local_clk_per_line"),
+                    ]
+                    trw = [*trr, (lsu_done, lat_done, "l1", "latency", "sim.l1_hit_latency_clk")]
             elif h == "red":
                 # global atomics without a return value: bytes-limited, per SM and for the chip
                 # (probe ldg_atomic.cu) the pair's store port per line (shared with plain stores),
@@ -621,6 +772,8 @@ class SM:
                 )
                 lsu_done = start
                 self.end = max(getattr(self, "end", 0), t["store_port"])
+                if tr:
+                    trr = [(now, start, "store_port", "queue (atomics)", None)]
             elif h == "commit":
                 # commit: the group's dependency counter stays set until its last copy has landed in
                 # shared memory
@@ -630,6 +783,10 @@ class SM:
                     w.sb[x.wbar] += 1
                     if w.pending.get(g, 0) == 0:
                         self.ev(now + 1, "sb", w, x.wbar)
+                        if tr:
+                            self._rel(
+                                w, x.wbar, now + 1, now, [(now, now + 1, "issue", "commit", None)]
+                            )
                     else:
                         w.committed[g] = x.wbar
             elif h == "barrier":
@@ -649,6 +806,8 @@ class SM:
                     rel = now + P["bar_base_clk"] + P["bar_per_warp_clk"] * need
                     for o in self.bar_arrived.pop(key):
                         self.ev(rel, "bar", o)
+                        if tr:
+                            o.bar_src.append((rel, now, w.wid))
             elif h == "stg":
                 wide = ".128" in x.op
                 nbytes = 512 if wide else (256 if ".64" in x.op else 128)
@@ -668,6 +827,8 @@ class SM:
                 heapq.heappush(self.stq, t["store_port"])
                 if x.rbar is not None:
                     lsu_done = start
+                if tr:
+                    trr = [(now, start, "store_port", "queue (stores)", None)]
             elif h == "exit":
                 # the block is finished only when its stores have left the SM
                 w.done = True
@@ -675,22 +836,45 @@ class SM:
                 self.exited[w.block] = self.exited.get(w.block, 0) + 1
                 self.block_exit(w.block, now)
             elif x.wbar is not None:
-                lat_done = now + self.m.param(cls.latency or self.m.default.latency or "")
+                ref = cls.latency or self.m.default.latency or ""
+                lat_done = now + self.m.param(ref)
                 self._assumed(x)
+                if tr:
+                    trw = [(now, lat_done, "issue", f"default result latency ({x.base})", ref)]
+            elif h == "other":
+                self._dflt("issue_only", x.base)
             if x.wbar is not None and lat_done is not None and h != "commit":
                 w.sb[x.wbar] += 1
                 self.ev(lat_done, "sb", w, x.wbar)
+                if tr:
+                    self._rel(
+                        w, x.wbar, lat_done, now, trw or [(now, lat_done, "issue", "?", None)]
+                    )
             if x.rbar is not None:
                 if cls.rbar == "lsu":
                     rel = lsu_done
+                    stages = trr or [(now, rel, "issue", "operand read", None)]
                 elif cls.rbar == "tma_store_flush":
                     # the bulk-store group's counter clears when every box has been read out and
                     # sent, plus the fixed delay
                     rel = max(now + P["rbar_release_clk"], w.st_done + P["tma_st_fixed_clk"])
+                    stages = [
+                        (
+                            now,
+                            rel,
+                            "store_port",
+                            "TMA store drain + fixed delay",
+                            "sim.tma_st_fixed_clk",
+                        )
+                    ]
                 else:
                     rel = now + P["rbar_release_clk"]
+                    self._dflt("rbar_default", x.base)
+                    stages = [(now, rel, "issue", "read-counter release", "sim.rbar_release_clk")]
                 w.sb[x.rbar] += 1
                 self.ev(rel, "sb", w, x.rbar)
+                if tr:
+                    self._rel(w, x.rbar, rel, now, stages)
         w.ready = now + max(1, x.stall)
         # next pc: the k-loop back edge is taken trips-1 times; other branches fall through unless
         # unconditional
@@ -700,6 +884,7 @@ class SM:
         elif self.branch_known(w, x) is not None:
             self.follow(w, x, self.branch_known(w, x))
         elif x.base == "BRA" and x.target is not None and w.pc in self.loop_trips:
+            self._dflt("branch_fallback", "driver trip count")
             c = w.__dict__.setdefault("lc", {})
             c[w.pc] = c.get(w.pc, 0) + 1
             if c[w.pc] < self.loop_trips[w.pc]:
@@ -709,6 +894,7 @@ class SM:
                 w.pc += 1
         elif x.base == "BRA" and x.target is not None:
             if w.pc == self.loop_end:
+                self._dflt("branch_fallback", "main-loop trip count")
                 w.loops += 1
                 w.pc = (
                     next(i for i, y in enumerate(self.ins) if y.addr == x.target)
@@ -718,8 +904,11 @@ class SM:
             elif not x.pred and (x.target > x.addr or not x.op.startswith("BRA.U")):
                 # unconditional jumps are taken, forward or backward (conditional BRA.U on a uniform
                 # predicate is not)
+                if x.op.startswith("BRA.U") or x.args.lstrip().startswith(("!UP", "UP")):
+                    self._dflt("branch_fallback", "unknown uniform predicate: taken")
                 w.pc = next(i for i, y in enumerate(self.ins) if y.addr == x.target)
             else:
+                self._dflt("branch_fallback", "unknown predicate: fall through")
                 w.pc += 1
         else:
             w.pc += 1
@@ -767,6 +956,7 @@ class SM:
             if self.next_block < self.blocks:
                 nb = self.next_block
                 self.next_block += 1
+                self.block_pred[nb] = (b, now)
                 self.live[nb] = self.wpb
                 for o in self.warps:
                     if o.block == nb:
@@ -797,11 +987,26 @@ class SM:
                     t_w = max(now, self.t["smem_array"])
                     self.t["smem_array"] = t_w + c
                     self.busy["smem"] += c
+                    if isinstance(arg, tuple):  # trace: the copy's path so far
+                        arg[1].append((now, t_w, "smem_array", "queue (copy write)", None))
+                        arg[1].append(
+                            (
+                                t_w,
+                                t_w + c,
+                                "smem_array",
+                                "copy write",
+                                "sim.smem_array_clk_per_512B",
+                            )
+                        )
                     self.ev(t_w + c, "landed", w, arg)
                 elif kind == "landed":
-                    w.pending[arg] -= 1
-                    if w.pending[arg] == 0 and arg in w.committed:
-                        w.sb[w.committed.pop(arg)] -= 1
+                    g, path = arg if isinstance(arg, tuple) else (arg, None)
+                    w.pending[g] -= 1
+                    if w.pending[g] == 0 and g in w.committed:
+                        b = w.committed.pop(g)
+                        w.sb[b] -= 1
+                        if path is not None:
+                            self._rel(w, b, now, path[0][0], path)
                 elif kind == "bar":
                     w.at_bar = False
                     w.ready = max(w.ready, now)
@@ -814,6 +1019,11 @@ class SM:
             issued = False
             for s in range(self.nsp):
                 cand = [w for w in by_smsp[s] if self.eligible(w, now)]
+                if self.trace:
+                    ok = {id(q) for q in cand}
+                    for q in by_smsp[s]:
+                        if not q.done and q.ready <= now and id(q) not in ok:
+                            q.why = self.why_blocked(q, now)
                 if not cand:
                     continue
                 last = self.last_issue[s]
@@ -825,6 +1035,11 @@ class SM:
                         last if (last in cand) else min(cand, key=lambda q: (q.loops, q.wid))
                     )  # greedy, then oldest
                 yb = self.ins[w.pc].yld
+                if self.trace:
+                    self.hist.setdefault(w.wid, []).append(
+                        (now, w.pc, w.ready, w.why, self.icls[w.pc].name)
+                    )
+                    w.why = None
                 self.issue(w, now)
                 self.last_issue[s] = w
                 issued = True
@@ -839,11 +1054,13 @@ class SM:
                 nxt.append(self.events[0][0])
             nxt += [t for t in self.stq if t > now][:1]
             now = now + 1 if issued else (min(nxt) if nxt else now + 1)
+        self.cycles = max(now, getattr(self, "end", 0))
         return {
-            "cycles": max(now, getattr(self, "end", 0)),
+            "cycles": self.cycles,
             **self.count,
             "busy": self.busy,
             "assumed_latency": self.assumed_latency,
+            "defaults": self.defaults,
         }
 
 

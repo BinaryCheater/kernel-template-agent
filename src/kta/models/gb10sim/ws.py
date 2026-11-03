@@ -125,6 +125,7 @@ class WSSM(SM):
         if x.base == "USETMAXREG":
             if "DEALLOC" in x.op:
                 self.dealloc[w.block] = self.dealloc.get(w.block, 0) + 1
+                self.log.append(("dealloc", w.wid, w.block, now))
                 w.role = w.role or "producer"
             else:
                 w.role = "consumer"
@@ -254,6 +255,28 @@ class WSSM(SM):
             return
         super().issue(w, now)
         # the landed times of a k-tile depend on its last TMA; mark it pending until then
+
+    def why_blocked(self, w, now):
+        """Trace: the warp-specialised waits first (eligible's order), then the base reasons."""
+        x = self.ins[w.pc]
+        b = w.block
+        if x.op.startswith("SYNCS.PHASECHK") and "TRYWAIT" in x.op and not w.at_bar:
+            wake = self.P["mbar_wake_clk"]
+            if w.role == "consumer":
+                k = w.n_full
+                arr = self.arrived.get((b, k))
+                if arr is None or arr + wake > now or (self.landed.get((b, k)) or 0.0) + wake > now:
+                    return ("mbar_full", b, k)
+            elif w.role == "producer":
+                need = w.k_prod + 1 - self.stages + 1
+                if need > 0:
+                    rel = self.release_t.get(b, [])
+                    n = need * self.consumer_warps
+                    if len(rel) < n or rel[n - 1] + wake > now:
+                        return ("mbar_empty", b, n)
+        if x.base == "USETMAXREG" and "TRY_ALLOC" in x.op and self.dealloc.get(b, 0) < 4:
+            return ("regalloc", b)
+        return super().why_blocked(w, now)
 
     def on_event(self, kind, w, key, now):
         if kind == "tmawrite":

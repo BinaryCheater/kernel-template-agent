@@ -92,6 +92,7 @@ def simulate(
     grid: int | None = None,
     machine: Machine | None = None,
     sm_hook=None,
+    trace: bool = False,
 ) -> dict:
     """One SM on a variant's SASS. `sm_hook(sm)` is called with the simulator after its run."""
     m = machine or default_machine()
@@ -107,6 +108,7 @@ def simulate(
         resident=resident,
         grid_blocks=grid,
         machine=m,
+        trace=trace,
     )
     t = time.time()
     r = sm.run()
@@ -167,6 +169,7 @@ def kernel_us(
     rmax: int,
     machine: Machine | None = None,
     sm_hook=None,
+    trace: bool = False,
 ) -> float:
     """Simulated kernel time: the block scheduler fills each SM up to Rmax blocks; each wave is
     simulated with its own
@@ -191,6 +194,7 @@ def kernel_us(
                 grid=tiles,
                 machine=m,
                 sm_hook=sm_hook,
+                trace=trace,
             )["us"]
         )
     left, t = tiles, C["launch_stream_us"]
