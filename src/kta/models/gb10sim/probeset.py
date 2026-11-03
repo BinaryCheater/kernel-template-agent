@@ -21,13 +21,13 @@ from .kernel import (
     copy_lines,
     dram_clk,
     dram_mix_secs,
-    l2_warm_miss,
     launch_us,
     occupancy,
     sass_trips,
     simulate_kernel,
 )
 from .l2 import replay_walk, walk
+from .l2 import warm_miss as l2_warm_miss
 from .machine import Machine, default_machine
 from .probes import Case, ClockMarked, marked_cycles
 from .sass import Ins, main_loop, parse

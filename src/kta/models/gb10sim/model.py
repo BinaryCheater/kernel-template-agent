@@ -161,7 +161,7 @@ def dram_waves_kslice(
     """Total and per-wave DRAM bytes (A and B read misses plus the share of C that overflows the
     L2); see dram_split_kslice.
     """
-    sp = dram_split_kslice(h, shape, resident_blocks, policy)
+    sp = dram_split_kslice(h, shape, resident_blocks)
     c_over = sp["c_over"]
     per_wave = [w["A"] + w["B"] + c_over / len(sp["waves"]) for w in sp["waves"]]
     return sum(w["A"] + w["B"] for w in sp["waves"]) + c_over, per_wave
@@ -197,7 +197,7 @@ def dram_split_kslice(
     # survives a 64 MB stream): two LRU lists, slices seen once (probation) and slices hit at least
     # once (protected); a hit promotes; eviction takes the oldest probation slice first, then the
     # oldest protected one
-    cache = Cache(cap)
+    cache = Cache(float(cap))
     per_wave = []
     order = list(launch_order(tiles_m, tiles_n, panel))
     for w in range(0, len(order), resident_blocks):
