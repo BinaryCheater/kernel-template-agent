@@ -35,7 +35,7 @@ resources:
     kind: port
     busy: smem
     rate_B_per_clk: smem_bytes_per_clk_per_sm
-    users: [ldsm, stsm, cp.async data, tma box write, tma store read]
+    users: [ldsm, stsm, lds, sts, shfl, cp.async data, tma box write, tma store read]
   lsu: {scope: sm, kind: port, busy: lsu, doc: address stage, one 128-byte line per sim.lsu_clk_per_line}
   l1: {scope: sm, kind: port, doc: L1 data path for hits and local memory}
   l2_return:
@@ -67,6 +67,7 @@ sms_per_tpc: 2
 classes:
   - {name: mma, base: [HMMA, IMMA, QMMA, OMMA], gates: [tensor], handler: pipe,
      hold: {tensor: sim.hmma_16816_pipe_clk}, count: HMMA}
+  - {name: smem_op, base: [LDS, STS, SHFL], gates: [mio], handler: smem_op, rbar: lsu, count: SMEMOP}
   - {name: ldsm, base: [LDSM], gates: [mio], handler: ldsm, rbar: sim.rbar_release_clk, count: LDSM}
   - {name: stsm, base: [STSM], gates: [mio], handler: stsm, rbar: lsu, count: STSM}
   - {name: tma_store, base: [UTMASTG], handler: tma_store, rbar: sim.rbar_release_clk, count: UTMASTG}

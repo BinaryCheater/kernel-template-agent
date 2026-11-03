@@ -153,15 +153,25 @@ def ex2_cases(b: Batch) -> list[Case]:
     out = []
     for e, f in ((8, 0), (8, 8), (8, 16), (8, 32), (0, 32), (4, 32)):
         ins = _k(txt, f"_Z1kILi{e}ELi{f}EEvPyPf")
+        cid = f"ex2_ffma E{e}_F{f}"
+        # 8 warps per sub-partition issue at least E + F + 3 (loop) instructions per pass each
+        floor = 8 * (e + f + 3)
+        meas = b.measured.get(cid, float("nan"))
         out.append(
             _case(
                 b,
-                f"ex2_ffma E{e}_F{f}",
+                cid,
                 "ex2_ffma",
                 3,
                 "cycles/pass/smsp",
                 lambda ins=ins, **kw: ClockMarked(ins, 1024, 1, 1, **kw),
                 per(ITERS),
+                excluded=(
+                    f"measured {meas:.0f} cycles is below the issue limit {floor} (one warp "
+                    "instruction per cycle per sub-partition): open question"
+                    if meas < floor
+                    else None
+                ),
             )
         )
     return out

@@ -615,6 +615,32 @@ class SM:
                             "sim.smem_array_clk_per_512B",
                         ),
                     ]
+            elif h == "smem_op":
+                # KTA (PERFMODEL round 1, probes smem_ldsts.cu, shfl.cu, batch r1): LDS, STS and
+                # SHFL hold the sub-partition's memory slot, then take the SM's shared-memory
+                # array for max(2 cycles, bytes at 128 B/clk); a load's result follows after a
+                # latency that grows with its width, a shuffle's after its own latency; a store
+                # releases its source registers after the array, in proportion to its bytes
+                free["mio"][s] = now + P["mio_smem_op_clk"]
+                nb = 0 if x.base == "SHFL" else _smem_bytes(x.op)
+                cost = max(P["smem_op_min_clk"], nb * P["smem_array_clk_per_512B"] / 512)
+                start = max(now, t["smem_array"])
+                t["smem_array"] = start + cost
+                self.busy["smem"] += cost
+                if x.base == "SHFL":
+                    lat_done = start + P["shfl_latency_clk"]
+                    lat_ref = "sim.shfl_latency_clk"
+                else:
+                    lat_done = start + P["lds_latency_clk"] + nb / P["lds_latency_B_per_clk"]
+                    lat_ref = "sim.lds_latency_clk"
+                lsu_done = start + cost + P["sts_read_clk_per_128B"] * nb / 128
+                if tr:
+                    q = (now, start, "smem_array", f"queue ({x.base.lower()})", None)
+                    trw = [q, (start, lat_done, "smem_array", f"{x.base} latency", lat_ref)]
+                    trr = [
+                        q,
+                        (start, lsu_done, "smem_array", "store read", "sim.sts_read_clk_per_128B"),
+                    ]
             elif h == "tma_store":
                 # a TMA store box: read from the shared array and sent through the pair's store port
                 # (shared with plain stores) at the larger of the pair's rate and this SM's share of
@@ -715,7 +741,9 @@ class SM:
                     self.miss_acc += self.miss_frac
                     if self.miss_acc >= 1.0:
                         self.miss_acc -= 1.0
-                        t_d = max(lsu_done + P["ldgsts_dram_latency_clk"], t["dram_queue"])
+                        # KTA (PERFMODEL round 1, probe dram_rotate.cu, batch r1): a streaming LDG
+                        # miss waits ldg_dram_latency_clk, not the copy path's chase latency
+                        t_d = max(lsu_done + P["ldg_dram_latency_clk"], t["dram_queue"])
                         t["dram_queue"] = t_d + self.dram_clk * nbytes / 512
                         self.busy["dram"] = self.busy.get("dram", 0) + self.dram_clk * nbytes / 512
                         arrive = t_d
@@ -792,8 +820,11 @@ class SM:
                         w.committed[g] = x.wbar
             elif h == "barrier":
                 # BAR.SYNC id[, threads]: a named barrier waits for the threads it names; without a
-                # count, for the whole block (warps that already exited count as arrived)
-                w.at_bar = True
+                # count, for the whole block (warps that already exited count as arrived).
+                # KTA (PERFMODEL round 1, probe namedbar.cu, batch r1): BAR.ARV counts as an
+                # arrival and does not wait (12 cycles flat whatever the waiters do)
+                arrive_only = x.op.startswith("BAR.ARV")
+                w.at_bar = not arrive_only
                 ba = [a.strip() for a in x.args.split(",")]
                 bid = self._imm(ba[0]) if ba and ba[0] else 0
                 need = (
@@ -806,6 +837,8 @@ class SM:
                 if len(self.bar_arrived[key]) >= need:
                     rel = now + P["bar_base_clk"] + P["bar_per_warp_clk"] * need
                     for o in self.bar_arrived.pop(key):
+                        if not o.at_bar:
+                            continue  # arrived with BAR.ARV, never waited
                         self.ev(rel, "bar", o)
                         if tr:
                             o.bar_src.append((rel, now, w.wid))
@@ -1063,6 +1096,13 @@ class SM:
             "assumed_latency": self.assumed_latency,
             "defaults": self.defaults,
         }
+
+
+def _smem_bytes(op: str) -> int:
+    """Bytes one warp instruction of a plain shared load or store moves (32 lanes; 4 B per lane
+    unless the opcode names .64 or .128)."""
+    parts = op.split(".")
+    return 512 if "128" in parts else 256 if "64" in parts else 128
 
 
 def kernel_sass(path: str | Path, kernel: str = "matmul_kernel") -> list[Ins]:

@@ -164,7 +164,7 @@ def batch_specs(root: Path = BATCHES) -> Iterator[dict[str, Any]]:
                 case.unit,
                 case.measured if valid else float("nan"),
                 ["batch", d.name, case.id, key],
-                excluded=None if valid else ("batch not valid" if meas.exists() else None),
+                excluded=case.excluded if valid else ("batch not valid" if meas.exists() else None),
                 note=f"batch {b.name}",
             )
             unit = case.id.removesuffix(" kernel")
