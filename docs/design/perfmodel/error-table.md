@@ -1,6 +1,6 @@
 # Error table
 
-Produced by `scripts/perfmodel-table` from KTA commit `5f1d57c92156568b1d166f021ed2c9236555f109` on 2026-11-03T20:46:43Z; upstream inputs `/Users/dingyi/Projects/ai-infra-codesign-ventus` at `a628c9d963cf9c029fa596b872d6e8920ca883e8`. CPU only: replay time 1130 s summed over rows (slowest row 85 s); this run 1 s with 16 processes, 437 rows from the cache. Error = predicted / measured − 1 (positive: the model is slow). Machine-readable copy: `error-table.json`. Mechanisms only (LOOP §4.4): every fitted parameter replaced by its probe value or removed: {'launch_stream_us': 2.05, 'tma_r_GBs_alone': 80.7, 'tma_l2_aggregate_GBs': 2250, 'block_setup_us': 0.0}.
+Produced by `scripts/perfmodel-table` from KTA commit `7f6fdd24075b58ad9a3366479e18e2a48ea38247` (dirty) on 2026-11-03T21:13:07Z; upstream inputs `/Users/dingyi/Projects/ai-infra-codesign-ventus` at `a628c9d963cf9c029fa596b872d6e8920ca883e8`. CPU only: replay time 1141 s summed over rows (slowest row 81 s); this run 2 s with 16 processes, 491 rows from the cache. Error = predicted / measured − 1 (positive: the model is slow). Machine-readable copy: `error-table.json`. Mechanisms only (LOOP §4.4): every fitted parameter replaced by its probe value or removed: {'launch_stream_us': 2.05, 'tma_r_GBs_alone': 80.7, 'tma_l2_aggregate_GBs': 2250, 'block_setup_us': 0.0}.
 
 ## Summary
 
@@ -9,7 +9,7 @@ Produced by `scripts/perfmodel-table` from KTA commit `5f1d57c92156568b1d166f021
 | gemm1024 full | 22 | 0 | 4.4 % | -16.2 % | 5.5 % | -17.5 % | 21 | 0.82 | 23 | 0.82 / 23 |  |  |
 | gemm1024 nocompute | 22 | 0 | 5.2 % | -21.1 % | 6.8 % | -23.1 % | 15 |  |  |  |  |  |
 | gemm1024 noload 1 block | 22 | 0 | 2.4 % | +11.3 % | 2.4 % | +11.3 % | 21 |  |  |  |  |  |
-| tma full | 6 | 0 | 8.9 % | +36.9 % | 13.9 % | +36.5 % | 4 | 0.94 | 1 | 0.94 / 1 |  |  |
+| tma full | 6 | 0 | 7.6 % | +28.8 % | 8.3 % | +28.5 % | 4 | 0.94 | 1 | 0.94 / 1 |  |  |
 | tma noload 1 block | 7 | 0 | 4.4 % | +15.4 % | 4.4 % | +15.4 % | 5 |  |  |  |  |  |
 | probe sched.cu | 2 | 0 | 3.8 % | -6.3 % | 3.8 % | -6.3 % | 2 |  |  |  |  |  |
 | probe alu.cu | 39 | 9 | 0.5 % | -11.8 % | 0.5 % | -11.8 % | 38 |  |  |  |  |  |
@@ -24,38 +24,55 @@ Produced by `scripts/perfmodel-table` from KTA commit `5f1d57c92156568b1d166f021
 | probe store_tail | 12 | 0 | 3.7 % | +5.7 % | 3.7 % | +5.7 % | 12 |  |  |  |  |  |
 | probe l2share_copy | 4 | 0 | 12.5 % | -21.3 % | 12.5 % | -21.3 % | 2 |  |  |  |  |  |
 | probe dram_rotate | 6 | 0 | 3.6 % | -12.8 % | 3.6 % | -12.8 % | 5 |  |  |  |  |  |
-| testset fa_forward | 1 | 0 | 6.7 % | -6.7 % | 6.7 % | -6.7 % | 1 |  |  |  | 1/1 | 1/1 |
-| testset hgemm2048 | 10 | 0 | 4.4 % | -12.0 % | 4.7 % | -12.3 % | 9 | 0.62 | 8 | 0.62 / 8 | 10/10 | 9/10 |
+| testset fa_forward | 1 | 0 | 6.5 % | -6.5 % | 6.5 % | -6.5 % | 1 |  |  |  | 1/1 | 1/1 |
+| testset fa_forward b2b | 1 | 0 | 7.1 % | -7.1 % | 7.1 % | -7.1 % | 1 |  |  |  |  |  |
+| testset fa_forward graph | 1 | 0 | 8.2 % | -8.2 % | 8.2 % | -8.2 % | 1 |  |  |  |  |  |
+| testset hgemm2048 | 10 | 0 | 3.9 % | -13.4 % | 4.1 % | -13.6 % | 9 | 0.77 | 4 | 0.77 / 4 | 10/10 | 9/10 |
 | probe mma_pair | 8 | 0 | 2.0 % | +12.4 % | 2.0 % | +12.4 % | 7 |  |  |  |  |  |
 | probe l2share_stages | 12 | 0 | 4.9 % | +22.2 % | 4.9 % | +22.2 % | 9 |  |  |  |  |  |
 | testset decode_gqa_combine | 1 | 0 | 23.3 % | +23.3 % | 23.3 % | +23.3 % | 0 |  |  |  | 1/1 | 0/1 |
-| testset decode_gqa | 2 | 0 | 10.2 % | +15.0 % | 10.2 % | +15.0 % | 1 |  |  |  | 2/2 | 1/2 |
-| testset gemv_w4a16 | 2 | 0 | 15.7 % | +21.5 % | 15.7 % | +21.5 % | 1 |  |  |  | 2/2 | 0/2 |
-| testset rmsnorm | 2 | 0 | 38.3 % | -41.5 % | 38.3 % | -41.5 % | 0 |  |  |  | 2/2 | 0/2 |
-| testset softmax | 1 | 0 | 28.2 % | -28.2 % | 28.2 % | -28.2 % | 0 |  |  |  | 1/1 | 0/1 |
+| testset decode_gqa_combine b2b | 1 | 0 | 57.8 % | +57.8 % | 57.8 % | +57.8 % | 0 |  |  |  |  |  |
+| testset decode_gqa_combine graph | 1 | 0 | 5.5 % | +5.5 % | 5.5 % | +5.5 % | 1 |  |  |  |  |  |
+| testset decode_gqa | 2 | 0 | 11.8 % | +15.2 % | 11.8 % | +15.2 % | 1 |  |  |  | 2/2 | 1/2 |
+| testset decode_gqa b2b | 2 | 0 | 10.0 % | +15.5 % | 10.0 % | +15.5 % | 1 |  |  |  |  |  |
+| testset decode_gqa graph | 2 | 0 | 11.5 % | +14.9 % | 11.5 % | +14.9 % | 1 |  |  |  |  |  |
+| testset gemv_w4a16 | 2 | 0 | 17.6 % | +24.5 % | 17.6 % | +24.5 % | 0 |  |  |  | 2/2 | 0/2 |
+| testset gemv_w4a16 b2b | 2 | 0 | 16.6 % | +25.9 % | 16.6 % | +25.9 % | 1 |  |  |  |  |  |
+| testset gemv_w4a16 graph | 2 | 0 | 17.3 % | +30.2 % | 17.3 % | +30.2 % | 1 |  |  |  |  |  |
+| testset rmsnorm | 2 | 0 | 25.2 % | -34.4 % | 25.2 % | -34.4 % | 0 |  |  |  | 2/2 | 0/2 |
+| testset rmsnorm b2b | 2 | 0 | 25.6 % | -32.0 % | 25.6 % | -32.0 % | 0 |  |  |  |  |  |
+| testset rmsnorm graph | 2 | 0 | 37.1 % | -50.5 % | 37.1 % | -50.5 % | 0 |  |  |  |  |  |
+| testset softmax | 1 | 0 | 27.1 % | -27.1 % | 27.1 % | -27.1 % | 0 |  |  |  | 1/1 | 0/1 |
+| testset softmax b2b | 1 | 0 | 24.8 % | -24.8 % | 24.8 % | -24.8 % | 0 |  |  |  |  |  |
+| testset softmax graph | 1 | 0 | 35.0 % | -35.0 % | 35.0 % | -35.0 % | 0 |  |  |  |  |  |
 | probe l2reuse | 81 | 0 | 2.6 % | +187.5 % | 2.6 % | +187.5 % | 58 |  |  |  |  |  |
-| probe launch | 32 | 0 | 21.0 % | +151.0 % | 21.0 % | +151.0 % | 3 |  |  |  |  |  |
-| testset fp8gemm2048 | 2 | 0 | 6.6 % | -8.9 % | 7.1 % | -9.3 % | 2 |  |  |  | 2/2 | 2/2 |
+| probe launch | 47 | 0 | 20.4 % | +148.5 % | 20.4 % | +148.5 % | 6 |  |  |  |  |  |
+| testset fp8gemm2048 | 2 | 0 | 6.7 % | -9.0 % | 7.1 % | -9.4 % | 2 |  |  |  | 2/2 | 2/2 |
+| probe dram_rw | 5 | 0 | 4.4 % | -85.2 % | 4.4 % | -85.2 % | 4 |  |  |  |  |  |
+| testset hgemm2048 rotating | 10 | 0 | 7.3 % | -12.5 % | 7.5 % | -12.7 % | 8 | 0.93 | 2 | 0.93 / 2 | 10/10 | 9/10 |
+| testset moe_gemm | 2 | 0 | 147.2 % | +231.1 % | 147.2 % | +231.1 % | 0 |  |  |  | 1/2 | 0/2 |
+| testset moe_gemm b2b | 2 | 0 | 144.0 % | +224.5 % | 144.0 % | +224.5 % | 0 |  |  |  |  |  |
+| testset moe_gemm graph | 2 | 0 | 149.0 % | +233.9 % | 149.0 % | +233.9 % | 0 |  |  |  |  |  |
 
 ## Top 15 rows by absolute error
 
 | Row | Level | Unit | Measured | Predicted | Error | Attribution (critical path) | Defaults | Note |
 | --- | ---: | --- | ---: | ---: | ---: | --- | --- | --- |
+| moe_e8_t2048_n1024_k2048_c128x128x32_s3_t128 graph | 7 | us | 177.38 | 592.25 | +233.9 % | dram_queue: queue (DRAM share) 90 %; dram: DRAM latency 5 %; tensor: stall count after mma 2 % | default latency 108, default rbar 756, front end 6144, issue-only 14736 | batch r4 |
+| moe_e8_t2048_n1024_k2048_c128x128x32_s3_t128 kernel | 7 | us | 179.55 | 594.45 | +231.1 % | dram_queue: queue (DRAM share) 89 %; dram: DRAM latency 5 %; tensor: stall count after mma 2 % | default latency 108, default rbar 756, front end 6144, issue-only 14736 | batch r4 |
+| moe_e8_t2048_n1024_k2048_c128x128x32_s3_t128 b2b | 7 | us | 183.18 | 594.39 | +224.5 % | dram_queue: queue (DRAM share) 90 %; dram: DRAM latency 5 %; tensor: stall count after mma 2 % | default latency 108, default rbar 756, front end 6144, issue-only 14736 | batch r4 |
 | l2reuse n8_cs_in4 | 5 | us | 35.10 | 100.91 | +187.5 % | l2/dram: load latency (incl. DRAM queue) 87 %; l2_return: queue (chip L2 share) 12 % | default latency 161, issue-only 1793 | batch r3 |
-| launch tiny_g8192_t128 | 1 | us | 6.62 | 16.62 | +151.0 % | store_queue: queue (stg) 94 %; issue: scheduler (another warp issued) 4 %; store_port: drain after the last instruction 2 % | default latency 3420, issue-only 684 | batch r3 |
-| launch tiny_g4096_t128 | 1 | us | 4.64 | 9.69 | +108.8 % | store_queue: queue (stg) 92 %; store_port: drain after the last instruction 4 %; issue: scheduler (another warp issued) 4 % | default latency 1720, issue-only 344 | batch r3 |
-| launch tiny_g512_t1024 | 1 | us | 4.70 | 9.80 | +108.4 % | store_queue: queue (stg) 92 %; issue: scheduler (another warp issued) 4 %; store_port: drain after the last instruction 4 % | default latency 1760, issue-only 352 | batch r3 |
-| launch tiny_g1024_t128 | 1 | us | 2.53 | 4.51 | +78.5 % | store_queue: queue (stg) 79 %; store_port: drain after the last instruction 17 %; issue: scheduler (another warp issued) 4 % | default latency 440, issue-only 88 | batch r3 |
+| launch tiny_g8192_t128 | 1 | us | 6.69 | 16.62 | +148.5 % | store_queue: queue (stg) 94 %; issue: scheduler (another warp issued) 4 %; store_port: drain after the last instruction 2 % | default latency 3420, issue-only 684 | batch r4 |
+| launch tiny_g4096_t128 | 1 | us | 4.58 | 9.69 | +111.7 % | store_queue: queue (stg) 92 %; store_port: drain after the last instruction 4 %; issue: scheduler (another warp issued) 4 % | default latency 1720, issue-only 344 | batch r4 |
+| launch tiny_g512_t1024 | 1 | us | 4.67 | 9.80 | +109.8 % | store_queue: queue (stg) 92 %; issue: scheduler (another warp issued) 4 %; store_port: drain after the last instruction 4 % | default latency 1760, issue-only 352 | batch r4 |
+| launch tiny_g1024_t128 | 1 | us | 2.43 | 4.51 | +85.6 % | store_queue: queue (stg) 79 %; store_port: drain after the last instruction 17 %; issue: scheduler (another warp issued) 4 % | default latency 440, issue-only 88 | batch r4 |
+| dram_rw r0_w2 | 5 | us | 319.78 | 47.17 | -85.2 % | store_queue: queue (stg) 89 %; store_port: queue (stores) 11 % | default latency 128, issue-only 3904 | batch r4 |
+| launch graph_g4096_t128 | 1 | us | 2.52 | 0.67 | -73.4 % | issue: scheduler (another warp issued) 98 %; issue: last instruction 1 %; issue: stall count after other 1 % | issue-only 344 | batch r4 |
 | l2reuse n2_cg_in4 | 5 | us | 7.46 | 2.24 | -70.0 % | l2/dram: load latency (incl. DRAM queue) 87 %; store_port: drain after the last instruction 3 %; lsu: queue 3 % | default latency 161, issue-only 513 | batch r3 |
 | l2reuse n2_cs_in4 | 5 | us | 7.46 | 2.24 | -70.0 % | l2/dram: load latency (incl. DRAM queue) 87 %; store_port: drain after the last instruction 3 %; lsu: queue 3 % | default latency 161, issue-only 513 | batch r3 |
 | l2reuse n2_ca_in4 | 5 | us | 7.46 | 2.24 | -70.0 % | l2/dram: load latency (incl. DRAM queue) 87 %; store_port: drain after the last instruction 3 %; lsu: queue 3 % | default latency 161, issue-only 513 | batch r3 |
-| launch tiny_g128_t1024 | 1 | us | 2.91 | 4.69 | +61.1 % | store_queue: queue (stg) 82 %; store_port: drain after the last instruction 13 %; issue: scheduler (another warp issued) 4 % | default latency 480, issue-only 96 | batch r3 |
-| launch empty_g8192_t128 | 1 | us | 6.69 | 2.94 | -56.1 % | issue: scheduler (another warp issued) 99 %; issue: last instruction 1 % | issue-only 684 | batch r3 |
-| launch tiny_g512_t128 | 1 | us | 2.40 | 3.66 | +52.7 % | store_queue: queue (stg) 60 %; store_port: drain after the last instruction 34 %; issue: scheduler (another warp issued) 3 % | default latency 220, issue-only 44 | batch r3 |
-| launch tiny_g48_t1024 | 1 | us | 2.43 | 3.47 | +42.6 % | store_port: drain after the last instruction 48 %; store_queue: queue (stg) 46 %; issue: scheduler (another warp issued) 3 % | default latency 160, issue-only 32 | batch r3 |
-| l2reuse n27_cg_warm | 5 | us | 21.38 | 12.42 | -41.9 % | l2_return: queue (chip L2 share) 63 %; l2/dram: load latency (incl. DRAM queue) 34 %; lsu: queue 1 % | default latency 161, issue-only 1089 | batch r3 |
-| rmsnorm_m512_n4096_rotating kernel | 7 | us | 40.54 | 23.73 | -41.5 % | l2/dram: load latency (incl. DRAM queue) 84 %; launch: launch 12 %; fma: stall count after fp32 1 % | default latency 308, issue-only 660 | batch r3 |
-| l2reuse n27_ca_warm | 5 | us | 21.15 | 12.42 | -41.3 % | l2_return: queue (chip L2 share) 63 %; l2/dram: load latency (incl. DRAM queue) 34 %; lsu: queue 1 % | default latency 161, issue-only 1121 | batch r3 |
+| moe_e8_t2048_n1024_k2048_c64x128x32_s4_t128 graph | 7 | us | 170.66 | 61.23 | -64.1 % | dram_queue: queue (DRAM share) 84 %; store_queue: queue (stg) 9 %; dram: DRAM latency 3 % | branch fallback 24, default latency 216, front end 576, issue-only 2208 | batch r4 |
+| moe_e8_t2048_n1024_k2048_c64x128x32_s4_t128 b2b | 7 | us | 173.41 | 63.37 | -63.5 % | dram_queue: queue (DRAM share) 84 %; store_queue: queue (stg) 9 %; dram: DRAM latency 3 % | branch fallback 24, default latency 216, front end 576, issue-only 2208 | batch r4 |
 
 ## All rows
 
@@ -129,16 +146,16 @@ Produced by `scripts/perfmodel-table` from KTA commit `5f1d57c92156568b1d166f021
 | gemm1024 c64x64x32_st3_th256 noload 1 block | 7 | us | 3.78 | 4.20 | +11.3 % | tensor: queue (mma) 22 %; issue: stall count after barrier 19 %; tensor: stall count after mma 14 % | default latency 64, issue-only 962 |  |
 | tma 1024 full | 7 | us | 45.12 | 40.84 | -9.5 % | tma_engine: queue 31 %; tensor: stall count after mma 20 %; store_queue: queue (stg) 14 % | branch fallback 48, default latency 468, default rbar 444, issue-only 10755 |  |
 | tma 1024 noload 1 block | 7 | us | 7.58 | 8.41 | +10.8 % | tensor: stall count after mma 55 %; issue: stall count after ldsm 16 %; store_queue: queue (stg) 7 % | branch fallback 16, default latency 155, default rbar 148, issue-only 3521 |  |
-| tma 4096 full | 7 | us | 1,510.56 | 1,581.19 | +4.7 % | tma_engine: transfer / DRAM queue 42 %; tensor: queue (mma) 16 %; tma_engine: queue 15 % | branch fallback 440, default latency 74184, default rbar 56078, issue-only 790086 |  |
+| tma 4096 full | 7 | us | 1,510.56 | 1,486.89 | -1.6 % | tma_engine: transfer / DRAM queue 38 %; tensor: queue (mma) 17 %; tma_engine: queue 16 % | branch fallback 440, default latency 74184, default rbar 56078, issue-only 790086 |  |
 | tma 4096 noload 1 block | 7 | us | 108.61 | 111.27 | +2.5 % | tensor: queue (mma) 61 %; tensor: stall count after mma 16 %; alu: stall count after alu 5 % | branch fallback 40, default latency 6437, default rbar 4398, issue-only 64084 |  |
-| tma m32 full | 7 | us | 123.97 | 148.85 | +20.1 % | tma_engine: transfer / DRAM queue 84 %; tma_engine: queue 6 %; tma_engine: L2 latency (TMA) 2 % | branch fallback 16, default latency 372, default rbar 332, issue-only 6308 | measured warm in a session where part of B stayed in the L2; upstream compares the decode picks cold against a later flush measurement (gb10 design note §7) |
+| tma m32 full | 7 | us | 123.97 | 126.11 | +1.7 % | tma_engine: transfer / DRAM queue 81 %; tma_engine: queue 7 %; tma_engine: L2 latency (TMA) 2 % | branch fallback 16, default latency 372, default rbar 332, issue-only 6308 | measured warm in a session where part of B stayed in the L2; upstream compares the decode picks cold against a later flush measurement (gb10 design note §7) |
 | tma m32 noload 1 block | 7 | us | 15.62 | 16.30 | +4.4 % | tensor: stall count after mma 43 %; issue: stall count after ldsm 27 %; issue: stall count after other 6 % | branch fallback 16, default latency 371, default rbar 204, issue-only 5553 |  |
-| tma 2048 full | 7 | us | 203.30 | 194.00 | -4.6 % | tensor: queue (mma) 26 %; tensor: stall count after mma 21 %; store_queue: queue (stg) 13 % | default latency 1992, default rbar 2004, issue-only 84063 |  |
+| tma 2048 full | 7 | us | 203.30 | 191.75 | -5.7 % | tensor: queue (mma) 36 %; tensor: stall count after mma 30 %; store_queue: queue (stg) 14 % | default latency 1992, default rbar 2004, issue-only 84063 |  |
 | tma 2048 noload 1 block | 7 | us | 52.54 | 55.77 | +6.1 % | tensor: queue (mma) 42 %; tensor: stall count after mma 34 %; issue: stall count after ldsm 10 % | default latency 675, default rbar 572, issue-only 27381 |  |
 | tma 8192 noload 1 block | 7 | us | 211.33 | 211.48 | +0.1 % | tensor: queue (mma) 70 %; tensor: stall count after mma 18 %; issue: stall count after ldsm 5 % | branch fallback 40, default latency 4387, default rbar 4268, issue-only 109013 |  |
-| tma k1024 full | 7 | us | 448.99 | 411.27 | -8.4 % | store_queue: queue (stg) 24 %; tensor: queue (mma) 22 %; tma_engine: transfer / DRAM queue 15 % | default latency 31922, default rbar 16016, issue-only 181115 |  |
+| tma k1024 full | 7 | us | 448.99 | 403.86 | -10.1 % | tensor: queue (mma) 44 %; store_queue: queue (stg) 25 %; tensor: stall count after mma 8 % | default latency 31922, default rbar 16016, issue-only 181115 |  |
 | tma k1024 noload 1 block | 7 | us | 25.02 | 28.87 | +15.4 % | tensor: queue (mma) 64 %; tensor: stall count after mma 14 %; smem_array: ldsm latency 4 % | default latency 2860, default rbar 1360, issue-only 15684 |  |
-| tma m128 full | 7 | us | 162.11 | 221.88 | +36.9 % | tma_engine: transfer / DRAM queue 45 %; tensor: stall count after mma 19 %; tma_engine: L2 latency (TMA) 10 % | default latency 2208, default rbar 1832, issue-only 63986 | measured warm in a session where part of B stayed in the L2; upstream compares the decode picks cold against a later flush measurement (gb10 design note §7) |
+| tma m128 full | 7 | us | 162.11 | 208.80 | +28.8 % | tma_engine: transfer / DRAM queue 42 %; tensor: stall count after mma 20 %; tma_engine: L2 latency (TMA) 11 % | default latency 2208, default rbar 1832, issue-only 63986 | measured warm in a session where part of B stayed in the L2; upstream compares the decode picks cold against a later flush measurement (gb10 design note §7) |
 | tma m128 noload 1 block | 7 | us | 60.58 | 60.23 | -0.6 % | tensor: stall count after mma 69 %; issue: stall count after ldsm 13 %; issue: stall count after other 7 % | default latency 981, default rbar 660, issue-only 30087 |  |
 | sched adds alone | 1 | cycles/add | 5.67 | 5.31 | -6.3 % | alu: stall count after alu 94 %; issue: stall count after other 6 % |  |  |
 | sched adds beside FFMA | 3 | cycles/add | 15.10 | 14.91 | -1.2 % | issue: scheduler (another warp issued) 64 %; alu: stall count after alu 34 %; issue: stall count after other 2 % | issue-only 12000 |  |
@@ -344,17 +361,19 @@ Produced by `scripts/perfmodel-table` from KTA commit `5f1d57c92156568b1d166f021
 | dram_rotate t256 | 5 | us | 288.13 | 291.52 | +1.2 % | l2/dram: load latency (incl. DRAM queue) 98 %; l2_return: transfer 1 % | default latency 32, issue-only 10904 | batch r3 |
 | dram_rotate t512 | 5 | us | 281.06 | 291.52 | +3.7 % | l2/dram: load latency (incl. DRAM queue) 99 %; l2_return: transfer 1 % | default latency 64, issue-only 10928 | batch r3 |
 | dram_rotate t1024 | 5 | us | 281.92 | 291.52 | +3.4 % | l2/dram: load latency (incl. DRAM queue) 99 % | default latency 128, issue-only 10976 | batch r3 |
-| fa_fwd_s2048_h8_d128 kernel | 7 | us | 254.11 | 237.02 | -6.7 % | tensor: stall count after mma 23 %; tensor: queue (mma) 13 %; issue: stall count after ldsm 12 % | branch fallback 1536, default latency 1824, default rbar 8496, front end 12288, issue-only 36408 | batch r3 |
-| hgemm2048_c128x128x32_s3_t128 kernel | 7 | us | 221.47 | 206.42 | -6.8 % | tensor: queue (mma) 41 %; tensor: stall count after mma 22 %; store_queue: queue (stg) 12 % | default latency 192, default rbar 1512, issue-only 29376 | batch r3 |
-| hgemm2048_c128x128x32_s3_t128_sw8 kernel | 7 | us | 221.63 | 195.03 | -12.0 % | tensor: queue (mma) 39 %; tensor: stall count after mma 24 %; store_queue: queue (stg) 8 % | branch fallback 48, default latency 264, default rbar 1584, issue-only 28608 | batch r3 |
-| hgemm2048_c128x128x32_s4_t128 kernel | 7 | us | 245.22 | 244.19 | -0.4 % | tensor: stall count after mma 39 %; tensor: queue (mma) 20 %; store_queue: queue (stg) 11 % | branch fallback 1464, default latency 192, default rbar 24, issue-only 31848 | batch r3 |
-| hgemm2048_c128x128x64_s2_t128 kernel | 7 | us | 224.54 | 236.93 | +5.5 % | tensor: stall count after mma 22 %; dram: DRAM latency 22 %; dram_queue: queue (DRAM share) 15 % | branch fallback 744, default latency 240, default rbar 24, issue-only 26496 | batch r3 |
-| hgemm2048_c128x128x64_s3_t256 kernel | 7 | us | 225.63 | 225.83 | +0.1 % | tensor: queue (mma) 28 %; tensor: stall count after mma 20 %; issue: stall count after barrier 17 % | default latency 480, default rbar 48, issue-only 29616 | batch r3 |
-| hgemm2048_c128x256x32_s3_t256 kernel | 7 | us | 236.96 | 225.81 | -4.7 % | tensor: queue (mma) 45 %; tensor: stall count after mma 21 %; store_queue: queue (stg) 12 % | default latency 216, default rbar 1512, issue-only 29256 | batch r3 |
-| hgemm2048_c128x256x32_s3_t256_sw4 kernel | 7 | us | 235.81 | 223.19 | -5.4 % | tensor: queue (mma) 46 %; tensor: stall count after mma 21 %; store_queue: queue (stg) 12 % | branch fallback 48, default latency 264, default rbar 1584, issue-only 28512 | batch r3 |
-| hgemm2048_c128x256x64_s2_t256 kernel | 7 | us | 222.43 | 213.27 | -4.1 % | tensor: queue (mma) 41 %; tensor: stall count after mma 21 %; store_queue: queue (stg) 12 % | branch fallback 744, default latency 240, default rbar 24, issue-only 23424 | batch r3 |
-| hgemm2048_c256x128x32_s3_t256 kernel | 7 | us | 231.71 | 227.86 | -1.7 % | tensor: queue (mma) 44 %; tensor: stall count after mma 20 %; store_queue: queue (stg) 11 % | default latency 216, default rbar 1512, issue-only 29184 | batch r3 |
-| hgemm2048_c64x128x32_s4_t128 kernel | 7 | us | 231.74 | 234.62 | +1.2 % | l2_return: queue (chip L2 share) 62 %; store_queue: queue (stg) 9 %; tensor: stall count after mma 8 % | branch fallback 2684, default latency 396, issue-only 54076 | batch r3 |
+| fa_fwd_s2048_h8_d128 kernel | 7 | us | 253.47 | 236.99 | -6.5 % | tensor: stall count after mma 23 %; tensor: queue (mma) 13 %; issue: stall count after ldsm 12 % | branch fallback 1536, default latency 1824, default rbar 8496, front end 12288, issue-only 36408 | batch r4 |
+| fa_fwd_s2048_h8_d128 b2b | 7 | us | 255.16 | 236.93 | -7.1 % | tensor: stall count after mma 23 %; tensor: queue (mma) 13 %; issue: stall count after ldsm 13 % | branch fallback 1536, default latency 1824, default rbar 8496, front end 12288, issue-only 36408 | batch r4 |
+| fa_fwd_s2048_h8_d128 graph | 7 | us | 255.69 | 234.79 | -8.2 % | tensor: stall count after mma 23 %; tensor: queue (mma) 13 %; issue: stall count after ldsm 13 % | branch fallback 1536, default latency 1824, default rbar 8496, front end 12288, issue-only 36408 | batch r4 |
+| hgemm2048_c128x128x32_s3_t128 kernel | 7 | us | 222.56 | 203.42 | -8.6 % | tensor: queue (mma) 43 %; tensor: stall count after mma 23 %; store_queue: queue (stg) 10 % | default latency 192, default rbar 1512, issue-only 29376 | batch r4 |
+| hgemm2048_c128x128x32_s3_t128_sw8 kernel | 7 | us | 222.72 | 192.95 | -13.4 % | tensor: queue (mma) 43 %; tensor: stall count after mma 24 %; store_queue: queue (stg) 6 % | branch fallback 48, default latency 264, default rbar 1584, issue-only 28608 | batch r4 |
+| hgemm2048_c128x128x32_s4_t128 kernel | 7 | us | 248.99 | 242.23 | -2.7 % | tensor: stall count after mma 39 %; tensor: queue (mma) 20 %; store_queue: queue (stg) 11 % | branch fallback 1464, default latency 192, default rbar 24, issue-only 31848 | batch r4 |
+| hgemm2048_c128x128x64_s2_t128 kernel | 7 | us | 225.70 | 222.52 | -1.4 % | tensor: stall count after mma 40 %; tensor: queue (mma) 21 %; store_queue: queue (stg) 12 % | branch fallback 744, default latency 240, default rbar 24, issue-only 26496 | batch r4 |
+| hgemm2048_c128x128x64_s3_t256 kernel | 7 | us | 226.72 | 223.90 | -1.2 % | tensor: queue (mma) 29 %; tensor: stall count after mma 20 %; issue: stall count after barrier 17 % | default latency 480, default rbar 48, issue-only 29616 | batch r4 |
+| hgemm2048_c128x256x32_s3_t256 kernel | 7 | us | 236.99 | 224.83 | -5.1 % | tensor: queue (mma) 45 %; tensor: stall count after mma 21 %; store_queue: queue (stg) 12 % | default latency 216, default rbar 1512, issue-only 29256 | batch r4 |
+| hgemm2048_c128x256x32_s3_t256_sw4 kernel | 7 | us | 236.93 | 222.18 | -6.2 % | tensor: queue (mma) 46 %; tensor: stall count after mma 22 %; store_queue: queue (stg) 12 % | branch fallback 48, default latency 264, default rbar 1584, issue-only 28512 | batch r4 |
+| hgemm2048_c128x256x64_s2_t256 kernel | 7 | us | 222.66 | 212.01 | -4.8 % | tensor: queue (mma) 30 %; tensor: stall count after mma 21 %; issue: stall count after barrier 19 % | branch fallback 744, default latency 240, default rbar 24, issue-only 23424 | batch r4 |
+| hgemm2048_c256x128x32_s3_t256 kernel | 7 | us | 233.76 | 226.91 | -2.9 % | tensor: queue (mma) 45 %; tensor: stall count after mma 20 %; store_queue: queue (stg) 12 % | default latency 216, default rbar 1512, issue-only 29184 | batch r4 |
+| hgemm2048_c64x128x32_s4_t128 kernel | 7 | us | 231.84 | 230.35 | -0.6 % | l2_return: queue (chip L2 share) 61 %; store_queue: queue (stg) 9 %; tensor: stall count after mma 8 % | branch fallback 2684, default latency 396, issue-only 54076 | batch r4 |
 | mma_pair b1_span | 3 | cycles | 310,515.00 | 315,993.80 | +1.8 % | tensor: stall count after mma 76 %; issue: stall count after other 9 %; mio: queue (ldsm) 9 % | default latency 23, default rbar 4, issue-only 71988 | batch r3 |
 | mma_pair b48_span | 3 | cycles | 310,503.00 | 315,993.80 | +1.8 % | tensor: stall count after mma 76 %; issue: stall count after other 9 %; mio: queue (ldsm) 9 % | default latency 23, default rbar 4, issue-only 71988 | batch r3 |
 | mma_pair b96_s0_span | 3 | cycles | 529,802.00 | 524,616.60 | -1.0 % | tensor: stall count after mma 46 %; tensor: queue (mma) 40 %; issue: stall count after other 6 % | default latency 46, default rbar 8, issue-only 143976 | batch r3 |
@@ -375,14 +394,30 @@ Produced by `scripts/perfmodel-table` from KTA commit `5f1d57c92156568b1d166f021
 | l2share_stages s4_b1 | 4 | us | 10.05 | 10.54 | +4.9 % | l2_return: queue (SM port rate) 75 %; l2: L2 latency 11 %; lsu: queue 8 % | branch fallback 232, default latency 72, issue-only 1770 | batch r3 |
 | l2share_stages s4_b16 | 4 | us | 11.67 | 10.55 | -9.7 % | l2_return: queue (SM port rate) 75 %; l2: L2 latency 11 %; lsu: queue 8 % | branch fallback 232, default latency 72, issue-only 1770 | batch r3 |
 | l2share_stages s4_b48 | 4 | us | 17.50 | 18.82 | +7.5 % | l2_return: queue (chip L2 share) 86 %; l2: L2 latency 6 %; lsu: queue 4 % | branch fallback 232, default latency 72, issue-only 1770 | batch r3 |
-| decode_gqa_comb_s4096_warm kernel | 7 | us | 2.50 | 3.08 | +23.3 % | launch: launch 91 %; l2/dram: load latency (incl. DRAM queue) 4 %; xu: xu result latency 1 % | branch fallback 4, default latency 28, issue-only 16 | batch r3 |
-| decode_gqa_part_s4096_rotating kernel | 7 | us | 70.91 | 81.53 | +15.0 % | dram_queue: queue (DRAM share) 80 %; dram: DRAM latency 6 %; launch: launch 4 % | branch fallback 264, default latency 368, default rbar 496, front end 1024, issue-only 3744 | batch r3 |
-| decode_gqa_part_s4096_warm kernel | 7 | us | 25.09 | 23.72 | -5.4 % | tensor: stall count after mma 18 %; launch: launch 12 %; tensor: queue (mma) 10 % | branch fallback 264, default latency 368, default rbar 496, front end 1024, issue-only 3744 | batch r3 |
-| gemv_w4a16_n4096_k4096_rotating kernel | 7 | us | 38.24 | 46.44 | +21.5 % | l2/dram: load latency (incl. DRAM queue) 89 %; launch: launch 6 %; issue: stall count after half_to_float 1 % | default latency 726, default rbar 1056, front end 352, issue-only 6864 | batch r3 |
-| gemv_w4a16_n4096_k4096_warm kernel | 7 | us | 16.61 | 14.96 | -9.9 % | xu: queue (xu) 33 %; launch: launch 19 %; alu: queue (alu) 14 % | default latency 726, default rbar 1056, front end 352, issue-only 6864 | batch r3 |
-| rmsnorm_m512_n4096_rotating kernel | 7 | us | 40.54 | 23.73 | -41.5 % | l2/dram: load latency (incl. DRAM queue) 84 %; launch: launch 12 %; fma: stall count after fp32 1 % | default latency 308, issue-only 660 | batch r3 |
-| rmsnorm_m512_n4096_warm kernel | 7 | us | 8.70 | 5.65 | -35.1 % | launch: launch 50 %; l2_return: queue (chip L2 share) 28 %; l2/dram: load latency (incl. DRAM queue) 5 % | default latency 308, issue-only 660 | batch r3 |
-| softmax_m512_n4096_warm kernel | 7 | us | 9.76 | 7.00 | -28.2 % | launch: launch 41 %; alu: queue (alu) 10 %; fma: stall count after fp32 9 % | branch fallback 1408, default latency 1672, default rbar 440, issue-only 4488 | batch r3 |
+| decode_gqa_comb_s4096_warm kernel | 7 | us | 2.50 | 3.08 | +23.3 % | launch: launch 91 %; l2/dram: load latency (incl. DRAM queue) 4 %; xu: xu result latency 1 % | branch fallback 4, default latency 28, issue-only 16 | batch r4 |
+| decode_gqa_comb_s4096_warm b2b | 7 | us | 1.91 | 3.02 | +57.8 % | l2/dram: load latency (incl. DRAM queue) 50 %; xu: xu result latency 10 %; store_port: drain after the last instruction 9 % | branch fallback 4, default latency 28, issue-only 16 | batch r4 |
+| decode_gqa_comb_s4096_warm graph | 7 | us | 0.83 | 0.88 | +5.5 % | l2/dram: load latency (incl. DRAM queue) 50 %; xu: xu result latency 10 %; store_port: drain after the last instruction 9 % | branch fallback 4, default latency 28, issue-only 16 | batch r4 |
+| decode_gqa_part_s4096_rotating kernel | 7 | us | 71.04 | 81.86 | +15.2 % | dram_queue: queue (DRAM share) 80 %; dram: DRAM latency 6 %; launch: launch 3 % | branch fallback 264, default latency 368, default rbar 496, front end 1024, issue-only 3744 | batch r4 |
+| decode_gqa_part_s4096_rotating b2b | 7 | us | 70.81 | 81.80 | +15.5 % | dram_queue: queue (DRAM share) 83 %; dram: DRAM latency 6 %; l2/dram: load latency (incl. DRAM queue) 3 % | branch fallback 264, default latency 368, default rbar 496, front end 1024, issue-only 3744 | batch r4 |
+| decode_gqa_part_s4096_rotating graph | 7 | us | 69.36 | 79.66 | +14.9 % | dram_queue: queue (DRAM share) 83 %; dram: DRAM latency 6 %; l2/dram: load latency (incl. DRAM queue) 3 % | branch fallback 264, default latency 368, default rbar 496, front end 1024, issue-only 3744 | batch r4 |
+| decode_gqa_part_s4096_warm kernel | 7 | us | 25.89 | 23.72 | -8.4 % | tensor: stall count after mma 18 %; launch: launch 12 %; tensor: queue (mma) 10 % | branch fallback 264, default latency 368, default rbar 496, front end 1024, issue-only 3744 | batch r4 |
+| decode_gqa_part_s4096_warm b2b | 7 | us | 24.79 | 23.66 | -4.5 % | tensor: stall count after mma 21 %; tensor: queue (mma) 12 %; fma: stall count after fp32 12 % | branch fallback 264, default latency 368, default rbar 496, front end 1024, issue-only 3744 | batch r4 |
+| decode_gqa_part_s4096_warm graph | 7 | us | 23.42 | 21.52 | -8.1 % | tensor: stall count after mma 21 %; tensor: queue (mma) 12 %; fma: stall count after fp32 12 % | branch fallback 264, default latency 368, default rbar 496, front end 1024, issue-only 3744 | batch r4 |
+| gemv_w4a16_n4096_k4096_rotating kernel | 7 | us | 37.34 | 46.49 | +24.5 % | l2/dram: load latency (incl. DRAM queue) 89 %; launch: launch 6 %; issue: stall count after half_to_float 1 % | default latency 726, default rbar 1056, front end 352, issue-only 6864 | batch r4 |
+| gemv_w4a16_n4096_k4096_rotating b2b | 7 | us | 36.87 | 46.43 | +25.9 % | l2/dram: load latency (incl. DRAM queue) 95 %; issue: stall count after half_to_float 1 %; alu: stall count after alu 1 % | default latency 726, default rbar 1056, front end 352, issue-only 6864 | batch r4 |
+| gemv_w4a16_n4096_k4096_rotating graph | 7 | us | 34.02 | 44.29 | +30.2 % | l2/dram: load latency (incl. DRAM queue) 95 %; issue: stall count after half_to_float 1 %; alu: stall count after alu 1 % | default latency 726, default rbar 1056, front end 352, issue-only 6864 | batch r4 |
+| gemv_w4a16_n4096_k4096_warm kernel | 7 | us | 16.74 | 14.96 | -10.6 % | xu: queue (xu) 33 %; launch: launch 19 %; alu: queue (alu) 14 % | default latency 726, default rbar 1056, front end 352, issue-only 6864 | batch r4 |
+| gemv_w4a16_n4096_k4096_warm b2b | 7 | us | 16.08 | 14.90 | -7.4 % | xu: queue (xu) 41 %; alu: queue (alu) 18 %; l2_return: queue (chip L2 share) 8 % | default latency 726, default rbar 1056, front end 352, issue-only 6864 | batch r4 |
+| gemv_w4a16_n4096_k4096_warm graph | 7 | us | 13.35 | 12.76 | -4.4 % | xu: queue (xu) 41 %; alu: queue (alu) 18 %; l2_return: queue (chip L2 share) 8 % | default latency 726, default rbar 1056, front end 352, issue-only 6864 | batch r4 |
+| rmsnorm_m512_n4096_rotating kernel | 7 | us | 41.22 | 47.83 | +16.0 % | l2/dram: load latency (incl. DRAM queue) 92 %; launch: launch 6 % | default latency 308, issue-only 660 | batch r4 |
+| rmsnorm_m512_n4096_rotating b2b | 7 | us | 40.06 | 47.77 | +19.2 % | l2/dram: load latency (incl. DRAM queue) 98 % | default latency 308, issue-only 660 | batch r4 |
+| rmsnorm_m512_n4096_rotating graph | 7 | us | 36.91 | 45.63 | +23.6 % | l2/dram: load latency (incl. DRAM queue) 98 % | default latency 308, issue-only 660 | batch r4 |
+| rmsnorm_m512_n4096_warm kernel | 7 | us | 8.61 | 5.65 | -34.4 % | launch: launch 50 %; l2_return: queue (chip L2 share) 28 %; l2/dram: load latency (incl. DRAM queue) 5 % | default latency 308, issue-only 660 | batch r4 |
+| rmsnorm_m512_n4096_warm b2b | 7 | us | 8.22 | 5.59 | -32.0 % | l2_return: queue (chip L2 share) 56 %; l2/dram: load latency (incl. DRAM queue) 10 %; fma: stall count after fp32 5 % | default latency 308, issue-only 660 | batch r4 |
+| rmsnorm_m512_n4096_warm graph | 7 | us | 6.97 | 3.45 | -50.5 % | l2_return: queue (chip L2 share) 56 %; l2/dram: load latency (incl. DRAM queue) 10 %; fma: stall count after fp32 5 % | default latency 308, issue-only 660 | batch r4 |
+| softmax_m512_n4096_warm kernel | 7 | us | 9.60 | 7.00 | -27.1 % | launch: launch 41 %; alu: queue (alu) 10 %; fma: stall count after fp32 9 % | branch fallback 1408, default latency 1672, default rbar 440, issue-only 4488 | batch r4 |
+| softmax_m512_n4096_warm b2b | 7 | us | 9.24 | 6.94 | -24.8 % | alu: queue (alu) 17 %; fma: stall count after fp32 14 %; xu: xu result latency 11 % | branch fallback 1408, default latency 1672, default rbar 440, issue-only 4488 | batch r4 |
+| softmax_m512_n4096_warm graph | 7 | us | 7.38 | 4.80 | -35.0 % | alu: queue (alu) 17 %; fma: stall count after fp32 14 %; xu: xu result latency 11 % | branch fallback 1408, default latency 1672, default rbar 440, issue-only 4488 | batch r4 |
 | l2reuse n2_cg_cold | 5 | us | 7.42 | 7.29 | -1.8 % | l2/dram: load latency (incl. DRAM queue) 96 %; store_port: drain after the last instruction 1 %; lsu: queue 1 % | default latency 161, issue-only 97 | batch r3 |
 | l2reuse n2_cg_warm | 5 | us | 1.02 | 1.08 | +5.0 % | l2_return: queue (chip L2 share) 61 %; l2/dram: load latency (incl. DRAM queue) 13 %; store_port: drain after the last instruction 8 % | default latency 161, issue-only 97 | batch r3 |
 | l2reuse n2_cg_in4 | 5 | us | 7.46 | 2.24 | -70.0 % | l2/dram: load latency (incl. DRAM queue) 87 %; store_port: drain after the last instruction 3 %; lsu: queue 3 % | default latency 161, issue-only 513 | batch r3 |
@@ -464,37 +499,73 @@ Produced by `scripts/perfmodel-table` from KTA commit `5f1d57c92156568b1d166f021
 | l2reuse n43_cs_cold | 5 | us | 143.33 | 146.37 | +2.1 % | l2/dram: load latency (incl. DRAM queue) 100 % | default latency 161, issue-only 1729 | batch r3 |
 | l2reuse n43_cs_warm | 5 | us | 143.36 | 146.37 | +2.1 % | l2/dram: load latency (incl. DRAM queue) 100 % | default latency 161, issue-only 1729 | batch r3 |
 | l2reuse n43_cs_in4 | 5 | us | 535.71 | 553.44 | +3.3 % | l2/dram: load latency (incl. DRAM queue) 100 % | default latency 161, issue-only 7169 | batch r3 |
-| launch empty_g1_t128 | 1 | us | 2.43 | 2.80 | +15.2 % | issue: last instruction 67 %; issue: stall count after other 33 % | issue-only 4 | batch r3 |
-| launch tiny_g1_t128 | 1 | us | 2.46 | 2.84 | +15.4 % | store_port: drain after the last instruction 54 %; issue: stall count after other 22 %; issue: default result latency (LDC) 18 % | default latency 20, issue-only 4 | batch r3 |
-| launch empty_g48_t128 | 1 | us | 2.43 | 2.80 | +15.2 % | issue: last instruction 67 %; issue: stall count after other 33 % | issue-only 4 | batch r3 |
-| launch tiny_g48_t128 | 1 | us | 2.40 | 2.90 | +20.9 % | store_port: drain after the last instruction 80 %; issue: stall count after other 10 %; issue: default result latency (LDC) 8 % | default latency 20, issue-only 4 | batch r3 |
-| launch empty_g96_t128 | 1 | us | 2.43 | 2.80 | +15.2 % | issue: last instruction 40 %; issue: scheduler (another warp issued) 40 %; issue: stall count after other 20 % | issue-only 8 | batch r3 |
-| launch tiny_g96_t128 | 1 | us | 2.46 | 2.98 | +21.0 % | store_port: drain after the last instruction 88 %; issue: stall count after other 5 %; issue: default result latency (LDC) 4 % | default latency 40, issue-only 8 | batch r3 |
-| launch empty_g512_t128 | 1 | us | 2.46 | 2.81 | +14.0 % | issue: scheduler (another warp issued) 87 %; issue: last instruction 9 %; issue: stall count after other 4 % | issue-only 44 | batch r3 |
-| launch tiny_g512_t128 | 1 | us | 2.40 | 3.66 | +52.7 % | store_queue: queue (stg) 60 %; store_port: drain after the last instruction 34 %; issue: scheduler (another warp issued) 3 % | default latency 220, issue-only 44 | batch r3 |
-| launch empty_g1024_t128 | 1 | us | 2.43 | 2.82 | +15.9 % | issue: scheduler (another warp issued) 93 %; issue: last instruction 4 %; issue: stall count after other 2 % | issue-only 88 | batch r3 |
-| launch tiny_g1024_t128 | 1 | us | 2.53 | 4.51 | +78.5 % | store_queue: queue (stg) 79 %; store_port: drain after the last instruction 17 %; issue: scheduler (another warp issued) 4 % | default latency 440, issue-only 88 | batch r3 |
-| launch empty_g2048_t128 | 1 | us | 2.91 | 2.84 | -2.6 % | issue: scheduler (another warp issued) 97 %; issue: last instruction 2 %; issue: stall count after other 1 % | issue-only 172 | batch r3 |
-| launch tiny_g2048_t128 | 1 | us | 4.61 | 6.25 | +35.7 % | store_queue: queue (stg) 87 %; store_port: drain after the last instruction 9 %; issue: scheduler (another warp issued) 4 % | default latency 860, issue-only 172 | batch r3 |
-| launch empty_g4096_t128 | 1 | us | 4.64 | 2.87 | -38.2 % | issue: scheduler (another warp issued) 98 %; issue: last instruction 1 %; issue: stall count after other 1 % | issue-only 344 | batch r3 |
-| launch tiny_g4096_t128 | 1 | us | 4.64 | 9.69 | +108.8 % | store_queue: queue (stg) 92 %; store_port: drain after the last instruction 4 %; issue: scheduler (another warp issued) 4 % | default latency 1720, issue-only 344 | batch r3 |
-| launch empty_g8192_t128 | 1 | us | 6.69 | 2.94 | -56.1 % | issue: scheduler (another warp issued) 99 %; issue: last instruction 1 % | issue-only 684 | batch r3 |
-| launch tiny_g8192_t128 | 1 | us | 6.62 | 16.62 | +151.0 % | store_queue: queue (stg) 94 %; issue: scheduler (another warp issued) 4 %; store_port: drain after the last instruction 2 % | default latency 3420, issue-only 684 | batch r3 |
-| launch empty_g48_t1024 | 1 | us | 2.40 | 2.81 | +17.0 % | issue: scheduler (another warp issued) 82 %; issue: last instruction 12 %; issue: stall count after other 6 % | issue-only 32 | batch r3 |
-| launch tiny_g48_t1024 | 1 | us | 2.43 | 3.47 | +42.6 % | store_port: drain after the last instruction 48 %; store_queue: queue (stg) 46 %; issue: scheduler (another warp issued) 3 % | default latency 160, issue-only 32 | batch r3 |
-| launch empty_g128_t1024 | 1 | us | 2.43 | 2.82 | +15.9 % | issue: scheduler (another warp issued) 94 %; issue: last instruction 4 %; issue: stall count after other 2 % | issue-only 96 | batch r3 |
-| launch tiny_g128_t1024 | 1 | us | 2.91 | 4.69 | +61.1 % | store_queue: queue (stg) 82 %; store_port: drain after the last instruction 13 %; issue: scheduler (another warp issued) 4 % | default latency 480, issue-only 96 | batch r3 |
-| launch empty_g256_t1024 | 1 | us | 2.62 | 2.84 | +8.2 % | issue: scheduler (another warp issued) 97 %; issue: last instruction 2 %; issue: stall count after other 1 % | issue-only 192 | batch r3 |
-| launch tiny_g256_t1024 | 1 | us | 4.64 | 6.52 | +40.4 % | store_queue: queue (stg) 90 %; store_port: drain after the last instruction 6 %; issue: scheduler (another warp issued) 4 % | default latency 960, issue-only 192 | batch r3 |
-| launch empty_g512_t1024 | 1 | us | 4.64 | 2.87 | -38.1 % | issue: scheduler (another warp issued) 98 %; issue: last instruction 1 %; issue: stall count after other 1 % | issue-only 352 | batch r3 |
-| launch tiny_g512_t1024 | 1 | us | 4.70 | 9.80 | +108.4 % | store_queue: queue (stg) 92 %; issue: scheduler (another warp issued) 4 %; store_port: drain after the last instruction 4 % | default latency 1760, issue-only 352 | batch r3 |
-| launch work_i0 | 1 | us | 2.40 | 2.91 | +21.2 % | store_port: drain after the last instruction 71 %; issue: default result latency (S2R) 15 %; alu: stall count after alu 7 % | default latency 7, issue-only 9 | batch r3 |
-| launch work_i64 | 1 | us | 2.78 | 3.45 | +23.9 % | issue: stall count after other 60 %; store_port: drain after the last instruction 12 %; fma: stall count after fp32 12 % | default latency 14, issue-only 785 | batch r3 |
-| launch work_i128 | 1 | us | 4.58 | 3.91 | -14.5 % | issue: stall count after other 70 %; fma: stall count after fp32 14 %; store_port: drain after the last instruction 7 % | default latency 14, issue-only 1553 | batch r3 |
-| launch work_i256 | 1 | us | 4.58 | 4.84 | +5.8 % | issue: stall count after other 76 %; fma: stall count after fp32 15 %; store_port: drain after the last instruction 4 % | default latency 14, issue-only 3089 | batch r3 |
-| launch work_i512 | 1 | us | 7.49 | 6.70 | -10.6 % | issue: stall count after other 79 %; fma: stall count after fp32 16 %; store_port: drain after the last instruction 2 % | default latency 14, issue-only 6161 | batch r3 |
-| launch work_i1024 | 1 | us | 12.80 | 10.41 | -18.7 % | issue: stall count after other 81 %; fma: stall count after fp32 16 %; store_port: drain after the last instruction 1 % | default latency 14, issue-only 12305 | batch r3 |
-| launch work_i4096 | 1 | us | 41.38 | 32.66 | -21.1 % | issue: stall count after other 83 %; fma: stall count after fp32 17 % | default latency 14, issue-only 49169 | batch r3 |
-| launch work_i16384 | 1 | us | 153.86 | 121.68 | -20.9 % | issue: stall count after other 83 %; fma: stall count after fp32 17 % | default latency 14, issue-only 196625 | batch r3 |
-| fp8gemm2048_c128x128x64_s3_t128 kernel | 7 | us | 123.14 | 117.81 | -4.3 % | tensor: queue (mma) 36 %; tensor: stall count after mma 20 %; store_queue: queue (stg) 20 % | branch fallback 720, default latency 192, default rbar 24, issue-only 25464 | batch r3 |
-| fp8gemm2048_c128x256x64_s3_t256 kernel | 7 | us | 137.63 | 125.33 | -8.9 % | tensor: queue (mma) 35 %; store_queue: queue (stg) 21 %; tensor: stall count after mma 19 % | branch fallback 720, default latency 192, issue-only 25368 | batch r3 |
+| launch empty_g1_t128 | 1 | us | 2.43 | 2.80 | +15.2 % | issue: last instruction 67 %; issue: stall count after other 33 % | issue-only 4 | batch r4 |
+| launch tiny_g1_t128 | 1 | us | 2.50 | 2.84 | +13.9 % | store_port: drain after the last instruction 54 %; issue: stall count after other 22 %; issue: default result latency (LDC) 18 % | default latency 20, issue-only 4 | batch r4 |
+| launch empty_g48_t128 | 1 | us | 2.43 | 2.80 | +15.2 % | issue: last instruction 67 %; issue: stall count after other 33 % | issue-only 4 | batch r4 |
+| launch tiny_g48_t128 | 1 | us | 2.43 | 2.90 | +19.3 % | store_port: drain after the last instruction 80 %; issue: stall count after other 10 %; issue: default result latency (LDC) 8 % | default latency 20, issue-only 4 | batch r4 |
+| launch empty_g96_t128 | 1 | us | 2.40 | 2.80 | +16.8 % | issue: last instruction 40 %; issue: scheduler (another warp issued) 40 %; issue: stall count after other 20 % | issue-only 8 | batch r4 |
+| launch tiny_g96_t128 | 1 | us | 2.43 | 2.98 | +22.6 % | store_port: drain after the last instruction 88 %; issue: stall count after other 5 %; issue: default result latency (LDC) 4 % | default latency 40, issue-only 8 | batch r4 |
+| launch empty_g512_t128 | 1 | us | 2.43 | 2.81 | +15.5 % | issue: scheduler (another warp issued) 87 %; issue: last instruction 9 %; issue: stall count after other 4 % | issue-only 44 | batch r4 |
+| launch tiny_g512_t128 | 1 | us | 2.43 | 3.66 | +50.7 % | store_queue: queue (stg) 60 %; store_port: drain after the last instruction 34 %; issue: scheduler (another warp issued) 3 % | default latency 220, issue-only 44 | batch r4 |
+| launch empty_g1024_t128 | 1 | us | 2.40 | 2.82 | +17.4 % | issue: scheduler (another warp issued) 93 %; issue: last instruction 4 %; issue: stall count after other 2 % | issue-only 88 | batch r4 |
+| launch tiny_g1024_t128 | 1 | us | 2.43 | 4.51 | +85.6 % | store_queue: queue (stg) 79 %; store_port: drain after the last instruction 17 %; issue: scheduler (another warp issued) 4 % | default latency 440, issue-only 88 | batch r4 |
+| launch empty_g2048_t128 | 1 | us | 2.91 | 2.84 | -2.6 % | issue: scheduler (another warp issued) 97 %; issue: last instruction 2 %; issue: stall count after other 1 % | issue-only 172 | batch r4 |
+| launch tiny_g2048_t128 | 1 | us | 4.54 | 6.25 | +37.6 % | store_queue: queue (stg) 87 %; store_port: drain after the last instruction 9 %; issue: scheduler (another warp issued) 4 % | default latency 860, issue-only 172 | batch r4 |
+| launch empty_g4096_t128 | 1 | us | 4.67 | 2.87 | -38.6 % | issue: scheduler (another warp issued) 98 %; issue: last instruction 1 %; issue: stall count after other 1 % | issue-only 344 | batch r4 |
+| launch tiny_g4096_t128 | 1 | us | 4.58 | 9.69 | +111.7 % | store_queue: queue (stg) 92 %; store_port: drain after the last instruction 4 %; issue: scheduler (another warp issued) 4 % | default latency 1720, issue-only 344 | batch r4 |
+| launch empty_g8192_t128 | 1 | us | 6.72 | 2.94 | -56.3 % | issue: scheduler (another warp issued) 99 %; issue: last instruction 1 % | issue-only 684 | batch r4 |
+| launch tiny_g8192_t128 | 1 | us | 6.69 | 16.62 | +148.5 % | store_queue: queue (stg) 94 %; issue: scheduler (another warp issued) 4 %; store_port: drain after the last instruction 2 % | default latency 3420, issue-only 684 | batch r4 |
+| launch empty_g48_t1024 | 1 | us | 2.43 | 2.81 | +15.4 % | issue: scheduler (another warp issued) 82 %; issue: last instruction 12 %; issue: stall count after other 6 % | issue-only 32 | batch r4 |
+| launch tiny_g48_t1024 | 1 | us | 2.46 | 3.47 | +40.8 % | store_port: drain after the last instruction 48 %; store_queue: queue (stg) 46 %; issue: scheduler (another warp issued) 3 % | default latency 160, issue-only 32 | batch r4 |
+| launch empty_g128_t1024 | 1 | us | 2.37 | 2.82 | +19.1 % | issue: scheduler (another warp issued) 94 %; issue: last instruction 4 %; issue: stall count after other 2 % | issue-only 96 | batch r4 |
+| launch tiny_g128_t1024 | 1 | us | 2.91 | 4.69 | +61.1 % | store_queue: queue (stg) 82 %; store_port: drain after the last instruction 13 %; issue: scheduler (another warp issued) 4 % | default latency 480, issue-only 96 | batch r4 |
+| launch empty_g256_t1024 | 1 | us | 2.56 | 2.84 | +10.9 % | issue: scheduler (another warp issued) 97 %; issue: last instruction 2 %; issue: stall count after other 1 % | issue-only 192 | batch r4 |
+| launch tiny_g256_t1024 | 1 | us | 4.61 | 6.51 | +41.4 % | store_queue: queue (stg) 90 %; store_port: drain after the last instruction 6 %; issue: scheduler (another warp issued) 4 % | default latency 960, issue-only 192 | batch r4 |
+| launch empty_g512_t1024 | 1 | us | 4.61 | 2.87 | -37.7 % | issue: scheduler (another warp issued) 98 %; issue: last instruction 1 %; issue: stall count after other 1 % | issue-only 352 | batch r4 |
+| launch tiny_g512_t1024 | 1 | us | 4.67 | 9.80 | +109.8 % | store_queue: queue (stg) 92 %; issue: scheduler (another warp issued) 4 %; store_port: drain after the last instruction 4 % | default latency 1760, issue-only 352 | batch r4 |
+| launch graph_g1_t128 | 1 | us | 0.44 | 0.60 | +38.0 % | issue: last instruction 67 %; issue: stall count after other 33 % | issue-only 4 | batch r4 |
+| launch graph_g512_t128 | 1 | us | 0.60 | 0.61 | +2.4 % | issue: scheduler (another warp issued) 87 %; issue: last instruction 9 %; issue: stall count after other 4 % | issue-only 44 | batch r4 |
+| launch graph_g4096_t128 | 1 | us | 2.52 | 0.67 | -73.4 % | issue: scheduler (another warp issued) 98 %; issue: last instruction 1 %; issue: stall count after other 1 % | issue-only 344 | batch r4 |
+| launch b2b_work_i0 | 1 | us | 1.90 | 2.85 | +50.0 % | store_port: drain after the last instruction 71 %; issue: default result latency (S2R) 15 %; alu: stall count after alu 7 % | default latency 7, issue-only 9 | batch r4 |
+| launch graph_work_i0 | 1 | us | 0.70 | 0.71 | +1.1 % | store_port: drain after the last instruction 71 %; issue: default result latency (S2R) 15 %; alu: stall count after alu 7 % | default latency 7, issue-only 9 | batch r4 |
+| launch b2b_work_i64 | 1 | us | 3.69 | 3.39 | -8.2 % | issue: stall count after other 60 %; store_port: drain after the last instruction 12 %; fma: stall count after fp32 12 % | default latency 14, issue-only 785 | batch r4 |
+| launch graph_work_i64 | 1 | us | 1.50 | 1.25 | -16.7 % | issue: stall count after other 60 %; store_port: drain after the last instruction 12 %; fma: stall count after fp32 12 % | default latency 14, issue-only 785 | batch r4 |
+| launch b2b_work_i256 | 1 | us | 4.85 | 4.78 | -1.3 % | issue: stall count after other 76 %; fma: stall count after fp32 15 %; store_port: drain after the last instruction 4 % | default latency 14, issue-only 3089 | batch r4 |
+| launch graph_work_i256 | 1 | us | 3.19 | 2.64 | -17.1 % | issue: stall count after other 76 %; fma: stall count after fp32 15 %; store_port: drain after the last instruction 4 % | default latency 14, issue-only 3089 | batch r4 |
+| launch b2b_work_i1024 | 1 | us | 12.31 | 10.34 | -16.0 % | issue: stall count after other 81 %; fma: stall count after fp32 16 %; store_port: drain after the last instruction 1 % | default latency 14, issue-only 12305 | batch r4 |
+| launch graph_work_i1024 | 1 | us | 10.16 | 8.20 | -19.2 % | issue: stall count after other 81 %; fma: stall count after fp32 16 %; store_port: drain after the last instruction 1 % | default latency 14, issue-only 12305 | batch r4 |
+| launch b2b_work_i4096 | 1 | us | 40.94 | 32.60 | -20.4 % | issue: stall count after other 83 %; fma: stall count after fp32 17 % | default latency 14, issue-only 49169 | batch r4 |
+| launch graph_work_i4096 | 1 | us | 38.42 | 30.46 | -20.7 % | issue: stall count after other 83 %; fma: stall count after fp32 17 % | default latency 14, issue-only 49169 | batch r4 |
+| launch b2b_work_i16384 | 1 | us | 153.58 | 121.61 | -20.8 % | issue: stall count after other 83 %; fma: stall count after fp32 17 % | default latency 14, issue-only 196625 | batch r4 |
+| launch graph_work_i16384 | 1 | us | 151.47 | 119.47 | -21.1 % | issue: stall count after other 83 %; fma: stall count after fp32 17 % | default latency 14, issue-only 196625 | batch r4 |
+| launch work_i0 | 1 | us | 2.43 | 2.91 | +19.6 % | store_port: drain after the last instruction 71 %; issue: default result latency (S2R) 15 %; alu: stall count after alu 7 % | default latency 7, issue-only 9 | batch r4 |
+| launch work_i64 | 1 | us | 2.78 | 3.45 | +23.9 % | issue: stall count after other 60 %; store_port: drain after the last instruction 12 %; fma: stall count after fp32 12 % | default latency 14, issue-only 785 | batch r4 |
+| launch work_i128 | 1 | us | 4.58 | 3.91 | -14.5 % | issue: stall count after other 70 %; fma: stall count after fp32 14 %; store_port: drain after the last instruction 7 % | default latency 14, issue-only 1553 | batch r4 |
+| launch work_i256 | 1 | us | 4.61 | 4.84 | +5.1 % | issue: stall count after other 76 %; fma: stall count after fp32 15 %; store_port: drain after the last instruction 4 % | default latency 14, issue-only 3089 | batch r4 |
+| launch work_i512 | 1 | us | 8.45 | 6.70 | -20.7 % | issue: stall count after other 79 %; fma: stall count after fp32 16 %; store_port: drain after the last instruction 2 % | default latency 14, issue-only 6161 | batch r4 |
+| launch work_i1024 | 1 | us | 12.77 | 10.40 | -18.5 % | issue: stall count after other 81 %; fma: stall count after fp32 16 %; store_port: drain after the last instruction 1 % | default latency 14, issue-only 12305 | batch r4 |
+| launch work_i4096 | 1 | us | 41.31 | 32.66 | -21.0 % | issue: stall count after other 83 %; fma: stall count after fp32 17 % | default latency 14, issue-only 49169 | batch r4 |
+| launch work_i16384 | 1 | us | 153.79 | 121.67 | -20.9 % | issue: stall count after other 83 %; fma: stall count after fp32 17 % | default latency 14, issue-only 196625 | batch r4 |
+| fp8gemm2048_c128x128x64_s3_t128 kernel | 7 | us | 123.23 | 117.79 | -4.4 % | tensor: queue (mma) 36 %; tensor: stall count after mma 20 %; store_queue: queue (stg) 20 % | branch fallback 720, default latency 192, default rbar 24, issue-only 25464 | batch r4 |
+| fp8gemm2048_c128x256x64_s3_t256 kernel | 7 | us | 137.66 | 125.31 | -9.0 % | tensor: queue (mma) 35 %; store_queue: queue (stg) 21 %; tensor: stall count after mma 19 % | branch fallback 720, default latency 192, issue-only 25368 | batch r4 |
+| dram_rw r2_w0 | 5 | us | 267.49 | 274.52 | +2.6 % | l2/dram: load latency (incl. DRAM queue) 100 % | default latency 128, issue-only 6496 | batch r4 |
+| dram_rw r2_w1 | 5 | us | 428.32 | 437.69 | +2.2 % | l2/dram: load latency (incl. DRAM queue) 100 % | default latency 160, issue-only 9056 | batch r4 |
+| dram_rw r1_w1 | 5 | us | 289.25 | 301.96 | +4.4 % | l2/dram: load latency (incl. DRAM queue) 100 % | default latency 160, issue-only 7776 | batch r4 |
+| dram_rw r1_w2 | 5 | us | 432.22 | 465.07 | +7.6 % | l2/dram: load latency (incl. DRAM queue) 100 % | default latency 160, issue-only 9056 | batch r4 |
+| dram_rw r0_w2 | 5 | us | 319.78 | 47.17 | -85.2 % | store_queue: queue (stg) 89 %; store_port: queue (stores) 11 % | default latency 128, issue-only 3904 | batch r4 |
+| hgemm2048_c128x128x32_s3_t128_rotating kernel | 7 | us | 230.78 | 206.39 | -10.6 % | tensor: queue (mma) 41 %; tensor: stall count after mma 22 %; store_queue: queue (stg) 12 % | default latency 192, default rbar 1512, issue-only 29376 | batch r4 |
+| hgemm2048_c128x128x32_s3_t128_sw8_rotating kernel | 7 | us | 222.78 | 195.00 | -12.5 % | tensor: queue (mma) 39 %; tensor: stall count after mma 24 %; store_queue: queue (stg) 8 % | branch fallback 48, default latency 264, default rbar 1584, issue-only 28608 | batch r4 |
+| hgemm2048_c128x128x32_s4_t128_rotating kernel | 7 | us | 267.58 | 244.16 | -8.8 % | tensor: stall count after mma 39 %; tensor: queue (mma) 20 %; store_queue: queue (stg) 11 % | branch fallback 1464, default latency 192, default rbar 24, issue-only 31848 | batch r4 |
+| hgemm2048_c128x128x64_s2_t128_rotating kernel | 7 | us | 245.98 | 236.90 | -3.7 % | tensor: stall count after mma 22 %; dram: DRAM latency 22 %; tensor: queue (mma) 12 % | branch fallback 744, default latency 240, default rbar 24, issue-only 26496 | batch r4 |
+| hgemm2048_c128x128x64_s3_t256_rotating kernel | 7 | us | 247.97 | 225.80 | -8.9 % | tensor: queue (mma) 28 %; tensor: stall count after mma 20 %; issue: stall count after barrier 17 % | default latency 480, default rbar 48, issue-only 29616 | batch r4 |
+| hgemm2048_c128x256x32_s3_t256_rotating kernel | 7 | us | 239.62 | 225.52 | -5.9 % | tensor: queue (mma) 45 %; tensor: stall count after mma 21 %; store_queue: queue (stg) 12 % | default latency 216, default rbar 1512, issue-only 29256 | batch r4 |
+| hgemm2048_c128x256x32_s3_t256_sw4_rotating kernel | 7 | us | 237.82 | 220.95 | -7.1 % | tensor: queue (mma) 45 %; tensor: stall count after mma 22 %; store_queue: queue (stg) 12 % | branch fallback 48, default latency 264, default rbar 1584, issue-only 28512 | batch r4 |
+| hgemm2048_c128x256x64_s2_t256_rotating kernel | 7 | us | 229.95 | 212.70 | -7.5 % | tensor: queue (mma) 29 %; tensor: stall count after mma 20 %; issue: stall count after barrier 18 % | branch fallback 744, default latency 240, default rbar 24, issue-only 23424 | batch r4 |
+| hgemm2048_c256x128x32_s3_t256_rotating kernel | 7 | us | 239.90 | 227.57 | -5.1 % | tensor: queue (mma) 44 %; tensor: stall count after mma 20 %; store_queue: queue (stg) 12 % | default latency 216, default rbar 1512, issue-only 29184 | batch r4 |
+| hgemm2048_c64x128x32_s4_t128_rotating kernel | 7 | us | 251.14 | 234.59 | -6.6 % | l2_return: queue (chip L2 share) 62 %; store_queue: queue (stg) 9 %; tensor: stall count after mma 8 % | branch fallback 2684, default latency 396, issue-only 54076 | batch r4 |
+| moe_e8_t2048_n1024_k2048_c128x128x32_s3_t128 kernel | 7 | us | 179.55 | 594.45 | +231.1 % | dram_queue: queue (DRAM share) 89 %; dram: DRAM latency 5 %; tensor: stall count after mma 2 % | default latency 108, default rbar 756, front end 6144, issue-only 14736 | batch r4 |
+| moe_e8_t2048_n1024_k2048_c128x128x32_s3_t128 b2b | 7 | us | 183.18 | 594.39 | +224.5 % | dram_queue: queue (DRAM share) 90 %; dram: DRAM latency 5 %; tensor: stall count after mma 2 % | default latency 108, default rbar 756, front end 6144, issue-only 14736 | batch r4 |
+| moe_e8_t2048_n1024_k2048_c128x128x32_s3_t128 graph | 7 | us | 177.38 | 592.25 | +233.9 % | dram_queue: queue (DRAM share) 90 %; dram: DRAM latency 5 %; tensor: stall count after mma 2 % | default latency 108, default rbar 756, front end 6144, issue-only 14736 | batch r4 |
+| moe_e8_t2048_n1024_k2048_c64x128x32_s4_t128 kernel | 7 | us | 173.12 | 63.43 | -63.4 % | dram_queue: queue (DRAM share) 80 %; store_queue: queue (stg) 9 %; launch: launch 5 % | branch fallback 24, default latency 216, front end 576, issue-only 2208 | batch r4 |
+| moe_e8_t2048_n1024_k2048_c64x128x32_s4_t128 b2b | 7 | us | 173.41 | 63.37 | -63.5 % | dram_queue: queue (DRAM share) 84 %; store_queue: queue (stg) 9 %; dram: DRAM latency 3 % | branch fallback 24, default latency 216, front end 576, issue-only 2208 | batch r4 |
+| moe_e8_t2048_n1024_k2048_c64x128x32_s4_t128 graph | 7 | us | 170.66 | 61.23 | -64.1 % | dram_queue: queue (DRAM share) 84 %; store_queue: queue (stg) 9 %; dram: DRAM latency 3 % | branch fallback 24, default latency 216, front end 576, issue-only 2208 | batch r4 |
