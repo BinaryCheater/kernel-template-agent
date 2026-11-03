@@ -1,6 +1,6 @@
 # Error table
 
-Produced by `scripts/perfmodel-table` from KTA commit `c68e19b123159fdcd582d932454a02c630e982cc` (dirty) on 2026-11-03T19:11:29Z; upstream inputs `/Users/dingyi/Projects/ai-infra-codesign-ventus` at `a628c9d963cf9c029fa596b872d6e8920ca883e8`. CPU only: replay time 907 s summed over rows (slowest row 67 s); this run 68 s with 16 processes, 0 rows from the cache. Error = predicted / measured − 1 (positive: the model is slow). Machine-readable copy: `error-table.json`.
+Produced by `scripts/perfmodel-table` from KTA commit `bd3ff3565821c84df531658b8e11681e88f735e5` on 2026-11-03T19:14:33Z; upstream inputs `/Users/dingyi/Projects/ai-infra-codesign-ventus` at `a628c9d963cf9c029fa596b872d6e8920ca883e8`. CPU only: replay time 907 s summed over rows (slowest row 67 s); this run 0 s with 16 processes, 274 rows from the cache. Error = predicted / measured − 1 (positive: the model is slow). Machine-readable copy: `error-table.json`.
 
 ## Summary
 

@@ -1,16 +1,16 @@
 {
- "kta_commit": "c68e19b123159fdcd582d932454a02c630e982cc",
- "kta_dirty": true,
+ "kta_commit": "bd3ff3565821c84df531658b8e11681e88f735e5",
+ "kta_dirty": false,
  "upstream": "/Users/dingyi/Projects/ai-infra-codesign-ventus",
  "upstream_rev": "a628c9d963cf9c029fa596b872d6e8920ca883e8",
- "date": "2026-11-03T19:11:29Z",
+ "date": "2026-11-03T19:14:33Z",
  "sets": [
   "gemm",
   "tma",
   "probes",
   "batches"
  ],
- "wall_s": 67.9,
+ "wall_s": 0.5,
  "summary": [
   {
    "set": "gemm1024 full",
@@ -186,7 +186,7 @@
   }
  ],
  "jobs": 16,
- "cached_rows": 0,
+ "cached_rows": 274,
  "rows": [
   {
    "id": "gemm1024 c128x128x32_st3_th128 full",
