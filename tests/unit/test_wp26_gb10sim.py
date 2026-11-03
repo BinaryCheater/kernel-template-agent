@@ -12,7 +12,7 @@ from kta.models.gb10sim import model
 from kta.models.gb10sim.l3 import simulate_build
 from kta.models.gb10sim.sass import main_loop, parse
 
-STATUSES = {"measured", "fitted", "structural", "assumed", "withdrawn"}
+STATUSES = {"measured", "fitted", "structural", "assumed", "withdrawn", "unidentified"}  # LOOP §3
 
 # Two instructions of a loop with its back edge, as cuobjdump -sass prints them (numeric
 # target, "Function :" header) and as nvdisasm -hex prints them (label target, .text section).
