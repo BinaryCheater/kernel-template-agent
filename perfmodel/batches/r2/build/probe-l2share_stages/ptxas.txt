@@ -1,0 +1,26 @@
+ptxas info    : 1024 bytes gmem
+ptxas info    : Compiling entry function '_Z4loadILi4EEvPK6__halfS2_' for 'sm_121a'
+ptxas info    : Function properties for _Z4loadILi4EEvPK6__halfS2_
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 40 registers, used 1 barriers
+ptxas info    : Compile time = 3.125 ms
+ptxas info    : Compiling entry function '_Z4loadILi3EEvPK6__halfS2_' for 'sm_121a'
+ptxas info    : Function properties for _Z4loadILi3EEvPK6__halfS2_
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 34 registers, used 1 barriers
+ptxas info    : Compile time = 2.395 ms
+ptxas info    : Compiling entry function '_Z4loadILi2EEvPK6__halfS2_' for 'sm_121a'
+ptxas info    : Function properties for _Z4loadILi2EEvPK6__halfS2_
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 36 registers, used 1 barriers
+ptxas info    : Compile time = 1.829 ms
+ptxas info    : Compiling entry function '_Z4loadILi1EEvPK6__halfS2_' for 'sm_121a'
+ptxas info    : Function properties for _Z4loadILi1EEvPK6__halfS2_
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 28 registers, used 1 barriers
+ptxas info    : Compile time = 1.629 ms
+ptxas info    : Compiling entry function '_Z4fillP6__halfmj' for 'sm_121a'
+ptxas info    : Function properties for _Z4fillP6__halfmj
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 11 registers, used 0 barriers
+ptxas info    : Compile time = 1.047 ms

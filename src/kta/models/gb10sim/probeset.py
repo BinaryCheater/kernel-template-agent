@@ -404,8 +404,9 @@ def l2stages_cases(b: Batch) -> list[Case]:
                     "l2share_stages",
                     4,
                     "us",
-                    lambda ins=ins, h=h, blocks=blocks, **kw: SM(
-                        ins, 256, 1, 1, active_sms=blocks, copy_lines=copy_lines(h), **kw
+                    # the main loop runs KT - (S - 1) = 33 - S times (32 k-tiles)
+                    lambda ins=ins, h=h, st=st, blocks=blocks, **kw: SM(
+                        ins, 256, 1, 33 - st, active_sms=blocks, copy_lines=copy_lines(h), **kw
                     ),
                     lambda sm, r: r["cycles"] / (_ghz(b, sm.m) * 1e3),
                 )

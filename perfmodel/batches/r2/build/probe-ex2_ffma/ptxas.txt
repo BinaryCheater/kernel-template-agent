@@ -1,0 +1,31 @@
+ptxas info    : 0 bytes gmem
+ptxas info    : Compiling entry function '_Z1kILi4ELi32EEvPyPf' for 'sm_121a'
+ptxas info    : Function properties for _Z1kILi4ELi32EEvPyPf
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 42 registers, used 1 barriers
+ptxas info    : Compile time = 3.769 ms
+ptxas info    : Compiling entry function '_Z1kILi0ELi32EEvPyPf' for 'sm_121a'
+ptxas info    : Function properties for _Z1kILi0ELi32EEvPyPf
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 40 registers, used 1 barriers
+ptxas info    : Compile time = 2.646 ms
+ptxas info    : Compiling entry function '_Z1kILi8ELi32EEvPyPf' for 'sm_121a'
+ptxas info    : Function properties for _Z1kILi8ELi32EEvPyPf
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 47 registers, used 1 barriers
+ptxas info    : Compile time = 2.854 ms
+ptxas info    : Compiling entry function '_Z1kILi8ELi16EEvPyPf' for 'sm_121a'
+ptxas info    : Function properties for _Z1kILi8ELi16EEvPyPf
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 30 registers, used 1 barriers
+ptxas info    : Compile time = 1.851 ms
+ptxas info    : Compiling entry function '_Z1kILi8ELi8EEvPyPf' for 'sm_121a'
+ptxas info    : Function properties for _Z1kILi8ELi8EEvPyPf
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 23 registers, used 1 barriers
+ptxas info    : Compile time = 1.405 ms
+ptxas info    : Compiling entry function '_Z1kILi8ELi0EEvPyPf' for 'sm_121a'
+ptxas info    : Function properties for _Z1kILi8ELi0EEvPyPf
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 14 registers, used 1 barriers
+ptxas info    : Compile time = 1.130 ms
