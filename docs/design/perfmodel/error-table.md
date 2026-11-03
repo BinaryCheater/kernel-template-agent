@@ -1,6 +1,6 @@
 # Error table
 
-Produced by `scripts/perfmodel-table` from KTA commit `eccdc3a275d0e292d042afbadfec3113a83cb854` on 2026-11-03T19:58:41Z; upstream inputs `/Users/dingyi/Projects/ai-infra-codesign-ventus` at `a628c9d963cf9c029fa596b872d6e8920ca883e8`. CPU only: replay time 925 s summed over rows (slowest row 66 s); this run 136 s with 16 processes, 0 rows from the cache. Error = predicted / measured − 1 (positive: the model is slow). Machine-readable copy: `error-table.json`. Mechanisms only (LOOP §4.4): every fitted parameter replaced by its probe value or removed: {'launch_stream_us': 2.05, 'tma_r_GBs_alone': 80.7, 'tma_l2_aggregate_GBs': 2250, 'block_setup_us': 0.0}.
+Produced by `scripts/perfmodel-table` from KTA commit `d25f09672ec777d6c4a452cb0902098b5c91ae32` (dirty) on 2026-11-03T20:46:34Z; upstream inputs `/Users/dingyi/Projects/ai-infra-codesign-ventus` at `a628c9d963cf9c029fa596b872d6e8920ca883e8`. CPU only: replay time 1130 s summed over rows (slowest row 85 s); this run 168 s with 16 processes, 0 rows from the cache. Error = predicted / measured − 1 (positive: the model is slow). Machine-readable copy: `error-table.json`. Mechanisms only (LOOP §4.4): every fitted parameter replaced by its probe value or removed: {'launch_stream_us': 2.05, 'tma_r_GBs_alone': 80.7, 'tma_l2_aggregate_GBs': 2250, 'block_setup_us': 0.0}.
 
 ## Summary
 
@@ -15,44 +15,47 @@ Produced by `scripts/perfmodel-table` from KTA commit `eccdc3a275d0e292d042afbad
 | probe alu.cu | 39 | 9 | 0.5 % | -11.8 % | 0.5 % | -11.8 % | 38 |  |  |  |  |  |
 | probe alumix.cu | 13 | 0 | 0.2 % | -11.0 % | 0.2 % | -11.0 % | 12 |  |  |  |  |  |
 | probe sfu.cu | 36 | 6 | 0.3 % | -10.1 % | 0.3 % | -10.1 % | 35 |  |  |  |  |  |
-| probe cvt.cu | 7 | 0 | 0.5 % | -1.9 % | 0.5 % | -1.9 % | 7 |  |  |  |  |  |
+| probe cvt.cu | 7 | 0 | 0.7 % | -2.0 % | 0.7 % | -2.0 % | 7 |  |  |  |  |  |
 | probe smem_ldsts | 45 | 0 | 1.0 % | -21.5 % | 1.0 % | -21.5 % | 39 |  |  |  |  |  |
 | probe shfl | 6 | 0 | 0.2 % | +11.5 % | 0.2 % | +11.5 % | 5 |  |  |  |  |  |
 | probe ex2_ffma | 5 | 1 | 0.4 % | -2.7 % | 0.4 % | -2.7 % | 5 |  |  |  |  |  |
 | probe namedbar | 8 | 0 | 0.1 % | +19.5 % | 0.1 % | +19.5 % | 7 |  |  |  |  |  |
-| probe l1hit | 5 | 0 | 6.1 % | -10.2 % | 6.1 % | -10.2 % | 4 |  |  |  |  |  |
-| probe store_tail | 12 | 0 | 3.8 % | +9.7 % | 3.8 % | +9.7 % | 12 |  |  |  |  |  |
-| probe l2share_copy | 4 | 0 | 12.8 % | -22.2 % | 12.8 % | -22.2 % | 2 |  |  |  |  |  |
-| probe dram_rotate | 6 | 0 | 3.7 % | -12.9 % | 3.5 % | -13.0 % | 5 |  |  |  |  |  |
-| testset fa_forward | 1 | 0 | 6.6 % | -6.6 % | 6.8 % | -6.8 % | 1 |  |  |  | 1/1 | 1/1 |
-| testset hgemm2048 | 10 | 0 | 4.3 % | -12.1 % | 4.6 % | -12.3 % | 9 | 0.60 | 6 | 0.60 / 6 | 10/10 | 9/10 |
+| probe l1hit | 5 | 0 | 5.6 % | -10.3 % | 5.6 % | -10.3 % | 4 |  |  |  |  |  |
+| probe store_tail | 12 | 0 | 3.7 % | +5.7 % | 3.7 % | +5.7 % | 12 |  |  |  |  |  |
+| probe l2share_copy | 4 | 0 | 12.5 % | -21.3 % | 12.5 % | -21.3 % | 2 |  |  |  |  |  |
+| probe dram_rotate | 6 | 0 | 3.6 % | -12.8 % | 3.6 % | -12.8 % | 5 |  |  |  |  |  |
+| testset fa_forward | 1 | 0 | 6.7 % | -6.7 % | 6.7 % | -6.7 % | 1 |  |  |  | 1/1 | 1/1 |
+| testset hgemm2048 | 10 | 0 | 4.4 % | -12.0 % | 4.7 % | -12.3 % | 9 | 0.62 | 8 | 0.62 / 8 | 10/10 | 9/10 |
 | probe mma_pair | 8 | 0 | 2.0 % | +12.4 % | 2.0 % | +12.4 % | 7 |  |  |  |  |  |
-| probe l2share_stages | 12 | 0 | 5.0 % | +22.9 % | 5.0 % | +22.9 % | 9 |  |  |  |  |  |
-| testset decode_gqa_combine | 1 | 0 | 35.0 % | +35.0 % | 13.0 % | +13.0 % | 0 |  |  |  | 1/1 | 0/1 |
-| testset decode_gqa | 2 | 0 | 12.7 % | +18.0 % | 13.4 % | +17.2 % | 1 |  |  |  | 0/2 | 1/2 |
-| testset gemv_w4a16 | 2 | 0 | 647.3 % | +1079.3 % | 645.0 % | +1077.9 % | 0 |  |  |  | 2/2 | 0/2 |
-| testset rmsnorm | 2 | 0 | 46.3 % | -48.1 % | 49.9 % | -50.3 % | 0 |  |  |  | 2/2 | 0/2 |
-| testset softmax | 1 | 0 | 21.7 % | -21.7 % | 27.7 % | -27.7 % | 0 |  |  |  | 0/1 | 0/1 |
+| probe l2share_stages | 12 | 0 | 4.9 % | +22.2 % | 4.9 % | +22.2 % | 9 |  |  |  |  |  |
+| testset decode_gqa_combine | 1 | 0 | 23.3 % | +23.3 % | 23.3 % | +23.3 % | 0 |  |  |  | 1/1 | 0/1 |
+| testset decode_gqa | 2 | 0 | 10.2 % | +15.0 % | 10.2 % | +15.0 % | 1 |  |  |  | 2/2 | 1/2 |
+| testset gemv_w4a16 | 2 | 0 | 15.7 % | +21.5 % | 15.7 % | +21.5 % | 1 |  |  |  | 2/2 | 0/2 |
+| testset rmsnorm | 2 | 0 | 38.3 % | -41.5 % | 38.3 % | -41.5 % | 0 |  |  |  | 2/2 | 0/2 |
+| testset softmax | 1 | 0 | 28.2 % | -28.2 % | 28.2 % | -28.2 % | 0 |  |  |  | 1/1 | 0/1 |
+| probe l2reuse | 81 | 0 | 2.6 % | +187.5 % | 2.6 % | +187.5 % | 58 |  |  |  |  |  |
+| probe launch | 32 | 0 | 21.0 % | +151.0 % | 21.0 % | +151.0 % | 3 |  |  |  |  |  |
+| testset fp8gemm2048 | 2 | 0 | 6.6 % | -8.9 % | 7.1 % | -9.3 % | 2 |  |  |  | 2/2 | 2/2 |
 
 ## Top 15 rows by absolute error
 
 | Row | Level | Unit | Measured | Predicted | Error | Attribution (critical path) | Defaults | Note |
 | --- | ---: | --- | ---: | ---: | ---: | --- | --- | --- |
-| gemv_w4a16_n4096_k4096_rotating kernel | 7 | us | 37.34 | 440.41 | +1079.3 % | l2/dram: load latency (incl. DRAM queue) 99 %; launch: launch 1 % | default latency 726, default rbar 1056, front end 4224, issue-only 6864 | batch r2b |
-| gemv_w4a16_n4096_k4096_warm kernel | 7 | us | 16.77 | 52.87 | +215.3 % | l2_return: queue (chip L2 share) 87 %; launch: launch 5 %; l2/dram: load latency (incl. DRAM queue) 3 % | default latency 726, default rbar 1056, front end 4224, issue-only 6864 | batch r2b |
-| rmsnorm_m512_n4096_rotating kernel | 7 | us | 41.15 | 21.38 | -48.1 % | l2/dram: load latency (incl. DRAM queue) 86 %; launch: launch 12 % | default latency 308, front end 176, issue-only 660 | batch r2c |
-| rmsnorm_m512_n4096_warm kernel | 7 | us | 9.54 | 5.29 | -44.5 % | launch: launch 50 %; l2_return: queue (chip L2 share) 21 %; l2/dram: load latency (incl. DRAM queue) 10 % | default latency 308, front end 176, issue-only 660 | batch r2c |
-| tma m128 full | 7 | us | 162.11 | 221.88 | +36.9 % | tma_engine: transfer / DRAM queue 45 %; tensor: stall count after mma 19 %; tma_engine: L2 latency (TMA) 10 % | default latency 2208, default rbar 1832, issue-only 63986 | measured warm in a session where part of B stayed in the L2; upstream compares the decode picks cold against a later flush measurement (gb10 design note §7) |
-| decode_gqa_comb_s4096_warm kernel | 7 | us | 2.50 | 3.37 | +35.0 % | launch: launch 78 %; l2_return: queue (chip L2 share) 12 %; l2/dram: load latency (incl. DRAM queue) 4 % | branch fallback 4, default latency 28, front end 64, issue-only 24 | batch r2b |
-| l2share_stages s1_b48 | 4 | us | 19.37 | 23.81 | +22.9 % | l2_return: queue (chip L2 share) 63 %; l2: L2 latency 19 %; lsu: queue 11 % | default latency 72, issue-only 2890 | batch r2 |
-| l2share_copy b32 | 4 | us | 16.25 | 12.64 | -22.2 % | l2_return: queue (chip L2 share) 78 %; l2: L2 latency 9 %; lsu: queue 8 % | default latency 80, issue-only 1578 | batch r2 |
-| softmax_m512_n4096_warm kernel | 7 | us | 9.18 | 7.19 | -21.7 % | launch: launch 37 %; issue: stall count after other 11 %; alu: queue (alu) 9 % | branch fallback 1408, default latency 1672, default rbar 440, front end 88, issue-only 9724 | batch r2 |
-| smem_ldsts STS.128_w4 | 2 | cycles/instr/SM | 7.02 | 5.51 | -21.5 % | smem_array: store read 77 %; issue: stall count after other 23 % | default latency 14, issue-only 11293 | batch r2 |
-| smem_ldsts STS.128_w5 | 2 | cycles/instr/SM | 5.62 | 4.43 | -21.1 % | smem_array: store read 77 %; issue: stall count after other 23 %; issue: after counter release 1 % | default latency 17, issue-only 14116 | batch r2 |
-| gemm1024 c128x256x64_st2_th256 nocompute | 7 | us | 27.71 | 21.87 | -21.1 % | l2_return: queue (chip L2 share) 44 %; store_queue: queue (stg) 30 %; launch: launch 12 % | default latency 80, issue-only 1554 |  |
-| tma m32 full | 7 | us | 123.97 | 148.85 | +20.1 % | tma_engine: transfer / DRAM queue 84 %; tma_engine: queue 6 %; tma_engine: L2 latency (TMA) 2 % | branch fallback 16, default latency 372, default rbar 332, issue-only 6308 | measured warm in a session where part of B stayed in the L2; upstream compares the decode picks cold against a later flush measurement (gb10 design note §7) |
-| namedbar sync_w32 | 1 | cycles/barrier | 89.16 | 106.54 | +19.5 % | barrier: release latency 63 %; issue: stall count after other 17 %; issue: after barrier release 11 % | default latency 34, issue-only 12417 | batch r2 |
-| l2share_copy b16 | 4 | us | 12.92 | 10.57 | -18.2 % | l2_return: queue (SM port rate) 74 %; l2: L2 latency 11 %; lsu: queue 10 % | default latency 80, issue-only 1578 | batch r2 |
+| l2reuse n8_cs_in4 | 5 | us | 35.10 | 100.91 | +187.5 % | l2/dram: load latency (incl. DRAM queue) 87 %; l2_return: queue (chip L2 share) 12 % | default latency 161, issue-only 1793 | batch r3 |
+| launch tiny_g8192_t128 | 1 | us | 6.62 | 16.62 | +151.0 % | store_queue: queue (stg) 94 %; issue: scheduler (another warp issued) 4 %; store_port: drain after the last instruction 2 % | default latency 3420, issue-only 684 | batch r3 |
+| launch tiny_g4096_t128 | 1 | us | 4.64 | 9.69 | +108.8 % | store_queue: queue (stg) 92 %; store_port: drain after the last instruction 4 %; issue: scheduler (another warp issued) 4 % | default latency 1720, issue-only 344 | batch r3 |
+| launch tiny_g512_t1024 | 1 | us | 4.70 | 9.80 | +108.4 % | store_queue: queue (stg) 92 %; issue: scheduler (another warp issued) 4 %; store_port: drain after the last instruction 4 % | default latency 1760, issue-only 352 | batch r3 |
+| launch tiny_g1024_t128 | 1 | us | 2.53 | 4.51 | +78.5 % | store_queue: queue (stg) 79 %; store_port: drain after the last instruction 17 %; issue: scheduler (another warp issued) 4 % | default latency 440, issue-only 88 | batch r3 |
+| l2reuse n2_cg_in4 | 5 | us | 7.46 | 2.24 | -70.0 % | l2/dram: load latency (incl. DRAM queue) 87 %; store_port: drain after the last instruction 3 %; lsu: queue 3 % | default latency 161, issue-only 513 | batch r3 |
+| l2reuse n2_cs_in4 | 5 | us | 7.46 | 2.24 | -70.0 % | l2/dram: load latency (incl. DRAM queue) 87 %; store_port: drain after the last instruction 3 %; lsu: queue 3 % | default latency 161, issue-only 513 | batch r3 |
+| l2reuse n2_ca_in4 | 5 | us | 7.46 | 2.24 | -70.0 % | l2/dram: load latency (incl. DRAM queue) 87 %; store_port: drain after the last instruction 3 %; lsu: queue 3 % | default latency 161, issue-only 513 | batch r3 |
+| launch tiny_g128_t1024 | 1 | us | 2.91 | 4.69 | +61.1 % | store_queue: queue (stg) 82 %; store_port: drain after the last instruction 13 %; issue: scheduler (another warp issued) 4 % | default latency 480, issue-only 96 | batch r3 |
+| launch empty_g8192_t128 | 1 | us | 6.69 | 2.94 | -56.1 % | issue: scheduler (another warp issued) 99 %; issue: last instruction 1 % | issue-only 684 | batch r3 |
+| launch tiny_g512_t128 | 1 | us | 2.40 | 3.66 | +52.7 % | store_queue: queue (stg) 60 %; store_port: drain after the last instruction 34 %; issue: scheduler (another warp issued) 3 % | default latency 220, issue-only 44 | batch r3 |
+| launch tiny_g48_t1024 | 1 | us | 2.43 | 3.47 | +42.6 % | store_port: drain after the last instruction 48 %; store_queue: queue (stg) 46 %; issue: scheduler (another warp issued) 3 % | default latency 160, issue-only 32 | batch r3 |
+| l2reuse n27_cg_warm | 5 | us | 21.38 | 12.42 | -41.9 % | l2_return: queue (chip L2 share) 63 %; l2/dram: load latency (incl. DRAM queue) 34 %; lsu: queue 1 % | default latency 161, issue-only 1089 | batch r3 |
+| rmsnorm_m512_n4096_rotating kernel | 7 | us | 40.54 | 23.73 | -41.5 % | l2/dram: load latency (incl. DRAM queue) 84 %; launch: launch 12 %; fma: stall count after fp32 1 % | default latency 308, issue-only 660 | batch r3 |
+| l2reuse n27_ca_warm | 5 | us | 21.15 | 12.42 | -41.3 % | l2_return: queue (chip L2 share) 63 %; l2/dram: load latency (incl. DRAM queue) 34 %; lsu: queue 1 % | default latency 161, issue-only 1121 | batch r3 |
 
 ## All rows
 
@@ -242,141 +245,256 @@ Produced by `scripts/perfmodel-table` from KTA commit `eccdc3a275d0e292d042afbad
 | sfu ffma.f32 w8 | 2 | cycles | 68,871.99 | 69,203.00 | +0.5 % | issue: scheduler (another warp issued) 48 %; fma: stall count after fp32 47 %; issue: stall count after other 5 % | default latency 33, issue-only 8297 |  |
 | sfu ffma.f32 w16 | 2 | cycles | 138,654.68 | 136,561.00 | -1.5 % | issue: scheduler (another warp issued) 73 %; fma: stall count after fp32 24 %; issue: stall count after other 2 % | default latency 65, issue-only 16593 |  |
 | sfu ffma.f32 w32 | 2 | cycles | 271,475.99 | 271,901.00 | +0.2 % | issue: scheduler (another warp issued) 87 %; fma: stall count after fp32 12 %; issue: stall count after other 1 % | default latency 129, issue-only 33185 |  |
-| cvt scaffold only (mov) | 2 | cycles/element/smsp | 4.04 | 4.01 | -0.8 % | alu: queue (alu) 85 %; alu: stall count after alu 15 % | default latency 192, front end 256, issue-only 24640 |  |
-| cvt I2F.F16 from s32 | 2 | cycles/element/smsp | 8.06 | 8.02 | -0.4 % | xu: queue (xu) 85 %; xu: xu result latency 14 %; alu: stall count after alu 1 % | default latency 192, front end 256, issue-only 24640 |  |
-| cvt I2F.F16 from u32 | 2 | cycles/element/smsp | 8.05 | 8.02 | -0.3 % | xu: queue (xu) 85 %; xu: xu result latency 14 %; alu: stall count after alu 1 % | default latency 192, front end 256, issue-only 24640 |  |
-| cvt int to fp32 | 2 | cycles/element/smsp | 4.03 | 4.01 | -0.5 % | alu: queue (alu) 87 %; alu: stall count after alu 12 % | default latency 192, front end 256, issue-only 24640 |  |
-| cvt fp32 to fp16 | 2 | cycles/element/smsp | 8.04 | 8.01 | -0.4 % | alu: queue (alu) 87 %; alu: stall count after alu 12 % | default latency 192, front end 256, issue-only 98368 |  |
-| cvt MUFU.EX2 ruler | 2 | cycles/element/smsp | 8.23 | 8.07 | -1.9 % | xu: queue (xu) 85 %; alu: stall count after alu 6 %; xu: xu result latency 3 % | default latency 192, default rbar 65536, front end 256, issue-only 98368 |  |
-| cvt I2F.F16 + MUFU.EX2 alternating | 3 | cycles/element/smsp | 8.13 | 8.01 | -1.5 % | xu: queue (xu) 86 %; alu: stall count after alu 5 %; xu: xu result latency 4 % | default latency 192, default rbar 98304, front end 256, issue-only 49216 |  |
-| smem_ldsts LDS.32_w1 | 1 | cycles/instr/SM | 41.42 | 41.64 | +0.5 % | smem_array: LDS latency 67 %; alu: stall count after alu 29 %; issue: stall count after other 4 % | default latency 5, issue-only 775 | batch r2 |
-| smem_ldsts LDS.32_w2 | 2 | cycles/instr/SM | 20.71 | 20.82 | +0.5 % | smem_array: LDS latency 67 %; alu: stall count after alu 29 %; issue: stall count after other 4 % | default latency 9, issue-only 1549 | batch r2 |
-| smem_ldsts LDS.32_w3 | 2 | cycles/instr/SM | 13.81 | 13.88 | +0.6 % | smem_array: LDS latency 67 %; alu: stall count after alu 29 %; issue: stall count after other 4 % | default latency 13, issue-only 2323 | batch r2 |
-| smem_ldsts LDS.32_w4 | 2 | cycles/instr/SM | 10.35 | 10.41 | +0.6 % | smem_array: LDS latency 67 %; alu: stall count after alu 29 %; issue: stall count after other 4 % | default latency 17, issue-only 3097 | batch r2 |
-| smem_ldsts LDS.32_w5 | 2 | cycles/instr/SM | 8.34 | 8.40 | +0.8 % | smem_array: LDS latency 58 %; alu: stall count after alu 28 %; alu: queue (alu) 8 % | default latency 21, issue-only 3871 | batch r2 |
-| smem_ldsts LDS.32_w6 | 2 | cycles/instr/SM | 6.95 | 7.00 | +0.8 % | smem_array: LDS latency 58 %; alu: stall count after alu 28 %; alu: queue (alu) 8 % | default latency 25, issue-only 4645 | batch r2 |
-| smem_ldsts LDS.32_w8 | 2 | cycles/instr/SM | 5.21 | 5.24 | +0.6 % | smem_array: LDS latency 58 %; alu: stall count after alu 28 %; alu: queue (alu) 8 % | default latency 33, issue-only 6193 | batch r2 |
-| smem_ldsts LDS.32_w16 | 2 | cycles/instr/SM | 2.67 | 2.72 | +2.1 % | smem_array: LDS latency 49 %; alu: stall count after alu 27 %; alu: queue (alu) 16 % | default latency 65, issue-only 12385 | batch r2 |
-| smem_ldsts LDS.32_w32 | 2 | cycles/instr/SM | 2.00 | 2.06 | +2.8 % | alu: queue (alu) 41 %; smem_array: LDS latency 21 %; alu: stall count after alu 18 % | default latency 129, issue-only 24769 | batch r2 |
-| smem_ldsts LDS.64_w1 | 1 | cycles/instr/SM | 46.05 | 46.52 | +1.0 % | smem_array: LDS latency 69 %; alu: stall count after alu 27 %; issue: stall count after other 4 % | default latency 5, issue-only 775 | batch r2 |
-| smem_ldsts LDS.64_w2 | 2 | cycles/instr/SM | 23.02 | 23.26 | +1.0 % | smem_array: LDS latency 69 %; alu: stall count after alu 27 %; issue: stall count after other 4 % | default latency 9, issue-only 1549 | batch r2 |
-| smem_ldsts LDS.64_w3 | 2 | cycles/instr/SM | 15.35 | 15.51 | +1.0 % | smem_array: LDS latency 69 %; alu: stall count after alu 27 %; issue: stall count after other 4 % | default latency 13, issue-only 2323 | batch r2 |
-| smem_ldsts LDS.64_w4 | 2 | cycles/instr/SM | 11.51 | 11.63 | +1.0 % | smem_array: LDS latency 69 %; alu: stall count after alu 27 %; issue: stall count after other 4 % | default latency 17, issue-only 3097 | batch r2 |
-| smem_ldsts LDS.64_w5 | 2 | cycles/instr/SM | 9.22 | 9.76 | +5.9 % | alu: queue (alu) 56 %; alu: stall count after alu 26 %; smem_array: LDS latency 8 % | default latency 21, issue-only 3871 | batch r2 |
-| smem_ldsts LDS.64_w6 | 2 | cycles/instr/SM | 7.75 | 8.13 | +4.8 % | alu: queue (alu) 55 %; alu: stall count after alu 26 %; smem_array: LDS latency 9 % | default latency 25, issue-only 4645 | batch r2 |
-| smem_ldsts LDS.64_w8 | 2 | cycles/instr/SM | 5.90 | 5.96 | +1.0 % | alu: queue (alu) 65 %; alu: stall count after alu 27 %; issue: stall count after smem_op 4 % | default latency 33, issue-only 6193 | batch r2 |
-| smem_ldsts LDS.64_w16 | 2 | cycles/instr/SM | 3.17 | 3.15 | -0.8 % | smem_array: LDS latency 41 %; alu: stall count after alu 25 %; alu: queue (alu) 25 % | default latency 65, issue-only 12385 | batch r2 |
-| smem_ldsts LDS.64_w32 | 2 | cycles/instr/SM | 2.07 | 2.30 | +10.8 % | alu: queue (alu) 54 %; smem_array: LDS latency 18 %; alu: stall count after alu 17 % | default latency 129, issue-only 24769 | batch r2 |
-| smem_ldsts LDS.128_w1 | 1 | cycles/instr/SM | 55.42 | 55.90 | +0.9 % | smem_array: LDS latency 72 %; alu: stall count after alu 25 %; issue: stall count after other 3 % | default latency 5, issue-only 776 | batch r2 |
-| smem_ldsts LDS.128_w2 | 2 | cycles/instr/SM | 28.21 | 27.95 | -0.9 % | smem_array: LDS latency 72 %; alu: stall count after alu 25 %; issue: stall count after other 3 % | default latency 9, issue-only 1551 | batch r2 |
-| smem_ldsts LDS.128_w3 | 2 | cycles/instr/SM | 18.47 | 18.63 | +0.9 % | smem_array: LDS latency 72 %; alu: stall count after alu 25 %; issue: stall count after other 3 % | default latency 13, issue-only 2326 | batch r2 |
-| smem_ldsts LDS.128_w4 | 2 | cycles/instr/SM | 13.86 | 13.98 | +0.9 % | smem_array: LDS latency 71 %; alu: stall count after alu 25 %; issue: stall count after other 3 % | default latency 17, issue-only 3101 | batch r2 |
-| smem_ldsts LDS.128_w5 | 2 | cycles/instr/SM | 11.28 | 11.21 | -0.6 % | smem_array: LDS latency 62 %; alu: stall count after alu 25 %; alu: queue (alu) 9 % | default latency 21, issue-only 3876 | batch r2 |
-| smem_ldsts LDS.128_w6 | 2 | cycles/instr/SM | 9.24 | 9.34 | +1.1 % | smem_array: LDS latency 71 %; alu: stall count after alu 25 %; issue: stall count after other 3 % | default latency 25, issue-only 4651 | batch r2 |
-| smem_ldsts LDS.128_w8 | 2 | cycles/instr/SM | 7.35 | 7.00 | -4.7 % | smem_array: LDS latency 62 %; alu: stall count after alu 25 %; alu: queue (alu) 9 % | default latency 33, issue-only 6201 | batch r2 |
-| smem_ldsts LDS.128_w16 | 2 | cycles/instr/SM | 4.14 | 4.06 | -1.9 % | smem_array: LDS latency 44 %; alu: queue (alu) 22 %; alu: stall count after alu 22 % | default latency 65, issue-only 12401 | batch r2 |
-| smem_ldsts LDS.128_w32 | 2 | cycles/instr/SM | 4.01 | 4.01 | +0.0 % | smem_array: queue (lds) 39 %; alu: queue (alu) 25 %; smem_array: LDS latency 22 % | default latency 129, issue-only 24801 | batch r2 |
-| smem_ldsts STS.32_w1 | 1 | cycles/instr/SM | 5.07 | 5.15 | +1.6 % | issue: stall count after smem_op 55 %; issue: stall count after other 27 %; mio: queue (smem_op) 17 % | default latency 5, issue-only 775 | batch r2 |
-| smem_ldsts STS.32_w2 | 2 | cycles/instr/SM | 2.54 | 2.58 | +1.6 % | issue: stall count after smem_op 55 %; issue: stall count after other 27 %; mio: queue (smem_op) 17 % | default latency 8, issue-only 1549 | batch r2 |
-| smem_ldsts STS.32_w3 | 2 | cycles/instr/SM | 2.27 | 2.01 | -11.7 % | issue: stall count after smem_op 45 %; smem_array: queue (sts) 16 %; mio: queue (smem_op) 14 % | default latency 11, issue-only 2323 | batch r2 |
-| smem_ldsts STS.32_w4 | 2 | cycles/instr/SM | 2.14 | 2.01 | -6.4 % | smem_array: queue (sts) 37 %; issue: stall count after smem_op 34 %; mio: queue (smem_op) 11 % | default latency 14, issue-only 3097 | batch r2 |
-| smem_ldsts STS.32_w5 | 2 | cycles/instr/SM | 2.42 | 2.00 | -17.0 % | mio: queue (smem_op) 57 %; issue: stall count after smem_op 29 %; issue: stall count after other 14 % | default latency 17, issue-only 3871 | batch r2 |
-| smem_ldsts STS.32_w6 | 2 | cycles/instr/SM | 2.01 | 2.00 | -0.6 % | smem_array: queue (sts) 56 %; issue: stall count after smem_op 23 %; mio: queue (smem_op) 9 % | default latency 20, issue-only 4645 | batch r2 |
-| smem_ldsts STS.32_w8 | 2 | cycles/instr/SM | 2.01 | 2.00 | -0.5 % | smem_array: queue (sts) 67 %; issue: stall count after smem_op 17 %; mio: queue (smem_op) 7 % | default latency 26, issue-only 6193 | batch r2 |
-| smem_ldsts STS.32_w16 | 2 | cycles/instr/SM | 2.01 | 2.00 | -0.3 % | smem_array: queue (sts) 82 %; issue: stall count after smem_op 9 %; mio: queue (smem_op) 4 % | default latency 50, issue-only 12385 | batch r2 |
-| smem_ldsts STS.32_w32 | 2 | cycles/instr/SM | 2.00 | 2.00 | -0.3 % | smem_array: queue (sts) 90 %; issue: stall count after smem_op 4 %; mio: queue (smem_op) 3 % | default latency 98, issue-only 24769 | batch r2 |
-| smem_ldsts STS.128_w1 | 1 | cycles/instr/SM | 23.07 | 22.02 | -4.5 % | smem_array: store read 77 %; issue: stall count after other 23 % | default latency 5, issue-only 2824 | batch r2 |
-| smem_ldsts STS.128_w2 | 2 | cycles/instr/SM | 12.04 | 11.01 | -8.5 % | smem_array: store read 77 %; issue: stall count after other 23 % | default latency 8, issue-only 5647 | batch r2 |
-| smem_ldsts STS.128_w3 | 2 | cycles/instr/SM | 8.69 | 7.34 | -15.5 % | smem_array: store read 77 %; issue: stall count after other 23 % | default latency 11, issue-only 8470 | batch r2 |
-| smem_ldsts STS.128_w4 | 2 | cycles/instr/SM | 7.02 | 5.51 | -21.5 % | smem_array: store read 77 %; issue: stall count after other 23 % | default latency 14, issue-only 11293 | batch r2 |
-| smem_ldsts STS.128_w5 | 2 | cycles/instr/SM | 5.62 | 4.43 | -21.1 % | smem_array: store read 77 %; issue: stall count after other 23 %; issue: after counter release 1 % | default latency 17, issue-only 14116 | batch r2 |
-| smem_ldsts STS.128_w6 | 2 | cycles/instr/SM | 4.35 | 4.00 | -7.9 % | smem_array: store read 71 %; issue: stall count after other 21 %; smem_array: queue (sts) 8 % | default latency 20, issue-only 16939 | batch r2 |
-| smem_ldsts STS.128_w8 | 2 | cycles/instr/SM | 4.01 | 4.00 | -0.2 % | smem_array: store read 53 %; smem_array: queue (sts) 31 %; issue: stall count after other 16 % | default latency 26, issue-only 22585 | batch r2 |
-| smem_ldsts STS.128_w16 | 2 | cycles/instr/SM | 4.01 | 4.00 | -0.1 % | smem_array: queue (sts) 65 %; smem_array: store read 27 %; issue: stall count after other 8 % | default latency 50, issue-only 45169 | batch r2 |
-| smem_ldsts STS.128_w32 | 2 | cycles/instr/SM | 4.01 | 4.00 | -0.2 % | smem_array: queue (sts) 83 %; smem_array: store read 13 %; issue: stall count after other 4 % | default latency 98, issue-only 90337 | batch r2 |
-| shfl latency_w1 | 1 | cycles/hop | 28.01 | 28.00 | -0.0 % | smem_array: SHFL latency 100 % | default latency 3, issue-only 774 | batch r2 |
-| shfl tput_w1 | 2 | cycles/instr/SM | 5.00 | 5.57 | +11.5 % | issue: stall count after smem_op 67 %; mio: queue (smem_op) 17 %; smem_array: SHFL latency 13 % | default latency 3, issue-only 774 | batch r2 |
-| shfl tput_w4 | 2 | cycles/instr/SM | 2.12 | 2.07 | -2.6 % | smem_array: SHFL latency 42 %; smem_array: queue (shfl) 35 %; issue: stall count after smem_op 16 % | default latency 9, issue-only 3093 | batch r2 |
-| shfl tput_w8 | 2 | cycles/instr/SM | 2.01 | 2.00 | -0.3 % | smem_array: queue (shfl) 66 %; smem_array: SHFL latency 22 %; issue: stall count after smem_op 8 % | default latency 17, issue-only 6185 | batch r2 |
-| shfl tput_w16 | 2 | cycles/instr/SM | 2.00 | 2.00 | -0.0 % | smem_array: queue (shfl) 83 %; smem_array: SHFL latency 11 %; issue: stall count after smem_op 4 % | default latency 33, issue-only 12369 | batch r2 |
-| shfl tput_w32 | 2 | cycles/instr/SM | 2.00 | 2.00 | +0.0 % | smem_array: queue (shfl) 73 %; mio: queue (smem_op) 19 %; smem_array: SHFL latency 4 % | default latency 65, issue-only 24737 | batch r2 |
-| ex2_ffma E8_F0 | 3 | cycles/pass/smsp | 511.55 | 512.62 | +0.2 % | xu: queue (xu) 96 %; xu: stall count after xu 2 %; issue: stall count after other 1 % | default latency 65, issue-only 24705 | batch r2 |
-| ex2_ffma E8_F8 | 3 | cycles/pass/smsp | 518.46 | 512.52 | -1.1 % | xu: queue (xu) 94 %; issue: stall count after other 2 %; fma: stall count after fp32 2 % | default latency 65, issue-only 24705 | batch r2 |
-| ex2_ffma E8_F16 | 3 | cycles/pass/smsp | 514.85 | 512.55 | -0.4 % | xu: queue (xu) 93 %; fma: stall count after fp32 3 %; issue: stall count after other 2 % | default latency 65, issue-only 24705 | batch r2 |
-| ex2_ffma E8_F32 | 3 | cycles/pass/smsp | 526.51 | 512.37 | -2.7 % | xu: queue (xu) 89 %; fma: stall count after fp32 6 %; issue: stall count after other 2 % | default latency 65, issue-only 24705 | batch r2 |
-| ex2_ffma E0_F32 | 3 | cycles/pass/smsp | 193.54 | 293.37 | +51.6 % | alu: queue (alu) 72 %; issue: scheduler (another warp issued) 11 %; fma: stall count after fp32 11 % | default latency 65, issue-only 24705 | excluded: measured 194 cycles is below the issue limit 280 (one warp instruction per cycle per sub-partition): open question |
-| ex2_ffma E4_F32 | 3 | cycles/pass/smsp | 334.71 | 335.30 | +0.2 % | xu: queue (xu) 76 %; fma: stall count after fp32 10 %; alu: queue (alu) 8 % | default latency 65, issue-only 24705 | batch r2 |
-| namedbar sync_w2 | 1 | cycles/barrier | 26.05 | 26.09 | +0.1 % | issue: stall count after other 68 %; barrier: release latency 30 %; issue: default result latency (LDC) 1 % | default latency 4, issue-only 777 | batch r2 |
-| namedbar sync_w4 | 1 | cycles/barrier | 30.05 | 30.09 | +0.1 % | issue: stall count after other 59 %; barrier: release latency 39 %; issue: default result latency (LDC) 1 % | default latency 6, issue-only 1553 | batch r2 |
-| namedbar sync_w8 | 1 | cycles/barrier | 38.07 | 39.10 | +2.7 % | barrier: release latency 50 %; issue: stall count after other 46 %; issue: after barrier release 3 % | default latency 10, issue-only 3105 | batch r2 |
-| namedbar sync_w16 | 1 | cycles/barrier | 57.09 | 57.12 | +0.1 % | barrier: release latency 62 %; issue: stall count after other 31 %; issue: after barrier release 5 % | default latency 18, issue-only 6209 | batch r2 |
-| namedbar sync_w32 | 1 | cycles/barrier | 89.16 | 106.54 | +19.5 % | barrier: release latency 63 %; issue: stall count after other 17 %; issue: after barrier release 11 % | default latency 34, issue-only 12417 | batch r2 |
-| namedbar arrive_L0 | 3 | cycles/arrive | 12.00 | 12.00 | +0.0 % | barrier: release latency 48 %; issue: stall count after other 23 %; alu: stall count after alu 18 % | branch fallback 1024, default latency 11, issue-only 4128 | batch r2 |
-| namedbar arrive_L64 | 3 | cycles/arrive | 12.00 | 12.01 | +0.1 % | fma: stall count after fp32 80 %; issue: stall count after other 9 %; issue: stall count after barrier 8 % | branch fallback 1024, default latency 17, issue-only 5154 | batch r2 |
-| namedbar arrive_L256 | 3 | cycles/arrive | 12.00 | 12.01 | +0.1 % | fma: stall count after fp32 94 %; issue: stall count after other 3 %; issue: stall count after barrier 2 % | branch fallback 1024, default latency 17, issue-only 5154 | batch r2 |
-| l1hit chase | 1 | cycles/hop | 55.36 | 52.00 | -6.1 % | l1: hit latency 86 %; fma: stall count after fma_half_rate 10 %; l1: hit path 2 % | default latency 3, issue-only 6342 | batch r2 |
-| l1hit tput_w4 | 2 | cycles/instr/SM | 6.70 | 6.01 | -10.2 % | l1: hit latency 47 %; alu: stall count after alu 30 %; fma: stall count after fma_half_rate 7 % | branch fallback 4, default latency 17, issue-only 3113 | batch r2 |
-| l1hit tput_w8 | 2 | cycles/instr/SM | 4.31 | 4.01 | -7.0 % | alu: queue (alu) 27 %; alu: stall count after alu 26 %; l1: hit latency 18 % | branch fallback 8, default latency 33, issue-only 6225 | batch r2 |
-| l1hit tput_w16 | 2 | cycles/instr/SM | 4.06 | 4.00 | -1.2 % | lsu: queue 58 %; l1: hit latency 17 %; alu: stall count after alu 11 % | branch fallback 16, default latency 65, issue-only 12449 | batch r2 |
-| l1hit tput_w32 | 2 | cycles/instr/SM | 4.06 | 4.00 | -1.4 % | lsu: queue 43 %; alu: queue (alu) 41 %; alu: stall count after alu 7 % | branch fallback 32, default latency 129, issue-only 24897 | batch r2 |
-| store_tail tl_b1 | 4 | us | 3.07 | 3.21 | +4.6 % | store_queue: queue (stg) 63 %; store_port: queue (stores) 23 %; alu: stall count after alu 5 % | default latency 49, default rbar 8, issue-only 1193 | batch r2 |
-| store_tail tl_b2 | 4 | us | 6.05 | 6.30 | +4.1 % | store_queue: queue (stg) 62 %; store_port: queue (stores) 30 %; alu: stall count after alu 3 % | default latency 49, default rbar 8, issue-only 1193 | batch r2 |
-| store_tail tl_b8 | 4 | us | 6.06 | 6.30 | +3.9 % | store_queue: queue (stg) 62 %; store_port: queue (stores) 30 %; alu: stall count after alu 3 % | default latency 49, default rbar 8, issue-only 1193 | batch r2 |
-| store_tail tl_b16 | 4 | us | 6.07 | 6.30 | +3.8 % | store_queue: queue (stg) 62 %; store_port: queue (stores) 30 %; alu: stall count after alu 3 % | default latency 49, default rbar 8, issue-only 1193 | batch r2 |
-| store_tail tl_b32 | 4 | us | 6.76 | 7.05 | +4.3 % | store_queue: queue (stg) 63 %; store_port: queue (stores) 31 %; alu: stall count after alu 2 % | default latency 49, default rbar 8, issue-only 1193 | batch r2 |
-| store_tail tl_b48 | 4 | us | 10.15 | 10.51 | +3.6 % | store_queue: queue (stg) 60 %; store_port: queue (stores) 36 %; alu: stall count after alu 2 % | default latency 49, default rbar 8, issue-only 1193 | batch r2 |
-| store_tail v16_b1 | 4 | us | 0.70 | 0.68 | -3.2 % | store_queue: queue (stg) 43 %; alu: queue (alu) 17 %; store_port: queue (stores) 12 % | default latency 41, default rbar 8, issue-only 449 | batch r2 |
-| store_tail v16_b2 | 4 | us | 1.23 | 1.25 | +1.5 % | store_queue: queue (stg) 52 %; store_port: queue (stores) 33 %; alu: stall count after alu 4 % | default latency 41, default rbar 8, issue-only 449 | batch r2 |
-| store_tail v16_b8 | 4 | us | 1.23 | 1.25 | +1.5 % | store_queue: queue (stg) 52 %; store_port: queue (stores) 33 %; alu: stall count after alu 4 % | default latency 41, default rbar 8, issue-only 449 | batch r2 |
-| store_tail v16_b16 | 4 | us | 1.24 | 1.25 | +0.9 % | store_queue: queue (stg) 52 %; store_port: queue (stores) 33 %; alu: stall count after alu 4 % | default latency 41, default rbar 8, issue-only 449 | batch r2 |
-| store_tail v16_b32 | 4 | us | 1.55 | 1.61 | +3.9 % | store_queue: queue (stg) 53 %; store_port: queue (stores) 34 %; alu: stall count after alu 3 % | default latency 41, default rbar 8, issue-only 449 | batch r2 |
-| store_tail v16_b48 | 4 | us | 2.15 | 2.35 | +9.7 % | store_queue: queue (stg) 50 %; store_port: queue (stores) 41 %; alu: stall count after alu 2 % | default latency 41, default rbar 8, issue-only 449 | batch r2 |
-| l2share_copy b1 | 4 | us | 10.05 | 10.56 | +5.1 % | l2_return: queue (SM port rate) 74 %; l2: L2 latency 11 %; lsu: queue 10 % | default latency 80, issue-only 1578 | batch r2 |
-| l2share_copy b16 | 4 | us | 12.92 | 10.57 | -18.2 % | l2_return: queue (SM port rate) 74 %; l2: L2 latency 11 %; lsu: queue 10 % | default latency 80, issue-only 1578 | batch r2 |
-| l2share_copy b32 | 4 | us | 16.25 | 12.64 | -22.2 % | l2_return: queue (chip L2 share) 78 %; l2: L2 latency 9 %; lsu: queue 8 % | default latency 80, issue-only 1578 | batch r2 |
-| l2share_copy b48 | 4 | us | 20.33 | 18.84 | -7.3 % | l2_return: queue (chip L2 share) 85 %; l2: L2 latency 6 %; lsu: queue 6 % | default latency 80, issue-only 1578 | batch r2 |
-| dram_rotate t32 | 5 | us | 1,198.14 | 1,255.94 | +4.8 % | l2/dram: load latency (incl. DRAM queue) 96 %; l2_return: transfer 3 %; issue: stall count after other 1 % | default latency 4, issue-only 10883 | batch r2 |
-| dram_rotate t64 | 5 | us | 620.80 | 629.39 | +1.4 % | l2/dram: load latency (incl. DRAM queue) 96 %; l2_return: transfer 3 %; issue: stall count after other 1 % | default latency 8, issue-only 10886 | batch r2 |
-| dram_rotate t128 | 5 | us | 363.01 | 316.27 | -12.9 % | l2/dram: load latency (incl. DRAM queue) 96 %; l2_return: transfer 3 %; issue: stall count after other 1 % | default latency 16, issue-only 10892 | batch r2 |
-| dram_rotate t256 | 5 | us | 290.24 | 291.27 | +0.4 % | l2/dram: load latency (incl. DRAM queue) 98 %; l2_return: transfer 1 % | default latency 32, issue-only 10904 | batch r2 |
-| dram_rotate t512 | 5 | us | 281.02 | 291.27 | +3.6 % | l2/dram: load latency (incl. DRAM queue) 99 %; l2_return: transfer 1 % | default latency 64, issue-only 10928 | batch r2 |
-| dram_rotate t1024 | 5 | us | 280.86 | 291.27 | +3.7 % | l2/dram: load latency (incl. DRAM queue) 99 % | default latency 128, issue-only 10976 | batch r2 |
-| fa_fwd_s2048_h8_d128 kernel | 7 | us | 254.14 | 237.46 | -6.6 % | tensor: stall count after mma 23 %; tensor: queue (mma) 13 %; issue: stall count after ldsm 12 % | branch fallback 1536, default latency 1824, default rbar 8496, front end 12480, issue-only 44064 | batch r2 |
-| hgemm2048_c128x128x32_s3_t128 kernel | 7 | us | 221.44 | 206.19 | -6.9 % | tensor: queue (mma) 41 %; tensor: stall count after mma 22 %; store_queue: queue (stg) 12 % | default latency 192, default rbar 1512, issue-only 29376 | batch r2 |
-| hgemm2048_c128x128x32_s3_t128_sw8 kernel | 7 | us | 221.57 | 194.80 | -12.1 % | tensor: queue (mma) 39 %; tensor: stall count after mma 24 %; store_queue: queue (stg) 8 % | branch fallback 48, default latency 264, default rbar 1584, issue-only 28608 | batch r2 |
-| hgemm2048_c128x128x32_s4_t128 kernel | 7 | us | 246.21 | 243.95 | -0.9 % | tensor: stall count after mma 39 %; tensor: queue (mma) 20 %; store_queue: queue (stg) 11 % | branch fallback 1464, default latency 192, default rbar 24, issue-only 31848 | batch r2 |
-| hgemm2048_c128x128x64_s2_t128 kernel | 7 | us | 225.63 | 236.69 | +4.9 % | tensor: stall count after mma 22 %; dram: DRAM latency 22 %; dram_queue: queue (DRAM share) 15 % | branch fallback 744, default latency 240, default rbar 24, issue-only 26496 | batch r2 |
-| hgemm2048_c128x128x64_s3_t256 kernel | 7 | us | 225.66 | 225.59 | -0.0 % | tensor: queue (mma) 28 %; tensor: stall count after mma 20 %; issue: stall count after barrier 17 % | default latency 480, default rbar 48, issue-only 29616 | batch r2 |
-| hgemm2048_c128x256x32_s3_t256 kernel | 7 | us | 235.94 | 225.57 | -4.4 % | tensor: queue (mma) 45 %; tensor: stall count after mma 21 %; store_queue: queue (stg) 12 % | default latency 216, default rbar 1512, issue-only 29256 | batch r2 |
-| hgemm2048_c128x256x32_s3_t256_sw4 kernel | 7 | us | 235.97 | 222.95 | -5.5 % | tensor: queue (mma) 46 %; tensor: stall count after mma 21 %; store_queue: queue (stg) 12 % | branch fallback 48, default latency 264, default rbar 1584, issue-only 28512 | batch r2 |
-| hgemm2048_c128x256x64_s2_t256 kernel | 7 | us | 222.53 | 213.04 | -4.3 % | tensor: queue (mma) 41 %; tensor: stall count after mma 21 %; store_queue: queue (stg) 12 % | branch fallback 744, default latency 240, default rbar 24, issue-only 23424 | batch r2 |
-| hgemm2048_c256x128x32_s3_t256 kernel | 7 | us | 231.84 | 227.62 | -1.8 % | tensor: queue (mma) 44 %; tensor: stall count after mma 20 %; store_queue: queue (stg) 12 % | default latency 216, default rbar 1512, issue-only 29184 | batch r2 |
-| hgemm2048_c64x128x32_s4_t128 kernel | 7 | us | 231.71 | 234.39 | +1.2 % | l2_return: queue (chip L2 share) 62 %; store_queue: queue (stg) 9 %; tensor: stall count after mma 8 % | branch fallback 2684, default latency 396, issue-only 54076 | batch r2 |
-| mma_pair b1_span | 3 | cycles | 310,515.00 | 315,993.80 | +1.8 % | tensor: stall count after mma 76 %; issue: stall count after other 9 %; mio: queue (ldsm) 9 % | default latency 23, default rbar 4, issue-only 71988 | batch r2 |
-| mma_pair b48_span | 3 | cycles | 310,503.00 | 315,993.80 | +1.8 % | tensor: stall count after mma 76 %; issue: stall count after other 9 %; mio: queue (ldsm) 9 % | default latency 23, default rbar 4, issue-only 71988 | batch r2 |
-| mma_pair b96_s0_span | 3 | cycles | 529,802.00 | 524,616.60 | -1.0 % | tensor: stall count after mma 46 %; tensor: queue (mma) 40 %; issue: stall count after other 6 % | default latency 46, default rbar 8, issue-only 143976 | batch r2 |
-| mma_pair b96_s0_first | 3 | cycles | 529,551.00 | 524,102.60 | -1.0 % | tensor: stall count after mma 46 %; tensor: queue (mma) 40 %; issue: stall count after other 6 % | default latency 46, default rbar 8, issue-only 143976 | batch r2 |
-| mma_pair b96_s4096_span | 3 | cycles | 563,266.00 | 551,215.50 | -2.1 % | tensor: stall count after mma 43 %; tensor: queue (mma) 30 %; issue: stall count after other 16 % | default latency 52, default rbar 8, issue-only 189044 | batch r2 |
-| mma_pair b96_s4096_first | 3 | cycles | 469,062.00 | 482,310.00 | +2.8 % | tensor: stall count after mma 43 %; tensor: queue (mma) 30 %; issue: stall count after other 16 % | default latency 52, default rbar 8, issue-only 189044 | batch r2 |
-| mma_pair b96_s16384_span | 3 | cycles | 694,357.00 | 631,540.70 | -9.0 % | issue: stall count after other 43 %; tensor: stall count after mma 37 %; fma: stall count after fp32 8 % | default latency 52, default rbar 8, issue-only 336500 | batch r2 |
-| mma_pair b96_s16384_first | 3 | cycles | 316,962.00 | 356,262.00 | +12.4 % | issue: stall count after other 43 %; tensor: stall count after mma 37 %; fma: stall count after fp32 8 % | default latency 52, default rbar 8, issue-only 336500 | batch r2 |
-| l2share_stages s1_b1 | 4 | us | 15.04 | 15.70 | +4.4 % | l2_return: queue (SM port rate) 44 %; l2: L2 latency 29 %; lsu: queue 17 % | default latency 72, issue-only 2890 | batch r2 |
-| l2share_stages s1_b16 | 4 | us | 15.35 | 15.70 | +2.3 % | l2_return: queue (SM port rate) 44 %; l2: L2 latency 29 %; lsu: queue 17 % | default latency 72, issue-only 2890 | batch r2 |
-| l2share_stages s1_b48 | 4 | us | 19.37 | 23.81 | +22.9 % | l2_return: queue (chip L2 share) 63 %; l2: L2 latency 19 %; lsu: queue 11 % | default latency 72, issue-only 2890 | batch r2 |
-| l2share_stages s2_b1 | 4 | us | 10.02 | 10.53 | +5.1 % | l2_return: queue (SM port rate) 56 %; l2: L2 latency 21 %; lsu: queue 12 % | branch fallback 248, default latency 72, issue-only 2066 | batch r2 |
-| l2share_stages s2_b16 | 4 | us | 12.59 | 10.54 | -16.3 % | l2_return: queue (SM port rate) 56 %; l2: L2 latency 21 %; lsu: queue 12 % | branch fallback 248, default latency 72, issue-only 2066 | batch r2 |
-| l2share_stages s2_b48 | 4 | us | 19.13 | 18.81 | -1.7 % | l2_return: queue (chip L2 share) 75 %; l2: L2 latency 12 %; lsu: queue 7 % | branch fallback 248, default latency 72, issue-only 2066 | batch r2 |
-| l2share_stages s3_b1 | 4 | us | 10.05 | 10.53 | +4.8 % | l2_return: queue (SM port rate) 68 %; l2: L2 latency 15 %; lsu: queue 8 % | branch fallback 240, default latency 72, issue-only 1794 | batch r2 |
-| l2share_stages s3_b16 | 4 | us | 11.83 | 10.54 | -10.9 % | l2_return: queue (SM port rate) 68 %; l2: L2 latency 15 %; lsu: queue 8 % | branch fallback 240, default latency 72, issue-only 1794 | batch r2 |
-| l2share_stages s3_b48 | 4 | us | 19.11 | 18.81 | -1.5 % | l2_return: queue (chip L2 share) 82 %; l2: L2 latency 8 %; lsu: queue 5 % | branch fallback 240, default latency 72, issue-only 1794 | batch r2 |
-| l2share_stages s4_b1 | 4 | us | 10.05 | 10.54 | +4.9 % | l2_return: queue (SM port rate) 75 %; l2: L2 latency 11 %; lsu: queue 8 % | branch fallback 232, default latency 72, issue-only 1770 | batch r2 |
-| l2share_stages s4_b16 | 4 | us | 11.68 | 10.54 | -9.7 % | l2_return: queue (SM port rate) 75 %; l2: L2 latency 11 %; lsu: queue 8 % | branch fallback 232, default latency 72, issue-only 1770 | batch r2 |
-| l2share_stages s4_b48 | 4 | us | 17.37 | 18.82 | +8.4 % | l2_return: queue (chip L2 share) 86 %; l2: L2 latency 6 %; lsu: queue 4 % | branch fallback 232, default latency 72, issue-only 1770 | batch r2 |
-| decode_gqa_comb_s4096_warm kernel | 7 | us | 2.50 | 3.37 | +35.0 % | launch: launch 78 %; l2_return: queue (chip L2 share) 12 %; l2/dram: load latency (incl. DRAM queue) 4 % | branch fallback 4, default latency 28, front end 64, issue-only 24 | batch r2b |
-| decode_gqa_part_s4096_rotating kernel | 7 | us | 70.14 | 82.74 | +18.0 % | dram_queue: queue (DRAM share) 78 %; dram: DRAM latency 6 %; l2/dram: load latency (incl. DRAM queue) 4 % | branch fallback 264, default latency 368, default rbar 496, front end 1056, issue-only 4760 | batch r2b |
-| decode_gqa_part_s4096_warm kernel | 7 | us | 26.08 | 24.13 | -7.5 % | tensor: stall count after mma 18 %; launch: launch 11 %; tensor: queue (mma) 10 % | branch fallback 264, default latency 368, default rbar 496, front end 1056, issue-only 4760 | batch r2b |
-| gemv_w4a16_n4096_k4096_rotating kernel | 7 | us | 37.34 | 440.41 | +1079.3 % | l2/dram: load latency (incl. DRAM queue) 99 %; launch: launch 1 % | default latency 726, default rbar 1056, front end 4224, issue-only 6864 | batch r2b |
-| gemv_w4a16_n4096_k4096_warm kernel | 7 | us | 16.77 | 52.87 | +215.3 % | l2_return: queue (chip L2 share) 87 %; launch: launch 5 %; l2/dram: load latency (incl. DRAM queue) 3 % | default latency 726, default rbar 1056, front end 4224, issue-only 6864 | batch r2b |
-| rmsnorm_m512_n4096_rotating kernel | 7 | us | 41.15 | 21.38 | -48.1 % | l2/dram: load latency (incl. DRAM queue) 86 %; launch: launch 12 % | default latency 308, front end 176, issue-only 660 | batch r2c |
-| rmsnorm_m512_n4096_warm kernel | 7 | us | 9.54 | 5.29 | -44.5 % | launch: launch 50 %; l2_return: queue (chip L2 share) 21 %; l2/dram: load latency (incl. DRAM queue) 10 % | default latency 308, front end 176, issue-only 660 | batch r2c |
-| softmax_m512_n4096_warm kernel | 7 | us | 9.18 | 7.19 | -21.7 % | launch: launch 37 %; issue: stall count after other 11 %; alu: queue (alu) 9 % | branch fallback 1408, default latency 1672, default rbar 440, front end 88, issue-only 9724 | batch r2 |
+| cvt scaffold only (mov) | 2 | cycles/element/smsp | 4.04 | 4.00 | -0.9 % | alu: queue (alu) 85 %; alu: stall count after alu 15 % | default latency 192, front end 256, issue-only 24640 |  |
+| cvt I2F.F16 from s32 | 2 | cycles/element/smsp | 8.06 | 8.02 | -0.5 % | xu: queue (xu) 85 %; xu: xu result latency 14 %; alu: stall count after alu 1 % | default latency 192, front end 256, issue-only 24640 |  |
+| cvt I2F.F16 from u32 | 2 | cycles/element/smsp | 8.05 | 8.02 | -0.4 % | xu: queue (xu) 85 %; xu: xu result latency 14 %; alu: stall count after alu 1 % | default latency 192, front end 256, issue-only 24640 |  |
+| cvt int to fp32 | 2 | cycles/element/smsp | 4.03 | 4.00 | -0.7 % | alu: queue (alu) 87 %; alu: stall count after alu 12 % | default latency 192, front end 256, issue-only 24640 |  |
+| cvt fp32 to fp16 | 2 | cycles/element/smsp | 8.04 | 8.00 | -0.5 % | alu: queue (alu) 87 %; alu: stall count after alu 12 % | default latency 192, front end 256, issue-only 98368 |  |
+| cvt MUFU.EX2 ruler | 2 | cycles/element/smsp | 8.23 | 8.07 | -2.0 % | xu: queue (xu) 85 %; alu: stall count after alu 6 %; xu: xu result latency 3 % | default latency 192, default rbar 65536, front end 256, issue-only 98368 |  |
+| cvt I2F.F16 + MUFU.EX2 alternating | 3 | cycles/element/smsp | 8.13 | 8.01 | -1.5 % | xu: queue (xu) 86 %; xu: xu result latency 5 %; alu: stall count after alu 5 % | default latency 192, default rbar 98304, front end 256, issue-only 49216 |  |
+| smem_ldsts LDS.32_w1 | 1 | cycles/instr/SM | 41.42 | 41.64 | +0.5 % | smem_array: LDS latency 67 %; alu: stall count after alu 29 %; issue: stall count after other 4 % | default latency 5, issue-only 775 | batch r3 |
+| smem_ldsts LDS.32_w2 | 2 | cycles/instr/SM | 20.71 | 20.82 | +0.5 % | smem_array: LDS latency 67 %; alu: stall count after alu 29 %; issue: stall count after other 4 % | default latency 9, issue-only 1549 | batch r3 |
+| smem_ldsts LDS.32_w3 | 2 | cycles/instr/SM | 13.81 | 13.88 | +0.6 % | smem_array: LDS latency 67 %; alu: stall count after alu 29 %; issue: stall count after other 4 % | default latency 13, issue-only 2323 | batch r3 |
+| smem_ldsts LDS.32_w4 | 2 | cycles/instr/SM | 10.35 | 10.41 | +0.6 % | smem_array: LDS latency 67 %; alu: stall count after alu 29 %; issue: stall count after other 4 % | default latency 17, issue-only 3097 | batch r3 |
+| smem_ldsts LDS.32_w5 | 2 | cycles/instr/SM | 8.34 | 8.40 | +0.8 % | smem_array: LDS latency 58 %; alu: stall count after alu 28 %; alu: queue (alu) 8 % | default latency 21, issue-only 3871 | batch r3 |
+| smem_ldsts LDS.32_w6 | 2 | cycles/instr/SM | 6.95 | 7.00 | +0.8 % | smem_array: LDS latency 58 %; alu: stall count after alu 28 %; alu: queue (alu) 8 % | default latency 25, issue-only 4645 | batch r3 |
+| smem_ldsts LDS.32_w8 | 2 | cycles/instr/SM | 5.21 | 5.24 | +0.6 % | smem_array: LDS latency 58 %; alu: stall count after alu 28 %; alu: queue (alu) 8 % | default latency 33, issue-only 6193 | batch r3 |
+| smem_ldsts LDS.32_w16 | 2 | cycles/instr/SM | 2.67 | 2.72 | +2.1 % | smem_array: LDS latency 49 %; alu: stall count after alu 27 %; alu: queue (alu) 16 % | default latency 65, issue-only 12385 | batch r3 |
+| smem_ldsts LDS.32_w32 | 2 | cycles/instr/SM | 2.00 | 2.06 | +2.8 % | alu: queue (alu) 41 %; smem_array: LDS latency 21 %; alu: stall count after alu 18 % | default latency 129, issue-only 24769 | batch r3 |
+| smem_ldsts LDS.64_w1 | 1 | cycles/instr/SM | 46.05 | 46.52 | +1.0 % | smem_array: LDS latency 69 %; alu: stall count after alu 27 %; issue: stall count after other 4 % | default latency 5, issue-only 775 | batch r3 |
+| smem_ldsts LDS.64_w2 | 2 | cycles/instr/SM | 23.02 | 23.26 | +1.0 % | smem_array: LDS latency 69 %; alu: stall count after alu 27 %; issue: stall count after other 4 % | default latency 9, issue-only 1549 | batch r3 |
+| smem_ldsts LDS.64_w3 | 2 | cycles/instr/SM | 15.35 | 15.51 | +1.0 % | smem_array: LDS latency 69 %; alu: stall count after alu 27 %; issue: stall count after other 4 % | default latency 13, issue-only 2323 | batch r3 |
+| smem_ldsts LDS.64_w4 | 2 | cycles/instr/SM | 11.51 | 11.63 | +1.0 % | smem_array: LDS latency 69 %; alu: stall count after alu 27 %; issue: stall count after other 4 % | default latency 17, issue-only 3097 | batch r3 |
+| smem_ldsts LDS.64_w5 | 2 | cycles/instr/SM | 9.22 | 9.76 | +5.9 % | alu: queue (alu) 56 %; alu: stall count after alu 26 %; smem_array: LDS latency 8 % | default latency 21, issue-only 3871 | batch r3 |
+| smem_ldsts LDS.64_w6 | 2 | cycles/instr/SM | 7.75 | 8.13 | +4.8 % | alu: queue (alu) 55 %; alu: stall count after alu 26 %; smem_array: LDS latency 9 % | default latency 25, issue-only 4645 | batch r3 |
+| smem_ldsts LDS.64_w8 | 2 | cycles/instr/SM | 5.90 | 5.96 | +1.0 % | alu: queue (alu) 65 %; alu: stall count after alu 27 %; issue: stall count after smem_op 4 % | default latency 33, issue-only 6193 | batch r3 |
+| smem_ldsts LDS.64_w16 | 2 | cycles/instr/SM | 3.17 | 3.15 | -0.8 % | smem_array: LDS latency 41 %; alu: stall count after alu 25 %; alu: queue (alu) 25 % | default latency 65, issue-only 12385 | batch r3 |
+| smem_ldsts LDS.64_w32 | 2 | cycles/instr/SM | 2.07 | 2.30 | +10.8 % | alu: queue (alu) 54 %; smem_array: LDS latency 18 %; alu: stall count after alu 17 % | default latency 129, issue-only 24769 | batch r3 |
+| smem_ldsts LDS.128_w1 | 1 | cycles/instr/SM | 55.42 | 55.90 | +0.9 % | smem_array: LDS latency 72 %; alu: stall count after alu 25 %; issue: stall count after other 3 % | default latency 5, issue-only 776 | batch r3 |
+| smem_ldsts LDS.128_w2 | 2 | cycles/instr/SM | 28.21 | 27.95 | -0.9 % | smem_array: LDS latency 72 %; alu: stall count after alu 25 %; issue: stall count after other 3 % | default latency 9, issue-only 1551 | batch r3 |
+| smem_ldsts LDS.128_w3 | 2 | cycles/instr/SM | 18.47 | 18.63 | +0.9 % | smem_array: LDS latency 72 %; alu: stall count after alu 25 %; issue: stall count after other 3 % | default latency 13, issue-only 2326 | batch r3 |
+| smem_ldsts LDS.128_w4 | 2 | cycles/instr/SM | 13.86 | 13.98 | +0.9 % | smem_array: LDS latency 71 %; alu: stall count after alu 25 %; issue: stall count after other 3 % | default latency 17, issue-only 3101 | batch r3 |
+| smem_ldsts LDS.128_w5 | 2 | cycles/instr/SM | 11.28 | 11.21 | -0.6 % | smem_array: LDS latency 62 %; alu: stall count after alu 25 %; alu: queue (alu) 9 % | default latency 21, issue-only 3876 | batch r3 |
+| smem_ldsts LDS.128_w6 | 2 | cycles/instr/SM | 9.24 | 9.34 | +1.1 % | smem_array: LDS latency 71 %; alu: stall count after alu 25 %; issue: stall count after other 3 % | default latency 25, issue-only 4651 | batch r3 |
+| smem_ldsts LDS.128_w8 | 2 | cycles/instr/SM | 7.35 | 7.00 | -4.7 % | smem_array: LDS latency 62 %; alu: stall count after alu 25 %; alu: queue (alu) 9 % | default latency 33, issue-only 6201 | batch r3 |
+| smem_ldsts LDS.128_w16 | 2 | cycles/instr/SM | 4.14 | 4.06 | -1.9 % | smem_array: LDS latency 44 %; alu: queue (alu) 22 %; alu: stall count after alu 22 % | default latency 65, issue-only 12401 | batch r3 |
+| smem_ldsts LDS.128_w32 | 2 | cycles/instr/SM | 4.01 | 4.01 | +0.0 % | smem_array: queue (lds) 39 %; alu: queue (alu) 25 %; smem_array: LDS latency 22 % | default latency 129, issue-only 24801 | batch r3 |
+| smem_ldsts STS.32_w1 | 1 | cycles/instr/SM | 5.07 | 5.15 | +1.6 % | issue: stall count after smem_op 55 %; issue: stall count after other 27 %; mio: queue (smem_op) 17 % | default latency 5, issue-only 775 | batch r3 |
+| smem_ldsts STS.32_w2 | 2 | cycles/instr/SM | 2.54 | 2.58 | +1.6 % | issue: stall count after smem_op 55 %; issue: stall count after other 27 %; mio: queue (smem_op) 17 % | default latency 8, issue-only 1549 | batch r3 |
+| smem_ldsts STS.32_w3 | 2 | cycles/instr/SM | 2.27 | 2.01 | -11.7 % | issue: stall count after smem_op 45 %; smem_array: queue (sts) 16 %; mio: queue (smem_op) 14 % | default latency 11, issue-only 2323 | batch r3 |
+| smem_ldsts STS.32_w4 | 2 | cycles/instr/SM | 2.14 | 2.01 | -6.4 % | smem_array: queue (sts) 37 %; issue: stall count after smem_op 34 %; mio: queue (smem_op) 11 % | default latency 14, issue-only 3097 | batch r3 |
+| smem_ldsts STS.32_w5 | 2 | cycles/instr/SM | 2.42 | 2.00 | -17.0 % | mio: queue (smem_op) 57 %; issue: stall count after smem_op 29 %; issue: stall count after other 14 % | default latency 17, issue-only 3871 | batch r3 |
+| smem_ldsts STS.32_w6 | 2 | cycles/instr/SM | 2.01 | 2.00 | -0.6 % | smem_array: queue (sts) 56 %; issue: stall count after smem_op 23 %; mio: queue (smem_op) 9 % | default latency 20, issue-only 4645 | batch r3 |
+| smem_ldsts STS.32_w8 | 2 | cycles/instr/SM | 2.01 | 2.00 | -0.5 % | smem_array: queue (sts) 67 %; issue: stall count after smem_op 17 %; mio: queue (smem_op) 7 % | default latency 26, issue-only 6193 | batch r3 |
+| smem_ldsts STS.32_w16 | 2 | cycles/instr/SM | 2.01 | 2.00 | -0.3 % | smem_array: queue (sts) 82 %; issue: stall count after smem_op 9 %; mio: queue (smem_op) 4 % | default latency 50, issue-only 12385 | batch r3 |
+| smem_ldsts STS.32_w32 | 2 | cycles/instr/SM | 2.00 | 2.00 | -0.3 % | smem_array: queue (sts) 90 %; issue: stall count after smem_op 4 %; mio: queue (smem_op) 3 % | default latency 98, issue-only 24769 | batch r3 |
+| smem_ldsts STS.128_w1 | 1 | cycles/instr/SM | 23.07 | 22.02 | -4.5 % | smem_array: store read 77 %; issue: stall count after other 23 % | default latency 5, issue-only 2824 | batch r3 |
+| smem_ldsts STS.128_w2 | 2 | cycles/instr/SM | 12.04 | 11.01 | -8.5 % | smem_array: store read 77 %; issue: stall count after other 23 % | default latency 8, issue-only 5647 | batch r3 |
+| smem_ldsts STS.128_w3 | 2 | cycles/instr/SM | 8.69 | 7.34 | -15.5 % | smem_array: store read 77 %; issue: stall count after other 23 % | default latency 11, issue-only 8470 | batch r3 |
+| smem_ldsts STS.128_w4 | 2 | cycles/instr/SM | 7.02 | 5.51 | -21.5 % | smem_array: store read 77 %; issue: stall count after other 23 % | default latency 14, issue-only 11293 | batch r3 |
+| smem_ldsts STS.128_w5 | 2 | cycles/instr/SM | 5.62 | 4.43 | -21.1 % | smem_array: store read 77 %; issue: stall count after other 23 %; issue: after counter release 1 % | default latency 17, issue-only 14116 | batch r3 |
+| smem_ldsts STS.128_w6 | 2 | cycles/instr/SM | 4.35 | 4.00 | -7.9 % | smem_array: store read 71 %; issue: stall count after other 21 %; smem_array: queue (sts) 8 % | default latency 20, issue-only 16939 | batch r3 |
+| smem_ldsts STS.128_w8 | 2 | cycles/instr/SM | 4.01 | 4.00 | -0.2 % | smem_array: store read 53 %; smem_array: queue (sts) 31 %; issue: stall count after other 16 % | default latency 26, issue-only 22585 | batch r3 |
+| smem_ldsts STS.128_w16 | 2 | cycles/instr/SM | 4.01 | 4.00 | -0.1 % | smem_array: queue (sts) 65 %; smem_array: store read 27 %; issue: stall count after other 8 % | default latency 50, issue-only 45169 | batch r3 |
+| smem_ldsts STS.128_w32 | 2 | cycles/instr/SM | 4.01 | 4.00 | -0.2 % | smem_array: queue (sts) 83 %; smem_array: store read 13 %; issue: stall count after other 4 % | default latency 98, issue-only 90337 | batch r3 |
+| shfl latency_w1 | 1 | cycles/hop | 28.01 | 28.00 | -0.0 % | smem_array: SHFL latency 100 % | default latency 3, issue-only 774 | batch r3 |
+| shfl tput_w1 | 2 | cycles/instr/SM | 5.00 | 5.57 | +11.5 % | issue: stall count after smem_op 67 %; mio: queue (smem_op) 17 %; smem_array: SHFL latency 13 % | default latency 3, issue-only 774 | batch r3 |
+| shfl tput_w4 | 2 | cycles/instr/SM | 2.12 | 2.07 | -2.6 % | smem_array: SHFL latency 42 %; smem_array: queue (shfl) 35 %; issue: stall count after smem_op 16 % | default latency 9, issue-only 3093 | batch r3 |
+| shfl tput_w8 | 2 | cycles/instr/SM | 2.01 | 2.00 | -0.3 % | smem_array: queue (shfl) 66 %; smem_array: SHFL latency 22 %; issue: stall count after smem_op 8 % | default latency 17, issue-only 6185 | batch r3 |
+| shfl tput_w16 | 2 | cycles/instr/SM | 2.00 | 2.00 | -0.0 % | smem_array: queue (shfl) 83 %; smem_array: SHFL latency 11 %; issue: stall count after smem_op 4 % | default latency 33, issue-only 12369 | batch r3 |
+| shfl tput_w32 | 2 | cycles/instr/SM | 2.00 | 2.00 | +0.0 % | smem_array: queue (shfl) 73 %; mio: queue (smem_op) 19 %; smem_array: SHFL latency 4 % | default latency 65, issue-only 24737 | batch r3 |
+| ex2_ffma E8_F0 | 3 | cycles/pass/smsp | 511.55 | 512.62 | +0.2 % | xu: queue (xu) 96 %; xu: stall count after xu 2 %; issue: stall count after other 1 % | default latency 65, issue-only 24705 | batch r3 |
+| ex2_ffma E8_F8 | 3 | cycles/pass/smsp | 518.46 | 512.52 | -1.1 % | xu: queue (xu) 94 %; issue: stall count after other 2 %; fma: stall count after fp32 2 % | default latency 65, issue-only 24705 | batch r3 |
+| ex2_ffma E8_F16 | 3 | cycles/pass/smsp | 514.85 | 512.55 | -0.4 % | xu: queue (xu) 93 %; fma: stall count after fp32 3 %; issue: stall count after other 2 % | default latency 65, issue-only 24705 | batch r3 |
+| ex2_ffma E8_F32 | 3 | cycles/pass/smsp | 526.51 | 512.37 | -2.7 % | xu: queue (xu) 89 %; fma: stall count after fp32 6 %; issue: stall count after other 2 % | default latency 65, issue-only 24705 | batch r3 |
+| ex2_ffma E0_F32 | 3 | cycles/pass/smsp | 195.52 | 293.37 | +50.0 % | alu: queue (alu) 72 %; issue: scheduler (another warp issued) 11 %; fma: stall count after fp32 11 % | default latency 65, issue-only 24705 | excluded: measured 196 cycles is below the issue limit 280 (one warp instruction per cycle per sub-partition): open question |
+| ex2_ffma E4_F32 | 3 | cycles/pass/smsp | 334.68 | 335.30 | +0.2 % | xu: queue (xu) 76 %; fma: stall count after fp32 10 %; alu: queue (alu) 8 % | default latency 65, issue-only 24705 | batch r3 |
+| namedbar sync_w2 | 1 | cycles/barrier | 26.05 | 26.09 | +0.1 % | issue: stall count after other 68 %; barrier: release latency 30 %; issue: default result latency (LDC) 1 % | default latency 4, issue-only 777 | batch r3 |
+| namedbar sync_w4 | 1 | cycles/barrier | 30.05 | 30.09 | +0.1 % | issue: stall count after other 59 %; barrier: release latency 39 %; issue: default result latency (LDC) 1 % | default latency 6, issue-only 1553 | batch r3 |
+| namedbar sync_w8 | 1 | cycles/barrier | 38.07 | 39.10 | +2.7 % | barrier: release latency 50 %; issue: stall count after other 46 %; issue: after barrier release 3 % | default latency 10, issue-only 3105 | batch r3 |
+| namedbar sync_w16 | 1 | cycles/barrier | 57.09 | 57.12 | +0.1 % | barrier: release latency 62 %; issue: stall count after other 31 %; issue: after barrier release 5 % | default latency 18, issue-only 6209 | batch r3 |
+| namedbar sync_w32 | 1 | cycles/barrier | 89.16 | 106.54 | +19.5 % | barrier: release latency 63 %; issue: stall count after other 17 %; issue: after barrier release 11 % | default latency 34, issue-only 12417 | batch r3 |
+| namedbar arrive_L0 | 3 | cycles/arrive | 12.00 | 12.00 | +0.0 % | barrier: release latency 48 %; issue: stall count after other 23 %; alu: stall count after alu 18 % | branch fallback 1024, default latency 11, issue-only 4128 | batch r3 |
+| namedbar arrive_L64 | 3 | cycles/arrive | 12.00 | 12.01 | +0.1 % | fma: stall count after fp32 80 %; issue: stall count after other 9 %; issue: stall count after barrier 8 % | branch fallback 1024, default latency 17, issue-only 5154 | batch r3 |
+| namedbar arrive_L256 | 3 | cycles/arrive | 12.00 | 12.01 | +0.1 % | fma: stall count after fp32 94 %; issue: stall count after other 3 %; issue: stall count after barrier 2 % | branch fallback 1024, default latency 17, issue-only 5154 | batch r3 |
+| l1hit chase | 1 | cycles/hop | 55.09 | 52.00 | -5.6 % | l1: hit latency 86 %; fma: stall count after fma_half_rate 10 %; l1: hit path 2 % | default latency 3, issue-only 6342 | batch r3 |
+| l1hit tput_w4 | 2 | cycles/instr/SM | 6.70 | 6.01 | -10.3 % | l1: hit latency 47 %; alu: stall count after alu 30 %; fma: stall count after fma_half_rate 7 % | branch fallback 4, default latency 17, issue-only 3113 | batch r3 |
+| l1hit tput_w8 | 2 | cycles/instr/SM | 4.31 | 4.01 | -7.0 % | alu: queue (alu) 27 %; alu: stall count after alu 26 %; l1: hit latency 18 % | branch fallback 8, default latency 33, issue-only 6225 | batch r3 |
+| l1hit tput_w16 | 2 | cycles/instr/SM | 4.06 | 4.00 | -1.3 % | lsu: queue 58 %; l1: hit latency 17 %; alu: stall count after alu 11 % | branch fallback 16, default latency 65, issue-only 12449 | batch r3 |
+| l1hit tput_w32 | 2 | cycles/instr/SM | 4.06 | 4.00 | -1.4 % | lsu: queue 43 %; alu: queue (alu) 41 %; alu: stall count after alu 7 % | branch fallback 32, default latency 129, issue-only 24897 | batch r3 |
+| store_tail tl_b1 | 4 | us | 3.04 | 3.21 | +5.7 % | store_queue: queue (stg) 63 %; store_port: queue (stores) 23 %; alu: stall count after alu 5 % | default latency 49, default rbar 8, issue-only 1193 | batch r3 |
+| store_tail tl_b2 | 4 | us | 6.06 | 6.30 | +3.9 % | store_queue: queue (stg) 62 %; store_port: queue (stores) 30 %; alu: stall count after alu 3 % | default latency 49, default rbar 8, issue-only 1193 | batch r3 |
+| store_tail tl_b8 | 4 | us | 6.06 | 6.30 | +3.9 % | store_queue: queue (stg) 62 %; store_port: queue (stores) 30 %; alu: stall count after alu 3 % | default latency 49, default rbar 8, issue-only 1193 | batch r3 |
+| store_tail tl_b16 | 4 | us | 6.07 | 6.30 | +3.8 % | store_queue: queue (stg) 62 %; store_port: queue (stores) 30 %; alu: stall count after alu 3 % | default latency 49, default rbar 8, issue-only 1193 | batch r3 |
+| store_tail tl_b32 | 4 | us | 6.77 | 7.05 | +4.1 % | store_queue: queue (stg) 63 %; store_port: queue (stores) 31 %; alu: stall count after alu 2 % | default latency 49, default rbar 8, issue-only 1193 | batch r3 |
+| store_tail tl_b48 | 4 | us | 10.21 | 10.51 | +3.0 % | store_queue: queue (stg) 60 %; store_port: queue (stores) 36 %; alu: stall count after alu 2 % | default latency 49, default rbar 8, issue-only 1193 | batch r3 |
+| store_tail v16_b1 | 4 | us | 0.67 | 0.68 | +1.4 % | store_queue: queue (stg) 43 %; alu: queue (alu) 17 %; store_port: queue (stores) 12 % | default latency 41, default rbar 8, issue-only 449 | batch r3 |
+| store_tail v16_b2 | 4 | us | 1.23 | 1.25 | +1.5 % | store_queue: queue (stg) 52 %; store_port: queue (stores) 33 %; alu: stall count after alu 4 % | default latency 41, default rbar 8, issue-only 449 | batch r3 |
+| store_tail v16_b8 | 4 | us | 1.24 | 1.25 | +1.2 % | store_queue: queue (stg) 52 %; store_port: queue (stores) 33 %; alu: stall count after alu 4 % | default latency 41, default rbar 8, issue-only 449 | batch r3 |
+| store_tail v16_b16 | 4 | us | 1.24 | 1.25 | +1.1 % | store_queue: queue (stg) 52 %; store_port: queue (stores) 33 %; alu: stall count after alu 4 % | default latency 41, default rbar 8, issue-only 449 | batch r3 |
+| store_tail v16_b32 | 4 | us | 1.55 | 1.61 | +3.5 % | store_queue: queue (stg) 53 %; store_port: queue (stores) 34 %; alu: stall count after alu 3 % | default latency 41, default rbar 8, issue-only 449 | batch r3 |
+| store_tail v16_b48 | 4 | us | 2.24 | 2.35 | +4.9 % | store_queue: queue (stg) 50 %; store_port: queue (stores) 41 %; alu: stall count after alu 2 % | default latency 41, default rbar 8, issue-only 449 | batch r3 |
+| l2share_copy b1 | 4 | us | 10.08 | 10.56 | +4.8 % | l2_return: queue (SM port rate) 74 %; l2: L2 latency 11 %; lsu: queue 10 % | default latency 80, issue-only 1578 | batch r3 |
+| l2share_copy b16 | 4 | us | 13.16 | 10.57 | -19.7 % | l2_return: queue (SM port rate) 74 %; l2: L2 latency 11 %; lsu: queue 10 % | default latency 80, issue-only 1578 | batch r3 |
+| l2share_copy b32 | 4 | us | 16.07 | 12.64 | -21.3 % | l2_return: queue (chip L2 share) 78 %; l2: L2 latency 9 %; lsu: queue 8 % | default latency 80, issue-only 1578 | batch r3 |
+| l2share_copy b48 | 4 | us | 19.90 | 18.84 | -5.3 % | l2_return: queue (chip L2 share) 85 %; l2: L2 latency 6 %; lsu: queue 6 % | default latency 80, issue-only 1578 | batch r3 |
+| dram_rotate t32 | 5 | us | 1,198.37 | 1,256.34 | +4.8 % | l2/dram: load latency (incl. DRAM queue) 96 %; l2_return: transfer 3 %; issue: stall count after other 1 % | default latency 4, issue-only 10883 | batch r3 |
+| dram_rotate t64 | 5 | us | 621.09 | 629.69 | +1.4 % | l2/dram: load latency (incl. DRAM queue) 96 %; l2_return: transfer 3 %; issue: stall count after other 1 % | default latency 8, issue-only 10886 | batch r3 |
+| dram_rotate t128 | 5 | us | 362.98 | 316.52 | -12.8 % | l2/dram: load latency (incl. DRAM queue) 96 %; l2_return: transfer 3 %; issue: stall count after other 1 % | default latency 16, issue-only 10892 | batch r3 |
+| dram_rotate t256 | 5 | us | 288.13 | 291.52 | +1.2 % | l2/dram: load latency (incl. DRAM queue) 98 %; l2_return: transfer 1 % | default latency 32, issue-only 10904 | batch r3 |
+| dram_rotate t512 | 5 | us | 281.06 | 291.52 | +3.7 % | l2/dram: load latency (incl. DRAM queue) 99 %; l2_return: transfer 1 % | default latency 64, issue-only 10928 | batch r3 |
+| dram_rotate t1024 | 5 | us | 281.92 | 291.52 | +3.4 % | l2/dram: load latency (incl. DRAM queue) 99 % | default latency 128, issue-only 10976 | batch r3 |
+| fa_fwd_s2048_h8_d128 kernel | 7 | us | 254.11 | 237.02 | -6.7 % | tensor: stall count after mma 23 %; tensor: queue (mma) 13 %; issue: stall count after ldsm 12 % | branch fallback 1536, default latency 1824, default rbar 8496, front end 12288, issue-only 36408 | batch r3 |
+| hgemm2048_c128x128x32_s3_t128 kernel | 7 | us | 221.47 | 206.42 | -6.8 % | tensor: queue (mma) 41 %; tensor: stall count after mma 22 %; store_queue: queue (stg) 12 % | default latency 192, default rbar 1512, issue-only 29376 | batch r3 |
+| hgemm2048_c128x128x32_s3_t128_sw8 kernel | 7 | us | 221.63 | 195.03 | -12.0 % | tensor: queue (mma) 39 %; tensor: stall count after mma 24 %; store_queue: queue (stg) 8 % | branch fallback 48, default latency 264, default rbar 1584, issue-only 28608 | batch r3 |
+| hgemm2048_c128x128x32_s4_t128 kernel | 7 | us | 245.22 | 244.19 | -0.4 % | tensor: stall count after mma 39 %; tensor: queue (mma) 20 %; store_queue: queue (stg) 11 % | branch fallback 1464, default latency 192, default rbar 24, issue-only 31848 | batch r3 |
+| hgemm2048_c128x128x64_s2_t128 kernel | 7 | us | 224.54 | 236.93 | +5.5 % | tensor: stall count after mma 22 %; dram: DRAM latency 22 %; dram_queue: queue (DRAM share) 15 % | branch fallback 744, default latency 240, default rbar 24, issue-only 26496 | batch r3 |
+| hgemm2048_c128x128x64_s3_t256 kernel | 7 | us | 225.63 | 225.83 | +0.1 % | tensor: queue (mma) 28 %; tensor: stall count after mma 20 %; issue: stall count after barrier 17 % | default latency 480, default rbar 48, issue-only 29616 | batch r3 |
+| hgemm2048_c128x256x32_s3_t256 kernel | 7 | us | 236.96 | 225.81 | -4.7 % | tensor: queue (mma) 45 %; tensor: stall count after mma 21 %; store_queue: queue (stg) 12 % | default latency 216, default rbar 1512, issue-only 29256 | batch r3 |
+| hgemm2048_c128x256x32_s3_t256_sw4 kernel | 7 | us | 235.81 | 223.19 | -5.4 % | tensor: queue (mma) 46 %; tensor: stall count after mma 21 %; store_queue: queue (stg) 12 % | branch fallback 48, default latency 264, default rbar 1584, issue-only 28512 | batch r3 |
+| hgemm2048_c128x256x64_s2_t256 kernel | 7 | us | 222.43 | 213.27 | -4.1 % | tensor: queue (mma) 41 %; tensor: stall count after mma 21 %; store_queue: queue (stg) 12 % | branch fallback 744, default latency 240, default rbar 24, issue-only 23424 | batch r3 |
+| hgemm2048_c256x128x32_s3_t256 kernel | 7 | us | 231.71 | 227.86 | -1.7 % | tensor: queue (mma) 44 %; tensor: stall count after mma 20 %; store_queue: queue (stg) 11 % | default latency 216, default rbar 1512, issue-only 29184 | batch r3 |
+| hgemm2048_c64x128x32_s4_t128 kernel | 7 | us | 231.74 | 234.62 | +1.2 % | l2_return: queue (chip L2 share) 62 %; store_queue: queue (stg) 9 %; tensor: stall count after mma 8 % | branch fallback 2684, default latency 396, issue-only 54076 | batch r3 |
+| mma_pair b1_span | 3 | cycles | 310,515.00 | 315,993.80 | +1.8 % | tensor: stall count after mma 76 %; issue: stall count after other 9 %; mio: queue (ldsm) 9 % | default latency 23, default rbar 4, issue-only 71988 | batch r3 |
+| mma_pair b48_span | 3 | cycles | 310,503.00 | 315,993.80 | +1.8 % | tensor: stall count after mma 76 %; issue: stall count after other 9 %; mio: queue (ldsm) 9 % | default latency 23, default rbar 4, issue-only 71988 | batch r3 |
+| mma_pair b96_s0_span | 3 | cycles | 529,802.00 | 524,616.60 | -1.0 % | tensor: stall count after mma 46 %; tensor: queue (mma) 40 %; issue: stall count after other 6 % | default latency 46, default rbar 8, issue-only 143976 | batch r3 |
+| mma_pair b96_s0_first | 3 | cycles | 529,551.00 | 524,102.60 | -1.0 % | tensor: stall count after mma 46 %; tensor: queue (mma) 40 %; issue: stall count after other 6 % | default latency 46, default rbar 8, issue-only 143976 | batch r3 |
+| mma_pair b96_s4096_span | 3 | cycles | 563,266.00 | 551,215.50 | -2.1 % | tensor: stall count after mma 43 %; tensor: queue (mma) 30 %; issue: stall count after other 16 % | default latency 52, default rbar 8, issue-only 189044 | batch r3 |
+| mma_pair b96_s4096_first | 3 | cycles | 469,062.00 | 482,310.00 | +2.8 % | tensor: stall count after mma 43 %; tensor: queue (mma) 30 %; issue: stall count after other 16 % | default latency 52, default rbar 8, issue-only 189044 | batch r3 |
+| mma_pair b96_s16384_span | 3 | cycles | 694,357.00 | 631,540.70 | -9.0 % | issue: stall count after other 43 %; tensor: stall count after mma 37 %; fma: stall count after fp32 8 % | default latency 52, default rbar 8, issue-only 336500 | batch r3 |
+| mma_pair b96_s16384_first | 3 | cycles | 316,962.00 | 356,262.00 | +12.4 % | issue: stall count after other 43 %; tensor: stall count after mma 37 %; fma: stall count after fp32 8 % | default latency 52, default rbar 8, issue-only 336500 | batch r3 |
+| l2share_stages s1_b1 | 4 | us | 15.07 | 15.70 | +4.2 % | l2_return: queue (SM port rate) 44 %; l2: L2 latency 29 %; lsu: queue 17 % | default latency 72, issue-only 2890 | batch r3 |
+| l2share_stages s1_b16 | 4 | us | 15.36 | 15.71 | +2.3 % | l2_return: queue (SM port rate) 44 %; l2: L2 latency 29 %; lsu: queue 17 % | default latency 72, issue-only 2890 | batch r3 |
+| l2share_stages s1_b48 | 4 | us | 19.49 | 23.82 | +22.2 % | l2_return: queue (chip L2 share) 63 %; l2: L2 latency 19 %; lsu: queue 11 % | default latency 72, issue-only 2890 | batch r3 |
+| l2share_stages s2_b1 | 4 | us | 10.05 | 10.53 | +4.8 % | l2_return: queue (SM port rate) 56 %; l2: L2 latency 21 %; lsu: queue 12 % | branch fallback 248, default latency 72, issue-only 2066 | batch r3 |
+| l2share_stages s2_b16 | 4 | us | 12.59 | 10.54 | -16.3 % | l2_return: queue (SM port rate) 56 %; l2: L2 latency 21 %; lsu: queue 12 % | branch fallback 248, default latency 72, issue-only 2066 | batch r3 |
+| l2share_stages s2_b48 | 4 | us | 19.03 | 18.82 | -1.1 % | l2_return: queue (chip L2 share) 75 %; l2: L2 latency 12 %; lsu: queue 7 % | branch fallback 248, default latency 72, issue-only 2066 | batch r3 |
+| l2share_stages s3_b1 | 4 | us | 10.05 | 10.53 | +4.8 % | l2_return: queue (SM port rate) 68 %; l2: L2 latency 15 %; lsu: queue 8 % | branch fallback 240, default latency 72, issue-only 1794 | batch r3 |
+| l2share_stages s3_b16 | 4 | us | 12.15 | 10.54 | -13.2 % | l2_return: queue (SM port rate) 68 %; l2: L2 latency 15 %; lsu: queue 8 % | branch fallback 240, default latency 72, issue-only 1794 | batch r3 |
+| l2share_stages s3_b48 | 4 | us | 18.62 | 18.82 | +1.1 % | l2_return: queue (chip L2 share) 82 %; l2: L2 latency 8 %; lsu: queue 5 % | branch fallback 240, default latency 72, issue-only 1794 | batch r3 |
+| l2share_stages s4_b1 | 4 | us | 10.05 | 10.54 | +4.9 % | l2_return: queue (SM port rate) 75 %; l2: L2 latency 11 %; lsu: queue 8 % | branch fallback 232, default latency 72, issue-only 1770 | batch r3 |
+| l2share_stages s4_b16 | 4 | us | 11.67 | 10.55 | -9.7 % | l2_return: queue (SM port rate) 75 %; l2: L2 latency 11 %; lsu: queue 8 % | branch fallback 232, default latency 72, issue-only 1770 | batch r3 |
+| l2share_stages s4_b48 | 4 | us | 17.50 | 18.82 | +7.5 % | l2_return: queue (chip L2 share) 86 %; l2: L2 latency 6 %; lsu: queue 4 % | branch fallback 232, default latency 72, issue-only 1770 | batch r3 |
+| decode_gqa_comb_s4096_warm kernel | 7 | us | 2.50 | 3.08 | +23.3 % | launch: launch 91 %; l2/dram: load latency (incl. DRAM queue) 4 %; xu: xu result latency 1 % | branch fallback 4, default latency 28, issue-only 16 | batch r3 |
+| decode_gqa_part_s4096_rotating kernel | 7 | us | 70.91 | 81.53 | +15.0 % | dram_queue: queue (DRAM share) 80 %; dram: DRAM latency 6 %; launch: launch 4 % | branch fallback 264, default latency 368, default rbar 496, front end 1024, issue-only 3744 | batch r3 |
+| decode_gqa_part_s4096_warm kernel | 7 | us | 25.09 | 23.72 | -5.4 % | tensor: stall count after mma 18 %; launch: launch 12 %; tensor: queue (mma) 10 % | branch fallback 264, default latency 368, default rbar 496, front end 1024, issue-only 3744 | batch r3 |
+| gemv_w4a16_n4096_k4096_rotating kernel | 7 | us | 38.24 | 46.44 | +21.5 % | l2/dram: load latency (incl. DRAM queue) 89 %; launch: launch 6 %; issue: stall count after half_to_float 1 % | default latency 726, default rbar 1056, front end 352, issue-only 6864 | batch r3 |
+| gemv_w4a16_n4096_k4096_warm kernel | 7 | us | 16.61 | 14.96 | -9.9 % | xu: queue (xu) 33 %; launch: launch 19 %; alu: queue (alu) 14 % | default latency 726, default rbar 1056, front end 352, issue-only 6864 | batch r3 |
+| rmsnorm_m512_n4096_rotating kernel | 7 | us | 40.54 | 23.73 | -41.5 % | l2/dram: load latency (incl. DRAM queue) 84 %; launch: launch 12 %; fma: stall count after fp32 1 % | default latency 308, issue-only 660 | batch r3 |
+| rmsnorm_m512_n4096_warm kernel | 7 | us | 8.70 | 5.65 | -35.1 % | launch: launch 50 %; l2_return: queue (chip L2 share) 28 %; l2/dram: load latency (incl. DRAM queue) 5 % | default latency 308, issue-only 660 | batch r3 |
+| softmax_m512_n4096_warm kernel | 7 | us | 9.76 | 7.00 | -28.2 % | launch: launch 41 %; alu: queue (alu) 10 %; fma: stall count after fp32 9 % | branch fallback 1408, default latency 1672, default rbar 440, issue-only 4488 | batch r3 |
+| l2reuse n2_cg_cold | 5 | us | 7.42 | 7.29 | -1.8 % | l2/dram: load latency (incl. DRAM queue) 96 %; store_port: drain after the last instruction 1 %; lsu: queue 1 % | default latency 161, issue-only 97 | batch r3 |
+| l2reuse n2_cg_warm | 5 | us | 1.02 | 1.08 | +5.0 % | l2_return: queue (chip L2 share) 61 %; l2/dram: load latency (incl. DRAM queue) 13 %; store_port: drain after the last instruction 8 % | default latency 161, issue-only 97 | batch r3 |
+| l2reuse n2_cg_in4 | 5 | us | 7.46 | 2.24 | -70.0 % | l2/dram: load latency (incl. DRAM queue) 87 %; store_port: drain after the last instruction 3 %; lsu: queue 3 % | default latency 161, issue-only 513 | batch r3 |
+| l2reuse n2_ca_cold | 5 | us | 7.39 | 7.29 | -1.3 % | l2/dram: load latency (incl. DRAM queue) 96 %; store_port: drain after the last instruction 1 %; lsu: queue 1 % | default latency 161, issue-only 97 | batch r3 |
+| l2reuse n2_ca_warm | 5 | us | 1.02 | 1.08 | +5.0 % | l2_return: queue (chip L2 share) 61 %; l2/dram: load latency (incl. DRAM queue) 13 %; store_port: drain after the last instruction 8 % | default latency 161, issue-only 97 | batch r3 |
+| l2reuse n2_ca_in4 | 5 | us | 7.46 | 2.24 | -70.0 % | l2/dram: load latency (incl. DRAM queue) 87 %; store_port: drain after the last instruction 3 %; lsu: queue 3 % | default latency 161, issue-only 513 | batch r3 |
+| l2reuse n2_cs_cold | 5 | us | 7.39 | 7.29 | -1.3 % | l2/dram: load latency (incl. DRAM queue) 96 %; store_port: drain after the last instruction 1 %; lsu: queue 1 % | default latency 161, issue-only 97 | batch r3 |
+| l2reuse n2_cs_warm | 5 | us | 1.02 | 1.08 | +5.0 % | l2_return: queue (chip L2 share) 61 %; l2/dram: load latency (incl. DRAM queue) 13 %; store_port: drain after the last instruction 8 % | default latency 161, issue-only 97 | batch r3 |
+| l2reuse n2_cs_in4 | 5 | us | 7.46 | 2.24 | -70.0 % | l2/dram: load latency (incl. DRAM queue) 87 %; store_port: drain after the last instruction 3 %; lsu: queue 3 % | default latency 161, issue-only 513 | batch r3 |
+| l2reuse n8_cg_cold | 5 | us | 27.23 | 27.65 | +1.5 % | l2/dram: load latency (incl. DRAM queue) 99 %; lsu: queue 1 % | default latency 161, issue-only 385 | batch r3 |
+| l2reuse n8_cg_warm | 5 | us | 3.42 | 3.39 | -0.9 % | l2_return: queue (chip L2 share) 80 %; l2/dram: load latency (incl. DRAM queue) 8 %; lsu: queue 5 % | default latency 161, issue-only 385 | batch r3 |
+| l2reuse n8_cg_in4 | 5 | us | 32.80 | 28.21 | -14.0 % | l2_return: queue (chip L2 share) 71 %; l2/dram: load latency (incl. DRAM queue) 27 %; lsu: queue 1 % | default latency 161, issue-only 1793 | batch r3 |
+| l2reuse n8_ca_cold | 5 | us | 27.23 | 27.65 | +1.5 % | l2/dram: load latency (incl. DRAM queue) 99 %; lsu: queue 1 % | default latency 161, issue-only 417 | batch r3 |
+| l2reuse n8_ca_warm | 5 | us | 3.36 | 3.40 | +1.1 % | l2_return: queue (chip L2 share) 80 %; l2/dram: load latency (incl. DRAM queue) 8 %; lsu: queue 5 % | default latency 161, issue-only 417 | batch r3 |
+| l2reuse n8_ca_in4 | 5 | us | 27.78 | 28.22 | +1.6 % | l2_return: queue (chip L2 share) 71 %; l2/dram: load latency (incl. DRAM queue) 27 %; lsu: queue 1 % | default latency 161, issue-only 1825 | batch r3 |
+| l2reuse n8_cs_cold | 5 | us | 27.17 | 27.65 | +1.8 % | l2/dram: load latency (incl. DRAM queue) 99 %; lsu: queue 1 % | default latency 161, issue-only 385 | batch r3 |
+| l2reuse n8_cs_warm | 5 | us | 24.77 | 24.89 | +0.5 % | l2/dram: load latency (incl. DRAM queue) 98 %; lsu: queue 1 % | default latency 161, issue-only 385 | batch r3 |
+| l2reuse n8_cs_in4 | 5 | us | 35.10 | 100.91 | +187.5 % | l2/dram: load latency (incl. DRAM queue) 87 %; l2_return: queue (chip L2 share) 12 % | default latency 161, issue-only 1793 | batch r3 |
+| l2reuse n16_cg_cold | 5 | us | 53.57 | 54.78 | +2.3 % | l2/dram: load latency (incl. DRAM queue) 99 % | default latency 161, issue-only 641 | batch r3 |
+| l2reuse n16_cg_warm | 5 | us | 6.34 | 6.49 | +2.4 % | l2_return: queue (chip L2 share) 85 %; l2/dram: load latency (incl. DRAM queue) 8 %; lsu: queue 2 % | default latency 161, issue-only 641 | batch r3 |
+| l2reuse n16_cg_in4 | 5 | us | 67.39 | 57.14 | -15.2 % | l2_return: queue (chip L2 share) 77 %; l2/dram: load latency (incl. DRAM queue) 22 % | default latency 161, issue-only 2817 | batch r3 |
+| l2reuse n16_ca_cold | 5 | us | 53.70 | 54.79 | +2.0 % | l2/dram: load latency (incl. DRAM queue) 99 % | default latency 161, issue-only 673 | batch r3 |
+| l2reuse n16_ca_warm | 5 | us | 6.27 | 6.49 | +3.5 % | l2_return: queue (chip L2 share) 85 %; l2/dram: load latency (incl. DRAM queue) 8 %; lsu: queue 2 % | default latency 161, issue-only 673 | batch r3 |
+| l2reuse n16_ca_in4 | 5 | us | 67.23 | 57.15 | -15.0 % | l2_return: queue (chip L2 share) 77 %; l2/dram: load latency (incl. DRAM queue) 22 % | default latency 161, issue-only 2849 | batch r3 |
+| l2reuse n16_cs_cold | 5 | us | 53.63 | 54.78 | +2.1 % | l2/dram: load latency (incl. DRAM queue) 99 % | default latency 161, issue-only 641 | batch r3 |
+| l2reuse n16_cs_warm | 5 | us | 53.41 | 54.78 | +2.6 % | l2/dram: load latency (incl. DRAM queue) 99 % | default latency 161, issue-only 641 | batch r3 |
+| l2reuse n16_cs_in4 | 5 | us | 182.62 | 217.62 | +19.2 % | l2/dram: load latency (incl. DRAM queue) 100 % | default latency 161, issue-only 2817 | batch r3 |
+| l2reuse n20_cg_cold | 5 | us | 66.78 | 68.35 | +2.3 % | l2/dram: load latency (incl. DRAM queue) 99 % | default latency 161, issue-only 769 | batch r3 |
+| l2reuse n20_cg_warm | 5 | us | 9.18 | 8.04 | -12.5 % | l2_return: queue (chip L2 share) 86 %; l2/dram: load latency (incl. DRAM queue) 9 %; lsu: queue 2 % | default latency 161, issue-only 769 | batch r3 |
+| l2reuse n20_cg_in4 | 5 | us | 87.17 | 72.01 | -17.4 % | l2_return: queue (chip L2 share) 71 %; l2/dram: load latency (incl. DRAM queue) 28 % | default latency 161, issue-only 3329 | batch r3 |
+| l2reuse n20_ca_cold | 5 | us | 66.85 | 68.35 | +2.3 % | l2/dram: load latency (incl. DRAM queue) 99 % | default latency 161, issue-only 801 | batch r3 |
+| l2reuse n20_ca_warm | 5 | us | 8.99 | 8.04 | -10.6 % | l2_return: queue (chip L2 share) 86 %; l2/dram: load latency (incl. DRAM queue) 9 %; lsu: queue 2 % | default latency 161, issue-only 801 | batch r3 |
+| l2reuse n20_ca_in4 | 5 | us | 87.07 | 72.01 | -17.3 % | l2_return: queue (chip L2 share) 71 %; l2/dram: load latency (incl. DRAM queue) 28 % | default latency 161, issue-only 3361 | batch r3 |
+| l2reuse n20_cs_cold | 5 | us | 66.82 | 68.35 | +2.3 % | l2/dram: load latency (incl. DRAM queue) 99 % | default latency 161, issue-only 769 | batch r3 |
+| l2reuse n20_cs_warm | 5 | us | 66.78 | 68.35 | +2.3 % | l2/dram: load latency (incl. DRAM queue) 99 % | default latency 161, issue-only 769 | batch r3 |
+| l2reuse n20_cs_in4 | 5 | us | 244.86 | 271.89 | +11.0 % | l2/dram: load latency (incl. DRAM queue) 100 % | default latency 161, issue-only 3329 | batch r3 |
+| l2reuse n22_cg_cold | 5 | us | 73.28 | 75.14 | +2.5 % | l2/dram: load latency (incl. DRAM queue) 99 % | default latency 161, issue-only 929 | batch r3 |
+| l2reuse n22_cg_warm | 5 | us | 9.82 | 8.81 | -10.3 % | l2_return: queue (chip L2 share) 86 %; l2/dram: load latency (incl. DRAM queue) 9 %; store_port: drain after the last instruction 1 % | default latency 161, issue-only 929 | batch r3 |
+| l2reuse n22_cg_in4 | 5 | us | 91.68 | 74.20 | -19.1 % | l2_return: queue (chip L2 share) 77 %; l2/dram: load latency (incl. DRAM queue) 22 % | default latency 161, issue-only 3969 | batch r3 |
+| l2reuse n22_ca_cold | 5 | us | 73.34 | 75.14 | +2.4 % | l2/dram: load latency (incl. DRAM queue) 99 % | default latency 161, issue-only 961 | batch r3 |
+| l2reuse n22_ca_warm | 5 | us | 9.95 | 8.81 | -11.4 % | l2_return: queue (chip L2 share) 86 %; l2/dram: load latency (incl. DRAM queue) 9 %; store_port: drain after the last instruction 1 % | default latency 161, issue-only 961 | batch r3 |
+| l2reuse n22_ca_in4 | 5 | us | 91.39 | 74.20 | -18.8 % | l2_return: queue (chip L2 share) 77 %; l2/dram: load latency (incl. DRAM queue) 22 % | default latency 161, issue-only 4001 | batch r3 |
+| l2reuse n22_cs_cold | 5 | us | 73.25 | 75.14 | +2.6 % | l2/dram: load latency (incl. DRAM queue) 99 % | default latency 161, issue-only 929 | batch r3 |
+| l2reuse n22_cs_warm | 5 | us | 73.15 | 75.14 | +2.7 % | l2/dram: load latency (incl. DRAM queue) 99 % | default latency 161, issue-only 929 | batch r3 |
+| l2reuse n22_cs_in4 | 5 | us | 248.77 | 278.67 | +12.0 % | l2/dram: load latency (incl. DRAM queue) 100 % | default latency 161, issue-only 3969 | batch r3 |
+| l2reuse n24_cg_cold | 5 | us | 80.22 | 81.92 | +2.1 % | l2/dram: load latency (incl. DRAM queue) 99 % | default latency 161, issue-only 897 | batch r3 |
+| l2reuse n24_cg_warm | 5 | us | 15.10 | 9.77 | -35.3 % | l2_return: queue (chip L2 share) 87 %; l2/dram: load latency (incl. DRAM queue) 8 %; lsu: queue 2 % | default latency 161, issue-only 897 | batch r3 |
+| l2reuse n24_cg_in4 | 5 | us | 109.22 | 101.45 | -7.1 % | l2_return: queue (chip L2 share) 68 %; l2/dram: load latency (incl. DRAM queue) 31 % | default latency 161, issue-only 3841 | batch r3 |
+| l2reuse n24_ca_cold | 5 | us | 80.32 | 81.92 | +2.0 % | l2/dram: load latency (incl. DRAM queue) 99 % | default latency 161, issue-only 929 | batch r3 |
+| l2reuse n24_ca_warm | 5 | us | 14.94 | 9.77 | -34.6 % | l2_return: queue (chip L2 share) 86 %; l2/dram: load latency (incl. DRAM queue) 8 %; lsu: queue 2 % | default latency 161, issue-only 929 | batch r3 |
+| l2reuse n24_ca_in4 | 5 | us | 108.77 | 101.46 | -6.7 % | l2_return: queue (chip L2 share) 68 %; l2/dram: load latency (incl. DRAM queue) 31 % | default latency 161, issue-only 3873 | batch r3 |
+| l2reuse n24_cs_cold | 5 | us | 80.26 | 81.92 | +2.1 % | l2/dram: load latency (incl. DRAM queue) 99 % | default latency 161, issue-only 897 | batch r3 |
+| l2reuse n24_cs_warm | 5 | us | 80.16 | 81.92 | +2.2 % | l2/dram: load latency (incl. DRAM queue) 99 % | default latency 161, issue-only 897 | batch r3 |
+| l2reuse n24_cs_in4 | 5 | us | 305.86 | 326.17 | +6.6 % | l2/dram: load latency (incl. DRAM queue) 100 % | default latency 161, issue-only 3841 | batch r3 |
+| l2reuse n27_cg_cold | 5 | us | 90.05 | 92.10 | +2.3 % | l2/dram: load latency (incl. DRAM queue) 99 % | default latency 161, issue-only 1089 | batch r3 |
+| l2reuse n27_cg_warm | 5 | us | 21.38 | 12.42 | -41.9 % | l2_return: queue (chip L2 share) 63 %; l2/dram: load latency (incl. DRAM queue) 34 %; lsu: queue 1 % | default latency 161, issue-only 1089 | batch r3 |
+| l2reuse n27_cg_in4 | 5 | us | 115.58 | 117.14 | +1.3 % | l2_return: queue (chip L2 share) 61 %; l2/dram: load latency (incl. DRAM queue) 38 % | default latency 161, issue-only 4609 | batch r3 |
+| l2reuse n27_ca_cold | 5 | us | 90.24 | 92.10 | +2.1 % | l2/dram: load latency (incl. DRAM queue) 99 % | default latency 161, issue-only 1121 | batch r3 |
+| l2reuse n27_ca_warm | 5 | us | 21.15 | 12.42 | -41.3 % | l2_return: queue (chip L2 share) 63 %; l2/dram: load latency (incl. DRAM queue) 34 %; lsu: queue 1 % | default latency 161, issue-only 1121 | batch r3 |
+| l2reuse n27_ca_in4 | 5 | us | 115.39 | 117.14 | +1.5 % | l2_return: queue (chip L2 share) 61 %; l2/dram: load latency (incl. DRAM queue) 38 % | default latency 161, issue-only 4641 | batch r3 |
+| l2reuse n27_cs_cold | 5 | us | 90.02 | 92.10 | +2.3 % | l2/dram: load latency (incl. DRAM queue) 99 % | default latency 161, issue-only 1089 | batch r3 |
+| l2reuse n27_cs_warm | 5 | us | 89.76 | 92.10 | +2.6 % | l2/dram: load latency (incl. DRAM queue) 99 % | default latency 161, issue-only 1089 | batch r3 |
+| l2reuse n27_cs_in4 | 5 | us | 312.61 | 336.34 | +7.6 % | l2/dram: load latency (incl. DRAM queue) 100 % | default latency 161, issue-only 4609 | batch r3 |
+| l2reuse n32_cg_cold | 5 | us | 106.66 | 109.06 | +2.3 % | l2/dram: load latency (incl. DRAM queue) 100 % | default latency 161, issue-only 1153 | batch r3 |
+| l2reuse n32_cg_warm | 5 | us | 72.00 | 67.73 | -5.9 % | l2/dram: load latency (incl. DRAM queue) 63 %; l2_return: queue (chip L2 share) 36 % | default latency 161, issue-only 1153 | batch r3 |
+| l2reuse n32_cg_in4 | 5 | us | 276.77 | 310.91 | +12.3 % | l2/dram: load latency (incl. DRAM queue) 75 %; l2_return: queue (chip L2 share) 24 % | default latency 161, issue-only 4865 | batch r3 |
+| l2reuse n32_ca_cold | 5 | us | 106.78 | 109.06 | +2.1 % | l2/dram: load latency (incl. DRAM queue) 100 % | default latency 161, issue-only 1185 | batch r3 |
+| l2reuse n32_ca_warm | 5 | us | 71.42 | 67.73 | -5.2 % | l2/dram: load latency (incl. DRAM queue) 63 %; l2_return: queue (chip L2 share) 36 % | default latency 161, issue-only 1185 | batch r3 |
+| l2reuse n32_ca_in4 | 5 | us | 283.46 | 310.91 | +9.7 % | l2/dram: load latency (incl. DRAM queue) 75 %; l2_return: queue (chip L2 share) 24 % | default latency 161, issue-only 4897 | batch r3 |
+| l2reuse n32_cs_cold | 5 | us | 106.85 | 109.06 | +2.1 % | l2/dram: load latency (incl. DRAM queue) 100 % | default latency 161, issue-only 1153 | batch r3 |
+| l2reuse n32_cs_warm | 5 | us | 106.62 | 109.06 | +2.3 % | l2/dram: load latency (incl. DRAM queue) 100 % | default latency 161, issue-only 1153 | batch r3 |
+| l2reuse n32_cs_in4 | 5 | us | 418.21 | 434.72 | +3.9 % | l2/dram: load latency (incl. DRAM queue) 100 % | default latency 161, issue-only 4865 | batch r3 |
+| l2reuse n43_cg_cold | 5 | us | 143.78 | 146.37 | +1.8 % | l2/dram: load latency (incl. DRAM queue) 100 % | default latency 161, issue-only 1729 | batch r3 |
+| l2reuse n43_cg_warm | 5 | us | 124.22 | 124.43 | +0.2 % | l2/dram: load latency (incl. DRAM queue) 100 % | default latency 161, issue-only 1729 | batch r3 |
+| l2reuse n43_cg_in4 | 5 | us | 467.81 | 491.21 | +5.0 % | l2/dram: load latency (incl. DRAM queue) 80 %; l2_return: queue (chip L2 share) 19 % | default latency 161, issue-only 7169 | batch r3 |
+| l2reuse n43_ca_cold | 5 | us | 143.71 | 146.37 | +1.9 % | l2/dram: load latency (incl. DRAM queue) 100 % | default latency 161, issue-only 1761 | batch r3 |
+| l2reuse n43_ca_warm | 5 | us | 124.03 | 124.43 | +0.3 % | l2/dram: load latency (incl. DRAM queue) 100 % | default latency 161, issue-only 1761 | batch r3 |
+| l2reuse n43_ca_in4 | 5 | us | 464.96 | 491.21 | +5.6 % | l2/dram: load latency (incl. DRAM queue) 80 %; l2_return: queue (chip L2 share) 19 % | default latency 161, issue-only 7201 | batch r3 |
+| l2reuse n43_cs_cold | 5 | us | 143.33 | 146.37 | +2.1 % | l2/dram: load latency (incl. DRAM queue) 100 % | default latency 161, issue-only 1729 | batch r3 |
+| l2reuse n43_cs_warm | 5 | us | 143.36 | 146.37 | +2.1 % | l2/dram: load latency (incl. DRAM queue) 100 % | default latency 161, issue-only 1729 | batch r3 |
+| l2reuse n43_cs_in4 | 5 | us | 535.71 | 553.44 | +3.3 % | l2/dram: load latency (incl. DRAM queue) 100 % | default latency 161, issue-only 7169 | batch r3 |
+| launch empty_g1_t128 | 1 | us | 2.43 | 2.80 | +15.2 % | issue: last instruction 67 %; issue: stall count after other 33 % | issue-only 4 | batch r3 |
+| launch tiny_g1_t128 | 1 | us | 2.46 | 2.84 | +15.4 % | store_port: drain after the last instruction 54 %; issue: stall count after other 22 %; issue: default result latency (LDC) 18 % | default latency 20, issue-only 4 | batch r3 |
+| launch empty_g48_t128 | 1 | us | 2.43 | 2.80 | +15.2 % | issue: last instruction 67 %; issue: stall count after other 33 % | issue-only 4 | batch r3 |
+| launch tiny_g48_t128 | 1 | us | 2.40 | 2.90 | +20.9 % | store_port: drain after the last instruction 80 %; issue: stall count after other 10 %; issue: default result latency (LDC) 8 % | default latency 20, issue-only 4 | batch r3 |
+| launch empty_g96_t128 | 1 | us | 2.43 | 2.80 | +15.2 % | issue: last instruction 40 %; issue: scheduler (another warp issued) 40 %; issue: stall count after other 20 % | issue-only 8 | batch r3 |
+| launch tiny_g96_t128 | 1 | us | 2.46 | 2.98 | +21.0 % | store_port: drain after the last instruction 88 %; issue: stall count after other 5 %; issue: default result latency (LDC) 4 % | default latency 40, issue-only 8 | batch r3 |
+| launch empty_g512_t128 | 1 | us | 2.46 | 2.81 | +14.0 % | issue: scheduler (another warp issued) 87 %; issue: last instruction 9 %; issue: stall count after other 4 % | issue-only 44 | batch r3 |
+| launch tiny_g512_t128 | 1 | us | 2.40 | 3.66 | +52.7 % | store_queue: queue (stg) 60 %; store_port: drain after the last instruction 34 %; issue: scheduler (another warp issued) 3 % | default latency 220, issue-only 44 | batch r3 |
+| launch empty_g1024_t128 | 1 | us | 2.43 | 2.82 | +15.9 % | issue: scheduler (another warp issued) 93 %; issue: last instruction 4 %; issue: stall count after other 2 % | issue-only 88 | batch r3 |
+| launch tiny_g1024_t128 | 1 | us | 2.53 | 4.51 | +78.5 % | store_queue: queue (stg) 79 %; store_port: drain after the last instruction 17 %; issue: scheduler (another warp issued) 4 % | default latency 440, issue-only 88 | batch r3 |
+| launch empty_g2048_t128 | 1 | us | 2.91 | 2.84 | -2.6 % | issue: scheduler (another warp issued) 97 %; issue: last instruction 2 %; issue: stall count after other 1 % | issue-only 172 | batch r3 |
+| launch tiny_g2048_t128 | 1 | us | 4.61 | 6.25 | +35.7 % | store_queue: queue (stg) 87 %; store_port: drain after the last instruction 9 %; issue: scheduler (another warp issued) 4 % | default latency 860, issue-only 172 | batch r3 |
+| launch empty_g4096_t128 | 1 | us | 4.64 | 2.87 | -38.2 % | issue: scheduler (another warp issued) 98 %; issue: last instruction 1 %; issue: stall count after other 1 % | issue-only 344 | batch r3 |
+| launch tiny_g4096_t128 | 1 | us | 4.64 | 9.69 | +108.8 % | store_queue: queue (stg) 92 %; store_port: drain after the last instruction 4 %; issue: scheduler (another warp issued) 4 % | default latency 1720, issue-only 344 | batch r3 |
+| launch empty_g8192_t128 | 1 | us | 6.69 | 2.94 | -56.1 % | issue: scheduler (another warp issued) 99 %; issue: last instruction 1 % | issue-only 684 | batch r3 |
+| launch tiny_g8192_t128 | 1 | us | 6.62 | 16.62 | +151.0 % | store_queue: queue (stg) 94 %; issue: scheduler (another warp issued) 4 %; store_port: drain after the last instruction 2 % | default latency 3420, issue-only 684 | batch r3 |
+| launch empty_g48_t1024 | 1 | us | 2.40 | 2.81 | +17.0 % | issue: scheduler (another warp issued) 82 %; issue: last instruction 12 %; issue: stall count after other 6 % | issue-only 32 | batch r3 |
+| launch tiny_g48_t1024 | 1 | us | 2.43 | 3.47 | +42.6 % | store_port: drain after the last instruction 48 %; store_queue: queue (stg) 46 %; issue: scheduler (another warp issued) 3 % | default latency 160, issue-only 32 | batch r3 |
+| launch empty_g128_t1024 | 1 | us | 2.43 | 2.82 | +15.9 % | issue: scheduler (another warp issued) 94 %; issue: last instruction 4 %; issue: stall count after other 2 % | issue-only 96 | batch r3 |
+| launch tiny_g128_t1024 | 1 | us | 2.91 | 4.69 | +61.1 % | store_queue: queue (stg) 82 %; store_port: drain after the last instruction 13 %; issue: scheduler (another warp issued) 4 % | default latency 480, issue-only 96 | batch r3 |
+| launch empty_g256_t1024 | 1 | us | 2.62 | 2.84 | +8.2 % | issue: scheduler (another warp issued) 97 %; issue: last instruction 2 %; issue: stall count after other 1 % | issue-only 192 | batch r3 |
+| launch tiny_g256_t1024 | 1 | us | 4.64 | 6.52 | +40.4 % | store_queue: queue (stg) 90 %; store_port: drain after the last instruction 6 %; issue: scheduler (another warp issued) 4 % | default latency 960, issue-only 192 | batch r3 |
+| launch empty_g512_t1024 | 1 | us | 4.64 | 2.87 | -38.1 % | issue: scheduler (another warp issued) 98 %; issue: last instruction 1 %; issue: stall count after other 1 % | issue-only 352 | batch r3 |
+| launch tiny_g512_t1024 | 1 | us | 4.70 | 9.80 | +108.4 % | store_queue: queue (stg) 92 %; issue: scheduler (another warp issued) 4 %; store_port: drain after the last instruction 4 % | default latency 1760, issue-only 352 | batch r3 |
+| launch work_i0 | 1 | us | 2.40 | 2.91 | +21.2 % | store_port: drain after the last instruction 71 %; issue: default result latency (S2R) 15 %; alu: stall count after alu 7 % | default latency 7, issue-only 9 | batch r3 |
+| launch work_i64 | 1 | us | 2.78 | 3.45 | +23.9 % | issue: stall count after other 60 %; store_port: drain after the last instruction 12 %; fma: stall count after fp32 12 % | default latency 14, issue-only 785 | batch r3 |
+| launch work_i128 | 1 | us | 4.58 | 3.91 | -14.5 % | issue: stall count after other 70 %; fma: stall count after fp32 14 %; store_port: drain after the last instruction 7 % | default latency 14, issue-only 1553 | batch r3 |
+| launch work_i256 | 1 | us | 4.58 | 4.84 | +5.8 % | issue: stall count after other 76 %; fma: stall count after fp32 15 %; store_port: drain after the last instruction 4 % | default latency 14, issue-only 3089 | batch r3 |
+| launch work_i512 | 1 | us | 7.49 | 6.70 | -10.6 % | issue: stall count after other 79 %; fma: stall count after fp32 16 %; store_port: drain after the last instruction 2 % | default latency 14, issue-only 6161 | batch r3 |
+| launch work_i1024 | 1 | us | 12.80 | 10.41 | -18.7 % | issue: stall count after other 81 %; fma: stall count after fp32 16 %; store_port: drain after the last instruction 1 % | default latency 14, issue-only 12305 | batch r3 |
+| launch work_i4096 | 1 | us | 41.38 | 32.66 | -21.1 % | issue: stall count after other 83 %; fma: stall count after fp32 17 % | default latency 14, issue-only 49169 | batch r3 |
+| launch work_i16384 | 1 | us | 153.86 | 121.68 | -20.9 % | issue: stall count after other 83 %; fma: stall count after fp32 17 % | default latency 14, issue-only 196625 | batch r3 |
+| fp8gemm2048_c128x128x64_s3_t128 kernel | 7 | us | 123.14 | 117.81 | -4.3 % | tensor: queue (mma) 36 %; tensor: stall count after mma 20 %; store_queue: queue (stg) 20 % | branch fallback 720, default latency 192, default rbar 24, issue-only 25464 | batch r3 |
+| fp8gemm2048_c128x256x64_s3_t256 kernel | 7 | us | 137.63 | 125.33 | -8.9 % | tensor: queue (mma) 35 %; store_queue: queue (stg) 21 %; tensor: stall count after mma 19 % | branch fallback 720, default latency 192, issue-only 25368 | batch r3 |
