@@ -28,10 +28,10 @@ __global__ void __launch_bounds__(T, 1) k(unsigned* lat, const char* src, float*
     }
   } else {
     constexpr int PASSES = 330000 / (1100 + Z);
-    unsigned s0 = (unsigned)b * 104728u + t * 128u;
+    unsigned s0 = (unsigned)b * 5592320u + t * 128u;
 #pragma unroll 1
     for (int s = 0; s < PASSES; s++) {
-      unsigned v = ld(src + (s0 + (unsigned)s * 40960u) % BUF);
+      unsigned v = ld(src + (s0 + (unsigned)s * 16384u) % BUF);
       if (v == 0x12345u) sink[0] = 1.f;
 #pragma unroll 1
       for (int z = 0; z < Z; z++) f = fmaf(f, 0.9999f, 0.25f);

@@ -36,7 +36,7 @@ __global__ void __launch_bounds__(T, 1) k(u64* out, const char* src, float* sink
     for (int s = 0; s < PASSES; s++) {
 #pragma unroll 1
       for (int c = 0; c < 16; c++)
-        cp16(sm + 512 * (w + c) + lane * 16,
+        cp16(sm + 512 * (w + (c & 3)) + lane * 16,
              src + (base + (s * 48 + c * 3 + w * 5000) * 512) % TILE + lane * 16);
       commit();
       wait1();

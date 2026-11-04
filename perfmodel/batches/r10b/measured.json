@@ -1,0 +1,257 @@
+{
+ "batch": "r10b",
+ "valid": true,
+ "clock_GHz": 2.4939,
+ "results": {
+  "dram_spread g1_z0_p10": {
+   "median": 914.0,
+   "iqr": 0.0,
+   "unit": "cycles",
+   "n": 2048
+  },
+  "dram_spread g1_z0_p50": {
+   "median": 948.0,
+   "iqr": 0.0,
+   "unit": "cycles",
+   "n": 2048
+  },
+  "dram_spread g1_z0_p90": {
+   "median": 981.0,
+   "iqr": 0.0,
+   "unit": "cycles",
+   "n": 2048
+  },
+  "dram_spread g1_z0_p99": {
+   "median": 3058.0,
+   "iqr": 0.0,
+   "unit": "cycles",
+   "n": 2048
+  },
+  "dram_spread g1_z0_GBs": {
+   "median": 0.0,
+   "iqr": 0.0,
+   "unit": "GB/s",
+   "n": 1
+  },
+  "dram_spread g48_z0_p10": {
+   "median": 903.0,
+   "iqr": 0.0,
+   "unit": "cycles",
+   "n": 2048
+  },
+  "dram_spread g48_z0_p50": {
+   "median": 946.0,
+   "iqr": 0.0,
+   "unit": "cycles",
+   "n": 2048
+  },
+  "dram_spread g48_z0_p90": {
+   "median": 994.0,
+   "iqr": 0.0,
+   "unit": "cycles",
+   "n": 2048
+  },
+  "dram_spread g48_z0_p99": {
+   "median": 1108.0,
+   "iqr": 0.0,
+   "unit": "cycles",
+   "n": 2048
+  },
+  "dram_spread g48_z0_GBs": {
+   "median": 1996.4601,
+   "iqr": 0.0,
+   "unit": "GB/s",
+   "n": 1
+  },
+  "dram_spread g48_z250_p10": {
+   "median": 908.0,
+   "iqr": 0.0,
+   "unit": "cycles",
+   "n": 2048
+  },
+  "dram_spread g48_z250_p50": {
+   "median": 952.0,
+   "iqr": 0.0,
+   "unit": "cycles",
+   "n": 2048
+  },
+  "dram_spread g48_z250_p90": {
+   "median": 1001.0,
+   "iqr": 0.0,
+   "unit": "cycles",
+   "n": 2048
+  },
+  "dram_spread g48_z250_p99": {
+   "median": 1151.0,
+   "iqr": 0.0,
+   "unit": "cycles",
+   "n": 2048
+  },
+  "dram_spread g48_z250_GBs": {
+   "median": 305.8293,
+   "iqr": 0.0,
+   "unit": "GB/s",
+   "n": 1
+  },
+  "dram_spread g48_z500_p10": {
+   "median": 906.0,
+   "iqr": 0.0,
+   "unit": "cycles",
+   "n": 2048
+  },
+  "dram_spread g48_z500_p50": {
+   "median": 951.0,
+   "iqr": 0.0,
+   "unit": "cycles",
+   "n": 2048
+  },
+  "dram_spread g48_z500_p90": {
+   "median": 1038.0,
+   "iqr": 0.0,
+   "unit": "cycles",
+   "n": 2048
+  },
+  "dram_spread g48_z500_p99": {
+   "median": 1155.0,
+   "iqr": 0.0,
+   "unit": "cycles",
+   "n": 2048
+  },
+  "dram_spread g48_z500_GBs": {
+   "median": 157.1315,
+   "iqr": 0.0,
+   "unit": "GB/s",
+   "n": 1
+  },
+  "dram_spread g48_z1000_p10": {
+   "median": 910.0,
+   "iqr": 0.0,
+   "unit": "cycles",
+   "n": 2048
+  },
+  "dram_spread g48_z1000_p50": {
+   "median": 953.0,
+   "iqr": 0.0,
+   "unit": "cycles",
+   "n": 2048
+  },
+  "dram_spread g48_z1000_p90": {
+   "median": 1025.0,
+   "iqr": 0.0,
+   "unit": "cycles",
+   "n": 2048
+  },
+  "dram_spread g48_z1000_p99": {
+   "median": 1553.0,
+   "iqr": 0.0,
+   "unit": "cycles",
+   "n": 2048
+  },
+  "dram_spread g48_z1000_GBs": {
+   "median": 80.3891,
+   "iqr": 0.0,
+   "unit": "GB/s",
+   "n": 1
+  },
+  "dram_spread g48_z2000_p10": {
+   "median": 917.0,
+   "iqr": 0.0,
+   "unit": "cycles",
+   "n": 2048
+  },
+  "dram_spread g48_z2000_p50": {
+   "median": 959.0,
+   "iqr": 0.0,
+   "unit": "cycles",
+   "n": 2048
+  },
+  "dram_spread g48_z2000_p90": {
+   "median": 1033.0,
+   "iqr": 0.0,
+   "unit": "cycles",
+   "n": 2048
+  },
+  "dram_spread g48_z2000_p99": {
+   "median": 1131.0,
+   "iqr": 0.0,
+   "unit": "cycles",
+   "n": 2048
+  },
+  "dram_spread g48_z2000_GBs": {
+   "median": 40.9804,
+   "iqr": 0.0,
+   "unit": "GB/s",
+   "n": 1
+  },
+  "dram_spread g48_z4000_p10": {
+   "median": 910.0,
+   "iqr": 0.0,
+   "unit": "cycles",
+   "n": 2048
+  },
+  "dram_spread g48_z4000_p50": {
+   "median": 956.0,
+   "iqr": 0.0,
+   "unit": "cycles",
+   "n": 2048
+  },
+  "dram_spread g48_z4000_p90": {
+   "median": 1075.0,
+   "iqr": 0.0,
+   "unit": "cycles",
+   "n": 2048
+  },
+  "dram_spread g48_z4000_p99": {
+   "median": 1189.0,
+   "iqr": 0.0,
+   "unit": "cycles",
+   "n": 2048
+  },
+  "dram_spread g48_z4000_GBs": {
+   "median": 20.3646,
+   "iqr": 0.0,
+   "unit": "GB/s",
+   "n": 1
+  },
+  "dram_spread g48_z8000_p10": {
+   "median": 906.0,
+   "iqr": 0.0,
+   "unit": "cycles",
+   "n": 2048
+  },
+  "dram_spread g48_z8000_p50": {
+   "median": 946.0,
+   "iqr": 0.0,
+   "unit": "cycles",
+   "n": 2048
+  },
+  "dram_spread g48_z8000_p90": {
+   "median": 1011.0,
+   "iqr": 0.0,
+   "unit": "cycles",
+   "n": 2048
+  },
+  "dram_spread g48_z8000_p99": {
+   "median": 1111.0,
+   "iqr": 0.0,
+   "unit": "cycles",
+   "n": 2048
+  },
+  "dram_spread g48_z8000_GBs": {
+   "median": 10.2543,
+   "iqr": 0.0,
+   "unit": "GB/s",
+   "n": 1
+  },
+  "clock chain_GHz": {
+   "median": 2.4939,
+   "iqr": 0.0038,
+   "unit": "GHz",
+   "n": 15,
+   "chain_cycles": 19136544.0,
+   "cycles_per_ffma": 4.563
+  }
+ },
+ "invalid_results": {},
+ "counters": {}
+}
