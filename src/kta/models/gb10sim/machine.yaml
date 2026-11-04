@@ -79,7 +79,7 @@ classes:
      beside: {tensor: sim.tensor_beside_copy_clk}}
   - {name: ldg, base: [LDG], gates: [mio], handler: ldg, rbar: lsu, count: LDG}
   - {name: local, base: [LDL, STL], handler: local, rbar: lsu}
-  - {name: red, base: [REDG], gates: [mio, store_queue], handler: red, rbar: lsu}
+  - {name: red, base: [REDG, ATOMG], gates: [mio, store_queue], handler: red, rbar: lsu}
   - {name: red, base: [RED], op_contains: ".E.", gates: [store_queue], handler: red, rbar: lsu}
   - {name: red_other, base: [RED], handler: other, rbar: lsu}
   - {name: commit, base: [LDGDEPBAR], handler: commit}

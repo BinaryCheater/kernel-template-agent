@@ -276,7 +276,12 @@ def generic_kernel(
     if m.P["l2_replay"]:
         r = _l2_replay(ins, L, trips, m.sms * rmax, m)
         # round 7 (rot_depth): a rotation of `rot` sets is a re-read of everything it touches
-        window = L.get("rot", 1) * (r.footprint + L.get("write_bytes", 0))
+        # round 12: unknown addresses read what the known ones leave of the buffers
+        rest = max(0, fb - r.footprint - L.get("write_bytes", 0))
+        seen = r.footprint + min(r.loose, rest)
+        # round 12 (rmw_*): lines stores rewrite after reading them count once
+        written = 0 if r.rewrites else L.get("write_bytes", 0)
+        window = L.get("rot", 1) * (seen + written)
         if cache == "cold":
             scale = 1.0
         elif rotating:
@@ -284,8 +289,8 @@ def generic_kernel(
         else:
             # round 11 (wr_*): reads a launch uses once stay on the L2's probation list beside the
             # stores; re-read lines are protected (HGEMM)
-            once = m.P["warm_window_writes"] and r.loaded < 1.1 * r.footprint
-            scale = l2_warm_miss(r.footprint + (L.get("write_bytes", 0) if once else 0), kind, m)
+            once = m.P["warm_window_writes"] and r.loaded < 1.1 * seen and not r.rewrites
+            scale = l2_warm_miss(seen + (written if once else 0), kind, m)
         # the kernel's arguments, 8 bytes each from the first parameter slot, by name
         slots = {P0_SLOT + 8 * i: n for i, n in enumerate(L.get("params", ()))}
         byname = {
@@ -318,8 +323,10 @@ def generic_kernel(
     # 9.4 MB of rewritten C) only past 1.5 times the limit, up to 16 MiB unmeasured
     w_limit = m.P["stg_dirty_once_bytes"] if once else 1.5 * m.P["stg_dirty_bytes"]
     kw["dirty_full"] = not rotating and L.get("write_bytes", 0) > w_limit
-    if any(x.base in ("RED", "REDG") for x in ins):
+    if any(x.base in ("RED", "REDG", "ATOMG") for x in ins):
         kw["atomic_bytes"] = L.get("write_bytes", 0)
+    elif "write_bytes" in L:
+        kw["write_footprint"] = L["write_bytes"]
     if miss > 0:
         kw = {
             **kw,

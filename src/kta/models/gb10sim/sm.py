@@ -34,7 +34,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from .lanes import Lanes, contiguous, footprint, lut3, shared_part_sector, width_of
+from .lanes import Lanes, contiguous, footprint, lut3, shared_part_sector, spread_lines, width_of
 from .machine import Machine, OpClass, default_machine
 from .sass import Ins, main_loop, parse
 
@@ -139,6 +139,7 @@ class SM:
         block_ids: list[int] | None = None,
         addr_log: list | None = None,
         addr_want: set | None = None,
+        write_footprint: float | None = None,
         miss_by_pc: dict[int, float] | None = None,
         stack_bytes: int | None = None,
         wave_miss: list[tuple] | None = None,
@@ -305,6 +306,9 @@ class SM:
         self.block_ids = block_ids
         self.addr_log = addr_log
         self.addr_want = addr_want  # bases still to log; the run ends when none is left
+        self.stg_bases: set = set()  # with addr_log: the bases stores land on
+        # round 12 (wf_*): the distinct bytes a launch writes, when the caller knows them
+        self.write_footprint = write_footprint
         # block -> warps that have exited (they count as arrived at a block-wide barrier)
         self.exited = {}
         # shared-memory bank conflicts of ldmatrix: (A reads, LDSM.M88; B reads, LDSM.MT88), from
@@ -354,18 +358,18 @@ class SM:
 
     def _ldg_lanes(self, w: Warp, x: Ins, addr: Any) -> tuple[int, float, int]:
         """KTA (PERFMODEL round 3): (lines, bytes that miss the L1, lines that hit) of one LDG from
-        its width and its lanes' addresses; an address the lane tracking does not know is taken as
-        32 contiguous lanes (a front-end default)."""
+        its width and its lanes' addresses; an address the lane tracking does not know comes from
+        loaded data: its lanes are taken apart, one sector each (a front-end default, round 12,
+        counters of `bl_csr`: 1 sector per lane)."""
         width = width_of(x.op)
         if self.addr_log is not None:
             self.addr_log.append((w.wid, w.loops, w.pc, width, addr))
             if self.addr_want and addr is not None:
                 self.addr_want.discard(addr[0])
         if addr is None:
-            self._dflt("front_end", "ldg address unknown (32 contiguous lanes)")
-            n_sect = width
+            self._dflt("front_end", "ldg address unknown (lanes apart)")
+            n_sect = lines = 32
             keys: dict = {}
-            lines = max(1, 32 * width // 128)
         else:
             keys, n_sect = footprint(addr, width)
             lines = len(keys)
@@ -1175,7 +1179,7 @@ class SM:
     def _ldg_chip_clk(self, addr0: Any, width: int, lines: int) -> float:
         """Round 11 (probe l2_cap): lanes spread over sectors load by the chip's sectors and lines
         per clock; 0 for lanes that share lines."""
-        n = 32 if addr0 is None and self.ldg_spread else 0
+        n = 32 if addr0 is None and (self.ldg_spread or self.lane_track) else 0
         if addr0 is not None:
             n = footprint(addr0, width)[1]
         if n < 16:
@@ -1321,7 +1325,8 @@ class SM:
             self.red_lines * P["red_pair_clk_per_line"] * self.stg_share,
             nb * self.active_sms / chip,
         )
-        if self.atomic_bytes and (addr0 is None or footprint(addr0, 4)[1] >= 16):
+        apart = x.base == "ATOMG" or addr0 is None or footprint(addr0, 4)[1] >= 16
+        if self.atomic_bytes and apart:
             # round 11 (atom_*): lanes in their own sectors: requests, by the region they land on
             # (4 KiB regions map to one target) and how often one word comes round
             regions = max(1.0, self.atomic_bytes / P["red_region_bytes"])
@@ -1337,6 +1342,8 @@ class SM:
         )
         self.end = max(self.end, t["store_port"], t["stg_chip"])
         trr = [(now, start, "store_port", "queue (atomics)", None)] if self.trace else None
+        if x.base == "ATOMG":  # round 12 (atr_*): as REDG, the old value a round trip later
+            return t["store_port"] + P["ldg_l2_latency_clk"], start, trr, trr
         return None, start, None, trr
 
     def _op_commit(self, w, x, cls, now, addr0):
@@ -1395,13 +1402,17 @@ class SM:
         rate = P[f"stg_chip_B_per_clk_{w_}"]  # the lanes unknown: by width, as measured
         if addr0 is not None and by_sector:
             rate = P["stg_chip_B_per_clk"]
-            n_sect = footprint(addr0, width_of(x.op))[1]
+            lines, n_sect = footprint(addr0, width_of(x.op))
             nbytes = n_sect * 32
+            if self.addr_log is not None:
+                self.stg_bases.add(addr0[0])
             run = w_ == "4B" and contiguous(addr0, 4)
-            # round 8 (probe store_spread): sectors several lanes fill in part (TileLang's tile
-            # store), wherever the rows lie, take their own rate
-            if not run and shared_part_sector(addr0, width_of(x.op)):
+            many = w_ == "4B" and len(lines) > P["stg_merge_lines"]
+            if not run and many and (spread_lines(lines) or shared_part_sector(addr0, 4)):
+                # round 12 (probe store_merge): more than 4 lines per instruction, apart or in part
+                # filled: by lines at the pair, the chip's lower rate
                 rate = P["stg_chip_wide_B_per_clk"]
+                pair = len(lines) * P["stg_pair_clk_per_line"] * self.stg_share
             elif w_ == "4B":  # round 11 (rw_*): 32 lanes in a run: lines, else by sectors
                 pair = max(P["stg_tpc_clk_per_instr_line"], n_sect * P["stg_pair_clk_per_sector"])
                 pair *= self.stg_share
@@ -1416,6 +1427,7 @@ class SM:
                 s
                 for s, ws in words.items()
                 if w_ != "4B"
+                or many
                 or (
                     pend.get((w.wid, base, s), 0.0) <= now
                     and not all(pend.get((base, x), 0.0) > now for x in ws)
@@ -1426,7 +1438,10 @@ class SM:
             self.count["stg_l2_sectors"] += len(fresh)
             # above what the L2 holds dirty the chip writes at the DRAM's rate (store_lines, r7b)
             self.st_bytes += 32 * width_of(x.op)  # one lane per sector or not: bytes written
-            if self.dirty_full or self.st_bytes * self.active_sms > P["stg_dirty_bytes"]:
+            written = self.st_bytes * self.active_sms
+            if self.write_footprint is not None:  # rewritten lines stay in the L2 (wf_*)
+                written = min(written, self.write_footprint)
+            if self.dirty_full or written > P["stg_dirty_bytes"]:
                 wr = self.m.C["dram_write_GBs"] / self.m.C["clock_under_load_GHz"]
                 rate = min(rate, wr)
                 if P["dram_writes_shared"] and not self.dram_writes_counted:

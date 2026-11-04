@@ -29,8 +29,8 @@ WRITES_UNKNOWN = {
     "LDSM",
     "SHFL",
     "ATOM",
-    "ATOMS",
     "ATOMG",
+    "ATOMS",
     "LDGSTS",
     "MATCH",
     "VOTE",
@@ -360,6 +360,11 @@ class Lanes:
     def _linear(self, base, op, a, src, g, vals) -> Val | None:
         if base in ("MOV", "UMOV", "MOV32I", "R2UR") and g and g[0] is not None:
             return g[0]
+        if base in ("LOP3", "ULOP3") and len(g) >= 4 and None not in g[:4]:
+            # round 12: any function of exact lanes (a hash masked to a table)
+            if all(self.exact(x) for x in g[:4]) and self.uniform(g[3]):
+                lut = g[3][1][0]
+                return ((), tuple(lut3(p, q, r, lut) for p, q, r in zip(*(x[1] for x in g[:3]))))
         if base == "LOP3" and len(g) >= 4 and g[3] == ((), (0xC0,) * 32):
             # a & b with one of them known to be zero: the other need not be known
             if any(x is not None and x == ((), ZERO) for x in g[:2]):
@@ -537,6 +542,12 @@ def shared_part_sector(addr: Val, width: int) -> bool:
     for o in addr[1]:
         lanes[o >> 5] = lanes.get(o >> 5, 0) + 1
     return any(1 < n and n * width < 32 for n in lanes.values())
+
+
+def spread_lines(lines: dict[tuple, int]) -> bool:
+    """Round 12: the lines an instruction touches are not one contiguous run."""
+    idx = [k[1] for k in lines]
+    return max(idx) - min(idx) >= len(idx)
 
 
 def width_of(op: str) -> int:

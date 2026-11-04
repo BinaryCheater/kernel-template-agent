@@ -1380,6 +1380,10 @@ def _generic_sm(d: Path, L: dict[str, Any], regs: int, carried: tuple[str, ...],
         int(x) for x in re.findall(rf"for \(int {name} = 0; {name} < (\d+); \+\+{name}\)", src)
     ]
     trips = machine_trips(ins) or (max(loops) if loops else 1)
+    # round 12: register-indexed stack: the frame the compiler reports, not the offsets it names
+    usage = re.search(rf"Function {L['entry']}:\s*REG:\d+ STACK:(\d+)", _read(d / "res-usage.txt"))
+    if usage and int(usage[1]):
+        kw.setdefault("stack_bytes", int(usage[1]))
     return generic_kernel(ins, L, regs, trips, carried, **kw)
 
 

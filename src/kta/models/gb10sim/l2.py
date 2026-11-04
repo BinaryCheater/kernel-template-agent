@@ -94,6 +94,7 @@ class Access:
     loads: list[Load]
     unknown: int = 0
     by_block: dict[tuple, dict] | None = None  # per block, per base its shift (raster panels)
+    stg_bases: set = field(default_factory=set)  # the bases stores land on
 
 
 def _entries(log: list, lp: tuple[int, int] | None) -> list[Load]:
@@ -150,6 +151,7 @@ def walk(
     stride_seen = [False]
 
     full: dict[int, list] = {}
+    stg_bases: set = set()
 
     def run_one(b: int, limit: int = 50_000_000, want: Any = None) -> list:
         """The block's address log; with `want` (bases), only up to their first loads."""
@@ -157,7 +159,7 @@ def walk(
         if whole and b in full:
             return full[b]
         log: list = []
-        SM(
+        sm = SM(
             ins,
             threads,
             1,
@@ -169,9 +171,11 @@ def walk(
             addr_want=None if want is None else set(want),
             machine=machine,
             const_bank=const_bank,
-        ).run(limit=limit)
+        )
+        sm.run(limit=limit)
         if whole:
             full[b] = log
+            stg_bases.update(sm.stg_bases)
         return log
 
     def one(b: int) -> list[Load]:
@@ -213,6 +217,7 @@ def walk(
             e.shift.append({v: t[i] for v, t in table.items()})
     grid3 = (g[0], g[1], g[2])
     acc = Access(trips if extended else 1, grid3, loads, sum(e.offs is None for e in loads))
+    acc.stg_bases = stg_bases
     if _separable(acc, run_one):
         return acc
     acc.by_block = _block_shifts(acc, run_one)
@@ -282,6 +287,9 @@ class Replay:
     # bytes the wave reads, bytes its blocks load; and the contiguous runs the misses come as
     parts: list[dict[Any, list[float]]] = field(default_factory=list)
     runs: list[dict[int, float]] = field(default_factory=list)
+    # round 12: bytes loaded at addresses the replay does not know (hashes, loaded indices)
+    loose: float = 0.0
+    rewrites: bool = False  # round 12 (rmw_*): stores land on a buffer the kernel reads
 
 
 class _Group:
@@ -340,7 +348,7 @@ def replay_walk(acc: Access, in_flight: int, cap: float) -> Replay:
         _Group([e for e in acc.loads if e.step == s], bases, acc.by_block) for s in (-1, 0, -2)
     ]
     seen: set = set()
-    reads = loaded = 0.0
+    reads = loaded = loose = 0.0
     r_pc: dict[int, float] = {}
     l_pc: dict[int, float] = {}
     waves: list[float] = []
@@ -350,11 +358,12 @@ def replay_walk(acc: Access, in_flight: int, cap: float) -> Replay:
     in_wave: set = set()
 
     def touch(g: _Group, wave: list[tuple], trip: int) -> None:
-        nonlocal reads, loaded
+        nonlocal reads, loaded, loose
         for e in g.unknown:  # unknown address: 32 lanes' lines, reused by nothing
-            b = max(LINE, 32 * e.width) * len(wave)
+            b = 32 * max(32, e.width) * len(wave)
             reads += b
             loaded += b
+            loose += 32 * (LINE if e.width <= 4 else e.width) * len(wave)
             r_pc[e.pc] = r_pc.get(e.pc, 0.0) + b
             l_pc[e.pc] = l_pc.get(e.pc, 0.0) + b
         if not g.known:
@@ -428,7 +437,8 @@ def replay_walk(acc: Access, in_flight: int, cap: float) -> Replay:
     miss = {pc: min(1.0, r_b.get(b, 0.0) / l_b[b]) for pc, b in base.items() if l_b.get(b)}
     by_tag = {tag: b for b, tag in bases.items()}
     named = [{by_tag[t]: v for t, v in p.items()} for p in parts]
-    return Replay(reads, len(seen) * LINE, loaded, miss, waves, base, named, runs)
+    rewrites = bool(set(base.values()) & acc.stg_bases)
+    return Replay(reads, len(seen) * LINE, loaded, miss, waves, base, named, runs, loose, rewrites)
 
 
 def rotating_miss(window_bytes: float, kind: str, m: Machine) -> float:

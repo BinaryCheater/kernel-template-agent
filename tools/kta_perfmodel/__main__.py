@@ -65,6 +65,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument(
         "--override", default=None, help="JSON {param: value} applied to every row (an ablation)"
     )
+    ap.add_argument("--rows", action="store_true", help="print the selection's rows")
     ap.add_argument("--trace", action="store_true", help="attribution: replays twice as slow")
     a = ap.parse_args(argv)
     if a.full:
@@ -169,7 +170,7 @@ def main(argv: list[str] | None = None) -> int:
             "jobs": a.jobs,
         }
     )
-    if over:  # an ablation is read here: it writes no table
+    if over or a.rows:  # an ablation is read here: it writes no table
         for r in rows:
             err = "" if r["error"] is None else f"{100 * r['error']:+7.1f} %"
             print(f"  {r['id']:52s} {table._fmt(r['predicted']):>12s} {err}")
