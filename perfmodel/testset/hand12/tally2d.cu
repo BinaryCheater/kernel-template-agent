@@ -1,5 +1,5 @@
 // Image tally on a 2-D grid: a load per thread, a bin atomic, a row of stores.
-__global__ void __launch_bounds__(16, 16) k_tally2d(unsigned* h, float* a, const float* b) {
+__global__ void __launch_bounds__(256) k_tally2d(unsigned* h, float* a, const float* b) {
   const int w = 16 * gridDim.x;
   const int x = blockIdx.x * 16 + threadIdx.x, y = blockIdx.y * 16 + threadIdx.y;
   float v = b[y * w + x] + b[y * w + (x ^ 1)];

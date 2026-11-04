@@ -1,0 +1,3 @@
+{
+ "bl_tally2d kernel": "launch bounds smaller than the block: nothing ran; the kernel is measured in r12b"
+}

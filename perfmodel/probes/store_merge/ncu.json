@@ -2,97 +2,97 @@
  {
   "tag": "L1_R4096_S4_g512",
   "args": [],
-  "kernel": "^_Z1kILi1ELi4096ELi4EEvPyPjS1_$",
+  "kernel": "^k$",
   "skip": 21
  },
  {
   "tag": "L1_R4096_S8_g512",
   "args": [],
-  "kernel": "^_Z1kILi1ELi4096ELi8EEvPyPjS1_$",
-  "skip": 21
+  "kernel": "^k$",
+  "skip": 57
  },
  {
   "tag": "L1_R4096_S32_g512",
   "args": [],
-  "kernel": "^_Z1kILi1ELi4096ELi32EEvPyPjS1_$",
-  "skip": 21
+  "kernel": "^k$",
+  "skip": 93
  },
  {
   "tag": "L2_R4096_S4_g512",
   "args": [],
-  "kernel": "^_Z1kILi2ELi4096ELi4EEvPyPjS1_$",
-  "skip": 21
+  "kernel": "^k$",
+  "skip": 129
  },
  {
   "tag": "L2_R4096_S8_g512",
   "args": [],
-  "kernel": "^_Z1kILi2ELi4096ELi8EEvPyPjS1_$",
-  "skip": 21
+  "kernel": "^k$",
+  "skip": 165
  },
  {
   "tag": "L2_R4096_S16_g512",
   "args": [],
-  "kernel": "^_Z1kILi2ELi4096ELi16EEvPyPjS1_$",
-  "skip": 21
+  "kernel": "^k$",
+  "skip": 201
  },
  {
   "tag": "L2_R512_S8_g512",
   "args": [],
-  "kernel": "^_Z1kILi2ELi512ELi8EEvPyPjS1_$",
-  "skip": 21
+  "kernel": "^k$",
+  "skip": 237
  },
  {
   "tag": "L4_R4096_S4_g512",
   "args": [],
-  "kernel": "^_Z1kILi4ELi4096ELi4EEvPyPjS1_$",
-  "skip": 21
+  "kernel": "^k$",
+  "skip": 273
  },
  {
   "tag": "L4_R4096_S8_g512",
   "args": [],
-  "kernel": "^_Z1kILi4ELi4096ELi8EEvPyPjS1_$",
-  "skip": 21
+  "kernel": "^k$",
+  "skip": 309
  },
  {
   "tag": "L4_R512_S8_g512",
   "args": [],
-  "kernel": "^_Z1kILi4ELi512ELi8EEvPyPjS1_$",
-  "skip": 21
+  "kernel": "^k$",
+  "skip": 345
  },
  {
   "tag": "L8_R4096_S8_g512",
   "args": [],
-  "kernel": "^_Z1kILi8ELi4096ELi8EEvPyPjS1_$",
-  "skip": 21
+  "kernel": "^k$",
+  "skip": 381
  },
  {
   "tag": "L8_R4096_S16_g512",
   "args": [],
-  "kernel": "^_Z1kILi8ELi4096ELi16EEvPyPjS1_$",
-  "skip": 21
+  "kernel": "^k$",
+  "skip": 417
  },
  {
   "tag": "L8_R512_S16_g512",
   "args": [],
-  "kernel": "^_Z1kILi8ELi512ELi16EEvPyPjS1_$",
-  "skip": 21
+  "kernel": "^k$",
+  "skip": 453
  },
  {
   "tag": "L16_R4096_S16_g512",
   "args": [],
-  "kernel": "^_Z1kILi16ELi4096ELi16EEvPyPjS1_$",
-  "skip": 21
+  "kernel": "^k$",
+  "skip": 489
  },
  {
   "tag": "L16_R4096_S32_g512",
   "args": [],
-  "kernel": "^_Z1kILi16ELi4096ELi32EEvPyPjS1_$",
-  "skip": 21
+  "kernel": "^k$",
+  "skip": 525
  },
  {
   "tag": "L32_R4096_S32_g512",
   "args": [],
-  "kernel": "^_Z1kILi32ELi4096ELi32EEvPyPjS1_$",
-  "skip": 21
+  "kernel": "^k$",
+  "skip": 561
  }
 ]

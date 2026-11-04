@@ -1247,7 +1247,7 @@ __global__ void __launch_bounds__(256) k_rw(unsigned* out) {{
 # round 12, blind rows: predictions committed before the run, no parameter taken from them. name:
 # (grid, block, [buffer bytes], bytes written or None); the first buffer is the written or atomic one
 HAND12 = {
-    "memset": ((2048, 1, 1), (256,), [64 * MB], None),
+    "memset": ((1024, 1, 1), (256,), [64 * MB], None),
     "revcopy": ((512, 1, 1), (256,), [32 * MB, 32 * MB], None),
     "gather": ((128, 1, 1), (256,), [8 * MB, 32 * MB], None),
     "scatter": ((512, 1, 1), (256,), [32 * MB], None),
@@ -1270,8 +1270,8 @@ HAND12 = {
 T128 = (("256", "128"),)  # threads halved, grid doubled, the same bytes
 # one change from a kernel above, by text: base, tag, axis, grid, buffers, written, replacements
 WI_HAND12 = (
-    ("memset", "m8", "shape", (512, 1, 1), [16 * MB], None, ()),
-    ("memset", "t128", "threads", (4096, 1, 1), [64 * MB], None, T128),
+    ("memset", "m8", "shape", (256, 1, 1), [16 * MB], None, ()),
+    ("memset", "t128", "threads", (2048, 1, 1), [64 * MB], None, T128),
     ("revcopy", "t128", "threads", (1024, 1, 1), [32 * MB, 32 * MB], None, T128),
     ("gather", "m4", "shape", None, [8 * MB, 4 * MB], None, (("8388607u", "1048575u"),)),
     ("scatter", "m4", "shape", None, [4 * MB], None, (("8388607u", "1048575u"),)),
@@ -1366,8 +1366,81 @@ WK12 = {  # rows behind the wrong what-ifs and t64 (2048 cube, warm): which part
 }
 GEMV12 = {"N": 2048, "K": 8192, "group": 64, "n_part": 4, "reduce": 32}
 ROWS12 = {"M": 256, "N": 8192}
-DECODE12 = {**DECODE, "H": 16, "G": 4, "S": 2048, "D": 256}
+DECODE12 = {**DECODE, "H": 16, "G": 4, "S": 2048, "D": 128}
 FA12 = {**FA, "S": 1024, "H": 12, "D": 128}
+
+
+# round 12, second batch: one sweep per miss of the blind rows, none of them a blind row itself
+WRITE_FOOT = (1, 4, 8, 16)  # MiB written over and over, 64 MiB in all
+RMW = (4, 6, 8, 10, 12, 16)  # MiB of y, y[i] op= x[i] beside as many of x
+ATOM_LANES = (1, 2, 4, 8, 16, 32)  # lanes of a warp instruction on one word
+ATOM_RET = (1, 16, 1024, 65536)
+STACK_U = tuple((t, n, g) for t in (64, 256) for n in (256, 1024) for g in (48, 96, 144))
+
+
+def _round12b(out: Path) -> None:
+    for w in WRITE_FOOT:
+        src = f"""// round 12b: 64 MiB of stores over {w} MiB
+__global__ void __launch_bounds__(256) k_wf(float* a) {{
+  const size_t n = {w * MB // 4}ull;
+  const size_t base = (size_t)blockIdx.x * 256 * 64 + threadIdx.x;
+  for (int k = 0; k < 64; ++k) a[(base + (size_t)k * 256) % n] = (float)k;
+}}
+"""
+        _source_kernel(out, f"wf_m{w}", src, (1024, 1, 1), (256,), [w * MB], "hand", "wr_footprint")
+    for e in RMW:
+        n = e * MB // 4
+        for name, body in (("rmw", "y[i] += 2.5f * x[i];"), ("wr", "y[i] = 2.5f * x[i];")):
+            src = f"""// round 12b: {e} MiB, {body}
+__global__ void __launch_bounds__(256) k_rmw(float* y, const float* x) {{
+  const size_t base = (size_t)blockIdx.x * 256 * 32 + threadIdx.x;
+  for (int k = 0; k < 32; ++k) {{
+    size_t i = base + (size_t)k * 256;
+    {body}
+  }}
+}}
+"""
+            g = n // (256 * 32)
+            sizes = [e * MB, e * MB]
+            _source_kernel(out, f"{name}_e{e}", src, (g, 1, 1), (256,), sizes, "hand", "wr_rmw")
+    for lw in ATOM_LANES:
+        for bins in (64, 1 << 20):
+            src = f"""// round 12b: {lw} lanes on one word of {bins}
+__global__ void __launch_bounds__(256) k_atw(unsigned* h) {{
+  const unsigned t = blockIdx.x * 256 + threadIdx.x;
+  for (int k = 0; k < 8; ++k)
+    atomicAdd(&h[((t / {lw} + k * 4099u) * 2654435761u >> 7) & {bins - 1}u], 1u);
+}}
+"""
+            name = f"atw_l{lw}_b{bins}"
+            _source_kernel(out, name, src, (1024, 1, 1), (256,), [bins * 4], "hand", "atomic_bins")
+    for bins in ATOM_RET:
+        src = f"""// round 12b: fetch-add on {bins} bins, the old value used
+__global__ void __launch_bounds__(256) k_atr(unsigned* h, unsigned* a) {{
+  const unsigned t = blockIdx.x * 256 + threadIdx.x;
+  unsigned s = 0;
+  for (int k = 0; k < 8; ++k) s += atomicAdd(&h[((t + k * 4099u) * 2654435761u >> 7) & {bins - 1}u], k);
+  a[t] = s;
+}}
+"""
+        sizes = [bins * 4, 1 * MB]
+        _source_kernel(out, f"atr_b{bins}", src, (1024, 1, 1), (256,), sizes, "hand", "atomic_bins")
+    for t, n, g in STACK_U:
+        src = f"""// round 12b: {n} words of stack per thread, one word per pass, all lanes alike
+__global__ void __launch_bounds__({t}) k_stu(unsigned* sink, const unsigned* cfg) {{
+  volatile unsigned a[{n}];
+  unsigned s = threadIdx.x, z = cfg[0] & 0;
+  for (int i = 0; i < {n}; i++) a[(i + z) & {n - 1}] = s;
+  for (int r = 0; r < 4; r++)
+    for (int i = 0; i < {n}; i++) {{
+      a[(i * 5 + z) & {n - 1}] = s + i;
+      s ^= a[(i * 3 + r + z) & {n - 1}];
+    }}
+  if (s == 12345) sink[0] = 1;
+}}
+"""
+        name = f"stu_t{t}_n{n}_g{g}"
+        _source_kernel(out, name, src, (g, 1, 1), (t,), [4096, 4096], "hand", "stack_path")
 
 
 def _round12(out: Path) -> None:
@@ -1473,10 +1546,12 @@ __global__ void __launch_bounds__({t}) k_stk(unsigned* sink) {{
     for v in ("b", "s1", "s3", "split4", "split16", "bn32"):
         kw, axis = WI_DECODE[v]
         for cache in ("warm", "rotating"):
-            more = _wi(v, f"wi12_dec_b_{cache}", axis)
+            more = _wi(v, f"wi12b_dec_b_{cache}", axis)
             group = f"whatif decode {cache}"
-            _decode_part(out, f"wi12_dec_{v}_{cache}", {**DECODE12, **kw}, cache, set=group, **more)
-    for v in ("b", "s1", "s3", "bn32", "bm128", "t64", "nostore", "nov", "noexp"):
+            _decode_part(
+                out, f"wi12b_dec_{v}_{cache}", {**DECODE12, **kw}, cache, set=group, **more
+            )
+    for v in ("b", "s1", "bn32", "bm128", "t64", "nostore", "nov", "noexp"):
         kw, axis = dict(WI_FA[v][0]), WI_FA[v][1]
         more = _wi(v, "wi12_fa_b_warm", axis)
         writes = () if kw.get("store") else (-1,)
@@ -1510,6 +1585,7 @@ def main(out: Path) -> None:
         ("nvfp4", _nvfp4),
         ("blind9", _blind9),
         ("round12", _round12),
+        ("round12b", _round12b),
     ):
         try:  # a kernel that fails to generate is reported; the others stand
             gen(out)
