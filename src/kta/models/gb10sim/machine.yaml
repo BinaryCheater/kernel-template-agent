@@ -66,7 +66,7 @@ sms_per_tpc: 2
 # `op_contains` (all given conditions must hold).  gates: resources that must be free to issue.
 # hold: resource -> cycles parameter (pipe classes).  latency: result latency (write counter).
 # rbar: when the read counter clears (lsu = when the path stage has read the operands; a parameter
-# otherwise).  handler: the engine's service rule for the class (sm.py SM.issue).
+# otherwise).  handler: the engine's service rule for the class (sm.py SM._op_<handler>).
 classes:
   - {name: mma, base: [HMMA, IMMA, QMMA, OMMA], gates: [tensor], handler: pipe,
      hold: {tensor: sim.hmma_16816_pipe_clk}, count: HMMA}

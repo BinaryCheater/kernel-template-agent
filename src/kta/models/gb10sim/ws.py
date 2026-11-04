@@ -194,7 +194,7 @@ class WSSM(SM):
                 w.ready = now + max(1, x.stall)
                 return
             if x.target is not None and self.loop_end != w.pc:
-                w.pc = self._idx(x.target) if p else w.pc + 1
+                w.pc = self.at[x.target] if p else w.pc + 1
                 w.ready = now + max(1, x.stall)
                 return
         # k-loops, either shape the compiler emits, decided by what the branch tests (k-tiles remain
@@ -214,16 +214,16 @@ class WSSM(SM):
             conditional = bool(x.pred) or x.op.startswith("BRA.U")
             if x.target < x.addr and self._is_work_loop(w.pc, x.target):
                 if conditional:
-                    w.pc = self._idx(x.target) if more else w.pc + 1
+                    w.pc = self.at[x.target] if more else w.pc + 1
                 else:
-                    w.pc = self._idx(x.target)
+                    w.pc = self.at[x.target]
                 w.ready = now + max(1, x.stall)
                 return
             j = self._back_jump_after(w.pc) if conditional and x.target > x.addr else None
             if j is not None and x.target > self.ins[j].addr and self.ins[j].target <= x.addr:
                 # the exit test may sit a few counter updates before the jump back (4096 and 8192
                 # picks)
-                w.pc = self._idx(x.target) if not more else w.pc + 1
+                w.pc = self.at[x.target] if not more else w.pc + 1
                 w.ready = now + max(1, x.stall)
                 return
         if (
@@ -282,7 +282,7 @@ class WSSM(SM):
         if not hasattr(self, "_wl"):
             self._wl = {}
         if key not in self._wl:
-            s_ = next(i for i, y in enumerate(self.ins) if y.addr == target_addr)
+            s_ = self.at[target_addr]
             self._wl[key] = any(
                 y.base in ("HMMA", "IMMA", "QMMA", "OMMA", "UTMALDG", "LDGSTS")
                 or ("TRYWAIT" in y.op)
@@ -312,8 +312,3 @@ class WSSM(SM):
                         self._bj[pc] = j
                     break
         return self._bj[pc]
-
-    def _idx(self, addr):
-        if not hasattr(self, "_ix"):
-            self._ix = {y.addr: i for i, y in enumerate(self.ins)}
-        return self._ix[addr]
