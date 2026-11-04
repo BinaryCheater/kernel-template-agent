@@ -1,10 +1,10 @@
 {
  "batch": "r10",
- "commit": "1e8daf89c1df9af551bde268eddf943fc654bba4",
+ "commit": "d0ea522ad14d1db4c3e30e18424ed16c8f5f7618",
  "host": "spark",
  "remote_build": "kta-work/data/perfmodel/batches/r10/build",
  "only": "^probe-(load_curve|copy_depth|dram_spread)$|^hand_|^stress_|^wq_|^hgemm2048_c|^wi_(hg|fa|dec|gemv|rms|softmax|w4)_b_",
- "date": "2026-11-04T08:14:11Z",
+ "date": "2026-11-04T08:16:10Z",
  "nvcc_host": "Cuda compilation tools, release 13.0, V13.0.88\nBuild cuda_13.0.r13.0/compiler.36424714_0",
  "nvcc_image": "Cuda compilation tools, release 13.2, V13.2.51\nBuild cuda_13.2.r13.2/compiler.37434383_0",
  "tilelang": "0.1.15"

@@ -1,7 +1,7 @@
 // generated, seed 1010, kernel 0
 #define MASK ((1u << 22) - 1)
 #define OMASK ((1u << 18) - 1)
-__global__ void __launch_bounds__(64) k_stress0(unsigned* out, const unsigned* in) {
+extern "C" __global__ void __launch_bounds__(64) k_stress0(unsigned* out, const unsigned* in) {
   __shared__ float s[64];
   const int t = threadIdx.x;
   const size_t base = (size_t)blockIdx.x * 64 + t;

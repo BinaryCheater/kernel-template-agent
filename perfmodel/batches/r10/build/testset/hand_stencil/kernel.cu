@@ -1,5 +1,5 @@
 // Five-point stencil on a 2048 x 2048 fp32 grid, 16 x 16 thread blocks.
-__global__ void __launch_bounds__(256) k_stencil(float* out, const float* in) {
+extern "C" __global__ void __launch_bounds__(256) k_stencil(float* out, const float* in) {
   const int n = 2048;
   const int x = blockIdx.x * 16 + threadIdx.x, y = blockIdx.y * 16 + threadIdx.y;
   const int xm = x > 0 ? x - 1 : x, xp = x < n - 1 ? x + 1 : x;

@@ -1,5 +1,5 @@
 // All-pairs forces: each thread one body against 512 others, reciprocal square roots.
-__global__ void __launch_bounds__(256) k_nbody(float4* acc, const float4* pos) {
+extern "C" __global__ void __launch_bounds__(256) k_nbody(float4* acc, const float4* pos) {
   const int i = blockIdx.x * 256 + threadIdx.x;
   const float4 p = pos[i];
   float ax = 0.f, ay = 0.f, az = 0.f;

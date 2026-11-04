@@ -1,5 +1,5 @@
 // Odd-even transposition on shared memory inside a block.
-__global__ void __launch_bounds__(128) k_oddeven(float* out, const float* in) {
+extern "C" __global__ void __launch_bounds__(128) k_oddeven(float* out, const float* in) {
   __shared__ float s[128];
   const int t = threadIdx.x, base = blockIdx.x * 128;
   s[t] = in[base + t];

@@ -3,34 +3,34 @@ ptxas info    : Compiling entry function '_Z1kILi8000EEvPjPKcPfS0_' for 'sm_121a
 ptxas info    : Function properties for _Z1kILi8000EEvPjPKcPfS0_
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 14 registers, used 0 barriers
-ptxas info    : Compile time = 2.407 ms
+ptxas info    : Compile time = 2.436 ms
 ptxas info    : Compiling entry function '_Z1kILi4000EEvPjPKcPfS0_' for 'sm_121a'
 ptxas info    : Function properties for _Z1kILi4000EEvPjPKcPfS0_
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 14 registers, used 0 barriers
-ptxas info    : Compile time = 1.553 ms
+ptxas info    : Compile time = 1.509 ms
 ptxas info    : Compiling entry function '_Z1kILi2000EEvPjPKcPfS0_' for 'sm_121a'
 ptxas info    : Function properties for _Z1kILi2000EEvPjPKcPfS0_
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 14 registers, used 0 barriers
-ptxas info    : Compile time = 1.381 ms
+ptxas info    : Compile time = 1.322 ms
 ptxas info    : Compiling entry function '_Z1kILi1000EEvPjPKcPfS0_' for 'sm_121a'
 ptxas info    : Function properties for _Z1kILi1000EEvPjPKcPfS0_
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 14 registers, used 0 barriers
-ptxas info    : Compile time = 1.356 ms
+ptxas info    : Compile time = 1.304 ms
 ptxas info    : Compiling entry function '_Z1kILi500EEvPjPKcPfS0_' for 'sm_121a'
 ptxas info    : Function properties for _Z1kILi500EEvPjPKcPfS0_
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 14 registers, used 0 barriers
-ptxas info    : Compile time = 1.359 ms
+ptxas info    : Compile time = 1.283 ms
 ptxas info    : Compiling entry function '_Z1kILi250EEvPjPKcPfS0_' for 'sm_121a'
 ptxas info    : Function properties for _Z1kILi250EEvPjPKcPfS0_
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 14 registers, used 0 barriers
-ptxas info    : Compile time = 1.351 ms
+ptxas info    : Compile time = 1.284 ms
 ptxas info    : Compiling entry function '_Z1kILi0EEvPjPKcPfS0_' for 'sm_121a'
 ptxas info    : Function properties for _Z1kILi0EEvPjPKcPfS0_
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 14 registers, used 0 barriers
-ptxas info    : Compile time = 1.161 ms
+ptxas info    : Compile time = 1.107 ms

@@ -18,17 +18,17 @@
         /*007c*/ 	.byte	0x03, 0x00, 0x04, 0x7c, 0xff, 0xff, 0xff, 0xff, 0x0f, 0x0c, 0x81, 0x80, 0x80, 0x28, 0x00, 0x08
         /*008c*/ 	.byte	0xff, 0x81, 0x80, 0x28, 0x08, 0x81, 0x80, 0x80, 0x28, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff
         /*009c*/ 	.byte	0x2c, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x68, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-        /*00ac*/ 	.dword	_Z10k_stress10PjPKj
+        /*00ac*/ 	.dword	k_stress10
         /*00b4*/ 	.byte	0xf0, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04, 0x54, 0x03, 0x00, 0x00, 0x0c, 0x81, 0x80
         /*00c4*/ 	.byte	0x80, 0x28, 0x00, 0x04, 0xe4, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff
         /*00d4*/ 	.byte	0x3c, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
         /*00e4*/ 	.byte	0x03, 0x00, 0x04, 0x7c, 0x80, 0x82, 0x80, 0x28, 0x0c, 0x81, 0x80, 0x80, 0x28, 0x00, 0x08, 0xff
         /*00f4*/ 	.byte	0x81, 0x80, 0x28, 0x08, 0x81, 0x80, 0x80, 0x28, 0x08, 0x91, 0x80, 0x80, 0x28, 0x16, 0x80, 0x82
         /*0104*/ 	.byte	0x80, 0x28, 0x10, 0x03
-        /*0108*/ 	.dword	_Z10k_stress10PjPKj
+        /*0108*/ 	.dword	k_stress10
         /*0110*/ 	.byte	0x92, 0x91, 0x80, 0x80, 0x28, 0x00, 0x22, 0x00, 0xff, 0xff, 0xff, 0xff, 0x2c, 0x00, 0x00, 0x00
         /*0120*/ 	.byte	0x00, 0x00, 0x00, 0x00, 0xd0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-        /*012c*/ 	.dword	(_Z10k_stress10PjPKj + $__internal_0_$__cuda_sm20_sqrt_rn_f32_slowpath@srel)
+        /*012c*/ 	.dword	(k_stress10 + $__internal_0_$__cuda_sm20_sqrt_rn_f32_slowpath@srel)
         /*0134*/ 	.byte	0x10, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04, 0x54, 0x00, 0x00, 0x00, 0x09, 0x91, 0x80
         /*0144*/ 	.byte	0x80, 0x28, 0x8a, 0x80, 0x80, 0x28, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
 
@@ -66,7 +66,7 @@
         /*0002*/ 	.short	(.L_1 - .L_0)
 	.align		4
 .L_0:
-        /*0004*/ 	.word	index@(_Z10k_stress10PjPKj)
+        /*0004*/ 	.word	index@(k_stress10)
         /*0008*/ 	.word	0x0000001f
 
 
@@ -88,7 +88,7 @@
         /*001a*/ 	.short	(.L_5 - .L_4)
 	.align		4
 .L_4:
-        /*001c*/ 	.word	index@(_Z10k_stress10PjPKj)
+        /*001c*/ 	.word	index@(k_stress10)
         /*0020*/ 	.word	0x00000000
 
 
@@ -132,7 +132,7 @@
         /*004a*/ 	.short	(.L_13 - .L_12)
 	.align		4
 .L_12:
-        /*004c*/ 	.word	index@(_Z10k_stress10PjPKj)
+        /*004c*/ 	.word	index@(k_stress10)
         /*0050*/ 	.word	0x00000000
 .L_13:
 
@@ -284,8 +284,8 @@
 .L_31:
 
 
-//--------------------- .nv.info._Z10k_stress10PjPKj --------------------------
-	.section	.nv.info._Z10k_stress10PjPKj,"",@"SHT_CUDA_INFO"
+//--------------------- .nv.info.k_stress10       --------------------------
+	.section	.nv.info.k_stress10,"",@"SHT_CUDA_INFO"
 	.sectionflags	@""
 	.align	4
 
@@ -404,7 +404,7 @@
         /*0066*/ 	.short	(.L_47 - .L_46)
 	.align		4
 .L_46:
-        /*0068*/ 	.word	index@(.nv.constant0._Z10k_stress10PjPKj)
+        /*0068*/ 	.word	index@(.nv.constant0.k_stress10)
         /*006c*/ 	.short	0x0380
         /*006e*/ 	.short	0x0010
 
@@ -551,15 +551,15 @@ _Z4fillPN7cutlass6half_tEmj:
 .L_x_12:
 
 
-//--------------------- .text._Z10k_stress10PjPKj --------------------------
-	.section	.text._Z10k_stress10PjPKj,"ax",@progbits
+//--------------------- .text.k_stress10          --------------------------
+	.section	.text.k_stress10,"ax",@progbits
 	.align	128
-        .global         _Z10k_stress10PjPKj
-        .type           _Z10k_stress10PjPKj,@function
-        .size           _Z10k_stress10PjPKj,(.L_x_11 - _Z10k_stress10PjPKj)
-        .other          _Z10k_stress10PjPKj,@"STO_CUDA_ENTRY STV_DEFAULT"
-_Z10k_stress10PjPKj:
-.text._Z10k_stress10PjPKj:
+        .global         k_stress10
+        .type           k_stress10,@function
+        .size           k_stress10,(.L_x_11 - k_stress10)
+        .other          k_stress10,@"STO_CUDA_ENTRY STV_DEFAULT"
+k_stress10:
+.text.k_stress10:
         /*0000*/                   LDC R1, c[0x0][0x37c] ;                                              /* 0x0000df00ff017b82 */
                                                                                                         /* 0x000fe20000000800 */
         /*0010*/                   S2R R5, SR_TID.X ;                                                   /* 0x0000000000057919 */
@@ -1157,7 +1157,7 @@ $__internal_0_$__cuda_sm20_sqrt_rn_f32_slowpath:
                                                                                                         /* 0x000fe20000000f00 */
         /*1240*/                   HFMA2 R11, -RZ, RZ, 0, 0 ;                                           /* 0x00000000ff0b7431 */
                                                                                                         /* 0x000fc800000001ff */
-        /*1250*/                   RET.REL.NODEC R10 `(_Z10k_stress10PjPKj) ;                           /* 0xffffffec0a687950 */
+        /*1250*/                   RET.REL.NODEC R10 `(k_stress10) ;                                    /* 0xffffffec0a687950 */
                                                                                                         /* 0x000fea0003c3ffff */
 .L_x_10:
         /*1260*/                   BRA `(.L_x_10);                                                      /* 0xfffffffc00fc7947 */
@@ -1193,11 +1193,11 @@ __nv_reservedSMEM_offset_0_alias:
 	.zero		64
 
 
-//--------------------- .nv.shared._Z10k_stress10PjPKj --------------------------
-	.section	.nv.shared._Z10k_stress10PjPKj,"aw",@nobits
+//--------------------- .nv.shared.k_stress10     --------------------------
+	.section	.nv.shared.k_stress10,"aw",@nobits
 	.sectionflags	@""
 	.align	4
-.nv.shared._Z10k_stress10PjPKj:
+.nv.shared.k_stress10:
 	.zero		1280
 
 
@@ -1209,11 +1209,11 @@ __nv_reservedSMEM_offset_0_alias:
 	.zero		916
 
 
-//--------------------- .nv.constant0._Z10k_stress10PjPKj --------------------------
-	.section	.nv.constant0._Z10k_stress10PjPKj,"a",@progbits
+//--------------------- .nv.constant0.k_stress10  --------------------------
+	.section	.nv.constant0.k_stress10,"a",@progbits
 	.sectionflags	@""
 	.align	4
-.nv.constant0._Z10k_stress10PjPKj:
+.nv.constant0.k_stress10:
 	.zero		912
 
 

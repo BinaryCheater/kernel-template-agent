@@ -18,7 +18,7 @@
         /*007c*/ 	.byte	0x03, 0x00, 0x04, 0x7c, 0xff, 0xff, 0xff, 0xff, 0x0f, 0x0c, 0x81, 0x80, 0x80, 0x28, 0x00, 0x08
         /*008c*/ 	.byte	0xff, 0x81, 0x80, 0x28, 0x08, 0x81, 0x80, 0x80, 0x28, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff
         /*009c*/ 	.byte	0x2c, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x68, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-        /*00ac*/ 	.dword	_Z9k_stress2PjPKj
+        /*00ac*/ 	.dword	k_stress2
         /*00b4*/ 	.byte	0x80, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04, 0x5c, 0x00, 0x00, 0x00, 0x04, 0x04, 0x00
         /*00c4*/ 	.byte	0x00, 0x00, 0x0c, 0x81, 0x80, 0x80, 0x28, 0x00, 0x00, 0x00, 0x00, 0x00
 
@@ -56,7 +56,7 @@
         /*0002*/ 	.short	(.L_1 - .L_0)
 	.align		4
 .L_0:
-        /*0004*/ 	.word	index@(_Z9k_stress2PjPKj)
+        /*0004*/ 	.word	index@(k_stress2)
         /*0008*/ 	.word	0x0000000a
 
 
@@ -67,7 +67,7 @@
         /*000e*/ 	.short	(.L_3 - .L_2)
 	.align		4
 .L_2:
-        /*0010*/ 	.word	index@(_Z9k_stress2PjPKj)
+        /*0010*/ 	.word	index@(k_stress2)
         /*0014*/ 	.word	0x00000000
 
 
@@ -111,7 +111,7 @@
         /*003e*/ 	.short	(.L_11 - .L_10)
 	.align		4
 .L_10:
-        /*0040*/ 	.word	index@(_Z9k_stress2PjPKj)
+        /*0040*/ 	.word	index@(k_stress2)
         /*0044*/ 	.word	0x00000000
 .L_11:
 
@@ -263,8 +263,8 @@
 .L_29:
 
 
-//--------------------- .nv.info._Z9k_stress2PjPKj --------------------------
-	.section	.nv.info._Z9k_stress2PjPKj,"",@"SHT_CUDA_INFO"
+//--------------------- .nv.info.k_stress2        --------------------------
+	.section	.nv.info.k_stress2,"",@"SHT_CUDA_INFO"
 	.sectionflags	@""
 	.align	4
 
@@ -374,7 +374,7 @@
         /*005e*/ 	.short	(.L_43 - .L_42)
 	.align		4
 .L_42:
-        /*0060*/ 	.word	index@(.nv.constant0._Z9k_stress2PjPKj)
+        /*0060*/ 	.word	index@(.nv.constant0.k_stress2)
         /*0064*/ 	.short	0x0380
         /*0066*/ 	.short	0x0010
 
@@ -521,15 +521,15 @@ _Z4fillPN7cutlass6half_tEmj:
 .L_x_3:
 
 
-//--------------------- .text._Z9k_stress2PjPKj   --------------------------
-	.section	.text._Z9k_stress2PjPKj,"ax",@progbits
+//--------------------- .text.k_stress2           --------------------------
+	.section	.text.k_stress2,"ax",@progbits
 	.align	128
-        .global         _Z9k_stress2PjPKj
-        .type           _Z9k_stress2PjPKj,@function
-        .size           _Z9k_stress2PjPKj,(.L_x_4 - _Z9k_stress2PjPKj)
-        .other          _Z9k_stress2PjPKj,@"STO_CUDA_ENTRY STV_DEFAULT"
-_Z9k_stress2PjPKj:
-.text._Z9k_stress2PjPKj:
+        .global         k_stress2
+        .type           k_stress2,@function
+        .size           k_stress2,(.L_x_4 - k_stress2)
+        .other          k_stress2,@"STO_CUDA_ENTRY STV_DEFAULT"
+k_stress2:
+.text.k_stress2:
         /*0000*/                   LDC R1, c[0x0][0x37c] ;                       /* 0x0000df00ff017b82 */
                                                                                  /* 0x000fe20000000800 */
         /*0010*/                   S2R R7, SR_TID.X ;                            /* 0x0000000000077919 */
@@ -624,11 +624,11 @@ __nv_reservedSMEM_offset_0_alias:
 	.zero		64
 
 
-//--------------------- .nv.shared._Z9k_stress2PjPKj --------------------------
-	.section	.nv.shared._Z9k_stress2PjPKj,"aw",@nobits
+//--------------------- .nv.shared.k_stress2      --------------------------
+	.section	.nv.shared.k_stress2,"aw",@nobits
 	.sectionflags	@""
 	.align	4
-.nv.shared._Z9k_stress2PjPKj:
+.nv.shared.k_stress2:
 	.zero		1280
 
 
@@ -640,11 +640,11 @@ __nv_reservedSMEM_offset_0_alias:
 	.zero		916
 
 
-//--------------------- .nv.constant0._Z9k_stress2PjPKj --------------------------
-	.section	.nv.constant0._Z9k_stress2PjPKj,"a",@progbits
+//--------------------- .nv.constant0.k_stress2   --------------------------
+	.section	.nv.constant0.k_stress2,"a",@progbits
 	.sectionflags	@""
 	.align	4
-.nv.constant0._Z9k_stress2PjPKj:
+.nv.constant0.k_stress2:
 	.zero		912
 
 
