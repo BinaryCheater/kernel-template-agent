@@ -29,9 +29,5 @@
  },
  "smem_estimate": 98304,
  "cache": "warm",
- "set": "whatif hgemm warm",
- "whatif": {
-  "base": "wi_hg_L_s3_warm",
-  "axis": "stages"
- }
+ "set": "whatif hgemm warm"
 }

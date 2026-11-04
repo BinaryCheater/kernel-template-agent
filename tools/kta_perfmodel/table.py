@@ -422,6 +422,46 @@ def inversions(rs: list[dict[str, Any]], noise: float = 0.02) -> int:
     return n
 
 
+def kendall(x: list[float], y: list[float]) -> float:
+    """Kendall tau-b of predicted against measured (28 §1)."""
+    con = dis = tx = ty = 0
+    for i in range(len(x)):
+        for j in range(i + 1, len(x)):
+            a, b = x[i] - x[j], y[i] - y[j]
+            if a == 0 or b == 0:
+                tx += a == 0
+                ty += b == 0
+                continue
+            con += a * b > 0
+            dis += a * b < 0
+    n = con + dis
+    return (con - dis) / math.sqrt((n + tx) * (n + ty)) if n else 0.0
+
+
+def best_variant(rs: list[dict[str, Any]], noise: float = 0.02) -> dict[str, Any]:
+    """Does the model's fastest variant measure as the fastest? `gap`: how much slower the model's
+    pick measures than the true best; within `noise` it counts as identified."""
+    pick = min(rs, key=lambda r: r["predicted"])
+    true = min(rs, key=lambda r: r["measured"])
+    gap = pick["measured"] / true["measured"] - 1
+    return {"ok": gap < noise, "gap": gap, "pick": pick["id"], "best": true["id"]}
+
+
+def _ranks(rs: list[dict[str, Any]]) -> dict[str, Any]:
+    p, m = [r["predicted"] for r in rs], [r["measured"] for r in rs]
+    return {
+        "spearman": spearman(p, m),
+        "kendall": kendall(p, m),
+        "inversions": inversions(rs),
+        "best": best_variant(rs),
+    }
+
+
+def _design_group(group: str) -> bool:
+    """Design variants of one shape (the what-if sets are one change each, ablations among them)."""
+    return group.endswith("full") or (group.startswith("testset") and "whatif" not in group)
+
+
 # R1 (28 §4): instructions per block executed by the model's replay vs the profiler's count
 R1_TOL = 0.02
 
@@ -492,9 +532,14 @@ def summary(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         if em:
             item["median_abs_mech"] = statistics.median(abs(x) for x in em)
             item["worst_mech"] = max(em, key=abs)
-        if len(rs) >= 3 and (group.endswith("full") or group.startswith("testset")):
-            item["spearman"] = spearman([r["predicted"] for r in rs], [r["measured"] for r in rs])
-            item["inversions"] = inversions(rs)
+        if len(rs) >= 3 and _design_group(group):
+            ranks = _ranks(rs)
+            item.update(
+                spearman=ranks["spearman"],
+                inversions=ranks["inversions"],
+                kendall=ranks["kendall"],
+                best=ranks["best"],
+            )
             if len(em) == len(rs):
                 rm = [{**r, "predicted": r["predicted_mech"]} for r in rs]
                 item["spearman_mech"] = spearman(
@@ -530,22 +575,133 @@ def blind_summary(rows: list[dict[str, Any]], batch: str) -> list[dict[str, Any]
             "now_median": statistics.median(abs(r["error"]) for r in rs),
             "now_worst": max((r["error"] for r in rs), key=abs),
         }
-        if len(rs) >= 3 and group.startswith("testset"):
-            first = [{**r, "predicted": r["blind_predicted"]} for r in rs]
-            item["spearman"] = spearman(
-                [r["predicted"] for r in first], [r["measured"] for r in rs]
+        if len(rs) >= 3 and _design_group(group):
+            first = _ranks([{**r, "predicted": r["blind_predicted"]} for r in rs])
+            now = _ranks(rs)
+            item.update(first)
+            item.update(
+                now_spearman=now["spearman"],
+                now_inversions=now["inversions"],
+                now_kendall=now["kendall"],
+                now_best=now["best"],
             )
-            item["inversions"] = inversions(first)
-            item["now_spearman"] = spearman(
-                [r["predicted"] for r in rs], [r["measured"] for r in rs]
-            )
-            item["now_inversions"] = inversions(rs)
         out.append(item)
+    return out
+
+
+# what-if scoring (28 §1, round 7): a change is scored against the base row of its own batch
+TIE, MAG_MIN = 0.02, 0.05
+ABLATIONS = {
+    "compute removed": "compute",
+    "loads removed": "loads",
+    "stores removed": "stores",
+}
+# critical-path resources by what removing them means
+LOAD_UNITS = ("l2", "dram", "lsu", "tma", "cp", "fill", "copy")
+STORE_UNITS = ("store",)
+
+
+def _unit_kind(resource: str) -> str:
+    if any(resource.startswith(u) for u in STORE_UNITS):
+        return "stores"
+    if any(resource.startswith(u) for u in LOAD_UNITS):
+        return "loads"
+    return "compute"
+
+
+def whatif_pairs(rows: list[dict[str, Any]], root: Path = BATCHES) -> list[dict[str, Any]]:
+    """One record per variant marked `whatif` in its launch.json: predicted against measured delta
+    from the `kernel` rows, at first score and now."""
+    by_id = {r["id"]: r for r in rows}
+    out = []
+    for d in sorted(root.iterdir(), key=lambda p: batch_order(p.name)):
+        for lj in sorted((d / "build" / "testset").glob("*/launch.json")):
+            w = json.loads(lj.read_text()).get("whatif")
+            if not w:
+                continue
+            a, b = by_id.get(f"{w['base']} kernel"), by_id.get(f"{lj.parent.name} kernel")
+            if not a or not b or a["excluded"] or b["excluded"]:
+                continue
+            meas = b["measured"] / a["measured"] - 1
+            first = (b.get("blind_predicted") or 0) / (a.get("blind_predicted") or 1) - 1
+            now = b["predicted"] / a["predicted"] - 1
+            out.append(
+                {
+                    "id": lj.parent.name,
+                    "base": w["base"],
+                    "axis": w["axis"],
+                    "measured": meas,
+                    "first": first,
+                    "now": now,
+                    "first_ok": _direction(first, meas),
+                    "now_ok": _direction(now, meas),
+                }
+            )
+    return out
+
+
+def _direction(pred: float, meas: float) -> bool:
+    if abs(meas) < TIE:
+        return abs(pred) < 2 * TIE  # no real change measured: the model must not claim one
+    return pred * meas > 0
+
+
+def _magnitude(p: dict[str, Any], key: str) -> float | None:
+    if abs(p["measured"]) < MAG_MIN:
+        return None
+    return abs(p[key] - p["measured"]) / abs(p["measured"])
+
+
+def whatif_summary(pairs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    out = []
+    for axis in ["all", *dict.fromkeys(p["axis"] for p in pairs)]:
+        ps = [p for p in pairs if axis in ("all", p["axis"])]
+        item: dict[str, Any] = {"axis": axis, "n": len(ps)}
+        for key in ("first", "now"):
+            mags = [m for p in ps if (m := _magnitude(p, key)) is not None]
+            item[f"{key}_ok"] = sum(p[f"{key}_ok"] for p in ps)
+            item[f"{key}_mag_n"] = len(mags)
+            item[f"{key}_mag_median"] = statistics.median(mags) if mags else None
+            item[f"{key}_mag_within"] = sum(m <= 0.25 for m in mags)
+        out.append(item)
+    return out
+
+
+def bottlenecks(rows: list[dict[str, Any]], pairs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Per base with ablations: the critical-path share of compute, loads and stores in the replay,
+    against what removing each measures and replays."""
+    by_id = {r["id"]: r for r in rows}
+    out = []
+    for base in dict.fromkeys(p["base"] for p in pairs if p["axis"] in ABLATIONS):
+        r = by_id[f"{base} kernel"]
+        share: dict[str, float] = {}
+        for a in r.get("attribution", []):
+            if a["resource"] == "launch":
+                continue
+            k = _unit_kind(a["resource"])
+            share[k] = share.get(k, 0.0) + a["share"]
+        gains = {
+            ABLATIONS[p["axis"]]: p for p in pairs if p["base"] == base and p["axis"] in ABLATIONS
+        }
+        top = max(share, key=lambda k: share[k])
+        best = min(gains, key=lambda k: gains[k]["measured"])
+        out.append(
+            {
+                "base": base,
+                "model_top": top,
+                "share": share,
+                "gains": {k: (p["now"], p["measured"]) for k, p in gains.items()},
+                "measured_top": best,
+                "agree": top == best,
+            }
+        )
     return out
 
 
 def summary_line(s: dict[str, Any]) -> str:
     sp = f"{s['spearman']:.2f}" if "spearman" in s else ""
+    kt = f"{s['kendall']:.2f}" if "kendall" in s else ""
+    bv = _best(s.get("best"))
     inv = str(s["inversions"]) if "inversions" in s else ""
     r1 = f"{s['r1_pass']}/{s['r1_n']}" if "r1_n" in s else ""
     bn = f"{s['bottleneck_agree']}/{s['r1_n']}" if "r1_n" in s else ""
@@ -557,9 +713,15 @@ def summary_line(s: dict[str, Any]) -> str:
         bl = f"{100 * s['blind_median']:.1f} % / {_pct(s['blind_worst'])}"
     return (
         f"| {s['set']} | {s['n']} | {s['excluded']} | {100 * s['median_abs']:.1f} % | "
-        f"{_pct(s['worst'])} | {mm} | {mw} | {bl} | {s['within_10']} | {sp} | {inv} | {ms} | {r1} "
-        f"| {bn} |"
+        f"{_pct(s['worst'])} | {mm} | {mw} | {bl} | {s['within_10']} | {sp} | {kt} | {bv} | {inv} "
+        f"| {ms} | {r1} | {bn} |"
     )
+
+
+def _best(b: dict[str, Any] | None) -> str:
+    if not b:
+        return ""
+    return "yes" if b["gap"] == 0 else f"{'yes' if b['ok'] else 'no'} (+{100 * b['gap']:.1f} %)"
 
 
 def _fmt(x: float | None) -> str:
@@ -591,9 +753,10 @@ def render(doc: dict[str, Any], top: int = 15) -> str:
         "## Summary",
         "",
         "| Set | n | excluded | median abs error | worst | median, mechanisms only | "
-        "worst, mechanisms only | blind median / worst | within 10 % | Spearman | inversions | "
-        "Spearman / inversions, mechanisms only | counts check (R1) | bottleneck agrees |",
-        "| --- " + "| ---: " * 13 + "|",
+        "worst, mechanisms only | blind median / worst | within 10 % | Spearman | Kendall τ | "
+        "best variant | inversions | Spearman / inversions, mechanisms only | counts check (R1) | "
+        "bottleneck agrees |",
+        "| --- " + "| ---: " * 15 + "|",
     ]
     for s in doc["summary"]:
         lines.append(summary_line(s))
@@ -605,23 +768,89 @@ def render(doc: dict[str, Any], top: int = 15) -> str:
             "First score: the prediction committed before the batch, engine unchanged. Now: "
             "the current engine on the same rows, no longer blind.",
             "",
-            "| Set | n | first: median | first: worst | first: Spearman / inversions | "
-            "now: median | now: worst | now: Spearman / inversions |",
-            "| --- " + "| ---: " * 7 + "|",
+            "| Set | n | first: median | first: worst | first: Kendall τ / Spearman / "
+            "inversions | first: best variant | now: median | now: worst | now: Kendall τ / "
+            "Spearman / inversions | now: best variant |",
+            "| --- " + "| ---: " * 9 + "|",
         ]
         for s in doc["blind"]:
-            f = f"{s['spearman']:.2f} / {s['inversions']}" if "spearman" in s else ""
-            n = f"{s['now_spearman']:.2f} / {s['now_inversions']}" if "now_spearman" in s else ""
+            f = n = ""
+            if "spearman" in s:
+                f = f"{s['kendall']:.2f} / {s['spearman']:.2f} / {s['inversions']}"
+                n = f"{s['now_kendall']:.2f} / {s['now_spearman']:.2f} / {s['now_inversions']}"
             lines.append(
                 f"| {s['set']} | {s['n']} | {100 * s['median_abs']:.1f} % | {_pct(s['worst'])} | "
-                f"{f} | {100 * s['now_median']:.1f} % | {_pct(s['now_worst'])} | {n} |"
+                f"{f} | {_best(s.get('best'))} | {100 * s['now_median']:.1f} % | "
+                f"{_pct(s['now_worst'])} | {n} | {_best(s.get('now_best'))} |"
             )
+    lines += _whatif_lines(doc)
     ranked = sorted((r for r in rows if not r["excluded"]), key=lambda r: -abs(r["error"]))
     lines += ["", f"## Top {top} rows by absolute error", ""]
     lines += _table(ranked[:top])
     lines += ["", "## All rows", ""]
     lines += _table(rows)
     return "\n".join(lines) + "\n"
+
+
+def _whatif_lines(doc: dict[str, Any]) -> list[str]:
+    if not doc.get("whatif"):
+        return []
+    lines = [
+        "",
+        "## What-if: predicted against measured change (28 §1)",
+        "",
+        f"One compiled change from a base in the same batch. Direction right: signs agree, or "
+        f"measured within {100 * TIE:.0f} % of zero and predicted within {200 * TIE:.0f} %. "
+        f"Magnitude: |predicted − measured| / |measured| on changes of at least "
+        f"{100 * MAG_MIN:.0f} %; target 25 %. First: the prediction committed before the batch. "
+        "Now: the current engine.",
+        "",
+        "| Axis | n | first: direction | first: median magnitude error | first: within 25 % | "
+        "now: direction | now: median magnitude error | now: within 25 % |",
+        "| --- " + "| ---: " * 7 + "|",
+    ]
+    for s in doc["whatif_summary"]:
+
+        def med(key: str, s: dict[str, Any] = s) -> str:
+            v = s[f"{key}_mag_median"]
+            return "—" if v is None else f"{100 * v:.0f} %"
+
+        lines.append(
+            f"| {s['axis']} | {s['n']} | {s['first_ok']}/{s['n']} | {med('first')} | "
+            f"{s['first_mag_within']}/{s['first_mag_n']} | {s['now_ok']}/{s['n']} | {med('now')} | "
+            f"{s['now_mag_within']}/{s['now_mag_n']} |"
+        )
+    lines += [
+        "",
+        "| Change | Base | Axis | measured Δ | first Δ | now Δ | first direction | now direction |",
+        "| --- | --- | --- | ---: | ---: | ---: | --- | --- |",
+    ]
+    for p in sorted(doc["whatif"], key=lambda p: (p["now_ok"], p["first_ok"], p["id"])):
+        lines.append(
+            f"| {p['id']} | {p['base']} | {p['axis']} | {_pct(p['measured'])} | {_pct(p['first'])} "
+            f"| {_pct(p['now'])} | {'right' if p['first_ok'] else 'WRONG'} | "
+            f"{'right' if p['now_ok'] else 'WRONG'} |"
+        )
+    if doc.get("bottlenecks"):
+        lines += [
+            "",
+            "## Bottleneck: what the model names against what removal gains",
+            "",
+            "Critical-path share by kind in the base's replay (launch left out) and the change "
+            "from removing that kind, replayed / measured.",
+            "",
+            "| Base | model's top | shares | gains, replay / measured | largest measured gain | "
+            "agree |",
+            "| --- | --- | --- | --- | --- | --- |",
+        ]
+        for b in doc["bottlenecks"]:
+            sh = ", ".join(f"{k} {100 * v:.0f} %" for k, v in b["share"].items())
+            ga = ", ".join(f"{k} {_pct(v[0])} / {_pct(v[1])}" for k, v in b["gains"].items())
+            lines.append(
+                f"| {b['base']} | {b['model_top']} | {sh} | {ga} | {b['measured_top']} | "
+                f"{'yes' if b['agree'] else 'NO'} |"
+            )
+    return lines
 
 
 def _table(rows: list[dict[str, Any]]) -> list[str]:

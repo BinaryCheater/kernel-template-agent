@@ -32,6 +32,7 @@ for p in perfmodel/probes/*/; do
 done
 
 # TileLang: generate the test set, then compile it and the TileLang-based probe in the image
+mkdir -p "$out/testset"
 docker run --rm --gpus all -u "$(id -u):$(id -g)" -e HOME=/tmp -e ONLY="$only" -v "$root":/w -v "$out":/o -w /w "$image" sh -ec '
   for i in 0 1 2 3 4 5 6 7 8 9; do
     SHARD=$i/10 python perfmodel/testset/gen.py /o/testset > /o/testset-gen-$i.log 2>&1 &

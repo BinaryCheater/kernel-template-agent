@@ -27,6 +27,7 @@ from .kernel import (
     simulate_kernel,
 )
 from .l2 import replay_walk, walk
+from .l2 import rotating_miss as l2_rotating_miss
 from .l2 import warm_miss as l2_warm_miss
 from .machine import Machine, default_machine
 from .probes import Case, ClockMarked, marked_cycles
@@ -376,6 +377,46 @@ def dram_burst_cases(b: Batch) -> list[Case]:
     return out
 
 
+def rot_depth_cases(b: Batch) -> list[Case]:
+    """Round 7: a stream of n x 786 KB per launch whose start walks a window of D MiB."""
+    txt = _sass(b, "probe-rot_depth")
+    out = []
+    for n in (10, 21):
+        ins = _k(txt, f"_Z6streamILi{n}EEvPK4int4Pi")
+        nbytes = 48 * 1024 * 16 * n
+        for mib in (1, 16, 24, 32, 48, 64, 96, 128, 192, 256, 384):
+
+            def build(ins=ins, nbytes=nbytes, mib=mib, **kw):
+                mm = kw.get("machine") or default_machine()
+                miss = l2_rotating_miss(max(nbytes, mib * 2**20), mm)
+                secs = nbytes / (mm.C["dram_read_GBs"] * 1e9)
+                return SM(
+                    ins,
+                    1024,
+                    1,
+                    1,
+                    active_sms=48,
+                    ldg_lines=[(4, 512, False)],
+                    miss_frac=miss,
+                    dram_clk_per_512B=dram_clk(nbytes, secs, 48, mm),
+                    **kw,
+                )
+
+            out.append(
+                _case(
+                    b,
+                    f"rot_depth n{n}_D{mib}",
+                    "rot_depth",
+                    5,
+                    "us",
+                    build,
+                    lambda sm, r: r["cycles"] / (_ghz(b, sm.m) * 1e3) + _launch_event(sm.m),
+                    limit=200_000_000,
+                )
+            )
+    return out
+
+
 DRAM_RW_UN = 96 * 512 * 40  # dram_rw: int4 per plane
 DRAM_RW_MIX = ((2, 0), (2, 1), (1, 1), (1, 2), (0, 2))
 
@@ -646,6 +687,86 @@ def l2mix_cases(b: Batch) -> list[Case]:
             cid = f"l2mix L{ld}_S{st}_W{w}_D{d}_P{p}_g{grid}"
             out.append(_case(b, cid, "l2mix", 4, "cycles", build, _span))
     return out
+
+
+def _span_case(b, cid, probe, unit, kernel, threads, grid, smem=0) -> Case:
+    ins = _k(_sass(b, unit), kernel)
+    regs = regs_of(b, unit, kernel)
+
+    def build(**kw):
+        m = kw.get("machine") or default_machine()
+        rmax = occupancy({"threads": threads}, regs, smem, m)
+        per_sm = math.ceil(grid / m.sms)
+        return BlockMarked(
+            ins,
+            threads,
+            per_sm,
+            1,
+            active_sms=min(grid, m.sms * rmax) / min(rmax, per_sm),
+            resident=rmax,
+            grid_blocks=grid,
+            grid_dim=(grid, 1, 1),
+            l1_bytes=m.C["l1_unified_bytes"] - rmax * smem,
+            **kw,
+        )
+
+    return _case(b, cid, probe, 4, "cycles", build, _span)
+
+
+def spill_cases(b: Batch) -> list[Case]:
+    """Round 7: stack words loaded and stored (probe spill)."""
+    return [
+        _span_case(
+            b,
+            f"spill t{t}_n{n}_g{g}_s{s}",
+            "spill",
+            "probe-spill",
+            f"_Z1kILi{t}ELi{n}EEvPyPj",
+            t,
+            g,
+            s * 1024,
+        )
+        for t in (64, 256)
+        for n in (16, 64, 256, 1024)
+        for g in (1, 48, 192)
+        for s in (0, 96)
+    ]
+
+
+STORE_LINE_POINTS = (
+    *((x, 32, 32) for x in (1, 2, 3, 4, 6, 8)),
+    *((x, 16, 16) for x in (2, 4, 8)),
+    (2, 16, 32),
+    (4, 16, 32),
+    *((x, 16, 64) for x in (1, 2, 4)),
+    *((x, 32, 64) for x in (1, 2, 4)),
+    (4, 4, 4),
+    (8, 4, 4),
+    (2, 4, 32),
+    (4, 4, 32),
+    (2, 4, 64),
+    (1, 32, 128),
+    (2, 32, 128),
+    (1, 4, 128),
+    (2, 4, 128),
+)
+
+
+def store_lines_cases(b: Batch) -> list[Case]:
+    """Round 7: stores by bytes and extent (probe store_lines)."""
+    return [
+        _span_case(
+            b,
+            f"store_lines S{st}_W{w}_D{d}_g{g}",
+            "store_lines",
+            "probe-store_lines",
+            f"_Z1kILi{st}ELi{w}ELi{d}EEvPyS0_Pj",
+            128,
+            g,
+        )
+        for st, w, d in STORE_LINE_POINTS
+        for g in (128, 256, 512)
+    ]
 
 
 BRANCH_LOOPS = (4, 8, 16, 32, 64, 128, 256, 512, 1024)
@@ -1119,9 +1240,7 @@ def _generic_sm(d: Path, L: dict[str, Any], regs: int, carried: tuple[str, ...],
     ins = _k((d / "k.sass").read_text(), L["entry"])
     src = (d / L.get("source", "kernel.cu")).read_text()
     # the source loop of the kernel's main loop: `k`; a GEMM's k-loop may be called `ko` (MoE)
-    lp = main_loop(ins)
-    mma = lp and any(x.base in ("HMMA", "QMMA", "IMMA") for x in ins[lp[0] : lp[1] + 1])
-    name = "ko?" if mma else "k"
+    name = "ko?"
     loops = [
         int(x) for x in re.findall(rf"for \(int {name} = 0; {name} < (\d+); \+\+{name}\)", src)
     ]
@@ -1314,6 +1433,9 @@ def all_cases(batch_dir: Path) -> list[Case]:
         ("probe-dram_rotate", dram_cases),
         ("probe-dram_rw", dram_rw_cases),
         ("probe-dram_burst", dram_burst_cases),
+        ("probe-rot_depth", rot_depth_cases),
+        ("probe-spill", spill_cases),
+        ("probe-store_lines", store_lines_cases),
         ("probe-l2mix", l2mix_cases),
         ("probe-mma_pair", mma_pair_cases),
         ("probe-mma_types", mma_types_cases),

@@ -47,3 +47,9 @@ Score: direction right when the signs agree, or when the measured change is with
    - H-flat: bytes / 237 + latency + launch (`predicted.json`).
    - H-burst: short bursts run above the plateau.
 4. Rotation depth rows: H-cold: rotation depth changes nothing (replay: Δ 0). H-partial: part of a rotating set survives in the L2 (the warm curve still loses only 0.85 at 32 MiB), time grows with the depth.
+
+## After the run (first score)
+
+r7 valid: clock 2.492 → 2.475 GHz (drift −0.65 %), canaries −0.13 / +0.25 %. Units that did not run: shared memory above the limit (FA s3, s4, BN 128; decode s3; HGEMM 128×256×64 s3, whose two rows at s1 were scored against s2; two FA blind rows).
+
+What the first score showed, before any engine change: `error-table.md` at the commit of this entry, and r7b below.

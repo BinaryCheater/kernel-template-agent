@@ -309,3 +309,9 @@ def replay_walk(acc: Access, in_flight: int, cap: float) -> Replay:
     miss = {pc: min(1.0, r_pc.get(pc, 0.0) / v) for pc, v in l_pc.items() if v}
     base = {e.pc: e.base for e in acc.loads}
     return Replay(reads, len(seen) * LINE, loaded, miss, waves, base)
+
+
+def rotating_miss(window_bytes: float, m: Machine) -> float:
+    """Part of a rotating launch's reads that miss, by the bytes the rotation touches. Round 6: all
+    of them; the probe rot_depth replays this rule before it is measured."""
+    return warm_miss(window_bytes, "ca", m) if window_bytes <= 24 * 2**20 else 1.0

@@ -31,7 +31,8 @@
  "cache": "rotating",
  "set": "whatif hgemm rotating",
  "whatif": {
-  "base": "wi_hg_L_s3_rotating",
-  "axis": "stages"
+  "base": "wi_hg_L_s2_rotating",
+  "axis": "stages",
+  "note": "base L_s3 did not run: 147 KB of shared memory, above the limit"
  }
 }

@@ -589,9 +589,7 @@ def gemv_w4a16(
                 if compute:
                     for ki in T.serial(mk):
                         bd[ki] = (
-                            T.Cast(
-                                "float16", (T.Cast("int32", bq[ki // 2]) >> ((ki % 2) * 4)) & 15
-                            )
+                            T.Cast("float16", (T.Cast("int32", bq[ki // 2]) >> ((ki % 2) * 4)) & 15)
                             - T.float16(8)
                         ) * Sc[bx * n_part + ni, (ko * bk + kr * mk) // group]
                 for ki in T.serial(mk):
@@ -634,7 +632,7 @@ def rmsnorm(
             x = T.alloc_fragment((1, N), dtype)
             sq = T.alloc_fragment((1, N), "float")
             ss = T.alloc_fragment((1,), "float")
-            O = T.alloc_shared((1, N), dtype) if store == "shared" else None
+            o_shared = T.alloc_shared((1, N), dtype) if store == "shared" else None
             T.copy(X[bx : bx + 1, :], x)
             if compute:
                 for i, j in T.Parallel(1, N):
@@ -647,7 +645,7 @@ def rmsnorm(
                         dtype, T.Cast("float", x[i, j]) * ss[i] * T.Cast("float", W[j])
                     )
             if store == "shared":
-                T.copy(x, O)
+                T.copy(x, o_shared)
             else:
                 T.copy(x, Y[bx : bx + 1, :])
 
@@ -663,7 +661,7 @@ def softmax(M: int, N: int, threads: int = 128, store: str = "global"):
         with T.Kernel(M, threads=threads) as bx:
             x = T.alloc_fragment((1, N), "float16")
             s = T.alloc_fragment((1, N), "float")
-            O = T.alloc_shared((1, N), "float16") if store == "shared" else None
+            o_shared = T.alloc_shared((1, N), "float16") if store == "shared" else None
             mx = T.alloc_fragment((1,), "float")
             sm = T.alloc_fragment((1,), "float")
             T.copy(X[bx : bx + 1, :], x)
@@ -676,7 +674,7 @@ def softmax(M: int, N: int, threads: int = 128, store: str = "global"):
             for i, j in T.Parallel(1, N):
                 x[i, j] = T.Cast("float16", s[i, j] / sm[i])
             if store == "shared":
-                T.copy(x, O)
+                T.copy(x, o_shared)
             else:
                 T.copy(x, Y[bx : bx + 1, :])
 
