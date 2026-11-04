@@ -93,22 +93,25 @@ def main(argv: list[str] | None = None) -> int:
                 f"{err:>9s} {r['wall_s']:6.1f} s {r['excluded'] or ''}",
                 flush=True,
             )
-    # the "mechanisms only" column (LOOP §4.4): the same rows with every fitted parameter replaced
-    mech = {
-        r["id"]: r
-        for r in table.run(
-            cal,
-            sha,
-            [dict(r) for r in rows],
-            a.jobs,
-            not a.no_cache,
-            hint,
-            a.all,
-            a.cached_only,
-            {**table.MECH_ONLY, **(over or {})},
-            trace=False,
-        )
-    }
+    # the "mechanisms only" column (LOOP §4.4): the same rows with every fitted parameter replaced;
+    # it replays every row that reads one, so only the full table computes it
+    mech = {}
+    if a.full_here:
+        mech = {
+            r["id"]: r
+            for r in table.run(
+                cal,
+                sha,
+                [dict(r) for r in rows],
+                a.jobs,
+                not a.no_cache,
+                hint,
+                a.all,
+                a.cached_only,
+                {**table.MECH_ONLY, **(over or {})},
+                trace=False,
+            )
+        }
     for r in rows:
         m = mech.get(r["id"])
         r["predicted_mech"] = m["predicted"] if m else None
