@@ -19295,5 +19295,7 @@
  ],
  "not_owned_by_user": "",
  "raw": "data/perfmodel/batches/r12",
- "invalid_cases": {}
+ "invalid_cases": {
+  "bl_tally2d kernel": "launch bounds smaller than the block: nothing ran; the kernel is measured in r12b"
+ }
 }

@@ -32,3 +32,4 @@
 {"date": "2026-11-04T22:43:32Z", "round": 12, "mode": "selection", "commit": "43be66a07b99", "dirty": false, "rows": 79, "replayed": 55, "cpu_s": 238.6, "wall_s": 43.6, "jobs": 6}
 {"date": "2026-11-04T22:45:32Z", "round": 12, "mode": "selection", "commit": "43be66a07b99", "dirty": true, "rows": 10, "replayed": 10, "cpu_s": 29.2, "wall_s": 27.6, "jobs": 6}
 {"date": "2026-11-04T22:46:12Z", "round": 12, "mode": "selection", "commit": "43be66a07b99", "dirty": true, "rows": 10, "replayed": 10, "cpu_s": 1.9, "wall_s": 3.7, "jobs": 6}
+{"date": "2026-11-04T22:57:04Z", "round": 12, "mode": "full", "commit": "bacbba01c381", "dirty": false, "rows": 2676, "replayed": 1971, "cpu_s": 6630.2, "wall_s": 410.7, "jobs": 18}

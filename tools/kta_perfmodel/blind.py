@@ -90,13 +90,16 @@ def report(round_no: int) -> str:
             for k, v in json.loads((d / "measured.json").read_text())["results"].items():
                 meas[k] = v["median"]
     kernels = [r for r in rs if r["mode"] == "kernel"]
-    long_rows = [r for r in kernels if r["measured"] >= SHORT_US]
     lines = [f"Blind rows of round {round_no}: {len(rs)} rows first scored, first scores only.", ""]
     lines += ["| Set | n | median | worst | above 25 % |", "| --- | ---: | ---: | ---: | ---: |"]
     groups: dict[str, list[dict[str, Any]]] = {}
     for r in kernels:
         groups.setdefault(r["launch"].get("set", "probe"), []).append(r)
-    for name, g in [("all kernel rows", kernels), ("rows ≥ 30 µs", long_rows), *groups.items()]:
+    sweeps = ("stack_path", "atomic_bins", "wr_footprint", "wr_rmw")
+    blind = [r for r in kernels if r["launch"].get("set") not in sweeps]
+    long_blind = [r for r in blind if r["measured"] >= SHORT_US]
+    head = [("blind kernels", blind), ("those ≥ 30 µs", long_blind), ("with the sweeps", kernels)]
+    for name, g in [*head, *groups.items()]:
         t = _time(g)
         lines.append(
             f"| {name} | {t['n']} | {100 * t['median']:.1f} % | {100 * t['worst']:+.1f} % | "
