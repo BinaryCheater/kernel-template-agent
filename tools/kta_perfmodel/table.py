@@ -251,7 +251,7 @@ def run_job(
             regs = int(program.get("regs", _regs(cal)[job[1]]))
             rmax = validate._rmax(pick(r), regs, m)
             predicted = validate.kernel_us(
-                cal, job[1], job[2], pick(r), r["blocks"], rmax, m, got.append, trace
+                cal, job[1], job[2], r["blocks"], rmax, m, got.append, trace
             )
             extra["launch"] = (m.param(m.desc["launch_us"]) * f, m.desc["launch_us"])
         else:

@@ -35,10 +35,6 @@ from .lanes import Lanes, footprint, width_of
 from .machine import Machine, OpClass, default_machine
 from .sass import Ins, main_loop, parse
 
-# the default machine's parameters, for callers that read them directly
-P = default_machine().P
-SMS = default_machine().sms
-
 
 @dataclass
 class Warp:
@@ -56,7 +52,6 @@ class Warp:
     )  # group -> copies not yet written into shared memory
     committed: dict = field(default_factory=dict)  # group -> dependency counter its commit set
     at_bar: bool = False
-    ldsm_next: int = 0
     ncopy: int = 0
     # KTA: attributes upstream attaches after construction (SM.__init__ and WSSM.__init__ set
     # every one of them on every warp before use), declared so they type-check
@@ -69,7 +64,6 @@ class Warp:
     role: str | None = None
     k_prod: int = -1
     n_full: int = 0
-    n_empty_arrive: int = 0
     # KTA (PERFMODEL) trace: the reason the current instruction was last found blocked; per
     # dependency counter its releases (time, producer issue time, path stages); barrier releases
     why: Any = None
@@ -85,8 +79,6 @@ class SM:
         threads: int,
         blocks: int,
         trips: int,
-        mem: str = "l2",
-        stats: bool = True,
         active_sms: float = 1,
         copy_lines: list | None = None,
         miss_frac: float = 0.0,
@@ -95,7 +87,6 @@ class SM:
         ldsm_ways: tuple = (1, 1),
         ldg_lines: list | None = None,
         red_lines: int = 8,
-        loop_trips: dict | None = None,
         resident: int | None = None,
         grid_blocks: int | None = None,
         grid_dim: tuple | None = None,
@@ -132,7 +123,6 @@ class SM:
         self.icls: list[OpClass] = [m.classify(x.base, x.op) for x in ins]
         self.gate_smsp = m.gating("smsp")
         self.trips = trips
-        self.mem = mem
         # this SM's share of the chip's L2 return bandwidth (or its own return path, if fewer SMs
         # are pulling)
         self.ret_clk = max(
@@ -140,6 +130,7 @@ class SM:
         )
         lp = main_loop(ins)
         self.loop_end = lp[1] if lp else -1  # fully unrolled code has no back edge
+        self.end: float = 0
         self.warps = []
         wpb = threads // 32
         for b in range(blocks):
@@ -175,10 +166,9 @@ class SM:
         # round 6 (probe mma_pipe): the tensor pipe's stream slows with the operand sets it cycles
         # through: the main loop's A register groups (the kernel's, without a loop)
         self.mma_extra = 0.0
-        lp0 = main_loop(ins)
         mm = [
             x.args.split(",")
-            for x in (ins[lp0[0] : lp0[1] + 1] if lp0 else ins)
+            for x in (ins[lp[0] : lp[1] + 1] if lp else ins)
             if x.base in ("HMMA", "IMMA", "QMMA", "OMMA")
         ]
         if not mm:
@@ -270,8 +260,6 @@ class SM:
         # global atomics: lines one warp instruction touches (8 for a C tile added from mma
         # accumulators: 8 rows x 32 B)
         self.red_lines = red_lines
-        # trip counts of other loops, by the index of their back edge (the main loop keeps `trips`)
-        self.loop_trips = loop_trips or {}
         for w in self.warps:
             w.nldg = 0
             if self.lane_track:
@@ -672,7 +660,7 @@ class SM:
             if self.free[res][s] > now:
                 self.free[res][s] += self.m.param(ref)
 
-    def _hold(self, cls: OpClass, s: int, now: float, w: Warp) -> None:
+    def _hold(self, cls: OpClass, s: int, now: float) -> None:
         """A pipe class: hold its resource(s) for their parameter's cycles; `either` takes the
         first free of its resources (the earliest, ties to the first listed)."""
         for res, ref in cls.hold:
@@ -725,7 +713,7 @@ class SM:
             if h == "pipe":
                 # every mma.sync shape and type holds the tensor pipe 16 cycles (probe
                 # mma_types.cu); FMA, ALU and XU pipes per probes alu.cu, alumix.cu, sfu.cu, cvt.cu
-                self._hold(cls, s, now, w)
+                self._hold(cls, s, now)
                 if cls.latency is not None:
                     lat_done = now + self.m.param(cls.latency)
                     if x.wbar is not None and self.m.status(cls.latency) == "assumed":
@@ -991,7 +979,7 @@ class SM:
                     free["mio"][s], now + self.red_lines * P["red_smsp_clk_per_line"]
                 )
                 lsu_done = start
-                self.end = max(getattr(self, "end", 0), t["store_port"], t["stg_chip"])
+                self.end = max(self.end, t["store_port"], t["stg_chip"])
                 if tr:
                     trr = [(now, start, "store_port", "queue (atomics)", None)]
             elif h == "commit":
@@ -1073,7 +1061,7 @@ class SM:
             elif h == "exit":
                 # the block is finished only when its stores have left the SM
                 w.done = True
-                self.end = max(getattr(self, "end", 0), t["store_port"], t["stg_chip"])
+                self.end = max(self.end, t["store_port"], t["stg_chip"])
                 self.exited[w.block] = self.exited.get(w.block, 0) + 1
                 self.block_exit(w.block, now)
             elif x.wbar is not None:
@@ -1127,15 +1115,6 @@ class SM:
             w.pc += 1
         elif self.branch_known(w, x) is not None:
             self.follow(w, x, self.branch_known(w, x))
-        elif x.base == "BRA" and x.target is not None and w.pc in self.loop_trips:
-            self._dflt("branch_fallback", "driver trip count")
-            c = w.__dict__.setdefault("lc", {})
-            c[w.pc] = c.get(w.pc, 0) + 1
-            if c[w.pc] < self.loop_trips[w.pc]:
-                w.pc = next(i for i, y in enumerate(self.ins) if y.addr == x.target)
-            else:
-                c[w.pc] = 0
-                w.pc += 1
         elif x.base == "BRA" and x.target is not None:
             if w.pc == self.loop_end:
                 self._dflt("branch_fallback", "main-loop trip count")
@@ -1283,14 +1262,8 @@ class SM:
                 if not cand:
                     continue
                 last = self.last_issue[s]
-                pick = getattr(self, "pick", None)
-                if pick is not None:
-                    w = pick(cand, last)
-                else:
-                    w = (
-                        last if (last in cand) else min(cand, key=lambda q: (q.loops, q.wid))
-                    )  # greedy, then oldest
-                yb = self.ins[w.pc].yld
+                # greedy, then oldest
+                w = last if (last in cand) else min(cand, key=lambda q: (q.loops, q.wid))
                 if self.trace:
                     self.hist.setdefault(w.wid, []).append(
                         (now, w.pc, w.ready, w.why, self.icls[w.pc].name)
@@ -1299,9 +1272,6 @@ class SM:
                 self.issue(w, now)
                 self.last_issue[s] = w
                 issued = True
-                last_yield = getattr(self, "last_yield", None)
-                if last_yield is not None:
-                    last_yield[w.wid] = yb
             # jump to the next cycle where something can change
             nxt = [w.ready for w in live if not w.done and not w.at_bar and now < w.ready < INF]
             for r in self.gate_smsp:
@@ -1310,7 +1280,7 @@ class SM:
                 nxt.append(self.events[0][0])
             nxt += [t for t in self.stq if t > now][:1]
             now = now + 1 if issued else (min(nxt) if nxt else now + 1)
-        self.cycles = max(now, getattr(self, "end", 0))
+        self.cycles = max(now, self.end)
         return {
             "cycles": self.cycles,
             **self.count,

@@ -1,27 +1,21 @@
-"""The warp-specialized TMA picks (step 2c ablation) on the simulator: one block alone (mma-only,
-loads-only, whole)
-and the whole kernel at its grid, against the ablation's timings.
+"""The warp-specialized TMA picks (step 2c ablation) on the simulator: one block alone and the whole
+kernel at its grid.
 
 Copied from AI-Infra-Co-Design agentic/gb10/sim/ws_validate.py (commit 0eef497, D681). KTA changes:
-the calibration
-directory is an argument (`cal` = a copy of calibration/spark-6951) and results are returned instead
-of printed."""
+the calibration directory is an argument (`cal` = a copy of calibration/spark-6951) and results are
+returned instead of printed."""
 
 from __future__ import annotations
 
-import json
 import math
-import time
 from pathlib import Path
 
 from .kernel import dram_clk, wave_dram
 from .machine import Machine, default_machine
-from .model import C, dram_split_kslice
+from .model import dram_split_kslice
 from .sass import main_loop
 from .sm import kernel_sass
 from .ws import WSSM
-
-F = C["clock_under_load_GHz"] * 1e3
 
 
 def ws_sim(
@@ -33,7 +27,6 @@ def ws_sim(
     blocks_eq: float = 1.0,
     miss: float = 0.0,
     dclk: float | None = None,
-    sass_path=None,
     nblocks: int = 1,
     grid: int | None = None,
     machine: Machine | None = None,
@@ -41,7 +34,7 @@ def ws_sim(
     trace: bool = False,
 ) -> dict:
     m = machine or default_machine()
-    ins = kernel_sass(sass_path or cal / "sass" / f"tma_{name}__{variant}.sass")
+    ins = kernel_sass(cal / "sass" / f"tma_{name}__{variant}.sass")
     kt = math.ceil(shape["K"] / h["block_K"])
     lp = main_loop(ins)
     warps = h["threads"] // 32
@@ -84,14 +77,10 @@ def ws_sim(
         machine=m,
         trace=trace,
     )
-    t = time.time()
     r = sm.run(limit=3_000_000 * nblocks)
     r["us"] = r["cycles"] / (m.param(m.desc["clock"]["kernel_GHz"]) * 1e3)
     if sm_hook is not None:
         sm_hook(sm)
-    r["wall_s"] = round(time.time() - t, 1)
-    r["warps_done"] = sum(w.done for w in sm.warps)
-    r["warps"] = len(sm.warps)
     return r
 
 
@@ -100,9 +89,6 @@ def kernel_us(
     name,
     h,
     shape,
-    variant="full",
-    warm=True,
-    sass_path=None,
     machine: Machine | None = None,
     sm_hook=None,
     trace: bool = False,
@@ -111,96 +97,37 @@ def kernel_us(
     C, SMS = m.C, m.sms
     tiles = math.ceil(shape["M"] / h["block_M"]) * math.ceil(shape["N"] / h["block_N"])
     kt = math.ceil(shape["K"] / h["block_K"])
-    sp = dram_split_kslice(h, shape, SMS, cap=C["l2_effective_bytes"])
-    from .kernel import FLOW
-
-    if FLOW:
-        rb = secs = 0.0
-        for wv in sp["waves"]:
-            r_, s_ = wave_dram(h, shape, wv, warm, m)
-            rb += r_
-            secs += s_
-        # TMA moves only rows and columns inside the matrix (out-of-range rows of a box are
-        # zero-filled, no traffic)
-        cb = (
-            tiles
-            * kt
-            * (min(h["block_M"], shape["M"]) + min(h["block_N"], shape["N"]))
-            * h["block_K"]
-            * 2
-        )
-        eq = min(float(SMS), float(tiles))
-        return (
-            C["launch_stream_us"]
-            + ws_sim(
-                cal,
-                name,
-                variant,
-                h,
-                shape,
-                eq,
-                min(1.0, rb / cb) if cb else 0.0,
-                dram_clk(rb, secs, eq, m),
-                sass_path,
-                nblocks=math.ceil(tiles / SMS),
-                grid=tiles,
-                machine=m,
-                sm_hook=sm_hook,
-                trace=trace,
-            )["us"]
-        )
-    left, t, w = tiles, C["launch_stream_us"], 0
-    while left > 0:
-        n = min(left, SMS)
-        cb = (
-            n
-            * kt
-            * (min(h["block_M"], shape["M"]) + min(h["block_N"], shape["N"]))
-            * h["block_K"]
-            * 2
-        )
-        wv = (
-            sp["waves"][w] if w < len(sp["waves"]) else {"A": 0.0, "B": 0.0, "cols": 1, "blocks": n}
-        )
-        rb, secs = wave_dram(h, shape, wv, warm)
-        t += ws_sim(
+    sp = dram_split_kslice(h, shape, SMS, C["l2_effective_bytes"])
+    rb = secs = 0.0
+    for wv in sp["waves"]:
+        r_, s_ = wave_dram(h, shape, wv, True, m)
+        rb += r_
+        secs += s_
+    # TMA moves only rows and columns inside the matrix (out-of-range rows of a box are
+    # zero-filled, no traffic)
+    cb = (
+        tiles
+        * kt
+        * (min(h["block_M"], shape["M"]) + min(h["block_N"], shape["N"]))
+        * h["block_K"]
+        * 2
+    )
+    eq = min(float(SMS), float(tiles))
+    return (
+        C["launch_stream_us"]
+        + ws_sim(
             cal,
             name,
-            variant,
+            "full",
             h,
             shape,
-            n,
+            eq,
             min(1.0, rb / cb) if cb else 0.0,
-            dram_clk(rb, secs, n),
-            sass_path,
+            dram_clk(rb, secs, eq, m),
+            nblocks=math.ceil(tiles / SMS),
+            grid=tiles,
+            machine=m,
+            sm_hook=sm_hook,
+            trace=trace,
         )["us"]
-        left -= n
-        w += 1
-    return t
-
-
-def ws_level(cal: Path, names: list[str] | None = None) -> list[dict]:
-    """One row per TMA pick: mma-only one block (simulated, measured), the whole block simulated,
-    and the whole kernel
-    at its grid (simulated, measured)."""
-    m = json.loads((cal / "ablation" / "mechanisms.json").read_text())
-    rows = []
-    for name in names or list(m):
-        r = m[name]
-        h = r["pick"]
-        s = r["shape"]
-        kt = r["KT"]
-        nol = ws_sim(cal, name, "noload", h, s)
-        full1 = ws_sim(cal, name, "full", h, s)
-        meas_c = r["compute_per_ktile_us"] * kt + (r.get("block_setup_us") or C["block_setup_us"])
-        k = kernel_us(cal, name, h, s)
-        rows.append(
-            {
-                "pick": name,
-                "noload": (nol["us"], meas_c),
-                "warps_done": [nol["warps_done"], nol["warps"]],
-                "full_block_us": full1["us"],
-                "full": (k, r["full_event_us"]),
-            }
-        )
-    return rows
+    )

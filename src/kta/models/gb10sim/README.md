@@ -19,7 +19,7 @@ Not copied: `gemv.py`, `epilogue.py`, `decode_sweep.py`, `layout.py`, `shapes.py
 
 ## Changes against upstream (copy step)
 
-Behaviour-preserving only; the replay on slai checks it (`scripts/gb10sim-replay`, delivery note).
+Behaviour-preserving only; the replay on slai checks it (`scripts/gb10sim-replay` at the time, since retired for `scripts/perfmodel-table`; delivery note).
 
 - `ruff format`; over-long comments and docstrings re-wrapped; `l` renamed `line` in `sass.parse`; `zip(pts, pts[1:])` → `itertools.pairwise(pts)`; one unused local removed; `min/max(d, key=d.get)` → `key=lambda q: d[q]`; a no-op conditional (`a if c else a`) reduced to `a`; list concatenations written as unpacking.
 - Type declarations: the attributes upstream attaches to `Warp` after construction are dataclass fields with the same initial values; `ready` and the unit-free lists are floats; `_val`, `_imm`, `_pred` return `Any`; `main_loop` returns `Optional`; the base `on_event` has a docstring body; `pick`/`last_yield` hooks via `getattr(..., None)`.

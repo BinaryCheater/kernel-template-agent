@@ -21,7 +21,6 @@ from .kernel import (
     copy_lines,
     dram_clk,
     dram_mix_secs,
-    launch_us,
     occupancy,
     sass_trips,
     simulate_kernel,
@@ -30,6 +29,7 @@ from .l2 import replay_walk, walk
 from .l2 import rotating_miss as l2_rotating_miss
 from .l2 import warm_miss as l2_warm_miss
 from .machine import Machine, default_machine
+from .model import C
 from .probes import Case, ClockMarked, marked_cycles
 from .sass import Ins, main_loop, parse
 from .sm import SM
@@ -998,7 +998,7 @@ def l2reuse_cases(b: Batch) -> list[Case]:
                 passes = 4 if mode == "in4" else 1
                 ins = _k(txt, f"_Z2rdILi{n}ELi{k}ELi{passes}EEvPK4int4PyPi")
 
-                def build(ins=ins, nbytes=nbytes, mode=mode, kind=kind, passes=passes, **kw):
+                def build(ins=ins, nbytes=nbytes, mode=mode, kind=kind, **kw):
                     mm = kw.get("machine") or default_machine()
                     w = l2_warm_miss(nbytes, kind, mm)
                     miss = {"cold": 1.0, "warm": w, "in4": (1 + 3 * w) / 4}[mode]
@@ -1202,7 +1202,7 @@ def _hgemm_case(
         7,
         "us",
         build,
-        lambda sm, r: r["us"] - _launch_diff(b, sm) - launch_us() + _launch_event(sm.m),
+        lambda sm, r: r["us"] - _launch_diff(b, sm) - C["launch_stream_us"] + _launch_event(sm.m),
         limit=0,
     )
 

@@ -22,6 +22,7 @@ The tile bytes per k-tile are split evenly over the UTMALDG instructions of one 
 
 from __future__ import annotations
 
+from .sass import main_loop
 from .sm import SM
 
 
@@ -41,25 +42,15 @@ class WSSM(SM):
     ):
         super().__init__(ins, threads_launched, blocks, trips, **kw)
         self.kt = kt
-        from .sass import main_loop as _ml
-
-        self.mma_loop = _ml(ins)
+        self.mma_loop = main_loop(ins)
         self.stages = stages
         self.ctiles = tile_bytes / max(1, tma_per_ktile)
         self.consumer_warps = consumer_threads // 32
         # a TMA box is written into the shared-memory array at the array's rate
         self.smem_B_per_clk = float(self.m.param("smem_bytes_per_clk_per_sm"))
         self.on_share(kw.get("active_sms", 1))
-        for w in self.warps:
-            w.role = None
-            w.k_prod = -1
-            w.n_full = 0
-            w.n_empty_arrive = 0
         self.landed = {}  # (block, k) -> time all of k-tile k's TMA bytes are in shared memory
-        self.pending_k = {}  # (block, k) -> outstanding landing times
-        self.empty_arrives = {}  # (block) -> consumer arrives so far
         self.dealloc = {}  # (block) -> producer-group warps that gave registers back
-        self.n_full_done = {}
         self.arrived = {}
         self.log = []
         self.pend = {}
@@ -145,7 +136,6 @@ class WSSM(SM):
                 self.log.append(("empty_pass", w.wid, w.k_prod, now))
         elif x.op.startswith("SYNCS.ARRIVE") and w.role == "consumer":
             # a consumer warp releases its stage (the empty barrier)
-            self.empty_arrives[w.block] = self.empty_arrives.get(w.block, 0) + 1
             self.release_t.setdefault(w.block, []).append(now)
             self.ev(
                 now + self.P["mbar_wake_clk"], "wake", w, None
@@ -197,19 +187,14 @@ class WSSM(SM):
                 if p:
                     w.done = True
                     self.exited[w.block] = self.exited.get(w.block, 0) + 1
-                    self.end = max(getattr(self, "end", 0), self.t["store_port"])
+                    self.end = max(self.end, self.t["store_port"])
                     self.block_exit(w.block, now)
                     return
                 w.pc += 1
                 w.ready = now + max(1, x.stall)
                 return
             if x.target is not None and self.loop_end != w.pc:
-                if p:
-                    w.pc = next(i for i, y in enumerate(self.ins) if y.addr == x.target)
-                    if x.target < x.addr and self.ins[w.pc].base == "USETMAXREG":
-                        pass
-                else:
-                    w.pc += 1
+                w.pc = self._idx(x.target) if p else w.pc + 1
                 w.ready = now + max(1, x.stall)
                 return
         # k-loops, either shape the compiler emits, decided by what the branch tests (k-tiles remain
@@ -254,7 +239,6 @@ class WSSM(SM):
             w.ready = now + max(1, x.stall)
             return
         super().issue(w, now)
-        # the landed times of a k-tile depend on its last TMA; mark it pending until then
 
     def why_blocked(self, w, now):
         """Trace: the warp-specialised waits first (eligible's order), then the base reasons."""
