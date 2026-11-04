@@ -1,0 +1,31 @@
+# LEARNDEMO-1 intake: the vLLM RMSNorm kernel introduced as a new repository.
+# Source, workload and Reference only (bodies copied from knowledge/seed/references/vllm_rms_norm);
+# the hand decomposition is deliberately not imported, so the learn loop starts from the seed pool.
+# Usage: kta reference add docs/runbooks/learndemo-1/vllm_rms_norm.yaml
+source:
+  name: vllm_rms_norm_source
+  type: git
+  locator: https://github.com/vllm-project/vllm
+  revision: 2eae56c4ba0cf12087fec035514eedede83c257d
+  license: Apache-2.0
+  note: >-
+    rms_norm_kernel (standalone RMSNorm) in csrc/layernorm_kernels.cu; the fused_add_rms_norm
+    kernels in the same file are a different workload and are not analysed.
+problem:
+  name: rms_norm_f16
+  reference_impl: "out[t, :] = x[t, :] / sqrt(mean(x[t, :]^2) + eps) * w, computed in float32 (tests/kernels/core/test_layernorm.py, RMSNorm.forward_native)"
+  inputs:
+    - {name: x, shape: [T, D], dtype: f16, layout: "row_major, row stride may exceed D"}
+    - {name: w, shape: [D], dtype: f16, layout: contiguous}
+  outputs:
+    - {name: out, shape: [T, D], dtype: f16, layout: row_major}
+  params:
+    eps: "f32, runtime"
+    T: "tokens, runtime"
+    D: "hidden size, runtime"
+    rank_variants: "3-D (q/k norm per head) and 4-D inputs use the same program with a different row index map"
+    tolerance: "f16 output against an f32 reference"
+reference:
+  name: vllm_rms_norm
+  build: "pip install vllm (rms_norm is in the vllm._C extension)"
+  runnable_on: [gb10]

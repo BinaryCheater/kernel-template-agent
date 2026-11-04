@@ -80,6 +80,10 @@ export const api = {
   snapshots: () => get<Snapshot[]>("/snapshots"),
   poolDiff: (a: string, b: string) => get<PoolDiff>("/pool/diff", { a, b }),
   coverage: (snapshot: string) => get<CoverageReport>("/coverage", { snapshot }),
+  // LEARNDEMO-1 (D722): a Reference's learning page (types in pages/Learning.tsx)
+  references: <T,>() => get<T>("/references"),
+  learning: <T,>(id: string) => get<T>(`/references/${enc(id)}/learning`),
+  sourceFile: <T,>(id: string, path: string) => get<T>(`/references/${enc(id)}/source`, { path }),
   // WP9b
   capabilities: () => get<Capability[]>("/actions/capabilities"),
   actionLog: (limit = 100) => get<ActionLogEntry[]>("/actions/log", { limit: String(limit) }),
