@@ -63,7 +63,7 @@ def on_spark(table_dir: Path) -> None:
         raise SystemExit("refused: uncommitted changes; a table belongs to a commit")
     busy = _ssh(
         "nvidia-smi --query-compute-apps=pid --format=csv,noheader; "
-        "pgrep -f perfmodel/remote/run.py || true"
+        "pgrep -f [p]erfmodel/remote/run.py || true"
     ).strip()
     if busy:
         raise SystemExit(f"refused: spark's GPU is in use: {busy}")
