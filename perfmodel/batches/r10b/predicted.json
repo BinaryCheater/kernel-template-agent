@@ -1,0 +1,23 @@
+{
+ "engine": "f6ff38c9baff0d7d6cb2d8679da2d8682913480ee8e5a66e8dd265cd130d1eee",
+ "kta_commit": "7d08c370994ee67ca3d192ce4e24e40a18c0e858",
+ "date": "2026-11-04T08:42:36Z",
+ "clock_GHz": "description kernel clock (no batch clock before the run)",
+ "predicted": {
+  "load_sat g12_z0": 393.2688,
+  "load_sat g12_z64": 442.4375,
+  "load_sat g12_z256": 413.2188,
+  "load_sat g24_z0": 393.2688,
+  "load_sat g24_z64": 442.4375,
+  "load_sat g24_z256": 413.2188,
+  "load_sat g48_z0": 413.3013,
+  "load_sat g48_z64": 1263.9062,
+  "load_sat g48_z256": 552.4688,
+  "load_sat g96_z0": 458.5713,
+  "load_sat g96_z64": 2470.47,
+  "load_sat g96_z256": 913.625,
+  "load_sat g144_z0": 502.7737,
+  "load_sat g144_z64": 4015.2524,
+  "load_sat g144_z256": 1252.514
+ }
+}
