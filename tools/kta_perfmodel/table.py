@@ -166,7 +166,8 @@ def _batch_key(d: Path) -> str:
 def batch_specs(root: Path = BATCHES) -> Iterator[dict[str, Any]]:
     """KTA's own measurement batches (perfmodel/batches/<batch>/): probes and test-set kernels.
     A batch that is not valid (gb10-measure) contributes no measured values."""
-    for d in sorted(p for p in root.iterdir() if (p / "build").is_dir()) if root.exists() else []:
+    dirs = [p for p in root.iterdir() if (p / "build").is_dir()] if root.exists() else []
+    for d in sorted(dirs, key=lambda p: batch_order(p.name)):
         b = probeset.load(d)
         meas = d / "measured.json"
         mdoc = json.loads(meas.read_text()) if meas.exists() else {}
