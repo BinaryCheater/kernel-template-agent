@@ -227,7 +227,7 @@ class SM:
         self.copies_a = copies_a
         # round 9 (probes first_reader, first_share, copy_dram): the bytes a step sends to DRAM over
         # the chip; a copy's miss lands after the unloaded latency and that burst past the L2
-        self.burst_bytes = burst_bytes
+        self.burst_bytes = burst_bytes if self.P["dram_burst_past_l2"] else 0.0
         self.slice_acc = [0.0, 0.0]
         self.first_acc = [0.0, 0.0]
         self.slice_now: dict[tuple[int, int], tuple[int, bool, bool]] = {}
@@ -364,7 +364,7 @@ class SM:
         wave = self.wave_miss[min(w.block // self.resident, len(self.wave_miss) - 1)]
         self.dram_clk0 = wave[4]
         self.dram_clk = wave[4] * self.active_sms / self.eq0
-        self.burst_bytes = wave[5]
+        self.burst_bytes = wave[5] if self.P["dram_burst_past_l2"] else 0.0
         now = self.slice_now.get((w.block, part))
         if now is None or now[0] != step:
             self.slice_acc[part] += wave[part]
