@@ -17,7 +17,7 @@ from typing import Any
 
 from . import upstream
 
-LAB = Path("/Users/dingyi/.codex/worktrees/kta-gb10-lab/.lab-data/campaign")
+LAB = Path("/Users/dingyi/Projects/agentic-codesign/kta/data/wp28-lab/campaign")
 OUT = upstream.ROOT / "perfmodel" / "batches" / "r10w"
 GROUP = "breadth library"
 
