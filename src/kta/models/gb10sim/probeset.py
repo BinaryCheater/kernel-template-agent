@@ -819,6 +819,37 @@ def l2_cap_cases(b: Batch) -> list[Case]:
     return [case(k, s, n, nb, g) for k, s, n, nb, _ in L2_CAP_POINTS for g in L2_CAP_G]
 
 
+def l2_local_cases(b: Batch) -> list[Case]:
+    """Round 11: contiguous copies by address arrangement (probe l2_local)."""
+
+    def case(name, mode, g):
+        cid = f"l2_local {name}_g{g}"
+        probe, ins = _unit_ins(b, cid, f"_Z2cpILi{mode}EEvPKcPj")
+
+        def build(**kw):
+            m = kw.get("machine") or default_machine()
+            per_sm = math.ceil(g / m.sms)
+            rmax = occupancy({"threads": L2_CAP_T}, 8, L2_CAP_SMEM, m)
+            return SM(
+                ins,
+                L2_CAP_T,
+                per_sm,
+                32,
+                active_sms=min(g, m.sms * rmax) / min(rmax, per_sm),
+                resident=rmax,
+                grid_blocks=g,
+                grid_dim=(g, 1, 1),
+                copy_lines=[4],
+                copy_contiguous=mode == 0,
+                **kw,
+            )
+
+        return _case(b, cid, probe, 4, "us", build, _time(b, "event"))
+
+    modes = (("scatter", 0), ("walk", 1), ("lockstep", 2), ("page", 3))
+    return [case(n, k, g) for n, k in modes for g in (48, 144, 480)]
+
+
 def first_share_cases(b: Batch) -> list[Case]:
     """Round 9: shared tiles at the chip's scale (probe first_share): the wave of 48 blocks of
     `share`, the waves of `seq` on one block per SM, the steps of `pieces` on one block."""
@@ -1450,6 +1481,7 @@ BUILDERS = (
     ("probe-load_sat", load_sat_cases),
     ("probe-copy_depth", copy_depth_cases),
     ("probe-l2_cap", l2_cap_cases),
+    ("probe-l2_local", l2_local_cases),
     ("probe-mma_ldsm", mma_ldsm_cases),
     ("probe-spill_rw", spill_rw_cases),
     ("probe-l2mix", l2mix_cases),

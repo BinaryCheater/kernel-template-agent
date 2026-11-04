@@ -8,3 +8,4 @@
 {"date": "2026-11-04T21:05:06Z", "round": 11, "mode": "override", "commit": "a0340e986777", "dirty": true, "rows": 10, "replayed": 10, "cpu_s": 145.1, "wall_s": 36.9, "jobs": 6}
 {"date": "2026-11-04T21:09:01Z", "round": 11, "mode": "selection", "commit": "a0340e986777", "dirty": true, "rows": 224, "replayed": 126, "cpu_s": 974.7, "wall_s": 219.5, "jobs": 6}
 {"date": "2026-11-04T21:13:00Z", "round": 11, "mode": "selection", "commit": "a0340e986777", "dirty": true, "rows": 302, "replayed": 140, "cpu_s": 949.5, "wall_s": 203.1, "jobs": 6}
+{"date": "2026-11-04T21:19:30Z", "round": 11, "mode": "selection", "commit": "e0c259ab3cc2", "dirty": false, "rows": 502, "replayed": 222, "cpu_s": 1917.9, "wall_s": 367.9, "jobs": 6}

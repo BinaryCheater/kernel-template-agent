@@ -1226,9 +1226,14 @@ def render(doc: dict[str, Any], top: int = 15) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _design(group: str) -> bool:
+    """Groups of design variants: the breadth sets and the probe-like kernel sets are not."""
+    return not any(k in group for k in ("breadth", "wr_", "atomic_bins", "store_rewrite"))
+
+
 def goal_totals(doc: dict[str, Any]) -> dict[str, Any]:
     """28 §1 over the design groups of the test set, and the what-if numbers."""
-    gs = [(s["set"], s["goal"]) for s in doc["summary"] if "goal" in s]
+    gs = [(s["set"], s["goal"]) for s in doc["summary"] if "goal" in s and _design(s["set"])]
     wi = next((s for s in doc.get("whatif_summary", []) if s["axis"] == "all"), None)
     return {
         "groups": len(gs),
