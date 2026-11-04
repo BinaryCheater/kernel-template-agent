@@ -1,7 +1,7 @@
 """``scripts/perfmodel-table``: replay validation kernels and probes on CPU.
 
-    scripts/perfmodel-table [--focus REGEX] [--top]    # the sentinels plus the rows REGEX matches
-    scripts/perfmodel-table --focus REGEX --no-sentinels
+    scripts/perfmodel-table [--top]                    # the sentinels
+    scripts/perfmodel-table --focus REGEX [--sentinels]  # the rows REGEX matches, no attribution
     scripts/perfmodel-table --override '{"sim.x": 1}'  # an ablation, on the same selection
     scripts/perfmodel-table --full                     # once per round, on spark; writes the table
 
@@ -26,8 +26,8 @@ OUT = upstream.ROOT / "docs" / "design" / "perfmodel"
 LAST = upstream.ROOT / "data" / "perfmodel" / "last-selection.json"
 
 
-def select(rows: list[dict], focus: str | None, plain: bool) -> list[dict]:
-    keep = set() if plain else sentinels.read()
+def select(rows: list[dict], focus: str | None, with_sentinels: bool) -> list[dict]:
+    keep = sentinels.read() if with_sentinels or not focus else set()
     return [r for r in rows if r["id"] in keep or (focus and re.search(focus, r["id"]))]
 
 
@@ -45,8 +45,11 @@ def moved(rows: list[dict]) -> None:
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="scripts/perfmodel-table")
     ap.add_argument("--sets", nargs="+", choices=table.SETS, default=list(table.SETS))
-    ap.add_argument("--focus", default=None, help="regex over row ids, added to the sentinels")
-    ap.add_argument("--no-sentinels", action="store_true", help="only the --focus rows")
+    ap.add_argument("--focus", default=None, help="regex over row ids: only these rows")
+    ap.add_argument("--sentinels", action="store_true", help="add the sentinels to --focus")
+    ap.add_argument(
+        "--wide", action="store_true", help=f"past the {table.LOCAL_CAP_S:.0f} CPU s cap; logged"
+    )
     ap.add_argument("--full", action="store_true", help="every row, once per round, on spark")
     ap.add_argument("--full-here", action="store_true", help="what --full runs on the worker")
     ap.add_argument("--upstream", type=Path, default=upstream.UPSTREAM)
@@ -62,7 +65,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument(
         "--override", default=None, help="JSON {param: value} applied to every row (an ablation)"
     )
-    ap.add_argument("--fast", action="store_true", help="no attribution: replays twice as fast")
+    ap.add_argument("--trace", action="store_true", help="attribution: replays twice as slow")
     a = ap.parse_args(argv)
     if a.full:
         full.on_spark(a.out)
@@ -70,13 +73,13 @@ def main(argv: list[str] | None = None) -> int:
     if a.full_here:
         full.refuse_second()
     over = json.loads(a.override) if a.override else None
-    trace = a.full_here or not (over or a.fast)
+    trace = a.full_here or (a.trace and not over)
     cal, sha = upstream.calibration_dir(a.upstream, a.rev)
     head, dirty = upstream.kta_commit()
     t0 = time.perf_counter()
     rows = table.specs(cal, tuple(a.sets))
     if not a.full_here:
-        rows = select(rows, a.focus, a.no_sentinels)
+        rows = select(rows, a.focus, a.sentinels)
     prev = a.out / "error-table.json"
     hint = (
         {r["id"]: r.get("wall_s", 0.0) for r in json.loads(prev.read_text())["rows"]}
@@ -84,7 +87,17 @@ def main(argv: list[str] | None = None) -> int:
         else {}
     )
     for r in table.run(
-        cal, sha, rows, a.jobs, not a.no_cache, hint, a.all, a.cached_only, over, trace=trace
+        cal,
+        sha,
+        rows,
+        a.jobs,
+        not a.no_cache,
+        hint,
+        a.all,
+        a.cached_only,
+        over,
+        trace=trace,
+        cap_s=None if a.full_here or a.wide else table.LOCAL_CAP_S,
     ):
         if a.full_here:
             err = "" if r["error"] is None else f"{100 * r['error']:+7.1f} %"
@@ -156,6 +169,9 @@ def main(argv: list[str] | None = None) -> int:
             "jobs": a.jobs,
         }
     )
+    n = full.current_round()
+    spent = sum(r["cpu_s"] for r in full.runs(n) if r["mode"] != "full")
+    print(f"this run {table.STATS['cpu_s']:.0f} CPU s; round {n} so far {spent:.0f} below the full")
     if a.full_here:
         a.out.mkdir(parents=True, exist_ok=True)
         (a.out / "error-table.json").write_text(json.dumps(doc, indent=1) + "\n")

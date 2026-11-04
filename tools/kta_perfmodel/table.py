@@ -42,6 +42,7 @@ SLOW: dict[str, str] = {}
 ENGINE = Path(probeset.__file__).parent
 CACHE = Path(__file__).resolve().parents[2] / "data" / "perfmodel" / "cache"
 BUDGET_S = 600.0  # CPU seconds of one replay; the slowest row takes about 90
+LOCAL_CAP_S = 600.0  # estimated CPU seconds of a run below the full table (LOOP §8)
 LOCAL_JOBS = 6
 # LOOP §4.4 "mechanisms only": every fitted parameter the replays read, replaced by the probe value
 # of the same component (gb10.json) or by nothing when no probe measures it (D-number in
@@ -470,6 +471,7 @@ def run(
     overrides: dict[str, Any] | None = None,
     trace: bool = True,
     budget_s: float = BUDGET_S,
+    cap_s: float | None = None,
 ) -> Iterator[dict[str, Any]]:
     """Fill each spec with its result, cached ones first, the rest from a pool of `jobs` processes
     (longest previous runs first); yields rows as they complete. `trace=False` skips the
@@ -514,6 +516,13 @@ def run(
     if cached_only and todo:
         raise SystemExit(f"{len(todo)} rows not in the cache, e.g. {todo[0]['id']!r}")
     todo.sort(key=lambda r: -(hint or {}).get(r["id"], 0.0))
+    if cap_s is not None:
+        est = sum((hint or {}).get(r["id"], 2.0) for r in todo) * (1.0 if trace else 0.5)
+        if est > cap_s:
+            raise SystemExit(
+                f"refused: {len(todo)} replays, about {est:.0f} CPU s, cap {cap_s:.0f}: "
+                "narrow --focus; the wide view is the round's --full (--wide overrides, logged)"
+            )
     groups: dict[tuple[Any, ...], list[dict[str, Any]]] = {}
     for r in todo:
         groups.setdefault(_replay_group(r), []).append(r)
