@@ -1,0 +1,19 @@
+{
+ "entry": "k_rw",
+ "grid": [
+  48,
+  1,
+  1
+ ],
+ "threads": 256,
+ "block": [
+  256
+ ],
+ "smem": 0,
+ "rot": 1,
+ "footprint_bytes": 790528,
+ "write_bytes": 790528,
+ "family": "hand",
+ "set": "store_rewrite",
+ "cache": "warm"
+}

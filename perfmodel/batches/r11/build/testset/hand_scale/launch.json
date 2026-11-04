@@ -1,0 +1,19 @@
+{
+ "entry": "k_scale",
+ "grid": [
+  1024,
+  1,
+  1
+ ],
+ "threads": 256,
+ "block": [
+  256
+ ],
+ "smem": 0,
+ "rot": 1,
+ "footprint_bytes": 134217728,
+ "write_bytes": 67108864,
+ "family": "hand",
+ "set": "breadth hand",
+ "cache": "warm"
+}
