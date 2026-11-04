@@ -40,3 +40,13 @@ secrets.env
 
 # Agent worktrees and local tool state
 .claude/
+
+# Project-local Codex settings
+.codex/
+
+# Study run state (knowledge/studies/README.md): local, not disposable, never committed.
+# Tracked: inputs/sources.json and the checkers (checks/*.py, *.md).
+knowledge/studies/*/inputs/*
+!knowledge/studies/*/inputs/sources.json
+knowledge/studies/*/checks/*.json
+knowledge/studies/*/checks/*.txt

@@ -16,6 +16,10 @@ A continuing worker resumes an active library or starts the next outstanding ent
 | FlashAttention | 1dc8232fe209 | Extracted by distinct design; fifteen provisional pairs, pending independent admission | [Manifest](flash-attention/inputs/sources.json) | [Current rules](flash-attention/review.md) |
 | FlashInfer | a1b4ed390c56 | Active: classic/quantized prefill, decode/cascade and POD/Hopper traced; thirty-six provisional pairs including hybrid cluster/CTA packing and row-relative fixed-point masses, segmented mask packing and replicated cluster statistics, MX floor-anchor quantization and ordered workspace merge; routed GEMM, SVDQuant/W4A16 and grouped promotion traced; remaining attention and other families open | [Manifest](flashinfer/inputs/sources.json) | [Current rules](flashinfer/review.md) |
 
+## Local run state
+
+`<study>/inputs/` (except `sources.json`) and the `.json`/`.txt` results in `<study>/checks/` are run state and stay out of Git (`.gitignore`). They are not disposable: they hold the versions of the rules a study consulted, which rules it used and what its checks found, so rerunning a check or tracing a judgement needs them. A fresh clone does not have them, and some checks fail there until they are restored; keep them when cleaning this directory. All extracted Templates are committed.
+
 ## Remaining work across the catalog
 
 User direction: stop expanding Workers A/B now, preserve results, and record resume points. CUTLASS also remains paused. Listed gaps are unfinished work, not completed coverage. Completed source studies still await kernel-reconstruction testing.
