@@ -1,0 +1,347 @@
+{
+ "kta_commit": "6ad28770fa4ad7e2ee3fcb4a9674b7da675f2a21",
+ "date": "2026-11-04",
+ "clock_GHz": "description kernel clock",
+ "predicted": {
+  "lib_E01 kernel": 2.53,
+  "lib_E02 kernel": 2.53,
+  "lib_E07 kernel": 2.53,
+  "lib_E08 kernel": 7.079020220919252,
+  "lib_E09 kernel": 4.6,
+  "lib_E10 kernel": 4.6,
+  "lib_E11 kernel": 10.84198530735818,
+  "lib_E12 kernel": 4.49,
+  "lib_E15 kernel": 7.173171272601564,
+  "lib_E16 kernel": 4.615724911144087,
+  "lib_E17 kernel": 22.17329164094763,
+  "lib_E18 kernel": 120.51117005463344,
+  "lib_E21 kernel": 495.53315325169774,
+  "lib_E23 kernel": 23.289289501494324
+ },
+ "details": {
+  "lib_E01 kernel": {
+   "issued": 360,
+   "blocks": 3,
+   "defaults": {
+    "rbar_default": 0,
+    "issue_only": 1,
+    "branch_fallback": 0,
+    "front_end": 0
+   },
+   "fe": {},
+   "branch": {},
+   "issue_only": [
+    "MOV"
+   ]
+  },
+  "lib_E02 kernel": {
+   "issued": 360,
+   "blocks": 3,
+   "defaults": {
+    "rbar_default": 0,
+    "issue_only": 1,
+    "branch_fallback": 0,
+    "front_end": 0
+   },
+   "fe": {},
+   "branch": {},
+   "issue_only": [
+    "MOV"
+   ]
+  },
+  "lib_E07 kernel": {
+   "issued": 432,
+   "blocks": 1,
+   "defaults": {
+    "rbar_default": 0,
+    "issue_only": 3,
+    "branch_fallback": 0,
+    "front_end": 1
+   },
+   "fe": {
+    "ldg address unknown (32 contiguous lanes)": 32
+   },
+   "branch": {},
+   "issue_only": [
+    "LDC",
+    "UIADD3",
+    "USHF"
+   ]
+  },
+  "lib_E08 kernel": {
+   "issued": 2288,
+   "blocks": 22,
+   "defaults": {
+    "rbar_default": 0,
+    "issue_only": 3,
+    "branch_fallback": 0,
+    "front_end": 1
+   },
+   "fe": {
+    "ldg address unknown (32 contiguous lanes)": 176
+   },
+   "branch": {},
+   "issue_only": [
+    "LDC",
+    "UIADD3",
+    "UISETP"
+   ]
+  },
+  "lib_E09 kernel": {
+   "issued": 10944,
+   "blocks": 342,
+   "defaults": {
+    "rbar_default": 0,
+    "issue_only": 1,
+    "branch_fallback": 0,
+    "front_end": 0
+   },
+   "fe": {},
+   "branch": {},
+   "issue_only": [
+    "LDC"
+   ]
+  },
+  "lib_E10 kernel": {
+   "issued": 10944,
+   "blocks": 342,
+   "defaults": {
+    "rbar_default": 0,
+    "issue_only": 1,
+    "branch_fallback": 0,
+    "front_end": 0
+   },
+   "fe": {},
+   "branch": {},
+   "issue_only": [
+    "LDC"
+   ]
+  },
+  "lib_E11 kernel": {
+   "issued": 12996,
+   "blocks": 12,
+   "defaults": {
+    "rbar_default": 2,
+    "issue_only": 11,
+    "branch_fallback": 4,
+    "front_end": 1
+   },
+   "fe": {
+    "ldg address unknown (32 contiguous lanes)": 480
+   },
+   "branch": {
+    "unknown uniform predicate: taken": 48,
+    "lanes split: both arms": 96,
+    "unknown predicate: fall through": 144,
+    "main-loop trip count": 48
+   },
+   "issue_only": [
+    "BRA",
+    "BSSY",
+    "BSYNC",
+    "CALL",
+    "IADD",
+    "LDC",
+    "MOV",
+    "NOP",
+    "UISETP",
+    "ULEA",
+    "UMOV"
+   ]
+  },
+  "lib_E12 kernel": {
+   "issued": 236,
+   "blocks": 1,
+   "defaults": {
+    "rbar_default": 0,
+    "issue_only": 9,
+    "branch_fallback": 1,
+    "front_end": 0
+   },
+   "fe": {},
+   "branch": {
+    "unknown uniform predicate: taken": 4
+   },
+   "issue_only": [
+    "BRA",
+    "MOV",
+    "NOP",
+    "UIADD3",
+    "UIMAD",
+    "UISETP",
+    "ULOP3",
+    "UMOV",
+    "USHF"
+   ]
+  },
+  "lib_E15 kernel": {
+   "issued": 6564,
+   "blocks": 12,
+   "defaults": {
+    "rbar_default": 1,
+    "issue_only": 9,
+    "branch_fallback": 2,
+    "front_end": 1
+   },
+   "fe": {
+    "ldg address unknown (32 contiguous lanes)": 48
+   },
+   "branch": {
+    "lanes split: both arms": 192,
+    "unknown predicate: fall through": 96
+   },
+   "issue_only": [
+    "BRA",
+    "BSSY",
+    "BSYNC",
+    "CALL",
+    "LDC",
+    "MOV",
+    "ULEA",
+    "UMOV",
+    "VIMNMX"
+   ]
+  },
+  "lib_E16 kernel": {
+   "issued": 2592,
+   "blocks": 6,
+   "defaults": {
+    "rbar_default": 0,
+    "issue_only": 9,
+    "branch_fallback": 4,
+    "front_end": 1
+   },
+   "fe": {
+    "ldg address unknown (32 contiguous lanes)": 48
+   },
+   "branch": {
+    "unknown uniform predicate: taken": 48,
+    "lanes split: both arms": 48,
+    "unknown predicate: fall through": 96,
+    "main-loop trip count": 48
+   },
+   "issue_only": [
+    "BRA",
+    "BSSY",
+    "BSYNC",
+    "LDC",
+    "MOV",
+    "UIMAD",
+    "UISETP",
+    "ULEA",
+    "UMOV"
+   ]
+  },
+  "lib_E17 kernel": {
+   "issued": 55200,
+   "blocks": 10,
+   "defaults": {
+    "rbar_default": 0,
+    "issue_only": 8,
+    "branch_fallback": 3,
+    "front_end": 0
+   },
+   "fe": {},
+   "branch": {
+    "unknown predicate: fall through": 1280,
+    "main-loop trip count": 160,
+    "lanes split: both arms": 330
+   },
+   "issue_only": [
+    "BRA",
+    "BSSY",
+    "BSYNC",
+    "IADD",
+    "LDC",
+    "MOV",
+    "ULEA",
+    "UMOV"
+   ]
+  },
+  "lib_E18 kernel": {
+   "issued": 55200,
+   "blocks": 10,
+   "defaults": {
+    "rbar_default": 0,
+    "issue_only": 8,
+    "branch_fallback": 3,
+    "front_end": 0
+   },
+   "fe": {},
+   "branch": {
+    "unknown predicate: fall through": 1280,
+    "main-loop trip count": 160,
+    "lanes split: both arms": 330
+   },
+   "issue_only": [
+    "BRA",
+    "BSSY",
+    "BSYNC",
+    "IADD",
+    "LDC",
+    "MOV",
+    "ULEA",
+    "UMOV"
+   ]
+  },
+  "lib_E21 kernel": {
+   "issued": 330756,
+   "blocks": 22,
+   "defaults": {
+    "rbar_default": 4,
+    "issue_only": 12,
+    "branch_fallback": 0,
+    "front_end": 1
+   },
+   "fe": {
+    "ldg address unknown (32 contiguous lanes)": 5504
+   },
+   "branch": {},
+   "issue_only": [
+    "BRA",
+    "BSSY",
+    "BSYNC",
+    "IADD",
+    "LDC",
+    "MOV",
+    "NOP",
+    "UI2F",
+    "UISETP",
+    "ULEA",
+    "UMOV",
+    "USHF"
+   ]
+  },
+  "lib_E23 kernel": {
+   "issued": 66908,
+   "blocks": 43,
+   "defaults": {
+    "rbar_default": 0,
+    "issue_only": 12,
+    "branch_fallback": 2,
+    "front_end": 1
+   },
+   "fe": {
+    "ldg address unknown (32 contiguous lanes)": 2580
+   },
+   "branch": {
+    "unknown predicate: fall through": 1892,
+    "lanes split: both arms": 1548
+   },
+   "issue_only": [
+    "BRA",
+    "BSSY",
+    "BSYNC",
+    "CS2R",
+    "IADD",
+    "LDC",
+    "MOV",
+    "NOP",
+    "ULEA",
+    "UMOV",
+    "VIMNMX",
+    "VOTE"
+   ]
+  }
+ }
+}

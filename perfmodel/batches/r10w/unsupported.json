@@ -7,5 +7,6 @@
  "E19": "control bits (no native SASS capture in WP28)",
  "E20": "control bits (no native SASS capture in WP28)",
  "E22": "control bits (no native SASS capture in WP28)",
- "E24": "control bits (no native SASS capture in WP28)"
+ "E24": "control bits (no native SASS capture in WP28)",
+ "E05": "replay over budget: polls a run-time value (split-K wait), argument values not modelled"
 }
