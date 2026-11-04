@@ -1,0 +1,65 @@
+/* Learning a reference (LEARNDEMO-1, D722). Tokens from tokens.css only. */
+.ln .k { display: inline-block; min-width: 108px; color: var(--ink-3); font-size: 12px; text-transform: uppercase; letter-spacing: 0.03em; margin-right: 8px; }
+.ln-head { display: flex; flex-direction: column; gap: 6px; }
+.ln-now { margin-top: 4px; padding: 6px 10px; background: var(--st-running-tint); border-radius: var(--radius-sm); }
+
+.ln-flow { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+.ln-stage { border: 1px solid var(--hairline); border-radius: var(--radius-sm); padding: 8px; display: flex; flex-direction: column; gap: 4px; background: var(--panel); }
+.ln-stage.st-current { border-color: var(--st-running); box-shadow: 0 0 0 1px var(--st-running) inset; }
+.ln-stage.st-done { background: var(--st-ok-tint); }
+.ln-stage.st-skipped, .ln-stage.st-pending { opacity: 0.6; }
+.ln-stage-head { display: flex; gap: 6px; align-items: baseline; }
+.ln-n { font-family: var(--mono); color: var(--ink-3); }
+.ln-stage-who { font-size: 12px; color: var(--ink-2); }
+.ln-stage-does { font-size: 12px; color: var(--ink-2); flex: 1; }
+
+.ln-tasks td { vertical-align: top; }
+.ok-t { color: var(--st-ok); }
+.fail-t { color: var(--st-fail); }
+.small { font-size: 12px; }
+
+.ln-workload { margin-bottom: 8px; }
+.ln-explain { display: grid; grid-template-columns: minmax(320px, 2fr) minmax(0, 3fr); gap: 12px; min-height: 480px; }
+.ln-rows { display: flex; flex-direction: column; gap: 4px; max-height: 720px; overflow: auto; padding-right: 4px; }
+.ln-rows-h { font-weight: 600; margin: 4px 0; }
+.ln-rows-h.tx-h { margin-top: 10px; }
+.ln-row { border: 1px solid var(--hairline); border-left: 4px solid var(--st-ok); border-radius: var(--radius-sm); padding: 6px 8px; cursor: pointer; background: var(--panel); }
+.ln-row.s-extracted { border-left-color: var(--st-human); }
+.ln-row.s-added_later { border-left-color: var(--st-running); }
+.ln-row.s-missing, .ln-row.tx { border-left-color: var(--st-fail); }
+.ln-row.tx { background: var(--st-fail-tint); }
+.ln-row.sel { outline: 2px solid var(--link); }
+.ln-row-top { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.ln-row-txt { font-size: 12.5px; color: var(--ink-2); margin-top: 2px; }
+
+.ln-side { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.ln-tpl { border: 1px solid var(--hairline); border-radius: var(--radius-sm); padding: 8px; background: var(--panel-sunk); display: flex; flex-direction: column; gap: 6px; }
+.ln-tpl-h { display: flex; gap: 8px; align-items: center; }
+.ln-bind { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.ln-cites, .ln-rounds { display: flex; gap: 4px; flex-wrap: wrap; }
+.ln-cites button, .ln-rounds button { border: 1px solid var(--hairline); background: var(--panel); border-radius: var(--radius-sm); padding: 2px 8px; font-family: var(--mono); font-size: 12px; cursor: pointer; }
+.ln-cites button.on, .ln-rounds button.on { border-color: var(--link); color: var(--link); }
+.ln-src { border: 1px solid var(--hairline); border-radius: var(--radius-sm); overflow: hidden; display: flex; flex-direction: column; min-height: 0; }
+.ln-src-head { padding: 4px 8px; background: var(--panel-sunk); border-bottom: 1px solid var(--hairline); font-size: 12px; }
+.ln-src pre { margin: 0; padding: 4px 0; max-height: 560px; overflow: auto; font-size: 12px; line-height: 1.5; background: #fff; }
+.ln-src pre > div { padding: 0 8px; white-space: pre; }
+.ln-src pre > div.hl { background: var(--st-waiting-tint); }
+.ln-no { display: inline-block; width: 44px; color: var(--ink-3); text-align: right; margin-right: 12px; user-select: none; }
+.ln-src-empty { padding: 24px; color: var(--ink-3); border: 1px dashed var(--hairline); border-radius: var(--radius-sm); }
+
+.ln-legend { display: flex; gap: 6px; margin-bottom: 6px; flex-wrap: wrap; }
+.ln-dag { height: 360px; }
+.ln-two { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s4); }
+.ln-gap { padding: 6px 0; border-bottom: 1px solid var(--hairline); }
+.ln-meta { margin-top: 8px; }
+.ln-notes { white-space: pre-wrap; font-size: 12px; max-height: 600px; overflow: auto; }
+
+/* chain nodes coloured by step status (ChainDag puts the status in `as-<status>`) */
+.chain-node.as-in_pool { border-left: 4px solid var(--st-ok); }
+.chain-node.as-extracted { border-left: 4px solid var(--st-human); }
+.chain-node.as-added_later { border-left: 4px solid var(--st-running); }
+.chain-node.as-missing { border-left: 4px solid var(--st-fail); background: var(--st-fail-tint); }
+
+@media (max-width: 900px) {
+  .ln-explain, .ln-two { grid-template-columns: 1fr; }
+}

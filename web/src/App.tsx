@@ -25,12 +25,14 @@ import { Knowledge } from "./pages/Knowledge";
 import { TemplatePage } from "./pages/Templates";
 import { RecordPage } from "./components/RecordDrawer";
 import { Review } from "./pages/Review";
+import { LearningPage } from "./pages/Learning";
 
 const PAGES: PageMeta[] = [
   { path: "/", title: "Home", question: "What is the system doing now, and what did it just do?" },
   { path: "/activity", title: "Activity", question: "What happened, in order, and why?" },
   { path: "/knowledge", title: "Knowledge", question: "What has the research accumulated?" },
   { path: "/knowledge/templates/:id", title: "Template", question: "What does this refinement step do, when does it apply, and how far is it checked?" },
+  { path: "/references/:id", title: "Learning", question: "How did the system learn from this repository, and what did it get?" },
   { path: "/records/:id", title: "Record", question: "What does this record say?" },
   { path: "/running", title: "Running", question: "What is occupying the system right now?" },
   { path: "/pipeline", title: "Pipeline", question: "In what order and in parallel did things run, and where did the time go?" },
@@ -65,6 +67,7 @@ export function App() {
         <Route path="/activity" element={<Activity />} />
         <Route path="/knowledge" element={<Knowledge />} />
         <Route path="/knowledge/templates/:id" element={<TemplatePage />} />
+        <Route path="/references/:id" element={<LearningPage />} />
         <Route path="/records/:id" element={<RecordPage />} />
         <Route path="/running" element={<Running />} />
         <Route path="/pipeline" element={<Pipeline />} />

@@ -224,6 +224,22 @@ class SqliteOps:
             ).fetchone()
         return str(row[0]) if row else None
 
+    def release_orphans(self, prefix: str, keep: str) -> list[str]:
+        """Free every lock held by another holder named ``<prefix>…`` (LEARNDEMO-1, D746).
+
+        Called by a process instance that has just taken its process lock: an earlier
+        instance of the same process is gone (its lock lapsed or was released), so the locks
+        it still holds, e.g. a loop lock taken for a step it never finished, are orphans."""
+        with self.db.write() as con:
+            rows = con.execute(
+                "SELECT name, holder FROM locks WHERE holder LIKE ? AND holder != ?",
+                (prefix + "%", keep),
+            ).fetchall()
+            for name, holder in rows:
+                con.execute("DELETE FROM locks WHERE name = ? AND holder = ?", (name, holder))
+                self._log(con, "locks", name, {"released_orphan_of": holder, "by": keep})
+        return [str(r[0]) for r in rows]
+
     def release(self, lock: str, holder: str) -> None:
         with self.db.write() as con:
             row = con.execute("SELECT holder FROM locks WHERE name = ?", (lock,)).fetchone()

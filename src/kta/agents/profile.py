@@ -100,7 +100,9 @@ CODEX_V7 = ProfileSpec(
 # codex-v8 (SYSDEBUG-2, D742): T7 tells an overestimated unit (count or hardware rate,
 # direction `calibrate model`) from a missing term, and treats spreads within 5% as noise.
 CODEX_V8 = replace(CODEX_V7, name="codex-v8", version=8)
-LATEST = CODEX_V8  # what `kta init` stores for a fresh store (D705)
+# LEARNDEMO-1: retain v8 behavior and add frozen-source skills in a new profile.
+CODEX_V9 = replace(CODEX_V8, name="codex-v9", version=9)
+LATEST = CODEX_V9  # what `kta init` stores for a fresh store (D705)
 SUPPORTED_COMMANDS = [
     "show",
     "card",

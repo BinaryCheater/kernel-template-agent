@@ -23,6 +23,7 @@ from kta.knowledge import coverage_report
 from kta.knowledge.coverage import coverage_page
 from kta.knowledge.pool import ALL as MAX_LIMIT
 from kta.knowledge.pool import chain_template_refs, find_template
+from kta.orchestrator import intake
 from kta.orchestrator.outputs import RESULT_TITLE
 from kta.orchestrator.pipeline import Services
 from kta.orchestrator.transition import Loop
@@ -82,6 +83,8 @@ def work_frozen(svc: Services, loop: Loop) -> Facts:
         "problem": problem if isinstance(problem, str) else None,
         "revision": revision,
         "analysis_only": reason,
+        # LEARNDEMO-1 (D720): the source files at the revision, an input of every T2.
+        "source_tree": intake.source_tree(svc, source),
     }
 
 

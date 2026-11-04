@@ -33,7 +33,8 @@ SETTLED = frozenset({"accepted", "cancelled"})
 
 def _t2(loop: Loop, previous: str | None = None) -> TaskRequest:
     d = {**loop.data, **loop.facts}
-    inputs = [loop.subject] + [str(d[k]) for k in ("source", "problem") if d.get(k)]
+    keys = ("source", "problem", "source_tree")
+    inputs = [loop.subject] + [str(d[k]) for k in keys if d.get(k)]
     if previous:
         return TaskRequest(
             "T2", "Re-match the chain of this reference against the pool", [*inputs, previous]
@@ -79,7 +80,9 @@ def _analyzed(loop: Loop) -> Transition:
     if not to_extract:
         return Transition("analyzing", "reconstructed", "normal", data=data)
     inputs = [recon, loop.subject] + [
-        str(x) for x in (loop.data.get("source"), f.get("submission")) if x
+        str(x)
+        for x in (loop.data.get("source"), loop.data.get("source_tree"), f.get("submission"))
+        if x
     ]
     tasks = tuple(
         TaskRequest(

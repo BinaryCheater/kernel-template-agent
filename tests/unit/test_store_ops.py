@@ -74,6 +74,17 @@ def test_locks(ops: SqliteOps, clock: ManualClock) -> None:
     assert ops.acquire("gpu:spark:0", "job-c", 30)
 
 
+def test_release_orphans_frees_locks_of_an_earlier_instance(ops: SqliteOps) -> None:
+    # D746: a killed learn instance left its loop lock; the next instance frees it.
+    assert ops.acquire("loop:L1", "learn:old", 3600)
+    assert ops.acquire("loop:L2", "solve:other", 3600)
+    assert ops.acquire("process:learn", "learn:new", 60)
+    assert ops.release_orphans("learn:", "learn:new") == ["loop:L1"]
+    assert ops.lock_holder("loop:L1") is None
+    assert ops.lock_holder("loop:L2") == "solve:other"  # another process's lock stays
+    assert ops.lock_holder("process:learn") == "learn:new"
+
+
 def test_budgets(ops: SqliteOps) -> None:
     with pytest.raises(ConfigError, match="no budget"):
         ops.reserve("loop-1", {"gpu_s": 1})
