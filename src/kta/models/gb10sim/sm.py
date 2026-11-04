@@ -371,7 +371,9 @@ class SM:
                 first = self.first_acc[part] >= 1.0
                 self.first_acc[part] -= 1.0 if first else 0.0
             now = self.slice_now[(w.block, part)] = (step, out, first)
-        return ("miss" if now[2] else "wait") if now[1] else "hit"
+        if not now[1]:
+            return "hit"
+        return "miss" if now[2] else ("wait" if self.P["fill_wait"] else "hit")
 
     def _l2_miss(self, pc: int) -> bool:
         """This load misses the L2: misses spread evenly over the load's executions."""

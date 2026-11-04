@@ -647,7 +647,7 @@ def copy_dram_cases(b: Batch) -> list[Case]:
     return [case(r, z, g) for r in (0, 1) for g in (1, 16, 48) for z in (0, 64, 256, 1024)]
 
 
-FIRST_READER_Z = (0, 16, 32, 64, 128, 256)
+FIRST_READER_Z = (0, 4, 8, 16, 24, 32, 48, 64)
 FIRST_STEPS = 64
 
 

@@ -229,6 +229,8 @@ class Lanes:
                     return ((), (self.const_bank[c] & M32,) * 32)
                 return ((("c", *c), 1),), ZERO
             return "uniform"
+        if base == "HFMA2" and a[1:] == ["-RZ", "RZ", "0", "0"]:  # the compiler's zero
+            return ((), ZERO)
         if base in WRITES_UNKNOWN:
             return None
         src = [t for t in a[1:] if not re.match(r"^!?U?P(T|\d)$", t)]

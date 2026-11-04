@@ -81,6 +81,6 @@ int main() {
   point(k<Z, 0, 0>, "ldg", Z, 0, rot);        \
   point(k<Z, 1, 1>, "cp", Z, 1, rot);         \
   point(k<Z, 1, 0>, "cp", Z, 0, rot);
-    PT(0) PT(16) PT(32) PT(64) PT(128) PT(256)
+    PT(0) PT(4) PT(8) PT(16) PT(24) PT(32) PT(48) PT(64)
   }
 }
