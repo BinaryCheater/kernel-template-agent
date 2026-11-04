@@ -314,4 +314,4 @@ def replay_walk(acc: Access, in_flight: int, cap: float) -> Replay:
 def rotating_miss(window_bytes: float, kind: str, m: Machine) -> float:
     """Part of a rotating launch's reads that miss: the warm curve at the bytes the rotation
     touches (round 7, probe rot_depth)."""
-    return warm_miss(window_bytes, kind, m)
+    return warm_miss(window_bytes, kind, m) if m.P["rotating_by_window"] else 1.0
