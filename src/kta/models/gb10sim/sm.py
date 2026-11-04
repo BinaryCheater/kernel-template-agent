@@ -38,6 +38,29 @@ from .lanes import Lanes, contiguous, footprint, lut3, shared_part_sector, width
 from .machine import Machine, OpClass, default_machine
 from .sass import Ins, main_loop, parse
 
+_DEST_REG = re.compile(r"^U?R\d+$")
+_PRED_TOK = re.compile(r"^!?U?P(T|\d)$")
+_PRED_DEST = re.compile(r"^U?P\d$")
+_ISETP = re.compile(r"U?ISETP\.(\w+)(\.U32)?\.(AND|OR)")
+_VAL_NUM = re.compile(r"^-?(0x[0-9a-f]+|\d+)$")
+# operand text -> (value when it has no register, else None; its register or None; negated)
+_VAL_TOK: dict[str, tuple[Any, str | None, bool]] = {}
+
+
+def _val_tok(tok: str) -> tuple[Any, str | None, bool]:
+    t = tok.strip()
+    neg = t.startswith("-")
+    t = t.lstrip("-").replace(".reuse", "")
+    if t.startswith("!"):
+        out = (None, None, neg)
+    elif _VAL_NUM.match(t):
+        v = int(t, 16) if t.startswith("0x") else int(t)
+        out = ((-v) & 0xFFFFFFFF if neg else v & 0xFFFFFFFF, None, neg)
+    else:
+        out = (None, t, neg)
+    _VAL_TOK[tok] = out
+    return out
+
 
 @dataclass
 class Warp:
@@ -115,6 +138,7 @@ class SM:
         l1_bytes: int | None = None,
         block_ids: list[int] | None = None,
         addr_log: list | None = None,
+        addr_want: set | None = None,
         miss_by_pc: dict[int, float] | None = None,
         stack_bytes: int | None = None,
         wave_miss: list[tuple] | None = None,
@@ -280,6 +304,7 @@ class SM:
         # global load's lanes
         self.block_ids = block_ids
         self.addr_log = addr_log
+        self.addr_want = addr_want  # bases still to log; the run ends when none is left
         # block -> warps that have exited (they count as arrived at a block-wide barrier)
         self.exited = {}
         # shared-memory bank conflicts of ldmatrix: (A reads, LDSM.M88; B reads, LDSM.MT88), from
@@ -334,6 +359,8 @@ class SM:
         width = width_of(x.op)
         if self.addr_log is not None:
             self.addr_log.append((w.wid, w.loops, w.pc, width, addr))
+            if self.addr_want and addr is not None:
+                self.addr_want.discard(addr[0])
         if addr is None:
             self._dflt("front_end", "ldg address unknown (32 contiguous lanes)")
             n_sect = width
@@ -501,12 +528,10 @@ class SM:
     # --- warp-uniform integer values: loop counters, immediates, thread index
     # ----------------------------------------
     def _val(self, w, tok) -> Any:
-        t = tok.strip()
-        neg = t.startswith("-")
-        t = t.lstrip("-").replace(".reuse", "")
-        if t.startswith("!"):
-            return None
-        v = self._imm(t) if re.match(r"^-?(0x[0-9a-f]+|\d+)$", t) else w.vals.get(t)
+        fixed, t, neg = _VAL_TOK.get(tok) or _val_tok(tok)
+        if t is None:
+            return fixed
+        v = w.vals.get(t)
         if v is None:
             return None
         return (-v) & 0xFFFFFFFF if neg else v & 0xFFFFFFFF
@@ -515,8 +540,8 @@ class SM:
         """Compute the destination of simple integer instructions from known operands; forget it
         otherwise.
         """
-        args = [a.strip() for a in x.args.split(",")]
-        if not args or not re.match(r"^U?R\d+$", args[0]):
+        args = x.argv
+        if not _DEST_REG.match(args[0]):
             return
         d = args[0]
         op = x.op
@@ -542,7 +567,7 @@ class SM:
                 if op.startswith("IMAD.MOV"):
                     v = self._val(w, args[3]) if len(args) > 3 else None
             elif x.base in ("IADD3", "UIADD3"):
-                terms = [a for a in args[1:] if not re.match(r"^!?U?P(T|\d)$", a)]
+                terms = [a for a in args[1:] if not _PRED_TOK.match(a)]
                 vs = [self._val(w, a) for a in terms]
                 if terms and None not in vs:
                     v = sum(vs) & 0xFFFFFFFF
@@ -613,7 +638,7 @@ class SM:
     def _eval_pred_ops(self, w, x):
         if self.use_values and x.base not in ("ISETP", "UISETP"):
             self._eval_values(w, x)
-        args = [a.strip() for a in x.args.split(",")]
+        args = x.argv
         if x.base == "S2R" and "SR_TID.X" in x.args:
             w.regs_tid.add(args[0])
         elif x.base == "FCHK" and self.P["fchk_fast_path"]:
@@ -625,7 +650,7 @@ class SM:
         elif x.base == "ELECT":
             w.preds[args[0]] = True  # lane 0 is the elected lane
         elif x.base in ("ISETP", "UISETP"):
-            m = re.match(r"U?ISETP\.(\w+)(\.U32)?\.(AND|OR)", x.op)
+            m = _ISETP.match(x.op)
             if not m or len(args) < 4:
                 return
             dst = args[0]
@@ -694,7 +719,7 @@ class SM:
                     )
         elif (
             args
-            and re.match(r"^U?P\d$", args[0])
+            and _PRED_DEST.match(args[0])
             and x.base not in ("BRA", "EXIT")
             and not x.op.startswith("SYNCS")
         ):
@@ -726,9 +751,10 @@ class SM:
         if w.done or w.at_bar or w.ready > now:
             return False
         x = self.ins[w.pc]
-        for b in range(6):
-            if (x.wait >> b) & 1 and w.sb[b] > 0:
-                return False
+        if x.wait:
+            for b in range(6):
+                if (x.wait >> b) & 1 and w.sb[b] > 0:
+                    return False
         if x.base == "DEPBAR":
             m = re.search(r"SB(\d),\s*0x([0-9a-f]+)", x.args)
             if m and w.sb[int(m.group(1))] > int(m.group(2), 16):
@@ -790,7 +816,7 @@ class SM:
                 addr0 = w.lanes.address(x.args, w.vals)
             # the guard as the lane tracking sees it: none, known false, known true or unknown
             runs = True if not x.pred else (False if not executes else pv)
-            pend = w.lanes.step(x.base, x.op, x.args.split(","), w.vals, runs, x.pred)
+            pend = w.lanes.step(x.base, x.op, x.argv, w.vals, runs, x.pred)
         if w.lanes is not None and P["intra_warp_divergence"]:
             self._track_mixed(w, x)
         if executes:
@@ -809,6 +835,7 @@ class SM:
         self._next_pc(w, x)
         if w.pc >= len(self.ins) and not w.done:
             w.done = True
+            self._warp_done = True
             self.exited[w.block] = self.exited.get(w.block, 0) + 1
             self.block_exit(w.block, now)
         elif not w.done and P["fetch_l0_lines"]:
@@ -1053,6 +1080,8 @@ class SM:
         self._beside(cls, w.smsp, now)
         if self.addr_log is not None:
             self.addr_log.append((w.wid, w.loops, w.pc, width_of(x.op), addr0))
+            if self.addr_want and addr0 is not None:
+                self.addr_want.discard(addr0[0])
         # the load unit's address stage: one 128-byte line per cycle; the copy reads its address
         # registers there
         lines = self.copy_lines[w.ncopy % len(self.copy_lines)]
@@ -1432,6 +1461,7 @@ class SM:
     def _op_exit(self, w, x, cls, now, addr0):
         # the block is finished only when its stores have left the SM
         w.done = True
+        self._warp_done = True
         self.end = max(self.end, self.t["store_port"], self.t["stg_chip"])
         self.exited[w.block] = self.exited.get(w.block, 0) + 1
         self.block_exit(w.block, now)
@@ -1501,9 +1531,10 @@ class SM:
         now = 0
         INF = float("inf")
         self._live_dirty = True
+        self._warp_done = False
         live: list[Warp] = []
         by_smsp: list[list[Warp]] = [[] for _ in range(self.nsp)]
-        while now < limit:
+        while now < limit and self.addr_want != set():
             if self._live_dirty:
                 live = [w for w in self.warps if not w.done and w.ready < INF]
                 by_smsp = [[w for w in live if w.smsp == s] for s in range(self.nsp)]
@@ -1546,11 +1577,12 @@ class SM:
                     self.on_event(kind, w, arg, now)
             if not live and self.next_block >= self.blocks and all(w.done for w in self.warps):
                 break
-            if any(w.done for w in live):
+            if self._warp_done:  # the lists drop it from the next pass on
+                self._warp_done = False
                 self._live_dirty = True
             issued = False
             for s in range(self.nsp):
-                cand = [w for w in by_smsp[s] if self.eligible(w, now)]
+                cand = [w for w in by_smsp[s] if w.ready <= now and self.eligible(w, now)]
                 if self.trace:
                     ok = {id(q) for q in cand}
                     for q in by_smsp[s]:
@@ -1569,6 +1601,9 @@ class SM:
                 self.issue(w, now)
                 self.last_issue[s] = w
                 issued = True
+            if issued:
+                now += 1
+                continue
             # jump to the next cycle where something can change
             nxt = [w.ready for w in live if not w.done and not w.at_bar and now < w.ready < INF]
             for r in self.gate_smsp:
@@ -1576,7 +1611,7 @@ class SM:
             if self.events:
                 nxt.append(self.events[0][0])
             nxt += [t for t in self.stq if t > now][:1]
-            now = now + 1 if issued else (min(nxt) if nxt else now + 1)
+            now = min(nxt) if nxt else now + 1
         self.cycles = max(now, self.end)
         return {
             "cycles": self.cycles,

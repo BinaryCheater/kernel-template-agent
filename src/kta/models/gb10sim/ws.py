@@ -193,6 +193,7 @@ class WSSM(SM):
             if x.base == "EXIT":
                 if p:
                     w.done = True
+                    self._warp_done = True
                     self.exited[w.block] = self.exited.get(w.block, 0) + 1
                     self.end = max(self.end, self.t["store_port"])
                     self.block_exit(w.block, now)

@@ -149,7 +149,13 @@ def walk(
 
     stride_seen = [False]
 
-    def run_one(b: int, limit: int = 50_000_000) -> list:
+    full: dict[int, list] = {}
+
+    def run_one(b: int, limit: int = 50_000_000, want: Any = None) -> list:
+        """The block's address log; with `want` (bases), only up to their first loads."""
+        whole = want is None and limit == 50_000_000
+        if whole and b in full:
+            return full[b]
         log: list = []
         SM(
             ins,
@@ -160,9 +166,12 @@ def walk(
             block_dim=block_dim,
             block_ids=[b],
             addr_log=log,
+            addr_want=None if want is None else set(want),
             machine=machine,
             const_bank=const_bank,
         ).run(limit=limit)
+        if whole:
+            full[b] = log
         return log
 
     def one(b: int) -> list[Load]:
@@ -236,7 +245,7 @@ def _separable(acc: Access, run_one: Any) -> bool:
         return True
     ref = _first_by_base(run_one(0))
     for bx, by in ((gx - 1, gy - 1), (gx // 2 + 1, gy // 2), (gx // 2, gy - 1)):
-        got = _base_shift(run_one(min(bx, gx - 1) + min(by, gy - 1) * gx), ref)
+        got = _base_shift(run_one(min(bx, gx - 1) + min(by, gy - 1) * gx, want=ref), ref)
         for e in acc.loads:
             if e.base in got and e.offs is not None:
                 sx, sy = e.shift[0].get(min(bx, gx - 1)), e.shift[1].get(min(by, gy - 1))
@@ -254,7 +263,7 @@ def _block_shifts(acc: Access, run_one: Any) -> dict[tuple, dict]:
     while set(_first_by_base(run_one(0, limit))) != set(want):
         limit *= 2
     return {
-        (z, y, x): _base_shift(run_one(x + y * gx + z * gx * gy, limit), want)
+        (z, y, x): _base_shift(run_one(x + y * gx + z * gx * gy, limit, want), want)
         for z in range(gz)
         for y in range(gy)
         for x in range(gx)

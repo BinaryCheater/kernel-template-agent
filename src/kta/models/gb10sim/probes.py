@@ -264,6 +264,7 @@ class SchedProbe(SM):
                 w.pc = self.loops[4][0]
             else:
                 w.done = True
+                self._warp_done = True
 
     def issue(self, w, now):
         x = self.ins[w.pc]
@@ -276,6 +277,7 @@ class SchedProbe(SM):
                 w.pc = loop[0]
             else:
                 w.done = True
+                self._warp_done = True
                 self.finish[w.wid] = now
             return
         super().issue(w, now)

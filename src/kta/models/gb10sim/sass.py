@@ -31,6 +31,10 @@ class Ins:
     wait: int  # bit mask over 0-5
     text: str = ""
     target: Any = None  # branch target address: a label (str) until parse() resolves it to an int
+    argv: tuple[str, ...] = ()  # the operands, stripped (set from `args`; the replay's hot paths)
+
+    def __post_init__(self) -> None:
+        self.argv = tuple(a.strip() for a in self.args.split(","))
 
 
 LINE = re.compile(r"/\*([0-9a-f]{4,})\*/\s+(.*?)\s*;\s*/\*\s*(0x[0-9a-f]{16})\s*\*/")
