@@ -57,7 +57,17 @@ def kta_commit() -> tuple[str, bool]:
         ["git", "-C", str(ROOT), "rev-parse", "HEAD"], check=True, capture_output=True, text=True
     ).stdout.strip()
     dirty = subprocess.run(
-        ["git", "-C", str(ROOT), "status", "--porcelain", "--untracked-files=no"],
+        [
+            "git",
+            "-C",
+            str(ROOT),
+            "status",
+            "--porcelain",
+            "--untracked-files=no",
+            "--",
+            ".",
+            ":!perfmodel/table-runs.jsonl",  # the runs' own log
+        ],
         check=True,
         capture_output=True,
         text=True,

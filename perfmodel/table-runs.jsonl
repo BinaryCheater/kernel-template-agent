@@ -33,3 +33,7 @@
 {"date": "2026-11-04T22:45:32Z", "round": 12, "mode": "selection", "commit": "43be66a07b99", "dirty": true, "rows": 10, "replayed": 10, "cpu_s": 29.2, "wall_s": 27.6, "jobs": 6}
 {"date": "2026-11-04T22:46:12Z", "round": 12, "mode": "selection", "commit": "43be66a07b99", "dirty": true, "rows": 10, "replayed": 10, "cpu_s": 1.9, "wall_s": 3.7, "jobs": 6}
 {"date": "2026-11-04T22:57:04Z", "round": 12, "mode": "full", "commit": "bacbba01c381", "dirty": false, "rows": 2676, "replayed": 1971, "cpu_s": 6630.2, "wall_s": 410.7, "jobs": 18}
+{"date": "2026-11-04T23:09:57Z", "round": 13, "mode": "scratch q46 modes", "commit": "c3b8469e42ba", "dirty": false, "rows": 3, "replayed": 3, "cpu_s": 26.5, "wall_s": 26.6, "jobs": 1}
+{"date": "2026-11-04T23:11:28Z", "round": 13, "mode": "scratch q46 modes", "commit": "c3b8469e42ba", "dirty": true, "rows": 2, "replayed": 2, "cpu_s": 20.7, "wall_s": 20.7, "jobs": 1}
+{"date": "2026-11-04T23:18:05Z", "round": 13, "mode": "scratch q46 ties", "commit": "7c1902f53b5b", "dirty": true, "rows": 36, "replayed": 36, "cpu_s": 304.7, "wall_s": 304.9, "jobs": 1}
+{"date": "2026-11-04T23:20:13Z", "round": 13, "mode": "predict", "commit": "7c1902f53b5b", "dirty": true, "rows": 406, "replayed": 164, "cpu_s": 715.0, "wall_s": 121.2, "jobs": 6}
