@@ -99,15 +99,15 @@ def build(batch: str, only: str = ".") -> int:
 _pred_cases: dict[str, Any] = {}
 
 
-def _predict_one(args: tuple[str, str]) -> tuple[str, float, str]:
+def _predict_one(args: tuple[str, list[str]]) -> list[tuple[str, float, str]]:
     from kta.models.gb10sim import probeset
 
-    d, cid = args
+    d, ids = args
     if not _pred_cases:
         _pred_cases.update((c.id, c) for c in probeset.all_cases(BATCHES / d))
-    c = _pred_cases[cid]
-    v, _, _ = probeset.run_case(c)
-    return cid, v, c.unit
+    cases = [_pred_cases[i] for i in ids]
+    vals, _, _ = probeset.run_cases(cases)
+    return [(c.id, v, c.unit) for c, v in zip(cases, vals, strict=True)]
 
 
 def predict(batch: str) -> int:
@@ -122,11 +122,16 @@ def predict(batch: str) -> int:
     if (d / "measured.json").exists():
         raise SystemExit("refused: the batch is measured; a prediction must come before the run")
     ids = [c.id for c in probeset.all_cases(d)]
+    # the launch modes of one kernel share a replay (probeset.run_cases)
+    groups: dict[str, list[str]] = {}
+    for i in ids:
+        groups.setdefault(re.sub(r" (kernel|b2b|graph)$", "", i), []).append(i)
     out = {}
     with ProcessPoolExecutor(table.default_jobs()) as ex:
-        for cid, v, unit in ex.map(_predict_one, [(batch, i) for i in ids]):
-            out[cid] = round(v, 4)
-            print(f"{cid:52s} {v:12.4f} {unit}", flush=True)
+        for done in ex.map(_predict_one, [(batch, g) for g in groups.values()]):
+            for cid, v, unit in done:
+                out[cid] = round(v, 4)
+                print(f"{cid:52s} {v:12.4f} {unit}", flush=True)
     out = {i: out[i] for i in ids}
     doc = {
         "engine": table.engine_hash(),

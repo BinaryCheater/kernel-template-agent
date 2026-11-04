@@ -1,0 +1,35 @@
+{
+ "entry": "fa_kernel",
+ "grid": [
+  16,
+  12,
+  1
+ ],
+ "threads": 64,
+ "block": [
+  64
+ ],
+ "smem": 81920,
+ "rot": 1,
+ "footprint_bytes": 12582912,
+ "write_bytes": 3145728,
+ "family": "fa_forward",
+ "shape": {
+  "B": 1,
+  "S": 1024,
+  "H": 12,
+  "D": 128
+ },
+ "pick": {
+  "BM": 64,
+  "BN": 64,
+  "stages": 2,
+  "threads": 64
+ },
+ "cache": "warm",
+ "set": "whatif fa warm",
+ "whatif": {
+  "base": "wi12_fa_b_warm",
+  "axis": "threads"
+ }
+}

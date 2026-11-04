@@ -1,0 +1,23 @@
+{
+ "entry": "k_memset",
+ "grid": [
+  4096,
+  1,
+  1
+ ],
+ "threads": 128,
+ "block": [
+  128
+ ],
+ "smem": 0,
+ "rot": 1,
+ "footprint_bytes": 67108864,
+ "write_bytes": 67108864,
+ "family": "hand",
+ "set": "breadth blind",
+ "cache": "warm",
+ "whatif": {
+  "base": "bl_memset",
+  "axis": "threads"
+ }
+}

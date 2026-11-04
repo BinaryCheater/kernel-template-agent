@@ -1,0 +1,23 @@
+{
+ "entry": "k_axpy",
+ "grid": [
+  256,
+  1,
+  1
+ ],
+ "threads": 256,
+ "block": [
+  256
+ ],
+ "smem": 0,
+ "rot": 1,
+ "footprint_bytes": 16777216,
+ "write_bytes": 8388608,
+ "family": "hand",
+ "set": "breadth blind",
+ "cache": "warm",
+ "whatif": {
+  "base": "bl_axpy",
+  "axis": "shape"
+ }
+}

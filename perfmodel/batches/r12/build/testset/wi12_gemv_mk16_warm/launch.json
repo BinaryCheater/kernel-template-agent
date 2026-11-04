@@ -1,0 +1,35 @@
+{
+ "entry": "gemv_kernel",
+ "grid": [
+  512,
+  1
+ ],
+ "threads": 128,
+ "block": [
+  32,
+  4
+ ],
+ "smem": 0,
+ "rot": 1,
+ "footprint_bytes": 8933376,
+ "write_bytes": 4096,
+ "family": "gemv_w4a16",
+ "shape": {
+  "N": 2048,
+  "K": 8192
+ },
+ "pick": {
+  "N": 2048,
+  "K": 8192,
+  "group": 64,
+  "n_part": 4,
+  "reduce": 32,
+  "mk": 16
+ },
+ "cache": "warm",
+ "set": "whatif gemv warm",
+ "whatif": {
+  "base": "wi12_gemv_b_warm",
+  "axis": "bytes per lane"
+ }
+}
