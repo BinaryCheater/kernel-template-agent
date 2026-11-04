@@ -14,6 +14,7 @@ import json
 import math
 import re
 from dataclasses import dataclass
+from functools import cache
 from pathlib import Path
 from typing import Any
 
@@ -73,13 +74,19 @@ def load(batch_dir: Path) -> Batch:
     return Batch(batch_dir.name, batch_dir, measured, clock)
 
 
+@cache
+def _read(path: Path) -> str:
+    return path.read_text()
+
+
 def _sass(b: Batch, unit: str) -> str:
-    return (b.build / unit / "k.sass").read_text()
+    return _read(b.build / unit / "k.sass")
 
 
 def regs_of(b: Batch, unit: str, kernel: str) -> int:
-    text = (b.build / unit / "res-usage.txt").read_text()
-    m = re.search(rf"Function {re.escape(kernel)}:\s*REG:(\d+)", text)
+    m = re.search(
+        rf"Function {re.escape(kernel)}:\s*REG:(\d+)", _read(b.build / unit / "res-usage.txt")
+    )
     if not m:
         raise ValueError(f"{unit}: no register count for {kernel}")
     return int(m.group(1))
@@ -89,6 +96,7 @@ def _ghz(b: Batch, m: Machine) -> float:
     return b.clock_GHz or m.param(m.desc["clock"]["kernel_GHz"])
 
 
+@cache
 def _k(ins_text: str, kernel: str) -> list[Ins]:
     ins = parse(ins_text, kernel=kernel)
     if not ins:
@@ -96,6 +104,8 @@ def _k(ins_text: str, kernel: str) -> list[Ins]:
     return ins
 
 
+# A probe case below is one line per sweep point: `cid` is "<probe> <point>", the probe's build unit
+# is probe-<probe>, `kernel` its mangled entry. The helpers differ in how the SM is set up and read.
 def _case(b: Batch, cid: str, probe: str, level: int, unit: str, build, read, **kw) -> Case:
     return Case(
         id=cid,
@@ -109,85 +119,135 @@ def _case(b: Batch, cid: str, probe: str, level: int, unit: str, build, read, **
     )
 
 
+def _unit_ins(b: Batch, cid: str, kernel: str, src: str | None = None) -> tuple[str, list[Ins]]:
+    probe = cid.split()[0]
+    return probe, _k(_sass(b, src or f"probe-{probe}"), kernel)
+
+
 def per(div: float):
     return lambda sm, r: marked_cycles(sm, r) / div
 
 
+def _time(b: Batch, launch: str | None = None):
+    """Read a run as microseconds at the batch's clock: the kernel's span, or with a launch term
+    (`event`: `_launch_event`; `kernel`: `_launch_kernel`; `b2b`, `graph`: `_launch_seq`)."""
+
+    def read(sm, r):
+        span = r["cycles"] / (_ghz(b, sm.m) * 1e3)
+        if launch == "event":
+            return span + _launch_event(sm.m)
+        if launch == "kernel":
+            return _launch_kernel(sm.m, span)
+        return _launch_seq(sm.m, launch, span) if launch else span
+
+    return read
+
+
+def _marked(
+    b, cid, kernel, threads, div, unit, level=2, src=None, trips=1, excluded=None, **sm
+) -> Case:
+    """Timed by warp 0's clock reads, `div` operations between them (or a read function); `sm`
+    goes to the simulator."""
+    probe, ins = _unit_ins(b, cid, kernel, src)
+    build = lambda **kw: ClockMarked(ins, threads, 1, trips, **sm, **kw)  # noqa: E731
+    read = div if callable(div) else per(div)
+    return _case(b, cid, probe, level, unit, build, read, excluded=excluded)
+
+
+def _us(b, cid, kernel, threads, read, level=4, trips=1, **sm) -> Case:
+    """One run of the plain simulator, in microseconds."""
+    probe, ins = _unit_ins(b, cid, kernel)
+    return _case(
+        b, cid, probe, level, "us", lambda **kw: SM(ins, threads, 1, trips, **sm, **kw), read
+    )
+
+
+def _stream(
+    b,
+    cid,
+    kernel,
+    threads,
+    reads,
+    miss: Any = 1.0,
+    writes=0,
+    blocks=1,
+    read=None,
+    limit=200_000_000,
+):
+    """A stream through the DRAM path at the chip's share (48 blocks in flight): `reads` and
+    `writes` bytes per launch, `miss` a fraction or a function of the machine."""
+    probe, ins = _unit_ins(b, cid, kernel)
+
+    def build(**kw):
+        m = kw.get("machine") or default_machine()
+        return SM(
+            ins,
+            threads,
+            blocks,
+            1,
+            active_sms=48,
+            ldg_lines=[(4, 512, False)],
+            miss_frac=miss if isinstance(miss, float) else miss(m),
+            dram_clk_per_512B=dram_clk(reads, dram_mix_secs(reads, writes, m), 48, m),
+            **kw,
+        )
+
+    return _case(b, cid, probe, 5, "us", build, read or _time(b, "event"), limit=limit)
+
+
+def _launched(b, cid, ins, threads, grid, launch) -> Case:
+    """One SM's replay of a `grid`-block launch at the chip's share, with a launch term."""
+
+    def build(**kw):
+        m = kw.get("machine") or default_machine()
+        per_sm = math.ceil(grid / m.sms)
+        return SM(ins, threads, per_sm, 1, active_sms=min(grid, m.sms), grid_blocks=grid, **kw)
+
+    return _case(b, cid, cid.split()[0], 1, "us", build, _time(b, launch))
+
+
 def smem_cases(b: Batch) -> list[Case]:
-    txt = _sass(b, "probe-smem_ldsts")
-    out = []
-    for kind, name in enumerate(["LDS.32", "LDS.64", "LDS.128", "STS.32", "STS.128"]):
-        ins = _k(txt, f"_Z1kILi{kind}EEvjPyPj")
-        for w in SMEM_WARPS:
-            out.append(
-                _case(
-                    b,
-                    f"smem_ldsts {name}_w{w}",
-                    "smem_ldsts",
-                    1 if w == 1 else 2,
-                    "cycles/instr/SM",
-                    lambda ins=ins, w=w, **kw: ClockMarked(ins, 32 * w, 1, 1, **kw),
-                    per(ITERS * 8 * w),
-                )
-            )
-    return out
+    return [
+        _marked(
+            b,
+            f"smem_ldsts {name}_w{w}",
+            f"_Z1kILi{kind}EEvjPyPj",
+            32 * w,
+            ITERS * 8 * w,
+            "cycles/instr/SM",
+            1 if w == 1 else 2,
+        )
+        for kind, name in enumerate(["LDS.32", "LDS.64", "LDS.128", "STS.32", "STS.128"])
+        for w in SMEM_WARPS
+    ]
 
 
 def shfl_cases(b: Batch) -> list[Case]:
-    txt = _sass(b, "probe-shfl")
-    i1, i8 = _k(txt, "_Z1kILi1EEvPyPj"), _k(txt, "_Z1kILi8EEvPyPj")
-    out = [
-        _case(
-            b,
-            "shfl latency_w1",
-            "shfl",
-            1,
-            "cycles/hop",
-            lambda **kw: ClockMarked(i1, 32, 1, 1, **kw),
-            per(ITERS * 5),
-        )
+    tput = "_Z1kILi8EEvPyPj"
+    return [
+        _marked(b, "shfl latency_w1", "_Z1kILi1EEvPyPj", 32, ITERS * 5, "cycles/hop", 1),
+        *(
+            _marked(b, f"shfl tput_w{w}", tput, 32 * w, ITERS * 5 * 8 * w, "cycles/instr/SM")
+            for w in (1, 4, 8, 16, 32)
+        ),
     ]
-    for w in (1, 4, 8, 16, 32):
-        out.append(
-            _case(
-                b,
-                f"shfl tput_w{w}",
-                "shfl",
-                2,
-                "cycles/instr/SM",
-                lambda w=w, **kw: ClockMarked(i8, 32 * w, 1, 1, **kw),
-                per(ITERS * 5 * 8 * w),
-            )
-        )
-    return out
 
 
 def ex2_cases(b: Batch) -> list[Case]:
-    txt = _sass(b, "probe-ex2_ffma")
     out = []
     for e, f in ((8, 0), (8, 8), (8, 16), (8, 32), (0, 32), (4, 32)):
-        ins = _k(txt, f"_Z1kILi{e}ELi{f}EEvPyPf")
         cid = f"ex2_ffma E{e}_F{f}"
         # 8 warps per sub-partition issue at least E + F + 3 (loop) instructions per pass each
         floor = 8 * (e + f + 3)
         meas = b.measured.get(cid, float("nan"))
-        out.append(
-            _case(
-                b,
-                cid,
-                "ex2_ffma",
-                3,
-                "cycles/pass/smsp",
-                lambda ins=ins, **kw: ClockMarked(ins, 1024, 1, 1, **kw),
-                per(ITERS),
-                excluded=(
-                    f"measured {meas:.0f} cycles is below the issue limit {floor} (one warp "
-                    "instruction per cycle per sub-partition): open question"
-                    if meas < floor
-                    else None
-                ),
+        excluded = None
+        if meas < floor:
+            excluded = (
+                f"measured {meas:.0f} cycles is below the issue limit {floor} (one warp "
+                "instruction per cycle per sub-partition): open question"
             )
-        )
+        kernel = f"_Z1kILi{e}ELi{f}EEvPyPf"
+        out.append(_marked(b, cid, kernel, 1024, ITERS, "cycles/pass/smsp", 3, excluded=excluded))
     return out
 
 
@@ -199,224 +259,121 @@ def _pair_sum(sm: SM, r: dict) -> float:
 
 
 def bar_cases(b: Batch) -> list[Case]:
-    txt = _sass(b, "probe-namedbar")
-    sync = _k(txt, "_Z6sync_kPy")
-    out = [
-        _case(
-            b,
-            f"namedbar sync_w{w}",
-            "namedbar",
-            1,
-            "cycles/barrier",
-            lambda w=w, **kw: ClockMarked(sync, 32 * w, 1, 1, **kw),
-            per(BAR_ITERS),
-        )
-        for w in (2, 4, 8, 16, 32)
-    ]
-    for L in (0, 64, 256):
-        ins = _k(txt, f"_Z8arrive_kILi{L}EEvPyPf")
-        out.append(
-            _case(
+    return [
+        *(
+            _marked(b, f"namedbar sync_w{w}", "_Z6sync_kPy", 32 * w, BAR_ITERS, "cycles/barrier", 1)
+            for w in (2, 4, 8, 16, 32)
+        ),
+        # the loop counter starts from an HFMA2 used as a move, which the value tracking does not
+        # evaluate: the loop's trip count is given
+        *(
+            _marked(
                 b,
                 f"namedbar arrive_L{L}",
-                "namedbar",
-                3,
-                "cycles/arrive",
-                # the loop counter starts from an HFMA2 used as a move, which the value tracking
-                # does not evaluate: the loop's trip count is given
-                lambda ins=ins, **kw: ClockMarked(ins, 256, 1, BAR_ITERS, **kw),
+                f"_Z8arrive_kILi{L}EEvPyPf",
+                256,
                 _pair_sum,
+                "cycles/arrive",
+                3,
+                trips=BAR_ITERS,
             )
-        )
-    return out
+            for L in (0, 64, 256)
+        ),
+    ]
 
 
 def l1_cases(b: Batch) -> list[Case]:
-    txt = _sass(b, "probe-l1hit")
-    chase, tput = _k(txt, "_Z5chasePKjPy"), _k(txt, "_Z4tputPK4int4PyPi")
-    out = [
-        _case(
-            b,
-            "l1hit chase",
-            "l1hit",
-            1,
-            "cycles/hop",
-            lambda **kw: ClockMarked(chase, 32, 1, 1, ldg_lines=[(1, 4, True)], **kw),
-            per(HOPS),
-        )
-    ]
-    for w in (4, 8, 16, 32):
-        out.append(
-            _case(
+    hit = [(4, 512, True)]
+    return [
+        _marked(
+            b, "l1hit chase", "_Z5chasePKjPy", 32, HOPS, "cycles/hop", 1, ldg_lines=[(1, 4, True)]
+        ),
+        *(
+            _marked(
                 b,
                 f"l1hit tput_w{w}",
-                "l1hit",
-                2,
+                "_Z4tputPK4int4PyPi",
+                32 * w,
+                ITERS * 8 * w,
                 "cycles/instr/SM",
-                lambda w=w, **kw: ClockMarked(tput, 32 * w, 1, 1, ldg_lines=[(4, 512, True)], **kw),
-                per(ITERS * 8 * w),
+                ldg_lines=hit,
             )
-        )
-    return out
+            for w in (4, 8, 16, 32)
+        ),
+    ]
 
 
 def store_cases(b: Batch) -> list[Case]:
-    txt = _sass(b, "probe-store_tail")
-    out = []
-    for mode, name in ((0, "tl"), (1, "v16")):
-        ins = _k(txt, f"_Z2stILi{mode}EEvPji")
-        for blocks in (1, 2, 8, 16, 32, 48):
-            out.append(
-                _case(
-                    b,
-                    f"store_tail {name}_b{blocks}",
-                    "store_tail",
-                    4,
-                    "us",
-                    lambda ins=ins, blocks=blocks, **kw: SM(
-                        ins, 256, 1, 1, active_sms=blocks, const_bank={(0, 0x388): 8}, **kw
-                    ),
-                    lambda sm, r: r["cycles"] / (_ghz(b, sm.m) * 1e3),
-                )
-            )
-    return out
+    return [
+        _us(
+            b,
+            f"store_tail {name}_b{blocks}",
+            f"_Z2stILi{mode}EEvPji",
+            256,
+            _time(b),
+            active_sms=blocks,
+            const_bank={(0, 0x388): 8},
+        )
+        for mode, name in ((0, "tl"), (1, "v16"))
+        for blocks in (1, 2, 8, 16, 32, 48)
+    ]
 
 
 def l2share_cases(b: Batch) -> list[Case]:
     ins = _k(_sass(b, "probe-l2share_copy"), "matmul_kernel")
-    h = L2SHARE_PICK
-    trips = sass_trips(ins, h, 15)
+    trips, lines = sass_trips(ins, L2SHARE_PICK, 15), copy_lines(L2SHARE_PICK)
     return [
-        _case(
+        _us(
             b,
             f"l2share_copy b{blocks}",
-            "l2share_copy",
-            4,
-            "us",
-            lambda blocks=blocks, **kw: SM(
-                ins, 256, 1, trips, active_sms=blocks, copy_lines=copy_lines(h), **kw
-            ),
-            lambda sm, r: r["cycles"] / (_ghz(b, sm.m) * 1e3),
+            "matmul_kernel",
+            256,
+            _time(b),
+            trips=trips,
+            active_sms=blocks,
+            copy_lines=lines,
         )
         for blocks in (1, 16, 32, 48)
     ]
 
 
 def dram_cases(b: Batch) -> list[Case]:
-    txt = _sass(b, "probe-dram_rotate")
-    out = []
-    for t in (32, 64, 128, 256, 512, 1024):
-        ins = _k(txt, f"_Z6streamILi{t}EEvPK4int4Pi")
-
-        def build(ins=ins, t=t, **kw):
-            mm = kw.get("machine") or default_machine()
-            secs = DRAM_BYTES / (mm.C["dram_read_GBs"] * 1e9)
-            return SM(
-                ins,
-                t,
-                1,
-                1,
-                active_sms=48,
-                ldg_lines=[(4, 512, False)],
-                miss_frac=1.0,
-                dram_clk_per_512B=dram_clk(DRAM_BYTES, secs, 48, mm),
-                **kw,
-            )
-
-        out.append(
-            _case(
-                b,
-                f"dram_rotate t{t}",
-                "dram_rotate",
-                5,
-                "us",
-                build,
-                lambda sm, r: r["cycles"] / (_ghz(b, sm.m) * 1e3) + _launch_event(sm.m),
-                limit=200_000_000,
-            )
-        )
-    return out
+    return [
+        _stream(b, f"dram_rotate t{t}", f"_Z6streamILi{t}EEvPK4int4Pi", t, DRAM_BYTES)
+        for t in (32, 64, 128, 256, 512, 1024)
+    ]
 
 
 def dram_burst_cases(b: Batch) -> list[Case]:
     """Round 7: the dram_rotate replay at shorter bursts per launch (probe dram_burst)."""
-    txt = _sass(b, "probe-dram_burst")
-    out = []
-    for t in (256, 1024):
-        for n in (5, 10, 21, 42, 85):
-            ins = _k(txt, f"_Z6streamILi{t}ELi{n}EEvPK4int4Pi")
-            nbytes = 48 * 1024 * 16 * n
-
-            def build(ins=ins, t=t, nbytes=nbytes, **kw):
-                mm = kw.get("machine") or default_machine()
-                secs = nbytes / (mm.C["dram_read_GBs"] * 1e9)
-                return SM(
-                    ins,
-                    t,
-                    1,
-                    1,
-                    active_sms=48,
-                    ldg_lines=[(4, 512, False)],
-                    miss_frac=1.0,
-                    dram_clk_per_512B=dram_clk(nbytes, secs, 48, mm),
-                    **kw,
-                )
-
-            out.append(
-                _case(
-                    b,
-                    f"dram_burst t{t}_n{n}",
-                    "dram_burst",
-                    5,
-                    "us",
-                    build,
-                    lambda sm, r: r["cycles"] / (_ghz(b, sm.m) * 1e3) + _launch_event(sm.m),
-                    limit=200_000_000,
-                )
-            )
-    return out
+    return [
+        _stream(
+            b, f"dram_burst t{t}_n{n}", f"_Z6streamILi{t}ELi{n}EEvPK4int4Pi", t, 48 * 1024 * 16 * n
+        )
+        for t in (256, 1024)
+        for n in (5, 10, 21, 42, 85)
+    ]
 
 
 def rot_depth_cases(b: Batch) -> list[Case]:
     """Round 7: a stream of n x 786 KB per launch whose start walks a window of D MiB."""
-    txt = _sass(b, "probe-rot_depth")
-    out = []
-    for n in (10, 21):
-        ins = _k(txt, f"_Z6streamILi{n}EEvPK4int4Pi")
+
+    def row(n, mib):
         nbytes = 48 * 1024 * 16 * n
-        for mib in (1, 16, 24, 32, 48, 64, 96, 128, 192, 256, 384):
+        # the walk restarts at the last whole chunk that fits the window
+        window = max(nbytes, mib * 2**20 // nbytes * nbytes)
+        return _stream(
+            b,
+            f"rot_depth n{n}_D{mib}",
+            f"_Z6streamILi{n}EEvPK4int4Pi",
+            1024,
+            nbytes,
+            miss=lambda m: l2_rotating_miss(window, "ca", m),
+        )
 
-            def build(ins=ins, nbytes=nbytes, mib=mib, **kw):
-                mm = kw.get("machine") or default_machine()
-                # the walk restarts at the last whole chunk that fits the window
-                window = max(nbytes, mib * 2**20 // nbytes * nbytes)
-                miss = l2_rotating_miss(window, "ca", mm)
-                secs = nbytes / (mm.C["dram_read_GBs"] * 1e9)
-                return SM(
-                    ins,
-                    1024,
-                    1,
-                    1,
-                    active_sms=48,
-                    ldg_lines=[(4, 512, False)],
-                    miss_frac=miss,
-                    dram_clk_per_512B=dram_clk(nbytes, secs, 48, mm),
-                    **kw,
-                )
-
-            out.append(
-                _case(
-                    b,
-                    f"rot_depth n{n}_D{mib}",
-                    "rot_depth",
-                    5,
-                    "us",
-                    build,
-                    lambda sm, r: r["cycles"] / (_ghz(b, sm.m) * 1e3) + _launch_event(sm.m),
-                    limit=200_000_000,
-                )
-            )
-    return out
+    return [
+        row(n, mib) for n in (10, 21) for mib in (1, 16, 24, 32, 48, 64, 96, 128, 192, 256, 384)
+    ]
 
 
 DRAM_RW_UN = 96 * 512 * 40  # dram_rw: int4 per plane
@@ -426,39 +383,19 @@ DRAM_RW_MIX = ((2, 0), (2, 1), (1, 1), (1, 2), (0, 2))
 def dram_rw_cases(b: Batch) -> list[Case]:
     """Round 4 (probe dram_rw): NR read and NW written planes of 30 MiB, rotating (every read a
     miss, every written line back to DRAM), 96 blocks x 512 threads."""
-    txt = _sass(b, "probe-dram_rw")
-    out = []
-    for nr, nw in DRAM_RW_MIX:
-        ins = _k(txt, f"_Z2rwILi{nr}ELi{nw}EEvPK4int4PS0_Pi")
-
-        def build(ins=ins, nr=nr, nw=nw, **kw):
-            mm = kw.get("machine") or default_machine()
-            rb, wb = nr * DRAM_RW_UN * 16, nw * DRAM_RW_UN * 16
-            return SM(
-                ins,
-                512,
-                2,
-                1,
-                active_sms=48,
-                ldg_lines=[(4, 512, False)],
-                miss_frac=1.0,
-                dram_clk_per_512B=dram_clk(rb, dram_mix_secs(rb, wb, mm), 48, mm),
-                **kw,
-            )
-
-        out.append(
-            _case(
-                b,
-                f"dram_rw r{nr}_w{nw}",
-                "dram_rw",
-                5,
-                "us",
-                build,
-                lambda sm, r: r["cycles"] / (_ghz(b, sm.m) * 1e3) + _launch_event(sm.m),
-                limit=400_000_000,
-            )
+    return [
+        _stream(
+            b,
+            f"dram_rw r{nr}_w{nw}",
+            f"_Z2rwILi{nr}ELi{nw}EEvPK4int4PS0_Pi",
+            512,
+            nr * DRAM_RW_UN * 16,
+            writes=nw * DRAM_RW_UN * 16,
+            blocks=2,
+            limit=400_000_000,
         )
-    return out
+        for nr, nw in DRAM_RW_MIX
+    ]
 
 
 class BlockMarked(SM):
@@ -485,36 +422,63 @@ def _first(sm: BlockMarked, r: dict) -> float:
     return min(v[-1] for v in m) - min(v[0] for v in m) if m else float(r["cycles"])
 
 
+def _span_case(b, cid, kernel, threads, grid, smem=0, stack=None, smem_in_l1=True) -> Case:
+    """The busiest SM of a grid, block replacement at the kernel's occupancy; the blocks' span.
+    Shared memory takes its bytes from the L1 unless `smem_in_l1` is off."""
+    probe, ins = _unit_ins(b, cid, kernel)
+    regs = regs_of(b, f"probe-{probe}", kernel)
+
+    def build(**kw):
+        m = kw.get("machine") or default_machine()
+        rmax = occupancy({"threads": threads}, regs, smem, m)
+        per_sm = math.ceil(grid / m.sms)
+        return BlockMarked(
+            ins,
+            threads,
+            per_sm,
+            1,
+            active_sms=min(grid, m.sms * rmax) / min(rmax, per_sm),
+            resident=rmax,
+            grid_blocks=grid,
+            grid_dim=(grid, 1, 1),
+            l1_bytes=m.C["l1_unified_bytes"] - rmax * (smem if smem_in_l1 else 0),
+            stack_bytes=stack,
+            **kw,
+        )
+
+    return _case(b, cid, probe, 4, "cycles", build, _span)
+
+
 def mma_pair_cases(b: Batch) -> list[Case]:
     """Round 2: the HGEMM warp tile's mma + ldmatrix loop from shared memory, one block, one per
     SM, two per SM with a start skew (probe mma_pair). The replay is one SM; the grid gives the
     block indices (blocks 48..95 run the skew) and the chip share."""
-    txt = _sass(b, "probe-mma_pair")
     out = []
+
+    def row(ins, name, grid, per_sm):
+        def build(**kw):
+            return BlockMarked(
+                ins,
+                128,
+                per_sm,
+                1,
+                active_sms=min(grid, 48),
+                resident=per_sm,
+                grid_blocks=grid,
+                grid_dim=(grid, 1, 1),
+                **kw,
+            )
+
+        reads = [("span", _span)] + ([("first", _first)] if per_sm == 2 else [])
+        for what, read in reads:
+            out.append(_case(b, f"mma_pair {name}_{what}", "mma_pair", 3, "cycles", build, read))
+
     for skew in MMA_SKEWS:
-        ins = _k(txt, f"_Z1kILi{skew}EEvjPyPf")
-        pts = [("b1", 1, 1), ("b48", 48, 1)] if skew == 0 else []
-        pts.append((f"b96_s{skew}", 96, 2))
-        for name, grid, per_sm in pts:
-
-            def build(ins=ins, grid=grid, per_sm=per_sm, **kw):
-                return BlockMarked(
-                    ins,
-                    128,
-                    per_sm,
-                    1,
-                    active_sms=min(grid, 48),
-                    resident=per_sm,
-                    grid_blocks=grid,
-                    grid_dim=(grid, 1, 1),
-                    **kw,
-                )
-
-            reads = [("span", _span)] + ([("first", _first)] if per_sm == 2 else [])
-            for what, read in reads:
-                out.append(
-                    _case(b, f"mma_pair {name}_{what}", "mma_pair", 3, "cycles", build, read)
-                )
+        ins = _k(_sass(b, "probe-mma_pair"), f"_Z1kILi{skew}EEvjPyPf")
+        if skew == 0:
+            row(ins, "b1", 1, 1)
+            row(ins, "b48", 48, 1)
+        row(ins, f"b96_s{skew}", 96, 2)
     return out
 
 
@@ -544,71 +508,41 @@ ROW_POINTS = {
 def mma_types_cases(b: Batch) -> list[Case]:
     """Round 5: independent mma per opcode and type on one and four warps, and chained (probe
     mma_types); cycles per instruction on one sub-partition."""
-    txt = _sass(b, "probe-mma_types")
-    out = []
-    for name in MMA_TYPES:
-        t = MMA_TYPE_INDEX[name]
-        i16 = _k(txt, f"_Z1kILi{t}ELi16EEvjPyPj")
-        i1 = _k(txt, f"_Z1kILi{t}ELi1EEvjPyPj")
-        for pt, ins, warps, na in (("w1", i16, 1, 16), ("w4", i16, 4, 16), ("chain", i1, 1, 1)):
-            out.append(
-                _case(
-                    b,
-                    f"mma_types {name}_{pt}",
-                    "mma_types",
-                    2,
-                    "cycles/instr/subpartition",
-                    lambda ins=ins, warps=warps, **kw: ClockMarked(ins, 32 * warps, 1, 1, **kw),
-                    per(256 * na),
-                    excluded=(
-                        "s4 k64 has no native mma on sm_121a: the compiler expands it, no test row"
-                        if name == "s32_s4"
-                        else None
-                    ),
-                )
-            )
-    return out
+    return [
+        _marked(
+            b,
+            f"mma_types {name}_{pt}",
+            f"_Z1kILi{MMA_TYPE_INDEX[name]}ELi{na}EEvjPyPj",
+            32 * warps,
+            256 * na,
+            "cycles/instr/subpartition",
+            excluded=(
+                "s4 k64 has no native mma on sm_121a: the compiler expands it, no test row"
+                if name == "s32_s4"
+                else None
+            ),
+        )
+        for name in MMA_TYPES
+        for pt, warps, na in (("w1", 1, 16), ("w4", 4, 16), ("chain", 1, 1))
+    ]
 
 
 def row_reduce_cases(b: Batch) -> list[Case]:
     """Round 5: the steps of a row kernel's block at 1 and 11 blocks per SM (probe row_reduce);
     the span of the busiest SM, warm (every load a hit), the chip's shares by blocks in flight."""
-    txt = _sass(b, "probe-row_reduce")
-    out = []
-    for name, (ld, red, st) in ROW_POINTS.items():
-        kernel = f"_Z1kILi{ld}ELi{red}ELi{st}EEvPyPKfPfPj"
-        ins = _k(txt, kernel)
-        regs = regs_of(b, "probe-row_reduce", kernel)
-        for grid in (48, 512):
-
-            def build(ins=ins, grid=grid, regs=regs, **kw):
-                m = kw.get("machine") or default_machine()
-                rmax = occupancy({"threads": 128}, regs, 512, m)
-                per_sm = math.ceil(grid / m.sms)
-                return BlockMarked(
-                    ins,
-                    128,
-                    per_sm,
-                    1,
-                    active_sms=min(grid, m.sms * rmax) / min(rmax, per_sm),
-                    resident=rmax,
-                    grid_blocks=grid,
-                    grid_dim=(grid, 1, 1),
-                    **kw,
-                )
-
-            out.append(
-                _case(
-                    b,
-                    f"row_reduce {name}_g{grid}_span",
-                    "row_reduce",
-                    4,
-                    "cycles",
-                    build,
-                    _span,
-                )
-            )
-    return out
+    return [
+        _span_case(
+            b,
+            f"row_reduce {name}_g{grid}_span",
+            f"_Z1kILi{ld}ELi{red}ELi{st}EEvPyPKfPfPj",
+            128,
+            grid,
+            smem=512,
+            smem_in_l1=False,
+        )
+        for name, (ld, red, st) in ROW_POINTS.items()
+        for grid in (48, 512)
+    ]
 
 
 ST256_GRIDS = (1, 2, 16, 48, 96, 512)
@@ -616,32 +550,11 @@ ST256_GRIDS = (1, 2, 16, 48, 96, 512)
 
 def st256_cases(b: Batch) -> list[Case]:
     """Round 5: 32-byte-per-lane global stores and loads at grids 1-512 (probe st256), warm."""
-    txt = _sass(b, "probe-st256")
-    out = []
-    for name, (ld, st) in {"st": (0, 1), "ld": (1, 0), "ld_st": (1, 1)}.items():
-        kernel = f"_Z1kILi{ld}ELi{st}EEvPyPKyS0_Pj"
-        ins = _k(txt, kernel)
-        regs = regs_of(b, "probe-st256", kernel)
-        for grid in ST256_GRIDS:
-
-            def build(ins=ins, grid=grid, regs=regs, **kw):
-                m = kw.get("machine") or default_machine()
-                rmax = occupancy({"threads": 128}, regs, 0, m)
-                per_sm = math.ceil(grid / m.sms)
-                return BlockMarked(
-                    ins,
-                    128,
-                    per_sm,
-                    1,
-                    active_sms=min(grid, m.sms * rmax) / min(rmax, per_sm),
-                    resident=rmax,
-                    grid_blocks=grid,
-                    grid_dim=(grid, 1, 1),
-                    **kw,
-                )
-
-            out.append(_case(b, f"st256 {name}_g{grid}", "st256", 4, "cycles", build, _span))
-    return out
+    return [
+        _span_case(b, f"st256 {name}_g{g}", f"_Z1kILi{ld}ELi{st}EEvPyPKyS0_Pj", 128, g)
+        for name, (ld, st) in {"st": (0, 1), "ld": (1, 0), "ld_st": (1, 1)}.items()
+        for g in ST256_GRIDS
+    ]
 
 
 L2MIX_POINTS = (
@@ -662,73 +575,24 @@ L2MIX_POINTS = (
 
 def l2mix_cases(b: Batch) -> list[Case]:
     """Round 7: loads and stores per thread by byte ratio, store shape and phase (probe l2mix)."""
-    txt = _sass(b, "probe-l2mix")
-    out = []
-    for ld, st, w, d, p in L2MIX_POINTS:
-        kernel = f"_Z1kILi{ld}ELi{st}ELi{w}ELi{d}ELi{p}EEvPyPKyS0_Pj"
-        ins = _k(txt, kernel)
-        regs = regs_of(b, "probe-l2mix", kernel)
-        for grid in (96, 512):
-
-            def build(ins=ins, grid=grid, regs=regs, **kw):
-                m = kw.get("machine") or default_machine()
-                rmax = occupancy({"threads": 128}, regs, 0, m)
-                per_sm = math.ceil(grid / m.sms)
-                return BlockMarked(
-                    ins,
-                    128,
-                    per_sm,
-                    1,
-                    active_sms=min(grid, m.sms * rmax) / min(rmax, per_sm),
-                    resident=rmax,
-                    grid_blocks=grid,
-                    grid_dim=(grid, 1, 1),
-                    **kw,
-                )
-
-            cid = f"l2mix L{ld}_S{st}_W{w}_D{d}_P{p}_g{grid}"
-            out.append(_case(b, cid, "l2mix", 4, "cycles", build, _span))
-    return out
-
-
-def _span_case(b, cid, probe, unit, kernel, threads, grid, smem=0, stack=None) -> Case:
-    ins = _k(_sass(b, unit), kernel)
-    regs = regs_of(b, unit, kernel)
-
-    def build(**kw):
-        m = kw.get("machine") or default_machine()
-        rmax = occupancy({"threads": threads}, regs, smem, m)
-        per_sm = math.ceil(grid / m.sms)
-        return BlockMarked(
-            ins,
-            threads,
-            per_sm,
-            1,
-            active_sms=min(grid, m.sms * rmax) / min(rmax, per_sm),
-            resident=rmax,
-            grid_blocks=grid,
-            grid_dim=(grid, 1, 1),
-            l1_bytes=m.C["l1_unified_bytes"] - rmax * smem,
-            stack_bytes=stack,
-            **kw,
+    return [
+        _span_case(
+            b,
+            f"l2mix L{ld}_S{st}_W{w}_D{d}_P{p}_g{g}",
+            f"_Z1kILi{ld}ELi{st}ELi{w}ELi{d}ELi{p}EEvPyPKyS0_Pj",
+            128,
+            g,
         )
-
-    return _case(b, cid, probe, 4, "cycles", build, _span)
+        for ld, st, w, d, p in L2MIX_POINTS
+        for g in (96, 512)
+    ]
 
 
 def spill_cases(b: Batch) -> list[Case]:
     """Round 7: stack words loaded and stored (probe spill)."""
     return [
         _span_case(
-            b,
-            f"spill t{t}_n{n}_g{g}_s{s}",
-            "spill",
-            "probe-spill",
-            f"_Z1kILi{t}ELi{n}EEvPyPj",
-            t,
-            g,
-            s * 1024,
-            n * 4,
+            b, f"spill t{t}_n{n}_g{g}_s{s}", f"_Z1kILi{t}ELi{n}EEvPyPj", t, g, s * 1024, n * 4
         )
         for t in (64, 256)
         for n in (16, 64, 256, 1024)
@@ -760,13 +624,7 @@ def store_lines_cases(b: Batch) -> list[Case]:
     """Round 7: stores by bytes and extent (probe store_lines)."""
     return [
         _span_case(
-            b,
-            f"store_lines S{st}_W{w}_D{d}_g{g}",
-            "store_lines",
-            "probe-store_lines",
-            f"_Z1kILi{st}ELi{w}ELi{d}EEvPyS0_Pj",
-            128,
-            g,
+            b, f"store_lines S{st}_W{w}_D{d}_g{g}", f"_Z1kILi{st}ELi{w}ELi{d}EEvPyS0_Pj", 128, g
         )
         for st, w, d in STORE_LINE_POINTS
         for g in (128, 256, 512)
@@ -779,54 +637,30 @@ BRANCH_PASSES = 512
 FWD_MASK_ARG = (0, 0x380)  # the `z` argument of the branch probe's fwd kernel
 
 
-def _warps_case(b, cid, probe, ins, warps, div, unit, const=None) -> Case:
-    return _case(
-        b,
-        cid,
-        probe,
-        2,
-        unit,
-        lambda ins=ins, warps=warps, **kw: ClockMarked(
-            ins, 32 * warps, 1, 1, const_bank=const, **kw
-        ),
-        per(div),
-    )
-
-
 def branch_cases(b: Batch) -> list[Case]:
     """Round 6: taken-branch cost and instruction fetch (probe branch), FFMA loops and straight
     lines on 1-32 warps, a forward branch taken and not."""
-    txt = _sass(b, "probe-branch")
     out = []
     for n in BRANCH_LOOPS:
-        ins = _k(txt, f"_Z4loopILi{n}EEvPyPf")
         # 32 warps at 512 and 1024 are measured, not replayed: millions of issues per row
         for w in (1, 4) if n >= 512 else (1, 4, 32):
-            c = _warps_case(b, f"branch loop{n}_w{w}", "branch", ins, w, BRANCH_PASSES, "cycles")
-            if w == 32 and 16 <= n <= 256:
-                c.excluded = "measured rate above the issue limit: question 9"
-            out.append(c)
+            note = "measured rate above the issue limit: question 9"
+            excluded = note if w == 32 and 16 <= n <= 256 else None
+            cid, kernel = f"branch loop{n}_w{w}", f"_Z4loopILi{n}EEvPyPf"
+            out.append(_marked(b, cid, kernel, 32 * w, BRANCH_PASSES, "cycles", excluded=excluded))
     for n in BRANCH_FLATS:
-        ins = _k(txt, f"_Z4flatILi{n}EEvPyPf")
         for w in (1, 2, 4, 8, 32):
-            c = _warps_case(b, f"branch flat{n}_w{w}", "branch", ins, w, n, "cycles")
-            if w >= 8:  # warp 0 reads its clock after a barrier, the others may already be running
-                c.excluded = "warp 0's clock window is not the block's at several warps per pipe"
-            out.append(c)
-    ins = _k(txt, "_Z3fwdjPyPf")
+            # warp 0 reads its clock after a barrier, the others may already be running
+            note = "warp 0's clock window is not the block's at several warps per pipe"
+            excluded = note if w >= 8 else None
+            cid, kernel = f"branch flat{n}_w{w}", f"_Z4flatILi{n}EEvPyPf"
+            out.append(_marked(b, cid, kernel, 32 * w, n, "cycles", excluded=excluded))
     for name, z in (("fwd_taken", 0xFFFFFFFF), ("fwd_not", 0)):
         for w in (1, 4, 32):
+            const = {FWD_MASK_ARG: z}
+            cid = f"branch {name}_w{w}"
             out.append(
-                _warps_case(
-                    b,
-                    f"branch {name}_w{w}",
-                    "branch",
-                    ins,
-                    w,
-                    BRANCH_PASSES,
-                    "cycles",
-                    {FWD_MASK_ARG: z},
-                )
+                _marked(b, cid, "_Z3fwdjPyPf", 32 * w, BRANCH_PASSES, "cycles", const_bank=const)
             )
     return out
 
@@ -838,23 +672,24 @@ MMA_OTHER = {"fma": 0, "alu": 1, "lds": 2, "ldsm": 3}
 def mma_issue_cases(b: Batch) -> list[Case]:
     """Round 6: mma per pass, other instructions beside it on the same warp and on warp 4 (probe
     mma_issue); cycles per mma on warp 0."""
-    txt = _sass(b, "probe-mma_issue")
-    out = []
-    for na, it in MMA_PASSES:
-        ins = _k(txt, f"_Z4passILi{na}ELi{it}EEvjPyPj")
-        out.append(_warps_case(b, f"mma_issue n{na}", "mma_issue", ins, 1, na * it, "cycles/mma"))
-    for name, k in MMA_OTHER.items():
-        for m in (1, 2) if name == "ldsm" else (1, 2, 4, 8, 14):
-            ins = _k(txt, f"_Z6besideILi{k}ELi{m}EEvjPyPj")
-            out.append(
-                _warps_case(b, f"mma_issue m{name}_{m}", "mma_issue", ins, 1, 8 * 256, "cycles/mma")
+    unit = "cycles/mma"
+    return [
+        *(
+            _marked(b, f"mma_issue n{na}", f"_Z4passILi{na}ELi{it}EEvjPyPj", 32, na * it, unit)
+            for na, it in MMA_PASSES
+        ),
+        *(
+            _marked(
+                b, f"mma_issue m{name}_{m}", f"_Z6besideILi{k}ELi{m}EEvjPyPj", 32, 8 * 256, unit
             )
-    for name, k in (("none", "n1"), ("fma", "0"), ("alu", "1"), ("lds", "2")):
-        ins = _k(txt, f"_Z3nbrILi{k}EEvjPyPj")
-        out.append(
-            _warps_case(b, f"mma_issue nbr_{name}", "mma_issue", ins, 5, 16 * 256, "cycles/mma")
-        )
-    return out
+            for name, k in MMA_OTHER.items()
+            for m in ((1, 2) if name == "ldsm" else (1, 2, 4, 8, 14))
+        ),
+        *(
+            _marked(b, f"mma_issue nbr_{name}", f"_Z3nbrILi{k}EEvjPyPj", 160, 16 * 256, unit)
+            for name, k in (("none", "n1"), ("fma", "0"), ("alu", "1"), ("lds", "2"))
+        ),
+    ]
 
 
 MMA_PIPE_SETS = ((1, 1), (2, 1), (4, 1), (8, 1), (1, 2), (1, 4), (1, 8), (2, 2), (4, 4), (8, 8))
@@ -863,44 +698,40 @@ MMA_PIPE_SETS = ((1, 1), (2, 1), (4, 1), (8, 1), (1, 2), (1, 4), (1, 8), (2, 2),
 def mma_pipe_cases(b: Batch) -> list[Case]:
     """Round 6: the tensor pipe's rate by compiler, operands and warps per sub-partition (probe
     mma_pipe, built by the host's and by the image's nvcc)."""
-    out = []
-    for unit, tag in (("probe-mma_pipe", "v13_0"), ("probe-mma_pipe_i", "v13_2")):
-        txt = _sass(b, unit)
-        for sa, sb in MMA_PIPE_SETS:
-            ins = _k(txt, f"_Z1kILi{sa}ELi{sb}EEvjPyPj")
-            for w in (1, 8):
-                name = f"mma_pipe {tag}_a{sa}_b{sb}_w{w}"
-                out.append(
-                    _warps_case(
-                        b, name, "mma_pipe", ins, w, 256 * 16 * max(1, w // 4), "cycles/mma"
-                    )
-                )
-    return out
+    return [
+        _marked(
+            b,
+            f"mma_pipe {tag}_a{sa}_b{sb}_w{w}",
+            f"_Z1kILi{sa}ELi{sb}EEvjPyPj",
+            32 * w,
+            256 * 16 * max(1, w // 4),
+            "cycles/mma",
+            src=unit,
+        )
+        for unit, tag in (("probe-mma_pipe", "v13_0"), ("probe-mma_pipe_i", "v13_2"))
+        for sa, sb in MMA_PIPE_SETS
+        for w in (1, 8)
+    ]
 
 
 def lds_narrow_cases(b: Batch) -> list[Case]:
-    """Round 6: LDS and STS by element size and lane stride on 1-32 warps (probe lds_narrow)."""
-    txt = _sass(b, "probe-lds_narrow")
-    out = []
+    """Round 6: LDS and STS by element size and lane stride on 1-32 warps (probe lds_narrow);
+    the arguments `stride` and `zero` enter the lanes' addresses."""
     names = (("LDS.U8", 1), ("LDS.U16", 2), ("LDS.32", 4), ("STS.U16", 2), ("STS.32", 4))
-    for kind, (name, elem) in enumerate(names):
-        ins = _k(txt, f"_Z1kILi{kind}EEvjjPyPj")
-        for st in (elem, 16, 64):
-            for w in (1, 4, 32):
-                # the arguments `stride` and `zero` enter the lanes' addresses
-                out.append(
-                    _warps_case(
-                        b,
-                        f"lds_narrow {name}_s{st}_w{w}",
-                        "lds_narrow",
-                        ins,
-                        w,
-                        256 * 8 * w,
-                        "cycles/instr/SM",
-                        {(0, 0x380): st, (0, 0x384): 0},
-                    )
-                )
-    return out
+    return [
+        _marked(
+            b,
+            f"lds_narrow {name}_s{st}_w{w}",
+            f"_Z1kILi{kind}EEvjjPyPj",
+            32 * w,
+            256 * 8 * w,
+            "cycles/instr/SM",
+            const_bank={(0, 0x380): st, (0, 0x384): 0},
+        )
+        for kind, (name, elem) in enumerate(names)
+        for st in (elem, 16, 64)
+        for w in (1, 4, 32)
+    ]
 
 
 LAUNCH_SHORT = (0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 128, 192, 256)
@@ -910,43 +741,12 @@ def launch_short_cases(b: Batch) -> list[Case]:
     """Round 6: the launch term around the kernel span where back-to-back launches leave the
     submission rate (probe launch_short); the launch probe's replay on its kernel."""
     txt = _sass(b, "probe-launch_short")
-
-    def row(ins):
-        def build(**kw):
-            m = kw.get("machine") or default_machine()
-            per_sm = math.ceil(48 / m.sms)
-            return SM(ins, 128, per_sm, 1, active_sms=min(48, m.sms), grid_blocks=48, **kw)
-
-        return build
-
     out = []
     for i in LAUNCH_SHORT:
         ins = _k(txt, f"_Z4workILi{i}EEvPfPy")
-        out.append(
-            _case(
-                b,
-                f"launch_short work_i{i}",
-                "launch_short",
-                1,
-                "us",
-                row(ins),
-                lambda sm, r: _launch_kernel(sm.m, r["cycles"] / (_ghz(b, sm.m) * 1e3)),
-            )
-        )
+        out.append(_launched(b, f"launch_short work_i{i}", ins, 128, 48, "kernel"))
         for mode in ("b2b", "graph"):
-            out.append(
-                _case(
-                    b,
-                    f"launch_short {mode}_work_i{i}",
-                    "launch_short",
-                    1,
-                    "us",
-                    row(ins),
-                    lambda sm, r, mode=mode: _launch_seq(
-                        sm.m, mode, r["cycles"] / (_ghz(b, sm.m) * 1e3)
-                    ),
-                )
-            )
+            out.append(_launched(b, f"launch_short {mode}_work_i{i}", ins, 128, 48, mode))
     return out
 
 
@@ -955,28 +755,22 @@ L2STAGES_TILE = {"block_M": 128, "block_N": 256, "block_K": 32, "threads": 256}
 
 def l2stages_cases(b: Batch) -> list[Case]:
     """Round 2, P-2's second experiment (probe l2share_stages): the lean cp.async loop by stages
-    and blocks, one block per SM, warm L2; the copy pattern of TileLang's 128x256x32 tile."""
-    txt = _sass(b, "probe-l2share_stages")
-    out = []
-    for st in (1, 2, 3, 4):
-        ins = _k(txt, f"_Z4loadILi{st}EEvPK6__halfS2_")
-        h = {**L2STAGES_TILE, "num_stages": st}
-        for blocks in (1, 16, 48):
-            out.append(
-                _case(
-                    b,
-                    f"l2share_stages s{st}_b{blocks}",
-                    "l2share_stages",
-                    4,
-                    "us",
-                    # the main loop runs KT - (S - 1) = 33 - S times (32 k-tiles)
-                    lambda ins=ins, h=h, st=st, blocks=blocks, **kw: SM(
-                        ins, 256, 1, 33 - st, active_sms=blocks, copy_lines=copy_lines(h), **kw
-                    ),
-                    lambda sm, r: r["cycles"] / (_ghz(b, sm.m) * 1e3),
-                )
-            )
-    return out
+    and blocks, one block per SM, warm L2; the copy pattern of TileLang's 128x256x32 tile; the main
+    loop runs KT - (S - 1) = 33 - S times (32 k-tiles)."""
+    return [
+        _us(
+            b,
+            f"l2share_stages s{st}_b{blocks}",
+            f"_Z4loadILi{st}EEvPK6__halfS2_",
+            256,
+            _time(b),
+            trips=33 - st,
+            active_sms=blocks,
+            copy_lines=copy_lines({**L2STAGES_TILE, "num_stages": st}),
+        )
+        for st in (1, 2, 3, 4)
+        for blocks in (1, 16, 48)
+    ]
 
 
 L2REUSE_N = (2, 8, 16, 20, 22, 24, 27, 32, 43)  # steps of 48 x 1024 x 16 B = 0.75 MiB
@@ -989,45 +783,30 @@ def l2reuse_cases(b: Batch) -> list[Case]:
     miss), warm (back-to-back), in4 (four passes after a flush). The engine is told the miss
     fraction of each mode by the warm rule under test (`l2_warm_miss`): cold 1, warm the rule's,
     in4 (1 + 3 x the rule's) / 4."""
-    txt = _sass(b, "probe-l2reuse")
-    out = []
-    for n in L2REUSE_N:
+
+    def row(n, k, kind, mode):
         nbytes = n * 48 * 1024 * 16
-        for k, kind in enumerate(L2REUSE_KINDS):
-            for mode in ("cold", "warm", "in4"):
-                passes = 4 if mode == "in4" else 1
-                ins = _k(txt, f"_Z2rdILi{n}ELi{k}ELi{passes}EEvPK4int4PyPi")
 
-                def build(ins=ins, nbytes=nbytes, mode=mode, kind=kind, **kw):
-                    mm = kw.get("machine") or default_machine()
-                    w = l2_warm_miss(nbytes, kind, mm)
-                    miss = {"cold": 1.0, "warm": w, "in4": (1 + 3 * w) / 4}[mode]
-                    secs = nbytes / (mm.C["dram_read_GBs"] * 1e9)
-                    return SM(
-                        ins,
-                        1024,
-                        1,
-                        1,
-                        active_sms=48,
-                        ldg_lines=[(4, 512, False)],
-                        miss_frac=miss,
-                        dram_clk_per_512B=dram_clk(nbytes, secs, 48, mm),
-                        **kw,
-                    )
+        def miss(m):
+            w = l2_warm_miss(nbytes, kind, m)
+            return {"cold": 1.0, "warm": w, "in4": (1 + 3 * w) / 4}[mode]
 
-                out.append(
-                    _case(
-                        b,
-                        f"l2reuse n{n}_{kind}_{mode}",
-                        "l2reuse",
-                        5,
-                        "us",
-                        build,
-                        lambda sm, r: r["cycles"] / (_ghz(b, sm.m) * 1e3),
-                        limit=200_000_000,
-                    )
-                )
-    return out
+        return _stream(
+            b,
+            f"l2reuse n{n}_{kind}_{mode}",
+            f"_Z2rdILi{n}ELi{k}ELi{4 if mode == 'in4' else 1}EEvPK4int4PyPi",
+            1024,
+            nbytes,
+            miss=miss,
+            read=_time(b),
+        )
+
+    return [
+        row(n, k, kind, mode)
+        for n in L2REUSE_N
+        for k, kind in enumerate(L2REUSE_KINDS)
+        for mode in ("cold", "warm", "in4")
+    ]
 
 
 LAUNCH_GRIDS = ((1, 128), (48, 128), (96, 128), (512, 128), (1024, 128), (2048, 128), (4096, 128))
@@ -1044,71 +823,24 @@ def launch_cases(b: Batch) -> list[Case]:
     plus its launch term."""
     txt = _sass(b, "probe-launch")
     empty, tiny = _k(txt, "_Z5emptyv"), _k(txt, "_Z4tinyPi")
-
-    def row(ins, threads, grid):
-        def build(**kw):
-            m = kw.get("machine") or default_machine()
-            per_sm = math.ceil(grid / m.sms)
-            return SM(ins, threads, per_sm, 1, active_sms=min(grid, m.sms), grid_blocks=grid, **kw)
-
-        return build
-
-    out = []
-    for g, t in LAUNCH_GRIDS:
-        for name, ins in (("empty", empty), ("tiny", tiny)):
-            out.append(
-                _case(
-                    b,
-                    f"launch {name}_g{g}_t{t}",
-                    "launch",
-                    1,
-                    "us",
-                    row(ins, t, g),
-                    lambda sm, r: r["cycles"] / (_ghz(b, sm.m) * 1e3) + _launch_event(sm.m),
-                )
-            )
-    for g, t in LAUNCH_SEQ_GRIDS:
-        out.append(
-            _case(
-                b,
-                f"launch graph_g{g}_t{t}",
-                "launch",
-                1,
-                "us",
-                row(empty, t, g),
-                lambda sm, r: _launch_seq(sm.m, "graph", r["cycles"] / (_ghz(b, sm.m) * 1e3)),
-            )
-        )
-    for i in LAUNCH_SEQ_WORK:
-        ins = _k(txt, f"_Z4workILi{i}EEvPfPy")
-        for mode in ("b2b", "graph"):
-            out.append(
-                _case(
-                    b,
-                    f"launch {mode}_work_i{i}",
-                    "launch",
-                    1,
-                    "us",
-                    row(ins, 128, 48),
-                    lambda sm, r, mode=mode: _launch_seq(
-                        sm.m, mode, r["cycles"] / (_ghz(b, sm.m) * 1e3)
-                    ),
-                )
-            )
-    for i in LAUNCH_WORK:
-        ins = _k(txt, f"_Z4workILi{i}EEvPfPy")
-        out.append(
-            _case(
-                b,
-                f"launch work_i{i}",
-                "launch",
-                1,
-                "us",
-                row(ins, 128, 48),
-                lambda sm, r: r["cycles"] / (_ghz(b, sm.m) * 1e3) + _launch_event(sm.m),
-            )
-        )
-    return out
+    work = lambda i: _k(txt, f"_Z4workILi{i}EEvPfPy")  # noqa: E731
+    return [
+        *(
+            _launched(b, f"launch {name}_g{g}_t{t}", ins, t, g, "event")
+            for g, t in LAUNCH_GRIDS
+            for name, ins in (("empty", empty), ("tiny", tiny))
+        ),
+        *(
+            _launched(b, f"launch graph_g{g}_t{t}", empty, t, g, "graph")
+            for g, t in LAUNCH_SEQ_GRIDS
+        ),
+        *(
+            _launched(b, f"launch {mode}_work_i{i}", work(i), 128, 48, mode)
+            for i in LAUNCH_SEQ_WORK
+            for mode in ("b2b", "graph")
+        ),
+        *(_launched(b, f"launch work_i{i}", work(i), 128, 48, "event") for i in LAUNCH_WORK),
+    ]
 
 
 def _launch_event(m: Machine) -> float:
@@ -1327,10 +1059,6 @@ def _generic_case(b: Batch, d: Path, L: dict[str, Any], regs: int, mode: str = "
     def build(**kw):
         return _generic_sm(d, L, regs, (), **kw)
 
-    def read(sm, r):
-        span = r["cycles"] / (_ghz(b, sm.m) * 1e3)
-        return _launch_kernel(sm.m, span) if mode == "kernel" else _launch_seq(sm.m, mode, span)
-
     return _case(
         b,
         f"{d.name} {mode}",
@@ -1338,7 +1066,7 @@ def _generic_case(b: Batch, d: Path, L: dict[str, Any], regs: int, mode: str = "
         7,
         "us",
         build,
-        read,
+        _time(b, mode),
     )
 
 
