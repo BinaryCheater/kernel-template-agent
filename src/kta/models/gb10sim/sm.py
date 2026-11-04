@@ -299,6 +299,7 @@ class SM:
         self.count: dict[str, Any] = {"issued": 0, "HMMA": 0, "LDSM": 0, "LDGSTS": 0, "BAR": 0}
         self.count.update(ldg_sectors=0, ldg_miss_sectors=0.0)
         self.assumed_latency: dict[str, int] = {}
+        self.pc_count = [0] * len(ins)  # dynamic weight per instruction (the opcode ranking)
         self.busy: dict[str, float] = {"tensor": 0, "smem": 0, "fill": 0}
 
     def _ldg_lanes(self, w: Warp, x: Ins, addr: Any) -> tuple[int, float, int]:
@@ -747,6 +748,7 @@ class SM:
         cls = self.icls[w.pc]
         P = self.P
         self.count["issued"] += 1
+        self.pc_count[w.pc] += 1
         executes = x.pred != "@!PT"
         pv = None
         if x.pred and x.pred != "@!PT":

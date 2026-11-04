@@ -309,6 +309,18 @@ def run_job(
     return _result(predicted, got[-1], extra, trace)
 
 
+def _dynamic_ops(sm: Any) -> dict[str, list[Any]]:
+    """Per full opcode: instructions issued, its class, and whether a default rule times it (the
+    default class, or a class whose result latency is an assumption)."""
+    out: dict[str, list[Any]] = {}
+    for x, cls, n in zip(sm.ins, sm.icls, sm.pc_count, strict=True):
+        if n:
+            assumed = cls.latency is not None and sm.m.status(cls.latency) == "assumed"
+            d = out.setdefault(x.op, [0, cls.name, cls.name == "other" or assumed])
+            d[0] += n
+    return out
+
+
 def _result(
     predicted: float, sm: Any, extra: dict[str, tuple[float, str | None]], trace: bool
 ) -> dict[str, Any]:
@@ -324,6 +336,7 @@ def _result(
             "lane_track": getattr(sm, "lane_track", False),
             "blocks": sm.blocks,
             "busy": {k: v / max(1.0, sm.cycles) for k, v in sm.busy.items()},
+            "ops": _dynamic_ops(sm),
         },
         "attribution": [
             {k: d[k] for k in ("resource", "mechanism", "share", "param")}
@@ -679,6 +692,25 @@ def bottleneck(r: dict[str, Any]) -> dict[str, Any]:
     return {"busiest_pipe": PIPES[busiest], "model_top": top, "agree": top == PIPES[busiest]}
 
 
+def dynamic_weights(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Opcodes by share of the instructions issued, per kernel row, over the `kernel` rows of the
+    test set: the mean and the largest share; `default`: a default rule times the opcode."""
+    per: dict[str, dict[str, Any]] = {}
+    kernels = [r for r in rows if r["id"].endswith(" kernel") and (r.get("counts") or {}).get("ops")]
+    for r in kernels:
+        ops = r["counts"]["ops"]
+        total = sum(d[0] for d in ops.values()) or 1
+        for op, (n, cls, dflt) in ops.items():
+            e = per.setdefault(op, {"op": op, "class": cls, "default": dflt, "sum": 0.0, "max": 0})
+            e["sum"] += n / total
+            e["max"] = max(e["max"], n / total)
+    out = [
+        {**{k: e[k] for k in ("op", "class", "default", "max")}, "mean": e["sum"] / len(kernels)}
+        for e in per.values()
+    ]
+    return sorted(out, key=lambda e: -e["mean"])
+
+
 def default_jobs() -> int:
     return max(1, (os.cpu_count() or 2) - 2)
 
@@ -981,12 +1013,37 @@ def render(doc: dict[str, Any], top: int = 15) -> str:
                 f"{_pct(s['now_worst'])} | {n} | {_best(s.get('now_best'))} |"
             )
     lines += _whatif_lines(doc)
+    lines += _dynamic_lines(doc)
     ranked = sorted((r for r in rows if not r["excluded"]), key=lambda r: -abs(r["error"]))
     lines += ["", f"## Top {top} rows by absolute error", ""]
     lines += _table(ranked[:top])
     lines += ["", "## All rows", ""]
     lines += _table(rows)
     return "\n".join(lines) + "\n"
+
+
+def _dynamic_lines(doc: dict[str, Any]) -> list[str]:
+    ops = doc.get("dynamic_ops") or []
+    if not ops:
+        return []
+    dflt = [e for e in ops if e["default"]]
+    lines = [
+        "",
+        "## Dynamic opcode weight",
+        "",
+        f"{len(ops)} opcodes with modifiers on the `kernel` rows; default rules time "
+        f"{len(dflt)} of them, {100 * sum(e['mean'] for e in dflt):.1f} % of the instructions on "
+        "the mean row. Share of a row's instructions, mean over rows and the largest.",
+        "",
+        "| Opcode | Class | Default rule | Mean | Largest |",
+        "| --- | --- | --- | ---: | ---: |",
+    ]
+    for e in [*ops[:15], *[e for e in dflt[:15] if e not in ops[:15]]]:
+        lines.append(
+            f"| `{e['op']}` | {e['class']} | {'yes' if e['default'] else ''} | "
+            f"{100 * e['mean']:.2f} % | {100 * e['max']:.1f} % |"
+        )
+    return lines
 
 
 def _whatif_lines(doc: dict[str, Any]) -> list[str]:
