@@ -1,6 +1,6 @@
 # Error table
 
-Produced by `scripts/perfmodel-table` from KTA commit `54be46ab77be53517d6a592a87d0f8c5fbad1310` on 2026-11-04T00:51:55Z; upstream inputs `/Users/dingyi/Projects/ai-infra-codesign-ventus` at `a628c9d963cf9c029fa596b872d6e8920ca883e8`. CPU only: replay time 3328 s summed over rows (slowest row 86 s); this run 2 s with 16 processes, 1338 rows from the cache. Error = predicted / measured − 1 (positive: the model is slow). Machine-readable copy: `error-table.json`. Mechanisms only (LOOP §4.4): every fitted parameter replaced by its probe value or removed: {'launch_stream_us': 2.05, 'tma_r_GBs_alone': 80.7, 'tma_l2_aggregate_GBs': 2250, 'block_setup_us': 0.0}.
+Produced by `scripts/perfmodel-table` from KTA commit `fb7c6c53683c167700b5c944af7dda999396d456` on 2026-11-04T01:56:49Z; upstream inputs `/Users/dingyi/Projects/ai-infra-codesign-ventus` at `a628c9d963cf9c029fa596b872d6e8920ca883e8`. CPU only: replay time 2371 s summed over rows (slowest row 76 s); this run 108 s with 16 processes, 1147 rows from the cache. Error = predicted / measured − 1 (positive: the model is slow). Machine-readable copy: `error-table.json`. Mechanisms only (LOOP §4.4): every fitted parameter replaced by its probe value or removed: {'launch_stream_us': 2.05, 'tma_r_GBs_alone': 80.7, 'tma_l2_aggregate_GBs': 2250, 'block_setup_us': 0.0}.
 
 ## Summary
 
@@ -84,9 +84,9 @@ Produced by `scripts/perfmodel-table` from KTA commit `54be46ab77be53517d6a592a8
 | testset whatif decode warm | 7 | 1 | 8.2 % | -15.6 % | 8.2 % | -15.6 % | 10.0 % / -16.8 % | 5 |  |  |  |  |  | 7/7 | 5/7 |
 | testset whatif decode warm b2b | 7 | 1 | 5.0 % | -14.8 % | 5.0 % | -14.8 % | 6.8 % / -16.0 % | 5 |  |  |  |  |  |  |  |
 | testset whatif decode warm graph | 7 | 1 | 4.9 % | -16.6 % | 4.9 % | -16.6 % | 6.8 % / -17.9 % | 5 |  |  |  |  |  |  |  |
-| testset whatif fa rotating | 3 | 1 | 6.6 % | +7.4 % | 6.6 % | +7.4 % | 4.6 % / +5.5 % | 3 |  |  |  |  |  | 3/3 | 3/3 |
-| testset whatif fa rotating b2b | 3 | 1 | 6.1 % | +6.7 % | 6.1 % | +6.7 % | 4.0 % / +4.8 % | 3 |  |  |  |  |  |  |  |
-| testset whatif fa rotating graph | 3 | 1 | 3.8 % | +4.4 % | 3.8 % | +4.4 % | 1.9 % / +2.4 % | 3 |  |  |  |  |  |  |  |
+| testset whatif fa rotating | 3 | 1 | 5.8 % | +7.4 % | 5.8 % | +7.4 % | 4.6 % / +5.5 % | 3 |  |  |  |  |  | 3/3 | 3/3 |
+| testset whatif fa rotating b2b | 3 | 1 | 2.4 % | +6.7 % | 2.4 % | +6.7 % | 4.0 % / +4.8 % | 3 |  |  |  |  |  |  |  |
+| testset whatif fa rotating graph | 3 | 1 | 3.4 % | +3.8 % | 3.4 % | +3.8 % | 1.9 % / +2.4 % | 3 |  |  |  |  |  |  |  |
 | testset whatif fa warm | 10 | 3 | 4.2 % | +88.8 % | 4.2 % | +88.8 % | 6.5 % / -58.3 % | 8 |  |  |  |  |  | 8/10 | 9/10 |
 | testset whatif fa warm b2b | 10 | 3 | 4.3 % | +87.6 % | 4.3 % | +87.6 % | 6.5 % / -58.5 % | 7 |  |  |  |  |  |  |  |
 | testset whatif fa warm graph | 10 | 3 | 6.5 % | +88.0 % | 6.5 % | +88.0 % | 8.5 % / -58.7 % | 7 |  |  |  |  |  |  |  |
@@ -98,9 +98,9 @@ Produced by `scripts/perfmodel-table` from KTA commit `54be46ab77be53517d6a592a8
 | testset whatif gemv warm graph | 8 | 0 | 13.4 % | +76.9 % | 13.4 % | +76.9 % | 15.2 % / -84.0 % | 3 |  |  |  |  |  |  |  |
 | testset whatif hgemm rotating | 24 | 1 | 9.3 % | +38.5 % | 9.3 % | +38.5 % | 7.8 % / -47.4 % | 15 |  |  |  |  |  | 24/24 | 16/24 |
 | testset whatif hgemm warm | 24 | 1 | 6.0 % | +39.2 % | 6.2 % | +39.1 % | 5.0 % / -47.2 % | 20 |  |  |  |  |  | 24/24 | 16/24 |
-| testset whatif rmsnorm rotating | 8 | 0 | 5.0 % | +109.3 % | 5.0 % | +109.3 % | 5.3 % / +108.3 % | 6 |  |  |  |  |  | 8/8 | 0/8 |
-| testset whatif rmsnorm rotating b2b | 8 | 0 | 9.7 % | +124.0 % | 9.7 % | +124.0 % | 9.2 % / +123.0 % | 4 |  |  |  |  |  |  |  |
-| testset whatif rmsnorm rotating graph | 8 | 0 | 14.2 % | +138.5 % | 14.2 % | +138.5 % | 13.6 % / +137.3 % | 2 |  |  |  |  |  |  |  |
+| testset whatif rmsnorm rotating | 8 | 0 | 5.0 % | +11.8 % | 5.0 % | +11.8 % | 5.3 % / +108.3 % | 7 |  |  |  |  |  | 8/8 | 0/8 |
+| testset whatif rmsnorm rotating b2b | 8 | 0 | 8.8 % | +12.3 % | 8.8 % | +12.3 % | 9.2 % / +123.0 % | 5 |  |  |  |  |  |  |  |
+| testset whatif rmsnorm rotating graph | 8 | 0 | 13.2 % | +14.4 % | 13.2 % | +14.4 % | 13.6 % / +137.3 % | 3 |  |  |  |  |  |  |  |
 | testset whatif rmsnorm warm | 6 | 0 | 13.7 % | -30.5 % | 13.7 % | -30.5 % | 16.4 % / -36.7 % | 1 |  |  |  |  |  | 6/6 | 0/6 |
 | testset whatif rmsnorm warm b2b | 6 | 0 | 9.2 % | -26.1 % | 9.2 % | -26.1 % | 12.1 % / -32.8 % | 3 |  |  |  |  |  |  |  |
 | testset whatif rmsnorm warm graph | 6 | 0 | 21.9 % | -30.7 % | 21.9 % | -30.7 % | 25.5 % / -33.7 % | 1 |  |  |  |  |  |  |  |
@@ -110,7 +110,7 @@ Produced by `scripts/perfmodel-table` from KTA commit `54be46ab77be53517d6a592a8
 | testset whatif w4gemm warm | 3 | 0 | 15.6 % | -22.2 % | 15.6 % | -22.2 % | 14.8 % / -15.8 % | 0 |  |  |  |  |  | 3/3 | 2/3 |
 | testset whatif w4gemm warm b2b | 3 | 0 | 16.6 % | -22.6 % | 16.6 % | -22.6 % | 15.5 % / -16.2 % | 0 |  |  |  |  |  |  |  |
 | testset whatif w4gemm warm graph | 3 | 0 | 17.3 % | -23.1 % | 17.3 % | -23.1 % | 16.6 % / -16.7 % | 0 |  |  |  |  |  |  |  |
-| probe rot_depth | 22 | 0 | 4.5 % | +528.3 % | 4.5 % | +528.3 % | 2.4 % / +292.3 % | 14 |  |  |  |  |  |  |  |
+| probe rot_depth | 22 | 0 | 2.6 % | -11.7 % | 2.6 % | -11.7 % | 2.4 % / +292.3 % | 20 |  |  |  |  |  |  |  |
 | probe spill | 48 | 0 | 43.4 % | -70.9 % | 43.4 % | -70.9 % | 32.4 % / -94.9 % | 8 |  |  |  |  |  |  |  |
 | probe store_lines | 78 | 0 | 43.5 % | +963.9 % | 43.5 % | +963.9 % | 49.9 % / +1622.8 % | 19 |  |  |  |  |  |  |  |
 
@@ -120,7 +120,7 @@ First score: the prediction committed before the batch, engine unchanged. Now: t
 
 | Set | n | first: median | first: worst | first: Kendall τ / Spearman / inversions | first: best variant | now: median | now: worst | now: Kendall τ / Spearman / inversions | now: best variant |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| probe rot_depth | 22 | 2.4 % | +292.3 % |  |  | 4.5 % | +528.3 % |  |  |
+| probe rot_depth | 22 | 2.4 % | +292.3 % |  |  | 2.6 % | -11.7 % |  |  |
 | probe spill | 48 | 32.4 % | -94.9 % |  |  | 43.4 % | -70.9 % |  |  |
 | probe store_lines | 78 | 49.9 % | +1622.8 % |  |  | 43.5 % | +963.9 % |  |  |
 
@@ -130,7 +130,7 @@ One compiled change from a base in the same batch. Direction right: signs agree,
 
 | Axis | n | first: direction | first: median magnitude error | first: within 25 % | now: direction | now: median magnitude error | now: within 25 % |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| all | 98 | 79/98 | 26 % | 29/59 | 78/98 | 28 % | 27/59 |
+| all | 98 | 79/98 | 26 % | 29/59 | 77/98 | 26 % | 28/59 |
 | shape | 4 | 4/4 | 10 % | 4/4 | 4/4 | 15 % | 4/4 |
 | tile | 12 | 10/12 | 29 % | 3/7 | 9/12 | 28 % | 2/7 |
 | rotation depth | 4 | 0/4 | 100 % | 0/3 | 0/4 | 100 % | 0/3 |
@@ -139,7 +139,7 @@ One compiled change from a base in the same batch. Direction right: signs agree,
 | threads | 20 | 13/20 | 64 % | 2/9 | 13/20 | 78 % | 3/9 |
 | cp.async vs direct | 3 | 3/3 | 12 % | 2/3 | 3/3 | 49 % | 1/3 |
 | compute removed | 9 | 8/9 | 24 % | 4/7 | 7/9 | 14 % | 4/7 |
-| stores removed | 7 | 7/7 | 25 % | 3/5 | 7/7 | 32 % | 1/5 |
+| stores removed | 7 | 7/7 | 25 % | 3/5 | 6/7 | 26 % | 2/5 |
 | bytes per lane | 6 | 4/6 | 24 % | 1/2 | 5/6 | 19 % | 2/2 |
 | tile+threads | 4 | 4/4 | 23 % | 1/2 | 4/4 | 24 % | 1/2 |
 | loads removed | 2 | 2/2 | 12 % | 2/2 | 2/2 | 16 % | 2/2 |
@@ -166,6 +166,7 @@ One compiled change from a base in the same batch. Direction right: signs agree,
 | wi_rms_rot4_rotating | wi_rms_b_rotating | rotation depth | +4.9 % | +0.0 % | +0.0 % | WRONG | WRONG |
 | wi_rms_t64_warm | wi_rms_b_warm | threads | -8.3 % | +2.3 % | +2.1 % | WRONG | WRONG |
 | wi_dec_bn32_rotating | wi_dec_b_rotating | tile | -2.8 % | -2.5 % | +1.2 % | right | WRONG |
+| wi_fa_nostore_rotating | wi_fa_b_rotating | stores removed | -1.1 % | -0.5 % | -5.8 % | right | WRONG |
 | wi_rms_nocompute_warm | wi_rms_b_warm | compute removed | -10.3 % | -2.1 % | +4.6 % | right | WRONG |
 | wi_rms_t256_rotating | wi_rms_b_rotating | threads | -2.6 % | -0.1 % | +1.0 % | right | WRONG |
 | wi_gemv_mk4_warm | wi_gemv_b_warm | bytes per lane | -0.2 % | -68.0 % | -1.2 % | WRONG | right |
@@ -184,7 +185,6 @@ One compiled change from a base in the same batch. Direction right: signs agree,
 | wi_fa_bm128_warm | wi_fa_b_warm | tile | -1.6 % | -0.3 % | +0.5 % | right | right |
 | wi_fa_bn32_warm | wi_fa_b_warm | tile | -7.3 % | -9.4 % | -9.3 % | right | right |
 | wi_fa_direct_warm | wi_fa_b_warm | cp.async vs direct | -5.6 % | -6.2 % | -9.9 % | right | right |
-| wi_fa_nostore_rotating | wi_fa_b_rotating | stores removed | -1.1 % | -0.5 % | -0.3 % | right | right |
 | wi_fa_nostore_warm | wi_fa_b_warm | stores removed | -1.3 % | -0.6 % | -0.3 % | right | right |
 | wi_fa_nov_warm | wi_fa_b_warm | compute removed | +185.6 % | +27.4 % | +465.0 % | right | right |
 | wi_fa_s1_rotating | wi_fa_b_rotating | stages | -13.2 % | -12.0 % | -11.9 % | right | right |
@@ -238,7 +238,7 @@ One compiled change from a base in the same batch. Direction right: signs agree,
 | wi_rms_fp32_rotating | wi_rms_b_rotating | bytes per lane | +81.9 % | +92.7 % | +92.7 % | right | right |
 | wi_rms_fp32_warm | wi_rms_b_warm | bytes per lane | +96.3 % | +62.6 % | +72.5 % | right | right |
 | wi_rms_nocompute_rotating | wi_rms_b_rotating | compute removed | -2.6 % | -3.4 % | -3.4 % | right | right |
-| wi_rms_nostore_rotating | wi_rms_b_rotating | stores removed | -49.8 % | -0.4 % | -0.5 % | right | right |
+| wi_rms_nostore_rotating | wi_rms_b_rotating | stores removed | -49.8 % | -0.4 % | -56.4 % | right | right |
 | wi_rms_nostore_warm | wi_rms_b_warm | stores removed | -31.0 % | -24.4 % | -26.1 % | right | right |
 | wi_rms_t64_rotating | wi_rms_b_rotating | threads | -0.6 % | +0.2 % | -2.0 % | right | right |
 | wi_softmax_nostore_warm | wi_softmax_b_warm | stores removed | -19.0 % | -11.5 % | -14.2 % | right | right |
@@ -254,12 +254,12 @@ Critical-path share by kind in the base's replay (launch left out) and the chang
 | Base | model's top | shares | gains, replay / measured | largest measured gain | agree |
 | --- | --- | --- | --- | --- | --- |
 | wi_fa_b_warm | compute | compute 92 %, loads 4 % | compute +465.0 % / +185.6 %, stores -0.3 % / -1.3 % | stores | NO |
-| wi_fa_b_rotating | compute | compute 69 %, loads 27 % | stores -0.3 % / -1.1 % | stores | NO |
+| wi_fa_b_rotating | compute | compute 69 %, loads 27 % | stores -5.8 % / -1.1 % | stores | NO |
 | wi_gemv_b_rotating | loads | loads 87 %, compute 3 % | compute -3.0 % / -4.0 % | compute | NO |
 | wi_gemv_b_warm | compute | compute 68 %, loads 11 % | compute -41.8 % / -36.6 % | compute | yes |
 | wi_hg_b_rotating | compute | compute 80 %, loads 11 %, stores 5 % | compute -30.6 % / -27.0 %, loads -14.6 % / -17.8 %, stores -4.4 % / -8.9 % | compute | yes |
 | wi_hg_b_warm | compute | compute 82 %, loads 8 %, stores 5 % | compute -31.5 % / -36.7 %, loads -15.3 % / -17.8 %, stores -4.5 % / -6.6 % | compute | yes |
-| wi_rms_b_rotating | loads | loads 91 %, stores 1 % | compute -3.4 % / -2.6 %, stores -0.5 % / -49.8 % | stores | NO |
+| wi_rms_b_rotating | loads | loads 91 %, stores 1 % | compute -3.4 % / -2.6 %, stores -56.4 % / -49.8 % | stores | NO |
 | wi_rms_b_warm | stores | loads 25 %, stores 28 %, compute 6 % | compute +4.6 % / -10.3 %, stores -26.1 % / -31.0 % | stores | yes |
 | wi_softmax_b_warm | compute | stores 15 %, compute 44 %, loads 3 % | stores -14.2 % / -19.0 % | stores | NO |
 | wi_w4_b_warm | compute | compute 90 %, stores 6 % | compute -42.4 % / -37.5 % | compute | yes |
@@ -272,17 +272,17 @@ Critical-path share by kind in the base's replay (launch left out) and the chang
 | store_lines S8_W4_D4_g128 | 4 | cycles | 269.00 | 2,636.00 | +879.9 % | +1401.9 % (r7b) | store_queue: queue (stg) 79 %; store_port: queue (stores) 14 %; store_port: drain after the last instruction 4 % | default latency 54, issue-only 51 | batch r7b |
 | store_lines S4_W4_D4_g128 | 4 | cycles | 155.00 | 1,196.00 | +671.6 % | +1033.6 % (r7b) | store_queue: queue (stg) 64 %; store_port: queue (stores) 26 %; store_port: drain after the last instruction 7 % | default latency 54, issue-only 51 | batch r7b |
 | l2mix L0_S2_W4_D4_P0_g512 | 4 | cycles | 414.00 | 3,132.00 | +656.5 % | +1359.5 % (r7) | store_queue: queue (stg) 81 %; store_port: queue (stores) 12 %; store_port: drain after the last instruction 3 % | default latency 198, issue-only 187 | batch r7 |
-| rot_depth n21_D24 | 5 | us | 11.81 | 74.20 | +528.3 % | +292.3 % (r7b) | l2/dram: load latency (incl. DRAM queue) 99 % | default latency 128, issue-only 2784 | batch r7b |
-| rot_depth n21_D16 | 5 | us | 12.74 | 74.20 | +482.6 % | -6.9 % (r7b) | l2/dram: load latency (incl. DRAM queue) 99 % | default latency 128, issue-only 2784 | batch r7b |
-| rot_depth n10_D16 | 5 | us | 6.69 | 37.00 | +453.2 % | +7.5 % (r7b) | l2/dram: load latency (incl. DRAM queue) 99 % | default latency 128, issue-only 1376 | batch r7b |
-| rot_depth n21_D1 | 5 | us | 13.54 | 74.20 | +448.1 % | -12.9 % (r7b) | l2/dram: load latency (incl. DRAM queue) 99 % | default latency 128, issue-only 2784 | batch r7b |
-| rot_depth n10_D1 | 5 | us | 6.85 | 34.46 | +403.3 % | +0.7 % (r7b) | l2/dram: load latency (incl. DRAM queue) 99 % | default latency 128, issue-only 1376 | batch r7b |
 | store_lines S8_W4_D4_g256 | 4 | cycles | 1,187.00 | 5,795.00 | +388.2 % | +666.1 % (r7b) | store_queue: queue (stg) 89 %; store_port: queue (stores) 7 %; store_port: drain after the last instruction 2 % | default latency 108, issue-only 102 | batch r7b |
 | store_lines S4_W4_D4_g512 | 4 | cycles | 1,269.00 | 5,772.00 | +354.8 % | +725.6 % (r7b) | store_queue: queue (stg) 89 %; store_port: queue (stores) 7 %; store_port: drain after the last instruction 2 % | default latency 198, issue-only 187 | batch r7b |
 | store_lines S2_W4_D128_g128 | 4 | cycles | 105.00 | 381.00 | +262.9 % | +417.5 % (r7b) | store_port: queue (stores) 44 %; store_queue: queue (stg) 30 %; store_port: drain after the last instruction 20 % | default latency 54, issue-only 54 | batch r7b |
 | store_lines S1_W4_D128_g256 | 4 | cycles | 198.00 | 666.00 | +236.4 % | +585.1 % (r7b) | store_queue: queue (stg) 43 %; store_port: queue (stores) 34 %; store_port: drain after the last instruction 16 % | default latency 108, issue-only 108 | batch r7b |
 | l2reuse n8_cs_in4 | 5 | us | 35.10 | 100.85 | +187.3 % | -22.9 % (r3) | l2/dram: load latency (incl. DRAM queue) 87 %; l2_return: queue (chip L2 share) 12 % | default latency 161, issue-only 1793 | batch r3 |
 | store_lines S8_W4_D4_g512 | 4 | cycles | 4,054.00 | 11,052.00 | +172.6 % | +372.3 % (r7b) | store_queue: queue (stg) 94 %; store_port: queue (stores) 4 %; store_port: drain after the last instruction 1 % | default latency 198, issue-only 187 | batch r7b |
+| store_lines S2_W4_D32_g128 | 4 | cycles | 109.00 | 296.00 | +171.6 % | +279.9 % (r7b) | store_port: queue (stores) 43 %; store_port: drain after the last instruction 29 %; store_queue: queue (stg) 22 % | default latency 54, issue-only 51 | batch r7b |
+| store_lines S2_W4_D64_g128 | 4 | cycles | 109.00 | 296.00 | +171.6 % | +279.9 % (r7b) | store_port: queue (stores) 43 %; store_port: drain after the last instruction 29 %; store_queue: queue (stg) 22 % | default latency 54, issue-only 51 | batch r7b |
+| store_lines S4_W4_D32_g128 | 4 | cycles | 452.00 | 1,196.00 | +164.6 % | +288.7 % (r7b) | store_queue: queue (stg) 64 %; store_port: queue (stores) 26 %; store_port: drain after the last instruction 7 % | default latency 54, issue-only 51 | batch r7b |
+| row_reduce empty_g48_span | 4 | cycles | 8.00 | 19.00 | +137.5 % | +137.5 % (r5) | store_port: drain after the last instruction 47 %; issue: default result latency (S2UR) 12 %; issue: default result latency (S2R) 12 % | default latency 8, issue-only 13 | batch r5 |
+| store_lines S2_W16_D16_g128 | 4 | cycles | 198.00 | 398.00 | +101.0 % | +232.4 % (r7b) | store_port: drain after the last instruction 63 %; store_port: queue (stores) 22 %; store_queue: queue (stg) 10 % | default latency 54, issue-only 87 | batch r7b |
 
 ## All rows
 
@@ -1290,9 +1290,9 @@ Critical-path share by kind in the base's replay (launch left out) and the chang
 | wi_fa_noexp_warm kernel | 7 | us | 272.77 | 236.15 | -13.4 % | -15.1 % (r7) | tensor: stall count after mma 27 %; tensor: queue (mma) 18 %; issue: stall count after ldsm 14 % | branch fallback 1536, default latency 1824, default rbar 2400, front end 12288, issue-only 37848 | batch r7 |
 | wi_fa_noexp_warm b2b | 7 | us | 273.88 | 236.09 | -13.8 % | -15.5 % (r7) | tensor: stall count after mma 27 %; tensor: queue (mma) 19 %; issue: stall count after ldsm 14 % | branch fallback 1536, default latency 1824, default rbar 2400, front end 12288, issue-only 37848 | batch r7 |
 | wi_fa_noexp_warm graph | 7 | us | 271.68 | 233.95 | -13.9 % | -15.6 % (r7) | tensor: stall count after mma 27 %; tensor: queue (mma) 19 %; issue: stall count after ldsm 14 % | branch fallback 1536, default latency 1824, default rbar 2400, front end 12288, issue-only 37848 | batch r7 |
-| wi_fa_nostore_rotating kernel | 7 | us | 260.58 | 277.84 | +6.6 % | +4.6 % (r7) | tensor: stall count after mma 17 %; l2_return: queue (chip L2 share) 13 %; tensor: queue (mma) 12 % | branch fallback 1536, default latency 1776, default rbar 7776, front end 12288, issue-only 36504 | batch r7 |
-| wi_fa_nostore_rotating b2b | 7 | us | 261.80 | 277.78 | +6.1 % | +4.0 % (r7) | tensor: stall count after mma 17 %; l2_return: queue (chip L2 share) 13 %; tensor: queue (mma) 12 % | branch fallback 1536, default latency 1776, default rbar 7776, front end 12288, issue-only 36504 | batch r7 |
-| wi_fa_nostore_rotating graph | 7 | us | 264.00 | 275.64 | +4.4 % | +2.4 % (r7) | tensor: stall count after mma 17 %; l2_return: queue (chip L2 share) 13 %; tensor: queue (mma) 12 % | branch fallback 1536, default latency 1776, default rbar 7776, front end 12288, issue-only 36504 | batch r7 |
+| wi_fa_nostore_rotating kernel | 7 | us | 260.58 | 262.42 | +0.7 % | +4.6 % (r7) | tensor: stall count after mma 21 %; tensor: queue (mma) 15 %; issue: stall count after ldsm 12 % | branch fallback 1536, default latency 1776, default rbar 7776, front end 12288, issue-only 36504 | batch r7 |
+| wi_fa_nostore_rotating b2b | 7 | us | 261.80 | 262.36 | +0.2 % | +4.0 % (r7) | tensor: stall count after mma 21 %; tensor: queue (mma) 15 %; issue: stall count after ldsm 12 % | branch fallback 1536, default latency 1776, default rbar 7776, front end 12288, issue-only 36504 | batch r7 |
+| wi_fa_nostore_rotating graph | 7 | us | 264.00 | 260.22 | -1.4 % | +2.4 % (r7) | tensor: stall count after mma 21 %; tensor: queue (mma) 15 %; issue: stall count after ldsm 12 % | branch fallback 1536, default latency 1776, default rbar 7776, front end 12288, issue-only 36504 | batch r7 |
 | wi_fa_nostore_warm kernel | 7 | us | 255.01 | 245.88 | -3.6 % | -5.7 % (r7) | tensor: stall count after mma 22 %; tensor: queue (mma) 16 %; issue: stall count after ldsm 13 % | branch fallback 1536, default latency 1776, default rbar 7776, front end 12288, issue-only 36504 | batch r7 |
 | wi_fa_nostore_warm b2b | 7 | us | 257.30 | 245.82 | -4.5 % | -6.6 % (r7) | tensor: stall count after mma 23 %; tensor: queue (mma) 16 %; issue: stall count after ldsm 13 % | branch fallback 1536, default latency 1776, default rbar 7776, front end 12288, issue-only 36504 | batch r7 |
 | wi_fa_nostore_warm graph | 7 | us | 256.22 | 243.68 | -4.9 % | -7.0 % (r7) | tensor: stall count after mma 23 %; tensor: queue (mma) 16 %; issue: stall count after ldsm 13 % | branch fallback 1536, default latency 1776, default rbar 7776, front end 12288, issue-only 36504 | batch r7 |
@@ -1433,9 +1433,9 @@ Critical-path share by kind in the base's replay (launch left out) and the chang
 | wi_rms_nocompute_warm kernel | 7 | us | 8.61 | 7.94 | -7.7 % | -16.5 % (r7) | store_queue: queue (stg) 50 %; launch: launch 36 %; store_port: drain after the last instruction 14 % | default latency 220, issue-only 88 | batch r7 |
 | wi_rms_nocompute_warm b2b | 7 | us | 8.20 | 7.88 | -3.8 % | -13.1 % (r7) | store_queue: queue (stg) 77 %; store_port: drain after the last instruction 22 %; issue: scheduler (another warp issued) 1 % | default latency 220, issue-only 88 | batch r7 |
 | wi_rms_nocompute_warm graph | 7 | us | 5.67 | 5.74 | +1.3 % | -12.1 % (r7) | store_queue: queue (stg) 77 %; store_port: drain after the last instruction 22 %; issue: scheduler (another warp issued) 1 % | default latency 220, issue-only 88 | batch r7 |
-| wi_rms_nostore_rotating kernel | 7 | us | 20.70 | 43.34 | +109.3 % | +108.3 % (r7) | l2/dram: load latency (incl. DRAM queue) 92 %; launch: launch 7 % | default latency 264, issue-only 132 | batch r7 |
-| wi_rms_nostore_rotating b2b | 7 | us | 19.32 | 43.28 | +124.0 % | +123.0 % (r7) | l2/dram: load latency (incl. DRAM queue) 98 % | default latency 264, issue-only 132 | batch r7 |
-| wi_rms_nostore_rotating graph | 7 | us | 17.25 | 41.14 | +138.5 % | +137.3 % (r7) | l2/dram: load latency (incl. DRAM queue) 98 % | default latency 264, issue-only 132 | batch r7 |
+| wi_rms_nostore_rotating kernel | 7 | us | 20.70 | 19.00 | -8.2 % | +108.3 % (r7) | l2/dram: load latency (incl. DRAM queue) 81 %; launch: launch 15 %; fma: stall count after fp32 1 % | default latency 264, issue-only 132 | batch r7 |
+| wi_rms_nostore_rotating b2b | 7 | us | 19.32 | 18.94 | -2.0 % | +123.0 % (r7) | l2/dram: load latency (incl. DRAM queue) 95 %; fma: stall count after fp32 1 %; lsu: queue 1 % | default latency 264, issue-only 132 | batch r7 |
+| wi_rms_nostore_rotating graph | 7 | us | 17.25 | 16.80 | -2.6 % | +137.3 % (r7) | l2/dram: load latency (incl. DRAM queue) 95 %; fma: stall count after fp32 1 %; lsu: queue 1 % | default latency 264, issue-only 132 | batch r7 |
 | wi_rms_nostore_warm kernel | 7 | us | 6.62 | 5.61 | -15.3 % | -16.2 % (r7) | launch: launch 50 %; l2_return: queue (chip L2 share) 29 %; l2/dram: load latency (incl. DRAM queue) 5 % | default latency 264, issue-only 132 | batch r7 |
 | wi_rms_nostore_warm b2b | 7 | us | 6.17 | 5.55 | -10.0 % | -11.1 % (r7) | l2_return: queue (chip L2 share) 59 %; l2/dram: load latency (incl. DRAM queue) 10 %; fma: stall count after fp32 6 % | default latency 264, issue-only 132 | batch r7 |
 | wi_rms_nostore_warm graph | 7 | us | 4.92 | 3.41 | -30.7 % | -31.9 % (r7) | l2_return: queue (chip L2 share) 59 %; l2/dram: load latency (incl. DRAM queue) 10 %; fma: stall count after fp32 6 % | default latency 264, issue-only 132 | batch r7 |
@@ -1478,28 +1478,28 @@ Critical-path share by kind in the base's replay (launch left out) and the chang
 | wi_w4_nodequant_warm kernel | 7 | us | 217.34 | 185.80 | -14.5 % | -13.1 % (r7) | tensor: queue (mma) 46 %; tensor: stall count after mma 24 %; store_queue: queue (stg) 9 % | branch fallback 1464, default latency 216, default rbar 24, front end 7680, issue-only 19728 | batch r7 |
 | wi_w4_nodequant_warm b2b | 7 | us | 222.63 | 185.74 | -16.6 % | -15.2 % (r7) | tensor: queue (mma) 46 %; tensor: stall count after mma 25 %; store_queue: queue (stg) 9 % | branch fallback 1464, default latency 216, default rbar 24, front end 7680, issue-only 19728 | batch r7 |
 | wi_w4_nodequant_warm graph | 7 | us | 219.35 | 183.60 | -16.3 % | -14.9 % (r7) | tensor: queue (mma) 46 %; tensor: stall count after mma 25 %; store_queue: queue (stg) 9 % | branch fallback 1464, default latency 216, default rbar 24, front end 7680, issue-only 19728 | batch r7 |
-| rot_depth n10_D1 | 5 | us | 6.85 | 34.46 | +403.3 % | +0.7 % (r7b) | l2/dram: load latency (incl. DRAM queue) 99 % | default latency 128, issue-only 1376 | batch r7b |
-| rot_depth n10_D16 | 5 | us | 6.69 | 37.00 | +453.2 % | +7.5 % (r7b) | l2/dram: load latency (incl. DRAM queue) 99 % | default latency 128, issue-only 1376 | batch r7b |
-| rot_depth n10_D24 | 5 | us | 15.87 | 37.00 | +133.1 % | +49.4 % (r7b) | l2/dram: load latency (incl. DRAM queue) 99 % | default latency 128, issue-only 1376 | batch r7b |
-| rot_depth n10_D32 | 5 | us | 30.98 | 37.00 | +19.4 % | +17.4 % (r7b) | l2/dram: load latency (incl. DRAM queue) 99 % | default latency 128, issue-only 1376 | batch r7b |
-| rot_depth n10_D48 | 5 | us | 35.07 | 37.00 | +5.5 % | +3.7 % (r7b) | l2/dram: load latency (incl. DRAM queue) 99 % | default latency 128, issue-only 1376 | batch r7b |
-| rot_depth n10_D64 | 5 | us | 35.20 | 37.00 | +5.1 % | +3.3 % (r7b) | l2/dram: load latency (incl. DRAM queue) 99 % | default latency 128, issue-only 1376 | batch r7b |
-| rot_depth n10_D96 | 5 | us | 36.16 | 37.00 | +2.3 % | +0.5 % (r7b) | l2/dram: load latency (incl. DRAM queue) 99 % | default latency 128, issue-only 1376 | batch r7b |
-| rot_depth n10_D128 | 5 | us | 36.06 | 37.00 | +2.6 % | +0.8 % (r7b) | l2/dram: load latency (incl. DRAM queue) 99 % | default latency 128, issue-only 1376 | batch r7b |
-| rot_depth n10_D192 | 5 | us | 36.19 | 37.00 | +2.2 % | +0.5 % (r7b) | l2/dram: load latency (incl. DRAM queue) 99 % | default latency 128, issue-only 1376 | batch r7b |
-| rot_depth n10_D256 | 5 | us | 36.06 | 37.00 | +2.6 % | +0.8 % (r7b) | l2/dram: load latency (incl. DRAM queue) 99 % | default latency 128, issue-only 1376 | batch r7b |
-| rot_depth n10_D384 | 5 | us | 36.16 | 37.00 | +2.3 % | +0.5 % (r7b) | l2/dram: load latency (incl. DRAM queue) 99 % | default latency 128, issue-only 1376 | batch r7b |
-| rot_depth n21_D1 | 5 | us | 13.54 | 74.20 | +448.1 % | -12.9 % (r7b) | l2/dram: load latency (incl. DRAM queue) 99 % | default latency 128, issue-only 2784 | batch r7b |
-| rot_depth n21_D16 | 5 | us | 12.74 | 74.20 | +482.6 % | -6.9 % (r7b) | l2/dram: load latency (incl. DRAM queue) 99 % | default latency 128, issue-only 2784 | batch r7b |
-| rot_depth n21_D24 | 5 | us | 11.81 | 74.20 | +528.3 % | +292.3 % (r7b) | l2/dram: load latency (incl. DRAM queue) 99 % | default latency 128, issue-only 2784 | batch r7b |
-| rot_depth n21_D32 | 5 | us | 65.06 | 74.20 | +14.0 % | +12.0 % (r7b) | l2/dram: load latency (incl. DRAM queue) 99 % | default latency 128, issue-only 2784 | batch r7b |
-| rot_depth n21_D48 | 5 | us | 71.10 | 74.20 | +4.3 % | +2.5 % (r7b) | l2/dram: load latency (incl. DRAM queue) 99 % | default latency 128, issue-only 2784 | batch r7b |
-| rot_depth n21_D64 | 5 | us | 71.94 | 74.20 | +3.1 % | +1.3 % (r7b) | l2/dram: load latency (incl. DRAM queue) 99 % | default latency 128, issue-only 2784 | batch r7b |
-| rot_depth n21_D96 | 5 | us | 70.94 | 74.20 | +4.6 % | +2.7 % (r7b) | l2/dram: load latency (incl. DRAM queue) 99 % | default latency 128, issue-only 2784 | batch r7b |
-| rot_depth n21_D128 | 5 | us | 72.00 | 74.20 | +3.0 % | +1.2 % (r7b) | l2/dram: load latency (incl. DRAM queue) 99 % | default latency 128, issue-only 2784 | batch r7b |
-| rot_depth n21_D192 | 5 | us | 71.94 | 74.20 | +3.1 % | +1.3 % (r7b) | l2/dram: load latency (incl. DRAM queue) 99 % | default latency 128, issue-only 2784 | batch r7b |
-| rot_depth n21_D256 | 5 | us | 71.20 | 74.20 | +4.2 % | +2.3 % (r7b) | l2/dram: load latency (incl. DRAM queue) 99 % | default latency 128, issue-only 2784 | batch r7b |
-| rot_depth n21_D384 | 5 | us | 72.00 | 74.20 | +3.0 % | +1.2 % (r7b) | l2/dram: load latency (incl. DRAM queue) 99 % | default latency 128, issue-only 2784 | batch r7b |
+| rot_depth n10_D1 | 5 | us | 6.85 | 6.98 | +1.9 % | +0.7 % (r7b) | l2_return: queue (chip L2 share) 61 %; l2/dram: load latency (incl. DRAM queue) 33 %; l2_return: transfer 3 % | default latency 128, issue-only 1376 | batch r7b |
+| rot_depth n10_D16 | 5 | us | 6.69 | 7.20 | +7.6 % | +7.5 % (r7b) | l2_return: queue (chip L2 share) 63 %; l2/dram: load latency (incl. DRAM queue) 31 %; l2_return: transfer 3 % | default latency 128, issue-only 1376 | batch r7b |
+| rot_depth n10_D24 | 5 | us | 15.87 | 17.46 | +10.0 % | +49.4 % (r7b) | l2_return: queue (chip L2 share) 53 %; l2/dram: load latency (incl. DRAM queue) 45 %; l2_return: transfer 1 % | default latency 128, issue-only 1376 | batch r7b |
+| rot_depth n10_D32 | 5 | us | 30.98 | 29.72 | -4.1 % | +17.4 % (r7b) | l2/dram: load latency (incl. DRAM queue) 80 %; l2_return: queue (chip L2 share) 19 % | default latency 128, issue-only 1376 | batch r7b |
+| rot_depth n10_D48 | 5 | us | 35.07 | 36.58 | +4.3 % | +3.7 % (r7b) | l2/dram: load latency (incl. DRAM queue) 99 % | default latency 128, issue-only 1376 | batch r7b |
+| rot_depth n10_D64 | 5 | us | 35.20 | 36.58 | +3.9 % | +3.3 % (r7b) | l2/dram: load latency (incl. DRAM queue) 99 % | default latency 128, issue-only 1376 | batch r7b |
+| rot_depth n10_D96 | 5 | us | 36.16 | 36.58 | +1.2 % | +0.5 % (r7b) | l2/dram: load latency (incl. DRAM queue) 99 % | default latency 128, issue-only 1376 | batch r7b |
+| rot_depth n10_D128 | 5 | us | 36.06 | 36.58 | +1.4 % | +0.8 % (r7b) | l2/dram: load latency (incl. DRAM queue) 99 % | default latency 128, issue-only 1376 | batch r7b |
+| rot_depth n10_D192 | 5 | us | 36.19 | 36.58 | +1.1 % | +0.5 % (r7b) | l2/dram: load latency (incl. DRAM queue) 99 % | default latency 128, issue-only 1376 | batch r7b |
+| rot_depth n10_D256 | 5 | us | 36.06 | 36.58 | +1.4 % | +0.8 % (r7b) | l2/dram: load latency (incl. DRAM queue) 99 % | default latency 128, issue-only 1376 | batch r7b |
+| rot_depth n10_D384 | 5 | us | 36.16 | 36.58 | +1.2 % | +0.5 % (r7b) | l2/dram: load latency (incl. DRAM queue) 99 % | default latency 128, issue-only 1376 | batch r7b |
+| rot_depth n21_D1 | 5 | us | 13.54 | 11.96 | -11.7 % | -12.9 % (r7b) | l2_return: queue (chip L2 share) 64 %; l2/dram: load latency (incl. DRAM queue) 31 %; l2_return: transfer 3 % | default latency 128, issue-only 2784 | batch r7b |
+| rot_depth n21_D16 | 5 | us | 12.74 | 11.96 | -6.1 % | -6.9 % (r7b) | l2_return: queue (chip L2 share) 64 %; l2/dram: load latency (incl. DRAM queue) 31 %; l2_return: transfer 3 % | default latency 128, issue-only 2784 | batch r7b |
+| rot_depth n21_D24 | 5 | us | 11.81 | 11.96 | +1.3 % | +292.3 % (r7b) | l2_return: queue (chip L2 share) 64 %; l2/dram: load latency (incl. DRAM queue) 31 %; l2_return: transfer 3 % | default latency 128, issue-only 2784 | batch r7b |
+| rot_depth n21_D32 | 5 | us | 65.06 | 62.04 | -4.6 % | +12.0 % (r7b) | l2/dram: load latency (incl. DRAM queue) 86 %; l2_return: queue (chip L2 share) 13 % | default latency 128, issue-only 2784 | batch r7b |
+| rot_depth n21_D48 | 5 | us | 71.10 | 73.46 | +3.3 % | +2.5 % (r7b) | l2/dram: load latency (incl. DRAM queue) 99 % | default latency 128, issue-only 2784 | batch r7b |
+| rot_depth n21_D64 | 5 | us | 71.94 | 73.46 | +2.1 % | +1.3 % (r7b) | l2/dram: load latency (incl. DRAM queue) 99 % | default latency 128, issue-only 2784 | batch r7b |
+| rot_depth n21_D96 | 5 | us | 70.94 | 73.46 | +3.5 % | +2.7 % (r7b) | l2/dram: load latency (incl. DRAM queue) 99 % | default latency 128, issue-only 2784 | batch r7b |
+| rot_depth n21_D128 | 5 | us | 72.00 | 73.46 | +2.0 % | +1.2 % (r7b) | l2/dram: load latency (incl. DRAM queue) 99 % | default latency 128, issue-only 2784 | batch r7b |
+| rot_depth n21_D192 | 5 | us | 71.94 | 73.46 | +2.1 % | +1.3 % (r7b) | l2/dram: load latency (incl. DRAM queue) 99 % | default latency 128, issue-only 2784 | batch r7b |
+| rot_depth n21_D256 | 5 | us | 71.20 | 73.46 | +3.2 % | +2.3 % (r7b) | l2/dram: load latency (incl. DRAM queue) 99 % | default latency 128, issue-only 2784 | batch r7b |
+| rot_depth n21_D384 | 5 | us | 72.00 | 73.46 | +2.0 % | +1.2 % (r7b) | l2/dram: load latency (incl. DRAM queue) 99 % | default latency 128, issue-only 2784 | batch r7b |
 | spill t64_n16_g1_s0 | 4 | cycles | 1,911.00 | 1,470.00 | -23.1 % | -23.1 % (r7b) | issue: stall count after other 52 %; alu: stall count after alu 37 %; issue: stall count after local 4 % | default latency 9, issue-only 696 | batch r7b |
 | spill t64_n16_g1_s96 | 4 | cycles | 1,911.00 | 1,470.00 | -23.1 % | -23.1 % (r7b) | issue: stall count after other 52 %; alu: stall count after alu 37 %; issue: stall count after local 4 % | default latency 9, issue-only 696 | batch r7b |
 | spill t64_n16_g48_s0 | 4 | cycles | 1,911.00 | 1,525.51 | -20.2 % | -23.1 % (r7b) | issue: stall count after other 45 %; l1: local path 28 %; l1: queue 13 % | default latency 9, issue-only 696 | batch r7b |
