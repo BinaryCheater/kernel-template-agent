@@ -1099,7 +1099,11 @@ def whatif_summary(pairs: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 def bottlenecks(rows: list[dict[str, Any]], pairs: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Per base with ablations: the critical-path share of compute, loads and stores in the replay,
-    against what removing each measures and replays."""
+    against what removing each measures and replays. Round 12, the repair 28 §1 asks for: only the
+    kinds removed on this base compare; short bases read from graph rows (one event timing steps
+    by about 1 us); a base counts when two kinds were removed and the best gain is at least
+    `GOAL_DIR` (else `decided` is False, nothing to name); kinds within `GOAL_DIR` of the best
+    measured gain tie, and any of them agrees."""
     by_id = {r["id"]: r for r in rows}
     out = []
     for base in dict.fromkeys(p["base"] for p in pairs if p["axis"] in ABLATIONS):
@@ -1110,21 +1114,30 @@ def bottlenecks(rows: list[dict[str, Any]], pairs: list[dict[str, Any]]) -> list
                 continue
             k = _unit_kind(a["resource"])
             share[k] = share.get(k, 0.0) + a["share"]
-        gains = {
-            ABLATIONS[p["axis"]]: p for p in pairs if p["base"] == base and p["axis"] in ABLATIONS
-        }
-        if not share:  # a run without attribution (--fast)
+        if not share:  # a run without attribution
             continue
-        top = max(share, key=lambda k: share[k])
-        best = min(gains, key=lambda k: gains[k]["measured"])
+        gains: dict[str, tuple[float, float]] = {}
+        for p in pairs:
+            if p["base"] == base and p["axis"] in ABLATIONS:
+                g = p.get("graph")
+                now, meas = (g["now"], g["measured"]) if g else (p["now"], p["measured"])
+                kind = ABLATIONS[p["axis"]]
+                if kind not in gains or meas < gains[kind][1]:
+                    gains[kind] = (now, meas)
+        best = min(gains, key=lambda k: gains[k][1])
+        ties = [k for k in gains if gains[k][1] - gains[best][1] < GOAL_DIR]
+        top = max(gains, key=lambda k: share.get(k, 0.0))
+        decided = len(gains) >= 2 and -gains[best][1] >= GOAL_DIR
         out.append(
             {
                 "base": base,
                 "model_top": top,
                 "share": share,
-                "gains": {k: (p["now"], p["measured"]) for k, p in gains.items()},
+                "gains": gains,
                 "measured_top": best,
-                "agree": top == best,
+                "ties": ties,
+                "decided": decided,
+                "agree": top in ties,
             }
         )
     return out
@@ -1418,12 +1431,17 @@ def _whatif_lines(doc: dict[str, Any]) -> list[str]:
             )
         )
     if doc.get("bottlenecks"):
+        decided = [b for b in doc["bottlenecks"] if b.get("decided")]
         lines += [
             "",
             "## Bottleneck: what the model names against what removal gains",
             "",
             "Critical-path share by kind in the base's replay (launch left out) and the change "
-            "from removing that kind, replayed / measured.",
+            "from removing that kind, replayed / measured; short bases from graph rows. Decided: "
+            "two kinds removed, the best gains at least 3 %; kinds within 3 points tie.",
+            "",
+            f"Agreement on decided bases: {sum(b['agree'] for b in decided)}/{len(decided)} "
+            f"({len(doc['bottlenecks']) - len(decided)} bases undecided).",
             "",
             "| Base | model's top | shares | gains, replay / measured | largest measured gain | "
             "agree |",
@@ -1434,7 +1452,7 @@ def _whatif_lines(doc: dict[str, Any]) -> list[str]:
             ga = ", ".join(f"{k} {_pct(v[0])} / {_pct(v[1])}" for k, v in b["gains"].items())
             lines.append(
                 f"| {b['base']} | {b['model_top']} | {sh} | {ga} | {b['measured_top']} | "
-                f"{'yes' if b['agree'] else 'NO'} |"
+                f"{('yes' if b['agree'] else 'NO') if b.get('decided') else 'undecided'} |"
             )
     return lines
 
