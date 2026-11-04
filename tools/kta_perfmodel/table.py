@@ -312,12 +312,11 @@ def run_job(
 
 def _dynamic_ops(sm: Any) -> dict[str, list[Any]]:
     """Per full opcode: instructions issued, its class, and whether a default rule times it (the
-    default class, or a class whose result latency is an assumption)."""
+    default class: an issue slot, no pipe)."""
     out: dict[str, list[Any]] = {}
     for x, cls, n in zip(sm.ins, sm.icls, sm.pc_count, strict=True):
         if n:
-            assumed = cls.latency is not None and sm.m.status(cls.latency) == "assumed"
-            d = out.setdefault(x.op, [0, cls.name, cls.name == "other" or assumed])
+            d = out.setdefault(x.op, [0, cls.name, cls.name == "other"])
             d[0] += n
     return out
 
@@ -714,6 +713,115 @@ def dynamic_weights(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return sorted(out, key=lambda e: -e["mean"])
 
 
+UNITS = {  # model busy key -> (counter, instances per SM the counter sums over)
+    "tensor": ("sm__pipe_tensor_cycles_active.sum", 1),
+    "fma": ("sm__pipe_fma_cycles_active.sum", 1),
+    "alu": ("sm__pipe_alu_cycles_active.sum", 1),
+    "fill": ("lts__lts2xbar_cycles_active.sum", 1),
+    "lsu": ("l1tex__m_l1tex2xbar_req_cycles_active.sum", 1),
+}
+STALLS = {
+    "pipes": ("math_pipe_throttle", "short_scoreboard"),
+    "memory": ("long_scoreboard", "mio_throttle", "lg_throttle"),
+    "sync": ("barrier", "wait"),
+}
+
+
+def unit_compare(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """Round 10 (LOOP §5, bottleneck): per unit the model's busy cycles against the counter's, both
+    over the launch's cycles on the mean SM; per stall family the counters' share of warp-cycles
+    against the model's critical-path share. Counters per launch, over all 48 SMs."""
+    per: dict[str, list[float]] = {u: [] for u in UNITS}
+    fam: dict[str, list[tuple[float, float]]] = {k: [] for k in STALLS}
+    worst: list[dict[str, Any]] = []
+    for r in rows:
+        c = r.get("counters") or {}
+        active = float(c.get("smsp__warps_active.sum") or 0)
+        busy = (r.get("counts") or {}).get("busy")
+        if not active or not busy:
+            continue
+        grid = float(c.get("launch__grid_size") or 1)
+        blocks = max(1, r["counts"].get("blocks", 1))
+        cyc = r["predicted"] * C["clock_under_load_GHz"] * 1e3
+        for u, (key, _) in UNITS.items():
+            if key in c and float(c[key]) and u in busy:
+                meas = float(c[key]) / grid  # per block
+                model = busy[u] * cyc / blocks
+                per[u].append(model / meas)
+                worst.append(
+                    {"row": r["id"], "unit": u, "model": model, "counter": meas, "r": model / meas}
+                )
+        share = {"pipes": 0.0, "memory": 0.0, "sync": 0.0}
+        for a in r.get("attribution", []):
+            k = _unit_kind(a["resource"])
+            share[
+                "pipes" if k == "compute" else "memory" if k in ("loads", "stores") else "sync"
+            ] += a["share"]
+        total = sum(
+            float(c.get(f"smsp__warps_issue_stalled_{x}.sum") or 0)
+            for v in STALLS.values()
+            for x in v
+        )
+        for k, names in STALLS.items():
+            m = sum(float(c.get(f"smsp__warps_issue_stalled_{x}.sum") or 0) for x in names)
+            fam[k].append((m / total if total else 0.0, share[k]))
+    worst.sort(key=lambda d: -abs(math.log(max(d["r"], 1e-9))))
+    return {
+        "units": {u: statistics.median(v) for u, v in per.items() if v},
+        "n": {u: len(v) for u, v in per.items()},
+        "worst": worst[:10],
+        "stalls": {
+            k: (statistics.mean(x for x, _ in v), statistics.mean(y for _, y in v))
+            for k, v in fam.items()
+            if v
+        },
+    }
+
+
+# Convergence record (LOOP §5, round 10): per kernel class, in the order first scored, the new
+# mechanisms the class needed, counted by hand from docs/decisions.md and the inventory; the worst
+# first-score error comes from the rows.
+CLASSES = (
+    ("HGEMM (TileLang)", r"^hgemm", 9),
+    ("FA forward", r"^fa_", 4),
+    ("decode attention", r"^decode_", 3),
+    ("w4a16 GEMV", r"^gemv_", 3),
+    ("RMSNorm, softmax", r"^(rmsnorm|softmax)_", 5),
+    ("FP8 GEMM", r"^fp8gemm", 0),
+    ("MoE GEMM", r"^moe_", 1),
+    ("w4a16 GEMM", r"^w4gemm", 1),
+    ("NVFP4 GEMM", r"^nvfp4gemm", 1),
+    ("hand-written CUDA", r"^hand_", 0),
+    ("generated mixes", r"^stress_", 0),
+    ("library operators", r"^lib_", 0),
+)
+
+
+def convergence(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    out = []
+    for name, pat, needed in CLASSES:
+        rs = [
+            r
+            for r in rows
+            if r["id"].endswith(" kernel")
+            and re.search(pat, r["id"])
+            and r.get("blind") is not None
+        ]
+        if rs:
+            worst = max(rs, key=lambda r: abs(r["blind"]))
+            out.append(
+                {
+                    "class": name,
+                    "first_batch": min((r["blind_batch"] for r in rs), key=batch_order),
+                    "n": len(rs),
+                    "worst_first": worst["blind"],
+                    "median_first": statistics.median(abs(r["blind"]) for r in rs),
+                    "mechanisms": needed,
+                }
+            )
+    return out
+
+
 def default_jobs() -> int:
     return max(1, (os.cpu_count() or 2) - 2)
 
@@ -1017,12 +1125,60 @@ def render(doc: dict[str, Any], top: int = 15) -> str:
             )
     lines += _whatif_lines(doc)
     lines += _dynamic_lines(doc)
+    lines += _unit_lines(doc)
+    lines += _convergence_lines(doc)
     ranked = sorted((r for r in rows if not r["excluded"]), key=lambda r: -abs(r["error"]))
     lines += ["", f"## Top {top} rows by absolute error", ""]
     lines += _table(ranked[:top])
     lines += ["", "## All rows", ""]
     lines += _table(rows)
     return "\n".join(lines) + "\n"
+
+
+def _convergence_lines(doc: dict[str, Any]) -> list[str]:
+    rows = doc.get("convergence") or []
+    lines = [
+        "",
+        "## Convergence record",
+        "",
+        "Per class, in the order first scored. Not a claim of convergence: first-score errors must "
+        "fall and mechanisms per class must reach zero on classes from outside.",
+        "",
+        "| Class | First batch | n | Median first | Worst first | New mechanisms needed |",
+        "| --- | --- | ---: | ---: | ---: | ---: |",
+    ]
+    for c in rows:
+        lines.append(
+            f"| {c['class']} | {c['first_batch']} | {c['n']} | {100 * c['median_first']:.1f} % | "
+            f"{_pct(c['worst_first'])} | {c['mechanisms']} |"
+        )
+    return lines
+
+
+def _unit_lines(doc: dict[str, Any]) -> list[str]:
+    u = doc.get("units") or {}
+    if not u.get("units"):
+        return []
+    lines = [
+        "",
+        "## Per unit: model against counters",
+        "",
+        "Median of model busy cycles / counter cycles per block, on rows with the round 10 "
+        "counters: "
+        + ", ".join(f"{k} {v:.2f} (n {u['n'][k]})" for k, v in u["units"].items())
+        + ".",
+        "Stall families, mean counter share of stalled warp-cycles / model critical-path share: "
+        + ", ".join(f"{k} {a:.2f} / {b:.2f}" for k, (a, b) in u["stalls"].items())
+        + ".",
+        "",
+        "| Row | Unit | Model | Counter | Ratio |",
+        "| --- | --- | ---: | ---: | ---: |",
+    ]
+    for d in u["worst"]:
+        lines.append(
+            f"| {d['row']} | {d['unit']} | {d['model']:.0f} | {d['counter']:.0f} | {d['r']:.2f} |"
+        )
+    return lines
 
 
 def _dynamic_lines(doc: dict[str, Any]) -> list[str]:

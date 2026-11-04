@@ -89,7 +89,7 @@ def build() -> int:
             continue
         members, res = [], []
         d = root / f"lib_{case}"
-        for j, (e, k) in enumerate(zip(launches, obs, strict=True)):
+        for e, k in zip(launches, obs, strict=True):
             body = _sass(native, e["symbol"])
             if body is None:
                 unsupported[case] = f"SASS of {e['symbol'][:40]}"
@@ -133,6 +133,14 @@ def build() -> int:
     return 0
 
 
+def _number(v: Any) -> float | None:
+    v = v.get("value", v.get("raw")) if isinstance(v, dict) else v
+    try:
+        return float(str(v).replace(",", ""))
+    except ValueError:
+        return None
+
+
 def measured() -> int:
     """WP28's unprofiled operator medians and its profile's counts; its clock is the batch's."""
     results: dict[str, Any] = {}
@@ -145,7 +153,8 @@ def measured() -> int:
         results[f"{d.name} kernel"] = {"median": t["median_us"], "iqr": 0.0, "unit": "us", "n": 3}
         k = json.loads((_latest(case, "profile") / "observations.json").read_text())["kernels"]  # type: ignore[operator]
         if len(k) == 1:
-            counters[d.name] = {**k[0]["metrics"], **k[0]["launch"]}
+            raw = {**k[0]["metrics"], **k[0]["launch"]}
+            counters[d.name] = {a: _number(v) for a, v in raw.items() if _number(v) is not None}
     doc = {"batch": "r10w", "valid": True, "clock_GHz": None, "results": results}
     doc["counters"] = counters
     (OUT / "measured.json").write_text(json.dumps(doc, indent=1) + "\n")

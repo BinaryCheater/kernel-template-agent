@@ -127,6 +127,8 @@ def main(argv: list[str] | None = None) -> int:
         "whatif_summary": table.whatif_summary(wi),
         "bottlenecks": table.bottlenecks(rows, wi),
         "dynamic_ops": table.dynamic_weights(rows),
+        "units": table.unit_compare(rows),
+        "convergence": table.convergence(rows),
         "jobs": a.jobs,
         "cached_rows": sum(r["cached"] for r in rows),
         "rows": [{k: v for k, v in r.items() if k not in ("job", "cached")} for r in rows],
