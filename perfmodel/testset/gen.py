@@ -926,49 +926,159 @@ def write_sequence(out: Path, name: str, members: list[dict], buffers: dict[str,
     print(f"generated sequence {name}: {[k['entry'] for k in kernels]}, rot {rot}")
 
 
-def main(out: Path) -> None:
-    M, N, K = SHAPE["M"], SHAPE["N"], SHAPE["K"]
-    for name, (bm, bn, bk, s, th, panel) in HGEMM.items():
-        h = {
-            "block_M": bm,
-            "block_N": bn,
-            "block_K": bk,
-            "num_stages": s,
-            "threads": th,
-            "swizzle": panel,
-        }
-        grid = [-(-N // bn), -(-M // bm), 1]
-        # round 4: each variant also rotating (cold operands; the replay's DRAM rule without the
-        # warm L2 question)
-        for cache in ("warm", "rotating"):
-            info = {
-                "family": "hgemm",
-                "shape": SHAPE,
-                "pick": h,
-                "smem_estimate": s * (bm + bn) * bk * 2,
-                "cache": cache,
-            }
-            write(
-                out,
-                f"hgemm2048_{name}" + ("" if cache == "warm" else "_rotating"),
-                hgemm(bm, bn, bk, s, th, panel),
-                [M * K, K * N, M * N],
-                grid,
-                th,
-                info,
-                rot=1 if cache == "warm" else _rot((M * K + K * N + M * N) * 2),
-            )
-    f = FA
+def _rot(footprint: int) -> int:
+    """Input sets for the rotating case: at least 64 MB in turn (rot x footprint > the L2)."""
+    return max(2, math.ceil(64 * 2**20 / footprint))
+
+
+def _rots(cache: str, footprint: int, depth: int = 1) -> int:
+    return 1 if cache == "warm" else depth * _rot(footprint)
+
+
+def _pick(bm: int, bn: int, bk: int, s: int, th: int, **more) -> dict:
+    return {"block_M": bm, "block_N": bn, "block_K": bk, "num_stages": s, "threads": th, **more}
+
+
+def _tiles(M: int, N: int, bm: int, bn: int) -> list[int]:
+    return [-(-N // bn), -(-M // bm), 1]
+
+
+# one kernel each: `more` joins its launch.json
+def _hgemm(out: Path, name: str, tile: tuple, sh: dict, cache: str, opt=None, **more) -> None:
+    bm, bn, bk, s, th, panel = tile
+    M, N, K = sh["M"], sh["N"], sh["K"]
+    info = {
+        "family": "hgemm",
+        "shape": sh,
+        "pick": _pick(bm, bn, bk, s, th, swizzle=panel),
+        "smem_estimate": s * (bm + bn) * bk * 2,
+        "cache": cache,
+        **more,
+    }
+    func = hgemm(bm, bn, bk, s, th, panel, sh, **(opt or {}))
+    rot = _rots(cache, (M * K + K * N + M * N) * 2)
+    write(out, name, func, [M * K, K * N, M * N], _tiles(M, N, bm, bn), th, info, rot=rot)
+
+
+def _fa(out: Path, name: str, f: dict, cache="warm", estimate=False, writes=(-1,), **more) -> None:
     n = f["B"] * f["S"] * f["H"] * f["D"]
+    size = {"smem_estimate": (2 * f["BM"] + 2 * f["BN"]) * f["D"] * 2} if estimate else {}
     info = {
         "family": "fa_forward",
         "shape": {k: f[k] for k in ("B", "S", "H", "D")},
         "pick": {k: f[k] for k in ("BM", "BN", "stages", "threads")},
-        "smem_estimate": (2 * f["BM"] + 2 * f["BN"]) * f["D"] * 2,
-        "cache": "warm",
+        **size,
+        "cache": cache,
+        **more,
     }
     grid = [-(-f["S"] // f["BM"]), f["H"], f["B"]]
-    write(out, "fa_fwd_s2048_h8_d128", fa_forward(**f), [n, n, n, n], grid, f["threads"], info)
+    rot = _rots(cache, 4 * n * 2)
+    write(
+        out, name, fa_forward(**f), [n, n, n, n], grid, f["threads"], info, rot=rot, writes=writes
+    )
+
+
+def _decode_part(out: Path, name: str, c: dict, cache: str, depth: int = 1, **more) -> None:
+    B, H, G, S, D, sp = c["B"], c["H"], c["G"], c["S"], c["D"], c["split"]
+    kv = B * S * G * D
+    sizes = [B * H * D, kv, kv, B * H * sp, B * H * sp * D]
+    info = {"family": "decode_gqa", **_decode_info(c), "cache": cache, **more}
+    write(
+        out,
+        name,
+        decode_partial(**c),
+        sizes,
+        [B, H // min(c["BH"], H // G), sp],
+        128,
+        info,
+        rot=_rots(cache, sum(sizes) * 2, depth),
+        writes=(3, 4),
+    )
+
+
+def _decode_info(c: dict) -> dict:
+    return {
+        "shape": {k: c[k] for k in ("B", "H", "G", "S", "D")},
+        "pick": {k: c[k] for k in ("BN", "BH", "split", "stages")},
+    }
+
+
+def _gemv_row(out: Path, name: str, c: dict, cache: str, **more) -> None:
+    N, K, g = c["N"], c["K"], c["group"]
+    sizes, eb = [K, N * K // 2, N * K // g, N], [2, 1, 2, 2]
+    info = {"family": "gemv_w4a16", "shape": {"N": N, "K": K}, "pick": c, "cache": cache, **more}
+    write(
+        out,
+        name,
+        gemv_w4a16(**c),
+        sizes,
+        [-(-N // c["n_part"]), 1],
+        (c["reduce"], c["n_part"]),
+        info,
+        elem_bytes=eb,
+        rot=_rots(cache, sum(s * b for s, b in zip(sizes, eb, strict=True))),
+    )
+
+
+def _rms(out: Path, name: str, sh: dict, cache: str, kw=None, depth: int = 1, **more) -> None:
+    M, N = sh["M"], sh["N"]
+    kw = kw or {}
+    eb = 4 if kw.get("dtype") == "float" else 2
+    th = kw.get("threads", 128)
+    info = {"family": "rmsnorm", "shape": sh, "pick": {"threads": th}, "cache": cache, **more}
+    write(
+        out,
+        name,
+        rmsnorm(M, N, **kw),
+        [M * N, N, M * N],
+        [M],
+        th,
+        info,
+        elem_bytes=[eb, eb, eb],
+        rot=_rots(cache, (2 * M * N + N) * eb, depth),
+        writes=() if kw.get("store") else (-1,),
+    )
+
+
+def _softmax(out: Path, name: str, sh: dict, kw=None, **more) -> None:
+    M, N = sh["M"], sh["N"]
+    kw = kw or {}
+    th = kw.get("threads", 128)
+    info = {"family": "softmax", "shape": sh, "pick": {"threads": th}, "cache": "warm", **more}
+    write(out, name, softmax(M, N, **kw), [M * N, M * N], [M], th, info)
+
+
+def _w4(out: Path, name: str, tile: tuple, cache: str, kw=None, **more) -> None:
+    bm, bn, bk, s, th = tile
+    M, N, K = SHAPE["M"], SHAPE["N"], SHAPE["K"]
+    g = W4GEMM_GROUP
+    sizes, eb = [M * K, N * K // 2, N * K // g, M * N], [2, 1, 2, 2]
+    write(
+        out,
+        name,
+        w4gemm(bm, bn, bk, s, th, g, **(kw or {})),
+        sizes,
+        _tiles(M, N, bm, bn),
+        th,
+        {
+            "family": "w4gemm",
+            "shape": SHAPE,
+            "pick": _pick(bm, bn, bk, s, th),
+            "cache": cache,
+            **more,
+        },
+        elem_bytes=eb,
+        rot=_rots(cache, sum(x * b for x, b in zip(sizes, eb, strict=True))),
+    )
+
+
+def main(out: Path) -> None:
+    for name, tile in HGEMM.items():
+        # round 4: each variant also rotating (cold operands; the replay's DRAM rule without the
+        # warm L2 question)
+        _hgemm(out, f"hgemm2048_{name}", tile, SHAPE, "warm")
+        _hgemm(out, f"hgemm2048_{name}_rotating", tile, SHAPE, "rotating")
+    _fa(out, "fa_fwd_s2048_h8_d128", FA, estimate=True)
     for name, gen in (
         ("decode", _decode),
         ("gemv", _gemv),
@@ -988,34 +1098,12 @@ def main(out: Path) -> None:
             traceback.print_exc()
 
 
-def _rot(footprint: int) -> int:
-    """Input sets for the rotating case: at least 64 MB in turn (rot x footprint > the L2)."""
-    return max(2, math.ceil(64 * 2**20 / footprint))
-
-
 def _decode(out: Path) -> None:
     c = DECODE
-    B, H, G, S, D, sp = c["B"], c["H"], c["G"], c["S"], c["D"], c["split"]
-    kv = B * S * G * D
-    sizes = [B * H * D, kv, kv, B * H * sp, B * H * sp * D]
-    vh = min(c["BH"], H // G)
-    shape = {k: c[k] for k in ("B", "H", "G", "S", "D")}
-    pick = {k: c[k] for k in ("BN", "BH", "split", "stages")}
+    B, H, S, D, sp = c["B"], c["H"], c["S"], c["D"], c["split"]
     for cache in ("warm", "rotating"):
-        rot = 1 if cache == "warm" else _rot(sum(sizes) * 2)
-        info = {"family": "decode_gqa", "shape": shape, "pick": pick, "cache": cache}
-        write(
-            out,
-            f"decode_gqa_part_s{S}_{cache}",
-            decode_partial(**c),
-            sizes,
-            [B, H // vh, sp],
-            128,
-            info,
-            rot=rot,
-            writes=(3, 4),
-        )
-    info = {"family": "decode_gqa_combine", "shape": shape, "pick": pick, "cache": "warm"}
+        _decode_part(out, f"decode_gqa_part_s{S}_{cache}", c, cache)
+    info = {"family": "decode_gqa_combine", **_decode_info(c), "cache": "warm"}
     write(
         out,
         f"decode_gqa_comb_s{S}_warm",
@@ -1067,74 +1155,26 @@ def _decode_seq(out: Path) -> None:
         write_sequence(out, f"decode_seq_s{S}_{cache}", members, buffers, info)
 
 
+def _hgemm_group(out: Path, sh: dict, name: str, tile: tuple) -> None:
+    """A warm and a rotating row of a blind group of HGEMM variants."""
+    M, N, K = sh["M"], sh["N"], sh["K"]
+    tag = f"hgemm_m{M}n{N}k{K}_{name}"
+    _hgemm(out, tag, tile, sh, "warm", set=f"hgemm {M}x{N}x{K}")
+    _hgemm(out, f"{tag}_rotating", tile, sh, "rotating", set=f"hgemm {M}x{N}x{K} rotating")
+
+
 def _blind(out: Path) -> None:
     """Round 6: rows no engine change has seen."""
     for (M, N, K), variants in HGEMM_BLIND.items():
-        shape = {"M": M, "N": N, "K": K}
-        for name, (bm, bn, bk, s, th, panel) in variants.items():
-            h = {
-                "block_M": bm,
-                "block_N": bn,
-                "block_K": bk,
-                "num_stages": s,
-                "threads": th,
-                "swizzle": panel,
-            }
-            for cache in ("warm", "rotating"):
-                info = {
-                    "family": "hgemm",
-                    "shape": shape,
-                    "pick": h,
-                    "smem_estimate": s * (bm + bn) * bk * 2,
-                    "cache": cache,
-                    "set": f"hgemm {M}x{N}x{K}" + (" rotating" if cache == "rotating" else ""),
-                }
-                fp = (M * K + K * N + M * N) * 2
-                write(
-                    out,
-                    f"hgemm_m{M}n{N}k{K}_{name}" + ("" if cache == "warm" else "_rotating"),
-                    hgemm(bm, bn, bk, s, th, panel, shape),
-                    [M * K, K * N, M * N],
-                    [-(-N // bn), -(-M // bm), 1],
-                    th,
-                    info,
-                    rot=1 if cache == "warm" else _rot(fp),
-                )
+        for name, tile in variants.items():
+            _hgemm_group(out, {"M": M, "N": N, "K": K}, name, tile)
     f = FA_BLIND
-    n = f["B"] * f["S"] * f["H"] * f["D"]
-    info = {
-        "family": "fa_forward",
-        "shape": {k: f[k] for k in ("B", "S", "H", "D")},
-        "pick": {k: f[k] for k in ("BM", "BN", "stages", "threads")},
-        "smem_estimate": (2 * f["BM"] + 2 * f["BN"]) * f["D"] * 2,
-        "cache": "warm",
-    }
-    write(
-        out,
-        f"fa_fwd_s{f['S']}_h{f['H']}_d{f['D']}",
-        fa_forward(**f),
-        [n, n, n, n],
-        [-(-f["S"] // f["BM"]), f["H"], f["B"]],
-        f["threads"],
-        info,
-    )
+    _fa(out, f"fa_fwd_s{f['S']}_h{f['H']}_d{f['D']}", f, estimate=True)
     M, N = RMS_BLIND["M"], RMS_BLIND["N"]
     for cache in ("warm", "rotating"):
-        rot = 1 if cache == "warm" else _rot((2 * M * N + N) * 2)
-        info = {"family": "rmsnorm", "shape": RMS_BLIND, "pick": {"threads": 128}, "cache": cache}
-        write(
-            out,
-            f"rmsnorm_m{M}_n{N}_{cache}",
-            rmsnorm(M, N),
-            [M * N, N, M * N],
-            [M],
-            128,
-            info,
-            rot=rot,
-        )
+        _rms(out, f"rmsnorm_m{M}_n{N}_{cache}", RMS_BLIND, cache)
     M, N = SOFTMAX_BLIND["M"], SOFTMAX_BLIND["N"]
-    info = {"family": "softmax", "shape": SOFTMAX_BLIND, "pick": {"threads": 128}, "cache": "warm"}
-    write(out, f"softmax_m{M}_n{N}_warm", softmax(M, N), [M * N, M * N], [M], 128, info)
+    _softmax(out, f"softmax_m{M}_n{N}_warm", SOFTMAX_BLIND)
 
 
 def _wi(name: str, base: str, axis: str) -> dict:
@@ -1146,330 +1186,87 @@ def _whatif(out: Path) -> None:
     compiled code; the base is in the same batch."""
     for table, tag in ((WI_HGEMM, "b"), (WI_HGEMM2, "L_s3"), (WI_HGEMM3, "S_s4")):
         for cache in ("warm", "rotating"):
-            for v, (bm, bn, bk, s, th, panel, opt, axis) in table.items():
-                sh = SHAPE
-                h = {
-                    "block_M": bm,
-                    "block_N": bn,
-                    "block_K": bk,
-                    "num_stages": s,
-                    "threads": th,
-                    "swizzle": panel,
-                }
-                info = {
-                    "family": "hgemm",
-                    "shape": sh,
-                    "pick": h,
-                    "smem_estimate": s * (bm + bn) * bk * 2,
-                    "cache": cache,
-                    "set": f"whatif hgemm {cache}",
-                    **_wi(v, f"wi_hg_{tag}_{cache}", axis),
-                }
-                M, N, K = sh["M"], sh["N"], sh["K"]
-                fp = (M * K + K * N + M * N) * 2
-                write(
-                    out,
-                    f"wi_hg_{v}_{cache}",
-                    hgemm(bm, bn, bk, s, th, panel, sh, **opt),
-                    [M * K, K * N, M * N],
-                    [-(-N // bn), -(-M // bm), 1],
-                    th,
-                    info,
-                    rot=1 if cache == "warm" else _rot(fp),
-                )
+            for v, (*tile, opt, axis) in table.items():
+                more = _wi(v, f"wi_hg_{tag}_{cache}", axis)
+                name, group = f"wi_hg_{v}_{cache}", f"whatif hgemm {cache}"
+                _hgemm(out, name, tuple(tile), SHAPE, cache, opt, set=group, **more)
     for v, (kw, axis) in WI_FA.items():
         kw = dict(kw)
         base = kw.pop("base", "b")
-        f = {**FA, **kw}
-        n = f["B"] * f["S"] * f["H"] * f["D"]
         for cache in ("warm", "rotating"):
             if cache == "rotating" and v not in ("b", "s1", "s3", "nostore"):
                 continue
-            info = {
-                "family": "fa_forward",
-                "shape": {k: f[k] for k in ("B", "S", "H", "D")},
-                "pick": {k: f[k] for k in ("BM", "BN", "stages", "threads")},
-                "cache": cache,
-                "set": f"whatif fa {cache}",
-                **_wi(v, f"wi_fa_{base}_{cache}", axis),
-            }
-            write(
-                out,
-                f"wi_fa_{v}_{cache}",
-                fa_forward(**f),
-                [n, n, n, n],
-                [-(-f["S"] // f["BM"]), f["H"], f["B"]],
-                f["threads"],
-                info,
-                rot=1 if cache == "warm" else _rot(4 * n * 2),
-                writes=() if kw.get("store") else (-1,),
+            more = _wi(v, f"wi_fa_{base}_{cache}", axis)
+            writes = () if kw.get("store") else (-1,)
+            f = {**FA, **kw}
+            _fa(
+                out, f"wi_fa_{v}_{cache}", f, cache, False, writes, set=f"whatif fa {cache}", **more
             )
     for v, (kw, axis) in WI_GEMV.items():
-        c = {**GEMV, **kw}
-        N, K, g = c["N"], c["K"], c["group"]
-        sizes, eb = [K, N * K // 2, N * K // g, N], [2, 1, 2, 2]
-        fp = sum(s * b for s, b in zip(sizes, eb, strict=True))
         for cache in ("warm", "rotating"):
-            info = {
-                "family": "gemv_w4a16",
-                "shape": {"N": N, "K": K},
-                "pick": c,
-                "cache": cache,
-                "set": f"whatif gemv {cache}",
-                **_wi(v, f"wi_gemv_b_{cache}", axis),
-            }
-            write(
-                out,
-                f"wi_gemv_{v}_{cache}",
-                gemv_w4a16(**c),
-                sizes,
-                [-(-N // c["n_part"]), 1],
-                (c["reduce"], c["n_part"]),
-                info,
-                elem_bytes=eb,
-                rot=1 if cache == "warm" else _rot(fp),
-            )
-    M, N = ROWS["M"], ROWS["N"]
+            more = _wi(v, f"wi_gemv_b_{cache}", axis)
+            group = f"whatif gemv {cache}"
+            _gemv_row(out, f"wi_gemv_{v}_{cache}", {**GEMV, **kw}, cache, set=group, **more)
     for v, (kw, axis) in WI_RMS.items():
-        eb = 4 if kw.get("dtype") == "float" else 2
         for cache in ("warm", "rotating"):
-            info = {
-                "family": "rmsnorm",
-                "shape": ROWS,
-                "pick": {"threads": kw.get("threads", 128)},
-                "cache": cache,
-                "set": f"whatif rmsnorm {cache}",
-                **_wi(v, f"wi_rms_b_{cache}", axis),
-            }
-            write(
-                out,
-                f"wi_rms_{v}_{cache}",
-                rmsnorm(M, N, **kw),
-                [M * N, N, M * N],
-                [M],
-                kw.get("threads", 128),
-                info,
-                elem_bytes=[eb, eb, eb],
-                rot=1 if cache == "warm" else _rot((2 * M * N + N) * eb),
-                writes=() if kw.get("store") else (-1,),
-            )
+            more = _wi(v, f"wi_rms_b_{cache}", axis)
+            group = f"whatif rmsnorm {cache}"
+            _rms(out, f"wi_rms_{v}_{cache}", ROWS, cache, kw, set=group, **more)
     for v, (kw, axis) in WI_SOFTMAX.items():
-        info = {
-            "family": "softmax",
-            "shape": ROWS,
-            "pick": {"threads": kw.get("threads", 128)},
-            "cache": "warm",
-            "set": "whatif softmax warm",
-            **_wi(v, "wi_softmax_b_warm", axis),
-        }
-        write(
-            out,
-            f"wi_softmax_{v}_warm",
-            softmax(M, N, **kw),
-            [M * N, M * N],
-            [M],
-            kw.get("threads", 128),
-            info,
-        )
+        more = _wi(v, "wi_softmax_b_warm", axis)
+        _softmax(out, f"wi_softmax_{v}_warm", ROWS, kw, set="whatif softmax warm", **more)
     for v, (kw, axis) in WI_DECODE.items():
-        c = {**DECODE, **kw}
-        B, H, G, S, D, sp = c["B"], c["H"], c["G"], c["S"], c["D"], c["split"]
-        kv = B * S * G * D
-        sizes = [B * H * D, kv, kv, B * H * sp, B * H * sp * D]
-        vh = min(c["BH"], H // G)
         for cache in ("warm", "rotating"):
-            info = {
-                "family": "decode_gqa",
-                "shape": {k: c[k] for k in ("B", "H", "G", "S", "D")},
-                "pick": {k: c[k] for k in ("BN", "BH", "split", "stages")},
-                "cache": cache,
-                "set": f"whatif decode {cache}",
-                **_wi(v, f"wi_dec_b_{cache}", axis),
-            }
-            write(
-                out,
-                f"wi_dec_{v}_{cache}",
-                decode_partial(**c),
-                sizes,
-                [B, H // vh, sp],
-                128,
-                info,
-                rot=1 if cache == "warm" else _rot(sum(sizes) * 2),
-                writes=(3, 4),
-            )
-    c = DECODE
-    B, H, G, S, D, sp = c["B"], c["H"], c["G"], c["S"], c["D"], c["split"]
-    kv = B * S * G * D
-    sizes = [B * H * D, kv, kv, B * H * sp, B * H * sp * D]
-    r = ROWS["M"], ROWS["N"]
+            more = _wi(v, f"wi_dec_b_{cache}", axis)
+            group = f"whatif decode {cache}"
+            _decode_part(out, f"wi_dec_{v}_{cache}", {**DECODE, **kw}, cache, set=group, **more)
     for x in WI_ROT:
-        info = {
-            "family": "decode_gqa",
-            "shape": {k: c[k] for k in ("B", "H", "G", "S", "D")},
-            "pick": {k: c[k] for k in ("BN", "BH", "split", "stages")},
-            "cache": "rotating",
-            "set": "whatif decode rotating",
-            **_wi("", "wi_dec_b_rotating", "rotation depth"),
-        }
-        write(
-            out,
-            f"wi_dec_rot{x}_rotating",
-            decode_partial(**c),
-            sizes,
-            [B, H // min(c["BH"], H // G), sp],
-            128,
-            info,
-            rot=x * _rot(sum(sizes) * 2),
-            writes=(3, 4),
-        )
-        info = {
-            "family": "rmsnorm",
-            "shape": ROWS,
-            "pick": {"threads": 128},
-            "cache": "rotating",
-            "set": "whatif rmsnorm rotating",
-            **_wi("", "wi_rms_b_rotating", "rotation depth"),
-        }
-        write(
-            out,
-            f"wi_rms_rot{x}_rotating",
-            rmsnorm(*r),
-            [r[0] * r[1], r[1], r[0] * r[1]],
-            [r[0]],
-            128,
-            info,
-            elem_bytes=[2, 2, 2],
-            rot=x * _rot((2 * r[0] * r[1] + r[1]) * 2),
-        )
-    MM, NN, KK = SHAPE["M"], SHAPE["N"], SHAPE["K"]
-    bm, bn, bk, s, th = W4GEMM["c128x128x32_s3_t128"]
+        more = _wi("", "wi_dec_b_rotating", "rotation depth")
+        group = "whatif decode rotating"
+        _decode_part(out, f"wi_dec_rot{x}_rotating", DECODE, "rotating", x, set=group, **more)
+        more = _wi("", "wi_rms_b_rotating", "rotation depth")
+        group = "whatif rmsnorm rotating"
+        _rms(out, f"wi_rms_rot{x}_rotating", ROWS, "rotating", None, x, set=group, **more)
     for v, (kw, axis) in WI_W4.items():
-        h = {"block_M": bm, "block_N": bn, "block_K": bk, "num_stages": s, "threads": th}
-        info = {
-            "family": "w4gemm",
-            "shape": SHAPE,
-            "pick": h,
-            "cache": "warm",
-            "set": "whatif w4gemm warm",
-            **_wi(v, "wi_w4_b_warm", axis),
-        }
-        write(
-            out,
-            f"wi_w4_{v}_warm",
-            w4gemm(bm, bn, bk, s, th, W4GEMM_GROUP, **kw),
-            [MM * KK, NN * KK // 2, NN * KK // W4GEMM_GROUP, MM * NN],
-            [-(-NN // bn), -(-MM // bm), 1],
-            th,
-            info,
-            elem_bytes=[2, 1, 2, 2],
-        )
+        more = _wi(v, "wi_w4_b_warm", axis)
+        tile = W4GEMM["c128x128x32_s3_t128"]
+        _w4(out, f"wi_w4_{v}_warm", tile, "warm", kw, set="whatif w4gemm warm", **more)
 
 
 def _blind7(out: Path) -> None:
     """Round 7: larger variant groups at a shape no engine has seen, for a blind Kendall tau."""
-    sh = HGEMM_BLIND7_SHAPE
-    M, N, K = sh["M"], sh["N"], sh["K"]
-    fp = (M * K + K * N + M * N) * 2
-    for name, (bm, bn, bk, s, th, panel) in HGEMM_BLIND7.items():
-        h = {
-            "block_M": bm,
-            "block_N": bn,
-            "block_K": bk,
-            "num_stages": s,
-            "threads": th,
-            "swizzle": panel,
-        }
-        for cache in ("warm", "rotating"):
-            info = {
-                "family": "hgemm",
-                "shape": sh,
-                "pick": h,
-                "smem_estimate": s * (bm + bn) * bk * 2,
-                "cache": cache,
-                "set": f"hgemm {M}x{N}x{K}" + (" rotating" if cache == "rotating" else ""),
-            }
-            write(
-                out,
-                f"hgemm_m{M}n{N}k{K}_{name}" + ("" if cache == "warm" else "_rotating"),
-                hgemm(bm, bn, bk, s, th, panel, sh),
-                [M * K, K * N, M * N],
-                [-(-N // bn), -(-M // bm), 1],
-                th,
-                info,
-                rot=1 if cache == "warm" else _rot(fp),
-            )
+    for name, tile in HGEMM_BLIND7.items():
+        _hgemm_group(out, HGEMM_BLIND7_SHAPE, name, tile)
     b = FA_BLIND7
-    n = b["B"] * b["S"] * b["H"] * b["D"]
     for name, (bm, bn, s, th) in FA_BLIND7_V.items():
         f = {**b, "BM": bm, "BN": bn, "stages": s, "threads": th}
-        info = {
-            "family": "fa_forward",
-            "shape": b,
-            "pick": {k: f[k] for k in ("BM", "BN", "stages", "threads")},
-            "cache": "warm",
-            "set": f"fa {b['S']}x{b['H']}x{b['D']}",
-        }
         try:
-            write(
-                out,
-                f"fa_s{b['S']}_h{b['H']}_d{b['D']}_{name}",
-                fa_forward(**f),
-                [n, n, n, n],
-                [-(-b["S"] // bm), b["H"], b["B"]],
-                th,
-                info,
-            )
+            cid = f"fa_s{b['S']}_h{b['H']}_d{b['D']}_{name}"
+            _fa(out, cid, f, set=f"fa {b['S']}x{b['H']}x{b['D']}")
         except Exception:  # noqa: BLE001 - a tile TileLang refuses leaves the group
             print(f"FAILED fa {name}")
 
 
 def _gemv(out: Path) -> None:
-    c = GEMV
-    N, K, g = c["N"], c["K"], c["group"]
-    sizes, eb = [K, N * K // 2, N * K // g, N], [2, 1, 2, 2]
+    N, K = GEMV["N"], GEMV["K"]
     for cache in ("warm", "rotating"):
-        rot = 1 if cache == "warm" else _rot(sum(s * b for s, b in zip(sizes, eb, strict=True)))
-        info = {"family": "gemv_w4a16", "shape": {"N": N, "K": K}, "pick": c, "cache": cache}
-        write(
-            out,
-            f"gemv_w4a16_n{N}_k{K}_{cache}",
-            gemv_w4a16(**c),
-            sizes,
-            [-(-N // c["n_part"]), 1],
-            (c["reduce"], c["n_part"]),
-            info,
-            elem_bytes=eb,
-            rot=rot,
-        )
+        _gemv_row(out, f"gemv_w4a16_n{N}_k{K}_{cache}", GEMV, cache)
 
 
 def _rows(out: Path) -> None:
     M, N = ROWS["M"], ROWS["N"]
     for cache in ("warm", "rotating"):
-        rot = 1 if cache == "warm" else _rot((2 * M * N + N) * 2)
-        info = {"family": "rmsnorm", "shape": ROWS, "pick": {"threads": 128}, "cache": cache}
-        write(
-            out,
-            f"rmsnorm_m{M}_n{N}_{cache}",
-            rmsnorm(M, N),
-            [M * N, N, M * N],
-            [M],
-            128,
-            info,
-            rot=rot,
-        )
-    info = {"family": "softmax", "shape": ROWS, "pick": {"threads": 128}, "cache": "warm"}
-    write(out, f"softmax_m{M}_n{N}_warm", softmax(M, N), [M * N, M * N], [M], 128, info)
+        _rms(out, f"rmsnorm_m{M}_n{N}_{cache}", ROWS, cache)
+    _softmax(out, f"softmax_m{M}_n{N}_warm", ROWS)
 
 
 def _fp8(out: Path) -> None:
     M, N, K = SHAPE["M"], SHAPE["N"], SHAPE["K"]
     for name, (bm, bn, bk, s, th) in FP8.items():
-        h = {"block_M": bm, "block_N": bn, "block_K": bk, "num_stages": s, "threads": th}
         info = {
             "family": "fp8gemm",
             "shape": SHAPE,
-            "pick": h,
+            "pick": _pick(bm, bn, bk, s, th),
             "elem_bytes": 1,
             "smem_estimate": s * (bm + bn) * bk,
             "cache": "warm",
@@ -1479,7 +1276,7 @@ def _fp8(out: Path) -> None:
             f"fp8gemm2048_{name}",
             fp8gemm(bm, bn, bk, s, th),
             [M * K, N * K, M * N],
-            [-(-N // bn), -(-M // bm), 1],
+            _tiles(M, N, bm, bn),
             th,
             info,
             elem_bytes=[1, 1, 2],
@@ -1490,39 +1287,22 @@ def _moe(out: Path) -> None:
     c = MOE
     E, T_, N, K = c["E"], c["T"], c["N"], c["K"]
     for name, (bm, bn, bk, s, th) in MOE_TILES.items():
-        h = {"block_M": bm, "block_N": bn, "block_K": bk, "num_stages": s, "threads": th}
-        info = {"family": "moe_gemm", "shape": c, "pick": h, "cache": "warm"}
+        info = {"family": "moe_gemm", "shape": c, "pick": _pick(bm, bn, bk, s, th), "cache": "warm"}
         write(
             out,
             f"moe_e{E}_t{T_}_n{N}_k{K}_{name}",
             moe_gemm(E, T_, N, K, bm, bn, bk, s, th),
             [T_ * K, E * K * N, T_ * N],
-            [-(-N // bn), -(-T_ // bm), 1],
+            _tiles(T_, N, bm, bn),
             th,
             info,
         )
 
 
 def _w4gemm(out: Path) -> None:
-    M, N, K = SHAPE["M"], SHAPE["N"], SHAPE["K"]
-    group = W4GEMM_GROUP
-    sizes = [M * K, N * K // 2, N * K // group, M * N]
-    for name, (bm, bn, bk, s, th) in W4GEMM.items():
-        h = {"block_M": bm, "block_N": bn, "block_K": bk, "num_stages": s, "threads": th}
-        info = {"family": "w4gemm", "shape": SHAPE, "pick": h}
-        fp = sum(x * b for x, b in zip(sizes, [2, 1, 2, 2], strict=True))
-        for cache, rot in (("warm", 1), ("rotating", _rot(fp))):
-            write(
-                out,
-                f"w4gemm2048_{name}_{cache}",
-                w4gemm(bm, bn, bk, s, th, group),
-                sizes,
-                [-(-N // bn), -(-M // bm), 1],
-                th,
-                {**info, "cache": cache},
-                elem_bytes=[2, 1, 2, 2],
-                rot=rot,
-            )
+    for name, tile in W4GEMM.items():
+        for cache in ("warm", "rotating"):
+            _w4(out, f"w4gemm2048_{name}_{cache}", tile, cache)
 
 
 if __name__ == "__main__":
