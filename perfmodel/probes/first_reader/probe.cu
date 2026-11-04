@@ -3,7 +3,7 @@
 // (the lead) reads 4 lines, warp 0 (the follower) waits Z FFMA passes and reads the same 4 lines,
 // timed by its own clock around the load. LEAD 0: the follower alone, the control at every Z.
 // KIND 0 plain LDG (through the L1; `volatile` loads go past it, r9), KIND 1 cp.async (past the L1).
-// rot: a 32 MiB read between launches puts the lines out of the L2 (r9's walk wrapped and re-read
+// rot: a 45 MB read between launches puts the lines out of the L2 (r9's walk wrapped and re-read
 // them); warm: the same lines every launch.
 // Reported: the follower's cycles per step.
 #include "../common.cuh"
@@ -16,7 +16,7 @@ __device__ __forceinline__ void cpwait() {
   asm volatile("cp.async.commit_group;" ::: "memory");
   asm volatile("cp.async.wait_group 0;" ::: "memory");
 }
-// a read of every line of 32 MiB between timed launches: what a rotating launch reads is out of the L2
+// a read of every third line of 45 MB between timed launches: what a rotating launch reads is out of the L2
 __global__ void __launch_bounds__(1024, 1) flush(const char* p, unsigned* sink) {
   const size_t i = (size_t)(blockIdx.x * 1024 + threadIdx.x) * 384;
   unsigned s = 0;
@@ -73,7 +73,7 @@ int main() {
   char* src;
   char* other;
   float* sink;
-  const size_t W = 1 << 20, F = 32 << 20;
+  const size_t W = 1 << 20, F = 48 << 20;
   CK(cudaMalloc(&o, 8));
   CK(cudaMalloc(&src, W));
   CK(cudaMalloc(&other, F));

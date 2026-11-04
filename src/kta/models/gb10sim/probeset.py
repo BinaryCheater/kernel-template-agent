@@ -729,15 +729,16 @@ def first_share_cases(b: Batch) -> list[Case]:
 
         return _case(b, cid, probe, 4, "cycles", build, _span)
 
-    def seq(rot, w, part):
-        cid = f"first_share {'rot' if rot else 'warm'}_seq_w{w}_{part}"
-        probe, ins = _unit_ins(b, cid, "_Z5shareILi0ELi4ELi96EEvPyPKcPf")
+    def seq(rot, w, part, d=4):
+        tag = "d2" if d == 2 else ""
+        cid = f"first_share {'rot' if rot else 'warm'}_seq{tag}_w{w}_{part}"
+        probe, ins = _unit_ins(b, cid, f"_Z5shareILi0ELi{d}ELi96EEvPyPKcPf")
 
         def build(**kw):
             m = kw.get("machine") or default_machine()
-            first = wave(rot, 4, m)
+            first = wave(rot, d, m)
             later = (0.0, *first[1:])
-            f = 1.0 / (4 * w) if rot else 0.0
+            f = 1.0 / (d * w) if rot else 0.0
             return BlockMarked(
                 ins,
                 128,
@@ -786,6 +787,7 @@ def first_share_cases(b: Batch) -> list[Case]:
         *(share(r, d, 0) for r in (0, 1) for d in (1, 2, 4, 8, 16, 48)),
         *(share(r, d, 256) for r in (0, 1) for d in (1, 4, 16, 48)),
         *(seq(r, w, p) for r in (0, 1) for w in (2, 4) for p in ("first", "last")),
+        *(seq(r, 2, p, 2) for r in (0, 1) for p in ("first", "last")),
         *(pieces(r, s) for r in (0, 1) for s in (16, 32, 64, 128)),
     ]
 

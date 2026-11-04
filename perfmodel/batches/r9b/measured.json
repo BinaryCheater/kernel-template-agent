@@ -1,0 +1,317 @@
+{
+ "batch": "r9b",
+ "valid": true,
+ "clock_GHz": 2.4757,
+ "results": {
+  "first_reader warm_ldg_z0_lead": {
+   "median": 360.1406,
+   "iqr": 0.9375,
+   "unit": "cycles",
+   "n": 15
+  },
+  "first_reader warm_ldg_z0_alone": {
+   "median": 384.0938,
+   "iqr": 0.1562,
+   "unit": "cycles",
+   "n": 15
+  },
+  "first_reader warm_cp_z0_lead": {
+   "median": 354.2812,
+   "iqr": 0.1094,
+   "unit": "cycles",
+   "n": 15
+  },
+  "first_reader warm_cp_z0_alone": {
+   "median": 354.2031,
+   "iqr": 0.125,
+   "unit": "cycles",
+   "n": 15
+  },
+  "first_reader warm_ldg_z4_lead": {
+   "median": 271.1875,
+   "iqr": 1.0469,
+   "unit": "cycles",
+   "n": 15
+  },
+  "first_reader warm_ldg_z4_alone": {
+   "median": 410.1719,
+   "iqr": 0.1094,
+   "unit": "cycles",
+   "n": 15
+  },
+  "first_reader warm_cp_z4_lead": {
+   "median": 354.4219,
+   "iqr": 0.1094,
+   "unit": "cycles",
+   "n": 15
+  },
+  "first_reader warm_cp_z4_alone": {
+   "median": 379.2344,
+   "iqr": 0.0625,
+   "unit": "cycles",
+   "n": 15
+  },
+  "first_reader warm_ldg_z8_lead": {
+   "median": 179.1562,
+   "iqr": 0.9375,
+   "unit": "cycles",
+   "n": 15
+  },
+  "first_reader warm_ldg_z8_alone": {
+   "median": 410.1719,
+   "iqr": 0.1094,
+   "unit": "cycles",
+   "n": 15
+  },
+  "first_reader warm_cp_z8_lead": {
+   "median": 354.25,
+   "iqr": 0.0781,
+   "unit": "cycles",
+   "n": 15
+  },
+  "first_reader warm_cp_z8_alone": {
+   "median": 379.2656,
+   "iqr": 0.125,
+   "unit": "cycles",
+   "n": 15
+  },
+  "first_reader warm_ldg_z16_lead": {
+   "median": 82.0,
+   "iqr": 0.0,
+   "unit": "cycles",
+   "n": 15
+  },
+  "first_reader warm_ldg_z16_alone": {
+   "median": 410.2031,
+   "iqr": 0.0781,
+   "unit": "cycles",
+   "n": 15
+  },
+  "first_reader warm_cp_z16_lead": {
+   "median": 354.4375,
+   "iqr": 0.125,
+   "unit": "cycles",
+   "n": 15
+  },
+  "first_reader warm_cp_z16_alone": {
+   "median": 379.2812,
+   "iqr": 0.1094,
+   "unit": "cycles",
+   "n": 15
+  },
+  "first_reader warm_ldg_z24_lead": {
+   "median": 82.0,
+   "iqr": 0.0,
+   "unit": "cycles",
+   "n": 15
+  },
+  "first_reader warm_ldg_z24_alone": {
+   "median": 410.2031,
+   "iqr": 0.0938,
+   "unit": "cycles",
+   "n": 15
+  },
+  "first_reader warm_cp_z24_lead": {
+   "median": 354.4062,
+   "iqr": 0.0625,
+   "unit": "cycles",
+   "n": 15
+  },
+  "first_reader warm_cp_z24_alone": {
+   "median": 379.2344,
+   "iqr": 0.1094,
+   "unit": "cycles",
+   "n": 15
+  },
+  "first_reader warm_ldg_z32_lead": {
+   "median": 82.0,
+   "iqr": 0.0,
+   "unit": "cycles",
+   "n": 15
+  },
+  "first_reader warm_ldg_z32_alone": {
+   "median": 410.1875,
+   "iqr": 0.0781,
+   "unit": "cycles",
+   "n": 15
+  },
+  "first_reader warm_cp_z32_lead": {
+   "median": 354.2344,
+   "iqr": 0.0625,
+   "unit": "cycles",
+   "n": 15
+  },
+  "first_reader warm_cp_z32_alone": {
+   "median": 379.2188,
+   "iqr": 0.1094,
+   "unit": "cycles",
+   "n": 15
+  },
+  "first_reader warm_ldg_z48_lead": {
+   "median": 82.0,
+   "iqr": 0.0,
+   "unit": "cycles",
+   "n": 15
+  },
+  "first_reader warm_ldg_z48_alone": {
+   "median": 410.1875,
+   "iqr": 0.0469,
+   "unit": "cycles",
+   "n": 15
+  },
+  "first_reader warm_cp_z48_lead": {
+   "median": 354.2344,
+   "iqr": 0.0781,
+   "unit": "cycles",
+   "n": 15
+  },
+  "first_reader warm_cp_z48_alone": {
+   "median": 379.1719,
+   "iqr": 0.0938,
+   "unit": "cycles",
+   "n": 15
+  },
+  "first_reader warm_ldg_z64_lead": {
+   "median": 82.0,
+   "iqr": 0.0,
+   "unit": "cycles",
+   "n": 15
+  },
+  "first_reader warm_ldg_z64_alone": {
+   "median": 410.1719,
+   "iqr": 0.0938,
+   "unit": "cycles",
+   "n": 15
+  },
+  "first_reader warm_cp_z64_lead": {
+   "median": 354.2344,
+   "iqr": 0.0781,
+   "unit": "cycles",
+   "n": 15
+  },
+  "first_reader warm_cp_z64_alone": {
+   "median": 379.2031,
+   "iqr": 0.0781,
+   "unit": "cycles",
+   "n": 15
+  },
+  "first_share warm_share_d1_z0": {
+   "median": 17525.0,
+   "iqr": 296.0,
+   "unit": "cycles",
+   "n": 15
+  },
+  "first_share warm_share_d2_z0": {
+   "median": 17574.0,
+   "iqr": 864.0,
+   "unit": "cycles",
+   "n": 15
+  },
+  "first_share warm_share_d4_z0": {
+   "median": 18073.0,
+   "iqr": 738.0,
+   "unit": "cycles",
+   "n": 15
+  },
+  "first_share warm_share_d8_z0": {
+   "median": 17785.0,
+   "iqr": 789.0,
+   "unit": "cycles",
+   "n": 15
+  },
+  "first_share warm_share_d16_z0": {
+   "median": 17904.0,
+   "iqr": 701.0,
+   "unit": "cycles",
+   "n": 15
+  },
+  "first_share warm_share_d48_z0": {
+   "median": 19149.0,
+   "iqr": 893.0,
+   "unit": "cycles",
+   "n": 15
+  },
+  "first_share warm_share_d1_z256": {
+   "median": 109896.0,
+   "iqr": 540.0,
+   "unit": "cycles",
+   "n": 15
+  },
+  "first_share warm_share_d4_z256": {
+   "median": 109895.0,
+   "iqr": 471.0,
+   "unit": "cycles",
+   "n": 15
+  },
+  "first_share warm_share_d16_z256": {
+   "median": 109770.0,
+   "iqr": 550.0,
+   "unit": "cycles",
+   "n": 15
+  },
+  "first_share warm_share_d48_z256": {
+   "median": 110231.0,
+   "iqr": 647.0,
+   "unit": "cycles",
+   "n": 15
+  },
+  "first_share warm_seq_w2_first": {
+   "median": 17793.0,
+   "iqr": 368.0,
+   "unit": "cycles",
+   "n": 15
+  },
+  "first_share warm_seq_w2_last": {
+   "median": 17224.0,
+   "iqr": 134.0,
+   "unit": "cycles",
+   "n": 18
+  },
+  "first_share warm_seq_w4_first": {
+   "median": 17780.0,
+   "iqr": 77.0,
+   "unit": "cycles",
+   "n": 15
+  },
+  "first_share warm_seq_w4_last": {
+   "median": 17016.0,
+   "iqr": 171.0,
+   "unit": "cycles",
+   "n": 18
+  },
+  "first_share warm_pieces_s16": {
+   "median": 6475.7969,
+   "iqr": 5.4688,
+   "unit": "cycles",
+   "n": 15
+  },
+  "first_share warm_pieces_s32": {
+   "median": 6476.2344,
+   "iqr": 5.6094,
+   "unit": "cycles",
+   "n": 15
+  },
+  "first_share warm_pieces_s64": {
+   "median": 6475.9844,
+   "iqr": 5.2656,
+   "unit": "cycles",
+   "n": 15
+  },
+  "first_share warm_pieces_s128": {
+   "median": 6475.4219,
+   "iqr": 5.0625,
+   "unit": "cycles",
+   "n": 15
+  },
+  "clock chain_GHz": {
+   "median": 2.4757,
+   "iqr": 0.0107,
+   "unit": "GHz",
+   "n": 15,
+   "chain_cycles": 19136544.0,
+   "cycles_per_ffma": 4.563
+  }
+ },
+ "invalid_results": {},
+ "counters": {}
+}

@@ -4,7 +4,7 @@
 // same time, Z FFMA passes between the steps. seq: 96 x w blocks at two blocks per SM (98304 B of
 // shared memory each, the driver refuses 120 KB), 4 blocks to a tile, 24 tiles: the later waves read
 // what the first left in the L2. pieces: one block, each thread reads S bytes further along its own
-// line per step: how many lines a miss brings. rot: a 32 MiB read between launches.
+// line per step: how many lines a miss brings. rot: a 45 MB read between launches.
 // Reported: span on an SM (share), a wave's median block (seq), cycles per step (pieces).
 #include "../common.cuh"
 typedef unsigned long long u64;
@@ -17,7 +17,7 @@ __device__ __forceinline__ void cpwait() {
   asm volatile("cp.async.commit_group;" ::: "memory");
   asm volatile("cp.async.wait_group 0;" ::: "memory");
 }
-// a read of every line of 32 MiB between timed launches: what a rotating launch reads is out of the L2
+// a read of every third line of 45 MB between timed launches: what a rotating launch reads is out of the L2
 __global__ void __launch_bounds__(1024, 1) flush(const char* p, unsigned* sink) {
   const size_t i = (size_t)(blockIdx.x * 1024 + threadIdx.x) * 384;
   unsigned s = 0;
@@ -96,7 +96,7 @@ int main() {
   char* src;
   char* other;
   float* sink;
-  const size_t W = 16 << 20, F = 32 << 20;
+  const size_t W = 16 << 20, F = 48 << 20;
   CK(cudaMalloc(&o, 8 * 3 * 384));
   CK(cudaMalloc(&src, W + (1 << 20)));
   CK(cudaMalloc(&other, F));
@@ -117,7 +117,7 @@ int main() {
     snprintf(p, sizeof p, "%s_share_d%d_z%d", rot ? "rot" : "warm", d, z);
     emit("first_share", p, s, "cycles");
   };
-  auto seq_pt = [&](auto kern, int waves, bool rot) {
+  auto seq_pt = [&](auto kern, int waves, bool rot, const char* tag = "") {
     const int nb = 96 * waves;
     CK(cudaFuncSetAttribute(kern, cudaFuncAttributeMaxDynamicSharedMemorySize, SEQ_SMEM));
     std::vector<u64> h(3 * nb);
@@ -132,9 +132,9 @@ int main() {
       return first.back();
     });
     char p[48];
-    snprintf(p, sizeof p, "%s_seq_w%d_first", rot ? "rot" : "warm", waves);
+    snprintf(p, sizeof p, "%s_seq%s_w%d_first", rot ? "rot" : "warm", tag, waves);
     emit("first_share", p, s, "cycles");
-    snprintf(p, sizeof p, "%s_seq_w%d_last", rot ? "rot" : "warm", waves);
+    snprintf(p, sizeof p, "%s_seq%s_w%d_last", rot ? "rot" : "warm", tag, waves);
     emit("first_share", p, stat_of(last), "cycles");
   };
   auto piece_pt = [&](auto kern, int stride, bool rot) {
@@ -163,6 +163,7 @@ int main() {
     share_pt(share<256, 48, 0>, 256, 48, rot);
     seq_pt(share<0, 4, 96>, 2, rot);
     seq_pt(share<0, 4, 96>, 4, rot);
+    seq_pt(share<0, 2, 96>, 2, rot, "d2");
     piece_pt(pieces<16>, 16, rot);
     piece_pt(pieces<32>, 32, rot);
     piece_pt(pieces<64>, 64, rot);
