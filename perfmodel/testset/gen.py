@@ -1597,7 +1597,7 @@ DECODE13_V = {
     "split4_bn32": ({"split": 4, "BN": 32}, "design"),
 }
 ROWS13 = {"M": 768, "N": 3072}
-THREADS13 = (32, 64, 96, 128, 192, 256, 384, 512)
+THREADS13 = (16, 32, 64, 128, 256, 512)  # TileLang's reduce wants powers of two
 HGEMM_BLIND13_SHAPE = {"M": 1792, "N": 2560, "K": 2304}
 HG13_AXIS = {"s2": "stages", "s4": "stages", "sw8": "raster"}
 HG13_WI = {  # name: tile, options, axis, also rotating
@@ -1724,6 +1724,15 @@ def _hand13(out: Path) -> None:
         )
 
 
+def _tried(gen, out: Path, name: str, *a, **kw) -> None:
+    """One kernel; a variant TileLang refuses leaves its group."""
+    try:
+        gen(out, name, *a, **kw)
+    except Exception:  # noqa: BLE001 - reported, the group keeps its other variants
+        print(f"FAILED {name}")
+        traceback.print_exc()
+
+
 def _round13(out: Path) -> None:
     _hand13(out)
     sh = HGEMM_BLIND13_SHAPE
@@ -1773,7 +1782,7 @@ def _round13(out: Path) -> None:
             f = {**f13, "BM": bm, "BN": bn, "stages": s, "threads": th}
             axis = FA13_AXIS.get(name, "base")
             more = _wi(name, f"fa13_c64x64_s2_t128_{cache}", axis)
-            _fa(out, f"fa13_{name}_{cache}", f, cache, set=f"fa {tag}{tail}", **more)
+            _tried(_fa, out, f"fa13_{name}_{cache}", f, cache, set=f"fa {tag}{tail}", **more)
         for v in ("nostore", "nov", "noexp"):
             kw, axis = dict(WI_FA[v][0]), WI_FA[v][1]
             writes = () if kw.get("store") else (-1,)
@@ -1785,16 +1794,18 @@ def _round13(out: Path) -> None:
         for v, (kw, axis) in DECODE13_V.items():
             more = _wi(v, f"dec13_b_{cache}", axis)
             group = f"decode {tag}{tail}"
-            _decode_part(out, f"dec13_{v}_{cache}", {**DECODE13, **kw}, cache, set=group, **more)
+            c = {**DECODE13, **kw}
+            _tried(_decode_part, out, f"dec13_{v}_{cache}", c, cache, set=group, **more)
     tag = f"{ROWS13['M']}x{ROWS13['N']}"
     for th in THREADS13:
         axis = "base" if th == 128 else "threads"
         kw = {"threads": th}
         for cache, tail in (("warm", ""), ("rotating", " rotating")):
             more = _wi("", f"rms13_t128_{cache}", axis)
-            _rms(out, f"rms13_t{th}_{cache}", ROWS13, cache, kw, set=f"rmsnorm {tag}{tail}", **more)
+            group = f"rmsnorm {tag}{tail}"
+            _tried(_rms, out, f"rms13_t{th}_{cache}", ROWS13, cache, kw, set=group, **more)
         more = _wi("", "sm13_t128_warm", axis)
-        _softmax(out, f"sm13_t{th}_warm", ROWS13, kw, set=f"softmax {tag}", **more)
+        _tried(_softmax, out, f"sm13_t{th}_warm", ROWS13, kw, set=f"softmax {tag}", **more)
     for v in ("nocompute", "nostore", "fp32"):
         kw, axis = WI_RMS[v]
         for cache in ("warm", "rotating"):
