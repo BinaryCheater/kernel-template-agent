@@ -364,7 +364,8 @@ class Lanes:
             # round 12: any function of exact lanes (a hash masked to a table)
             if all(self.exact(x) for x in g[:4]) and self.uniform(g[3]):
                 lut = g[3][1][0]
-                return ((), tuple(lut3(p, q, r, lut) for p, q, r in zip(*(x[1] for x in g[:3]))))
+                vals3 = zip(g[0][1], g[1][1], g[2][1], strict=True)
+                return ((), tuple(lut3(p, q, r, lut) for p, q, r in vals3))
         if base == "LOP3" and len(g) >= 4 and g[3] == ((), (0xC0,) * 32):
             # a & b with one of them known to be zero: the other need not be known
             if any(x is not None and x == ((), ZERO) for x in g[:2]):
