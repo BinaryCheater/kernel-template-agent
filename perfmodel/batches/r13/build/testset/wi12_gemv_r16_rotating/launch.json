@@ -1,0 +1,34 @@
+{
+ "entry": "gemv_kernel",
+ "grid": [
+  512,
+  1
+ ],
+ "threads": 64,
+ "block": [
+  16,
+  4
+ ],
+ "smem": 0,
+ "rot": 8,
+ "footprint_bytes": 8933376,
+ "write_bytes": 4096,
+ "family": "gemv_w4a16",
+ "shape": {
+  "N": 2048,
+  "K": 8192
+ },
+ "pick": {
+  "N": 2048,
+  "K": 8192,
+  "group": 64,
+  "n_part": 4,
+  "reduce": 16
+ },
+ "cache": "rotating",
+ "set": "whatif gemv rotating",
+ "whatif": {
+  "base": "wi12_gemv_b_rotating",
+  "axis": "threads"
+ }
+}

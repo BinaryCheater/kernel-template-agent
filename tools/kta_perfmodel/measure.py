@@ -107,7 +107,11 @@ def _predict_one(args: tuple[str, list[str]]) -> list[tuple[str, float, str]]:
     if not _pred_cases:
         _pred_cases.update((c.id, c) for c in probeset.all_cases(BATCHES / d))
     cases = [_pred_cases[i] for i in ids]
-    vals, _, _ = probeset.run_cases(cases)
+    try:
+        vals, _, _ = probeset.run_cases(cases)
+    except Exception as e:  # noqa: BLE001 - reported, the batch keeps its other predictions
+        print(f"NO PREDICTION {ids[0]}: {e!r}", flush=True)
+        return []
     return [(c.id, v, c.unit) for c, v in zip(cases, vals, strict=True)]
 
 
@@ -149,7 +153,7 @@ def predict(batch: str) -> int:
             "jobs": table.default_jobs(),
         }
     )
-    out = {i: out[i] for i in ids}
+    out = {i: out[i] for i in ids if i in out}
     doc = {
         "engine": table.engine_hash(),
         "kta_commit": upstream.kta_commit()[0],

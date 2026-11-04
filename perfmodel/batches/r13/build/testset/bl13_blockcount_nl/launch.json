@@ -1,0 +1,23 @@
+{
+ "entry": "k_blockcount",
+ "grid": [
+  1024,
+  1,
+  1
+ ],
+ "threads": 256,
+ "block": [
+  256
+ ],
+ "smem": 0,
+ "rot": 1,
+ "footprint_bytes": 8388608,
+ "write_bytes": 4194304,
+ "family": "hand",
+ "set": "breadth blind",
+ "cache": "warm",
+ "whatif": {
+  "base": "bl13_blockcount",
+  "axis": "loads removed"
+ }
+}

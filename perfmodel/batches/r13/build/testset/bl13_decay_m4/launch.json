@@ -1,0 +1,23 @@
+{
+ "entry": "k_decay",
+ "grid": [
+  192,
+  1,
+  1
+ ],
+ "threads": 256,
+ "block": [
+  256
+ ],
+ "smem": 0,
+ "rot": 1,
+ "footprint_bytes": 3145728,
+ "write_bytes": 3145728,
+ "family": "hand",
+ "set": "breadth blind",
+ "cache": "warm",
+ "whatif": {
+  "base": "bl13_decay",
+  "axis": "shape"
+ }
+}

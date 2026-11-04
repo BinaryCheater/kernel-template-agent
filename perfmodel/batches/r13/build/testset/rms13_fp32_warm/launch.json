@@ -1,0 +1,28 @@
+{
+ "entry": "rms_kernel",
+ "grid": [
+  768
+ ],
+ "threads": 128,
+ "block": [
+  128
+ ],
+ "smem": 512,
+ "rot": 1,
+ "footprint_bytes": 18886656,
+ "write_bytes": 9437184,
+ "family": "rmsnorm",
+ "shape": {
+  "M": 768,
+  "N": 3072
+ },
+ "pick": {
+  "threads": 128
+ },
+ "cache": "warm",
+ "set": "whatif rmsnorm warm",
+ "whatif": {
+  "base": "rms13_t128_warm",
+  "axis": "bytes per lane"
+ }
+}

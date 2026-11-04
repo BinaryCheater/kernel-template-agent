@@ -1,0 +1,19 @@
+{
+ "entry": "k_floatadd",
+ "grid": [
+  1024,
+  1,
+  1
+ ],
+ "threads": 256,
+ "block": [
+  256
+ ],
+ "smem": 0,
+ "rot": 1,
+ "footprint_bytes": 4210688,
+ "write_bytes": 16384,
+ "family": "hand",
+ "set": "breadth blind",
+ "cache": "warm"
+}

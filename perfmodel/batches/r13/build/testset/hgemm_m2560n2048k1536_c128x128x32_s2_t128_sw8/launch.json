@@ -1,0 +1,37 @@
+{
+ "entry": "gemm_kernel",
+ "grid": [
+  16,
+  20,
+  1
+ ],
+ "threads": 128,
+ "block": [
+  128
+ ],
+ "smem": 32768,
+ "rot": 1,
+ "footprint_bytes": 24641536,
+ "write_bytes": 10485760,
+ "family": "hgemm",
+ "shape": {
+  "M": 2560,
+  "N": 2048,
+  "K": 1536
+ },
+ "pick": {
+  "block_M": 128,
+  "block_N": 128,
+  "block_K": 32,
+  "num_stages": 2,
+  "threads": 128,
+  "swizzle": 8
+ },
+ "smem_estimate": 32768,
+ "cache": "warm",
+ "set": "hgemm 2560x2048x1536",
+ "whatif": {
+  "base": "hgemm_m2560n2048k1536_c128x128x32_s3_t128",
+  "axis": "design"
+ }
+}

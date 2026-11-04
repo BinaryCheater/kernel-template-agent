@@ -1,0 +1,19 @@
+{
+ "entry": "k_insort",
+ "grid": [
+  512,
+  1,
+  1
+ ],
+ "threads": 128,
+ "block": [
+  128
+ ],
+ "smem": 0,
+ "rot": 1,
+ "footprint_bytes": 4456448,
+ "write_bytes": 262144,
+ "family": "hand",
+ "set": "breadth blind",
+ "cache": "warm"
+}

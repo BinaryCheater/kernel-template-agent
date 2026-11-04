@@ -182,7 +182,7 @@ class SM:
         self.loop_end = lp[1] if lp else -1  # fully unrolled code has no back edge
         self.end: float = 0
         self.warps = []
-        wpb = threads // 32
+        wpb = math.ceil(threads / 32)
         for b in range(blocks):
             for w in range(wpb):
                 self.warps.append(

@@ -1,0 +1,28 @@
+{
+ "entry": "rms_kernel",
+ "grid": [
+  256
+ ],
+ "threads": 128,
+ "block": [
+  128
+ ],
+ "smem": 512,
+ "rot": 4,
+ "footprint_bytes": 16809984,
+ "write_bytes": 8388608,
+ "family": "rmsnorm",
+ "shape": {
+  "M": 256,
+  "N": 8192
+ },
+ "pick": {
+  "threads": 128
+ },
+ "cache": "rotating",
+ "set": "whatif rmsnorm rotating",
+ "whatif": {
+  "base": "wi12_rms_b_rotating",
+  "axis": "bytes per lane"
+ }
+}

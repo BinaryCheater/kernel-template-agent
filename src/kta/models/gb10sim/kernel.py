@@ -57,7 +57,7 @@ def sass_trips(ins, h: dict, src_trips: int) -> int:
 
 def occupancy(h: dict, regs: int, smem: int, machine: Machine) -> int:
     MC = machine.C
-    warps = h["threads"] // 32
+    warps = math.ceil(h["threads"] / 32)
     unit = MC["reg_alloc_unit_per_warp"]
     rw = math.ceil(regs * 32 / unit) * unit
     return max(

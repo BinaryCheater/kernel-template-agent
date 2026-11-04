@@ -1,0 +1,36 @@
+{
+ "entry": "part_kernel",
+ "grid": [
+  1,
+  4,
+  4
+ ],
+ "threads": 128,
+ "block": [
+  128
+ ],
+ "smem": 81920,
+ "rot": 1,
+ "footprint_bytes": 4214912,
+ "write_bytes": 16512,
+ "family": "decode_gqa",
+ "shape": {
+  "B": 1,
+  "H": 16,
+  "G": 4,
+  "S": 2048,
+  "D": 128
+ },
+ "pick": {
+  "BN": 64,
+  "BH": 64,
+  "split": 4,
+  "stages": 2
+ },
+ "cache": "warm",
+ "set": "whatif decode warm",
+ "whatif": {
+  "base": "wi12b_dec_b_warm",
+  "axis": "blocks"
+ }
+}
