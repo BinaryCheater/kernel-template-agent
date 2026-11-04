@@ -388,7 +388,7 @@ def rot_depth_cases(b: Batch) -> list[Case]:
 
             def build(ins=ins, nbytes=nbytes, mib=mib, **kw):
                 mm = kw.get("machine") or default_machine()
-                miss = l2_rotating_miss(max(nbytes, mib * 2**20), mm)
+                miss = l2_rotating_miss(max(nbytes, mib * 2**20), "cs", mm)
                 secs = nbytes / (mm.C["dram_read_GBs"] * 1e9)
                 return SM(
                     ins,
@@ -689,7 +689,7 @@ def l2mix_cases(b: Batch) -> list[Case]:
     return out
 
 
-def _span_case(b, cid, probe, unit, kernel, threads, grid, smem=0) -> Case:
+def _span_case(b, cid, probe, unit, kernel, threads, grid, smem=0, stack=None) -> Case:
     ins = _k(_sass(b, unit), kernel)
     regs = regs_of(b, unit, kernel)
 
@@ -707,6 +707,7 @@ def _span_case(b, cid, probe, unit, kernel, threads, grid, smem=0) -> Case:
             grid_blocks=grid,
             grid_dim=(grid, 1, 1),
             l1_bytes=m.C["l1_unified_bytes"] - rmax * smem,
+            stack_bytes=stack,
             **kw,
         )
 
@@ -725,6 +726,7 @@ def spill_cases(b: Batch) -> list[Case]:
             t,
             g,
             s * 1024,
+            n * 4,
         )
         for t in (64, 256)
         for n in (16, 64, 256, 1024)
@@ -1227,6 +1229,23 @@ def _l2_replay(ins: list[Ins], L: dict[str, Any], trips: int, in_flight: int, m:
     return _l2_cache[key]
 
 
+def _machine_trips(ins: list[Ins]) -> int | None:
+    """The main loop's passes from its counter when the compiler left one (`ISETP R, limit` with
+    `IADD R, R, step`, round 7: a partly unrolled source loop), else None."""
+    lp = main_loop(ins)
+    if not lp:
+        return None
+    body = ins[lp[0] : lp[1] + 1]
+    for x in reversed(body):
+        m = re.search(r"(R\d+), (0x[0-9a-f]+), PT", x.args) if x.base == "ISETP" else None
+        if m:
+            for y in body:
+                st = re.fullmatch(rf"{m[1]}, {m[1]}, (0x[0-9a-f]+)", y.args)
+                if y.base == "IADD" and st:
+                    return math.ceil(int(m[2], 16) / int(st[1], 16))
+    return None
+
+
 def _generic_sm(d: Path, L: dict[str, Any], regs: int, carried: tuple[str, ...], **kw: Any) -> SM:
     """A kernel without a family front end (FA forward, decode attention, GEMV, RMSNorm, softmax):
     the busiest SM of the grid with block replacement, the chip's shares by blocks in flight, the
@@ -1244,7 +1263,7 @@ def _generic_sm(d: Path, L: dict[str, Any], regs: int, carried: tuple[str, ...],
     loops = [
         int(x) for x in re.findall(rf"for \(int {name} = 0; {name} < (\d+); \+\+{name}\)", src)
     ]
-    src_trips = max(loops) if loops else 1
+    src_trips = _machine_trips(ins) or (max(loops) if loops else 1)
     tiles = math.prod(L["grid"])
     m = kw.get("machine") or default_machine()
     h = {"threads": L["threads"]}
@@ -1258,7 +1277,11 @@ def _generic_sm(d: Path, L: dict[str, Any], regs: int, carried: tuple[str, ...],
     wb = L.get("write_bytes", 0) if rotating else 0
     if m.P["l2_replay"]:
         r = _l2_replay(ins, L, src_trips, m.sms * rmax, m)
-        scale = 1.0 if rotating else l2_warm_miss(r.footprint, kind, m)
+        # round 7 (rot_depth): a rotation of `rot` sets is a re-read of everything it touches
+        window = L.get("rot", 1) * (r.footprint + L.get("write_bytes", 0))
+        scale = (
+            l2_rotating_miss(window, kind, m) if rotating else l2_warm_miss(r.footprint, kind, m)
+        )
         # the kernel's arguments, 8 bytes each from the first parameter slot, by name
         slots = {P0_SLOT + 8 * i: n for i, n in enumerate(L.get("params", ()))}
         byname = {
@@ -1341,7 +1364,7 @@ def _sequence_case(b: Batch, d: Path, L: dict[str, Any], mode: str) -> Case:
             [
                 lambda c=c, k=k, **a: _generic_sm(
                     d,
-                    {**k, "cache": L["cache"]},
+                    {**k, "cache": L["cache"], "rot": L["rot"]},
                     regs_of(b, f"testset/{d.name}", k["entry"]),
                     c,
                     **a,

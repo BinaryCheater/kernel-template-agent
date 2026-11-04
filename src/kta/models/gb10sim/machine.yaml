@@ -44,7 +44,8 @@ resources:
     busy: fill
     doc: per-SM L2 return port; its rate is the larger of the port and this SM's share of the chip L2
     chip_share: {own_clk_per_512B: sim.l2_return_clk_per_512B, chip_B_per_clk: sim.l2_aggregate_B_per_clk_cpasync}
-  l2_chip: {scope: sm, kind: port, doc: this SM's share of the chip's L2 path; stores at the chip's limit wait for sim.l2_chip_read_share of the reads' time}
+  l2_chip: {scope: sm, kind: port, doc: this SM's share of the chip's L2 path; stores at the chip's limit wait for the reads' time less sim.stg_read_overlap_clk}
+  stg_chip: {scope: sm, kind: port, doc: this SM's share of the chip's store limit behind the store buffer (sim.stg_burst_bytes)}
   dram_queue: {scope: sm, kind: queue, busy: dram, doc: this SM's share of the chip DRAM rate (per wave)}
   store_port:
     scope: tpc

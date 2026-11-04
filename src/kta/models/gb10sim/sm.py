@@ -107,6 +107,7 @@ class SM:
         block_ids: list[int] | None = None,
         addr_log: list | None = None,
         miss_by_pc: dict[int, float] | None = None,
+        stack_bytes: int | None = None,
     ):
         self.ins = ins
         # KTA (PERFMODEL): with `trace`, every issue and the binding reason of every wait is kept
@@ -149,6 +150,8 @@ class SM:
         # block replacement: `blocks` run on this SM, at most `resident` at a time; when one exits
         # the block scheduler starts the next on the freed slot (the order blocks are launched)
         self.resident = resident or blocks
+        # round 7: stack bytes per thread, from the spill offsets unless the caller knows them
+        self.stack_bytes = stack_bytes if stack_bytes is not None else _stack_bytes(ins)
         self.next_block = self.resident
         self.live = {}
         self.finished = 0
@@ -702,7 +705,7 @@ class SM:
         addr0 = None
         if w.lanes is not None:
             # round 6: read before the step, a load may overwrite its own address register
-            if cls.handler in ("ldg", "smem_op", "cp_async"):
+            if cls.handler in ("ldg", "smem_op", "cp_async", "stg"):
                 addr0 = w.lanes.address(x.args, w.vals)
             # the guard as the lane tracking sees it: none, known false, known true or unknown
             runs = True if not x.pred else (False if not executes else pv)
@@ -952,8 +955,13 @@ class SM:
             elif h == "local":
                 # local memory (register spills, one slot per warp): 4 cycles per line through L1,
                 # then the L1 latency
+                m_l1 = self.m.C["l1_unified_bytes"]
+                # round 7 (probe spill): at the chip's scale the stack path takes
+                # local_chip_B_per_clk, beyond the L1's capacity per SM local_chip_over_B_per_clk
+                over = self.stack_bytes * self.wpb * 32 * self.resident > m_l1
+                rate = P["local_chip_over_B_per_clk" if over else "local_chip_B_per_clk"]
                 t1 = max(now, t["l1"])
-                t["l1"] = t1 + P["local_clk_per_line"]
+                t["l1"] = t1 + max(P["local_clk_per_line"], 128 / (rate / self.active_sms))
                 lat_done = t["l1"] + P["l1_hit_latency_clk"]
                 lsu_done = t["l1"]
                 if tr:
@@ -983,7 +991,7 @@ class SM:
                     free["mio"][s], now + self.red_lines * P["red_smsp_clk_per_line"]
                 )
                 lsu_done = start
-                self.end = max(getattr(self, "end", 0), t["store_port"])
+                self.end = max(getattr(self, "end", 0), t["store_port"], t["stg_chip"])
                 if tr:
                     trr = [(now, start, "store_port", "queue (atomics)", None)]
             elif h == "commit":
@@ -1033,13 +1041,24 @@ class SM:
                 # the larger of the pair's shared store port and this SM's share of the chip's store
                 # limit
                 pair = P[f"stg_tpc_clk_per_instr_{w_}"] * self.stg_share
-                chip = nbytes / (P[f"stg_chip_B_per_clk_{w_}"] / self.active_sms)
-                per = max(pair, chip)
+                # round 7 (probes l2mix, store_lines): the chip's limit counts the 32-byte sectors
+                # the lanes touch, one rate for every width, behind a store buffer
+                by_sector = P["stg_by_sectors"]
+                if addr0 is not None and by_sector:
+                    nbytes = footprint(addr0, width_of(x.op))[1] * 32
+                chip = nbytes / (
+                    P["stg_chip_B_per_clk" if by_sector else f"stg_chip_B_per_clk_{w_}"]
+                    / self.active_sms
+                )
                 start = max(now, t["store_port"])
                 if P["l2_chip_read_share"] > 0 and chip >= pair:
-                    # at the chip's limit reads and stores share one L2 path
-                    start = max(start, t["l2_chip"])
-                    t["l2_chip"] = start + per
+                    # at the chip's limit reads and stores share one L2 path, the stores behind
+                    # the reads by at most the overlap the buffer gives
+                    start = max(start, t["l2_chip"] - P["stg_read_overlap_clk"])
+                done = max(t["stg_chip"], start) + chip
+                start = max(start, done - P["stg_burst_bytes"] / (nbytes / chip * self.active_sms))
+                t["stg_chip"] = done
+                per = pair
                 t["store_port"] = start + per
                 self.busy["stg"] = self.busy.get("stg", 0) + per
                 heapq.heappush(self.stq, t["store_port"])
@@ -1050,7 +1069,7 @@ class SM:
             elif h == "exit":
                 # the block is finished only when its stores have left the SM
                 w.done = True
-                self.end = max(getattr(self, "end", 0), t["store_port"])
+                self.end = max(getattr(self, "end", 0), t["store_port"], t["stg_chip"])
                 self.exited[w.block] = self.exited.get(w.block, 0) + 1
                 self.block_exit(w.block, now)
             elif x.wbar is not None:
@@ -1295,6 +1314,17 @@ class SM:
             "assumed_latency": self.assumed_latency,
             "defaults": self.defaults,
         }
+
+
+def _stack_bytes(ins: list[Ins]) -> int:
+    """Stack per thread: the highest offset a local load or store names."""
+    tops = [
+        int(o, 16) + 4
+        for x in ins
+        if x.base in ("LDL", "STL")
+        for o in re.findall(r"\[\w+\+0x([0-9a-f]+)\]", x.args)
+    ]
+    return max(tops, default=0)
 
 
 def _smem_bytes(op: str) -> int:
