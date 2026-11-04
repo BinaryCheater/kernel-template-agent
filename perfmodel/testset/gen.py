@@ -1202,6 +1202,7 @@ def _whatif(out: Path) -> None:
                 f["threads"],
                 info,
                 rot=1 if cache == "warm" else _rot(4 * n * 2),
+                writes=() if kw.get("store") else (-1,),
             )
     for v, (kw, axis) in WI_GEMV.items():
         c = {**GEMV, **kw}
@@ -1250,6 +1251,7 @@ def _whatif(out: Path) -> None:
                 info,
                 elem_bytes=[eb, eb, eb],
                 rot=1 if cache == "warm" else _rot((2 * M * N + N) * eb),
+                writes=() if kw.get("store") else (-1,),
             )
     for v, (kw, axis) in WI_SOFTMAX.items():
         info = {

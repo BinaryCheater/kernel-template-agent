@@ -12,7 +12,7 @@
  "smem": 81920,
  "rot": 1,
  "footprint_bytes": 16777216,
- "write_bytes": 4194304,
+ "write_bytes": 0,
  "family": "fa_forward",
  "shape": {
   "B": 1,
@@ -31,5 +31,6 @@
  "whatif": {
   "base": "wi_fa_b_warm",
   "axis": "stores removed"
- }
+ },
+ "write_bytes_note": "corrected after the run: the variant writes no global buffer (gen.py as of round 7 end)"
 }

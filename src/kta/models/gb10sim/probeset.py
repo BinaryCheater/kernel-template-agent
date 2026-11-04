@@ -388,7 +388,9 @@ def rot_depth_cases(b: Batch) -> list[Case]:
 
             def build(ins=ins, nbytes=nbytes, mib=mib, **kw):
                 mm = kw.get("machine") or default_machine()
-                miss = l2_rotating_miss(max(nbytes, mib * 2**20), "cs", mm)
+                # the walk restarts at the last whole chunk that fits the window
+                window = max(nbytes, mib * 2**20 // nbytes * nbytes)
+                miss = l2_rotating_miss(window, "ca", mm)
                 secs = nbytes / (mm.C["dram_read_GBs"] * 1e9)
                 return SM(
                     ins,

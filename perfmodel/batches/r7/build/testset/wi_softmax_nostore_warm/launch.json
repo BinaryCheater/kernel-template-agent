@@ -10,7 +10,7 @@
  "smem": 8192,
  "rot": 1,
  "footprint_bytes": 8388608,
- "write_bytes": 4194304,
+ "write_bytes": 0,
  "family": "softmax",
  "shape": {
   "M": 512,
@@ -24,5 +24,6 @@
  "whatif": {
   "base": "wi_softmax_b_warm",
   "axis": "stores removed"
- }
+ },
+ "write_bytes_note": "corrected after the run: the variant writes no global buffer (gen.py as of round 7 end)"
 }
