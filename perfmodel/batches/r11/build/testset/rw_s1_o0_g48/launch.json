@@ -12,7 +12,7 @@
  "smem": 0,
  "rot": 1,
  "footprint_bytes": 790528,
- "write_bytes": 790528,
+ "write_bytes": 52032,
  "family": "hand",
  "set": "store_rewrite",
  "cache": "warm"

@@ -1228,7 +1228,10 @@ __global__ void __launch_bounds__(256) k_rw(unsigned* out) {{
 """
             sizes = [g * 16384 + 4096]
             name = f"rw_s{sp}_o{off}_g{g}"
-            _source_kernel(out, name, src, (g, 1, 1), (256,), sizes, "hand", "store_rewrite")
+            written = g * (256 + 15 * sp) * 4
+            _source_kernel(
+                out, name, src, (g, 1, 1), (256,), sizes, "hand", "store_rewrite", written=written
+            )
     src_dir = Path(__file__).parent / "hand"
     for name, (grid, block, sizes) in HAND11.items():
         text = (src_dir / f"{name}.cu").read_text()
@@ -1369,7 +1372,16 @@ HAND = {
 
 
 def _source_kernel(
-    out: Path, name: str, src: str, grid, block, sizes, family: str, group: str, rot: int = 1
+    out: Path,
+    name: str,
+    src: str,
+    grid,
+    block,
+    sizes,
+    family: str,
+    group: str,
+    rot: int = 1,
+    written: int | None = None,
 ):
     """A kernel with its own source: `k_*`, buffers in the order of its parameters (the first is
     written), random 16-bit words in every buffer; `rot` sets of them used in turn."""
@@ -1403,7 +1415,7 @@ def _source_kernel(
         "smem": 0,
         "rot": rot,
         "footprint_bytes": sum(sizes),
-        "write_bytes": sizes[0],
+        "write_bytes": sizes[0] if written is None else written,
         "family": family,
         "set": group,
         "cache": "rotating" if rot > 1 else "warm",

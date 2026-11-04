@@ -1130,11 +1130,13 @@ class SM:
         return None, lsu_done, None, trr
 
     def _copy_ret_clk(self, addr0: Any, width: int) -> float:
-        """Round 11 (probe l2_cap): the chip's rate goes by pattern. A copy of contiguous lanes
-        moves at `l2_contig_B_per_clk`, lanes in their own sectors by `l2_chip_sectors_per_clk`;
-        tile copies keep the frozen aggregate (`ret_clk`)."""
+        """Round 11 (probe l2_cap): the chip's rate goes by pattern. Contiguous copies scattered
+        over the buffer (`copy_contiguous`, the probes' masked addresses) move at
+        `l2_contig_B_per_clk`, lanes in their own sectors by `l2_chip_sectors_per_clk`; TileLang's
+        tiles keep the frozen aggregate (`ret_clk`), contiguous or not: what separates the two is
+        open (question 37)."""
         P = self.P
-        if self.copy_contiguous or (addr0 is not None and contiguous(addr0, width)):
+        if self.copy_contiguous:
             port = P["l2_contig_port_clk_per_512B"]
             return max(port, 512 * self.active_sms / P["l2_contig_B_per_clk"])
         if addr0 is not None and footprint(addr0, width)[1] >= 32:
@@ -1374,8 +1376,9 @@ class SM:
             elif w_ == "4B":  # round 11 (rw_*): 32 lanes in a run: lines, else by sectors
                 pair = max(P["stg_tpc_clk_per_instr_line"], n_sect * P["stg_pair_clk_per_sector"])
                 pair *= self.stg_share
-            # round 11 (rw_*, wr_*, counters): a store merges with its own warp's queued sector
-            # or with queued writes of the same words; other warps' words in a sector stay apart
+            # round 11 (rw_*, wr_*, counters): a store merges with the sector of its own warp's
+            # store just before or with queued writes of the same words; other words stay apart
+            # (HGEMM's L2 sectors equal its stores')
             words: dict[int, list[int]] = {}
             for o in addr0[1]:
                 words.setdefault(o >> 5, []).append(o >> 2)
@@ -1418,7 +1421,7 @@ class SM:
                 self.st_pending = pend = {k: v for k, v in pend.items() if v > now}
             leave = max(t["store_port"], t["stg_chip"])
             for s, ws in words.items():
-                pend[(w.wid, base, s)] = leave
+                pend[(w.wid, base, s)] = now + P["stg_merge_run_clk"]
                 for x in ws:
                     pend[(base, x)] = leave
         self.busy["stg"] = self.busy.get("stg", 0) + per

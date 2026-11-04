@@ -283,7 +283,7 @@ def generic_kernel(
         else:
             # round 11 (wr_*): reads a launch uses once stay on the L2's probation list beside the
             # stores; re-read lines are protected (HGEMM)
-            once = m.P["warm_window_writes"] and r.loaded < 1.5 * r.footprint
+            once = m.P["warm_window_writes"] and r.loaded < 1.1 * r.footprint
             scale = l2_warm_miss(r.footprint + (L.get("write_bytes", 0) if once else 0), kind, m)
         # the kernel's arguments, 8 bytes each from the first parameter slot, by name
         slots = {P0_SLOT + 8 * i: n for i, n in enumerate(L.get("params", ()))}
@@ -312,7 +312,8 @@ def generic_kernel(
     else:  # warm (round 3, probe l2reuse): the re-read misses by the footprint
         rb, miss = fb, l2_warm_miss(fb, kind, m)
     kw["dram_writes_counted"] = wb > 0
-    kw["dirty_full"] = not rotating and L.get("write_bytes", 0) > m.P["stg_dirty_bytes"]
+    # round 11 (wr_*): W 16 MiB pays all of it, 4 none; HGEMM's 9.4 MB of rewritten C stays free
+    kw["dirty_full"] = not rotating and L.get("write_bytes", 0) > 1.5 * m.P["stg_dirty_bytes"]
     if any(x.base in ("RED", "REDG") for x in ins):
         kw["atomic_bytes"] = L.get("write_bytes", 0)
     if miss > 0:
