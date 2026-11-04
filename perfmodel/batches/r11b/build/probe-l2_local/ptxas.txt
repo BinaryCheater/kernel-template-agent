@@ -1,0 +1,21 @@
+ptxas info    : 0 bytes gmem
+ptxas info    : Compiling entry function '_Z2cpILi3EEvPKcPj' for 'sm_121a'
+ptxas info    : Function properties for _Z2cpILi3EEvPKcPj
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 12 registers, used 0 barriers
+ptxas info    : Compile time = 1.884 ms
+ptxas info    : Compiling entry function '_Z2cpILi2EEvPKcPj' for 'sm_121a'
+ptxas info    : Function properties for _Z2cpILi2EEvPKcPj
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 12 registers, used 0 barriers
+ptxas info    : Compile time = 1.027 ms
+ptxas info    : Compiling entry function '_Z2cpILi1EEvPKcPj' for 'sm_121a'
+ptxas info    : Function properties for _Z2cpILi1EEvPKcPj
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 10 registers, used 0 barriers
+ptxas info    : Compile time = 0.994 ms
+ptxas info    : Compiling entry function '_Z2cpILi0EEvPKcPj' for 'sm_121a'
+ptxas info    : Function properties for _Z2cpILi0EEvPKcPj
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 12 registers, used 0 barriers
+ptxas info    : Compile time = 0.846 ms
