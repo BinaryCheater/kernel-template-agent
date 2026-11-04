@@ -169,6 +169,10 @@ def main(argv: list[str] | None = None) -> int:
             "jobs": a.jobs,
         }
     )
+    if over:  # an ablation is read here: it writes no table
+        for r in rows:
+            err = "" if r["error"] is None else f"{100 * r['error']:+7.1f} %"
+            print(f"  {r['id']:52s} {table._fmt(r['predicted']):>12s} {err}")
     n = full.current_round()
     spent = sum(r["cpu_s"] for r in full.runs(n) if r["mode"] != "full")
     print(f"this run {table.STATS['cpu_s']:.0f} CPU s; round {n} so far {spent:.0f} below the full")
