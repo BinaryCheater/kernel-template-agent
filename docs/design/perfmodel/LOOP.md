@@ -64,12 +64,13 @@ Residual fits are allowed because the model is never finished. The rules:
 5. A fit that improves absolute error without improving ranking (fewer inversions, higher correlation) is rejected: it is hiding a mechanism.
 6. A fit on a search-space or hardware design variable is temporary by definition: it must be replaced by a mechanism before that variable is explored (what-if is refused on fitted parameters).
 
-## 5. Scorecard — five numbers, not one
+## 5. Scorecard — six numbers, not one
 
 | Metric | Answers | Computed from |
 | --- | --- | --- |
 | absolute error: median and worst, with fits and mechanisms only | is the time right | every valid row |
-| rank correlation (Spearman) and **inversion count** among design variants of one shape | can it choose designs | the variant groups of the test set |
+| rank correlation (Kendall τ, Spearman), **inversion count** and best variant among design variants of one shape | can it choose designs | the variant groups of the test set |
+| **what-if**: predicted vs measured change, direction count and magnitude error, by axis; a wrong direction goes to the top of the next selection | can it say what a change gains | one compiled change from a base in the same batch (launch.json `whatif`), first score and now |
 | bottleneck agreement: the model's top critical-path unit vs the busiest counter pipe | is the bottleneck right | rows with counters |
 | counts check pass rate (R1) | is the execution path right | every kernel row |
 | **blind error**: the error of a row at its first scoring, kept forever | does the model generalise | every kernel or variant at the batch that first measures it, with the prediction committed before the run |

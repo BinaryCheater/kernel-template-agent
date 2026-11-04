@@ -28,3 +28,13 @@ Three questions r7's first score opened, probes only, engine as r7 except the GE
    - H-bytes: by width (replay).
    - H-lines: by 64-byte lines touched, a burst then a rate.
    - H-128: by 128-byte lines.
+
+## After the run (round 7, step 4–5)
+
+r7b valid: clock 2.491 → 2.494 GHz (+0.1 %), canaries +0.07 / +0.5 %.
+
+**rot_depth** (evict-first loads as `dram_rotate`): 7.5 MiB per launch 6.7 µs at a window of 16 MiB, 15.9 at 24, 31.0 at 32, 35.1 at 48, 36.2 from 96; 15.7 MiB: 11.8–13.5 up to 24, 65.1 at 32, 71.1 at 48, 72 from 64. H-curve survives, H-chunk rejected: a function of the window, cold from 48–64 MiB; the warm curve holds (0.85 at 32 MiB). The kernels keep more: decode 0.82 of cold at 67 MB, RMSNorm without stores 0.45 at 32 MiB: cp.async and plain loads are not evict-first; not measured here.
+
+**store_lines** (grid 512): by sectors touched: 128 sectors per block 3884 (32 B), 3873 (16 B), 4054 (4 B), 4005 (32 B at 64 apart); 256: 8873, 8902, 8614 (4 B at 32 apart), 10644; 384: 13802. Slope 420 B/clk, zero at 470 KB. H-bytes rejected (4 B and 32 B alike per sector). H-lines and H-128 rejected: 128 sectors cost the same whether they fill 32 or 128 lines of 128 B. Third slope: 512 sectors 23204, 768 83406, 1024 148841: each MiB above about 8 costs 1 / 79 B/clk, the DRAM write rate: dirty lines leave the L2. r1's 122 B/clk was TileLang's strided lanes at 32 and 48 blocks.
+
+**spill**: single warp pace within −24 to +9 % of the replay at one block; 48 blocks at 256 threads 7.4 cycles per stack instruction per SM (one block 1.8): H-rate rejected, a chip limit at the L2's rate, 830 B/clk. Beyond 192 KB per SM at 48 blocks 23–25 cycles: 270 B/clk; 96 KB of shared memory does not lower that capacity (two blocks then fit): H-L1 survives in part: the stack's own capacity, not the L1 left beside shared memory.

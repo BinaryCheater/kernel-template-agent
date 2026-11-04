@@ -52,4 +52,30 @@ Score: direction right when the signs agree, or when the measured change is with
 
 r7 valid: clock 2.492 → 2.475 GHz (drift −0.65 %), canaries −0.13 / +0.25 %. Units that did not run: shared memory above the limit (FA s3, s4, BN 128; decode s3; HGEMM 128×256×64 s3, whose two rows at s1 were scored against s2; two FA blind rows).
 
-What the first score showed, before any engine change: `error-table.md` at the commit of this entry, and r7b below.
+First score, engine as committed before the run:
+
+| Group | n | median | worst | Kendall τ | Spearman | inversions | best variant |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| hgemm 3072×1536×2048 warm | 14 | 5.6 % | −60.4 % | 0.71 | 0.85 | 7 | yes |
+| hgemm 3072×1536×2048 rotating | 14 | 7.6 % | −58.4 % | 0.78 | 0.93 | 5 | no (+6.0 %) |
+| fa 1536×12×96 | 8 | 6.8 % | −11.3 % | 0.86 | 0.95 | 0 | yes |
+
+What-if at first score: direction 79 of 98, median magnitude error 26 %, 29 of 59 within 25 %. By axis: stages 16/18, tile 10/12, threads 13/20, cp.async vs direct 3/3, compute removed 8/9, loads removed 2/2, stores removed 7/7, bytes per lane 4/6, raster 4/4, rotation depth 0/4, blocks 3/4, shape 4/4. Bottleneck: 5 of 10 bases agree; the 5 others have only one or two removals of the three, so the largest measured gain is not a full comparison.
+
+Wrong directions by cause:
+
+- **GEMV mk4, r16, np2** (+73, −84, −68 %): front end: the main loop's passes (D794; np2 warm stays, +73 %).
+- **Rotation depth** (decode, RMSNorm, 0/4): the replay has no state between rotations; decode 68.9 → 78.2 → 77.2 µs at depth 67, 134, 268 MB, replay 78.8: rotating at 67 MB is not cold. Questions 12 and 24 answered: the +13 % is the row's cache state.
+- **HGEMM stages 1, rotating** (+18 %, measured −1.8 %) and 64×128 s1 (+4, −3 %): the overlap. The replay spreads the DRAM rate evenly over the SMs (inventory: `A`, fair share); a block that loads while others compute takes more than its share. Warm it holds: s1 −2.8 / −6.6 %.
+- **HGEMM t256** (−9, +1 %), **bk16** (−5, +2 to +7 %): the replay gains from more warps or shorter loads, the GPU does not.
+- **decode split 16 warm** (−12, −0.6 %), **FA exp2 removed** (−4, +6 %: the kernel's values change), **RMSNorm t64 / t256**: launch of a 9 µs kernel (b2b −3 %), not the span.
+
+Overlap, stages 1 against the base, measured / first: HGEMM s1 vs s3 warm −6.6 / −2.8 %, rotating −1.8 / +18.1 %; 128×256×64 s1 vs s2 +13.2 / +28.0 %, +20.3 / +43.6 %; 64×128 s1 vs s4 −2.4 / −2.4 %, −3.0 / +4.1 %; FA s1 vs s2 −15.5 / −15.6 %, −13.2 / −12.0 %; decode s1 vs s2 −12.4 / −15.9 %, +1.7 / −3.3 %. Sign right in 8 of 10; the replay overstates what overlap gains under DRAM load.
+
+Spills: the largest blind errors are one mechanism: 256×256×32 s2 t256 870 µs (−60.4 %), HGEMM t64 +228 % (+82 %), FA without the second mma +186 % (+27 %, the fragment leaves the mma's layout and spills): each loop with 255 registers per thread (r7b `spill`).
+
+**dram_burst**: H-flat survives: 3.9–67 MB per launch within −5.9 to +4.8 % of the replay, 187–237 GB/s with launch; no burst above the plateau.
+
+**l2mix** (grid 512, share s = (both − stores) / loads): H-const rejected: s 0.25–0.71 at contiguous 32 B, above 1 strided; H-phase rejected: phased and interleaved alike (11871 / 11950, 6563 / 6560, 11211 / 11335); H-sector half right: stores cost by what they touch, not bytes (2 × 16 B 3765 = 1 × 32 B 3826; 2 × 4 B 414), reads and stores add less a constant: both ≈ loads + stores − 2200 (r7b, D791).
+
+**RMSNorm**: the probe with the same bytes (L2 S2, phased, 11871 cycles) is not the gap: compute removed gains 10 % measured, 2 % in the replay; the block's arithmetic sits on the path beside the chip-bound streams.

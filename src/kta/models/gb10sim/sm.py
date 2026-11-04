@@ -1055,10 +1055,12 @@ class SM:
                     # at the chip's limit reads and stores share one L2 path, the stores behind
                     # the reads by at most the overlap the buffer gives
                     start = max(start, t["l2_chip"] - P["stg_read_overlap_clk"])
-                done = max(t["stg_chip"], start) + chip
-                start = max(start, done - P["stg_burst_bytes"] / (nbytes / chip * self.active_sms))
-                t["stg_chip"] = done
-                per = pair
+                per = max(pair, chip)
+                if by_sector:
+                    done = max(t["stg_chip"], start) + chip
+                    start = max(start, done - P["stg_burst_bytes"] / P["stg_chip_B_per_clk"])
+                    t["stg_chip"] = done
+                    per = pair
                 t["store_port"] = start + per
                 self.busy["stg"] = self.busy.get("stg", 0) + per
                 heapq.heappush(self.stq, t["store_port"])
