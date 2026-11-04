@@ -39,11 +39,13 @@ r7b valid: clock 2.491 → 2.494 GHz (+0.1 %), canaries +0.07 / +0.5 %.
 
 **spill**: single warp pace within −24 to +9 % of the replay at one block; 48 blocks at 256 threads 7.4 cycles per stack instruction per SM (one block 1.8): H-rate rejected, a chip limit at the L2's rate, 830 B/clk. Beyond 192 KB per SM at 48 blocks 23–25 cycles: 270 B/clk; 96 KB of shared memory does not lower that capacity (two blocks then fit): H-L1 survives in part: the stack's own capacity, not the L1 left beside shared memory.
 
-**Ablation, one change off, `--sets batches`** (all rules on: HGEMM warm 5.7 % / −9.0 %, 0.78 / 4; rotating 9.4 % / −11.5 %, 0.89 / 3):
+A regression the first rule broke: `store_tail tl_b48` −38 %: TileLang's tile store spreads each instruction over 8 rows and keeps 244 B/clk of sectors; lanes wider than 4 KiB take that rate, unknown lanes the width rates (D790, question 25).
+
+**Ablation, one change off, `--sets batches`** (all rules on: HGEMM warm 3.1 % / −6.9 %, 0.77 / 4; rotating 6.6 % / −9.1 %, 0.85 / 4; directions 77 of 98):
 
 | Off | Moves |
 | --- | --- |
-| stores by sectors and buffer (D790) | HGEMM warm 2.2 % / −5.3 %, Spearman 0.77, 4 inversions; rotating 5.6 % / −7.6 %, 0.93, 2; FP8 −7.3 %, w4gemm −12.3 %; but RMSNorm −29.4 %, graph −36.3 %, softmax graph −27.6 %, st256 14.7 %, l2mix 34.4 %, store_lines 49.9 %. Stays (probe-backed); question 25 |
-| read share and overlap (D791) | RMSNorm graph −23.7 %, l2mix 10.3 %; no test row moves more; directions 77 |
-| stack path (D792) | blind HGEMM −60.5 / −58.4 %, Spearman 0.84 / 0.92, 7 / 5 inversions (on: +31.4 / +38.0 %, 0.85 / 0.93, 6 / 4) |
-| rotating by window (D793) | decode +13.3 %, sequence +16.9 %; directions 80 of 98 (on: 78 before the store-less correction) |
+| stores by sectors and buffer (D790) | HGEMM warm 2.2 % / −5.3 %, 0.77, 4; rotating 5.6 % / −7.6 %, 0.93, 2; FP8 −7.3 %; RMSNorm −29.4 %, graph −36.3 %, softmax graph −27.6 %, st256 14.7 %, l2mix 34.4 %, store_lines 49.9 %. Stays: probe-backed, question 25 |
+| read share and overlap (D791) | RMSNorm graph −23.7 %, directions 76; no other test row moves |
+| stack path (D792) | blind HGEMM −59.6 / −57.5 %, inversions 7 / 6 (on: +32.3 / +38.9 %, 6 / 5) |
+| rotating by window (D793) | decode +13.3 %, sequence +16.9 %; directions 79 |
