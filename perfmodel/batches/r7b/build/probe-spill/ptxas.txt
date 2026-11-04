@@ -1,0 +1,41 @@
+ptxas info    : 0 bytes gmem
+ptxas info    : Compiling entry function '_Z1kILi256ELi1024EEvPyPj' for 'sm_121a'
+ptxas info    : Function properties for _Z1kILi256ELi1024EEvPyPj
+    4096 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 13 registers, used 1 barriers, 4096 bytes cumulative stack size
+ptxas info    : Compile time = 3.233 ms
+ptxas info    : Compiling entry function '_Z1kILi256ELi256EEvPyPj' for 'sm_121a'
+ptxas info    : Function properties for _Z1kILi256ELi256EEvPyPj
+    1024 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 13 registers, used 1 barriers, 1024 bytes cumulative stack size
+ptxas info    : Compile time = 2.252 ms
+ptxas info    : Compiling entry function '_Z1kILi256ELi64EEvPyPj' for 'sm_121a'
+ptxas info    : Function properties for _Z1kILi256ELi64EEvPyPj
+    256 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 13 registers, used 1 barriers, 256 bytes cumulative stack size
+ptxas info    : Compile time = 2.036 ms
+ptxas info    : Compiling entry function '_Z1kILi256ELi16EEvPyPj' for 'sm_121a'
+ptxas info    : Function properties for _Z1kILi256ELi16EEvPyPj
+    64 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 13 registers, used 1 barriers, 64 bytes cumulative stack size
+ptxas info    : Compile time = 1.988 ms
+ptxas info    : Compiling entry function '_Z1kILi64ELi1024EEvPyPj' for 'sm_121a'
+ptxas info    : Function properties for _Z1kILi64ELi1024EEvPyPj
+    4096 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 13 registers, used 1 barriers, 4096 bytes cumulative stack size
+ptxas info    : Compile time = 2.195 ms
+ptxas info    : Compiling entry function '_Z1kILi64ELi256EEvPyPj' for 'sm_121a'
+ptxas info    : Function properties for _Z1kILi64ELi256EEvPyPj
+    1024 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 13 registers, used 1 barriers, 1024 bytes cumulative stack size
+ptxas info    : Compile time = 1.992 ms
+ptxas info    : Compiling entry function '_Z1kILi64ELi64EEvPyPj' for 'sm_121a'
+ptxas info    : Function properties for _Z1kILi64ELi64EEvPyPj
+    256 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 13 registers, used 1 barriers, 256 bytes cumulative stack size
+ptxas info    : Compile time = 1.984 ms
+ptxas info    : Compiling entry function '_Z1kILi64ELi16EEvPyPj' for 'sm_121a'
+ptxas info    : Function properties for _Z1kILi64ELi16EEvPyPj
+    64 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 13 registers, used 1 barriers, 64 bytes cumulative stack size
+ptxas info    : Compile time = 2.011 ms
