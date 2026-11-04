@@ -730,9 +730,17 @@ def summary(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def blind_summary(rows: list[dict[str, Any]], batch: str) -> list[dict[str, Any]]:
-    """The rows `batch` measured first, by set, at their first score (no engine had seen them)."""
+    """The rows `batch`'s round measured first, by set, at their first score (no engine had seen
+    them)."""
     out = []
-    picked = [r for r in rows if r.get("blind_batch") == batch and not r["excluded"]]
+    round_no = batch_order(batch)[0]  # r9, r9b, r9c are one round
+    picked = [
+        r
+        for r in rows
+        if r.get("blind_batch")
+        and batch_order(r["blind_batch"])[0] == round_no
+        and not r["excluded"]
+    ]
     for group in dict.fromkeys(r["set"] for r in picked):
         rs = [r for r in picked if r["set"] == group]
         b = [r["blind"] for r in rs]
