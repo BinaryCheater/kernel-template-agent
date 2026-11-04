@@ -51,3 +51,7 @@ Rotating `wr_*_rotN` (question 26, first experiment): plain loads alone and with
 ## Blind
 
 `hand_gups`, `hand_copy`, `hand_scale`, `hand_stencil512`, `hand_smear`: predictions committed before the run, no parameter taken from them.
+
+## Scored before the batch: `b0a72de` (opcode classes)
+
+Tables on the same rows, `b0a72de` on / off: 3072×1536×2048 rotating median 2.6 / 3.3 %, τ 0.96 / 0.87, inversions 0 / 4, best yes / no (+2.2 %); warm τ 0.74 / 0.76, inversions 6 / 5; 2048³ warm and rotating τ 0.73 both, median 3.0 / 3.4 and 2.3 / 2.6 %; stress median 9.3 / 11.0 %, hand unchanged. It stays: counter-backed (r10 per-pipe), no group lost above its spread.
