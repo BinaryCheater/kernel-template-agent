@@ -701,15 +701,15 @@ LOAD_G = (1, 12, 24, 48, 96, 144)
 LOAD_STEPS = 32
 
 
-def load_curve_cases(b: Batch) -> list[Case]:
+def load_curve_cases(b: Batch, name: str = "load_curve", gs=LOAD_G, zs=LOAD_Z) -> list[Case]:
     """Round 10: a lone copy's cycles at Z passes of spacing between the other warps' copies, on G
-    blocks (probe load_curve), warp 0 of the busiest SM's first block."""
+    blocks (probes load_curve, load_sat), warp 0 of the busiest SM's first block."""
 
     def per_step(sm, r):
         return sum(q - p for p, q in zip(sm.marks[0::2], sm.marks[1::2], strict=False)) / LOAD_STEPS
 
     def case(g, z):
-        cid = f"load_curve g{g}_z{z}"
+        cid = f"{name} g{g}_z{z}"
         probe, ins = _unit_ins(b, cid, f"_Z1kILi{z}EEvPyPKcPf")
 
         def build(**kw):
@@ -730,7 +730,11 @@ def load_curve_cases(b: Batch) -> list[Case]:
 
         return _case(b, cid, probe, 4, "cycles", build, per_step)
 
-    return [case(g, z) for g in LOAD_G for z in LOAD_Z]
+    return [case(g, z) for g in gs for z in zs]
+
+
+def load_sat_cases(b: Batch) -> list[Case]:
+    return load_curve_cases(b, "load_sat", (12, 24, 48, 96, 144), (0, 64, 256))
 
 
 def copy_depth_cases(b: Batch) -> list[Case]:
@@ -1393,6 +1397,7 @@ def all_cases(batch_dir: Path) -> list[Case]:
         ("probe-first_reader", first_reader_cases),
         ("probe-first_share", first_share_cases),
         ("probe-load_curve", load_curve_cases),
+        ("probe-load_sat", load_sat_cases),
         ("probe-copy_depth", copy_depth_cases),
         ("probe-mma_ldsm", mma_ldsm_cases),
         ("probe-spill_rw", spill_rw_cases),
