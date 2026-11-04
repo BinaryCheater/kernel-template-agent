@@ -1,0 +1,8 @@
+{
+  "upstream": "https://github.com/NVIDIA/Fuser",
+  "revision": "5198f114e54ed87563533d8ff3a47bd4d872e739",
+  "tree": "/Users/dingyi/kta-data/dev/operator-sources/NVIDIA/Fuser/5198f114e54ed87563533d8ff3a47bd4d872e739/source-5198f114e54ed87563533d8ff3a47bd4d872e739",
+  "archive": "/Users/dingyi/kta-data/dev/operator-sources/NVIDIA/Fuser/5198f114e54ed87563533d8ff3a47bd4d872e739/worker-d-source.tar.gz",
+  "scope": "Full superproject archive; submodule contents not materialized",
+  "license": "BSD-3-Clause (retained runtime/license files)"
+}

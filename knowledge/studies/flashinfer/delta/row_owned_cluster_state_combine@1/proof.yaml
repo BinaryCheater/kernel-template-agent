@@ -1,0 +1,30 @@
+template: row_owned_cluster_state_combine@1
+version: 1
+relation: Concatenate the three disjoint row ranges; each row equals the common-reference normalized sum
+  of all original raw numerator/mass partials exactly once under the admitted numeric policy.
+rank: Remaining owned row features and peer contributions.
+assumes:
+- name: partition
+  statement: The three peer key domains cover each row support once.
+- name: representation
+  statement: Each u is raw numerator in its m/d frame, with finite zero empty payloads.
+- name: mapping
+  statement: Remote packing and unique final row/feature ownership preserve coordinates.
+- name: publication
+  statement: Both producer retirement/publication and remote-reader retirement joins are valid.
+guarantees: []
+models: []
+note: Owner intervals [0,2),[2,5),[5,8) are disjoint and cover eight rows. With M=max_s m_s and a_s=exp2(m_s-M)
+  for positive-mass states, weighted raw merge is sum_s(a_s*u_s)/sum_s(a_s*d_s). This is the normalized
+  original concatenated key reduction; zero mass skips undefined reference subtraction and all-empty outputs
+  are zero. Local owned rows retain registers while both peers publish those rows, so each owner reads
+  its own plus two remote same-coordinate terms. Source mla_swa_sm90/device/mailbox.cuh:1-132 implements
+  the M8S3 row mailbox, first cluster join, common-frame weights, unique owner writes and terminal cluster
+  join. device/memory.cuh:110-115 maps a slice to 512 FP32 words via row and row-lane coordinates. smem_partial_combine@1
+  only combines warps inside one CTA and offers one_warp/all_threads result placement; it cannot express
+  distributed row ownership and DSM peer lifetime. split_combine_kernel@1 uses a separate kernel, not
+  resident peer addresses and cluster joins. replicated_partial_reduce@1 publishes replicated scalar tables
+  for peer-local folds; it has neither raw attention vector state nor disjoint final row owners. The logical
+  witness checks all row-packed coordinates, uneven ownership, raw/normalized representation distinction
+  and empty peer cases. Native fragment layouts, DSM address mapping, cluster synchronization semantics
+  and launch/resource legality remain device obligations.

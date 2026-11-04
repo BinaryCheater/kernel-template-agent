@@ -1,0 +1,14 @@
+workload: "Partial SM90 FP8 numerical chain for one valid grouped output, K=256 with multiplicative per-128 scales; scheduling and metadata layout are external premises."
+items:
+  - key: raw_partials
+    template: reduction_partition@1
+    applies_to: Unscaled code-product reduction for one valid output of one group.
+    bindings: {num_groups: 2, group_size: 128, assignment: contiguous_sequential}
+    after: []
+    code_markers: []
+  - key: scaled_promotions
+    template: block_scaled_partial_accumulation@1
+    applies_to: The two raw partials and their source-owned multiplicative A/B scales.
+    bindings: {partial_k: 128, gran_k_a: 128, gran_k_b: 128, gran_m: 1, gran_n: 128}
+    after: [raw_partials]
+    code_markers: []

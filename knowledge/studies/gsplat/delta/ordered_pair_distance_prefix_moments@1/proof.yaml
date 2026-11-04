@@ -1,0 +1,15 @@
+{
+  "template": "ordered_pair_distance_prefix_moments@1",
+  "version": 1,
+  "relation": "A=sum previous weights, B=sum previous w*z, D=2*sum_i<j previous w_i*w_j*(z_j-z_i), equal absolute pair distance only under nondecreasing depths.",
+  "rank": "Samples remaining.",
+  "assumes": [
+    {
+      "name": "source_contract",
+      "statement": "Sorted scalar depths, finite admitted arithmetic, no diagonal self-interval term. Source 2DGS stores last color channel as depth and uses A=1-T."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Source-derived proof outline; no formal proof result or GPU execution claimed. pair_expansion: At prefix j, D equals twice sum_i<k<=j w_i*w_k*(z_k-z_i); A,B are prefix moments. ordering: Without sorted evaluated depth, signed subtraction cannot replace absolute difference."
+}

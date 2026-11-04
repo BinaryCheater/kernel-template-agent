@@ -1,0 +1,43 @@
+template: mass_rank_radix_boundary@1
+version: 1
+relation: Sort the original nonnegative values descending, find the first cumulative mass>=p*W, take its
+  value tau, and retain every original occurrence with value>=tau. Erasing radix digits and optional compact
+  transport recovers this same threshold-cohort normalization.
+rank: Unresolved sortable key bits.
+assumes:
+- name: pre_values
+  statement: Values are finite nonnegative masses; total W>0 and requested fraction0<p<=1 define target
+    mass p*W, which stays positive finite.
+- name: pre_keys
+  statement: A fixed16/32-bit sortable encoding orders positive values descending and groups equal values;
+    zeros cannot replace a positive crossing and nonfinite values are excluded. The selected key width
+    has an implemented native binding; source registration uses FP32 only.
+- name: pre_partition
+  statement: Every occurrence matching the accumulated key prefix contributes once to its digit mass and
+    companion count, preserving repeated values.
+- name: pre_mass
+  statement: The declared exact or admitted finite-precision sums and residual target subtraction choose
+    the same requested first cumulative>= crossing; deterministic storage alone does not prove this.
+- name: pre_capacity
+  statement: An optional compact table is used only after its complete incoming prefix count fits the
+    buffer; otherwise rescan original input. Never truncate an overflowing active prefix.
+- name: pre_cache
+  statement: Compact buffers contain every incoming-prefix occurrence, including duplicates, and publish
+    before later passes. Physical order may vary because the final apply pass rereads original coordinates.
+- name: pre_lifetime
+  statement: Each pass reads a complete current histogram/count table, with reset, producer completion
+    and pass/kernel ordering; original data/metadata remain immutable through final apply.
+- name: pre_apply
+  statement: Final output keeps every original value>=threshold and divides by the complete retained mass
+    under the admitted cast policy. Source fallback at retained mass<=1e-8 is outside this normalized
+    binding.
+guarantees: []
+models: []
+note: include/flashinfer/air_top_p.cuh:78-108 derives11-bit shifts/masks and descending CUB twiddle; :229-282
+  builds per-prefix mass/count histograms with guarded compact output; :284-405 chooses first cumulative>=
+  crossing and updates residual mass/prefix/count in the last producer CTA; :434-455 applies inclusive
+  value threshold and normalizes only above retained-mass floor1e-8; :493-528 sequences initialization,
+  passes and final apply. radix_boundary_topk@1 uses count ranks and tied-ID cuts, which cannot supply
+  this weighted crossing/whole-cohort contract. Logical checks compare both16/32-bit schedules and capacity
+  fallback against exact sorted mass references. Deterministic mantissa reconstruction, producer visibility
+  and native mass-boundary rounding remain separate obligations.

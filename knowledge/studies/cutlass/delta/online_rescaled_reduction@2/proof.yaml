@@ -1,0 +1,22 @@
+template: online_rescaled_reduction@2
+version: 1
+relation: Removing the common exponential reference and positive gain recovers every retained contribution and its normalized weighted sum.
+rank: Remaining tiles in the complete disjoint partition.
+assumes:
+  - {name: domain, statement: References and weights are finite in the admitted arithmetic range and the final denominator is positive finite.}
+  - {name: partition, statement: Every unmasked logical term appears exactly once; no nonidentity term is dropped.}
+  - {name: frame, statement: A fixed gain and the same reference apply to numerator and all denominator terms including sinks.}
+  - {name: implementation, statement: Native correction order and conversions implement the stated framed recurrence within the declared numerical policy.}
+guarantees: []
+models: []
+note: >-
+  Initially L=O=0. If L=G*sum(exp(x-r)), multiplying by exp(r-r_new)
+  gives G*sum(exp(x-r_new)); the same distributive identity holds for O.
+  Adding the new tile preserves the invariant for any admitted finite r_new,
+  including a lagged reference. Denominator-only a adds G*exp(a-r).
+  O/L cancels G and exp(-r). log(L)+r-log(G) recovers natural logsumexp.
+  Retained-expression and bounded scalar checks cover lag decisions, packed-sum
+  half/duplicate arithmetic, positive-gain cancellation and the missing-sink-gain
+  counterexample. Version1 projection and domain changes are recorded separately.
+  Native TMEM scheduling, packed arithmetic/casts, approximation error, all-masked
+  final policy and range remain open; no ProofSummary or GPU assurance is claimed.

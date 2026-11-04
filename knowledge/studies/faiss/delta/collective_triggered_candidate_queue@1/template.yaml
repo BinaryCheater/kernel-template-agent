@@ -1,0 +1,109 @@
+{
+  "name": "collective_triggered_candidate_queue",
+  "version": 1,
+  "level_from": 2,
+  "level_to": 3,
+  "change": "vertical",
+  "refines": "map",
+  "produces": [
+    "map",
+    "access"
+  ],
+  "object": {
+    "type": "collective_triggered_candidate_queue",
+    "description": "When streaming top-k candidates arrive per lane, buffer improvements locally and merge a whole warp whenever any lane fills its queue."
+  },
+  "variables": [
+    {
+      "name": "local_capacity",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": [
+        2,
+        3,
+        4,
+        8
+      ],
+      "meaning": "Compiled per-lane staging capacities observed in the float selector menu."
+    },
+    {
+      "name": "retained_capacity",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": [
+        32,
+        64,
+        128,
+        256,
+        512,
+        1024,
+        2048
+      ],
+      "meaning": "Power-of-two retained warp queue capacity; requested k must fit."
+    }
+  ],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_0",
+      "expr": "p.k > 0 and p.k <= retained_capacity",
+      "meaning": "Retained queue contains at least requested k slots.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_1",
+      "expr": "p.full_warp_participation and p.padding_never_wins",
+      "meaning": "Every lane participates in votes/merges, invalid entries never win.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_2",
+      "expr": "p.finite_scores and p.tie_policy_compatible",
+      "meaning": "Comparators implement requested direction and tie contract; finite input excludes NaN ambiguity.",
+      "cls": "semantic"
+    }
+  ],
+  "program": {
+    "description": "Initialize local and retained queues with losing sentinels. Admit a candidate only if it beats the retained kth threshold. After each lane input, vote whether any local queue has reached local_capacity; if so sort all local queues, merge them with the sorted retained queue and keep retained_capacity winners, clear every local queue, and refresh the kth threshold. Flush pending candidates at end. Block selection additionally synchronizes all warps and merges their sorted queues."
+  },
+  "backward_map": "Erase auxiliary organization and recover the visible results under the stated contract.",
+  "obligations": [
+    {
+      "name": "no_overflow",
+      "statement": "Vote and merge happen before another append to any full lane queue.",
+      "method": "proof"
+    },
+    {
+      "name": "discard_safe",
+      "statement": "Rejected candidates cannot displace the k retained winners under the comparator.",
+      "method": "proof"
+    },
+    {
+      "name": "collective_complete",
+      "statement": "Every admitted candidate participates in the next merge and final flush; full warp participation is maintained even for input tails.",
+      "method": "proof"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.k > 0 and p.k <= retained_capacity and p.full_warp_participation and p.padding_never_wins and p.finite_scores and p.tie_policy_compatible",
+    "text": "NVIDIA CUDA warp size 32; source float WarpSelect menu. k=1 is a separate direct reduction. Default Comparator ignores candidate IDs on equal keys; deterministic tie selection requires a compatible comparator and padding discipline. Resource effects: Per-lane local_capacity key/value registers plus retained_capacity pairs per warp; warp path keeps retained queue in registers, block path in shared memory. More capacity trades less frequent merging for more live storage."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "When streaming top-k candidates arrive per lane, buffer improvements locally and merge a whole warp whenever any lane fills its queue.",
+    "storage": "Per-lane local_capacity key/value registers plus retained_capacity pairs per warp; warp path keeps retained queue in registers, block path in shared memory. More capacity trades less frequent merging for more live storage.",
+    "boundary": "For k=33 choose retained_capacity=64, local_capacity=3. If lane 7 fills its third slot, all 32 lanes merge immediately, including partially filled local queues. Calling add only on valid tail lanes violates the collective premise.",
+    "resources": []
+  },
+  "numeric_risk": "Preserve the supplied arithmetic contract; reassociation, quantization and approximate search require separate permission.",
+  "summary": "When streaming top-k candidates arrive per lane, buffer improvements locally and merge a whole warp whenever any lane fills its queue. For k=33 choose retained_capacity=64, local_capacity=3. If lane 7 fills its third slot, all 32 lanes merge immediately, including partially filled local queues. Calling add only on valid tail lanes violates the collective premise."
+}

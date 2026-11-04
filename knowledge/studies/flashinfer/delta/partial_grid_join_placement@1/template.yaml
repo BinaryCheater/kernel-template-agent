@@ -1,0 +1,156 @@
+name: partial_grid_join_placement
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: reduce
+produces:
+- reduce
+- sync
+- store
+object:
+  type: exclusive_partial_grid_completion_boundary
+  description: Choose whether exclusive partials are joined and reduced inside a cooperative grid or by
+    a following kernel, keeping grid-dependent partition and live-row identity explicit.
+variables:
+- name: join_site
+  kind: structure
+  binding: compile
+  role: software
+  domain:
+  - cooperative_grid
+  - following_kernel
+  meaning: Use an all-resident cooperative producer grid with an in-kernel join/reducer, or an ordinary
+    producer followed by a completion-ordered reducer kernel.
+- name: reserved_sms
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 0
+    hi: 1024
+  meaning: Subtract this many SM-equivalent CTA budgets from the main grid. Source records bind0 for cooperative
+    and1 for following-kernel mode. This does not reserve or select physical SM IDs.
+constraints:
+- id: c_grid
+  expr: reserved_sms < p.sm_count and p.ctas_per_sm >= 1 and p.channel_tiles >= 1
+  meaning: Grid count remains positive and selected kernel supports a positive co-resident CTA budget.
+  cls: implementation
+preconditions:
+- id: pre_partition
+  expr: p.main_grid_channel_tile_and_token_partition_explicit
+  meaning: For each channel tile, CTA b owns tile b mod T and partial row floor(b/T). Its actual producer
+    count is G_t=ceil((B-t)/T), not the global row capacity ceil(B/T). Token substreams use that tile-specific
+    count and cover each live output/reduction term once.
+  cls: semantic
+- id: pre_slots
+  expr: p.exclusive_fp32_partial_slots_written_including_empty_stream_identities
+  meaning: Every existing CTA/channel/tap partial has one writer and is fully stored before the join.
+    Empty token streams publish zero. Nonexistent CTA rows for a channel tile are capacity holes and never
+    read.
+  cls: implementation
+- id: pre_cooperative
+  expr: join_site != 'cooperative_grid' or p.cooperative_launch_and_whole_grid_residency_contract_supported
+  meaning: In-kernel global join is a real cooperative launch supported by the selected kernel/resource
+    configuration and grid size. All CTAs execute the grid join, including those with no live token work.
+    Ordinary oversubscribed grids cannot emulate it with a spinning barrier.
+  cls: implementation
+- id: pre_separate
+  expr: join_site != 'following_kernel' or p.reducer_joins_actual_predecessor_completion_before_partial_reads
+  meaning: A later reducer uses ordinary completion order or a supported programmatic dependent-launch
+    wait before any partial read. Early launch scheduling release alone is not payload visibility. The
+    ordinary producer contains no whole-grid wait.
+  cls: implementation
+- id: pre_geometry
+  expr: p.grid_budget_channel_coverage_and_workspace_capacity_consistent
+  meaning: Grid B is positive and covers every channel tile; source computes B=ctas_per_sm*(SM_count-reserved_sms).
+    This is a CTA-count budget, not physical SM affinity or guaranteed stream overlap. Producer, reducer,
+    workspace and main_ctas agree on the actual B.
+  cls: implementation
+- id: pre_numeric
+  expr: p.partial_inner_order_and_lane_strided_fixed_merge_tree_admitted
+  meaning: Native rows merge per lane r=lane+32*k in ascending k, then a fixed halving16/8/4/2/1 tree.
+    Each launch geometry has its own deterministic token partition/partial order. Moving the join while
+    changing B does not promise identical floating-point bits.
+  cls: implementation
+- id: pre_lifetime
+  expr: p.partial_storage_generation_and_unique_final_reducer_valid
+  meaning: Partial buffers retain their allocation/generation through all reducer reads. Final channel/tap
+    elements have one owner, following computation reads only completed final gradients, and buffers are
+    not concurrently recycled.
+  cls: implementation
+- id: pre_backend
+  expr: p.selected_target_launch_record_and_partial_reducer_implemented
+  meaning: Source deterministic KCP depthwise-convolution backward on SM100/103/107, FP32 four-tap rank-local
+    gradients. Selected fallback/st8 resources, channel plan and launch attributes are actually supported;
+    graph/capture restrictions and collective readiness remain separate.
+  cls: implementation
+program:
+  description: Derive actual main grid B=ctas_per_sm*(SM_count-reserved_sms). CTA b owns channel tile
+    t=b mod T and row rank=floor(b/T). Tile t has G_t=ceil((B-t)/T) existing producers; allocate ceil(B/T)
+    capacity rows but only read rows0..G_t-1 for its channels. Partition token work with that G_t and
+    the configured substreams, accumulate FP32 local partials and publish every existing partial, with
+    zero for empty streams. With cooperative_grid, every CTA joins the cooperative grid barrier before
+    the unique final channel/tap reducers read partials in the same kernel. With following_kernel, ordinary
+    producers never wait for other unscheduled CTAs; a later reducer joins whole-producer completion before
+    reads. A supported dependent launch may schedule its independent prologue early but does not remove
+    the completion wait. Reduce live rows by the declared lane-strided FP32 sums and halving tree. Treat
+    a changed B as a changed numerical partition, even if the final mathematical sum is the same. Keep
+    scratch until the final reducer completes and publish final gradients before consumers.
+backward_map: Forget partial ownership and the chosen completion boundary after expanding every live partial
+  into its unique token terms. Both organizations recover the complete reduction under their admitted
+  finite-precision partition; holes are not terms and early scheduling is not an arrival.
+obligations:
+- name: partition_and_holes
+  statement: Producer geometry covers each reduction term once; final reducers read all and only written
+    tile-specific partial rows.
+  method: test
+- name: global_join
+  statement: Every reducer read follows a valid cooperative whole-grid join or actual preceding-grid completion,
+    with supported producer progress.
+  method: proof
+- name: numeric_partition
+  statement: Within each actual grid geometry, inner partial order and final lane/tree order are fixed;
+    cross-geometry comparisons respect their separate rounding contract.
+  method: test
+- name: last_reader
+  statement: Partial and final output generations stay owned until their complete readers finish.
+  method: test
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: (reserved_sms < p.sm_count and p.ctas_per_sm >= 1 and p.channel_tiles >= 1) and (p.main_grid_channel_tile_and_token_partition_explicit)
+    and (p.exclusive_fp32_partial_slots_written_including_empty_stream_identities) and (join_site != 'cooperative_grid'
+    or p.cooperative_launch_and_whole_grid_residency_contract_supported) and (join_site != 'following_kernel'
+    or p.reducer_joins_actual_predecessor_completion_before_partial_reads) and (p.grid_budget_channel_coverage_and_workspace_capacity_consistent)
+    and (p.partial_inner_order_and_lane_strided_fixed_merge_tree_admitted) and (p.partial_storage_generation_and_unique_final_reducer_valid)
+    and (p.selected_target_launch_record_and_partial_reducer_implemented)
+  text: FlashInfer Cake deterministic KCP width4 depthwise-convolution backward, BF16 activation/dx and
+    FP32 rank-local dweight. Native cooperative record uses B=2 or3 CTAs per SM with reserved_sms0; separate-launch
+    record uses the same per-SM resource menu and reserved_sms1, with PDL-enabled reduce binding. Fallback
+    versus st8 changes resource and partition details but not the completion choice. This rule does not
+    provide a cross-rank allreduce, claim guaranteed overlap, or permit a hand-built global barrier on
+    an ordinary oversubscribed grid.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Exclusive partial reduction with an explicit in-grid cooperative or following-kernel completion
+    boundary.
+  storage: Padded FP32 partial rows indexed by CTA/channel tile, with tile-specific live row counts and
+    final unique reduction ownership.
+  boundary: Actual grid geometry, cooperative residency/progress, dependent-launch completion and fixed
+    numerical partition.
+  resources:
+  - dram
+  - shared
+  - registers
+  - cta
+numeric_risk: Changing grid size changes token stream bounds and partial association; two reproducible
+  forms can produce different dweight bits. Reading capacity holes or treating PDL scheduling release
+  as completion gives incorrect results.
+summary: When a kernel produces independent FP32 partials, choose a cooperative in-kernel join or a following
+  completion-ordered reducer. Couple the choice to the actual CTA budget, tile-specific live partial rows
+  and fixed reduction tree; changing the grid is a numerical partition change.

@@ -1,0 +1,73 @@
+name: precompute_transfer_descriptors
+version: 1
+level_from: 5
+level_to: 6
+change: vertical
+refines: transfer
+produces: [transfer, store, sync]
+object:
+  type: immutable_problem_descriptor_table
+  description: A separate setup kernel materializes transfer descriptors indexed by problem key; all consuming workers share an immutable table for the invocation.
+variables:
+  - {name: descriptors_per_problem, kind: numeric, binding: compile, role: boundary, domain: {lo: 1, hi: 5}, meaning: Number of selected transfer descriptors stored for each problem key.}
+constraints:
+  - {id: c_extent, expr: "p.problems >= 1 and p.descriptor_bytes == 128 and p.table_fits_allocation", meaning: The selected source uses a nonempty problem table and aligned128-byte slots with sufficient allocation., cls: implementation}
+  - {id: c_tuple, expr: "descriptors_per_problem == p.selected_tuple_size and p.descriptor_layouts_legal", meaning: Materialized fields and rank/layout support every selected transfer., cls: implementation}
+preconditions:
+  - {id: pre_metadata, expr: "p.metadata_available_before_setup and p.metadata_immutable_through_use", meaning: Every address/extent/stride and selected key remains fixed from setup through last use., cls: semantic}
+  - {id: pre_ownership, expr: "p.setup_writers_disjoint and p.previous_invocation_readers_retired", meaning: Each table slot has one setup owner and storage is not reused while old readers remain., cls: semantic}
+  - {id: pre_publication, expr: "p.setup_completed_before_consumers and p.descriptor_proxy_visibility_supported", meaning: Setup completion and the backend's required descriptor visibility precede the first transfer., cls: implementation}
+  - {id: pre_coordinates, expr: "p.consumer_uses_matching_key_and_coordinates", meaning: Descriptor-relative coordinates must not reapply the base offset already encoded by setup., cls: semantic}
+program:
+  description: >-
+    Allocate problems times descriptors_per_problem aligned descriptor slots.
+    Launch one setup kernel before consumers, with disjoint problem-key writers.
+    Construct each selected descriptor from that key's full address/extent/stride
+    metadata and store it at128*(key*descriptors_per_problem+slot). Establish setup
+    completion and required descriptor proxy visibility before transfers begin.
+    Consumers select the immutable tuple by key and use coordinates relative to
+    its encoded base. Leave other operands on their unchanged global descriptors.
+    Keep this table immutable until all consumer transfers finish, and retire the
+    previous invocation before rebuilding it. No runtime key cache or per-worker
+    descriptor mutation is introduced.
+backward_map: Replace table lookup by the same descriptor freshly constructed from the immutable metadata at each transfer use.
+obligations:
+  - {name: table_injective, statement: Every selected key/slot owns a unique aligned address inside allocation., method: exhaustive}
+  - {name: coordinate_identity, statement: Every transfer uses the intended problem address and bounds with each base offset applied exactly once., method: test}
+  - {name: publication_lifetime, statement: All table fields are visible before first use and remain immutable through last use including across invocation reuse., method: test}
+effects:
+  transactions:
+    - {id: setup, pattern: launch, kind: kernel_launch, count: "1", note: One setup launch per table construction; no latency claim.}
+  storage:
+    - {id: descriptor_table, level: gmem, scope: device, bytes: "p.problems * descriptors_per_problem * p.descriptor_bytes", note: Shared immutable table; storage scales with problems rather than persistent workers.}
+  overlap: []
+scope:
+  predicate: "p.table_fits_allocation and p.descriptor_layouts_legal and p.metadata_available_before_setup and p.metadata_immutable_through_use and p.setup_writers_disjoint and p.previous_invocation_readers_retired and p.setup_completed_before_consumers and p.descriptor_proxy_visibility_supported and p.consumer_uses_matching_key_and_coordinates"
+  text: >-
+    Separate device setup for immutable per-problem transfer descriptors in128-byte
+    slots. The dense MoE source builds one C descriptor per forward expert or two
+    AB descriptors per backward expert; unchanged operands keep global descriptors.
+    Repeated keys share the table without rebinding. Zero extents require backend
+    support or a skipped unused slot. The selected source CLI forces setup on;
+    its unsupported fused/inline route cannot satisfy setup completion. Other
+    descriptor formats, live metadata mutation or overlapping table rebuilds need
+    another binding or variant. Native construction/proxy semantics remain open.
+requires: []
+probed_on: []
+relations:
+  - {type: alternative_of, target: rebind_transfer_descriptors, note: Immutable key-indexed storage trades problem-scaled table/setup for per-worker mutable generations.}
+signature:
+  algorithm: Materialize immutable transfer descriptors by problem key before persistent consumption.
+  storage: Problem-scaled global descriptor table.
+  boundary: Setup visibility, invocation reuse and applying encoded offsets once.
+  resources: [gmem, launch, issue]
+numeric_risk: Metadata refinement only; wrong keys or double offsets change values and group boundaries.
+summary: >-
+  When many workers reuse transfer metadata for a finite set of problems known
+  before execution, consider a separate setup kernel and immutable descriptor table.
+  Store each key/slot once, publish before consumers and keep it live until all
+  transfers finish. Forward MoE uses one C slot per expert; backward uses AB slots.
+  Descriptor-relative coordinates must not add the encoded token offset again.
+  This differs from rebinding private worker slots: setup costs one launch and
+  global storage grows with problems. Native zero-extent and descriptor proxy
+  visibility still need a supported backend binding.

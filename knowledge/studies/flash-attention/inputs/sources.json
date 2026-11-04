@@ -1,0 +1,9 @@
+{
+  "upstream": "https://github.com/Dao-AILab/flash-attention",
+  "revision": "1dc8232fe209e2c48b1d3e677f26d68e4b856212",
+  "archive_url": "https://codeload.github.com/Dao-AILab/flash-attention/tar.gz/1dc8232fe209e2c48b1d3e677f26d68e4b856212",
+  "archive": "/Users/dingyi/kta-data/dev/operator-sources/Dao-AILab/flash-attention/1dc8232fe209e2c48b1d3e677f26d68e4b856212/source.tar.gz",
+  "archive_sha256": "0f3730d97115fe1718fdd9790160964a9f2e70b28907c30450173362be2bf525",
+  "tree": "/Users/dingyi/kta-data/dev/operator-sources/Dao-AILab/flash-attention/1dc8232fe209e2c48b1d3e677f26d68e4b856212/flash-attention-1dc8232fe209e2c48b1d3e677f26d68e4b856212",
+  "scope": "Full pinned top-level archive. NVIDIA library paths, including auxiliary CUDA extensions; ROCm backends excluded. External CUTLASS/Composable Kernel/aiter submodules not materialized. CUTLASS library study remains user-paused."
+}

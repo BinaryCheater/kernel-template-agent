@@ -1,0 +1,23 @@
+template: transpose_attention_chain@1
+version: 1
+relation: The token-major transposed chain computes the same logical per-head attention result under the admitted numerical/layout contract.
+rank: Remaining logical score entries, normalized head columns and output entries.
+assumes:
+  - {name: shared_kv, statement: "Every grouped query head has one query vector and the same K/V sequence."}
+  - {name: axes, statement: "Logical head/token coordinates, token-domain masks and metadata are mapped consistently through the transpose."}
+  - {name: realization, statement: "Backend layout, padding, casts and contraction association implement the admitted operator."}
+guarantees: []
+models: []
+note: >-
+  At each token/head pair St[t,h]=sum_d K[t,d]*Q[h,d]=S[h,t] in real arithmetic.
+  Normalizing column h over t therefore gives Pt[t,h]=P[h,t]. Then
+  Ot[dv,h]=sum_t V[t,dv]*Pt[t,h]=O[h,dv]. A separating witness uses score
+  columns[0,ln2,ln4] and[ln2,0,ln4], with V=[1,3,5]: results are27/7 and25/7.
+  Row-normalizing St would instead mix query heads and fails this witness.
+  Source flash_attn/cute/flash_fwd_decode_sm100.py:1-11 gives the transposed
+  contract, :249-257 bounds the head/token menus, :348-410 constructs QK/PV
+  orientation and staging, and :1574-1613 writes per-head split statistics.
+  Existing tensor_axis_permutation@1 only permutes a rank-three access descriptor
+  and cannot express the paired contractions plus changed physical normalization
+  axis. Native shuffle/TMEM layouts, split combining and numerics remain separate
+  obligations. The witness is an algebraic substitution, not a native kernel run.

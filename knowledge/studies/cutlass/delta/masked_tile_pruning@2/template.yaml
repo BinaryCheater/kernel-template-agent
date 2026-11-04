@@ -1,0 +1,72 @@
+name: masked_tile_pruning
+version: 2
+level_from: 3
+level_to: 4
+change: restriction
+refines: reduce
+produces: [reduce, map]
+object:
+  type: tile_mask_class
+  description: A kept tile interval is partitioned into leading masked tiles, an unmasked core and trailing masked tiles with exact identity-only omissions outside it.
+variables:
+  - {name: masking, kind: structure, binding: compile, role: software, domain: [mask_all_kept, peel_boundaries], meaning: Apply the exact element mask to every kept tile or omit mask instructions only for the certified unmasked core.}
+  - {name: traversal, kind: structure, binding: compile, role: software, domain: [ascending, descending], meaning: Visit the same classified interval in either admitted reduction order; source FMHA selects ascending.}
+constraints:
+  - {id: c_counts, expr: "p.total_tiles >= 0 and p.start >= 0 and p.leading >= 0 and p.core >= 0 and p.trailing >= 0 and p.end == p.start + p.leading + p.core + p.trailing and p.end <= p.total_tiles", meaning: Nonnegative normalized segment counts partition one bounded kept interval., cls: semantic}
+  - {id: c_empty, expr: "p.end > p.start or p.empty_interval_result_defined", meaning: Omitting every tile requires an explicit empty-reduction result and compatible downstream handling., cls: semantic}
+preconditions:
+  - {id: pre_partition, expr: "p.tile_partition_exact and p.counts_integral_and_representable and p.mask_metadata_stable", meaning: Tile indices are a complete exact partition and the geometry-derived boundaries fit the implementation., cls: implementation}
+  - {id: pre_skip, expr: "p.mask_value_is_identity and p.outside_interval_all_identity", meaning: Every skipped element for every visible output row is a reduction identity., cls: semantic}
+  - {id: pre_mask, expr: "p.element_mask_exact and p.padded_output_rows_unobserved", meaning: Masked-loop code applies the complete predicate including residual bounds; padded output rows are never observed., cls: semantic}
+  - {id: pre_core, expr: "masking == 'mask_all_kept' or p.core_all_visible_elements_valid", meaning: Omitting mask code in the core requires every element of every visible row to be valid., cls: semantic}
+  - {id: pre_order, expr: "p.traversal_numerically_admitted and p.empty_interval_policy_admitted and p.loop_and_producer_ranges_match", meaning: Reduction order and empty intervals are admitted and all producer/consumer roles visit matching work., cls: implementation}
+program:
+  description: >-
+    Obtain normalized metadata from the workload mask and selected tile shape:
+    total_tiles, start, leading, core, trailing and end=start+leading+core+trailing.
+    Mask kind/alignment/window/sequence lengths are workload metadata, not an
+    optimizer's freedom to change the operator. Omit [0,start) and [end,total_tiles)
+    only after certifying every omitted element is identity for every visible row.
+    Classify [start,start+leading) and [end-trailing,end) as masked edges and the
+    intervening core as unmasked. For mask_all_kept apply the exact element mask
+    throughout [start,end); for peel_boundaries apply it only on the two edges.
+    Ascending traversal visits left edge/core/right edge; descending visits right
+    edge/core/left edge, each with reversed tile order. Zero-length segments issue
+    no iterations. For an empty kept interval produce the explicitly admitted
+    identity/consumer policy. Negative raw helper counts are rejected; this rule
+    does not silently clamp or reinterpret them.
+backward_map: Reinsert omitted all-identity tiles and exact element masks in the certified core; under the admitted traversal policy the reduction has the same visible result.
+obligations:
+  - {name: segment_partition, statement: The three normalized segments are disjoint and cover exactly the kept interval in either traversal., method: exhaustive}
+  - {name: skipped_fully_masked, statement: Every omitted tile is identity-only for every visible row., method: exhaustive}
+  - {name: unmasked_really_unmasked, statement: Every core element of every visible row is valid whenever mask instructions are omitted., method: exhaustive}
+  - {name: mask_applied, statement: The chosen element-mask backend sets exactly invalid elements to the identity including physical tail coordinates., method: test}
+  - {name: role_and_empty_consistency, statement: Producers and consumers agree on kept ranges and an empty interval has the declared initialized result and downstream policy., method: test}
+effects: {transactions: [], storage: [], overlap: []}
+scope:
+  predicate: "p.tile_partition_exact and p.counts_integral_and_representable and p.mask_metadata_stable and p.mask_value_is_identity and p.outside_interval_all_identity and p.element_mask_exact and p.padded_output_rows_unobserved and (masking == 'mask_all_kept' or p.core_all_visible_elements_valid) and p.traversal_numerically_admitted and p.empty_interval_policy_admitted and p.loop_and_producer_ranges_match"
+  text: >-
+    Exact structural masking whose kept tile interval has at most two masked edges
+    and a certified unmasked core. Counts and mask kind are open workload metadata;
+    their classification requires its own evidence. Source FMHA uses ascending
+    leading/core/trailing loops; mask_all_kept and descending are algebraic choices,
+    not compiled variants claimed here. Raw negative counts and unproved empty
+    output policies do not bind this version. Value-dependent nonidentity pruning
+    remains a different rule with an explicit approximation certificate.
+requires: []
+probed_on: []
+relations:
+  - {type: requires, target: reduction_partition, note: The tile partition defines the exact units classified by the mask.}
+signature:
+  algorithm: Exact interval restriction with two independently masked boundaries.
+  storage: Geometry-derived segment metadata; no materialized score mask required.
+  boundary: Inclusive windows, sequence tails, empty intervals and two-edge peeling.
+  resources: [tensor, issue]
+numeric_risk: Skipping identities is exact; changing traversal or handling zero-mass downstream normalization still needs its own numerical contract.
+summary: >-
+  When a structural window leaves partially masked tiles at both ends of a reduction,
+  classify a bounded kept interval into leading/core/trailing segments. Keep mask
+  geometry fixed by the workload, and choose whether to peel the certified core or
+  mask every kept tile. Require identity-only omissions and exact masks at both
+  edges; negative counts, mismatched producers or undefined empty results reject
+  the binding. This extends the old single-edge fields without changing version1.

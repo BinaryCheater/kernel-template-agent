@@ -1,0 +1,96 @@
+{
+  "name": "occlusion_bounded_neighbor_pruning",
+  "version": 1,
+  "level_from": 2,
+  "level_to": 3,
+  "change": "vertical",
+  "refines": "map",
+  "produces": [
+    "map",
+    "access"
+  ],
+  "object": {
+    "type": "occlusion_bounded_neighbor_pruning",
+    "description": "When graph degree must be bounded while retaining diverse routes, greedily accept ranked neighbors and suppress later candidates whose query distance is dominated by proximity to an accepted neighbor."
+  },
+  "variables": [
+    {
+      "name": "max_degree",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": {
+        "lo": 1,
+        "hi": 65536
+      },
+      "meaning": "Output graph degree cap; algorithm quality parameter, not a free exact-kNN optimization."
+    }
+  ],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_0",
+      "expr": "p.candidates_ranked_and_ids_valid and p.distances_compatible",
+      "meaning": "Candidate/query and candidate/candidate distances share the declared metric and numerical convention.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_1",
+      "expr": "p.alpha_schedule_defined and p.approximate_graph_contract",
+      "meaning": "Caller chooses alpha schedule and admits heuristic route diversity rather than exact closest-degree neighbors.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_2",
+      "expr": "p.collective_acceptance_uniform and p.storage_capacity_sufficient",
+      "meaning": "CTA agrees on acceptance and synchronizes candidate-coordinate loads and occlusion updates.",
+      "cls": "semantic"
+    }
+  ],
+  "program": {
+    "description": "Merge search-visited candidates with existing neighbors, preserving the chosen sorted/deduplicated candidate contract. Track an occlusion value per candidate. Walk candidates in rank order; accept a nonself candidate when its occlusion does not exceed current alpha and degree cap is not reached. Mark accepted entries and update later candidate occlusion to max(old,query_distance/candidate_distance) using the accepted neighbor. Repeat the declared increasing alpha schedule if needed, compact accepted entries and pad unused output slots with invalid IDs."
+  },
+  "backward_map": "Erase auxiliary organization and recover the visible results under the stated contract.",
+  "obligations": [
+    {
+      "name": "ranking",
+      "statement": "Candidate merge/order/duplicate handling matches the source contract before pruning.",
+      "method": "proof"
+    },
+    {
+      "name": "occlusion",
+      "statement": "Each ratio uses the correct query-distance numerator and accepted-to-candidate denominator, with defined zero/nonfinite policy.",
+      "method": "proof"
+    },
+    {
+      "name": "cap_and_identity",
+      "statement": "At most max_degree nonself valid IDs are emitted and compaction retains exactly accepted entries.",
+      "method": "proof"
+    },
+    {
+      "name": "barriers",
+      "statement": "All candidate-coordinate readers and occlusion writers finish before reuse or next acceptance.",
+      "method": "proof"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.candidates_ranked_and_ids_valid and p.distances_compatible and p.alpha_schedule_defined and p.approximate_graph_contract and p.collective_acceptance_uniform and p.storage_capacity_sufficient",
+    "text": "NVIDIA Vamana RobustPrune. Source alpha starts1 and multiplies1.2 until requested bound; that grid is policy, not a theorem of graph quality. Zero inter-candidate distances and duplicate-coordinate IDs need explicit ratio semantics. Resource effects: Candidate-pair distance work grows with accepted neighbors times remaining candidates; cached accepted coordinates amortize reads across a pass. Reuses search distances only when numerical mapping is bit-compatible."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "When graph degree must be bounded while retaining diverse routes, greedily accept ranked neighbors and suppress later candidates whose query distance is dominated by proximity to an accepted neighbor.",
+    "storage": "Candidate-pair distance work grows with accepted neighbors times remaining candidates; cached accepted coordinates amortize reads across a pass. Reuses search distances only when numerical mapping is bit-compatible.",
+    "boundary": "A query distance10 and accepted-neighbor distance2 yield occlusion5; at alpha1 the candidate is suppressed, at alpha5 it may become eligible if degree remains. Taking reciprocal0.2 makes the opposite decision.",
+    "resources": []
+  },
+  "numeric_risk": "Preserve the supplied arithmetic contract; reassociation, quantization and approximate search require separate permission.",
+  "summary": "When graph degree must be bounded while retaining diverse routes, greedily accept ranked neighbors and suppress later candidates whose query distance is dominated by proximity to an accepted neighbor. A query distance10 and accepted-neighbor distance2 yield occlusion5; at alpha1 the candidate is suppressed, at alpha5 it may become eligible if degree remains. Taking reciprocal0.2 makes the opposite decision."
+}

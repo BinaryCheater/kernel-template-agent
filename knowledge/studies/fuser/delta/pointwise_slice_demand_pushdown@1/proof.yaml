@@ -1,0 +1,14 @@
+template: pointwise_slice_demand_pushdown@1
+version: 1
+relation: Substitute the original coordinate start+j into the unchanged scalar producer
+  DAG to recover every sliced result, leaving other consumers unchanged.
+rank: Unmapped coordinates or unretired readers.
+assumes:
+- name: binding
+  statement: Declared source layout and lifetime premises hold.
+guarantees: []
+models: []
+note: Source csrc/scheduler/resize.cpp:70-112,:397-411,:438-447. Coordinate-locality
+  proves each retained scalar DAG unchanged. Shared-use cloning preserves the old
+  domain for other consumers. operator_fusion@2 has no slice-demand field, so this
+  is an explicit separate refinement.

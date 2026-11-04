@@ -1,0 +1,15 @@
+{
+  "template": "bounded_schedule_descriptor_handoff@1",
+  "version": 1,
+  "relation": "Each ring slot is either retired or exclusively owned by its published descriptor epoch and assigned readers; release retirement occurs only after last required read.",
+  "rank": "Remaining finite schedule descriptors and worker terminal markers; scheduler progress and acyclic operation dependencies assumed.",
+  "assumes": [
+    {
+      "name": "source_contract",
+      "statement": "Source PAT scheduler/worker separation; PAT rank/dimension arithmetic must be bound and proved separately. This rule does not relabel arbitrary work stealing as correct communication."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Source-derived proof outline; no formal proof result or GPU execution claimed. publication: Acquired ready/epoch exposes all fields from exactly that descriptor generation. bounded_reuse: Scheduler cannot overwrite a descriptor while any assigned reader needs it. schedule_separation: Handoff preserves declared operation order/dependencies but does not establish correctness of the underlying rank schedule."
+}

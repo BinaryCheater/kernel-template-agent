@@ -1,0 +1,15 @@
+{
+  "template": "occupancy_bit_rank_addressing@1",
+  "version": 1,
+  "relation": "For every present position s, popcount of bits below s equals its unique packed ordinal within that tile; absent positions have no ordinal.",
+  "rank": "Tile words remaining to construct or count.",
+  "assumes": [
+    {
+      "name": "source_contract",
+      "statement": "Unique sparse coordinates; this is membership/rank, not multiplicity-preserving compaction."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Source-derived proof outline; no formal proof result or GPU execution claimed. bijection: Ascending set-bit rank is a bijection from requested positions to packed records. ownership: Masks start zero and have one tile owner; publication precedes all readers."
+}

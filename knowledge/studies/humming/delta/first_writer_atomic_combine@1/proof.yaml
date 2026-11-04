@@ -1,0 +1,20 @@
+template: first_writer_atomic_combine@1
+version: 1
+relation: Output equals the initializer plus all updates completed at each element; lock equals the negative number of unfinished nonzero partials after publication.
+rank: Unpublished initializer plus unfinished partial update-completion events.
+assumes:
+  - {name: atomic_linearization, statement: Each selected element update is atomic at the required scope and completion waits cover its output writes.}
+  - {name: fair_launch, statement: The initializer and other producers eventually execute; launch generations sharing storage do not overlap.}
+guarantees: []
+models: []
+note: >-
+  Declared outline. Initialisation: publication is ordered after the first store and sets
+  exactly partials-1 outstanding completions. Step: each atomic contribution preserves the
+  per-element sum relation; each post-completion increment decreases outstanding work.
+  Completion: the count is zero only after all contributors finish. checks/mechanisms.py
+  enumerates all nonzero-partial completion orders for 2..7 partials and two generations;
+  an increment-before-update mutation violates reuse. This bounded arithmetic witness does
+  not prove CUDA release/acquire visibility, TMA source-read completion, packed-half atomic
+  ordering or forward progress. Next evidence: source-pinned Executor GPU checks with racing
+  producers and consecutive launches, sanitizer and explicit memory-model review of
+  epilogue/pipeline.cuh:108-133 and utils/ptx/barrier.cuh:54-105. No registered proof model.

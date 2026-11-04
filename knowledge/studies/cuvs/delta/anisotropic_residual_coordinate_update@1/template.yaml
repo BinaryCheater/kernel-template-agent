@@ -1,0 +1,95 @@
+{
+  "name": "anisotropic_residual_coordinate_update",
+  "version": 1,
+  "level_from": 2,
+  "level_to": 3,
+  "change": "vertical",
+  "refines": "map",
+  "produces": [
+    "map",
+    "access"
+  ],
+  "object": {
+    "type": "anisotropic_residual_coordinate_update",
+    "description": "When quantization error parallel to a vector matters more than perpendicular error, refine one coordinate at a time while maintaining the shared residual projection."
+  },
+  "variables": [
+    {
+      "name": "max_rounds",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": [
+        10
+      ],
+      "meaning": "Observed finite coordinate-descent round cap; a search budget, not convergence guarantee."
+    }
+  ],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_0",
+      "expr": "p.nonzero_finite_vector and p.eta_defined",
+      "meaning": "Vector norm is finite positive and anisotropic weight eta is defined.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_1",
+      "expr": "p.quantized_neighbor_valid and p.residual_projection_consistent",
+      "meaning": "Proposed adjacent representable value is legal and maintained projection matches all accepted coordinate changes.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_2",
+      "expr": "p.coordinate_updates_serialized and p.numeric_policy_admitted",
+      "meaning": "Each coordinate decision sees the latest shared projection, with agreed rounding.",
+      "cls": "semantic"
+    }
+  ],
+  "program": {
+    "description": "Start from the requested low-precision representation. Let residual r=x-q, u=x/||x|| and h=r dot u. For a proposed one-coordinate change delta_r at i, compute delta_h=delta_r*u_i and delta_norm=r_new_i^2-r_old_i^2. Precompute a=delta_norm+(eta-1)*delta_h^2 and b=2*(eta-1)*delta_h. Serialize coordinates, accept exactly when a+b*h<0, update q_i and h, then broadcast h before the next coordinate. Repeat until no changes or max_rounds; retain all nonaccepted coordinates."
+  },
+  "backward_map": "Erase auxiliary organization and recover the visible results under the stated contract.",
+  "obligations": [
+    {
+      "name": "cost_delta",
+      "statement": "a+b*h equals the change of ||r||^2+(eta-1)*(r dot u)^2 under the single-coordinate proposal.",
+      "method": "proof"
+    },
+    {
+      "name": "latest_projection",
+      "statement": "Each decision uses projection after all earlier accepted proposals.",
+      "method": "proof"
+    },
+    {
+      "name": "representation",
+      "statement": "Neighbor-step direction and sign handling produce a valid adjacent requested code, including representation boundaries.",
+      "method": "proof"
+    },
+    {
+      "name": "termination",
+      "statement": "Finite cap terminates; no claim of global minimum or exact convergence.",
+      "method": "proof"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.nonzero_finite_vector and p.eta_defined and p.quantized_neighbor_valid and p.residual_projection_consistent and p.coordinate_updates_serialized and p.numeric_policy_admitted",
+    "text": "NVIDIA ScaNN noise-shaped BF16 conversion. Sequential update order is part of the heuristic; parallel acceptance from stale h changes the algorithm. Zero norms and nonfinite/representation endpoint cases require explicit handling before use. Resource effects: One scalar residual projection per warp, local proposal coefficients and O(dim) codes; avoids recomputing a full vector objective for each proposal, at cost of ordered warp broadcasts."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "When quantization error parallel to a vector matters more than perpendicular error, refine one coordinate at a time while maintaining the shared residual projection.",
+    "storage": "One scalar residual projection per warp, local proposal coefficients and O(dim) codes; avoids recomputing a full vector objective for each proposal, at cost of ordered warp broadcasts.",
+    "boundary": "eta3,h1,delta_h=-0.2,delta_norm0.1 gives delta_cost=0.1+2*0.04+4*(-0.2)*1=-0.62, so accept and set h0.8. A subsequent proposal must use0.8 rather than1.",
+    "resources": []
+  },
+  "numeric_risk": "Preserve the supplied arithmetic contract; reassociation, quantization and approximate search require separate permission.",
+  "summary": "When quantization error parallel to a vector matters more than perpendicular error, refine one coordinate at a time while maintaining the shared residual projection. eta3,h1,delta_h=-0.2,delta_norm0.1 gives delta_cost=0.1+2*0.04+4*(-0.2)*1=-0.62, so accept and set h0.8. A subsequent proposal must use0.8 rather than1."
+}

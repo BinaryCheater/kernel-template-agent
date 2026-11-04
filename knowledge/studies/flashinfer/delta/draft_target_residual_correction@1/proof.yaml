@@ -1,0 +1,47 @@
+template: draft_target_residual_correction@1
+version: 1
+relation: For one position, accepted joint mass of token i is min(Q_i,P_i); reject mass is sum_i(P_i-Q_i)_+,
+  whose correction adds(P_i-Q_i)_+, giving P_i. Apply this coupling at successive matched histories; after
+  correction continue from the target at the corrected history. The variable-length emitted block is a
+  stopping prefix of a target-law continuation, not a claim that its distribution conditioned on block
+  length is the target prefix law. Diagnostic rechecks affect counters/random-stream positions only.
+rank: Remaining consecutive draft positions before the first rejection or bonus.
+assumes:
+- name: pre_distributions
+  statement: Q_t and P_t are normalized distributions at the same history; every proposed draft token
+    was actually generated from that Q_t. A token with Q_t(token)=0 cannot be proposed under this premise.
+- name: pre_history
+  statement: At position t both rows condition on the preceding drafted prefix, which equals the emitted
+    prefix while all earlier drafts were accepted; an extra target row exists after the full draft chain.
+- name: pre_rng
+  statement: Acceptance draws and final categorical correction/bonus draws have the declared independent
+    conditional law and explicit identity. Diagnostic draws are distinct and their effect on sequential
+    RNG offsets is retained.
+- name: pre_acceptance
+  statement: Accept a draft token with probability min(1,P(token)/Q(token)), implemented without unsafe
+    division when possible. Equal distributions cannot enter a positive-probability reject branch with
+    zero correction mass; native endpoints require an explicit matching policy.
+- name: pre_residual
+  statement: At the first rejection sample R_i=max(P_i-Q_i,0)/sum_j max(P_j-Q_j,0), not from P again or
+    from Q-P. The full correction domain/mass is complete; no undefined zero-mass CDF occurs.
+- name: pre_prefix
+  statement: Emit only the accepted prefix, then one corrected token at first rejection or one P_L bonus
+    when all drafts pass; later positions remain invalid, not additional independently accepted drafts.
+- name: pre_diagnostics
+  statement: Optional source-style diagnostic count adds fresh independent acceptance rechecks for every
+    unemitted draft, including the first rejected position. It can exceed the emitted prefix; counter
+    updates retain additive/exclusive state semantics.
+- name: pre_numeric
+  statement: Native comparison/product, positive subtraction, sum and CDF endpoint policies satisfy the
+    probability/error contract; one complete output generation publishes before consumers.
+guarantees: []
+models: []
+note: 'include/flashinfer/sampling.cuh:1897-2067 initializes per-output Philox, tests strict u*draft<target,
+  stops first rejection, then resamples acceptance for the unemitted tail including that position. It
+  adds diagnostic/emitted counters, reduces relu(target-draft), substitutes zero draft for the all-accepted
+  bonus row, invokes the common CDF sampler and fills remaining slots-1. This is a different law from
+  adaptive_support_rejection@1: the proposal is corrected to another distribution instead of conditioning
+  one fixed distribution on a support. Exact-rational checks cover all small distribution pairs including
+  zeros, conditional two-step draft/target chains, correction orientation and independent diagnostic counters.
+  Source finite-u1/equal-row zero-residual path is an explicit gap; native CDF, GPU execution and endpoint
+  repair are not claimed.'

@@ -1,0 +1,21 @@
+template: chunked_decayed_outer_product_state@1
+version: 1
+relation: Chunk outputs and outgoing state equal the token recurrence under the admitted arithmetic policy.
+rank: Remaining complete chunks in sequence order.
+assumes:
+- name: scalar
+  statement: A scalar gate multiplies the entire previous state at each token; input state and sequence
+    origin are defined.
+- name: numeric
+  statement: Contraction regrouping and exponent/state conversion errors are admitted.
+guarantees: []
+models: []
+note: 'Expanding H_i gives exp(c_i)*H_in plus sum_(j<=i) exp(c_i-c_j)*k_j outer v_j. Left multiplication
+  by q_i gives the two output terms. At the final token the same expansion gives H_out, so induction over
+  chunks proves the boundary invariant. With two tokens and decays a,b, H_1=a*H_0+k_1 outer v_1 and H_2=a*b*H_0+b*k_1
+  outer v_1+k_2 outer v_2: the local lower triangle includes self terms once and incoming history is exclusive.
+  TileLang linear_attention/example_linear_attn_fwd.py:60-80 captures old h in h_shared before its update;
+  example_retention_fwd.py:55-76 inserts matching decay powers. Mamba state/scan use cumulative gates
+  and consume externally supplied prior states. Source linear widths are 64; Mamba defaults are 256. Native
+  layout, initial-state/tail implementation and numerical admission remain binding obligations; no custom
+  checker is added for this expansion.'

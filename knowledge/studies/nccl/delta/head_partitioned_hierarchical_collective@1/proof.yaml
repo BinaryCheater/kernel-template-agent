@@ -1,0 +1,15 @@
+{
+  "template": "head_partitioned_hierarchical_collective@1",
+  "version": 1,
+  "relation": "At local reduction completion each head stripe contains one contribution from its local subgroup; inter-group completion contains each subgroup once; local return copies that completed stripe without further reduction.",
+  "rank": "Finite stripe-stage dependency DAG remaining.",
+  "assumes": [
+    {
+      "name": "source_contract",
+      "statement": "Explicit local and network collective contracts; no proof of correctness for an arbitrary offload provider. NVLS is an alternative local hardware realization with its own capability guard."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Source-derived proof outline; no formal proof result or GPU execution claimed. hierarchical_partition: Local subgroups cover contributors once, and head stripes cover each output once. permutation: Both address layouts are bijections on valid channel/head pairs and every stage uses the same selected map. completion: Final post-op occurs once after cross-group reduction; notification and receive completion precede use."
+}

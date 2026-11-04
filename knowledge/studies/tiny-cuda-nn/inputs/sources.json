@@ -1,0 +1,9 @@
+{
+  "upstream": "https://github.com/NVlabs/tiny-cuda-nn",
+  "revision": "3daa6e5b8b8e0fa17971a1a20acfbb3754494b38",
+  "archive_url": "https://codeload.github.com/NVlabs/tiny-cuda-nn/tar.gz/3daa6e5b8b8e0fa17971a1a20acfbb3754494b38",
+  "archive": "/Users/dingyi/kta-data/dev/operator-sources/NVlabs/tiny-cuda-nn/3daa6e5b8b8e0fa17971a1a20acfbb3754494b38/source.tar.gz",
+  "archive_sha256": "27f23265f032ca6e3838bc4d79acb4c5b643773194df7d0203eef712a0884ea9",
+  "tree": "/Users/dingyi/kta-data/dev/operator-sources/NVlabs/tiny-cuda-nn/3daa6e5b8b8e0fa17971a1a20acfbb3754494b38/tiny-cuda-nn-3daa6e5b8b8e0fa17971a1a20acfbb3754494b38",
+  "scope": "Full pinned top-level archive; external submodules not materialized. NVIDIA designs only."
+}

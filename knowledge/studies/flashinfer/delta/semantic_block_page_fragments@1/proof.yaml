@@ -1,0 +1,39 @@
+template: semantic_block_page_fragments@1
+version: 1
+relation: For every valid fragment element k<F, decoded physical token h*P+u*F+k equals table[request,(b*B+f*F)//P]*P+(b*B+f*F)%P+k.
+  Concatenating its B/F fragments recovers the selected semantic block through the original page table.
+rank: Unprocessed logical contributions.
+assumes:
+- name: pre_fragment
+  statement: F is the derived greatest common divisor; block and page origins share the same token coordinate
+    frame.
+- name: pre_support
+  statement: Original support, current-block inclusion and per-query membership are determined before
+    storage translation; mapping does not deduplicate or invent support.
+- name: pre_map
+  statement: Every fragment uses the intended request/head and current physical page table.
+- name: pre_width
+  statement: Valid locators fit nonnegative int32 and address products cannot wrap; negative sentinel
+    stays reserved.
+- name: pre_padding
+  statement: Whole-fragment loading may read logical padding; later score masking alone cannot sanitize
+    NaN/Inf V padding.
+- name: pre_sentinel
+  statement: Invalid/tail slots cannot alias valid cache rows after decoding, head offset addition or
+    integer division.
+- name: pre_lifetime
+  statement: Precomputed and direct-view paths preserve mapping generation and publication/lifetime.
+- name: pre_consumer
+  statement: The consumer treats F as transfer extent and decodes P/F subpages per physical page; supported
+    modes may have distinct target restrictions.
+guarantees: []
+models: []
+note: Source flashinfer/attention/prims_ts/q_token_kv_block_sparse_metadata.py:150-166 derives F and validates
+  int32 extent; :1518-1560 defines materialized locator/membership output. kernels/fmha_decode/direct_sparse_metadata.py:196-249
+  resolves the same block/fragment/page mapping on demand. include/flashinfer/attention/prims_ts/q_token_kv_block_sparse_metadata.cuh:254-295
+  resolves physical fragments independently and emits membership. smem_resources.py:180-227 decodes subpage
+  locators with arithmetic shift/mask for power-of-two page ratios and guarded division otherwise. indexed_gather@1
+  transfers through an already established row/page map; it does not derive the semantic block versus
+  physical-page gcd refinement or encoded subpage contract. grouped_sparse_union_masks@1 provides shared
+  support separately. Logical checks compare both maps, non-power-of-two pages, tails, sentinel behavior
+  and int32 extent; native TMA/zero-fill and publication remain obligations.

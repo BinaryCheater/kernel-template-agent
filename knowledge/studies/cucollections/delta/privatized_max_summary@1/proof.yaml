@@ -1,0 +1,15 @@
+{
+  "template": "privatized_max_summary@1",
+  "version": 1,
+  "relation": "The pointwise max of global published state and all private pending summaries equals the summary of processed updates; after all merges global alone equals it.",
+  "rank": "Unprocessed partition items, then unmerged private registers.",
+  "assumes": [
+    {
+      "name": "source_contract",
+      "statement": "NVIDIA HLL add_if shared/global kernels. CCCL privatized_bin_accumulation@1 counts+1 and sums private counters; it cannot encode max-register flush unchanged. This rule preserves register state and does not introduce a cardinality accuracy claim."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Source-derived proof outline; no formal proof result or GPU execution claimed. summary_preservation: Each local array is the maximum of its assigned updates, and final global is their pointwise maximum. phase_lifetime: Private initialization precedes updates and merge reads follow all updates. tail_cover: Vector groups and scalar remainder cover the item domain without missing a remainder. resources: Local register bytes fit shared allocation; fallback changes placement, not sketch mapping."
+}

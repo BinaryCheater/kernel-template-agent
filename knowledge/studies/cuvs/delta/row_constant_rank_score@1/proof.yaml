@@ -1,0 +1,15 @@
+{
+  "template": "row_constant_rank_score@1",
+  "version": 1,
+  "relation": "For each query the candidate score order denotes the declared coarse ranking, and the winning score/ID pair reconstructs the reported metric under the same numeric convention.",
+  "rank": "Remaining candidate scores, then unreconstructed winner outputs.",
+  "assumes": [
+    {
+      "name": "source_contract",
+      "statement": "NVIDIA cuTile fused1NN and Faiss L2 selection. Source cuTile cosine zero norm returns1, while IVF-SQ cosine zero norm returns0; those are different contracts. Float TF32 conversion and norm generation must agree; exact algebra alone does not prove identical floating winner identities."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Source-derived proof outline; no formal proof result or GPU execution claimed. order: The score order maps to the requested metric ranking for every admitted candidate, including zero norms. numeric_boundary: Any pre/post clamp or rounding-induced ties follow the declared transformed-score contract, not an assumed equivalent stable sort of reconstructed floats. constants: Query/database norms match the same operand representation and MMA rounding policy as the dot products. reconstruction: Returned metric uses the winner original score and correct query constant exactly once."
+}

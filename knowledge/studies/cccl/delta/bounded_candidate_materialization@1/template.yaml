@@ -1,0 +1,80 @@
+name: bounded_candidate_materialization
+version: 1
+level_from: 2
+level_to: 3
+change: vertical
+refines: work_assign
+produces:
+- work_assign
+- map
+- store
+- sync
+object:
+  type: bounded_candidate_materialization
+  description: A filter pass uses compact candidate storage when it fits, otherwise
+    replays its predicate over immutable original inputs.
+variables:
+- name: capacity
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 1
+    hi: 65536
+  meaning: Maximum candidate identities held by the temporary buffer.
+constraints: []
+preconditions:
+- id: pre0
+  expr: p.original_inputs_immutable and p.active_predicate_replayable and p.original_identity_preserved
+  meaning: Original values and identities can be filtered again with exactly the current
+    prefix predicate.
+  cls: semantic
+- id: pre1
+  expr: p.buffer_exact_when_selected and p.capacity_test_uses_actual_candidate_count
+  meaning: Buffer fallback never truncates or mistakes capacity for candidate count.
+  cls: semantic
+program:
+  description: At a refinement pass maintain an active membership predicate over original
+    item identity. If the previous active count fits capacity and its compact buffer
+    is complete, scan buffered keys plus original indices. Otherwise scan original
+    input and reevaluate the same active predicate. Apply the next filter/histogram
+    only to active items. Preserve original indices when fetching values. The first
+    pass uses original inputs; later passes may switch representation without changing
+    membership.
+backward_map: Erase the selected physical input representation; every pass sees exactly
+  the active original occurrences.
+obligations:
+- name: membership_identity
+  statement: Buffered and replayed paths enumerate the same original active occurrences
+    exactly once.
+  method: proof
+- name: capacity_and_lifetime
+  statement: Only complete in-capacity buffers are read and original data remain live
+    through every replay.
+  method: test
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: (p.original_inputs_immutable and p.active_predicate_replayable and p.original_identity_preserved)
+    and (p.buffer_exact_when_selected and p.capacity_test_uses_actual_candidate_count)
+  text: Iterative selection/refinement whose active set is defined by a compact replayable
+    predicate and immutable original input. Candidate buffer capacity is a resource
+    decision, not a semantic bound on input length.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: A filter pass uses compact candidate storage when it fits, otherwise
+    replays its predicate over immutable original inputs.
+  storage: Binding-specific counters, partials or output ranges.
+  boundary: Tile prefixes and logical membership.
+  resources: []
+numeric_risk: Integer counts must not overflow; ordering/rounding policy belongs to
+  the bound operation.
+summary: When boundary candidates may exceed scratch capacity, keep original identities
+  and fall back to replaying the current prefix predicate over original input. Choose
+  capacity without discarding overflow candidates. Radix top-k may scan the original
+  array again when previous_len exceeds buffer_length; it must not process only the
+  truncated buffer.

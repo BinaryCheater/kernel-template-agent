@@ -1,0 +1,9 @@
+{
+  "upstream": "https://github.com/deepseek-ai/DeepEP",
+  "revision": "f6aa38fe06cd4a0489e7730365d4e0114970a2f3",
+  "kind": "partial Git mirror; tree inventory, blobs may require network",
+  "path": "/Users/dingyi/kta-data/dev/operator-sources/deepseek-ai/DeepEP/f6aa38fe06cd4a0489e7730365d4e0114970a2f3/tree.git",
+  "root": "/Users/dingyi/kta-data/dev/operator-sources/deepseek-ai/DeepEP/f6aa38fe06cd4a0489e7730365d4e0114970a2f3/DeepEP-f6aa38fe06cd4a0489e7730365d4e0114970a2f3",
+  "archive": "/Users/dingyi/kta-data/dev/operator-sources/deepseek-ai/DeepEP/f6aa38fe06cd4a0489e7730365d4e0114970a2f3/source.tar.gz",
+  "scope": "Complete superproject; dependency submodules absent"
+}

@@ -1,0 +1,60 @@
+name: staged_async_output_store
+version: 1
+level_from: 4
+level_to: 5
+change: vertical
+refines: store
+produces: [store, transfer, sync]
+object:
+  type: output_staging_ring
+  description: A shared-memory ring holds completed output subtiles until asynchronous copies have finished reading their source bytes.
+variables:
+  - {name: stages, kind: numeric, binding: compile, role: software, domain: {lo: 1, hi: 32}, meaning: Number of shared output slots; at most stages-1 committed copy groups may remain source-unread before the next iteration.}
+constraints:
+  - {id: c_capacity, expr: "stages * p.stage_bytes <= p.capacity_bytes", meaning: Padded shared slots fit the assigned output-staging budget., cls: resource}
+  - {id: c_backend, expr: "p.async_store_legal and p.source_read_wait_available", meaning: Backend supports the chosen shared-to-global copy and a query/wait for completed source reads., cls: implementation}
+preconditions:
+  - {id: pre_layout, expr: "p.output_tiles_disjoint and p.source_visibility_fenced", meaning: Each output subtile has a distinct destination and all source writers publish bytes before async use., cls: semantic}
+  - {id: pre_backend, expr: "p.async_store_legal and p.source_read_wait_available", meaning: Descriptor/layout and source-read completion semantics are established for the selected backend., cls: implementation, same_as: c_backend}
+  - {id: pre_observation, expr: "p.output_observed_after_write_completion", meaning: Output readers wait for actual destination-write completion; a source-read wait alone grants no output-read permission., cls: semantic}
+program:
+  description: >-
+    For output subtile u, use shared slot u mod stages. Store its final register
+    values into the slot, publish them with the required proxy fence and writer
+    synchronization, issue its shared-to-global asynchronous copy, and commit the
+    copy group. Wait until at most stages-1 committed groups remain source-unread
+    before the next subtile can overwrite a slot. After the final subtile, drain
+    all source reads before reusing/freeing shared storage. Retain a separate
+    destination-write completion dependency before any observer reads the output.
+backward_map: Replace each staged copy by the corresponding logical output store at its actual destination completion; erase shared slots while retaining pending captured-value writes and output observation order.
+obligations:
+  - {name: source_visibility, statement: Every async copy reads the finalized register-produced bytes after all shared writers have published them., method: test}
+  - {name: source_lifetime, statement: Each shared slot remains unchanged until every copy using its generation has finished reading it., method: exhaustive}
+  - {name: output_identity, statement: Every live output destination receives its intended subtile value exactly once with the original output bounds., method: exhaustive}
+  - {name: destination_visibility, statement: Output readers observe all destination writes only after a backend completion event stronger than source-read completion where required., method: unspecified}
+effects:
+  transactions: []
+  storage:
+    - {id: output_slots, level: smem, scope: cta, bytes: "stages * p.stage_bytes"}
+  overlap: []
+scope:
+  predicate: "p.output_tiles_disjoint and p.source_visibility_fenced and p.async_store_legal and p.source_read_wait_available and p.output_observed_after_write_completion"
+  text: >-
+    A finite stream of already-computed output subtiles with legal shared-to-global
+    asynchronous transfers. One copy group captures one subtile's shared bytes;
+    source-read waits retire an ordered committed prefix. Stage bytes include
+    padding/alignment. Output arithmetic, TMEM-to-register lifetime, vector-tail
+    predicates and descriptor clipping are separate refinements. Shared storage
+    is modeled here; transfer costs and latency have not been priced or measured.
+requires: []
+probed_on: []
+relations:
+  - {type: requires, target: physical_storage, note: Shared output generations survive through async source reads.}
+signature:
+  algorithm: Stage output subtiles through a shared ring and recycle slots after source-read completion.
+  storage: stages shared-memory output slots.
+  boundary: Source-read completion releases shared storage but does not establish destination visibility.
+  resources: [smem, issue]
+numeric_risk: No new arithmetic; the already-converted output values and bounds are preserved.
+summary: >-
+  When completed output values are in registers but the selected asynchronous output engine reads shared memory, consider a shared staging ring. Preserve finalized bytes through source-read completion and retain a separate destination-write completion before observation; tune stages only within storage and backend guards. The pinned TMA epilogues derive stages from their layout/budget and use one committed group per subtile; direct stores, new clipping paths or a different completion protocol need separate bindings or variants.

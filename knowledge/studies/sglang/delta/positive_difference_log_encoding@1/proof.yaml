@@ -1,0 +1,15 @@
+{
+  "template": "positive_difference_log_encoding@1",
+  "version": 1,
+  "relation": "Decode a linear record directly or exp(log_r), with exp(-inf)=0; each logical value is max(P-Q,0) under its admitted numerical recipe.",
+  "rank": "Unencoded residual coordinates.",
+  "assumes": [
+    {
+      "name": "positive_measures",
+      "statement": "P,Q are the same nonnegative measures in both encodings and the selected consumer/rounding policy is admitted."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "For P>Q, P-Q=P*(1-Q/P)>0, so log(P-Q)=logP+log1p(-exp(logQ-logP)); other coordinates decode0. This is a coordinate identity; it neither chooses a proposal law nor supplies an exact finite-grid sampler. Host checks/log_race.json records scalar algebra and a near-equality FP32 ratio-rounding counterexample; native error admission remains open. Source blockwise_rejection.py:339-350."
+}

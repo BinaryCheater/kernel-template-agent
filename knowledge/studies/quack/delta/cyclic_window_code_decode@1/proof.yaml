@@ -1,0 +1,16 @@
+template: cyclic_window_code_decode@1
+version: 1
+relation: Correlated cyclic codes with fixed encoder/decoder and coordinate map; this
+  preserves a quantized representation and does not assert equivalence to unquantized
+  weights.
+rank: Number of input elements or state transitions still to consume.
+assumes:
+- name: source_contract
+  statement: Source binding and stated scope hold.
+guarantees: []
+models: []
+note: 'Source-derived candidate, not independently admitted. window_wrap: Each state
+  consumes exactly w bits modulo B within its own sequence. coordinate_agreement:
+  Each decoded value reaches the same logical coordinate used by the encoder. decoder_identity:
+  Integer hash and BF16 rounding match the declared D, not another codebook. Native
+  lowering and numerical error remain open; see trace and checks.'

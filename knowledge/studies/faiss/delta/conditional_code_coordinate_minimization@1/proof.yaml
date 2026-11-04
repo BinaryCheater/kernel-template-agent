@@ -1,0 +1,15 @@
+{
+  "template": "conditional_code_coordinate_minimization@1",
+  "version": 1,
+  "relation": "At each coordinate boundary codes form a complete valid encoding; chosen coordinate minimizes its conditional tabulated objective, and retained bestCodes matches retained bestError.",
+  "rank": "Remaining finite outer attempts, sweeps and coordinate updates, followed by evaluation/selection phases.",
+  "assumes": [
+    {
+      "name": "source_contract",
+      "statement": "NVIDIA additive quantizer ICM/iterated-local-search encoding. Not an exact global encoding optimizer; floating comparison and tie behavior follow block minimum and strict best selection."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Source-derived proof outline; no formal proof result or GPU execution claimed. conditional_objective: For fixed other coordinates, the tabulated objective differs from full error only by a k-independent constant. update_order: No coordinate consumes partially updated state of another coordinate kernel. best_retention: Best error does not increase across attempts under the actual evaluated arithmetic and its matching code snapshot. budget: Finite sweep/attempt counts terminate without claiming a global optimum. The relation is a proposed source-level invariant; the stated finite-work rank depends on the explicit environment progress assumptions. Device ordering and numeric premises have not been discharged by schema validation."
+}

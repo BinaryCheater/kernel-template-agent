@@ -1,0 +1,21 @@
+workload: >-
+  Partial backward MXFP8 MoE metadata composition: sf32, hidden/intermediate256,
+  token lengths32/0/160/64, real ends32/32/192/256, padded token-equivalent
+  ends128/128/384/512 and scale-column ends4/4/12/16. Separate setup enabled,
+  consistent-padding alias disabled. Host packing and source prefix derivation
+  establish SFA regions; SFB uses the same prefix with its own payload/layout as
+  an external parallel edge. Native mainloop, encoded padding neutrality, zero
+  extents, descriptor proxy publication and numeric ordering remain open.
+items:
+  - key: sfa_regions
+    template: segmented_aligned_storage@1
+    applies_to: SFA per-expert scale-column lengths1/0/5/2, padded4/0/8/4; local blocked payload and distinct real-token origins; extra prefix metadata is computed in the same setup kernel.
+    bindings: {alignment: 4}
+    after: []
+    code_markers: [compute_scale_shape, to_blocked, pad_granularity, offs_padded_val]
+  - key: transfer_table
+    template: precompute_transfer_descriptors@1
+    applies_to: Expert AB/SFA/SFB tuple; AB uses real-token metadata, SF uses completed padded-prefix metadata. The full table is published after dependent SF construction; independent AB construction can overlap the prefix calculation.
+    bindings: {descriptors_per_problem: 4}
+    after: [sfa_regions]
+    code_markers: [construct_and_write, _construct_sf_descs_2dx2d_direct, a_elems_to_move]

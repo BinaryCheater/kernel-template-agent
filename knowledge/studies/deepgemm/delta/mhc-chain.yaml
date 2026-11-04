@@ -1,0 +1,14 @@
+workload: "Partial SM100 Mega MHC Mix chain for T13,H1024,deterministic16 split producers and10 requested row/column rounds. Partial-sum combination,HC RMS scaling and affine logits are external intermediate edges."
+items:
+  - key: mix_completion
+    template: epoch_tagged_completion@1
+    applies_to: Mix completion domain for one64-token M block in one nonoverlapping invocation epoch.
+    bindings: {participants: 16}
+    after: []
+    code_markers: []
+  - key: rescale_coefficients
+    template: row_column_rescaling@1
+    applies_to: One token's4x4 affine Comb logits after completed split combination and HC normalization.
+    bindings: {iterations: 10}
+    after: [mix_completion]
+    code_markers: []

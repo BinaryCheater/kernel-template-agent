@@ -1,0 +1,3 @@
+# Version 1 to 2
+
+The old version remains in tiny-cuda-nn. Map activity unchanged and set clock_policy=active_count: all prior fields and complete-state gating, publication and activity-clock obligations remain. Version 2 introduces clock_policy=none only when the declared transition has no local clock/debiasing; gsplat binds activity=enabled, mask per Gaussian, complete state=(parameter,m,v). All features of that Gaussian share the gate. No zero-gradient skip is inferred. A caller global schedule remains caller-owned. Reopen proofs that previously inferred active-count debiasing for every binding. This is a proposal for coordinator reconciliation, not an overwrite or promotion.

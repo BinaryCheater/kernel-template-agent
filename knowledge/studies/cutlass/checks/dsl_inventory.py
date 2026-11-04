@@ -1,0 +1,138 @@
+"Inventory explicit CuTe DSL kernel declarations in retained Python examples."
+
+from __future__ import annotations
+
+import ast
+import collections
+import hashlib
+import json
+import sys
+from pathlib import Path
+
+STUDY = Path(__file__).resolve().parents[1]
+PREFIX = "examples/python/CuTeDSL/"
+
+
+def main() -> None:
+    manifest = json.loads((STUDY / "inputs/sources.json").read_text())
+    root = Path(manifest["tree"])
+    files = []
+    groups: dict[str, list[dict]] = collections.defaultdict(list)
+    for entry in manifest["files"]:
+        path = entry["path"]
+        if not (path.startswith(PREFIX) and path.endswith(".py")):
+            continue
+        data = (root / path).read_bytes()
+        assert hashlib.sha256(data).hexdigest() == entry["sha256"]
+        tree = ast.parse(data, filename=path)
+        declarations = []
+
+        def visit(node: ast.AST, names: tuple[str, ...] = (), found: list = declarations) -> None:
+            if isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
+                names = (*names, node.name)
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                decorators = [ast.unparse(x) for x in node.decorator_list]
+                kinds = [x for x in decorators if x.split("(")[0].endswith(".kernel")]
+                if kinds:
+                    found.append(
+                        {"name": ".".join(names), "line": node.lineno, "decorators": decorators}
+                    )
+            for child in ast.iter_child_nodes(node):
+                visit(child, names)
+
+        visit(tree)
+        relative = path.removeprefix(PREFIX)
+        parts = relative.split("/")
+        if len(parts) > 4 and parts[0] == "cute" and parts[2] == "kernel":
+            group = "/".join(parts[:4])
+        elif len(parts) > 2:
+            group = "/".join(parts[:-1][:3])
+        else:
+            group = "/".join(parts[:-1]) or "root"
+        record = {
+            "path": path,
+            "group": group,
+            "kernels": declarations,
+            "disposition": "source trace pending",
+        }
+        if "/blockscaled_gemm/" in path:
+            record["disposition"] = (
+                "representative source traces recorded; see blockscaled inventory"
+            )
+        if "/blackwell/kernel/dense_gemm/" in path:
+            record["disposition"] = (
+                "source mechanisms traced; see dense inventory and source guard gaps"
+            )
+        if "/blackwell/kernel/blockscaled_grouped_gemm/" in path:
+            record["disposition"] = (
+                "source mechanisms traced; see grouped inventory and descriptor-lifetime gap"
+            )
+        if "/blackwell/kernel/blockwise_gemm/" in path:
+            record["disposition"] = (
+                "source mechanisms traced; see blockwise trace and terminal guard gap"
+            )
+        if path.endswith("/conv/dense_implicit_gemm_fprop.py"):
+            record["disposition"] = "dense convolution traced; see convolution inventory"
+        if path.endswith("/conv/dense_blockscaled_implicit_gemm_fprop.py"):
+            record["disposition"] = (
+                "convolution source mechanisms traced; native grouping/numeric/CLC gaps explicit"
+            )
+        if "/blackwell/kernel/grouped_gemm/" in path:
+            record["disposition"] = (
+                "dense grouped traced; descriptor modes and alignment gap retained"
+            )
+        if path.endswith("/blackwell/kernel/mixed_input_gemm/mixed_input_gemm.py"):
+            record["disposition"] = "batched mixed-input traced; grouped variants remain active"
+        files.append(record)
+        groups[group].append(record)
+    result = {
+        "scope": (
+            "Explicit .kernel decorators in Python examples; generated code/notebooks excluded."
+        ),
+        "python_files": len(files),
+        "files_with_kernels": sum(bool(x["kernels"]) for x in files),
+        "kernel_declarations": sum(len(x["kernels"]) for x in files),
+        "groups": {
+            g: {"files": len(v), "kernel_declarations": sum(len(x["kernels"]) for x in v)}
+            for g, v in sorted(groups.items())
+        },
+        "files": files,
+    }
+    (STUDY / "inputs/dsl-kernels.json").write_text(json.dumps(result, indent=2) + "\n")
+    (STUDY / "checks/dsl-inventory-result.json").write_text(
+        json.dumps(
+            {
+                "outcome": "PASS",
+                **{
+                    k: result[k]
+                    for k in ("python_files", "files_with_kernels", "kernel_declarations")
+                },
+                "boundary": (
+                    "Declaration discovery only; semantics and registrations require source traces."
+                ),
+            },
+            indent=2,
+        )
+        + "\n"
+    )
+    lines = [
+        "# CuTe DSL Python example navigation",
+        "",
+        ("Generated by checks/dsl_inventory.py from pinned Python sources. Counts locate explicit"),
+        ("kernel declarations; they do not close family coverage. Notebook/generated kernels and"),
+        ("C++ paths remain separate routes. Paths/lines are in inputs/dsl-kernels.json."),
+        "",
+        "| Source group | Python files | Kernel declarations |",
+        "|---|---:|---:|",
+    ]
+    lines.extend(
+        f"| {g} | {v['files']} | {v['kernel_declarations']} |" for g, v in result["groups"].items()
+    )
+    (STUDY / "dsl-family-index.md").write_text("\n".join(lines) + "\n")
+    sys.stdout.write(
+        f"PASS: {len(files)} Python files; {result['kernel_declarations']} kernel declarations.\n"
+    )
+
+
+if __name__ == "__main__":
+    main()

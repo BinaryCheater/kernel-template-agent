@@ -1,0 +1,133 @@
+name: affine_piece_prefix_state
+version: 2
+level_from: 3
+level_to: 4
+change: vertical
+refines: scan
+produces:
+- map
+- contract
+- sync
+object:
+  type: affine_piece_summary
+  description: A contiguous recurrence piece summarized as a right-acting affine state map, allowing a
+    later piece to reconstruct its entry state from preceding summaries.
+variables:
+- name: piece_chunks
+  kind: numeric
+  binding: runtime
+  role: software
+  domain:
+    lo: 1
+    hi: 65536
+  meaning: Consecutive inner recurrence chunks per piece, runtime in FlashInfer CP; constant specialization
+    recovers the extent choice of version1. A short final piece retains only its valid chunks.
+- name: prefix_supply
+  kind: structure
+  binding: compile
+  role: software
+  domain:
+  - piece_replay
+  - shared_fixup
+  meaning: Each piece reconstructs its own prefix from preceding summaries, or one ordered fixup produces
+    every inclusive boundary state for later parallel piece execution.
+constraints: []
+preconditions:
+- id: pre_affine
+  expr: p.chunk_state_update_is_right_affine and p.complete_ordered_chunk_partition and p.summary_storage_ready_before_use
+  meaning: Chunk j has state updateS_next=S*L_j+c_j; local outputs may depend on the entry state, and
+    summaries use the same ordered factors.
+  cls: semantic
+- id: pre_numeric
+  expr: p.summary_precision_and_reassociation_admitted and p.producer_consumer_progress_supported
+  meaning: Summary representation and matrix arithmetic have an explicit error contract; waiting consumers
+    cannot prevent producers from running.
+  cls: implementation
+- id: pre_prefix_supply
+  expr: prefix_supply == 'piece_replay' or p.shared_fixup_inclusive_boundaries_and_exclusive_piece_entry_maps_agree
+  meaning: Shared fixup stores after-piece states; each local consumer selects its preceding valid piece
+    within the same sequence, with piece0 using original seed. Storage holes and prior-sequence records
+    are never consumed as prefix states.
+  cls: implementation
+- id: pre_boundary_lifetime
+  expr: p.summary_generation_coherent_and_all_boundary_writes_publish_before_local_replay
+  meaning: Summary and fixed-boundary inputs retain one generation. All required producers complete before
+    local replay and live through every consumer. Separate ordered launches may provide publication; no
+    generic cross-CTA progress guarantee is inferred.
+  cls: implementation
+program:
+  description: 'Partition ordered chunks into contiguous pieces. Each piece starts summary L=I,c=0 and
+    folds its chunk mapsS_next=S*Lj+cj in order: L=L*Lj, c=c*Lj+cj. Publish complete matching-generation
+    summaries. With prefix_supply=piece_replay, piece r reconstructs its entry by starting S0 and applying
+    preceding piece maps0..r-1 in order, then executes its own local chunk recurrence/output. With shared_fixup,
+    a separate ordered pass starts S0 and applies each piece map once, storing inclusive boundary F_r
+    after piece r. Publish all boundaries before parallel local execution. Piece0 uses S0, piece r>0 uses
+    F_(r-1), never its own inclusive F_r. Fixed-state capacity holes are not boundary records. Only the
+    last valid piece writes final state; each local output has one owner. Summary and fixed-boundary precision/casts
+    follow the declared numerical recipe. Short final pieces include only valid chunks; identity padding
+    does not advance history.'
+backward_map: Expand each ordered summary into constituent chunk maps. Both prefix supplies give piece
+  r exactly maps0..r-1 applied to its matching S0; shared storage F_r includes piece r and is therefore
+  consumed by r+1. Local execution then recovers the original recurrence under the admitted summary/fixup
+  rounding policy.
+obligations:
+- name: compose
+  statement: Piece composition preserves chronological order and each chunk occurs once.
+  method: exhaustive
+- name: entry_state
+  statement: Each piece starts from the prefix excluding its own map, applied to the correct initial state
+    and sequence.
+  method: test
+- name: publication_progress
+  statement: Summary publication precedes reads, all producers can run, and storage stays live until every
+    prefix consumer finishes.
+  method: test
+- name: numerical
+  statement: Summary casts, TF32 products and reassociation satisfy the admitted source approximation.
+  method: test
+- name: exclusive_boundary_map
+  statement: Shared fixup computes each inclusive state once, publishes it before replay, and each piece
+    loads only its own exclusive entry boundary.
+  method: test
+effects:
+  transactions: []
+  storage:
+  - id: fixed_prefix_boundaries
+    level: dram
+    scope: kernel
+    bytes: p.piece_head_capacity * p.state_rows * p.state_columns * p.fixed_state_element_bytes
+    when: prefix_supply == 'shared_fixup'
+    note: Inclusive after-piece boundary state records. Summary L/c storage is separate; capacity can
+      include unread ragged gaps.
+  overlap: []
+scope:
+  predicate: (p.chunk_state_update_is_right_affine and p.complete_ordered_chunk_partition and p.summary_storage_ready_before_use)
+    and (p.summary_precision_and_reassociation_admitted and p.producer_consumer_progress_supported) and
+    (prefix_supply == 'piece_replay' or p.shared_fixup_inclusive_boundaries_and_exclusive_piece_entry_maps_agree)
+    and (p.summary_generation_coherent_and_all_boundary_writes_publish_before_local_replay)
+  text: 'Ordered right-affine matrix-state recurrences. Version1 piece-replay remains addressable: SGLang
+    KDA64-token chunks, BF16 pieceL/FP32 piecec and TF32 prefix application on SM100a/103a. Shared-fixup
+    witness: FlashInfer CP GDN SM90a,64-token inner blocks, runtime64-aligned piece lengths, FP32 transfer/offset/fixed-state
+    records, FP32 SIMT or TF32 HMMA fixup, followed by parallel local output. Summary construction and
+    fixup precision must be admitted. This is not a commutative reduction or a distributed collective;
+    bitwise equivalence between supplies/backends is outside the rule.'
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Compose right-affine piece summaries and supply exclusive entries by per-piece prefix replay
+    or one shared ordered fixup.
+  storage: One matrix linear map plus offset per piece; source maps and factors stay live through prefix
+    consumers.
+  boundary: Sequence starts, ragged last chunk, final short piece and readiness epochs.
+  resources:
+  - registers
+  - smem
+  - dram
+  - tensor
+numeric_risk: Matrix composition and summary casts change rounding and can amplify error; source SEQ0
+  factors also intentionally differ, so its policy is not a byte-equivalent realization of the fused route.
+summary: When independent recurrence pieces have right-affine summaries, choose how to supply their entry
+  states. Each piece may replay its preceding summary prefix, or one shared ordered fixup can store all
+  boundaries before parallel output replay. Preserve noncommutative order and use exclusive entry states
+  despite inclusive boundary storage.

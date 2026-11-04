@@ -1,0 +1,10 @@
+{
+  "upstream": "https://github.com/tile-ai/tilelang",
+  "revision": "2123e412ce2217b324c50c4ec967213906456ac5",
+  "archive_url": "https://codeload.github.com/tile-ai/tilelang/tar.gz/2123e412ce2217b324c50c4ec967213906456ac5",
+  "archive": "/Users/dingyi/kta-data/dev/operator-sources/tile-ai/tilelang/2123e412ce2217b324c50c4ec967213906456ac5/source.tar.gz",
+  "archive_sha256": "8ee9aa9aefa92ebdcc36cc119fca82daaaf950cad1b6e8c0e883ec06e9fe07ef",
+  "tree": "/Users/dingyi/kta-data/dev/operator-sources/tile-ai/tilelang/2123e412ce2217b324c50c4ec967213906456ac5/tilelang-2123e412ce2217b324c50c4ec967213906456ac5",
+  "git_tree": "/Users/dingyi/kta-data/dev/operator-sources/tile-ai/tilelang/2123e412ce2217b324c50c4ec967213906456ac5/git-tree.txt",
+  "scope": "Full pinned top-level archive; submodule contents not materialized. NVIDIA designs only; other backends excluded."
+}

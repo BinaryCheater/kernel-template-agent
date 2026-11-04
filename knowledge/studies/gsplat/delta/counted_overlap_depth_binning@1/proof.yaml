@@ -1,0 +1,15 @@
+{
+  "template": "counted_overlap_depth_binning@1",
+  "version": 1,
+  "relation": "Reserved ranges partition emitted intersections and each record denotes exactly one accepted primitive/tile edge; paired sorting preserves IDs and orders each tile by the declared depth key.",
+  "rank": "Remaining count/emit primitives, sorting work and unresolved tile range boundaries.",
+  "assumes": [
+    {
+      "name": "source_contract",
+      "statement": "NVIDIA CUDA tile-intersection preprocessing for Gaussian splatting. Rectangular and ellipse overlap are separate support predicates. Sparse active-tile output must include every emitted tile. Equal depths do not establish a stable primitive-ID order unless the downstream contract supplies it."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Source-derived proof outline; no formal proof result or GPU execution claimed. count_emit: Same predicate and traversal produce exactly the reserved count, including clipping and zero-radius paths. identity_pairing: Sorting permutes keys and IDs together and each accepted primitive/tile pair appears exactly once. ordering: Key encoding preserves image/tile grouping and positive finite depth order without field overlap. range_recovery: Each tile range is the exact contiguous sorted run, including empty tiles and final sentinel. The relation is a proposed source-level invariant; the stated finite-work rank depends on the explicit environment progress assumptions. Device ordering and numeric premises have not been discharged by schema validation."
+}

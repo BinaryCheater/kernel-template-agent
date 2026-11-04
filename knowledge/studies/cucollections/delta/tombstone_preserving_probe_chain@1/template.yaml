@@ -1,0 +1,84 @@
+{
+  "name": "tombstone_preserving_probe_chain",
+  "version": 1,
+  "level_from": 2,
+  "level_to": 3,
+  "change": "vertical",
+  "refines": "map",
+  "produces": [
+    "map",
+    "access"
+  ],
+  "object": {
+    "type": "tombstone_preserving_probe_chain",
+    "description": "When deleting from an open-addressed table, mark removed slots as tombstones so a search continues past deletions instead of mistaking them for the original end of a probe chain."
+  },
+  "variables": [],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_0",
+      "expr": "p.empty_and_erased_sentinels_distinct and p.keys_exclude_sentinels",
+      "meaning": "Empty and erased keys are distinct states, neither a valid user key.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_1",
+      "expr": "p.probe_sequence_consistent and p.atomic_slot_transition_supported",
+      "meaning": "Find/insert/erase share probe sequence and slot removal uses the declared atomic state transition.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_2",
+      "expr": "p.operation_concurrency_policy_defined",
+      "meaning": "Phase ordering or a separately verified mixed-operation protocol defines erase/reinsert/find lifetime and ABA behavior.",
+      "cls": "semantic"
+    }
+  ],
+  "program": {
+    "description": "Probe for the key, stopping on never-occupied EMPTY but continuing past ERASED. If an equal live slot is found, atomically transition the observed slot to the erased sentinel state; success means this deletion removed one live entry. Later insertion may claim a tombstone using the appropriate expected-state compare-exchange. Do not replace the removed slot by EMPTY unless a full rebuild repairs all dependent probe chains. Reclaiming payload or reusing a key needs its own reader lifetime protocol."
+  },
+  "backward_map": "Erase auxiliary organization and recover the visible results under the stated contract.",
+  "obligations": [
+    {
+      "name": "probe_preservation",
+      "statement": "Removing one slot cannot make later colliding keys unreachable.",
+      "method": "proof"
+    },
+    {
+      "name": "linearized_remove",
+      "statement": "Successful erase corresponds to the observed live key and failed interference is retried or reported consistently.",
+      "method": "proof"
+    },
+    {
+      "name": "sentinel_semantics",
+      "statement": "Every operation distinguishes empty, erased and live states as required.",
+      "method": "proof"
+    },
+    {
+      "name": "reader_lifetime",
+      "statement": "No consumer uses removed/replaced payload under a stale key observation without an admitted concurrency protocol.",
+      "method": "proof"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.empty_and_erased_sentinels_distinct and p.keys_exclude_sentinels and p.probe_sequence_consistent and p.atomic_slot_transition_supported and p.operation_concurrency_policy_defined",
+    "text": "NVIDIA static open-addressing erase paths using stable slot CAS and explicit erased marker. Concurrent arbitrary erase/reinsert is not proved by insertion-only slot publication rules; supported operator combinations must establish their own lifetime contract. Resource effects: Retains probe-chain reachability without moving following entries; accumulated tombstones lengthen probing and may motivate a rebuild. No load-factor/performance threshold inferred."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "When deleting from an open-addressed table, mark removed slots as tombstones so a search continues past deletions instead of mistaking them for the original end of a probe chain.",
+    "storage": "Retains probe-chain reachability without moving following entries; accumulated tombstones lengthen probing and may motivate a rebuild. No load-factor/performance threshold inferred.",
+    "boundary": "KeysA andB collide and occupy consecutive slots. DeleteA: searchB must pass ERASED at A slot and findB. Writing EMPTY would terminate search early and falsely reportB absent.",
+    "resources": []
+  },
+  "numeric_risk": "Preserve the supplied arithmetic contract; reassociation, quantization and approximate search require separate permission.",
+  "summary": "When deleting from an open-addressed table, mark removed slots as tombstones so a search continues past deletions instead of mistaking them for the original end of a probe chain. KeysA andB collide and occupy consecutive slots. DeleteA: searchB must pass ERASED at A slot and findB. Writing EMPTY would terminate search early and falsely reportB absent."
+}

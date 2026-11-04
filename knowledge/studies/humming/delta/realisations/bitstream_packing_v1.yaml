@@ -1,0 +1,15 @@
+template: bitstream_packing@1
+backend: cuda
+isa:
+  family: sm
+  min: '75'
+requires: []
+isa_constraints: []
+fragments: {}
+code_markers:
+- pack_weight_kernel
+- unpack_weight_kernel
+expected_sass: []
+probed_on: []
+summary: kernel/pack_weight.cuh:4-103; code width and uint32 carry replayed; global inactive threads need
+  GAP10.

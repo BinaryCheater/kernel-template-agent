@@ -1,0 +1,38 @@
+template: selected_value_residual_replay@1
+version: 1
+relation: With identical common-frame original/replay weights, combine each selected base and repair term
+  into w[j]*(decode(b[j])+decode(r[j])). Unselected rows retain their base value, and normalization counts
+  each original key once. Native replay/cast differences are admitted separately.
+rank: Value contributions awaiting compensation.
+assumes:
+- name: pre_residual
+  statement: Repair codes represent V/s minus the actual decoded base code, not V itself or a residual
+    from another quantizer generation.
+- name: pre_selection
+  statement: Every selected source row is corrected once; padding adds no numerator contribution.
+- name: pre_score
+  statement: Each replay row refers to the original key and support identity. Requantized copied keys
+    and changed reduction order need an explicit error contract.
+- name: pre_mass
+  statement: Repair/padding rows add no denominator mass; original rows, including a moved partial tail,
+    remain present exactly once.
+- name: pre_frame
+  statement: Both correction and base terms use a common reference even when replay changes the physical
+    traversal/max history.
+- name: pre_numeric
+  statement: The output is a selected approximation with a positive original-support denominator; duplicated
+    keys do not make it exact.
+- name: pre_lifetime
+  statement: Prepared residual/code/key maps and scratch remain paired through the complete consumer.
+guarantees: []
+models: []
+note: Source flashinfer/attention/prims_ts/vc_attention/prepare.py:570-612 computes decoded residual energy;
+  VcSelectPass selects high-energy rows; VcRepairRowsPass:1078-1184 writes E4M3(V/s-base_code) and copied
+  keys. _Shape:265-295 and base pass shift the original partial tail beyond repair tiles. QK8 VcQKPass
+  separately encodes copied keys/scales, so exact score replay is a premise requiring its numerical binding.
+  kernels/fmha_context/fmha_resources.py:5711-5738 maintains kept original mass separately from all-row
+  mass; fmha_tasks.py:2798-2800 selects kept mass for output. Indexed gather and additive contraction
+  do not by themselves express numerator-only replay, selected quantizer residuals or relocated-tail mass
+  roles. Logical checks distinguish wrong duplicate denominators, duplicated selections, stale residual
+  generations and frame mismatches. Native ExpCast/reference history, QK8 scales, selection ordering and
+  publication remain obligations.

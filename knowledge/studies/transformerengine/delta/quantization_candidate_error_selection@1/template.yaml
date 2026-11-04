@@ -1,0 +1,128 @@
+name: quantization_candidate_error_selection
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: contract
+produces:
+- map
+- contract
+object:
+  type: quantized_candidate_choice
+  description: When two admitted low-bit scale/code candidates trade clipping against resolution, construct
+    both full stored representations and select using a declared reconstruction-error score over the entire
+    scale-sharing domain. Store the winning codes and scale together. This guarantees the smaller computed
+    score, not optimality among every possible scale.
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+requires: []
+probed_on: []
+relations: []
+summary: When two admitted low-bit scale/code candidates trade clipping against resolution, construct
+  both full stored representations and select using a declared reconstruction-error score over the entire
+  scale-sharing domain. Store the winning codes and scale together. This guarantees the smaller computed
+  score, not optimality among every possible scale.
+variables:
+- name: metric
+  kind: structure
+  binding: compile
+  role: boundary
+  domain:
+  - absolute
+  - squared
+  meaning: Requested aggregate absolute-error or squared-error score; division by common group size is
+    unnecessary for comparison.
+- name: score_arithmetic
+  kind: structure
+  binding: compile
+  role: software
+  domain:
+  - fp32_decoded
+  - fp16_scaled_proxy
+  meaning: Source offers FP32 decode-domain scoring or a faster encoded-domain score with FP16 products;
+    the latter is a different score policy and can change the winner.
+- name: group_shape
+  kind: structure
+  binding: compile
+  role: boundary
+  domain:
+  - vector16
+  - square16
+  meaning: One sixteen-value group or shared sixteen-by-sixteen group whose errors must be summed before
+    choosing.
+- name: outer_scale_max
+  kind: numeric
+  binding: compile
+  role: boundary
+  domain:
+  - 256
+  - 448
+  meaning: Coarse E4M3 range reservation used to construct both map4/map6 candidates.
+constraints:
+- id: c_groups
+  expr: p.cols % 16 == 0 and (group_shape != 'square16' or p.rows % 16 == 0)
+  meaning: Candidate groups are complete.
+  cls: semantic
+- id: c_proxy
+  expr: score_arithmetic != 'fp16_scaled_proxy' or p.proxy_metric_admitted
+  meaning: A faster score may be selected only when the requested policy admits it.
+  cls: semantic
+preconditions:
+- id: pre_recipe
+  expr: p.error_selected_nvfp4_recipe_requested and p.deterministic_rounding and p.positive_finite_scale_domain
+  meaning: The requested NVFP4 recipe admits a choice between map4/map6 with deterministic conversions
+    and finite positive scale factors.
+  cls: semantic
+- id: pre_candidates
+  expr: p.same_inputs_and_group_domain and p.codes_generated_from_stored_scales and p.both_candidate_scores_finite
+  meaning: Both candidates encode the same complete logical values using their actual stored scales.
+  cls: semantic
+- id: pre_select
+  expr: p.full_group_error_reduced and p.score_arithmetic_matches and p.winning_codes_and_scale_paired
+  meaning: Group error and selection use the specified arithmetic and pair the winning codes and metadata.
+  cls: implementation
+program:
+  description: For coarse amax M and local absmax a, construct S_enc from outer_scale_max*6/M. Let b=a/6*S_enc.
+    Stored E4M3 candidates are s6=cast(min(b,448)) and s4=cast(min(1.5*b,448)). Encode all values twice
+    into E2M1 using the multiplier from the corresponding stored scale and common coarse inverse. Score
+    each complete candidate by summing the requested error metric. fp32_decoded uses the native decoded
+    product q*s*M/(6*outer_scale_max) under explicit FP32 round operations; fp16_scaled_proxy compares
+    rounded FP16 q*s against x*S_enc. For square16 reduce errors over all sixteen row groups before choosing,
+    so all shared scales make one decision. Choose map4 only if score4<score6, otherwise map6. Emit the
+    chosen codes and chosen stored scale as one representation. Candidate clipping/scale casts can make
+    nominal map4/map6 spacing differ from ideal real arithmetic.
+backward_map: Select the corresponding representation from an explicit two-candidate program; the output
+  is one admitted candidate with the declared smaller computed score.
+obligations:
+- name: candidate_identity
+  statement: Scored decoded values come from the same codes and stored scale eventually emitted.
+  method: test
+- name: group_score
+  statement: All values sharing the selected scale participate in one completed error reduction.
+  method: proof
+- name: selection
+  statement: The selected candidate has score no larger than the other under the declared arithmetic and
+    tie rule.
+  method: proof
+scope:
+  predicate: p.cols % 16 == 0 and (group_shape != 'square16' or p.rows % 16 == 0) and (score_arithmetic
+    != 'fp16_scaled_proxy' or p.proxy_metric_admitted) and p.error_selected_nvfp4_recipe_requested and
+    p.deterministic_rounding and p.positive_finite_scale_domain and p.same_inputs_and_group_domain and
+    p.codes_generated_from_stored_scales and p.both_candidate_scores_finite and p.full_group_error_reduced
+    and p.score_arithmetic_matches and p.winning_codes_and_scale_paired
+  text: Pinned NVFP4 map4/map6 candidates, E4M3 stored scales, E2M1 codes, compact scale metadata and
+    no stochastic rounding. Source rowwise implementation supports vector16 or square16 with complete
+    dimensions; row-scaled outer maxima cannot use square16 or columnwise output. This logical rule does
+    not supply a native converter, proxy-to-true-error guarantee or a search over all scales. IEEE exceptional
+    values and ties in nonfinite scores are excluded.
+signature:
+  algorithm: Evaluate two stored low-float representations and select their lower complete-group error.
+  storage: Two candidate code packets and scores until selecting one code/scale pair.
+  boundary: Stored-scale reconstruction, metric arithmetic and shared-scale decision domain.
+  resources:
+  - registers
+  - smem
+numeric_risk: FP16 encoded-domain proxy scoring can rank candidates differently from FP32 decoded-domain
+  scoring; a lower computed score does not prove lower error for arbitrary downstream GEMMs.

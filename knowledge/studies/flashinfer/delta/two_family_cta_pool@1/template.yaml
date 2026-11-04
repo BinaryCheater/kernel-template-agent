@@ -1,0 +1,75 @@
+name: two_family_cta_pool
+version: 1
+level_from: 4
+level_to: 5
+change: vertical
+refines: work_assign
+produces: [work_assign, sync]
+object:
+  type: two_family_one_shot_cta_claim_pool
+  description: Launch one grid for two independent work families, letting each CTA prefer one family by a local-domain ratio counter and fall back once to the other family's global ticket queue.
+variables: []
+constraints:
+  - {id: c_domains, expr: "p.domain_counter_span >= 1", meaning: "Allocate a nonempty counter span covering every observed local-domain ID.", cls: implementation}
+  - {id: c_nonempty, expr: "p.family0_jobs >= 1 and p.family1_jobs >= 1", meaning: "Both families are nonempty, so the ratio selector never divides by zero.", cls: semantic}
+  - {id: c_grid, expr: "p.launch_ctas >= p.family0_jobs + p.family1_jobs and p.launch_ctas < 2147483647", meaning: "At least one CTA per valid job is available and signed source counters do not overflow.", cls: implementation}
+  - {id: c_resources, expr: "p.launch_threads >= max(p.family0_threads, p.family1_threads) and p.launch_smem_bytes >= max(p.family0_smem_bytes, p.family1_smem_bytes) and p.launch_smem_bytes >= 8", meaning: "One selected family executes per CTA, so resource envelopes use the maximum plus space for the initial two-word control broadcast.", cls: resource}
+preconditions:
+  - {id: pre_jobs, expr: "p.each_family_job_map_exact_and_immutable and p.families_independent_outputs_or_explicit_downstream_combine", meaning: "Each valid family ticket maps to exactly one original job; outputs are independent or combined afterward under an explicit contract.", cls: semantic}
+  - {id: pre_state, expr: "p.domain_and_family_counters_zeroed_once_per_invocation and p.counter_storage_exclusive_until_grid_completion and p.observed_domain_ids_within_allocated_span", meaning: "Counter storage belongs to this invocation, all observed domain IDs are in range, and reset/reuse cannot overlap a live grid.", cls: implementation}
+  - {id: pre_atomic, expr: "p.ticket_and_domain_increments_atomic and p.uniform_control_broadcast_before_scratch_reuse and p.invalid_tickets_exit_before_job_access", meaning: "A leader claims tickets atomically, broadcasts one decision to all CTA roles, and invalid final tickets cannot access a job.", cls: implementation}
+  - {id: pre_barriers, expr: "p.selected_family_barrier_participation_matches_unified_cta and p.shared_resource_lifetimes_valid and p.final_consumers_wait_for_grid_completion", meaning: "Selected device bodies have legal barrier participation for the unified launch, use shared storage safely and complete before downstream consumers.", cls: implementation}
+program:
+  description: >-
+    Allocate one arrival counter for every allowed local-domain ID and two global
+    family ticket counters. Zero them once for the invocation. Launch at least
+    N0+N1 CTAs with threads/shared memory large enough for either body. Each CTA
+    leader reads its domain ID and increments that domain's arrival counter.
+    If N0<=N1, cycle through floor(N1/N0)+1 tags, preferring family0 on tag0
+    and family1 otherwise. If N0>N1, cycle through floor(N0/N1)+1 tags,
+    preferring family0 on all but the last tag. Atomically claim a ticket from
+    the preferred family. If it is out of range, claim exactly once from the
+    other family. Broadcast the final family/ticket, join every reader, and only
+    then reuse control scratch for the selected body. Execute that valid job
+    once or exit uniformly if the final ticket is out of range. A CTA does not
+    loop to another job. Preference is a placement heuristic; overflow counters
+    count failed attempts and are not counts of completed work. Wait for whole-
+    grid completion before consuming outputs or resetting shared counters.
+backward_map: Discard preference and failed ticket attempts; each successful family/ticket pair unrolls to exactly the corresponding CTA of the original two separate work grids.
+obligations:
+  - {name: exactly_once_and_coverage, statement: "Atomic successful tickets are unique, every valid job is claimed with the grid bound, and failed claims never execute a job.", method: proof}
+  - {name: counter_lifetime, statement: "Every invocation has zeroed exclusive counters with valid domain indexing until all claims and computations finish.", method: test}
+  - {name: uniform_dispatch_and_barriers, statement: "All CTA roles receive one family/ticket and execute only a device body whose barrier participation and resource envelope match the launch.", method: test}
+  - {name: completion, statement: "Counter exhaustion means claimed work rather than completed work; downstream consumers wait for actual grid completion.", method: test}
+effects:
+  transactions: []
+  storage:
+    - {id: claim_counters, level: dram, scope: kernel, bytes: "4 * (p.domain_counter_span + 2)"}
+  overlap: []
+scope:
+  predicate: "p.each_family_job_map_exact_and_immutable and p.families_independent_outputs_or_explicit_downstream_combine and p.domain_and_family_counters_zeroed_once_per_invocation and p.counter_storage_exclusive_until_grid_completion and p.observed_domain_ids_within_allocated_span and p.ticket_and_domain_increments_atomic and p.uniform_control_broadcast_before_scratch_reuse and p.invalid_tickets_exit_before_job_access and p.selected_family_barrier_participation_matches_unified_cta and p.shared_resource_lifetimes_valid and p.final_consumers_wait_for_grid_completion"
+  text: >-
+    Two nonempty independent CTA job families with one selected job per CTA,
+    local-domain ratio preference and one fallback. Source POD uses physical SM
+    IDs, separate prefill/decode counters and a combined launch. A sparse SM-ID
+    namespace must fit the allocated span; number of active SMs is not a proof
+    of that bound. Unequal thread-count bodies require a verified participation
+    binding, not early thread exits before full-CTA barriers. Zero-family,
+    concurrent static-counter reuse and persistent worker loops are excluded.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Assign one of two heterogeneous CTA bodies using per-domain weighted preferences and unique global tickets, with one overflow fallback.
+  reuse: A single launch colocates independent work families while reusing a maximum-sized CTA resource envelope.
+  storage: Per-domain arrival counters and two family ticket counters; body scratch is time-shared after control broadcast.
+  boundary: Nonempty families, exclusive counter lifetime, valid domain span and uniform barrier-safe dispatch.
+  resources: [launch, dram, smem]
+numeric_risk: Independent output ownership preserves each body's arithmetic; any subsequent split-state merge retains its own numerical policy and completion contract.
+summary: >-
+  When independent prefill and decode grids should share one launch, give each
+  CTA a domain-local family preference and claim one unique global job ticket.
+  If that family is exhausted, try the other once. At least N0+N1 CTAs cover
+  all jobs regardless of the preference sequence. Reuse counters only after
+  grid completion and verify the unified CTA's barrier/thread contract. This
+  controls preferred placement, not a guaranteed runtime share or speedup.

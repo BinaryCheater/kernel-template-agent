@@ -1,0 +1,134 @@
+name: multi_step_metadata_staging
+version: 1
+level_from: 4
+level_to: 5
+change: vertical
+refines: transfer
+produces:
+- transfer
+- access
+- sync
+object:
+  type: grouped_future_step_metadata_window
+  description: Vector-load metadata for several consecutive arithmetic steps into one pipeline window,
+    retaining each step slice until all consumers retire.
+variables:
+- name: steps_per_window
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+  - 1
+  - 4
+  meaning: 'Source menu: stage one step or four contiguous FP32 scale steps; larger grouping changes transfer/sync
+    only.'
+- name: stages
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 1
+    hi: 64
+  meaning: Number of grouped metadata ring slots, subject to explicit backend/resources; source setup
+    uses10 atG1 or3 atG4.
+constraints:
+- id: c_complete
+  expr: p.steps >= 1 and p.steps % steps_per_window == 0 and p.metadata_rows >= 1
+  meaning: This source projection covers complete groups only; an incomplete K tail selects G1 rather
+    than dropping metadata.
+  cls: implementation
+preconditions:
+- id: pre_layout
+  expr: p.metadata_step_axis_contiguous_and_vector_aligned and p.window_sources_and_destinations_same_logical_rows_steps_expert_generation
+  meaning: Each row has consecutive metadata for the grouped steps, with true vector alignment and exact
+    row/expert identity.
+  cls: implementation
+- id: pre_consumption
+  expr: p.each_math_step_reads_its_own_window_slice_and_arithmetic_partition_unchanged
+  meaning: Grouping transfers never combines differently scaled raw arithmetic partials or substitutes
+    one step scale for another.
+  cls: semantic
+- id: pre_publication
+  expr: p.whole_window_visible_before_any_slice_consumer and p.copy_completion_accounts_for_full_window_bytes
+  meaning: Every grouped copy completes before the first slice is read; full completion covers all metadata
+    bytes.
+  cls: implementation
+- id: pre_retire
+  expr: p.window_not_released_until_all_step_slices_and_readers_retire
+  meaning: The empty signal occurs only after the last of G step consumers and all feature owners are
+    done, not after the first scalar load.
+  cls: implementation
+- id: pre_ring
+  expr: p.producer_consumer_window_ordinal_slot_phase_agree_across_output_tiles and p.resource_teardown_and_final_drain_valid
+  meaning: Ring state advances once per window, with matching generation across tile transitions and final
+    drain.
+  cls: implementation
+- id: pre_backend
+  expr: p.selected_batch_vector_width_stage_count_and_resources_supported and p.source_metadata_immutable_through_copy
+  meaning: The target supports4*G-byte copies and the allocated ring; immutable inputs survive asynchronous
+    reads.
+  cls: implementation
+program:
+  description: Let G=steps_per_window and S=stages. For logical output tile u and step group g, reserve
+    the next metadata window slot according to the shared global window ordinal. Copy every row of FP32
+    metadata for steps[g*G,(g+1)*G) into slice-addressable shared memory; row-major staged offset=slot*(rows*G)+row*G+j.
+    Publish the complete window once. For j=0..G-1, wait for that arithmetic step partial independently,
+    read metadata at row*G+j, and apply it to that step only under the original arithmetic/scale contract.
+    Release each arithmetic partial by its own pipeline, but release the metadata window only after every
+    j and every metadata reader has retired. Advance metadata slot/phase once per group. Preserve or consistently
+    reset the shared ordinal across output tiles. G1 recovers per-step metadata publication. Partial groups
+    require a separate tail path and are outside this version.
+backward_map: Expand each vector metadata copy into G scalar-step copies and replace each slice reference
+  by the corresponding original metadata element. The arithmetic steps, scale ownership and outputs are
+  unchanged; only transfer grouping and metadata lifetime differ.
+obligations:
+- name: slice_identity
+  statement: Grouped row/step offsets match the original scale metadata for each expert and output tile.
+  method: test
+- name: separate_arithmetic
+  statement: Every arithmetic partial retains its own scale; batching metadata never delays promotion
+    across different scale groups.
+  method: test
+- name: window_lifetime
+  statement: Publication precedes every slice read and release follows all step/owner readers, including
+    ring wrap and final tile.
+  method: test
+- name: vector_alignment_tail
+  statement: Copy alignment/width is legal, grouped metadata is complete and unsupported tails select
+    a valid alternative.
+  method: test
+effects:
+  transactions: []
+  storage:
+  - id: metadata_windows
+    level: smem
+    scope: cta
+    bytes: 4 * stages * steps_per_window * p.metadata_rows
+  overlap: []
+scope:
+  predicate: p.steps >= 1 and p.steps % steps_per_window == 0 and p.metadata_rows >= 1 and (p.metadata_step_axis_contiguous_and_vector_aligned
+    and p.window_sources_and_destinations_same_logical_rows_steps_expert_generation) and (p.each_math_step_reads_its_own_window_slice_and_arithmetic_partition_unchanged)
+    and (p.whole_window_visible_before_any_slice_consumer and p.copy_completion_accounts_for_full_window_bytes)
+    and (p.window_not_released_until_all_step_slices_and_readers_retire) and (p.producer_consumer_window_ordinal_slot_phase_agree_across_output_tiles
+    and p.resource_teardown_and_final_drain_valid) and (p.selected_batch_vector_width_stage_count_and_resources_supported
+    and p.source_metadata_immutable_through_copy)
+  text: Pinned contiguous grouped FP8 GEMM on SM100-family GPUs,128-deep arithmetic partials, K-major
+    FP32 SFA and per-N-group SFB. Source batches4 scale steps when K/128 is divisible4, otherwise1. Its3/10-stage
+    source rings have independent arithmetic accumulator pipelines. Metadata format/rows and vector transfers
+    are bound; other batch widths, partial grouped tails or changed scale grouping need another binding.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Amortize metadata transfers/publications over several arithmetic steps without changing their
+    individual semantics.
+  storage: FP32 row-by-step metadata windows with one full/empty generation per batch.
+  boundary: Window lifetime exceeds any one step; complete groups, alignment and cross-tile ring generations.
+  resources:
+  - dram
+  - smem
+numeric_risk: Moving a scale application outside several unequal-scale partials changes the operator.
+  This rule changes metadata placement only; native arithmetic order remains the original contract.
+summary: When per-step scales are contiguous along K but scalar staging wastes transactions, stage several
+  future scales together and publish one window. Keep each scale tied to its own partial and retain the
+  window until the last slice/feature owner retires. Metadata batching is independent of raw-dot grouping.

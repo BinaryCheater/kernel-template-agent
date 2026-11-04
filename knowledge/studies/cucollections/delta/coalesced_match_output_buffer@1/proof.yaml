@@ -1,0 +1,15 @@
+{
+  "template": "coalesced_match_output_buffer@1",
+  "version": 1,
+  "relation": "Flushed global pairs plus pending shared pairs equal exactly the matches already discovered, preserving each probe/match pairing and multiplicity.",
+  "rank": "Remaining probes/buckets, then pending shared records not yet flushed.",
+  "assumes": [
+    {
+      "name": "source_contract",
+      "statement": "NVIDIA open-addressing multimap/multiset retrieve_if/retrieve paths. Exact membership is separate from output reservation; insufficient caller output capacity has undefined source behavior and is excluded."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Source-derived proof outline; no formal proof result or GPU execution claimed. multiplicity: Every matching slot yields one paired record per logical probe, including duplicate input keys. local_capacity: Preflush threshold leaves room for an all-match next probe step. output_ownership: Each flush owns a disjoint global interval, and probe/match arrays use exactly the same offset. lifetime: Flush sees completed shared records and reset follows all reads."
+}

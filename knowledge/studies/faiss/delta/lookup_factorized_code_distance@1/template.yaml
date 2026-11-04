@@ -1,0 +1,96 @@
+{
+  "name": "lookup_factorized_code_distance",
+  "version": 1,
+  "level_from": 2,
+  "level_to": 3,
+  "change": "vertical",
+  "refines": "map",
+  "produces": [
+    "map",
+    "access"
+  ],
+  "object": {
+    "type": "lookup_factorized_code_distance",
+    "description": "When approximate vectors are sums of codebook entries, precompute query/codeword metric terms and scan integer codes by table lookups rather than reconstructing each vector."
+  },
+  "variables": [
+    {
+      "name": "lookup_bits",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": [
+        16,
+        32
+      ],
+      "meaning": "Storage precision of distance tables; this changes rounding and needs numerical permission."
+    }
+  ],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_0",
+      "expr": "p.codebook_partition_defined and p.codes_valid",
+      "meaning": "Every code maps to the correct subquantizer and codeword.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_1",
+      "expr": "p.factorization_exact_for_contract and p.lookup_rounding_admitted",
+      "meaning": "The metric decomposition matches decoded vectors and table rounding is permitted.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_2",
+      "expr": "p.table_ready_and_capacity_valid",
+      "meaning": "Tables fit selected storage and are published before scan.",
+      "cls": "semantic"
+    }
+  ],
+  "program": {
+    "description": "For each query and selected coarse list, factor the squared-distance or inner-product expression into a list/query constant and per-subquantizer codeword terms. Materialize or combine lookup rows for the current query/list. Load rows cooperatively into shared memory and synchronize. Each candidate scans its packed codes, looks up the term at subquantizer*codes_per_subquantizer+code and sums all required terms with the constant. Prefetch the next candidate code into a separate register buffer, then rotate after consumption. Preserve list offsets for final identity recovery without writing one identity per distance."
+  },
+  "backward_map": "Erase auxiliary organization and recover the visible results under the stated contract.",
+  "obligations": [
+    {
+      "name": "factorization",
+      "statement": "Expanded lookup expression equals the specified decoded-vector metric before admitted rounding.",
+      "method": "proof"
+    },
+    {
+      "name": "code_table_alignment",
+      "statement": "Each code reads its own subquantizer row and query/list binding, never another row.",
+      "method": "proof"
+    },
+    {
+      "name": "publication",
+      "statement": "Shared rows finish loading before any candidate lookup; no overwrite during use.",
+      "method": "proof"
+    },
+    {
+      "name": "identity_recovery",
+      "statement": "Prefix/list offsets recover the exact original candidate identity from each emitted distance slot.",
+      "method": "proof"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.codebook_partition_defined and p.codes_valid and p.factorization_exact_for_contract and p.lookup_rounding_admitted and p.table_ready_and_capacity_valid",
+    "text": "NVIDIA PQ distance scan; approximate distance means distance to the quantized representation, not exact original input vectors. Precomputed residual and no-precomputed tables are distinct factorization bindings, with float/half lookup rounding explicit. Resource effects: Table size M*K*lookup_bits/8 per query/list versus per-candidate reconstruction dimension work; scan uses M lookups per code plus reduction and code loads. Global table precomputation adds storage amortized over candidates."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "When approximate vectors are sums of codebook entries, precompute query/codeword metric terms and scan integer codes by table lookups rather than reconstructing each vector.",
+    "storage": "Table size M*K*lookup_bits/8 per query/list versus per-candidate reconstruction dimension work; scan uses M lookups per code plus reduction and code loads. Global table precomputation adds storage amortized over candidates.",
+    "boundary": "Two subquantizers with code[0]=1 and code[1]=0 require L0[1]+L1[0], not L0[1]+L0[0]. Different coarse lists must supply their own residual terms. Dropping a nonzero constant changes returned distances even if ranking survives.",
+    "resources": []
+  },
+  "numeric_risk": "Preserve the supplied arithmetic contract; reassociation, quantization and approximate search require separate permission.",
+  "summary": "When approximate vectors are sums of codebook entries, precompute query/codeword metric terms and scan integer codes by table lookups rather than reconstructing each vector. Two subquantizers with code[0]=1 and code[1]=0 require L0[1]+L1[0], not L0[1]+L0[0]. Different coarse lists must supply their own residual terms. Dropping a nonzero constant changes returned distances even if ranking survives."
+}

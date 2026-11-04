@@ -1,0 +1,15 @@
+{
+  "template": "first_failure_prefix@1",
+  "version": 1,
+  "relation": "The minimum false index j has all b_i true for i<j and b_j false if j<length, exactly matching the serial leading-prefix count. Padding has no smaller value and cannot change j.",
+  "rank": "Unprocessed valid positions or nodes.",
+  "assumes": [
+    {
+      "name": "input",
+      "statement": "All stated domain, index and ownership premises hold."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Host checks/navigation.json enumerates all boolean rows through length12, including empty/all-true/tail cases. This proof does not allow replacing prefix length by total true count, nor eagerly evaluating predicates with stateful side effects."
+}

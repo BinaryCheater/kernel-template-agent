@@ -1,0 +1,20 @@
+template: replicated_partial_reduce@1
+version: 1
+relation: Every row's replicated result is the admitted combination of exactly one partial for each sender CTA and local contributor warp.
+rank: Remaining unique scalar deliveries, then reader folds.
+assumes:
+  - {name: values, statement: Each whole warp has one uniform defined FP32 row partial and all original contributions have exact partition ownership.}
+  - {name: mapping, statement: Row and sender CTA/local warp slots are injective and participants match the launch.}
+  - {name: completion, statement: All writes complete before reads and shared allocation lifetime extends through collective reader retirement.}
+  - {name: numeric, statement: The selected identity and regrouped combination obey the admitted floating-point and NaN policy.}
+guarantees: []
+models: []
+note: >-
+  Slot warp+W*sender is a bijection onto0..W*C-1. Every source warp sends one
+  four-byte scalar to every destination, so each destination receives R*W*C
+  values and expects4*R*W*C bytes. Reader lane l folds slots l+32*i in range,
+  partitioning the table exactly; a32-lane butterfly distributes the admitted
+  combined value to every lane. Local C1 mode is the same table with lane0
+  publication and a CTA barrier. A single fresh barrier registration cannot be
+  dropped or reused with fixed phase0. Scalar incidence/identity checks do not
+  execute remote PTX, prove native progress or justify nonuniform/subwarp values.

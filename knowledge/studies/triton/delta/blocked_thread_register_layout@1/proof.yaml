@@ -1,0 +1,14 @@
+template: blocked_thread_register_layout@1
+version: 1
+relation: Erase physical thread/register hierarchy to recover the same logical tensor
+  coordinates and values.
+rank: Unprocessed source items or unmerged partials.
+assumes:
+- name: contract
+  statement: The stated partition, comparator/count and publication premises hold.
+guarantees: []
+models: []
+note: Source python/tutorials/gluon/02-layouts.py:30-120,:160-175. Mixed-radix division
+  uniquely inverts the three hierarchy levels and outer repetitions. Native duplicate-replica
+  suppression and special MMA layout rules remain outside this version; unique-coordinate
+  replay is recorded in checks/design_witnesses.py.

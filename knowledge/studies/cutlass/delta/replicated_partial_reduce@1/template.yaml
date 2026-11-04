@@ -1,0 +1,74 @@
+name: replicated_partial_reduce
+version: 1
+level_from: 4
+level_to: 5
+change: vertical
+refines: reduce
+produces: [store, transfer, reduce, sync]
+object:
+  type: replicated_scalar_partial_table
+  description: Each warp contributes one row scalar into a sender-indexed table replicated at every participating CTA; each row's reader warps independently combine the complete table.
+variables:
+  - {name: peers, kind: numeric, binding: compile, role: boundary, domain: [1, 2, 4, 8, 16], meaning: CTAs sharing one row-reduction result; one selects the local shared-memory implementation.}
+  - {name: warps_per_row, kind: numeric, binding: compile, role: boundary, domain: {lo: 1, hi: 8}, meaning: Whole warps contributing scalar partials per row in each CTA.}
+  - {name: combine_op, kind: structure, binding: compile, role: software, domain: [add, max], meaning: Admitted FP32 associative-style combination with the matching identity and explicit numerical policy.}
+constraints:
+  - {id: c_shape, expr: "peers * warps_per_row > 1 and p.rows >= 1 and p.rows * warps_per_row == p.block_warps and p.block_warps <= 32", meaning: Every whole warp contributes to exactly one row and there is more than one partial., cls: implementation}
+  - {id: c_storage, expr: "4 * p.rows * warps_per_row * peers + p.barrier_bytes <= p.scratch_capacity_bytes", meaning: Every replicated CTA table and its selected barrier fit the allocated scratch., cls: resource}
+  - {id: c_barrier, expr: "(peers == 1 and p.barrier_bytes == 0) or (peers > 1 and p.barrier_bytes == 8)", meaning: The selected one-shot path allocates exactly one eight-byte barrier only for cluster mode., cls: implementation}
+preconditions:
+  - {id: pre_values, expr: "p.warp_partial_uniform and p.partial_partition_exact and p.identity_matches_op and p.combine_order_admitted", meaning: Each contributing warp holds one defined scalar replicated to its lanes and the combination preserves the admitted numerical contract., cls: semantic}
+  - {id: pre_mapping, expr: "p.sender_slots_injective and p.cooperative_shape_matches_launch", meaning: Sender CTA and local warp select unique row slots and peer ranks agree with the launch., cls: semantic}
+  - {id: pre_ready, expr: "p.scratch_initialized and p.completion_before_reads and (peers == 1 or (p.cluster_backend_supported and p.registration_completion_order_legal))", meaning: Local barrier or exact remote byte completion makes every stored scalar visible before reads., cls: implementation}
+  - {id: pre_lifetime, expr: "p.one_shot_generation and p.readers_retired_before_cta_exit", meaning: The pinned protocol uses one fresh phase0 generation and retains every peer's shared allocation until all readers finish., cls: semantic}
+program:
+  description: >-
+    Allocate per-CTA FP32 table [row, local_warp + warps_per_row * sender_cta].
+    For peers=1, each warp's lane0 stores its scalar and a CTA barrier publishes
+    the table. For peers>1, lane d of every warp sends the uniform scalar to peer d
+    at that sender-indexed slot, including the local peer. Each destination's fresh
+    barrier has one registration arrival and expects4*rows*warps_per_row*peers bytes.
+    Match transaction completions to that destination and phase0, then wait before
+    reads. Every warp of a row folds lane-strided table entries from the identity
+    and performs a full32-lane butterfly so all its lanes receive the complete
+    row result. Keep all allocations live through collective reader retirement.
+    Reusing the table or barrier requires a separate generation/retirement protocol.
+backward_map: Replace each replicated table fold by the admitted combination of all unique sender-CTA/local-warp partials for that row; erase redundant table copies and reader computations.
+obligations:
+  - {name: incidence, statement: Each destination receives every row/sender/warp scalar exactly once at an injective slot and registers exactly the delivered bytes., method: exhaustive}
+  - {name: result_replication, statement: Every reader warp combines each scalar exactly once and broadcasts the same full result within that row., method: exhaustive}
+  - {name: completion_lifetime, statement: Every read follows completed stores and every peer allocation survives until all remote/local reads retire., method: test}
+effects:
+  transactions: []
+  storage:
+    - {id: replicated_scratch, level: smem, scope: cta, bytes: "4 * p.rows * warps_per_row * peers + p.barrier_bytes", note: Per-CTA allocation; all-to-all writes and repeated reader folds remain unpriced.}
+  overlap: []
+scope:
+  predicate: "p.warp_partial_uniform and p.partial_partition_exact and p.identity_matches_op and p.combine_order_admitted and p.sender_slots_injective and p.cooperative_shape_matches_launch and p.scratch_initialized and p.completion_before_reads and (peers == 1 or (p.cluster_backend_supported and p.registration_completion_order_legal)) and p.one_shot_generation and p.readers_retired_before_cta_exit"
+  text: >-
+    One-shot FP32 row-scalar combination with whole-warp contributors and replicated
+    results in every participating CTA. Local mode uses shared stores and one CTA
+    barrier; cluster mode uses four-byte remote stores and a fresh phase0 barrier.
+    The RMSNorm source binds four warp partials per row and two CTAs at N32768.
+    Subwarp rows, mixed-width values, a reused phase0 barrier or unequal participant
+    shapes need another verified binding or variant. Native remote-store/proxy
+    semantics, masks, numerical precision and progress remain implementation obligations.
+requires: []
+probed_on: []
+relations:
+  - {type: requires, target: cross_lane_reduction, note: The final complete row table is folded across32 reader lanes.}
+signature:
+  algorithm: Replicate sender-indexed scalar tables and independently reduce at every consumer warp.
+  storage: Per-CTA table with all sender partials and optional one-shot transaction barrier.
+  boundary: Uniform whole-warp partials, exact bytes and collective scratch lifetime.
+  resources: [smem, issue]
+numeric_risk: FP32 partition/fold order can differ from the original sequential reduction; max also needs an admitted NaN policy.
+summary: >-
+  When every CTA needs the same row scalar before producing its own output slice,
+  consider replicating a sender-indexed partial table and reducing it locally at
+  each consumer warp. Choose peers and warps_per_row to match whole-warp ownership;
+  preserve exact-once slots, completed stores and collective allocation lifetime.
+  The pinned two-CTA/four-warp RMSNorm instance expects32 bytes per destination row
+  and uses a fresh phase0 barrier. It differs from assigning final output shards:
+  every consumer gets the complete result. Subwarp contributors and repeated calls
+  need explicit alternative ownership/generation protocols.

@@ -1,0 +1,21 @@
+template: carry_compensated_parameter_split@1
+version: 1
+relation: The paired representation recovers the exact admitted FP32 master bits before each update.
+rank: Remaining parameter elements to update.
+assumes:
+- name: codec
+  statement: P=H+c and stored L use the stated word layout and carry rule.
+- name: range
+  statement: High-word arithmetic and the finite model/master domain satisfy the source binding.
+- name: ownership
+  statement: Every model word and remainder are paired and observed after completion.
+guarantees: []
+models: []
+note: The low word determines c independently of P. Decoding gives (P-c,L)=(H,L), so concatenation restores
+  the original FP32 bits; no floating-point residual addition is involved. Reapplying the codec after
+  an unchanged FP32 update preserves the next iteration invariant. Source common/multi_tensor/adam.cu:239-245
+  subtracts the carry, :271-284 splits and increments the high word. The abstract check checks/check_parameter_split.py
+  exhausts all 65536 low words for eight finite-domain high words, covering sign, exponent boundary and
+  high-word parity, and distinguishes the even-high midpoint from nearest-even rounding. Its result contains
+  524288 successful roundtrips. Native alias/word-layout and concurrent pair publication remain separate
+  obligations; this is not a GPU optimizer validation.

@@ -1,0 +1,26 @@
+workload: "Partial grouped Marlin instance: M16,K1024,N512,groupsize128,thread_k128,thread_n128,grid5,units_per_cta7. Shared/fragment input pipeline and intra-CTA tree reduction are external edges. Global combine follows source slice_idx, descending K ownership."
+items:
+  - key: prepack
+    template: offline_operand_prepack@1
+    applies_to: Constant symmetric int4 weights and grouped scales with the source host permutations.
+    bindings: {tile_rows: 16, tile_cols: 64, element_order: mma_fragment_interleaved, pack_bits: 4}
+    after: []
+    code_markers: []
+  - key: stripes
+    template: linearized_work_partition@1
+    applies_to: 32 work units, eight K128 tiles per N128 column; CTA owns its seven-unit interval.
+    bindings: {units_per_cta: 7, order: k_major_within_column, grid: 5}
+    after: [prepack]
+    code_markers: []
+  - key: decode
+    template: fused_dequantization@1
+    applies_to: Packed words supplied by each stripe; exact q-minus-eight conversion followed by FP16 group scale multiplication.
+    bindings: {method: magic_number_lop3, zero_point: symmetric_folded, scale_site: per_group_before_mma, group_size: 128}
+    after: [stripes]
+    code_markers: []
+  - key: combine
+    template: ordered_global_combine@1
+    applies_to: Completed CTA partials of each column, numbered by source slice_idx in descending K order; numerical and nonoverlapping invocation premises remain external.
+    bindings: {order: by_k_partition_index, partial_dtype: f16, lock_reset: last_resets}
+    after: [decode, stripes]
+    code_markers: []

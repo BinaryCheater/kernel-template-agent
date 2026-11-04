@@ -1,0 +1,95 @@
+{
+  "name": "nonlinear_sigma_point_moments",
+  "version": 1,
+  "level_from": 2,
+  "level_to": 3,
+  "change": "vertical",
+  "refines": "map",
+  "produces": [
+    "map",
+    "access"
+  ],
+  "object": {
+    "type": "nonlinear_sigma_point_moments",
+    "description": "When camera projection is nonlinear over a Gaussian support, approximate projected moments from symmetric sigma points instead of a single local Jacobian, under an explicit quadrature contract."
+  },
+  "variables": [
+    {
+      "name": "sigma_points",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": [
+        7
+      ],
+      "meaning": "D3 mean plus/minus three covariance-axis perturbations; fixed quadrature rather than tunable thread count."
+    }
+  ],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_0",
+      "expr": "p.gaussian_factor_valid and p.lambda_plus_dimension_positive",
+      "meaning": "Quaternion/scale factor is valid and alpha2*(D+kappa)>0 so sigma displacement and weights are defined.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_1",
+      "expr": "p.all_sigma_projections_valid_and_finite and p.camera_state_consistent",
+      "meaning": "This version requires all7 projected points finite/valid under the same camera/shutter model.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_2",
+      "expr": "p.quadrature_numeric_contract and p.projected_covariance_admissible",
+      "meaning": "Caller requests this approximate moment rule and rejects or explicitly handles indefinite projected covariance.",
+      "cls": "semantic"
+    }
+  ],
+  "program": {
+    "description": "For D3 let lambda=alpha2*(D+kappa)-D. Use points mean and mean+/-sqrt(D+lambda)*scale_i*R_column_i. Project all7 through the selected camera and shutter pose. Mean weights are w0=lambda/(D+lambda), wi=1/(2*(D+lambda)); center covariance weight is w0+1-alpha2+beta and remaining covariance weights wi. Sum projected points to mean, then weighted outer products about that mean to covariance. Keep camera interpolation constants shared over points when they are identical. Reject invalid output covariance before inverse/conic use."
+  },
+  "backward_map": "Erase auxiliary organization and recover the visible results under the stated contract.",
+  "obligations": [
+    {
+      "name": "quadrature",
+      "statement": "Sigma coordinates and separate mean/covariance weights match the requested3D quadrature exactly.",
+      "method": "proof"
+    },
+    {
+      "name": "projection",
+      "statement": "Each point uses the same model parameters and its declared shutter-pose evaluation.",
+      "method": "proof"
+    },
+    {
+      "name": "validity",
+      "statement": "Invalid sigma points are not silently dropped/renormalized under the all-valid version.",
+      "method": "proof"
+    },
+    {
+      "name": "covariance",
+      "statement": "Negative center weights do not imply positive covariance; inversion follows explicit determinant/diagonal validity policy.",
+      "method": "proof"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.gaussian_factor_valid and p.lambda_plus_dimension_positive and p.all_sigma_projections_valid_and_finite and p.camera_state_consistent and p.quadrature_numeric_contract and p.projected_covariance_admissible",
+    "text": "NVIDIA UT3DGS camera projection. This is an approximation of nonlinear image moments, not exact projected Gaussian distribution. Source any-valid mode still accumulates all projected numerical values and needs a separate defined-invalid-point contract; it is not the all-valid instance. Camera-specific loop-unroll/slerp policy is a realization choice. Resource effects: Seven camera projections and moment accumulation per Gaussian/camera versus one Jacobian projection; shared interpolation invariants may reduce repeated setup, with increased register work."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "When camera projection is nonlinear over a Gaussian support, approximate projected moments from symmetric sigma points instead of a single local Jacobian, under an explicit quadrature contract.",
+    "storage": "Seven camera projections and moment accumulation per Gaussian/camera versus one Jacobian projection; shared interpolation invariants may reduce repeated setup, with increased register work.",
+    "boundary": "At an affine camera the weighted sigma mean/covariance recover affine Gaussian moments subject to rounding. Nonlinear fisheye projection can differ from J*cov*J^T. With alpha0.1 the center covariance weight can be negative, so determinant>0 alone must not certify a negative-definite2x2 matrix.",
+    "resources": []
+  },
+  "numeric_risk": "Preserve the supplied arithmetic contract; reassociation, quantization and approximate search require separate permission.",
+  "summary": "When camera projection is nonlinear over a Gaussian support, approximate projected moments from symmetric sigma points instead of a single local Jacobian, under an explicit quadrature contract. At an affine camera the weighted sigma mean/covariance recover affine Gaussian moments subject to rounding. Nonlinear fisheye projection can differ from J*cov*J^T. With alpha0.1 the center covariance weight can be negative, so determinant>0 alone must not certify a negative-definite2x2 matrix."
+}

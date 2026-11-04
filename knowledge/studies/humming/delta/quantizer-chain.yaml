@@ -1,0 +1,19 @@
+workload: Requested groupwise UINT4 affine quantizer followed by lossless contiguous code storage and
+  inverse extraction; finite scale policy is a premise.
+items:
+- key: quantize
+  template: groupwise_affine_quantization@1
+  applies_to: 128 finite FP16 values
+  bindings:
+    group_size: 128
+    code_bits: 4
+    zero_point: integer
+  after: []
+- key: pack
+  template: bitstream_packing@1
+  applies_to: 128 in-range UINT4 codes stored as int32
+  bindings:
+    code_bits: 4
+    word_bits: 32
+  after:
+  - quantize

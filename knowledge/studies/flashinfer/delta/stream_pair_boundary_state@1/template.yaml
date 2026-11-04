@@ -1,0 +1,131 @@
+name: stream_pair_boundary_state
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: map
+produces:
+- map
+- transfer
+- store
+- sync
+object:
+  type: position_tagged_pair_carry_across_packed_invocations
+  description: Process absolute even/odd token pairs across arbitrary request chunk boundaries using a
+    position-tagged carry and a read-before-commit phase boundary.
+variables:
+- name: execution
+  kind: structure
+  binding: compile
+  role: software
+  domain:
+  - serial_per_request
+  - parallel_read_then_commit
+  meaning: Process a request serially with one carry owner, or parallelize output rows against immutable
+    old carry and commit each request tail afterward. The native source uses two ordered launches; serial
+    is an inferred alternative.
+constraints:
+- id: c_capacity
+  expr: p.max_tokens >= 1 and p.max_requests >= 1 and p.max_states >= 1 and p.payload_features >= 1
+  meaning: Prepared capacities cover token rows, request rows, stable state IDs and payload features.
+  cls: implementation
+preconditions:
+- id: pre_segments
+  expr: p.live_request_ranges_valid_disjoint_and_in_capacity and p.positions_contiguous_within_each_request
+  meaning: Packed request ranges have exact starts/ends and absolute consecutive positions; empty ranges
+    remain empty.
+  cls: semantic
+- id: pre_identity
+  expr: p.live_state_ids_unique_per_invocation_and_stable_across_continuations and p.recycled_state_slots_invalidated_before_new_stream
+  meaning: Carry is keyed by one stable logical stream; a recycled ID cannot inherit another stream even
+    if position tags match.
+  cls: semantic
+- id: pre_tag
+  expr: p.pending_payload_has_absolute_even_position_tag and p.tag_payload_generation_matches
+  meaning: Pending value/gate belongs to its recorded absolute even position; an odd boundary accepts
+    only tag=position-1.
+  cls: semantic
+- id: pre_processor
+  expr: p.pair_processor_and_required_rounding_checkpoints_explicit and p.pair_inputs_finite_and_numerics_admitted
+  meaning: The same declared pair operator consumes adjacent values/gates regardless of whether the first
+    comes from carry or current rows.
+  cls: implementation
+- id: pre_read_commit
+  expr: p.old_carry_readers_complete_before_pending_state_overwrite and p.commit_payload_visible_before_next_invocation
+  meaning: Old carry is an immutable read snapshot until every current reader finishes; ordered commit
+    publishes the next payload/tag before reuse.
+  cls: implementation
+- id: pre_output
+  expr: p.only_valid_odd_positions_emit_and_output_slot_metadata_matches and p.nonemitting_output_rows_defined
+  meaning: Emitted outputs remain at the odd token row with its destination metadata; absent/invalid pairs
+    have the declared zero/invalid emission representation.
+  cls: semantic
+- id: pre_backend
+  expr: p.selected_execution_implemented_and_resources_fit and p.mutable_state_and_outputs_exclusive_until_invocation_finishes
+  meaning: Execution supports the selected serial or parallel protocol and has disjoint live mutable storage.
+  cls: implementation
+program:
+  description: 'For each nonempty request chunk with starting absolute position a, positions are a+i.
+    Emit only odd positions. An odd token after the first chunk row reads its immediately preceding even
+    row from the same request. An odd first row reads old carry only if its tag equals a-1; otherwise
+    emit no pair. Each valid pair invokes the declared processor on its even/odd payloads and retains
+    the odd row output/destination. After all old-carry readers finish, examine the last position: if
+    even, copy that last payload/gate to the stream state and tag it with that absolute position; if odd,
+    invalidate the tag. Empty or inactive requests preserve state. With parallel_read_then_commit use
+    a grid/launch-wide read-complete boundary before commit; an ordinary CTA-local barrier cannot order
+    different output/commit CTAs. A subsequent invocation waits for the complete payload/tag commit. State-ID
+    reuse first invalidates the old stream generation.'
+backward_map: Replace every accepted carry by its tagged original even token. Every emitted odd row then
+  has exactly the adjacent absolute even/odd pair that an unsplit stream processor would consume; forgetting
+  chunk boundaries recovers that pair stream. Missing/discontinuous predecessors intentionally do not
+  emit.
+obligations:
+- name: chunk_invariance
+  statement: All chunkings of a contiguous stream emit the same absolute odd-position pairs and preserve
+    an unmatched final even token.
+  method: test
+- name: tag_identity
+  statement: Position discontinuities, empty requests and recycled state IDs cannot bind a carry from
+    the wrong stream/position.
+  method: test
+- name: read_commit_order
+  statement: No tail write invalidates a pending value while a current first-odd row is reading it; next
+    invocations see complete committed payloads.
+  method: test
+- name: processor_and_emission
+  statement: Processor rounding, output row and emitted slot are identical across in-chunk and carry pairs.
+  method: test
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: p.max_tokens >= 1 and p.max_requests >= 1 and p.max_states >= 1 and p.payload_features >=
+    1 and (p.live_request_ranges_valid_disjoint_and_in_capacity and p.positions_contiguous_within_each_request)
+    and (p.live_state_ids_unique_per_invocation_and_stable_across_continuations and p.recycled_state_slots_invalidated_before_new_stream)
+    and (p.pending_payload_has_absolute_even_position_tag and p.tag_payload_generation_matches) and (p.pair_processor_and_required_rounding_checkpoints_explicit
+    and p.pair_inputs_finite_and_numerics_admitted) and (p.old_carry_readers_complete_before_pending_state_overwrite
+    and p.commit_payload_visible_before_next_invocation) and (p.only_valid_odd_positions_emit_and_output_slot_metadata_matches
+    and p.nonemitting_output_rows_defined) and (p.selected_execution_implemented_and_resources_fit and
+    p.mutable_state_and_outputs_exclusive_until_invocation_finishes)
+  text: Pinned B12x SM120/121 CSA2 compression uses FP32 value/gate payloads with512 channels, even/odd
+    absolute pairs, BF16 pooled checkpoint, weighted FP32 RMSNorm and BF16 output. The rule chooses state/phase
+    organization; pair math is an explicit input. Native two-launch commit is source-backed; a serial
+    per-request backend is inferred. General ratio>2, overlapping windows, duplicate live state IDs and
+    concurrent mutation are excluded.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Carry one unmatched even token across arbitrary packed stream chunk boundaries.
+  storage: Per stable stream ID, one payload/gate pair and absolute position tag.
+  boundary: First-odd validation, final-even retention and read-complete-before-commit ordering.
+  resources:
+  - dram
+  - registers
+numeric_risk: Chunk invariance assumes the same pair operator and casts. Moving the pooled BF16 checkpoint
+  past RMSNorm or using scalar rather than per-channel gates changes the source operator.
+summary: When pairwise compression receives independently advancing requests in arbitrary chunks, retain
+  the unmatched even token with its absolute position. Compute outputs against old carry before committing
+  the new tail. Match both stream identity and position; chunk length parity alone does not identify a
+  pair.

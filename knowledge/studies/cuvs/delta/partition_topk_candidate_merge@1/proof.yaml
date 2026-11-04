@@ -1,0 +1,15 @@
+{
+  "template": "partition_topk_candidate_merge@1",
+  "version": 1,
+  "relation": "Each local or merged group retains enough winners under the same comparator to recover top-k of its declared candidate union, with valid identities translated once into global space.",
+  "rank": "Unfinished partitions plus unmerged partition groups, then unwritten final rows.",
+  "assumes": [
+    {
+      "name": "source_contract",
+      "statement": "NVIDIA multi-index/composite, multi-GPU sharded and tiered candidate merging. Exactness is relative to the declared candidate set and sound local selection; ANN local search supplies an approximate set, not exact global nearest neighbors. Duplicate records across replicated partitions need deduplication or an explicitly multiplicity-preserving contract."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Source-derived proof outline; no formal proof result or GPU execution claimed. local_pruning: Every discarded partition candidate is dominated by k retained candidates in that partition under the final comparator. identity: Translation is one-to-one over valid IDs and invalid padding never enters rank output. layout: Query/partition/rank offsets agree between producers and consumer for full and partial batches. completion: Cross-stream/device reads follow all producer writes, including intermediate tree stages. The relation is a proposed source-level invariant; the stated finite-work rank depends on the explicit environment progress assumptions. Device ordering and numeric premises have not been discharged by schema validation."
+}

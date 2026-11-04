@@ -1,0 +1,79 @@
+name: time_rank_causal_contraction
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: contract
+produces:
+- contract
+- map
+object:
+  type: time_rank_causal_contraction
+  description: "When each time step has multiple input/output rank channels, flatten\
+    \ time\xD7rank for GEMM but apply causality by time quotient and compute the same-time\
+    \ rank block under its own coefficient."
+variables:
+- name: rank_channels
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 1
+    hi: 64
+  meaning: 'R: workload MIMO rank.'
+constraints: []
+preconditions:
+- id: pre0
+  expr: p.flatten_map_bijective and p.time_coefficients_shared_within_step and p.same_time_block_complete
+    and p.rank_projection_contract_fixed and p.rounding_admitted
+  meaning: Known rank layout, correct time coefficients, complete diagonal blocks
+    and declared rank projection.
+  cls: semantic
+program:
+  description: "Flatten row i=t*R+r. Form QK^T on flattened rows but keep strictly\
+    \ past block iff floor(i/R)>floor(j/R). Same-time rows form an R\xD7R block, all\
+    \ of whose rank pairs participate under the current-step coefficient, separately\
+    \ from shifted past-history scaling. Contract the past matrix against rank-expanded\
+    \ values, add the same-time block contraction, then apply requested rank-dependent\
+    \ output projection/gating and sum output rank. Source R1 reduces to strict triangular\
+    \ matrix plus scalar diagonal; R>1 uses full same-time block, not just elementwise\
+    \ diagonal."
+backward_map: MIMO causal contractions with grouped time coordinates; feature/head
+  grouping and rank projection are workload inputs, not automatically interchangeable
+  dimensions.
+obligations:
+- name: temporal_mask
+  statement: Quotient comparison excludes every same-time rank pair from past history.
+  method: proof
+- name: same_time
+  statement: "Separate R\xD7R block includes every current-step input/output rank\
+    \ interaction exactly once."
+  method: proof
+- name: rank_pullback
+  statement: Backward sums the same sharing fibers used by forward head/rank broadcasts.
+  method: proof
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: (p.flatten_map_bijective and p.time_coefficients_shared_within_step and
+    p.same_time_block_complete and p.rank_projection_contract_fixed and p.rounding_admitted)
+  text: MIMO causal contractions with grouped time coordinates; feature/head grouping
+    and rank projection are workload inputs, not automatically interchangeable dimensions.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: "When each time step has multiple input/output rank channels, flatten\
+    \ time\xD7rank for GEMM but apply causality by time quotient and compute the same-time\
+    \ rank block under its own coefficient."
+  boundary: MIMO causal contractions with grouped time coordinates; feature/head grouping
+    and rank projection are workload inputs, not automatically interchangeable dimensions.
+  resources:
+  - registers
+numeric_risk: Floating-point reassociation, casts and approximate functions require
+  an admitted numerical contract.
+summary: "When each time step has multiple input/output rank channels, flatten time\xD7\
+  rank for GEMM but apply causality by time quotient and compute the same-time rank\
+  \ block under its own coefficient."

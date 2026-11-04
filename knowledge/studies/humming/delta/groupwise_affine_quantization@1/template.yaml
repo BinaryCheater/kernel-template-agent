@@ -1,0 +1,54 @@
+name: groupwise_affine_quantization
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: map
+produces: [reduce, map, store]
+object:
+  type: affine_quantization_group
+  description: A contiguous group of values with a shared range-derived scale and zero point producing integer codes and metadata.
+variables:
+  - {name: group_size, kind: numeric, binding: compile, role: boundary, domain: {lo: 8, hi: 65536, step: 8}, meaning: Quantization group extent required by the coarse numerical contract.}
+  - {name: code_bits, kind: numeric, binding: compile, role: boundary, domain: {lo: 2, hi: 8}, meaning: Unsigned target code width required by the contract.}
+  - {name: zero_point, kind: structure, binding: compile, role: boundary, domain: [integer, floating], meaning: Whether range-derived zero point is rounded to an integer before code generation.}
+constraints:
+  - {id: c_length, expr: "p.length % group_size == 0", meaning: Every group is complete., cls: implementation}
+  - {id: c_contract, expr: "p.group_size == group_size and p.code_bits == code_bits and p.zero_point == zero_point", meaning: Grouping and code range agree with the requested quantizer., cls: semantic}
+preconditions:
+  - {id: pre_finite, expr: "p.finite_input and p.affine_quantizer_requested", meaning: The coarse operation already requests finite affine quantization rather than exact real-valued storage., cls: semantic}
+  - {id: pre_range, expr: "p.scale_nonzero_finite", meaning: Range calculation and reciprocal must be finite and nonzero in the selected arithmetic., cls: semantic}
+program:
+  description: >-
+    For each group reduce min and max, with source floors min<=-1e-30 and max>=1e-30.
+    Compute scale=(max-min)/(2**code_bits-1), z=-min/scale. For integer zero point,
+    round z to nearest-even and reset min=-z*scale. Convert each (x-min)/scale to a
+    nearest-even integer, clamp to [0,2**code_bits-1], and store the group scale and z.
+    Floating zero point retains the unrounded z. Each group is handled by one warp in
+    the source; code packing into a bitstream is a separate operation.
+backward_map: Read the code and metadata as the output of the requested affine quantizer; this is not an inverse recovering arbitrary original real values.
+obligations:
+  - {name: group_range, statement: Each group's extrema include exactly its input values and the documented nonzero scale floors., method: exhaustive}
+  - {name: quantizer_contract, statement: Scale and zero-point arithmetic and nearest-even clamping implement the chosen numerical policy., method: test}
+  - {name: metadata_alignment, statement: Each code uses and produces the metadata of its own group exactly once., method: exhaustive}
+effects: {transactions: [], storage: [], overlap: []}
+scope:
+  predicate: "p.affine_quantizer_requested and p.finite_input and p.scale_nonzero_finite"
+  text: >-
+    Unsigned integer affine quantization with a floating scale and integer or floating zero
+    point. Group size and bit width are numerical boundary parameters, not free optimization
+    knobs for an unchanged GEMM. Symmetric negative scales, one-bit and low-float quantizers
+    are separate observed branches retained as gaps. No error bound for an original GEMM
+    is implied by implementing the requested quantizer.
+requires: []
+probed_on: []
+relations:
+  - {type: enables, target: bitstream_packing, note: Integer codes can subsequently use compact storage without changing their values.}
+signature:
+  algorithm: Group extrema then affine nearest-even quantization with clamping.
+  storage: Group scale and zero point plus one integer code per input value.
+  boundary: Complete groups and finite nonzero scale arithmetic.
+  resources: []
+numeric_risk: FP32 extrema floors and reciprocal/rounding boundaries are part of the policy; quantization is intentionally lossy.
+summary: >-
+  Use when the requested operation quantizes finite values in complete contiguous groups. Bind group_size, code_bits and integer or floating zero point to the requested format. Compute each group’s range and metadata, then round and clamp each value to its code. Emit codes, scales and zero points. For a group of 128 with unsigned 4-bit codes, pass the resulting codes to a separate packer if the consumer expects packed storage. The numerical contract determines which format choices may vary.

@@ -1,0 +1,64 @@
+name: prefix_ready_contraction
+version: 1
+level_from: 4
+level_to: 5
+change: vertical
+refines: sync
+produces: [sync, contract]
+object:
+  type: contraction_operand_ready_frontier
+  description: An operand generation published in an aligned prefix and suffix, allowing the contraction to begin before all operand columns are written.
+variables:
+  - {name: prefix_k, kind: numeric, binding: compile, role: software, domain: {lo: 1, hi: 1024}, meaning: "Contraction reduction extent whose complete operand payload is published first; suffix is derived as K-prefix_k."}
+constraints:
+  - {id: c_split, expr: "p.instruction_k > 0 and prefix_k < p.K and prefix_k % p.instruction_k == 0 and p.K % p.instruction_k == 0", meaning: "Nonempty prefix/suffix split at an MMA reduction-atom boundary.", cls: implementation}
+preconditions:
+  - {id: pre_cover, expr: "p.prefix_suffix_partition_complete and p.consumer_mapping_matches_frontier", meaning: "The ready prefix includes every row/feature read by prefix instructions, with no missing fragment or overlap in reduction coverage.", cls: semantic}
+  - {id: pre_ready, expr: "p.prefix_payload_visible_before_publish and p.suffix_payload_visible_before_publish and p.accumulator_ready_before_prefix", meaning: "Each signal orders its own payload; the initial accumulator and any correction are ready before the first prefix MMA.", cls: implementation}
+  - {id: pre_lifetime, expr: "p.generation_owned_and_not_lapped and p.payload_reuse_after_all_reads and p.other_operand_stable", meaning: "Signals and payload belong to the requested generation; neither operand is overwritten while asynchronous MMA still reads it.", cls: semantic}
+  - {id: pre_progress, expr: "p.single_cta_readiness_scope and p.wait_protocol_supported and p.producer_can_finish_suffix and p.same_accumulation_order_admitted", meaning: "The suffix producer can progress while the consumer waits; backend fences/completion and the split MMA order are admitted.", cls: implementation}
+program:
+  description: >-
+    Partition the reduction axis into [0,prefix_k) and [prefix_k,K). The producer
+    writes and publishes the complete first region, then continues the suffix.
+    Consumer waits for prefix readiness together with any initial-accumulator
+    dependency, issues only prefix MMA atoms into the accumulator, then waits
+    for the suffix's generation-specific readiness before issuing its atoms into
+    that same accumulator. Publish and acquire operand writes using the backend's
+    required memory/proxy fences and barrier protocol. Retirement of the entire
+    asynchronous read sequence, not the prefix signal, permits operand reuse.
+    If an existing accumulator must be rescaled, that correction finishes before
+    prefix execution and never scales new prefix/suffix contributions afterward.
+backward_map: Wait for the complete operand before executing the identical prefix-then-suffix contraction atom sequence. With the same accumulator initialization and ordering, deleting the overlap changes timing only.
+obligations:
+  - {name: frontier_mapping, statement: "Every prefix/suffix instruction reads only the corresponding published region, and their reduction atoms cover K exactly once.", method: proof}
+  - {name: readiness_and_correction, statement: "Operand publication and accumulator readiness jointly precede their dependent instructions, with correct generation and native memory ordering.", method: test}
+  - {name: retirement_and_progress, statement: "No payload reuse precedes the last async reader, and waiting for suffix publication does not prevent its producer from running.", method: test}
+effects: {transactions: [], storage: [], overlap: []}
+scope:
+  predicate: "p.prefix_suffix_partition_complete and p.consumer_mapping_matches_frontier and p.prefix_payload_visible_before_publish and p.suffix_payload_visible_before_publish and p.accumulator_ready_before_prefix and p.generation_owned_and_not_lapped and p.payload_reuse_after_all_reads and p.other_operand_stable and p.single_cta_readiness_scope and p.wait_protocol_supported and p.producer_can_finish_suffix and p.same_accumulation_order_admitted"
+  text: >-
+    One-CTA asynchronous contractions with an independently writable two-region
+    operand and aligned reduction-atom split. Source TMEM P is published around
+    three quarters of K, rounded down to32 columns. A two-CTA implementation
+    requires a separately verified cluster publication/arrival binding. Prefix
+    readiness alone cannot authorize reading the tail or changing the accumulator.
+requires: []
+probed_on: []
+relations:
+  - {type: alternative_of, target: per_slot_handshake, note: "A whole-slot full event waits for all payload; this frontier permits early prefix consumption and needs a distinct suffix wait and full retirement."}
+signature:
+  algorithm: Consume a complete contraction prefix before the operand suffix is ready.
+  reuse: Prefix computation overlaps suffix production.
+  storage: One operand generation with two publication regions and a shared accumulator.
+  boundary: Reduction-atom split, native publication and accumulator-correction readiness.
+  resources: [tensor, synchronization]
+numeric_risk: Changing prefix/suffix issue order or rescaling after new contributions changes the contraction's numerical contract.
+summary: >-
+  When an operand is produced in increasing reduction-axis order, let its
+  consumer start on a fully published prefix while the tail is still being
+  written. Wait separately before tail reads, and include accumulator correction
+  in the first readiness condition. At K128 the source publishes P columns0..95
+  first, then96..127; K192 instead publishes0..127 first. A full-buffer-ready
+  event loses this overlap, while treating prefix-ready as whole-buffer-ready
+  permits uninitialized tail reads. Native barrier/fence ordering remains required.

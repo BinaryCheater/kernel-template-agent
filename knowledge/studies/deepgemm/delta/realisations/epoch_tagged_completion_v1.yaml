@@ -1,0 +1,14 @@
+template: epoch_tagged_completion@1
+backend: cuda
+isa: {family: sm, min: '100', max: '100'}
+requires: [ld_acquire, atom_global_add]
+isa_constraints: []
+fragments: {}
+code_markers: [SplitBarrier,encode_state,red_async_inc_rel,Epoch]
+expected_sass: []
+probed_on: []
+summary: >-
+  DeepGEMM scheduler/mega_mhc.cuh uses128-wide64-bit epoch tags,release initialization,
+  asynchronous release reductions and acquiring terminal loads. Last-CTA retirement
+  advances the shared epoch. The capability list does not certify native red.async
+  support or its release sequence; these remain explicit admission/device obligations.

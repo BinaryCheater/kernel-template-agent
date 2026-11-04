@@ -1,0 +1,15 @@
+template: shared_index_union@1
+backend: cuda
+isa: {family: sm, min: '100', max: '100'}
+requires: [cp_async]
+isa_constraints:
+  - {id: source_splits, expr: "items_per_split in [32,40,64,80]", meaning: Source FP8 split512 or FP4 split640 divided by sparse block8 or16., cls: implementation}
+fragments: {}
+code_markers: [sm100_sparse_mqa_logits_metadata,packed_slots_in_thread,kInvalidSparseSlot]
+expected_sass: []
+probed_on: []
+summary: >-
+  DeepGEMM's fixed SM100 sparse metadata path partitions a sorted merge across256 threads,
+  suppresses equal-key carry at partition boundaries, and writes each Q row's slot base/offset.
+  Paired paged rows must share a request and block-table interpretation. Atomic range reservation
+  and last-CTA schedule publication remain separate runtime obligations.

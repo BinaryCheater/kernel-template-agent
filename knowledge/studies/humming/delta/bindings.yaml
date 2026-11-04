@@ -1,0 +1,81 @@
+status: proposed, declared; partial source reconstruction
+default_target: NVIDIA SM80 CUDA
+scope:
+  M: 17
+  N: 128
+  K: 128
+  block:
+  - 16
+  - 128
+  - 64
+  warp:
+  - 16
+  - 32
+  - 32
+  A_C_dtype: float16
+  B_dtype: uint4
+  scale_dtype: float16
+  weight_scale_group_size: 32
+contexts:
+  tiles:
+    independent_outputs: true
+    M: 17
+    N: 128
+  kpartition:
+    length: 64
+    assoc: true
+    comm: true
+    numeric_contract: FP reassociation tolerance unresolved
+  Bstore:
+    size_bytes: 4096
+    copies: 4
+    capacity_bytes: 167936
+    lifetime: GAP02; no timing constants invented
+  Bregs:
+    lifetime: source alternating private fragments; exact compiled allocation open
+  mma:
+    operand_bits: 16
+    instr_operand_bits: 16
+    operand_exp_bits: 5
+    instr_exp_bits: 5
+    operand_dtype_supported: true
+  quantizer_chain:
+    length: 128
+    group_size: 128
+    code_bits: 4
+    zero_point: integer
+    finite_input: true
+    affine_quantizer_requested: true
+    scale_nonzero_finite: true
+    min_code: 0
+    max_code: 15
+edges:
+- producer: prepack
+  consumer: Bstore
+  contract: matrix coordinates -> packed UINT4 word order; G08
+- producer: Bstore
+  consumer: Bregs
+  contract: legacy G2S row order then half-group S2R; 8192 B coordinates checked
+- producer: Bregs
+  consumer: decode
+  contract: nibble pairs and zero-point domain; q-z enumerated
+- producer: decode
+  consumer: mma
+  contract: PTX B fragment coordinate map; A and accumulator maps open
+- producer: kpartition
+  consumer: mma
+  contract: two K32 warp partitions within K64; later smem combine not represented as a closed chain
+ordering_constraints:
+- prepack finishes before GEMM launch
+- each asynchronous load completes before its fragment read
+- WGMMA/UMMA operand completion precedes destructive reuse
+- scale remains attached to its own K group
+- output scratch retirement is independent of row-index/accumulator retirement
+gaps:
+- GAP01
+- GAP02
+- GAP04
+- GAP09
+- GAP15
+effects: 'Do not sum this partial chain for a performance prediction: prepack/dequant traffic overlaps
+  and transfers/staging are incomplete.'

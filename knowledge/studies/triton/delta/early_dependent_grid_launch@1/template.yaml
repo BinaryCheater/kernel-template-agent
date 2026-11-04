@@ -1,0 +1,75 @@
+name: early_dependent_grid_launch
+version: 1
+level_from: 2
+level_to: 3
+change: vertical
+refines: sync
+produces:
+- sync
+- work_assign
+object:
+  type: early_dependent_grid_launch
+  description: A predecessor grid releases dependent launch scheduling before its
+    completion while dependents still join completion before reads.
+variables: []
+constraints: []
+preconditions:
+- id: pre0
+  expr: p.pdl_supported_and_enabled_for_both_launches and p.same_dependency_chain
+  meaning: Both grids use supported programmatic dependent launch in the actual stream
+    chain.
+  cls: semantic
+- id: pre1
+  expr: p.every_predecessor_program_triggers_or_finishes and p.consumer_waits_before_dependent_reads
+  meaning: Scheduling release is not mistaken for data visibility.
+  cls: semantic
+- id: pre2
+  expr: p.prewait_work_independent_of_predecessor and p.buffer_lifetime_valid
+  meaning: Only independent prologue work may run before the completion join.
+  cls: semantic
+program:
+  description: Predecessor programs issue a launch-dependents trigger after their
+    necessary prologue, potentially before output epilogue stores. Once all programs
+    have triggered or finished, the runtime may schedule the dependent grid if resources
+    permit. A dependent may compute only independent indices/resources before grid-dependency
+    wait; it must execute the completion wait before reading any predecessor-produced
+    value. Triggering alone provides no memory publication. Keep ordinary lifetime/stream
+    completion before final external observation.
+backward_map: Move independent dependent-grid prologue work after predecessor completion
+  and erase the early scheduling trigger; all dependent data reads still see the completed
+  predecessor result.
+obligations:
+- name: dependency_visibility
+  statement: Every predecessor-dependent read follows the whole-grid completion join.
+  method: proof
+- name: release_progress
+  statement: All required predecessor programs release scheduling or finish without
+    circular dependency.
+  method: test
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: (p.pdl_supported_and_enabled_for_both_launches and p.same_dependency_chain)
+    and (p.every_predecessor_program_triggers_or_finishes and p.consumer_waits_before_dependent_reads)
+    and (p.prewait_work_independent_of_predecessor and p.buffer_lifetime_valid)
+  text: NVIDIA supported PDL launch chains, CUDA SM90+ source gate. This is early
+    scheduling with whole-grid completion, not per-tile ready publication or a transfer
+    completion barrier.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: A predecessor grid releases dependent launch scheduling before its completion
+    while dependents still join completion before reads.
+  storage: Binding-specific counters, partials or output ranges.
+  boundary: Tile prefixes and logical membership.
+  resources: []
+numeric_risk: Integer counts must not overflow; ordering/rounding policy belongs to
+  the bound operation.
+summary: When launch overhead or independent dependent-grid prologue can overlap a
+  predecessor epilogue, release scheduling early and retain a completion wait before
+  dependent loads. In vector add, computing offsets can run early; reading x/y written
+  by the previous grid cannot. A launch trigger is never permission to consume unfinished
+  output.

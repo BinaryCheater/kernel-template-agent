@@ -1,0 +1,79 @@
+{
+  "name": "acknowledged_direct_buffer_exchange",
+  "version": 1,
+  "level_from": 2,
+  "level_to": 3,
+  "change": "vertical",
+  "refines": "map",
+  "produces": [
+    "map",
+    "access"
+  ],
+  "object": {
+    "type": "acknowledged_direct_buffer_exchange",
+    "description": "When direct peer reads or writes replace staging copies, exchange the registered endpoint once per operation and acknowledge descriptor consumption before reusing the exchange slot."
+  },
+  "variables": [],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_0",
+      "expr": "p.registered_peer_pointer_mapping_valid and p.direct_mode_matched_by_peers",
+      "meaning": "Direct-write receiver provides output; direct-read sender provides input or completed output.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_1",
+      "expr": "p.exchange_slot_visibility_and_atomic_pointer_access and p.null_is_unpublished_sentinel",
+      "meaning": "Pointer publication/consumption obey selected transport coherence; valid endpoint is nonnull.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_2",
+      "expr": "p.payload_ready_and_retirement_protocol_retained and p.buffer_lifetime_covers_peer_use",
+      "meaning": "Consuming the pointer descriptor does not retire the payload buffer.",
+      "cls": "semantic"
+    }
+  ],
+  "program": {
+    "description": "Provider waits until exchange slot is null, computes endpoint in peer address space, and publishes nonnull pointer. Acceptor waits nonnull, captures pointer, clears slot to null acknowledging descriptor consumption. Use direct write to receiver output or direct read from sender input/completed output according to matched mode. Registered predetermined mappings may bypass pointer exchange. Preserve payload ready/consumed counters and provider buffer lifetime until actual peer completion, independently of descriptor-slot acknowledgment."
+  },
+  "backward_map": "Erase auxiliary organization and recover the visible results under the stated contract.",
+  "obligations": [
+    {
+      "name": "descriptor",
+      "statement": "One provider value is consumed once before overwrite; matched roles select the same semantic buffer and offset.",
+      "method": "proof"
+    },
+    {
+      "name": "lifetime",
+      "statement": "Clearing exchange slot only frees descriptor slot, not payload; direct read waits peer retirement before source reuse.",
+      "method": "proof"
+    },
+    {
+      "name": "participation",
+      "statement": "Constructors of both peers participate even when individual operations select a buffered path.",
+      "method": "proof"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.registered_peer_pointer_mapping_valid and p.direct_mode_matched_by_peers and p.exchange_slot_visibility_and_atomic_pointer_access and p.null_is_unpublished_sentinel and p.payload_ready_and_retirement_protocol_retained and p.buffer_lifetime_covers_peer_use",
+    "text": "Registered accessible peer memory, transport-specific pointer visibility and matching direct mode. Not arbitrary host pointers. Resource effects: Eliminates staged payload copy but retains pointer handshake and flow-control state."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "When direct peer reads or writes replace staging copies, exchange the registered endpoint once per operation and acknowledge descriptor consumption before reusing the exchange slot.",
+    "storage": "Eliminates staged payload copy but retains pointer handshake and flow-control state.",
+    "boundary": "prims_simple.h:814-821,836-925. Missing exchange slots use work dnInputs/dnOutputs mapping; cross-clique peer index differs from local-rank index.",
+    "resources": []
+  },
+  "numeric_risk": "Preserve the supplied arithmetic contract; reassociation, quantization and approximate search require separate permission.",
+  "summary": "When direct peer reads or writes replace staging copies, exchange the registered endpoint once per operation and acknowledge descriptor consumption before reusing the exchange slot. prims_simple.h:814-821,836-925. Missing exchange slots use work dnInputs/dnOutputs mapping; cross-clique peer index differs from local-rank index."
+}

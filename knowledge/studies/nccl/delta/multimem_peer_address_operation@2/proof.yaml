@@ -1,0 +1,15 @@
+{
+  "template": "multimem_peer_address_operation@2",
+  "version": 1,
+  "relation": "For each coordinate in one supported pack, multicast membership expands to exactly the registered member addresses. Replicated store preserves bits at each member; selected hardware load reduces corresponding values under its declared numeric contract.",
+  "rank": "Supported packs remaining.",
+  "assumes": [
+    {
+      "name": "capability",
+      "statement": "(p.multimem_capability_record_matches_operation_type_pack_and_target and p.address_alignment_bytes >= pack_bytes and p.size_bytes % pack_bytes == 0) and (p.multicast_membership_matches_collective and p.peer_allocations_live and p.multimem_target_and_toolchain_supported) and (p.all_sources_ready_before_operation and p.all_readers_retired_before_source_reuse) and (p.reduction_numeric_contract_admitted or operation == 'replicate_store')"
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Source runtime/multicast.cu:12-35, runtime/multicast_reduce.cu:14-42; selected caller csrc/multidevice/cuda_p2p.cpp:830-960. Correctness reduces to address membership, hardware operation semantics and caller publication/retirement. No independent speed or native rounding evidence is claimed."
+}

@@ -1,0 +1,22 @@
+template: bounded_normalized_weight_pruning@1
+version: 1
+relation: The full normalized output is a convex combination of the kept and dropped means with dropped coefficient D/(K+D).
+rank: Remaining proposed work units and uncertified dropped mass.
+assumes:
+  - {name: weights, statement: Weights are finite nonnegative and retained mass K is positive.}
+  - {name: bounds, statement: K_lower<=K and B>=D cover the full partition in the same frame; every value coordinate has diameter at most the supplied bound.}
+  - {name: numerical, statement: Bounds are conservative and additional native arithmetic/conversion errors are included in the budget.}
+  - {name: protocol, statement: The collective decision and bypass path preserve ownership and initialized retained state.}
+guarantees: []
+models: []
+note: >-
+  Write full_mean=(K*kept_mean+D*dropped_mean)/(K+D). Both means lie in
+  the same coordinate interval, so absolute difference from kept_mean is at most
+  diameter*D/(K+D). The ratio increases with D and decreases with K; replacing
+  D by B and K by K_lower is conservative. Scale by abs(output_scale) and add
+  the admitted numerical-error bound. LSE_full-LSE_kept=log1p(D/K), also monotone
+  and invariant under a common positive weight-frame factor. Per-tile maxima
+  bound each weight but need cardinality and accumulation to bound D. Exact
+  rational tests and tight witnesses check the inequality and missing-certificate
+  failures. Source threshold/reference and handle paths are recorded separately;
+  no native TMEM/rounding/progress or gradient proof is claimed.

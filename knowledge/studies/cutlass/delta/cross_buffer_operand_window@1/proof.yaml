@@ -1,0 +1,22 @@
+template: cross_buffer_operand_window@1
+version: 1
+relation: Every consumed operand position resolves to the same logical stream element as the unsplit contiguous window; storage chunks and descriptors are erased.
+rank: Remaining consumer windows in the finite logical stream.
+assumes:
+  - {name: chunk_contents, statement: Chunk q contains logical elements q*C..(q+1)*C-1 or valid original-operation tail padding.}
+  - {name: descriptor_semantics, statement: The selected consumer reads the current prefix and successor remainder in logical order with legal addressing.}
+  - {name: lifetime, statement: All addressed chunks are ready and remain live until the consumer has finished reading them; release is not inferred from instruction issue alone.}
+guarantees: []
+models: []
+note: >-
+  For start=i*W, write start=q*C+r with0<=r<C. An element k with r+k<C
+  resolves through q to q*C+r+k=start+k. Otherwise it resolves through q+1
+  to (q+1)*C+(r+k-C)=start+k. Since W<=C, r+k<2*C and no third chunk is
+  needed. Each completed window preserves the relation and reduces the rank.
+  The source replay extracts SM103's eight current/next descriptor pairs from its
+  AST: instruction K96 over three K256 chunks in a K768 macro tile. Crossing windows
+  are2 and5; last-use releases are2/5/7. It also enumerates C1..32,W1..C and20
+  windows and checks independent scale-group ownership for vectors16/32. Source
+  asynchronous completion and exact descriptor encoding are open target obligations,
+  not established by these scalar coordinate/interval checks. No registered checker
+  model or whole-subject ProofSummary is claimed.

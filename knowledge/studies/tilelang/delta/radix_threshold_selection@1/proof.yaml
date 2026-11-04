@@ -1,0 +1,19 @@
+template: radix_threshold_selection@1
+version: 1
+relation: The threshold and quota select exactly k largest keys with arbitrary tie identity.
+rank: Unprocessed key digits.
+assumes:
+- name: order
+  statement: Complete keys preserve the admitted value ordering and the candidate set is complete.
+- name: counts
+  statement: Visible histogram counts and remaining ranks are exact integers.
+guarantees: []
+models: []
+note: At each digit, every key in a higher bucket outranks every key in the boundary bucket, and every
+  lower bucket loses to it. Subtracting the higher count makes r the rank within the boundary bucket.
+  Induction over digits identifies the kth complete key. With values (9,7,7,2) and k=2, threshold 7 retains
+  9 and one of the two 7s; retaining all equal keys would violate cardinality. Early whole-bucket exit
+  is valid only when the entire selected bucket fills the remaining rank. TileLang deep_select/example_deep_select.py:35-128
+  performs byte refinement and :147-186 enforces greater/equal quotas; deepseek_v32/topk_selector.py:69-189
+  retains the coarse boundary bucket for full-key refinement. Native key conversion, counter range and
+  scatter visibility remain executable obligations. No custom checker is added for this rank induction.

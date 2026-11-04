@@ -1,0 +1,7 @@
+{
+  "upstream": "https://github.com/NVIDIA/nccl",
+  "revision": "3e46c089f4ae4732722a419eb6096aead7e47a30",
+  "archive": "/Users/dingyi/kta-data/dev/operator-sources/NVIDIA/nccl/3e46c089f4ae4732722a419eb6096aead7e47a30/worker-e-source.tar.gz",
+  "tree": "/Users/dingyi/kta-data/dev/operator-sources/NVIDIA/nccl/3e46c089f4ae4732722a419eb6096aead7e47a30/nccl-3e46c089f4ae4732722a419eb6096aead7e47a30",
+  "scope": "complete superproject archive; external nested dependencies absent"
+}

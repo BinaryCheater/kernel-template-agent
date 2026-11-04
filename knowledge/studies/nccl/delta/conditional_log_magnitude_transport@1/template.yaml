@@ -1,0 +1,102 @@
+{
+  "name": "conditional_log_magnitude_transport",
+  "version": 1,
+  "level_from": 2,
+  "level_to": 3,
+  "change": "vertical",
+  "refines": "map",
+  "produces": [
+    "map",
+    "access"
+  ],
+  "object": {
+    "type": "conditional_log_magnitude_transport",
+    "description": "When small-magnitude expert outputs tolerate quantization, conditionally pack each signed value into a logarithmic magnitude code and retain raw blocks when the shared range is unsuitable."
+  },
+  "variables": [
+    {
+      "name": "magnitude_bits",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": {
+        "lo": 9,
+        "hi": 9
+      },
+      "meaning": "Observed9-bit magnitude menu; one additional sign bit. Other formats need a new realization."
+    },
+    {
+      "name": "block_channels",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": {
+        "lo": 128,
+        "hi": 128
+      },
+      "meaning": "Observed shared min/max range group."
+    }
+  ],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_0",
+      "expr": "p.bfloat16_source_and_quantization_admitted and p.block_range_metadata_shared",
+      "meaning": "Source and receiver agree on128-channel amax/amin and raw-versus-coded decisions.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_1",
+      "expr": "p.finite_values_and_zero_handling_bound and p.native_approx_log_exp_error_admitted",
+      "meaning": "Approximate log2/exp2 and zero underflow behavior are explicit, not an exact identity.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_2",
+      "expr": "p.packed_offsets_follow_block_mode_prefix_and_sign_mapping",
+      "meaning": "Variable coded160-bit versus raw256-bit segments retain exact coordinate identity.",
+      "cls": "semantic"
+    }
+  ],
+  "program": {
+    "description": "For magnitudes per128-channel block compute amax, amin, Lmax=log2(amax), Lmin=max(log2(amin),Lmax-32); zero amin uses clipped floor. Code only when Lmax<0 and Lmin<Lmax consistently across participating lanes, otherwise copy raw BF16. Let step=(Lmax-Lmin)/510, r=2-log2((1+2^step)/2)/step. Encode q=floor(max(log2(abs(x))/step+r-Lmin/step,0)), preserve sign separately. Require q fits9 bits. Pack16 q values into144 bits followed by16 sign bits (five32-bit words). Decode q0 as zero, otherwise signed 2^((q-1)*step+Lmin); accumulate decoded value times supplied routing weight in FP32. Range metadata and mode prefix determine payload offsets; sender and receiver must derive identical mode."
+  },
+  "backward_map": "Erase auxiliary organization and recover the visible results under the stated contract.",
+  "obligations": [
+    {
+      "name": "code_identity",
+      "statement": "Packed bit positions and sign bits invert without coordinate mixing; raw blocks are byte-preserving.",
+      "method": "proof"
+    },
+    {
+      "name": "quantization",
+      "statement": "Decoded values equal declared lossy codebook; rounding threshold and approximate function error satisfy admitted policy.",
+      "method": "proof"
+    },
+    {
+      "name": "range_mode",
+      "statement": "All participants choose same range/mode and prefix lengths so raw/coded boundaries remain synchronized.",
+      "method": "proof"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.bfloat16_source_and_quantization_admitted and p.block_range_metadata_shared and p.finite_values_and_zero_handling_bound and p.native_approx_log_exp_error_admitted and p.packed_offsets_follow_block_mode_prefix_and_sign_mapping",
+    "text": "Concrete LogFMT-10 source, not FP8 E4M3 or affine scale quantization. Conditional lossy transport; no error bound or equality to uncompressed arithmetic is inferred. Resource effects: 16 BF16 values32bytes become20bytes plus shared block range metadata; variable segment addresses require mode prefix."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "When small-magnitude expert outputs tolerate quantization, conditionally pack each signed value into a logarithmic magnitude code and retain raw blocks when the shared range is unsuitable.",
+    "storage": "16 BF16 values32bytes become20bytes plus shared block range metadata; variable segment addresses require mode prefix.",
+    "boundary": "contrib/nccl_ep/device/ll_ep.cuh:1092-1277,1435-1546,1835 onward. Zero and equal-amplitude blocks fall through condition or explicit zero decoding.",
+    "resources": []
+  },
+  "numeric_risk": "Preserve the supplied arithmetic contract; reassociation, quantization and approximate search require separate permission.",
+  "summary": "When small-magnitude expert outputs tolerate quantization, conditionally pack each signed value into a logarithmic magnitude code and retain raw blocks when the shared range is unsuitable. contrib/nccl_ep/device/ll_ep.cuh:1092-1277,1435-1546,1835 onward. Zero and equal-amplitude blocks fall through condition or explicit zero decoding."
+}

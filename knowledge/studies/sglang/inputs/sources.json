@@ -1,0 +1,10 @@
+{
+  "upstream": "https://github.com/sgl-project/sglang",
+  "revision": "1ea5f8c6f7f905e24758411ab59f09963ab68631",
+  "kind": "partial Git mirror; tree inventory, blobs may require network",
+  "path": "/Users/dingyi/kta-data/dev/operator-sources/sgl-project/sglang/1ea5f8c6f7f905e24758411ab59f09963ab68631/tree.git",
+  "root": "/Users/dingyi/kta-data/dev/operator-sources/sgl-project/sglang/1ea5f8c6f7f905e24758411ab59f09963ab68631/sglang-1ea5f8c6f7f905e24758411ab59f09963ab68631",
+  "archive": "/Users/dingyi/kta-data/dev/operator-sources/sgl-project/sglang/1ea5f8c6f7f905e24758411ab59f09963ab68631/source.tar.gz",
+  "scope": "Complete superproject archive; submodule contents absent",
+  "sha256": "94af69ec65448902a468c1454f3516bc1e1175f80dd8fbe3463ab84036e52abf"
+}

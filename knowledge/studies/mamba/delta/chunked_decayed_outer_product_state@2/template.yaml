@@ -1,0 +1,132 @@
+name: chunked_decayed_outer_product_state
+version: 2
+level_from: 2
+level_to: 3
+change: vertical
+refines: map
+produces:
+- map
+- contract
+object:
+  type: chunk_boundary_state
+  description: When a causal weighted outer-product recurrence has a state much smaller
+    than its token-pair matrix, compute intra-chunk interactions by triangular contractions
+    and carry only the boundary state between chunks. Preserve temporal order and
+    the exact boundary convention; chunk width trades local pair work against state
+    traffic. Scalar log-decay gates are supported; feature-dependent delta rules need
+    a separate factorization.
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+requires: []
+probed_on: []
+relations: []
+summary: When a causal weighted outer-product recurrence has a state much smaller
+  than its token-pair matrix, compute intra-chunk interactions by triangular contractions
+  and carry only the boundary state between chunks. Preserve temporal order and the
+  exact boundary convention; chunk width trades local pair work against state traffic.
+  Scalar log-decay gates are supported; feature-dependent delta rules need a separate
+  factorization.
+variables:
+- name: chunk_tokens
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 1
+    hi: 1024
+  unit: tokens
+  meaning: Positive chunk width selected by backend menu; tails are masked by valid
+    length.
+- name: decay_mode
+  kind: structure
+  binding: compile
+  role: software
+  domain:
+  - none
+  - scalar_log_prefix
+  meaning: No decay, or one cumulative scalar log-decay per token and head within
+    the chunk.
+constraints:
+- id: c_chunks
+  expr: p.sequence_length > 0 and chunk_tokens >= 1
+  meaning: Partial final chunks are allowed with the explicit valid-domain policy.
+  cls: semantic
+preconditions:
+- id: pre_recurrence
+  expr: p.scalar_decay_outer_product_recurrence and p.sequence_origins_match and p.initial_state_defined
+  meaning: The recurrence is H_i=exp(g_i)*H_(i-1)+k_i outer v_i, output q_i times
+    H_i; sequence origin and initial state are fixed.
+  cls: semantic
+- id: pre_frames
+  expr: decay_mode != 'none' or p.all_log_decays_zero
+  meaning: The no-decay specialization binds every gate to zero.
+  cls: semantic
+- id: pre_numeric
+  expr: p.exponents_in_range and p.reassociation_and_state_casts_admitted and p.tail_and_output_ownership_valid
+  meaning: Gate exponentiation, contraction regrouping, state casts and output shard
+    combination satisfy the numerical and ownership policy.
+  cls: implementation
+- id: pre_segments
+  expr: p.segment_ids_contiguous_unique and p.padding_is_identity and p.segment_state_reset_exact
+    and p.positive_decay_clamp_inactive
+  meaning: Segment ids name contiguous sequences, pad increments/innovations are identities,
+    carry resets at actual boundaries, and source min(log_decay_difference,0) does
+    not alter admitted nonpositive decays.
+  cls: semantic
+program:
+  description: 'For one chunk let c_i=sum_(j<=i) g_j, measured from zero at its input
+    boundary, and c_end its final prefix. With incoming H, output row i is exp(c_i)*q_i*H
+    + sum_(j<=i) exp(c_i-c_j)*(q_i dot k_j)*v_j. Compute the second term as a lower-triangular
+    weighted QK contraction followed by multiplication with V. After all outputs that
+    need the incoming state have captured it, replace H by exp(c_end)*H + sum_j exp(c_end-c_j)*(k_j
+    outer v_j). The next chunk consumes this new state. With decay_mode=none all c
+    are zero. Output/state feature tiling is separate; reducing key-dimension shards
+    must combine every partial once. Version2: final chunk uses only min(chunk_tokens,remaining)
+    valid tokens; pad log-decay increments0 and innovation0 so outgoing state equals
+    the last valid state. With segmented sequences, pair contributions require matching
+    segment identity and boundary carry is multiplied by0 at a reset; chunk-local
+    state summarizes only the final segment at its last valid token. Complete-chunk
+    source paths from version1 remain unchanged. Nonpositive log-decays justify the
+    native min(diff,0) clamp; positive decay is excluded from that realization.'
+backward_map: Expand the chunk contractions in token order; each prior token contribution
+  carries exactly the product of decays between its insertion and the queried token.
+obligations:
+- name: prefix_identity
+  statement: Local and incoming-state terms partition causal history without overlap
+    and use matching decay prefixes.
+  method: proof
+- name: state_boundary
+  statement: Every output uses the incoming state before it is overwritten; the next
+    chunk receives the completed outgoing state.
+  method: test
+- name: numeric_binding
+  statement: Chosen state precision and factored exponent arithmetic meet the numerical
+    contract.
+  method: test
+- name: tail_and_segment_identity
+  statement: Padding does not change the last valid state, and each output/state includes
+    contributions only from its own contiguous sequence.
+  method: proof
+scope:
+  predicate: (p.sequence_length > 0 and chunk_tokens >= 1) and (p.scalar_decay_outer_product_recurrence
+    and p.sequence_origins_match and p.initial_state_defined) and (decay_mode != 'none'
+    or p.all_log_decays_zero) and (p.exponents_in_range and p.reassociation_and_state_casts_admitted
+    and p.tail_and_output_ownership_valid) and (p.segment_ids_contiguous_unique and
+    p.padding_is_identity and p.segment_state_reset_exact and p.positive_decay_clamp_inactive)
+  text: Version1 complete-chunk domain retained, extended to masked tails and contiguous
+    uniquely tagged segments under explicit identity padding and carry reset. Source
+    Mamba SSD NVIDIA Triton; backend menu and dtype constraints still apply.
+signature:
+  algorithm: Factor causal recurrence into local triangular contractions and sequential
+    boundary states.
+  storage: Key-by-value state plus chunk tiles instead of a full token-pair matrix.
+  boundary: Incoming state is exclusive of the current chunk; outgoing state includes
+    it.
+  resources:
+  - registers
+  - smem
+  - tensor
+numeric_risk: Changes summation and state conversion order; factored exp(c_i-c_j)
+  must remain in range. No bitwise equivalence is claimed.

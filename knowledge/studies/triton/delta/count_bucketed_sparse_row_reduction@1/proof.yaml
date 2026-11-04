@@ -1,0 +1,15 @@
+template: count_bucketed_sparse_row_reduction@1
+version: 1
+relation: Invert the row permutation and expand the bitmap loop into the original
+  masked contributor sum in ascending contributor index order.
+rank: Unprocessed source items or unmerged partials.
+assumes:
+- name: contract
+  statement: The stated partition, comparator/count and publication premises hold.
+guarantees: []
+models: []
+note: Source reduce.py:237-296,350-510,570-667. Existing cost_partitioned_worklists@1
+  assigns tasks through a least-loaded heap and cannot express this stable categorical
+  permutation; size_class_cooperative_assignment@1 changes executor width, not bitmap
+  contributor traversal. Native casts, postprocess functions and scale arithmetic
+  remain separate numeric obligations.

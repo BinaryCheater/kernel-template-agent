@@ -1,0 +1,124 @@
+name: row_owned_cluster_state_combine
+version: 1
+level_from: 4
+level_to: 5
+change: vertical
+refines: reduce
+produces:
+- work_assign
+- transfer
+- sync
+- reduce
+object:
+  type: row_partitioned_cluster_raw_attention_merge
+  description: Assign disjoint final row owners across three CTAs and combine raw attention partials through
+    row-packed distributed shared mailboxes.
+variables: []
+constraints:
+- id: c_binding
+  expr: p.peers == 3 and p.rows == 8 and p.value_features == 1024 and p.partial_element_bytes == 4
+  meaning: This first binding follows the three-peer eight-row FP32 source mailbox.
+  cls: implementation
+- id: c_mailbox
+  expr: p.mailbox_capacity_bytes >= 4 * (8 * 1024 + 2 * 8)
+  meaning: Each peer reserves row-packed numerator capacity plus max/mass slots in retired operand storage.
+  cls: resource
+preconditions:
+- id: pre_states
+  expr: p.key_partitions_disjoint_complete and p.raw_numerators_maxima_masses_match_same_query_and_support
+  meaning: All peer states cover disjoint key partitions of the same rows, masks and score units.
+  cls: semantic
+- id: pre_empty
+  expr: p.nonempty_maxima_finite_and_masses_positive and p.empty_states_have_zero_mass_and_zero_finite_numerator
+  meaning: Empty peers contribute zero without undefined exponential differences or nonfinite payload
+    products.
+  cls: semantic
+- id: pre_mapping
+  expr: p.row_packed_mailbox_map_bijective_for_remote_features and p.output_map_covers_each_visible_row_feature_once
+  meaning: Row packing preserves source/row/feature coordinates and final output ownership is exact.
+  cls: implementation
+- id: pre_lifetime
+  expr: p.all_producer_mma_reads_retired_before_alias_mailbox_writes and p.mailbox_and_row_states_published_before_remote_reads
+    and p.all_remote_readers_retire_before_reuse_or_cluster_exit
+  meaning: Dead operand storage may hold mailboxes only after old readers finish; both publication and
+    terminal cluster join are required.
+  cls: implementation
+- id: pre_cluster
+  expr: p.cluster_launch_and_dsm_peer_addresses_supported and p.all_peer_roles_reach_matching_cluster_joins_and_can_progress
+  meaning: The selected cluster supports remote shared reads, matching participation and forward progress.
+  cls: implementation
+- id: pre_numeric
+  expr: p.common_reference_exponent_base_known_and_merge_rounding_admitted and p.local_raw_state_not_already_normalized
+  meaning: The merge consumes raw numerators with admitted FP32 weighting/reassociation and final cast.
+  cls: semantic
+program:
+  description: 'For peer rank r in {0,1,2}, own rows [floor(8*r/3),floor(8*(r+1)/3)). Keep own-row raw
+    numerator fragments in registers; publish nonowned row fragments to the row-packed shared mailbox,
+    together with every row max and mass. Complete a cluster publication join. For each owned row find
+    common max M across the three peers; assign a_s=exp2(m_s-M) only for positive-mass peers, otherwise
+    zero. Let D=sum_s a_s*d_s and b_s=a_s/D when D>0, otherwise zero. Combine each owned feature as sum_s
+    b_s*u_s using its local raw numerator and remote mailbox numerators, then cast/write the result once
+    at the original query/head coordinates. Row-stat weights may be formed redundantly in peers, but output
+    ownership remains disjoint. Do not multiply b_s by d_s again: u_s is unnormalized. If a slice is absent,
+    predicate both publication and consumption consistently; padded output rows do not write. Finish a
+    cluster reader-retirement join before mailbox reuse, alias overwrite or CTA exit.'
+backward_map: Concatenate the three disjoint row ranges; each row equals the common-reference normalized
+  sum of all original raw numerator/mass partials exactly once under the admitted numeric policy.
+obligations:
+- name: row_and_feature_ownership
+  statement: The half-open owner intervals partition eight rows, and each owned output feature reads all
+    three same-coordinate raw contributions once.
+  method: proof
+- name: raw_state_frame
+  statement: Every peer scale uses the same exponent/reference convention and the mass is applied only
+    in the denominator, with defined all-empty behavior.
+  method: test
+- name: mailbox_mapping
+  statement: Remote row-packed writes and reads recover each original numerator feature without overlap
+    or omission.
+  method: test
+- name: cluster_lifetime
+  statement: Publication follows all writes and retired MMA readers; terminal join follows all remote
+    reads before storage reuse or peer exit.
+  method: test
+effects:
+  transactions: []
+  storage:
+  - id: row_mailbox
+    level: smem
+    scope: cta
+    bytes: 4 * (8 * 1024 + 2 * 8)
+  overlap: []
+scope:
+  predicate: p.key_partitions_disjoint_complete and p.raw_numerators_maxima_masses_match_same_query_and_support
+    and p.nonempty_maxima_finite_and_masses_positive and p.empty_states_have_zero_mass_and_zero_finite_numerator
+    and p.row_packed_mailbox_map_bijective_for_remote_features and p.output_map_covers_each_visible_row_feature_once
+    and p.all_producer_mma_reads_retired_before_alias_mailbox_writes and p.mailbox_and_row_states_published_before_remote_reads
+    and p.all_remote_readers_retire_before_reuse_or_cluster_exit and p.cluster_launch_and_dsm_peer_addresses_supported
+    and p.all_peer_roles_reach_matching_cluster_joins_and_can_progress and p.common_reference_exponent_base_known_and_merge_rounding_admitted
+    and p.local_raw_state_not_already_normalized
+  text: Three cooperating CTAs, eight packed query/head rows and 1024 value features with FP32 raw states.
+    Source SM90 SWA M8S3 uses row-packed DSM and reuses retired KV storage. Two-peer natural-fragment
+    mailboxes, global normalized partials, arbitrary cluster dimensions and different row/feature layouts
+    require separate bindings; this version does not infer them from a generic DSM name.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Partition final rows across cluster peers and gather weighted raw state partials from distributed
+    shared mailboxes.
+  reuse: A local register partial avoids a self-mailbox store/read; other rows publish only for their
+    remote final owner.
+  storage: Per-peer row-packed FP32 mailbox and max/mass slots aliased with retired operand storage.
+  boundary: Raw versus normalized representation, uneven row ranges and two-sided cluster lifetime.
+  resources:
+  - smem
+  - cluster
+  - registers
+numeric_risk: FP32 FMA nesting and final BF16 conversion differ from a global normalized-partial combine;
+  max/mass and raw numerator must remain from the same frame.
+summary: When a small attention tile is split across three clustered CTAs, distribute final rows among
+  those CTAs instead of sending all outputs to one reducer. Retain local owned-row partials, publish other
+  rows into DSM mailboxes and combine all peer raw states in one normalization frame. The eight-row split
+  is 2/3/3 rows. Publish before remote reads and join again before reuse or peer exit; raw numerator weights
+  differ from normalized-output merge weights.

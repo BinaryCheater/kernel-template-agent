@@ -1,0 +1,22 @@
+template: precompute_transfer_descriptors@1
+version: 1
+relation: Each descriptor lookup supplies the same immutable address/shape/stride mapping as constructing the exact problem descriptor at that use.
+rank: Remaining setup keys and then remaining transfer uses.
+assumes:
+  - {name: metadata, statement: Problem metadata is available before setup and immutable through use.}
+  - {name: table, statement: Key/slot addresses are injective and aligned within allocation and setup writers are disjoint.}
+  - {name: lifetime, statement: Setup visibility precedes consumers and old readers retire before table rebuild.}
+  - {name: coordinates, statement: Consumers apply descriptor-relative coordinates without repeating encoded base offsets.}
+guarantees: []
+models: []
+note: >-
+  With tuple width D and slot0<=s<D, address128*(key*D+s) is injective across
+  nonnegative bounded keys/slots by quotient/remainder uniqueness. Immutable
+  metadata makes all uses of a key identical. Forward C and backward AB encode
+  token base offsets in descriptors, while their consumer tensor coordinates
+  remain local; unchanged global descriptors instead receive token offsets.
+  Scalar source-expression replay checks both representations and exposes the
+  double-offset counterexample. Source CLI forces setup and unsupported direct
+  fused selection has no writer. Native descriptor construction/proxy ordering,
+  zero extents and completion remain backend obligations. No device or admission
+  evidence is claimed.

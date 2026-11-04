@@ -1,0 +1,132 @@
+name: floor_anchor_group_quantization
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: contract
+produces:
+- map
+- contract
+- store
+object:
+  type: floor_anchored_mx_output_groups
+  description: Quantize complete output groups using a truncated maximum exponent and a format-specific
+    fixed anchor.
+variables:
+- name: output_format
+  kind: structure
+  binding: compile
+  role: software
+  domain:
+  - mxfp8
+  - mxfp4
+  meaning: 'Destination contract: E4M3 with anchor256 or E2M1 with anchor4. The format fixes the anchor;
+    it is not an independent tuning parameter.'
+constraints:
+- id: c_groups
+  expr: p.group_size == 32 and p.groups >= 1
+  meaning: Complete32-element semantic groups; physical owners and output axis are separately bound.
+  cls: semantic
+preconditions:
+- id: pre_groups
+  expr: p.complete_group_coordinates_and_neutral_padding_explicit
+  meaning: Every group contains32 semantic output coordinates on the declared axis; partial owners combine
+    before scale selection, with neutral padding and identical scale/code ownership.
+  cls: implementation
+- id: pre_values
+  expr: p.finite_inputs_and_positive_finite_global_scale and p.fp32_max_scale_products_finite and p.code_multiplier_and_scaled_values_finite
+  meaning: Group values are finite and the optional global multiplier g is positive finite (otherwise
+    g=1); all FP32 max-times-g intermediates are finite. The composed code multiplier and scaled code
+    inputs are finite too.
+  cls: implementation
+- id: pre_range
+  expr: p.selected_scales_positive_normal_fp32 and p.scale_exponents_between_minus126_and_126
+  meaning: Each live group has nonzero maximum and its selected power-of-two scale and reciprocal are
+    normal FP32. Zero, underflow and reserved metadata behavior require a separate extension.
+  cls: implementation
+- id: pre_cast
+  expr: p.rn_satfinite_code_cast_supported and p.fused_or_separate_fp32_multiply_order_explicit
+  meaning: Bind RN finite-saturating destination conversion and source FP32 multiplication/FTZ behavior.
+    Do not silently replace source multiplier composition by real-number division.
+  cls: implementation
+- id: pre_metadata
+  expr: p.ue8m0_decoder_and_layout_preserve_selected_scale_and_group
+  meaning: UE8M0 exponent encoding decodes to the same selected positive normal scale at each group coordinate;
+    physical packing/transpose remains separate.
+  cls: implementation
+- id: pre_lifetime
+  expr: p.group_max_publication_and_scratch_reuse_ordered and p.code_and_scale_stores_publish_together
+  meaning: All partial maxima publish before readers; scratch is not reused until readers finish; consumer
+    sees matching payload and scale generations.
+  cls: implementation
+- id: pre_error
+  expr: p.floor_anchor_rounding_and_saturation_error_admitted
+  meaning: The numerical contract admits floor-anchor rounding and saturation, which may clip the maximum
+    even though a larger power-of-two scale could avoid it.
+  cls: implementation
+program:
+  description: For each group retain pre-global-scale FP32 values x. Form each local nonnegative absmax,
+    multiply it by g in FP32 if global scaling is enabled, then combine all local maxima to m. Let b=8
+    for mxfp8 or2 for mxfp4. Strip the FP32 sign/mantissa of m, giving 2**floor(log2(m)); select s=2**(floor(log2(m))-b).
+    On the admitted normal range, construct reciprocal r by exponent bits 0x7f000000-bits(s); it equals1/s
+    exactly. Form multiplier h=RN_FP32(r*g) when global scaling is enabled, otherwise r; form z=RN_FP32(x*h),
+    then RN-SATFINITE destination codes q. Store s as the matching UE8M0 exponent byte and q in the independently
+    bound layout. A reader reconstructs s*decode(q), approximating the globally scaled output. The source
+    zero-scale branch sets h=0 before optional global scaling, but its stored-scale conversion is outside
+    this candidate.
+backward_map: Decode each group scale and destination code at the same semantic coordinate. Reconstructed
+  s*decode(q) satisfies the admitted quantization/saturation contract for g*x; no equality to a ceiling-scale
+  recipe is asserted.
+obligations:
+- name: floor_scale_identity
+  statement: Exponent truncation and anchor division produce the declared scale; exponent-only reciprocal
+    is exact throughout the admitted normal range.
+  method: exhaustive
+- name: scale_code_identity
+  statement: UE8M0 decode returns the selected scale and never mixes group owners or generations.
+  method: test
+- name: complete_max
+  statement: The scale uses the maximum of all32 semantic elements, including pieces held by different
+    warps; publication and scratch lifetime preserve it.
+  method: test
+- name: numeric_policy
+  statement: FP32 multiply order, rounding, clipping and reconstructed error satisfy the chosen destination
+    contract.
+  method: test
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: p.group_size == 32 and p.groups >= 1 and (p.complete_group_coordinates_and_neutral_padding_explicit)
+    and (p.finite_inputs_and_positive_finite_global_scale and p.fp32_max_scale_products_finite and p.code_multiplier_and_scaled_values_finite)
+    and (p.selected_scales_positive_normal_fp32 and p.scale_exponents_between_minus126_and_126) and (p.rn_satfinite_code_cast_supported
+    and p.fused_or_separate_fp32_multiply_order_explicit) and (p.ue8m0_decoder_and_layout_preserve_selected_scale_and_group)
+    and (p.group_max_publication_and_scratch_reuse_ordered and p.code_and_scale_stores_publish_together)
+    and (p.floor_anchor_rounding_and_saturation_error_admitted)
+  text: FlashInfer task-scheduled batched GEMM MX output on native supported targets/configurations. Source
+    has per-pair and batched scratch phases, direct and TMA stores. Explicit E4M3 RN-SATFINITE packed
+    TMA conversion is retained; default scalar conversion and E2M1 NVVM lowering require their conversion
+    premise. Source zero/subnormal/infinite paths are recorded boundaries, not covered extensions. For
+    a normal FP32 maximum of exponent k, normal selected scales require k>=-118 for MXFP8 or k>=-124 for
+    MXFP4; finite maxima give upper k<=127.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Select a group scale by flooring its maximum exponent relative to a fixed destination anchor.
+  storage: One UE8M0 scale per32 codes; physical layout and partial-max scratch are independently refined.
+  boundary: Complete group, positive global scale, normal scale/reciprocal, explicit RN-SATFINITE casts
+    and admitted clipping.
+  resources:
+  - registers
+  - smem
+  - dram
+numeric_risk: The floor anchor can saturate values above destination range; zero/subnormal scale arithmetic
+  and exponent-only reciprocals do not implement the normal-domain recipe. Global scale placement and
+  output cast policy must remain explicit.
+summary: When an MX output consumer expects floor-anchored32-element groups, choose E4M3/anchor256 or
+  E2M1/anchor4, combine the complete group maximum, floor its exponent and encode the resulting scale.
+  This preserves that quantizer contract while allowing separate scale layout and reduction scheduling.
+  At maximum500, MXFP8 selects scale1 rather than a ceiling recipe scale2; their codes and reconstructed
+  values differ.

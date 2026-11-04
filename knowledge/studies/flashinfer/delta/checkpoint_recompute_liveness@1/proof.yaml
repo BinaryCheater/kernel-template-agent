@@ -1,0 +1,46 @@
+template: checkpoint_recompute_liveness@1
+version: 1
+relation: Replacing a handed-over tape by the identical local replay artifact supplies the same backward
+  operands. Removing the output stage removes only stores whose value has no consumer before replay early-stop
+  or afterward; the original saved-tensor sequence and allocated interface remain intact.
+rank: Replay holders remaining until the final saver, followed by retained tape consumers remaining until
+  last-reader release.
+assumes:
+- name: pre_recompute
+  statement: The replay reproduces the original executable autograd node and exactly its saved-tensor
+    sequence. Passing additional tapes through save_for_backward would change holder matching and is not
+    a valid handoff.
+- name: pre_dead
+  statement: 'Output can be left unwritten only in a verified non-reentrant replay frame: executable node,
+    recognized hook/frame protocol, early stop enabled, remaining holders exactly the tensors this node
+    next saves, and neither backward nor saved tensors reads this output. A graph-task ID or holder count
+    alone is insufficient.'
+- name: pre_auto
+  statement: Automatic retention hands tapes over only when the same executable last-saver frame proof
+    succeeds. Otherwise regenerate them locally in backward; this avoids retaining tapes through later-saver
+    backwards.
+- name: pre_identity
+  statement: Every handed-over artifact belongs to the same graph task, autograd node, operands, entry
+    boundary, arena geometry and numerical generation as its backward consumer. Pointer identity is meaningful
+    only while owning tensors retain that storage generation.
+- name: pre_storage
+  statement: Handoff detaches tapes, optional local transfer plane and normalized rows from writable arena
+    reuse. Fresh storage is retained through all backward readers; geometry permits optional arena readoption
+    only after those readers.
+- name: pre_bound
+  statement: At most one unconsumed entry lives in the source registry. Evict it before materializing
+    a new retained set; an evicted/missing entry replays instead. Consume a matched entry once, release
+    after its last reader, and clean unconsumed entries at task end or a later bounded eviction. A failed
+    task need not run a final callback.
+- name: pre_backend
+  statement: Concrete handoff requires light saved-boundary backward, eager execution and live local tokens;
+    graph capture/replay excludes it. Frame-dependent choices recognize only their verified runtime release/protocol
+    and fall back to output compute/local tape replay when proof is unavailable.
+guarantees: []
+models: []
+note: cake_kcp.py:778-883 states and reads the executable/verified-release/hook/frame/early-stop/exact-holder
+  proof;931-1002 keys and bounds the handoff registry;4924-5045 counts saved tensors, selects auto handoff/output
+  elision, allocates output and detaches owned tapes;5360-5475 preserves save_for_backward while handing
+  tapes through the task registry;4256-4274 releases after last readers. Logical event-schedule checks
+  distinguish last-saver dead output, later-saver output dependency and retention peak. They do not execute
+  torch internals, callbacks or native GPU tapes.

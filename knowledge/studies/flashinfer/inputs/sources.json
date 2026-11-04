@@ -1,0 +1,20 @@
+{
+  "upstream": "https://github.com/flashinfer-ai/flashinfer",
+  "revision": "a1b4ed390c56ea5df8770710b29f16649acdd905",
+  "archive_url": "https://codeload.github.com/flashinfer-ai/flashinfer/tar.gz/a1b4ed390c56ea5df8770710b29f16649acdd905",
+  "archive": "/Users/dingyi/kta-data/dev/operator-sources/flashinfer-ai/flashinfer/a1b4ed390c56ea5df8770710b29f16649acdd905/source.tar.gz",
+  "archive_sha256": "63138d31cd79255b9ab62f8248dc44df3a49011a0182c29b9e85554cea37d82a",
+  "tree": "/Users/dingyi/kta-data/dev/operator-sources/flashinfer-ai/flashinfer/a1b4ed390c56ea5df8770710b29f16649acdd905/flashinfer-a1b4ed390c56ea5df8770710b29f16649acdd905",
+  "scope": "Full top-level archive and extracted source; submodule contents absent",
+  "license": "Apache-2.0 root LICENSE; additional LICENSE.kda-for-kda.txt, NOTICE and per-file notices retained",
+  "missing_submodules": [
+    "3rdparty/cutlass",
+    "3rdparty/spdlog",
+    "3rdparty/cccl",
+    "3rdparty/nixl"
+  ],
+  "retention_check": {
+    "regular_file_count": 17264,
+    "all_regular_files_present_with_matching_size": true
+  }
+}

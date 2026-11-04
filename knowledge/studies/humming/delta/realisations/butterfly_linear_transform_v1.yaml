@@ -1,0 +1,15 @@
+template: butterfly_linear_transform@1
+backend: cuda
+isa:
+  family: sm
+  min: '75'
+requires: []
+isa_constraints: []
+fragments: {}
+code_markers:
+- hadamard
+- __shfl_xor_sync
+expected_sass: []
+probed_on: []
+summary: kernel/process_input/hadamard.cuh; H<=512 at public context gate. Shared scratch and FP32 rsqrt
+  need compiled checks.

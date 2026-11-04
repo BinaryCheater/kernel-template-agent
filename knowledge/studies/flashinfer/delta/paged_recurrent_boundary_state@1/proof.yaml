@@ -1,0 +1,50 @@
+template: paged_recurrent_boundary_state@1
+version: 1
+relation: Follow each sequence original token recurrence from its cached state after p tokens. Every checkpoint/final
+  destination stores exactly the after-token state for its absolute page position. Split read/write rows
+  preserve complete shared prefix states, and suppressing the duplicate full-page final store retains
+  the same boundary state.
+rank: New token transitions/checkpoint destinations not yet related to their absolute prefix positions.
+assumes:
+- name: pre_table
+  statement: Each sequence has at least one valid page ID in CSR order, final last-page length1..P, total
+    T=(page_count-1)*P+last_len, and nonnegative new length L<=T. Tables, host page size and token-prefix
+    metadata describe the same after-step sequence.
+- name: pre_generation
+  statement: The read page contains exactly the state after the prior prefix p=T-L for this layer/parameter/numeric
+    generation. Shared complete-prefix pages have the same valid state meaning for every sharing sequence;
+    shape equality or page ID reuse alone does not certify it.
+- name: pre_ownership
+  statement: Complete prefix pages may be shared read-only. A partial prefix/tail page and all newly written/checkpoint
+    pages are private. Written page destinations are unambiguous; no other sequence in this call reads
+    or writes them. Own read/write alias is allowed only after its original seed readers retire.
+- name: pre_boundaries
+  statement: Checkpoint at absolute token count q*P is the inclusive state through that token, not a page-start
+    state. Unaligned p may be virtually left-padded to the64-token compute boundary using identity transitions
+    and masked outputs, without replaying old prefix tokens.
+- name: pre_slots
+  statement: Prepared read/write/checkpoint-prefix records match the current page table and new-token
+    counts. They may be reused across layers of this step, never implicitly across changed decode/page
+    metadata. Caller-supplied records are not source-validated against table values.
+- name: pre_mode
+  statement: Decode mode requires at least one token before the new token; if it opens a page, at least
+    two page entries exist. The first token is handled by the prefill zero-seed path, not by reading an
+    absent previous page.
+- name: pre_lifetime
+  statement: Page/slot generations remain live through every layer and stream user. Page allocator or
+    subsequent steps cannot recycle/remap a page early, and published checkpoint states complete before
+    prefix reuse.
+- name: pre_backend
+  statement: Actual backend supports split read/write pool rows, absolute checkpoint destinations and
+    unaligned-prefix identity masking at64-token compute granularity. This first binding uses NVIDIA GDN
+    routes; it does not infer support for every provider/CP combination.
+guarantees: []
+models: []
+note: gdn_paged.py:265-317 defines after-step table, immutable complete prefix, private partial page,
+  zero-new no-op and caller page ownership. triton/gdn_paged.py:36-83 derives prefill prefix/read/final/checkpoint
+  records; decode rows84-118 select previous page only when last_len1. gdn_paged.py:419-425 excludes first-token
+  decode. Wrapper316-358 forwards page_indices as checkpoint destinations, prefix_lens and page_size,
+  with CP disabled. delta_rule_sm90.py:795-845 converts absolute checkpoint origins to page-table entries;2338-2360
+  virtually left pads and masks old-prefix rows. Prepared slots are checked structurally but not against
+  table values; generation correctness remains a premise. Exact labeled-state tests compare all read/write
+  boundary events with token-serial prefix states and show mutable-page/stale-step counterexamples.

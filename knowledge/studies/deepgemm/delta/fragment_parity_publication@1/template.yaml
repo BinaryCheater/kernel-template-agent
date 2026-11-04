@@ -1,0 +1,60 @@
+name: fragment_parity_publication
+version: 1
+level_from: 4
+level_to: 5
+change: vertical
+refines: sync
+produces: [sync, transfer]
+object:
+  type: fragment_readiness_mask
+  description: One parity bit per independently published payload fragment, allowing consumers to wait only for the fragment group they read.
+variables:
+  - {name: num_fragments, kind: numeric, binding: compile, role: boundary, domain: {lo: 1, hi: 64}, meaning: Number of disjoint independently published payload fragments in one buffer generation.}
+  - {name: group_size, kind: numeric, binding: compile, role: boundary, domain: {lo: 1, hi: 64}, meaning: Number of consecutive producer fragments required by one consumer read group.}
+constraints:
+  - {id: c_shape, expr: "num_fragments == p.producer_fragments and group_size == p.fragments_per_read", meaning: Bit ownership and read groups agree with the producer and consumer layouts., cls: semantic}
+  - {id: c_groups, expr: "group_size <= num_fragments and num_fragments % group_size == 0", meaning: This version covers complete equal contiguous read groups., cls: implementation}
+preconditions:
+  - {id: pre_once, expr: "p.exactly_one_publication_per_fragment and p.initial_mask_zero", meaning: Every fragment toggles exactly once per generation and generation zero starts from a zero mask., cls: semantic}
+  - {id: pre_lifetime, expr: "p.no_generation_lap and p.payload_reuse_after_reads", meaning: A fragment cannot enter its next generation until all current consumers finish reading its payload., cls: semantic}
+  - {id: pre_memory, expr: "p.release_acquire_supported and p.producers_can_progress", meaning: Payload publication has the required memory ordering and awaited producers can execute., cls: implementation}
+program:
+  description: >-
+    Assign fragment i to bit i of one unsigned 64-bit word initialized to zero.
+    A producer completes its payload writes then release-XORs bit i exactly once.
+    Generation g expects all owned bits one when g is even and zero when g is odd.
+    For read group j form a mask over bits j*group_size through (j+1)*group_size-1.
+    Acquire-load the word until the observed XOR expected value has no bits in that
+    group, then read only that group's current-generation payload. Other groups may
+    still be incomplete. Protect payload lifetime and generation reuse separately.
+backward_map: Replace each bit toggle and grouped parity wait with completed-producer events for exactly the fragments read by that consumer.
+obligations:
+  - {name: bit_ownership, statement: Producer fragments have disjoint bits and every consumer group mask contains exactly its required fragments., method: exhaustive}
+  - {name: parity_generation, statement: Under exact-once and no-lap premises a matching bit is from the requested generation rather than an earlier or later generation., method: exhaustive}
+  - {name: publication_visibility, statement: A matching acquire observes every required fragment's completed payload stores., method: test}
+  - {name: read_lifetime, statement: Every payload read finishes before its fragment is overwritten or toggled for the next generation., method: test}
+  - {name: progress, statement: Scheduling and buffer capacity allow all awaited producers and consumers to run without circular waits., method: test}
+effects: {transactions: [], storage: [], overlap: []}
+scope:
+  predicate: "p.exactly_one_publication_per_fragment and p.no_generation_lap and p.release_acquire_supported"
+  text: >-
+    Device-local fragment publication with one through 64 distinct fragment bits and
+    complete contiguous equal-sized consumer groups. Producer ordering is free subject
+    to payload ownership. Parity is only a readiness representation, not a lifetime
+    or capacity proof. Duplicate toggles, untracked overwrites and generation lapping
+    invalidate the protocol; partial final groups need another version or binding.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Release-toggle per-fragment parity and acquire only the current read group's bits.
+  storage: One 64-bit mask per reusable payload slot plus consumer-local pending bits.
+  boundary: Exact-once publication and no generation lap are required for parity identity.
+  resources: []
+numeric_risk: No arithmetic reassociation is introduced; upstream quantization and downstream accumulation retain their own contracts.
+summary: >-
+  Use when a consumer can read independent parts of a producer's output before the
+  whole output finishes. Bind num_fragments and group_size from the two layouts, then
+  publish each completed fragment with a release-XOR and acquire just the required
+  group. With four fragments and group_size2, bits0/1 permit the first read while
+  bits2/3 are pending. Keep reuse after all reads; parity alone does not prevent overwrite.

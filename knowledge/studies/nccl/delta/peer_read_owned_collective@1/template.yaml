@@ -1,0 +1,102 @@
+{
+  "name": "peer_read_owned_collective",
+  "version": 1,
+  "level_from": 2,
+  "level_to": 3,
+  "change": "vertical",
+  "refines": "map",
+  "produces": [
+    "map",
+    "access"
+  ],
+  "object": {
+    "type": "peer_read_owned_collective",
+    "description": "When symmetric peer memory is directly addressable, partition output coordinates across ranks and let each owner read the matching coordinate from every peer, then write the completed result to its declared consumers."
+  },
+  "variables": [
+    {
+      "name": "pack_bytes",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": {
+        "lo": 1,
+        "hi": 16
+      },
+      "meaning": "Legal aligned load/store pack; scalar prefix/suffix cover unaligned tails."
+    },
+    {
+      "name": "peer_unroll",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": {
+        "lo": 1,
+        "hi": 16
+      },
+      "meaning": "Number of independent peer loads batched in registers."
+    }
+  ],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_0",
+      "expr": "p.coordinate_owner_partition_complete and p.corresponding_peer_offsets and p.peer_memory_accessible",
+      "meaning": "Every output coordinate has exactly one owner and all rank inputs have corresponding offsets.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_1",
+      "expr": "p.peer_inputs_published_before_remote_read and p.outputs_complete_before_consumers and p.no_inplace_overwrite_of_unread_input",
+      "meaning": "Opening/closing barriers and in-place lifetime ordering cover every read.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_2",
+      "expr": "p.accumulator_casts_and_peer_order_admitted and p.target_pack_and_async_completion_legal",
+      "meaning": "Accumulator precision, cyclic rank order, casts and optional async shared staging are explicit.",
+      "cls": "semantic"
+    }
+  ],
+  "program": {
+    "description": "Flatten lane/rank/block/warp into disjoint global coordinate owners. Each owner loads its own coordinate and then cycles through all other peer inputs once; cast to declared accumulation type, reduce, finalize once, cast result. AllReduce writes same completed value to corresponding output at every rank; ReduceScatter writes only the declared local owner output, and AllGather is the replication-only specialization. Split aligned packed interior from scalar prefix/suffix without overlap. Optional async peer-to-shared loads wait transaction barriers before reduction; shared-to-peer stores wait source-read completion before scratch reuse, with closing peer barrier providing publication/retirement."
+  },
+  "backward_map": "Erase auxiliary organization and recover the visible results under the stated contract.",
+  "obligations": [
+    {
+      "name": "cover",
+      "statement": "Every owned coordinate reads each peer exactly once; all coordinates have one owner.",
+      "method": "proof"
+    },
+    {
+      "name": "consumers",
+      "statement": "Completed value is stored once to every declared consumer, without overwriting an unread input.",
+      "method": "proof"
+    },
+    {
+      "name": "numeric",
+      "statement": "Accumulator type, casts and peer reduction order match selected numerical contract; changing backend need not be bitwise equal.",
+      "method": "proof"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.coordinate_owner_partition_complete and p.corresponding_peer_offsets and p.peer_memory_accessible and p.peer_inputs_published_before_remote_read and p.outputs_complete_before_consumers and p.no_inplace_overwrite_of_unread_input and p.accumulator_casts_and_peer_order_admitted and p.target_pack_and_async_completion_legal",
+    "text": "Directly accessible symmetric peers and resident progress. This is full peer-read fan-in per owned coordinate, not ring reduce-scatter. Resource effects: Spreads arithmetic/stores across rank owners; peer unroll increases live registers, async staging adds shared storage."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "When symmetric peer memory is directly addressable, partition output coordinates across ranks and let each owner read the matching coordinate from every peer, then write the completed result to its declared consumers.",
+    "storage": "Spreads arithmetic/stores across rank owners; peer unroll increases live registers, async staging adds shared storage.",
+    "boundary": "symmetric/all_reduce.cuh:15-260,333-425; flattenIx(lane,32,rank,P,block,B,warp,W). Same ownership core appears in symmetric reduce-scatter.",
+    "resources": []
+  },
+  "numeric_risk": "Preserve the supplied arithmetic contract; reassociation, quantization and approximate search require separate permission.",
+  "summary": "When symmetric peer memory is directly addressable, partition output coordinates across ranks and let each owner read the matching coordinate from every peer, then write the completed result to its declared consumers. symmetric/all_reduce.cuh:15-260,333-425; flattenIx(lane,32,rank,P,block,B,warp,W). Same ownership core appears in symmetric reduce-scatter."
+}

@@ -1,0 +1,21 @@
+template: fragment_parity_publication@1
+version: 1
+relation: Every admitted read observes exactly its requested generation's completed producer fragments.
+rank: Number of unpublished fragments required by the current read group.
+assumes:
+  - {name: exact_once, statement: Each fragment publishes exactly once per generation starting from a zero initial mask.}
+  - {name: protected_reuse, statement: No fragment is overwritten or republished before every current-generation read of it finishes.}
+  - {name: memory_order, statement: Release-XOR and acquiring waits publish payload stores and all awaited work can progress.}
+guarantees: []
+models: []
+note: >-
+  Initially every bit differs from generation zero's expected one. Exactly one XOR
+  changes the bit to the expected parity after its payload completes. Under protected
+  reuse no later toggle can alias that parity during a current read. Restricting the
+  XOR mismatch to the read group's mask therefore joins exactly those producers.
+  Each required publication reduces the finite pending-fragment rank. Repeat with
+  opposite expected parity only after lifetime protection permits reuse.
+  checks/moe_layout_schedule.py enumerates fragment orders and subset waits across
+  generations and retains duplicate-toggle and generation-lap counterexamples.
+  Payload visibility, capacity and resident-grid liveness need device evidence before
+  implementation admission. No proof model or measured assurance is registered.

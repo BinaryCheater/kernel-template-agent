@@ -1,0 +1,82 @@
+name: inplace_neighbor_boundary_checkpoint
+version: 1
+level_from: 2
+level_to: 3
+change: vertical
+refines: map
+produces:
+- map
+- store
+object:
+  type: inplace_neighbor_boundary_checkpoint
+  description: Snapshot cross-tile input neighbors before any in-place stencil output
+    can overwrite them.
+variables:
+- name: neighbor
+  kind: structure
+  binding: compile
+  role: software
+  domain:
+  - left
+  - right
+  meaning: Which adjacent input outside a tile is required.
+constraints: []
+preconditions:
+- id: pre0
+  expr: p.tile_partition_exact and p.input_output_alias_only_same_elements
+  meaning: Tiles cover the input with the admitted in-place aliasing.
+  cls: semantic
+- id: pre1
+  expr: p.checkpoint_launch_completes_before_output_writes and p.checkpoint_live_through_last_read
+  meaning: A preceding checkpoint pass preserves boundary input values.
+  cls: semantic
+- id: pre2
+  expr: p.tile_inputs_loaded_before_local_overwrite and p.endpoint_policy_explicit
+  meaning: Within-tile inputs are captured before stores and global endpoints follow
+    the caller rule.
+  cls: semantic
+program:
+  description: For every tile boundary snapshot the preceding input element for left-neighbor
+    differences, or the following tile first element for right-neighbor differences.
+    Complete the checkpoint pass before any tile writes in-place outputs. Each CTA
+    loads its own tile into local values; internal neighbors come from those captured
+    inputs, cross-tile neighbor comes from checkpoint storage, and the global edge
+    uses the declared endpoint policy. Then store outputs over the original input
+    allocation.
+backward_map: Replace checkpoint and captured tile reads by their original pre-write
+  input values, recovering an out-of-place adjacent-neighbor operation.
+obligations:
+- name: snapshot_identity
+  statement: Each cross-tile neighbor equals the original input before any output
+    overwrite.
+  method: proof
+- name: local_capture
+  statement: All local inputs used by a tile are captured before its destructive output
+    stores.
+  method: test
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: (p.tile_partition_exact and p.input_output_alias_only_same_elements)
+    and (p.checkpoint_launch_completes_before_output_writes and p.checkpoint_live_through_last_read)
+    and (p.tile_inputs_loaded_before_local_overwrite and p.endpoint_policy_explicit)
+  text: One-dimensional adjacent-neighbor operations on disjoint tiles with exact
+    in-place input/output aliasing. Arbitrary overlapping shifted allocations or larger
+    stencil halos need a different checkpoint mapping.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Snapshot cross-tile input neighbors before any in-place stencil output
+    can overwrite them.
+  storage: Binding-specific counters, partials or output ranges.
+  boundary: Tile prefixes and logical membership.
+  resources: []
+numeric_risk: Integer counts must not overflow; ordering/rounding policy belongs to
+  the bound operation.
+summary: When an in-place adjacent difference reads across CTA boundaries, save just
+  those cross-tile neighbors before launching the output pass. Choose left or right
+  direction; avoid retaining the full input. A boundary after index3 must read original
+  x3 for output4 even if the previous CTA already replaced x3.

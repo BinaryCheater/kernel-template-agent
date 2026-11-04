@@ -1,0 +1,13 @@
+template: thread_ownership_exchange@1
+version: 1
+relation: 'Erase shared storage and the ownership maps: consumer of coordinate x reads
+  the same logical V(x) written at the chosen boundary.'
+rank: Unmapped coordinates or unretired readers.
+assumes:
+- name: binding
+  statement: Declared source layout and lifetime premises hold.
+guarantees: []
+models: []
+note: For each logical x, writer stores V(x) to S[address(x)] once; visibility and
+  lifetime imply the corresponding reader sees V(x). Placement changes only the value
+  representation at the selected graph boundary. Source csrc/scheduler/transpose_non_tma.cpp:248-271,:457-494,:627-633.

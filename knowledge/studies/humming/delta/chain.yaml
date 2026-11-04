@@ -1,0 +1,70 @@
+workload: 'Partial A16/B4 GEMM chain: source layout/decode and K-partition choices; asynchronous schedule,
+  output reconstruction and cost ownership remain gaps.'
+items:
+- key: prepack
+  template: offline_operand_prepack@1
+  applies_to: constant UINT4 B
+  bindings:
+    tile_rows: 16
+    tile_cols: 64
+    element_order: mma_fragment_interleaved
+    pack_bits: 4
+  after: []
+- key: tiles
+  template: output_tiling@2
+  applies_to: C[M,N]
+  bindings:
+    tile_m: 16
+    tile_n: 128
+    executor: cta
+    index_map: identity
+  after: []
+- key: kpartition
+  template: reduction_partition@1
+  applies_to: tile K64
+  bindings:
+    group_size: 32
+    num_groups: 2
+    assignment: contiguous_parallel
+  after:
+  - tiles
+- key: Bstore
+  template: physical_storage@1
+  applies_to: prepacked B stage
+  bindings:
+    level: smem
+    buffer: dedicated
+    share_order: none
+  after:
+  - prepack
+  - tiles
+- key: Bregs
+  template: physical_storage@1
+  applies_to: B register fragments
+  bindings:
+    level: reg
+    buffer: dedicated
+    share_order: none
+  after:
+  - Bstore
+- key: decode
+  template: fused_dequantization@1
+  applies_to: B registers
+  bindings:
+    method: magic_number_lop3
+    zero_point: symmetric_folded
+    group_size: 32
+    scale_site: per_group_before_mma
+  after:
+  - Bregs
+- key: mma
+  template: compute_instruction_selection@2
+  applies_to: FP16 A and decoded B contraction
+  bindings:
+    instruction: mma_sync_m16n8k16_f16
+    operand_source: rr
+    accum_dtype: f32
+    macs_per_instruction: 2048
+  after:
+  - decode
+  - kpartition

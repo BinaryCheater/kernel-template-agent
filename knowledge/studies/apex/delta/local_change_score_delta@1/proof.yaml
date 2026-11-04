@@ -1,0 +1,16 @@
+template: local_change_score_delta@1
+version: 1
+relation: Additive local quality objectives, source unweighted absolute-magnitude2:4
+  retention score. Objective equivalence does not claim task accuracy or unbiased
+  training.
+rank: Number of input elements or state transitions still to consume.
+assumes:
+- name: source_contract
+  statement: Source binding and stated scope hold.
+guarantees: []
+models: []
+note: 'Source-derived candidate, not independently admitted. cancellation: Every unchanged
+  group contribution cancels from J_new-J_old. candidate_isolation: Each trial sees
+  original groups except its own declared local change. reduction_complete: Row contributions
+  appear exactly once in each candidate score. Native lowering and numerical error
+  remain open; see trace and checks.'

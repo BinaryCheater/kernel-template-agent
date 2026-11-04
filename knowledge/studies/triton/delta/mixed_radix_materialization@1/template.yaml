@@ -1,0 +1,126 @@
+name: mixed_radix_materialization
+version: 1
+level_from: 2
+level_to: 3
+change: vertical
+refines: store
+produces:
+- store
+- transfer
+- sync
+object:
+  type: mixed_radix_materialization
+  description: Split logical coordinates into bounded digits, permute the digits,
+    and materialize a consumer-oriented tensor layout.
+variables:
+- name: profile
+  kind: structure
+  binding: compile
+  role: software
+  domain:
+  - square_tile
+  - hopper_mma_v2
+  - hopper_mma_v3
+  - hopper_scale
+  - blackwell_weight_tile
+  - fp4_axis_repack
+  meaning: Pinned factorization/permutation family; all profiles are actual NVIDIA
+    storage paths.
+- name: tile_rows
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 1
+    hi: 65536
+  meaning: Square tile width, or Blackwell packed-K tile extent.
+- name: tile_columns
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 1
+    hi: 65536
+  meaning: Blackwell N tile extent.
+- name: warps
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 1
+    hi: 65536
+  meaning: Hopper scale warp count; power of two.
+constraints: []
+preconditions:
+- id: pre0
+  expr: p.logical_extents_fit_factorization_or_neutral_padding and p.selected_profile_matches_consumer
+  meaning: Every valid coordinate has a unique complete mixed-radix expansion compatible
+    with the consumer.
+  cls: semantic
+- id: pre1
+  expr: p.destination_owned_once and p.padding_excluded_or_neutral and p.element_codes_unchanged
+  meaning: Materialization copies exact element/code identities without races; padding
+    cannot become logical data.
+  cls: semantic
+- id: pre2
+  expr: p.packing_axis_and_leading_strides_explicit
+  meaning: Packed bytes and logical scalar axes are distinguished and batch addresses
+    preserve actual strides.
+  cls: semantic
+program:
+  description: 'Decode coordinates into the selected profile digits, permute those
+    digits, then flatten using destination strides. square_tile splits [R/t,t,C/t,t]
+    and permutes [0,2,1,3]. blackwell_weight_tile takes K-packed bytes and maps (e,k,n)
+    to (e,k/tile_rows,n/tile_columns,n%tile_columns,k%tile_rows); zero-pad tiles.
+    hopper_scale splits [M/(32*warps),2,warps,2,8,K/2,2] and permutes [0,2,5,1,4,6,3],
+    producing [M/32,K*32]. hopper_mma profiles split each of two axes into [rest,k_tile,warp_tile,threads,scott,contig].
+    Bind k_tile=[1,4/u], warp_tile=[2,2], threads=[4,4], scott=[2,1], contig=[1,u],
+    with u=4 for MMA v2 and u=1 for v3; permute the resulting12 digits by [0,3,6,10,4,9,7,1,8,2,5,11].
+    The Hopper bit recoding is a separate reversible step. fp4_axis_repack transposes
+    each2x2 logical nibble tile: from adjacent bytes a,b storing one packed axis produce
+    lo=(a&15)|((b&15)<<4), hi=(a>>4)|(b&240), placing lo/hi at adjacent coordinates
+    of the old packed axis; this map is its own inverse. Inverse materialization applies
+    the inverse permutation and removes only padding.'
+backward_map: Apply the inverse digit permutation and flatten original logical coordinates,
+  preserving each element or packed-code identity.
+obligations:
+- name: digit_bijection
+  statement: The selected split product equals the padded extents and its permutation
+    is bijective on all valid coordinates.
+  method: test
+- name: padding_and_stride
+  statement: Leading strides, packing axes and valid tails remain consistent in both
+    directions.
+  method: test
+- name: consumer_binding
+  statement: Selected physical layout matches actual instruction/TMA/decode coordinate
+    use.
+  method: test
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: (p.logical_extents_fit_factorization_or_neutral_padding and p.selected_profile_matches_consumer)
+    and (p.destination_owned_once and p.padding_excluded_or_neutral and p.element_codes_unchanged)
+    and (p.packing_axis_and_leading_strides_explicit)
+  text: Materialized complete mixed-radix profiles from shipped NVIDIA tensor layouts.
+    This moves data; tensor_axis_permutation@1 is only a rank-three view and does
+    not supply these digit factorizations. Warp count and tile extents must satisfy
+    consumer alignment and source guards.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Split logical coordinates into bounded digits, permute the digits, and
+    materialize a consumer-oriented tensor layout.
+  storage: Binding-specific counters, partials or output ranges.
+  boundary: Tile prefixes and logical membership.
+  resources: []
+numeric_risk: Integer counts must not overflow; ordering/rounding policy belongs to
+  the bound operation.
+summary: When a consumer needs contiguous tiles or instruction-owned fragments that
+  ordinary strides cannot express, materialize a mixed-radix digit permutation. Bind
+  the split factors and exact order, preserving code identities and excluding padding.
+  Hopper fragment/scale profiles and Blackwell pre-transposed weight tiles differ
+  in their digit maps; they are not interchangeable swizzles.

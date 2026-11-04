@@ -1,0 +1,85 @@
+{
+  "name": "positive_difference_log_encoding",
+  "version": 1,
+  "level_from": 3,
+  "level_to": 4,
+  "change": "vertical",
+  "refines": "map",
+  "produces": [
+    "map"
+  ],
+  "object": {
+    "type": "encoded_positive_probability_difference",
+    "description": "Keep positive target-minus-draft weights in log encoding so a log-weight consumer can avoid materializing and normalizing tiny linear residuals."
+  },
+  "variables": [
+    {
+      "name": "encoding",
+      "kind": "structure",
+      "binding": "compile",
+      "role": "software",
+      "domain": [
+        "linear",
+        "log"
+      ],
+      "meaning": "Requested residual representation consumed downstream; log0 is represented by negative infinity."
+    }
+  ],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_input",
+      "expr": "p.target_and_draft_logweights_exactly_identify_declared_probabilities and p.log_inputs_finite_or_negative_infinity",
+      "meaning": "Log inputs describe the same correctly normalized target/draft probabilities at the same history, or a declared common measure; no NaNs/+inf.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_consumer",
+      "expr": "p.consumer_decodes_selected_encoding_and_preserves_zero_support and p.target_minus_draft_orientation_fixed",
+      "meaning": "A downstream sampler/contraction understands the selected representation; the subtraction is P-Q, not reversed.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_numeric",
+      "expr": "p.exp_ratio_log1p_rounding_and_near_equal_support_policy_admitted",
+      "meaning": "The selected native recipe, near-equal rounding and zeros are admitted; exact algebra alone does not certify support after rounding.",
+      "cls": "implementation"
+    }
+  ],
+  "program": {
+    "description": "For r=max(P-Q,0), linear encoding forms the admitted positive difference. Log encoding returns -inf when P=0 or Q>=P; when P>Q, compute log_r=logP+log1p(-exp(logQ-logP)), with logQ=-inf giving log_r=logP. A log-weight consumer may use log_r directly, since exponentiating it recovers r in exact arithmetic. Common residual normalization is a shared additive log shift and may be omitted only when the downstream operation is invariant to it. Preserve a separate explicit zero-total-mass policy."
+  },
+  "backward_map": "Decode a linear record directly or exp(log_r), with exp(-inf)=0; each logical value is max(P-Q,0) under its admitted numerical recipe.",
+  "obligations": [
+    {
+      "name": "positive_difference",
+      "statement": "Decoded values and their zero-support set equal the declared positive P-Q residual.",
+      "method": "proof"
+    },
+    {
+      "name": "numerical_support",
+      "statement": "Native exp/log1p and cancellation satisfy the admitted near-equal, underflow and zero-total-mass policy.",
+      "method": "test"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.target_and_draft_logweights_exactly_identify_declared_probabilities and p.log_inputs_finite_or_negative_infinity and p.consumer_decodes_selected_encoding_and_preserves_zero_support and p.target_minus_draft_orientation_fixed and p.exp_ratio_log1p_rounding_and_near_equal_support_policy_admitted",
+    "text": "DSpark blockwise_rejection.py:292-357 uses normalized target/draft logits and log1p(-exp(logq-logp)), then a log-weight race; one-hot draft excludes the rejected token directly. Classic reject_sampling.py uses linear positive difference plus full mass/CDF. This representation step does not establish draft provenance, correction-law validity or native near-equal support preservation."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "Encode positive difference as logP+log1p(-Q/P), masking nonpositive support.",
+    "storage": "One linear or log scalar per residual coordinate; direct fused consumption optional.",
+    "boundary": "Same normalized measures, correct sign, explicit zero support and numerical admission.",
+    "resources": []
+  },
+  "numeric_risk": "FP32 exp(logQ-logP) can round to1 even when P>Q, erasing a tiny positive residual; this source recipe needs an admitted support policy. Log encoding does not automatically cure near-equality cancellation.",
+  "summary": "When a consumer accepts log weights, encode positive P-Q residuals without first materializing tiny linear values. Keep support and subtraction orientation explicit; omit a normalization only for a consumer invariant to common log shifts."
+}

@@ -1,0 +1,20 @@
+template: operand_bitfield_placement@1
+version: 1
+relation: Extracting the consuming instruction's four-bit field recovers the original E2M1 code at the same coordinate.
+rank: Remaining newly unpacked register bytes.
+assumes:
+  - {name: input, statement: Every input byte contains one E2M1 code in bits0..3 and zero unused bits.}
+  - {name: placement, statement: Destination bit position fits the byte and matches the consuming instruction.}
+  - {name: order, statement: Placement is applied once after each unpack without changing logical coordinates.}
+  - {name: backend, statement: The native unpack/consumer implement the declared code and register-byte maps.}
+guarantees: []
+models: []
+note: >-
+  For0<=q<16 and0<=d<=4, (q<<d) fits one byte and ((q<<d)>>d)&15=q.
+  No sign bit is arithmetically extended and both signed-zero code patterns remain
+  distinct. Exhaustive byte and distinctive packet checks cover the logical map,
+  with omission/double-placement counterexamples. The retained SM120 dispatch
+  selects the mixed load and both kernels guard shifts by mixed_mode and width<8;
+  the C++ traits independently describe the same two-bit shift. Native LDSM lane
+  maps, compiler lowering and fragment lifetime/order remain open. No GPU execution
+  or numerical conversion is claimed.

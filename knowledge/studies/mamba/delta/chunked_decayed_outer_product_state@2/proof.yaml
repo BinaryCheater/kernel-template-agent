@@ -1,0 +1,17 @@
+template: chunked_decayed_outer_product_state@2
+version: 1
+relation: Expand the chunk contractions in token order; each prior token contribution
+  carries exactly the product of decays between its insertion and the queried token.
+rank: Remaining valid tokens and boundary chunks.
+assumes:
+- name: tail_segment_contract
+  statement: Segment ids name contiguous sequences, pad increments/innovations are
+    identities, carry resets at actual boundaries, and source min(log_decay_difference,0)
+    does not alter admitted nonpositive decays.
+guarantees: []
+models: []
+note: "Inherited prefix/state/numeric obligations remain. Tail proof: multiplying\
+  \ by exp(0)=1 and adding0 preserves state. Segment proof: reset coefficient0 annihilates\
+  \ all prior history, and equality masks admit only matching contiguous segment pairs.\
+  \ Check ssd_chunk_state.py:232\u2013251, state_passing.py:75\u201379, chunk_scan.py:110\u2013\
+  150; native lowering/numerical checks remain open."

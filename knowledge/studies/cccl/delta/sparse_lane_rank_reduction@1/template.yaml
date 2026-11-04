@@ -1,0 +1,75 @@
+name: sparse_lane_rank_reduction
+version: 1
+level_from: 2
+level_to: 3
+change: vertical
+refines: reduce
+produces:
+- reduce
+- store
+- sync
+object:
+  type: sparse_lane_rank_reduction
+  description: A masked warp reduction communicates by logical member rank rather
+    than physical XOR lane distance.
+variables:
+- name: result_to
+  kind: structure
+  binding: compile
+  role: software
+  domain:
+  - first_member
+  - all_members
+  meaning: Expose only the first logical member or broadcast the completed value.
+constraints: []
+preconditions:
+- id: pre0
+  expr: p.member_mask_nonempty_and_same_for_all_members and p.logical_rank_ascending_physical_lanes
+  meaning: Participating lanes share one mask and rank by set-bit order.
+  cls: semantic
+- id: pre1
+  expr: p.operator_associative_under_contract and p.every_member_converges
+  meaning: Ordered grouping is legal and all mask members execute each shuffle.
+  cls: semantic
+program:
+  description: For physical lane l in mask M define rank=popcount(M & lanes_below(l)),
+    n=popcount(M). First reduce each lane local items in order. At strides 1,2,4,...<next_power_of_two(n),
+    fetch the current value of member rank+stride through the masked rank-to-lane
+    shuffle; combine only if that member exists. First member obtains the complete
+    ordered reduction. In all_members mode broadcast from the least physical set bit
+    of M. Do not use physical lane+stride or an XOR mask for a sparse group.
+backward_map: Erase masked shuffles; the first member or every member receives the
+  ordered reduction of all original members in increasing logical rank.
+obligations:
+- name: rank_interval
+  statement: After stride s each rank summarizes its ordered suffix interval of at
+    most 2*s members; the first rank eventually covers all members.
+  method: proof
+- name: masked_shuffle
+  statement: Rank-to-physical-lane mapping and convergence preserve group membership.
+  method: test
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: (p.member_mask_nonempty_and_same_for_all_members and p.logical_rank_ascending_physical_lanes)
+    and (p.operator_associative_under_contract and p.every_member_converges)
+  text: Nonempty subsets of one NVIDIA warp, including noncontiguous lanes and non-power-of-two
+    member counts. Associativity is required, commutativity is not; this is not cross_lane_reduction@1
+    fixed-width XOR butterfly.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: A masked warp reduction communicates by logical member rank rather than
+    physical XOR lane distance.
+  storage: Binding-specific counters, partials or output ranges.
+  boundary: Tile prefixes and logical membership.
+  resources: []
+numeric_risk: Integer counts must not overflow; ordering/rounding policy belongs to
+  the bound operation.
+summary: When predicate partitioning leaves sparse warp members, reduce over set-bit
+  rank instead of physical neighbors. For lanes {1,4,9}, logical ranks0,1,2 must combine
+  A,B,C in that order. A three-member group needs no padding lane to contribute. Bind
+  first-member or all-member result policy explicitly.

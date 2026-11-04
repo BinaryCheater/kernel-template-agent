@@ -1,0 +1,85 @@
+name: tagged_peer_reduction_rounds
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: reduce
+produces:
+- reduce
+- transfer
+- sync
+object:
+  type: tagged_peer_reduction_rounds
+  description: When a small statistic must be replicated across a power-of-two peer
+    group, use disjoint peer exchange rounds with epoch-tagged partial states and
+    combine the received state once per round.
+variables:
+- name: rounds
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 1
+    hi: 3
+  meaning: 'r: log2(peer count); source peer groups2/4/8.'
+constraints: []
+preconditions:
+- id: pre0
+  expr: p.partners_join_disjoint_peer_subsets and p.round_storage_disjoint and p.payload_tags_publish_complete
+    and p.epoch_no_stale_alias and p.peer_progress and p.combine_associative_commutative
+    and p.rounding_admitted
+  meaning: Partner topology, per-round storage, native tag visibility, epoch ownership,
+    progress and statistic combine.
+  cls: semantic
+program:
+  description: For P=2^r peers, at round k each peer publishes its current statistic
+    to partner rank xor2^k in storage dedicated to that round/channel. Poll all required
+    payload tags for the current epoch, then combine local and received state. The
+    represented peer subset doubles each round, provided partner selection joins disjoint
+    subgroups. CTA0 may publish once while all local CTAs consume the result. Epoch
+    reuse is legal only after previous readers and writers retire; source uses8-bit
+    magic values and per-round payload slots. This is separate from a reusable inter-CTA
+    up/down counter barrier.
+backward_map: Small replicated statistics across source power-of-two peer groups.
+  Raw sums/counts may combine additively; centered moments require their own correct
+  merge. GPU transport/tag atomicity is a backend obligation.
+obligations:
+- name: peer_cover
+  statement: Induction on rounds gives exactly2^k distinct represented peers; final
+    state includes every peer once.
+  method: proof
+- name: tag_epoch
+  statement: Every accepted payload belongs to the current round/channel/launch epoch.
+  method: proof
+- name: publication
+  statement: All data fragments are complete before their tags can be accepted by
+    consumers.
+  method: proof
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: (p.partners_join_disjoint_peer_subsets and p.round_storage_disjoint and
+    p.payload_tags_publish_complete and p.epoch_no_stale_alias and p.peer_progress
+    and p.combine_associative_commutative and p.rounding_admitted)
+  text: Small replicated statistics across source power-of-two peer groups. Raw sums/counts
+    may combine additively; centered moments require their own correct merge. GPU
+    transport/tag atomicity is a backend obligation.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: When a small statistic must be replicated across a power-of-two peer
+    group, use disjoint peer exchange rounds with epoch-tagged partial states and
+    combine the received state once per round.
+  boundary: Small replicated statistics across source power-of-two peer groups. Raw
+    sums/counts may combine additively; centered moments require their own correct
+    merge. GPU transport/tag atomicity is a backend obligation.
+  resources:
+  - registers
+numeric_risk: Floating-point reassociation, casts and approximate functions require
+  an admitted numerical contract.
+summary: When a small statistic must be replicated across a power-of-two peer group,
+  use disjoint peer exchange rounds with epoch-tagged partial states and combine the
+  received state once per round.

@@ -1,0 +1,93 @@
+name: binned_floating_accumulator
+version: 1
+level_from: 2
+level_to: 3
+change: vertical
+refines: reduce
+produces:
+- reduce
+- store
+- sync
+object:
+  type: binned_floating_accumulator
+  description: A floating sum uses exponent-indexed primary/carry collectors instead
+    of one floating scalar.
+variables:
+- name: fold
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 1
+    hi: 65536
+  meaning: Number of primary collectors, paired with the same number of carry collectors;
+    device dispatch currently binds three.
+constraints: []
+preconditions:
+- id: pre0
+  expr: p.input_is_finite_float_or_double and p.requested_sum_contract_admits_binned_rounding
+  meaning: Input and result use the specified finite summation recipe.
+  cls: semantic
+- id: pre1
+  expr: p.bin_width_matches_type and p.native_rounding_and_bit_operations_match_recipe
+  meaning: Float uses 13-bit bins, double 40-bit bins with the source bit-deposition
+    recipe.
+  cls: semantic
+- id: pre2
+  expr: p.collector_range_and_renormalization_bound_valid and p.merge_aligns_bin_indices
+  meaning: Collector shifts, carries and merged states respect bin/endurance invariants.
+  cls: semantic
+program:
+  description: 'Represent a partial sum using fold primary and fold carry floating
+    values with an exponent-indexed bin anchor. Before deposit rebin to accommodate
+    the maximum magnitude: shift retained collectors toward lower-priority bins and
+    initialize newly exposed bins. Deposit an input by forced-low-bit floating additions
+    into each primary collector, propagating the residual to the next. The highest-range
+    bin uses the source compression/expansion path. Renormalize primary carry bits
+    into the carry vector before the endurance bound is exceeded. Merge two partial
+    accumulators by aligning bin indices, combining corresponding primary/carry components
+    and renormalizing. Convert to output scalar only after the complete partial merge.
+    Source device dispatch binds fold=3; manually batched unsafe deposits additionally
+    require a declared magnitude bound and bounded count before renorm.'
+backward_map: Interpret each binned state through its primary/carry decoding recipe;
+  completed state represents the admitted reproducible sum of its deposited inputs.
+obligations:
+- name: encoded_sum
+  statement: Rebin, deposit, merge and renorm preserve the specified encoded-sum interpretation
+    within its numerical error contract.
+  method: proof
+- name: order_independence
+  statement: For the admitted range/endurance, changing partition or merge order yields
+    the declared reproducibility guarantee.
+  method: test
+- name: conversion
+  statement: Final scalar conversion follows the specified bin/carry rounding sequence.
+  method: test
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: (p.input_is_finite_float_or_double and p.requested_sum_contract_admits_binned_rounding)
+    and (p.bin_width_matches_type and p.native_rounding_and_bit_operations_match_recipe)
+    and (p.collector_range_and_renormalization_bound_valid and p.merge_aligns_bin_indices)
+  text: Finite float/double sum and the exact CCCL binned recipe, 13/40-bit bins,
+    default fold3 in device dispatch. This is not an arbitrary exact superaccumulator,
+    not scalar Kahan summation, and not a claim of correctly rounded real summation.
+    Full numerical proof/native checks remain open obligations.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: A floating sum uses exponent-indexed primary/carry collectors instead
+    of one floating scalar.
+  storage: Binding-specific counters, partials or output ranges.
+  boundary: Tile prefixes and logical membership.
+  resources: []
+numeric_risk: Integer counts must not overflow; ordering/rounding policy belongs to
+  the bound operation.
+summary: When reproducibility must survive changes in reduction partition rather than
+  merely fixing a tree, select an exponent-binned partial-state representation. The
+  source device path uses three primary and three carry collectors, paying more state
+  and arithmetic than a scalar sum. Preserve bin alignment and renormalization endurance;
+  replacing its low-bit deposit by ordinary addition changes the algorithm.

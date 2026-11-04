@@ -1,0 +1,105 @@
+{
+  "name": "zero_operand_gated_transfer",
+  "version": 1,
+  "level_from": 4,
+  "level_to": 5,
+  "change": "vertical",
+  "refines": "contract",
+  "produces": [
+    "transfer",
+    "map",
+    "contract",
+    "sync"
+  ],
+  "object": {
+    "type": "annihilator_certified_zero_fill_transfer",
+    "description": "Replace an opposite-operand load by a zero-filled tile when the corresponding complete multiplication coordinates are certified zero."
+  },
+  "variables": [
+    {
+      "name": "gating",
+      "kind": "structure",
+      "binding": "compile",
+      "role": "software",
+      "domain": [
+        "unconditional",
+        "zero_code_pair"
+      ],
+      "meaning": "Use ordinary opposite-operand reads or gate each paired-K transfer from two decoded-zero activation codes."
+    }
+  ],
+  "constraints": [
+    {
+      "id": "c_pair",
+      "expr": "p.k_values_per_gate == 2 and p.transfer_bytes == 16",
+      "meaning": "Pinned twoK-coordinate gate and16-byte opposite-operand transfer.",
+      "cls": "implementation"
+    }
+  ],
+  "preconditions": [
+    {
+      "id": "pre_annihilator",
+      "expr": "p.code_zero_predicate_matches_decoder and p.all_gated_products_zero and p.finite_operand_and_scale_values and p.signed_zero_unobserved",
+      "meaning": "Every changed product is neutral under the numerical contract, including decoded scales; NaN/Inf and observable signed-zero behavior are excluded.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_layout",
+      "expr": "p.transfer_covers_only_matching_gated_coordinates and p.opposite_operand_pair_major_layout",
+      "meaning": "Each16-byte fetch covers exactly the twoK positions tested, across output channels, with no ungated nonzero products hidden in the fetch.",
+      "cls": "implementation"
+    },
+    {
+      "id": "pre_protocol",
+      "expr": "p.zero_fill_defines_every_destination_byte and p.copy_group_and_consumer_protocol_unchanged",
+      "meaning": "Skipped source reads still write a complete zero destination and participate in the original stage/completion protocol.",
+      "cls": "implementation"
+    }
+  ],
+  "program": {
+    "description": "For a dense paired-K operand load, inspect both corresponding activation codes. In zero_code_pair mode certify both decoded magnitudes zero; sourceE2M1 byte test(code_byte &0x77)==0 ignores each sign bit only. If certified, issue the original16-byte asynchronous copy with source byte count0, defining the destination tile as zeros. Otherwise fetch all16 source bytes. Keep identical copy commit/wait and dense MMA schedule. Out-of-rangeK tail uses the same zero-fill mechanism only under the declared neutral tail contract. The transformed tile is not an equivalent standalone weight tensor; it is equivalent only in the gated contraction context."
+  },
+  "backward_map": "Restore original opposite-operand values for gated entries; they multiply decoded-zero activation values, so changing those entries to zeros leaves admitted contraction outputs unchanged.",
+  "obligations": [
+    {
+      "name": "gate_complete",
+      "statement": "The gate certifies zero for every activation coordinate represented by a suppressed opposite-operand transfer.",
+      "method": "exhaustive"
+    },
+    {
+      "name": "layout_pairing",
+      "statement": "No transfer mixes gated and ungatedK pairs; output-channel packing preserves the original MMA fragment mapping.",
+      "method": "test"
+    },
+    {
+      "name": "stage_defined",
+      "statement": "All bytes are zero-filled and original completion/consumer events remain balanced.",
+      "method": "test"
+    },
+    {
+      "name": "numeric_zero",
+      "statement": "Zero replacement preserves the finite contraction policy including unobserved signed zeros and valid scales.",
+      "method": "test"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.code_zero_predicate_matches_decoder and p.all_gated_products_zero and p.finite_operand_and_scale_values and p.copy_group_and_consumer_protocol_unchanged",
+    "text": "Pinned E2M1 activation pair and pair-major weight transfer in SM120 MoEFC2. This reduces source traffic while dense MMA count remains unchanged. It is not2:4 compression, a kept interval, or arbitrary small-value pruning. Input zeros must be exact decoded zeros."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "Gate opposite-operand memory fetch by an exact multiplication annihilator and zero-fill the unchanged dense compute tile.",
+    "storage": "Same destination stages; opposite operand may need offline pair-major permutation.",
+    "boundary": "Code magnitudes vs sign bits, matchingK pair, finite scales and zero-filled tail.",
+    "resources": []
+  },
+  "numeric_risk": "Zero timesNaN/Inf and observable signed-zero reductions invalidate the neutrality argument. Dropping merely small codes is outside scope.",
+  "summary": "When a transfer spans only multiplication coordinates whose other operand is exactly zero, replace that source fetch with a defined zero-filled tile and retain the dense compute/completion schedule. The source groups FP4 activation pairs and pair-major weights so each16-byte fetch can be gated without discarding a nonzero product. Profit depends on exact-zero incidence and memory traffic, not fewer MMAs."
+}

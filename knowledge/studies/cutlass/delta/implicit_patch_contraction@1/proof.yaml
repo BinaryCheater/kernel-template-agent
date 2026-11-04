@@ -1,0 +1,21 @@
+template: implicit_patch_contraction@1
+version: 1
+relation: The matrix accumulator for flattened output m and channel o equals the admitted cross-correlation sum over the decoded output position and visited channel/tap indices.
+rank: Remaining reduction coordinates, then remaining output coordinates.
+assumes:
+  - {name: geometry, statement: Positive extents/stride/dilation and nonnegative padding define the stated output shape and invertible flattening domains.}
+  - {name: patch, statement: The patch backend preserves the input coordinate or zero padding identity with immutable metadata and safe tails.}
+  - {name: arithmetic, statement: The caller admits the matrix arithmetic precision and reduction grouping.}
+guarantees: []
+models: []
+note: >-
+  Mixed-radix flattening has an inverse for every output and reduction coordinate.
+  Substitution of the patch equation maps each matrix product to exactly one
+  cross-correlation product; zero-filled spatial positions contribute the identity.
+  Materializing or generating the same patch values on load preserves this relation.
+  Scalar replay compares nested spatial sums with an independently flattened matrix
+  for asymmetric padding, stride, dilation and distinctive coordinate values. It
+  retains wrong-leading-padding and swapped tap-order witnesses. Source geometry
+  guards are evaluated at their boundaries. Descriptor encoding, generated lane
+  maps, actual tail fill and hardware arithmetic remain implementation obligations.
+  No registered checker model, ProofSummary or GPU execution is claimed.

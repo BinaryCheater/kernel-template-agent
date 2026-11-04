@@ -1,0 +1,15 @@
+{
+  "template": "persistent_descriptor_query_service@1",
+  "version": 1,
+  "relation": "Each live query assignment refers to immutable descriptor inputs and owns its result rows; the completion counter counts only fully published completed queries of that descriptor.",
+  "rank": "For a finite submitted workload, unassigned queries plus assigned unfinished queries; external wait remains under the eventual-publication premise.",
+  "assumes": [
+    {
+      "name": "source_contract",
+      "statement": "NVIDIA CAGRA single-CTA persistent query service. Actual mailbox publisher must be checked for matching ordering and buffer retirement before instantiation. Search algorithm and its recall remain separate from service protocol."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Source-derived proof outline; no formal proof result or GPU execution claimed. descriptor_lifetime: Resetting a worker handle frees assignment mailbox only, not the descriptor or result buffers. complete_visibility: Job completion becomes observable only after all assigned queries publish their results. exact_assignment: One query arrival corresponds to one finished query, including empty/output-filtered queries. shutdown: All CTA threads take the same stop path and cannot leave peers at a barrier. The relation is a proposed source-level invariant; the stated finite-work rank depends on the explicit environment progress assumptions. Device ordering and numeric premises have not been discharged by schema validation."
+}

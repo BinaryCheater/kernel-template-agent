@@ -1,0 +1,7 @@
+{
+  "upstream": "https://github.com/Dao-AILab/causal-conv1d",
+  "revision": "cd81f0413cad2fc1e6f17e785ac39f59aae690cd",
+  "tree": "/Users/dingyi/kta-data/dev/operator-sources/Dao-AILab/causal-conv1d/cd81f0413cad2fc1e6f17e785ac39f59aae690cd/worker-c-source",
+  "archive": "/Users/dingyi/kta-data/dev/operator-sources/Dao-AILab/causal-conv1d/cd81f0413cad2fc1e6f17e785ac39f59aae690cd/worker-c-source.tar.gz",
+  "scope": "Full superproject source; external submodules absent"
+}

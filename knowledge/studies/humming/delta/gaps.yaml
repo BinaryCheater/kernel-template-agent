@@ -1,0 +1,222 @@
+- id: GAP01
+  groups:
+  - G01
+  - G06
+  disposition: open
+  body:
+    missing: check
+    description: A-fragment and accumulator-to-visible-output coordinate composition is not replayed.
+      B-side composition is recovered for A16/B4 only.
+    level: 5
+    pattern_guess: other
+    attribution: verification
+  next_evidence: Trace exact ldmatrix and epilogue layout with unique coordinates, then replay compiled
+    padded M/N cases.
+- id: GAP02
+  groups:
+  - G01
+  - G02
+  - G03
+  - G06
+  - G11
+  disposition: open
+  body:
+    missing: check
+    description: CUDA asynchronous lifetime, arrival counts, memory visibility, PDL and final-drain correctness
+      remain source obligations.
+    level: 5
+    pattern_guess: other
+    attribution: verification
+  next_evidence: Build exact source configurations through Executor; inspect emitted code and run sanitizer/racing
+    consecutive tiles. Use the PTX memory model for release/acquire and proxy fences.
+- id: GAP03
+  groups:
+  - G01
+  - G03
+  - G04
+  - G07
+  - G13
+  disposition: open
+  body:
+    missing: template
+    description: Current instruction-selection variables omit block-scale operands and several instruction/type
+      menus; patched encodings are not validated.
+    level: 5
+    pattern_guess: other
+    attribution: space
+  next_evidence: Add a versioned scale-operand contract only after exact MXMMA/UMMA/native-mixed operand
+    and descriptor maps are recovered; preserve old versions.
+- id: GAP04
+  groups:
+  - G01
+  - G02
+  - G06
+  - G07
+  disposition: open
+  body:
+    missing: check
+    description: FP16/BF16 accumulation, scale promotion and partial combination rounding are not checked
+      against a caller tolerance.
+    level: 5
+    pattern_guess: other
+    attribution: verification
+  next_evidence: Run source-pinned kernels with cancellation, extreme scales and long K; obtain the caller
+    numerical contract first.
+- id: GAP05
+  groups:
+  - G01
+  - G02
+  - G03
+  - G04
+  disposition: open
+  body:
+    missing: family
+    description: Dense SM90 W4A16 selection was replayed at ten M values; full intervals, H20/MoE and
+      other architecture policies are not replayed.
+    level: 5
+    pattern_guess: other
+    attribution: granularity
+  next_evidence: Use real source configuration classes to enumerate full interval endpoints per target/format,
+    including candidate rejections, resource fitting and actual sizeof.
+- id: GAP06
+  groups:
+  - G03
+  - G05
+  disposition: open
+  body:
+    missing: template
+    description: Two-role warp specialization does not encode UMMA issue/readiness/dequant/math roles,
+      TMEM geometry or cooperative CTA ownership.
+    level: 5
+    pattern_guess: other
+    attribution: space
+  next_evidence: Recover each role interface, TMEM allocation and distinct-half versus multicast map,
+    then propose a separate object or versioned contract.
+- id: GAP07
+  groups:
+  - G05
+  - G06
+  disposition: open
+  body:
+    missing: check
+    description: Aligned data-parallel plus Stream-K scheduling, reverse slice metadata and full expert
+      descriptor generation lack an exact-once replay.
+    level: 5
+    pattern_guess: other
+    attribution: verification
+  next_evidence: Enumerate source scheduler events across partial waves, K-scale alignment, CTA groups,
+    empty experts and max ten slices; compare slice IDs/counts and lock groups.
+- id: GAP08
+  groups:
+  - G05
+  - G11
+  disposition: open
+  body:
+    missing: other
+    description: The vLLM archive is partial; external routing, checkpoint adapters and all schema fallback
+      behaviors are not independently traced.
+    level: 5
+    pattern_guess: other
+    attribution: other
+  next_evidence: Fetch only the pinned caller utilities required to settle routing/format contracts and
+    compare sentinel and empty-expert cases.
+- id: GAP09
+  groups:
+  - G07
+  - G08
+  - G10
+  disposition: open
+  body:
+    missing: template
+    description: Existing prepack/dequant rules do not encode every odd-bit compression, sign/zero-point
+      preprocessing, native layout, exponent rebase or e0mX conversion.
+    level: 5
+    pattern_guess: other
+    attribution: space
+  next_evidence: Replay identifiable packed coordinates and all codes for each distinct conversion family,
+    preserving group-scale ownership; propose separate versions only for recovered domains.
+- id: GAP10
+  groups:
+  - G09
+  - G10
+  disposition: open
+  body:
+    missing: check
+    description: Inactive CUDA threads consume local arrays whose elements were not loaded, despite guarded
+      visible memory operations.
+    level: 5
+    pattern_guess: other
+    attribution: verification
+  next_evidence: Compile exact partial-CTA pack/unpack/decode specializations and inspect initialization
+    semantics with initcheck/memcheck; mathematical ownership is insufficient.
+- id: GAP11
+  groups:
+  - G10
+  - G11
+  disposition: open
+  body:
+    missing: template
+    description: Affine UINT4 integer-ZP witness does not express all symmetric negative-scale, one-bit,
+      low-float, E8M0 and input quantization policies.
+    level: 5
+    pattern_guess: other
+    attribution: space
+  next_evidence: Recover range, saturation, sign and halfway rules per policy; test zero and extreme groups
+    in exact CUDA arithmetic before generalizing the affine candidate.
+- id: GAP12
+  groups:
+  - G11
+  disposition: open
+  body:
+    missing: template
+    description: Activation fusion fields, M3 group/token scale factorization, ratio underflow and staged
+      scale layouts are not fully expressed by the pinned pool.
+    level: 5
+    pattern_guess: other
+    attribution: space
+  next_evidence: Compare fused and staged intermediate values and packed scale coordinates, including
+    ratios near E4M3 subnormal boundaries and invalid routes.
+- id: GAP13
+  groups:
+  - G12
+  disposition: open
+  body:
+    missing: template
+    description: MXFP4 code rebasing is lossy and coupled to primary and secondary scale transformation;
+      it is not a lossless exponent rename.
+    level: 5
+    pattern_guess: other
+    attribution: space
+  next_evidence: Compose transform.py scale clamping and code re-quantization for nonuniform scales; state
+    the effective-weight error and source tolerance.
+- id: GAP14
+  groups:
+  - G13
+  disposition: open
+  body:
+    missing: check
+    description: No compiled tensor-core benchmark or elapsed-time measurement is available.
+    level: 5
+    pattern_guess: other
+    attribution: verification
+  next_evidence: Use the GB10 measurement protocol on an explicitly supported exact kernel; do not treat
+    arithmetic FLOP counts as throughput.
+- id: GAP15
+  groups:
+  - G01
+  - G02
+  - G03
+  - G04
+  - G06
+  - G07
+  - G08
+  disposition: open
+  body:
+    missing: model_term
+    description: Reused rules overlap traffic declarations and new proposal effects are unpriced; the
+      partial chain has no composable performance cost yet.
+    level: 5
+    pattern_guess: other
+    attribution: model
+  next_evidence: Assign unique transfer/update/storage owners per chain edge and reconcile pinned effect
+    terms before using a hardware model.

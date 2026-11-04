@@ -1,0 +1,14 @@
+template: privatized_bin_accumulation@1
+version: 1
+relation: Sum each private count by logical output bin to recover exactly the original
+  sample histogram.
+rank: Unprocessed source items or unmerged partials.
+assumes:
+- name: contract
+  statement: The stated partition, comparator/count and publication premises hold.
+guarantees: []
+models: []
+note: Source agent_histogram.cuh:295-399,:646-675. Private sample sets partition inputs;
+  replacing equal-bin +1 updates by one run-length update preserves integer sum. Decoding
+  private bins to final bins must commute with aggregation; native atomics/counter
+  range remain obligations.

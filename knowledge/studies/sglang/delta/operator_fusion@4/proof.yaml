@@ -1,0 +1,48 @@
+template: operator_fusion@4
+version: 4
+relation: The fused edge with its optional checkpoint has the same outputs, retained
+  state and admitted numerical semantics as the materialized producer-consumer edge.
+rank: Remaining local producer-consumer edges.
+assumes:
+- name: locality
+  statement: Every consumer input is in the complete local tile or supplied by the
+    declared rescalable combination.
+- name: stages
+  statement: Each producer and consumer preserves the admitted operation order, conversion
+    and activation semantics.
+- name: retention
+  statement: All external consumers are known; required checkpoints preserve the correct
+    stage and survive their readers.
+- name: lifetime
+  statement: The on-chip intermediate is fully published before reads and not overwritten
+    until all local reads finish.
+guarantees: []
+models: []
+note: Substitute the producer result for each immediate consumer read. Locality makes
+  the same inputs available; stage semantics give the same result. An optional checkpoint
+  is a second copy for external readers, so retaining it preserves the rest of the
+  graph. Induct over a sequence of fused edges. Source src/fully_fused_mlp.cu:47-129
+  holds a width64 complete hidden feature tile for128 samples in shared memory, with
+  barriers before read and overwrite. Warps0-3 produce features0-63; the next layer
+  reads all four feature fragments. A partition into independent CTAs holding features0-31
+  and32-63 is rejected by pre_dense unless a separate exchange changes the dependency
+  contract. Training side saves at :710-741 and :894-909 are retained checkpoints;
+  inference omits them except at the separate wide-output GEMM boundary. Layerwise
+  src/cutlass_mlp.cu:95-115 demonstrates why a backward consumer can require a pre-activation
+  checkpoint for Sine/SiLU rather than an activated value. Version1 projects to checkpoint=none,
+  checkpoint_bytes=0, with unchanged old variable domains and old locality branch.
+  Added premises state the existing no-omission/lifetime obligations explicitly. New
+  source realizations require native numeric, fragment-layout and synchronization
+  evidence before admission as proved or measured; no source speed claim is imported.
+  Version3 migration leaves every old field/obligation unchanged. New fused_ops=interleaved_swiglu
+  requires source coordinates (2j,2j+1) and scalar g/(1+exp_ftz(-alpha*g))*(l+1) with
+  the specified asymmetric clamps. Source python/triton_kernels/triton_kernels/swiglu_details/_swiglu.py:7-14,39-63.
+  Replacing materialized pairs by identical registers preserves values; native exp/cast/rounding
+  remains admitted by existing numeric obligations. Version4 adds a disjoint fused_ops
+  branch from ops/moe/fused_moe_triton_kernels.py:632-707. Accumulators first cast
+  to compute_type, adjacent gate/up pairs become FP32, source FTZ exp/divide is retained,
+  then multiply and cast once. Substituting those same pair values for a materialized
+  activation edge preserves the declared computation. At g1,u0 ordinary output is0
+  whereas the version3 shifted branch is nonzero; the two enums cannot be conflated.
+  Native tensor-core grouping and transcendental bit identity remain unproved by this
+  structural substitution.

@@ -1,0 +1,15 @@
+{
+  "template": "symmetric_absmax_quantization@1",
+  "version": 1,
+  "relation": "Every emitted payload coordinate and scale implement the declared zero-centered group quantizer on the same source generation.",
+  "rank": "Number of unprocessed groups plus remaining payload coordinates.",
+  "assumes": [
+    {
+      "name": "numerics",
+      "statement": "Finite input, supported positive scale/reciprocal and fixed rounding, saturation, epsilon and zero policies."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Exact group coverage makes the reduced absmax equal the contract maximum. Scale derivation follows the bound numerical policy and the same stored scale feeds each payload, preserving group identity. This does not prove a GEMM error bound. Source aot/csrc/gemm/per_token_group_quant_8bit.cu:11\u2013125,ops/quantization/act_quant_tilelang.py:52\u201399 and jit/csrc/gemm/convrot_int8/convrot_int8_entry.cuh:329\u2013357. Closest groupwise_affine_quantization@1 uses unsigned min/max zero points and cannot bind these formats; groupwise_low_float_quantization@1 is restricted to16/32-element NVFP4/MXFP8 and encoded metadata. Native convert/reciprocal witnesses remain open."
+}

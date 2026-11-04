@@ -1,0 +1,60 @@
+name: segmented_axis_work_decode
+version: 1
+level_from: 4
+level_to: 5
+change: vertical
+refines: work_assign
+produces: [work_assign, map]
+object:
+  type: segmented_axis_work_origin
+  description: A monotone work index maps into separately rounded segment work and returns the group, physical origin and signed distance to its boundary for every cooperating tile.
+variables:
+  - {name: tile_extent, kind: numeric, binding: compile, role: software, domain: {lo: 1, hi: 65536}, meaning: Extent of one member tile along the segmented tensor axis.}
+  - {name: cooperating_tiles, kind: numeric, binding: compile, role: boundary, domain: {lo: 1, hi: 16}, meaning: Member tiles covering one cooperative work unit along that axis; the pinned source uses cluster N.}
+constraints:
+  - {id: c_backend, expr: "p.work_unit_layout_legal and p.prefix_and_work_counts_fit_int32", meaning: Selected cooperative layout is legal and both physical prefixes and rounded work counts fit the pinned integer representation., cls: implementation}
+preconditions:
+  - {id: pre_prefix, expr: "p.prefix_starts_zero and p.prefix_nondecreasing and p.prefix_complete and p.prefix_metadata_immutable", meaning: One immutable prefix array describes all segment lengths including empty segments., cls: semantic}
+  - {id: pre_query, expr: "p.queries_nonnegative_and_monotone", meaning: Retained forward cursor never needs an earlier segment., cls: semantic}
+  - {id: pre_consume, expr: "p.consumers_mask_by_segment_end and p.inactive_peer_loads_safe and p.peers_keep_same_work_identity", meaning: Stores honor per-segment bounds while inactive peers retain safe loads and the cooperative execution sequence., cls: implementation}
+program:
+  description: >-
+    Let unit_extent=tile_extent*cooperating_tiles and count[g]=ceil_div(prefix[g+1]-
+    prefix[g],unit_extent). Invert the inclusive prefix of those counts using a
+    retained forward scalar cursor; empty segments contribute zero work. A valid
+    query returns group g and local unit index u. Member j has physical origin
+    prefix[g]+u*unit_extent+j*tile_extent and signed remaining=prefix[g+1]-origin.
+    Keep the group's work identity for every member, including remaining<=0.
+    Only local coordinates0<=x<tile_extent and x<remaining may store a visible
+    element. Invalid past-total queries publish a terminal identity and do not
+    consume nonexistent group metadata. Do not replace per-group rounding with
+    rounding the total physical extent.
+backward_map: Expand all segments' visible coordinates in input order; each valid output belongs to exactly one local unit/member/coordinate and its original physical prefix offset.
+obligations:
+  - {name: inverse_rounded_counts, statement: The cursor returns the unique segment/local unit in the concatenation of separately rounded group counts., method: exhaustive}
+  - {name: physical_origin, statement: Every member origin and signed remaining distance use that segment's original physical prefix rather than a padded work prefix., method: exhaustive}
+  - {name: visible_coverage, statement: Per-member boundary masks cover every visible segment coordinate once and no coordinate in a neighboring segment., method: exhaustive}
+  - {name: terminal_and_cooperation, statement: Empty/terminal groups do not read invalid metadata; inactive members do not diverge from required cooperative participation., method: test}
+effects: {transactions: [], storage: [], overlap: []}
+scope:
+  predicate: "p.work_unit_layout_legal and p.prefix_and_work_counts_fit_int32 and p.prefix_starts_zero and p.prefix_nondecreasing and p.prefix_complete and p.prefix_metadata_immutable and p.queries_nonnegative_and_monotone and p.consumers_mask_by_segment_end and p.inactive_peer_loads_safe and p.peers_keep_same_work_identity"
+  text: >-
+    One physically contiguous segmented tensor axis with independently rounded
+    cooperative tile work, a monotone scalar search and explicit per-member tail
+    bounds. Pinned mixed-input grouped GEMM segments the fused N axis while A and
+    scale batch select the returned group. The last CTA may have zero/negative
+    remaining distance but still participates in collective pipelines. A different
+    segmentation, backwards query order, integer width or cooperative participation
+    policy needs a variant or verified binding. Physical cursor/register costs and
+    native clipping/arrival progress remain unpriced backend obligations.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Inverse separately rounded segment work counts plus unpadded physical origins.
+  storage: Immutable prefix array and retained six-field scalar search cursor.
+  boundary: Empty segments, non-tile-aligned boundaries and inactive members of the final unit.
+  resources: [reg, issue]
+numeric_risk: Scheduling/map refinement only; storing padded work into a neighboring segment changes visible results.
+summary: >-
+  When differently sized groups share one contiguous tensor axis, consider decoding separately rounded per-group work rather than tiling the fused extent. Preserve the physical prefix for origins and return each member's signed distance to its group end; choose tile_extent and bind cooperating_tiles to the actual execution unit. The pinned N-axis scalar cursor skips empty groups but keeps inactive cluster members participating; using global tile origins or dropping a peer requires a different mapping/protocol.

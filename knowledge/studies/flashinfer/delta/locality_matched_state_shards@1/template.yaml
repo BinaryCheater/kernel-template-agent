@@ -1,0 +1,177 @@
+name: locality_matched_state_shards
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: store
+produces:
+- store
+- map
+- sync
+object:
+  type: independent_state_rows_with_matched_memory_and_execution_domains
+  description: Shard every recurrent state along independent value rows, physically place each shard in
+    its locality domain and dispatch its complete-key update to the matching execution domain.
+variables:
+- name: execution_mode
+  kind: structure
+  binding: compile
+  role: software
+  domain:
+  - matched_domain_streams
+  - ordered_current_stream
+  meaning: Use per-domain restricted streams plus fork/join for locality, or execute the two functional
+    shards on the current stream when host launch overhead dominates. Only matched mode supplies the locality
+    placement/execution claim.
+constraints:
+- id: c_shape
+  expr: p.domains == 2 and p.value_features == 128 and p.key_features == 128 and p.tokens_per_request
+    == 1
+  meaning: Concrete source split is two64-value-row halves, each with complete128 key columns, for T1
+    decode.
+  cls: implementation
+- id: c_allocation
+  expr: p.domain_allocation_bytes >= p.slot_capacity * p.value_heads * 64 * 128 * 2 and p.slot_capacity
+    >= 1 and p.value_heads >= 1
+  meaning: Each BF16 physical allocation holds its half-state payload; extra allocation-granularity padding
+    remains in actual strides.
+  cls: implementation
+preconditions:
+- id: pre_independence
+  expr: p.value_row_state_updates_independent_and_each_shard_keeps_complete_key_axis
+  meaning: A scalar-gated delta decode updates each value/state row independently once shared key/query/gate
+    inputs are fixed. Each domain owns half the value rows and all128 key columns; no inter-domain key
+    partial reduction is omitted.
+  cls: implementation
+- id: pre_allocation
+  expr: p.state_shards_physically_allocated_in_corresponding_locality_domains
+  meaning: Two physical locality-domain allocations hold state rows0..63 and64..127 for every slot/head.
+    Domain stride includes allocator-granularity padding. Permuted/select views retain actual strides
+    and allocation owner; reshaping as a dense ordinary pool is not equivalent.
+  cls: implementation
+- id: pre_mapping
+  expr: p.pool_slot_head_value_and_output_slice_maps_agree
+  meaning: Domain d local row r maps to original value row64*d+r for state,V and output; request slot
+    indices and every head mapping remain identical across the two launches. Local domain0 must not accidentally
+    consume the first half for both domains.
+  cls: implementation
+- id: pre_shared_inputs
+  expr: p.shared_key_query_gate_inputs_identical_and_live_through_both_shards
+  meaning: Shared inputs are read-only or coherently supplied until both domains finish. Each launch independently
+    normalizes/loads the complete key/query data under the same declared recipe; replicated setup is not
+    a cross-domain state dependency.
+  cls: implementation
+- id: pre_execution
+  expr: execution_mode == 'ordered_current_stream' or p.green_context_execution_domain_matches_memory_and_backfill_contract
+  meaning: Matched mode uses supported green-context SM groups with the same locality-domain IDs as allocation;
+    source backfill policy is part of the admitted target resource contract. Current-stream fallback preserves
+    functional ownership but does not imply domain-local state traffic.
+  cls: implementation
+- id: pre_order
+  expr: p.main_input_event_precedes_all_shards_and_all_shard_completions_precede_consumers
+  meaning: In matched mode main stream records a fork event, each domain stream waits, each records done,
+    and main waits every done before later consumers. Current-stream mode orders both launches directly.
+    No half-complete checkpoint/output may publish as a complete state.
+  cls: implementation
+- id: pre_slots
+  expr: p.mutable_state_slots_unique_and_no_cross_request_seed_write_overlap
+  meaning: Live mutable state slices have unique request ownership. A write must not overwrite another
+    concurrent request seed; same-request in-place update is allowed only after its own row seed readers
+    finish.
+  cls: implementation
+- id: pre_lifetime
+  expr: p.state_inputs_and_localized_allocation_owner_live_through_all_stream_and_graph_users
+  meaning: State contents are initialized; allocation/green contexts stay alive through stream and CUDA-graph
+    users. Releasing/mapping reuse waits for readers, including deferred release around capture. Required
+    context/kernel warmup precedes capture.
+  cls: implementation
+- id: pre_numeric
+  expr: p.per_row_reduction_fma_conversion_and_store_recipe_admitted
+  meaning: Value-row partition does not alter each row complete key reduction, scalar decay/prediction/correction
+    order or declared state/output rounding. Bitwise equality additionally requires the exact per-row
+    input and arithmetic tree, not just real row independence.
+  cls: implementation
+- id: pre_backend
+  expr: p.two_domain_locality_allocation_context_and_shard_kernel_available
+  meaning: Target/driver exposes two compatible memory/execution locality domains and the actual V64,K128
+    T1 BF16 kernel path. Generic memory placement APIs, other architectures, more domains and arbitrary
+    recurrent feature dependencies are not inferred.
+  cls: implementation
+program:
+  description: Allocate domain d state half[slots,HV,64,128] in memory locality domain d for d0/1, retaining
+    padded domain stride and owner. Expose logical pool[slots,HV,2,64,128] where original rowv=64*d+r.
+    Domain launch d selects pool[:,:,d],V[...,64*d:64*(d+1)],output same slice, with identical request
+    slot/head/key/query/gate metadata and complete key dimension. matched_domain_streams records one ready/fork
+    event on main; both locality-restricted streams wait, run their row kernels, record completion, and
+    main waits both. ordered_current_stream runs the same two slices serially on the current stream. Each
+    kernel performs full row prediction/correction/readout and writes only its owned state/output rows.
+    No state combine is needed because rows are independent; consumers still wait for both halves. Declare
+    locality only for matched memory/execution domains under the target contract, not for all replicated
+    inputs or for ordered fallback. Preserve mappings and lifetimes across graph capture and allocator
+    release.
+backward_map: Erase domain/stream labels and place each shard row at64*d+r. The two disjoint row sets
+  cover the full original state/output, each using every key term and original inputs. Fork/join makes
+  their completion equivalent to one completed full-row update under the admitted per-row numerical recipe.
+obligations:
+- name: row_and_address_partition
+  statement: All slot/head/value/key coordinates map exactly once to the intended physical-domain shard
+    with preserved padded strides and matching V/output slices.
+  method: test
+- name: complete_row_computation
+  statement: Each shard keeps all key columns and preserves every row reduction/update/store recipe; no
+    missing cross-domain reduction exists.
+  method: proof
+- name: fork_join_publication
+  statement: Both shards see initialized inputs and every consumer observes both completions before a
+    complete state/output generation is published.
+  method: test
+- name: physical_locality_and_lifetime
+  statement: Actual driver allocation and SM groups match domain IDs/backfill policy; allocations/contexts
+    remain live through all stream/graph consumers.
+  method: test
+effects:
+  transactions: []
+  storage:
+  - id: localized_state_pool
+    level: dram
+    scope: kernel
+    bytes: 2 * p.domain_allocation_bytes
+    note: Physical state payload plus per-domain allocation-granularity padding. Ordinary shared inputs/output
+      storage and stream metadata are separate.
+  overlap: []
+scope:
+  predicate: (p.domains == 2 and p.value_features == 128 and p.key_features == 128 and p.tokens_per_request
+    == 1) and (p.domain_allocation_bytes >= p.slot_capacity * p.value_heads * 64 * 128 * 2 and p.slot_capacity
+    >= 1 and p.value_heads >= 1) and (p.value_row_state_updates_independent_and_each_shard_keeps_complete_key_axis)
+    and (p.state_shards_physically_allocated_in_corresponding_locality_domains) and (p.pool_slot_head_value_and_output_slice_maps_agree)
+    and (p.shared_key_query_gate_inputs_identical_and_live_through_both_shards) and (execution_mode ==
+    'ordered_current_stream' or p.green_context_execution_domain_matches_memory_and_backfill_contract)
+    and (p.main_input_event_precedes_all_shards_and_all_shard_completions_precede_consumers) and (p.mutable_state_slots_unique_and_no_cross_request_seed_write_overlap)
+    and (p.state_inputs_and_localized_allocation_owner_live_through_all_stream_and_graph_users) and (p.per_row_reduction_fma_conversion_and_store_recipe_admitted)
+    and (p.two_domain_locality_allocation_context_and_shard_kernel_available)
+  text: Rubin source ugpu_state_pool and _run_rubin_t1_ugpu in FlashInfer gdn_decode.py allocate BF16
+    two-domain value shards and run the SM107 T1 complete-row kernel on each64-row slice. Matched green-context
+    streams are used under CUDA graph capture and above the source eager threshold; smaller eager calls
+    run both slices on current stream. Threshold8192 batch*value_heads is cost policy, not semantic legality.
+    Source hardware traffic/performance claims are not measurements of this study. KV/key-axis partition,
+    arbitrary nonlinear coupling, atomic whole-pool commit and generalized NUMA topology are outside this
+    first version.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Independent value-row state shards with matching physical memory and execution locality plus
+    complete join.
+  storage: Two localized padded allocations exposed through a logical slot/head/domain/row/key view.
+  boundary: Row independence, complete key reduction, matching domain IDs, stride identity and all-stream
+    completion/lifetime.
+  resources:
+  - dram
+  - smem
+  - registers
+numeric_risk: Wrong domain/view stride or V slice mixes state rows; dropping a join exposes half-old state.
+  Bitwise row equivalence requires the actual reduction/FMA tree; locality alone has no numeric guarantee.
+summary: When recurrent value rows are independent and state traffic dominates, split every state by value
+  row, place halves in matching memory domains and bind execution to those same domains. Keep the full
+  key axis in each shard and join both completions. A current-stream fallback preserves results but carries
+  no domain-local traffic promise.

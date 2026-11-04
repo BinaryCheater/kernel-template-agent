@@ -1,0 +1,7 @@
+{
+  "upstream": "https://github.com/Dao-AILab/quack",
+  "revision": "bb0e6b220f6b9ee6b36a638d3d6c6150d52db8d8",
+  "tree": "/Users/dingyi/kta-data/dev/operator-sources/Dao-AILab/quack/bb0e6b220f6b9ee6b36a638d3d6c6150d52db8d8/worker-c-source",
+  "archive": "/Users/dingyi/kta-data/dev/operator-sources/Dao-AILab/quack/bb0e6b220f6b9ee6b36a638d3d6c6150d52db8d8/worker-c-source.tar.gz",
+  "scope": "Full superproject source; external submodules absent"
+}

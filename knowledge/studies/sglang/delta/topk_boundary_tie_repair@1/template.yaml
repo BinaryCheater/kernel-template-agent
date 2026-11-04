@@ -1,0 +1,83 @@
+{
+  "name": "topk_boundary_tie_repair",
+  "version": 1,
+  "level_from": 3,
+  "level_to": 4,
+  "change": "vertical",
+  "refines": "reduce",
+  "produces": [
+    "map",
+    "reduce"
+  ],
+  "object": {
+    "type": "canonical_topk_identity_repair",
+    "description": "When an available fast top-k has arbitrary boundary ties but a consumer needs deterministic token identity, retain strict winners and refill only the kth-value tie quota by an ascending-ID full-row scan."
+  },
+  "variables": [],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_input",
+      "expr": "p.finite_nonnegative_values and p.k > 0 and p.k <= p.length and p.original_ids_unique_and_ascending_in_scan",
+      "meaning": "Ordered finite values, unique original IDs and a complete ascending-ID traversal.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_topk",
+      "expr": "p.input_topk_value_multiset_exact and p.strictly_above_boundary_records_complete",
+      "meaning": "Fast selector returns the exact top-k values with arbitrary boundary-tie IDs; every record strictly above kth value is present.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_repair",
+      "expr": "p.full_row_boundary_scan_complete and p.boundary_quota_exact and p.paired_records_preserved",
+      "meaning": "All equal-boundary IDs can be visited and the remaining quota is filled by the smallest IDs.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_sort",
+      "expr": "p.final_order_value_descending_id_ascending and p.packed_sort_key_preserves_order",
+      "meaning": "Final comparator orders values descending then original IDs ascending; source positive FP32 bits and unsigned-ID complement packing must preserve that comparator.",
+      "cls": "semantic"
+    }
+  ],
+  "program": {
+    "description": "Let b be the minimum returned top-k value. Compact all returned records with value>b. Set quota=k-count_above. Scan the full original row in ascending token-ID order, append the first quota records with value==b, then sort the k records by descending value and ascending original ID. Input selector tie identities no longer affect the result. Source packs positive FP32 probability bits in the high32 bits and the complemented unsigned token ID in low32 bits for a descending sort."
+  },
+  "backward_map": "The above-boundary set is unchanged and complete. Replacing arbitrary kth-boundary IDs by the smallest equal-value IDs leaves the top-k value multiset fixed and establishes the requested total order.",
+  "obligations": [
+    {
+      "name": "boundary_quota",
+      "statement": "Exactly k-count_above smallest boundary-tie IDs fill the remaining slots.",
+      "method": "proof"
+    },
+    {
+      "name": "canonical_identity",
+      "statement": "Every arbitrary-tie exact top-k input is repaired to the same value/ID sequence.",
+      "method": "proof"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "(p.finite_nonnegative_values and p.k > 0 and p.k <= p.length and p.original_ids_unique_and_ascending_in_scan) and (p.input_topk_value_multiset_exact and p.strictly_above_boundary_records_complete) and (p.full_row_boundary_scan_complete and p.boundary_quota_exact and p.paired_records_preserved) and (p.final_order_value_descending_id_ascending and p.packed_sort_key_preserves_order)",
+    "text": "TextSeal ops/sampling/textseal_selector.py:44-137, finite nonnegative FP32 probabilities and token IDs in the source signed-safe range. The scan covers the full vocabulary even when upstream top-k retained only k records. This does not repair an incorrect top-k value threshold or missing strictly larger values."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "When an available fast top-k has arbitrary boundary ties but a consumer needs deterministic token identity, retain strict winners and refill only the kth-value tie quota by an ascending-ID full-row scan.",
+    "storage": "Per-shard summaries and original row inputs.",
+    "boundary": "TextSeal ops/sampling/textseal_selector.py:44-137, finite nonnegative FP32 probabilities and token IDs in the source signed-safe range. The scan covers the full vocabulary even when upstream top-k retained only k records. This does not repair an incorrect top-k value threshold or missing strictly larger values.",
+    "resources": [
+      "dram",
+      "registers"
+    ]
+  },
+  "numeric_risk": "There are fewer than k strict winners and enough equal-boundary inputs to fill the quota. Their first IDs are precisely the required canonical boundary set. Sorting the fixed set establishes the same total order for every upstream tie choice. Host exhaustive arbitrary-boundary-subset checks are checks/tie_repair.json; GPU compaction, sort packing and FP32 signed-zero behavior require native admission.",
+  "summary": "When an available fast top-k has arbitrary boundary ties but a consumer needs deterministic token identity, retain strict winners and refill only the kth-value tie quota by an ascending-ID full-row scan."
+}

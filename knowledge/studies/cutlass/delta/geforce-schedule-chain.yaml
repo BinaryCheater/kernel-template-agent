@@ -1,0 +1,21 @@
+workload: >-
+  Partial proposed mixed SM120 pingpong composition: A FP4 E2M1/B FP8 E4M3,
+  E8M0 SF/vector32, FP32 accumulation, tile128x128x128, problem M128/N256/K640/L1,
+  one persistent CTA with two consumer groups. Local producer item ordinals0/1
+  select the two output tiles and each has five K stages. Ring capacity3 is a
+  logical binding pending source resource derivation. Order depth2/length2 needs
+  four backed slots; source declares two, so padding/backing and native validity
+  remain external obligations. No working native source binding is claimed.
+items:
+  - key: consumer_stripes
+    template: interleaved_consumer_streams@1
+    applies_to: Each four-warp group owns alternating items within this CTA's producer stream; jump across unowned K-stage generations without releasing them.
+    bindings: {groups: 2, steps_per_item: 5}
+    after: []
+    code_markers: [warp_group_idx, advance, mainloop_consumer_state]
+  - key: fp4_payload
+    template: operand_bitfield_placement@1
+    applies_to: Fresh FP4 A register bytes captured from the owned stage; preserve coordinates and shift once before mixed MMA. B FP8 stays unchanged. Native LDSM mapping remains external.
+    bindings: {destination_lsb: 2}
+    after: [consumer_stripes]
+    code_markers: [a_view, FP4_SHIFT_BITS, k_block_idx]

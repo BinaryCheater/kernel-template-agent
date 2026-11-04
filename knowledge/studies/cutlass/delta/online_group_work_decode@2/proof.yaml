@@ -1,0 +1,21 @@
+template: online_group_work_decode@2
+version: 1
+relation: The retained cursor agrees with the immutable group prefix; each returned valid pair is the
+  inverse concatenation coordinate of its query index.
+rank: Remaining groups in a forward search; a cursor hit finishes immediately.
+assumes:
+- name: counts
+  statement: Group counts are nonnegative and complete and cumulative sums fit the selected integer representation.
+- name: query_order
+  statement: Each worker's nonnegative query indices are monotonically increasing or equal.
+- name: metadata
+  statement: Problem shapes remain immutable and any shape-cache tuple preserves its group identity.
+guarantees: []
+models: []
+note: Version1 warp-window evidence remains addressable. Scalar advancement preserves start<=query<end
+  for the returned group and increases the inspected group on every failed interval, including zero counts.
+  Exhaustion returns invalid. Retained MoE method replay checks both scenario count constructions, worker
+  strides, zero-token groups and repeated queries against independent enumeration. An empty expert table
+  exposes the source group0 initialization read and is excluded from this source binding. Version1 projection,
+  shape-cache exclusion and unchanged source hashes are checked. Native SSA/lane lowering and broadcast
+  progress remain open; no registered proof model or admission is claimed.

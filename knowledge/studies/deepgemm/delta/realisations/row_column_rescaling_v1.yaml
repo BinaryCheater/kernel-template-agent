@@ -1,0 +1,14 @@
+template: row_column_rescaling@1
+backend: cuda
+isa: {family: sm, min: '100', max: '100'}
+requires: [shfl_sync]
+isa_constraints: []
+fragments: {}
+code_markers: [run_mix_task,sinkhorn_normalize,get_col_sum]
+expected_sass: []
+probed_on: []
+summary: >-
+  DeepGEMM epilogue/sm100_mega_mhc.cuh places the4x4 matrix in warp lanes8..23.
+  Rows use contiguous four-lane reductions; columns use XOR4 then XOR24,so the
+  shifted active lane region never reads inactive coefficients. Source uses __expf
+  and fast_rcp; the scalar matrix replay does not establish their numerical error.

@@ -1,0 +1,15 @@
+{
+  "template": "step_pinned_device_page_residency@1",
+  "version": 1,
+  "relation": "For each active original expert route, its remapped slot contains that same expert's complete matching payload generation before use; weights and route multiplicity are unchanged. Unneeded cache pages affect only replacement work, not visible expert results.",
+  "rank": "Unresolved required pages or pending transfer generations.",
+  "assumes": [
+    {
+      "name": "premises",
+      "statement": "All stated generation, capacity, memory and completion premises hold."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "If U is the required unique set with|U|<=route_count<=K, every previously required resident is pinned and every newly installed member is pinned. Before the next missing member is placed, fewer than|U|<=K slots are pinned, so an unpinned victim exists. Updating both inverse maps preserves their bijection; duplicates find the new slot. Matching complete payload copies establish result identity. Host checks/page_residency.json covers repeated routes, tie victims and all-needed pinning; native mapped-host bandwidth and synchronization are not claimed."
+}

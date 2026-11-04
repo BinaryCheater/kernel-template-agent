@@ -1,0 +1,60 @@
+name: ordered_slot_wait_coalescing
+version: 1
+level_from: 5
+level_to: 5
+change: vertical
+refines: sync
+produces: [sync]
+object:
+  type: ordered_empty_credit_batch
+  description: A producer waits for the last credit of a short consecutive batch because that credit certifies all earlier readers retired in prefix order.
+variables:
+  - {name: batch_width, kind: numeric, binding: compile, role: software, domain: {lo: 1, hi: 2}, meaning: Consecutive wide-output slots protected by one latest-slot wait; pinned transform loop unrolls pairs with an odd single tail.}
+constraints:
+  - {id: c_capacity, expr: "p.items >= 0 and batch_width <= p.stages and p.single_producer_sequence", meaning: A batch cannot alias a ring slot and one cooperative producer owns the sequence., cls: semantic}
+preconditions:
+  - {id: pre_prefix, expr: "p.retirement_is_prefix_ordered", meaning: "Readiness of a later returned credit certifies all earlier sequence positions are retired, not merely that release calls were issued in order.", cls: semantic}
+  - {id: pre_generation, expr: "p.generation_wait_exact and p.initial_slots_empty", meaning: The waited credit belongs to the exact requested wrap generation and initial slots are empty., cls: implementation}
+  - {id: pre_protocol, expr: "p.each_item_published_once and p.consumer_readiness_unchanged and p.tail_waits_last_valid_item", meaning: Only redundant empty waits change; every item still publishes readiness once and the tail waits on actual work., cls: semantic}
+program:
+  description: >-
+    Process one finite item sequence in consecutive batches of up to batch_width.
+    For a batch ending at sequence index q, wait for the exact empty-slot generation
+    q mod stages. Any previous user of that slot has index q-stages. Prefix-ordered
+    retirement implies every earlier batch slot's previous user has also retired;
+    negative previous indices refer to initially empty slots. Produce and publish
+    every item separately in sequence order without re-waiting each earlier slot.
+    A short tail waits on its last valid item, and an empty sequence waits on none.
+    Preserve per-slot phase advance, full-readiness and consumer release protocol.
+backward_map: Reinsert each omitted earlier per-item empty wait; it is already satisfied by the batch's last-credit wait under the retirement-prefix premise.
+obligations:
+  - {name: no_live_overwrite, statement: Every omitted earlier wait is satisfied before that item's slot is written., method: exhaustive}
+  - {name: phase_and_tail, statement: Ring phase/generation remains exact across wraps and partial batches never wait on nonexistent items., method: exhaustive}
+  - {name: publication_identity, statement: Every item still produces its own unchanged readiness event and is consumed once in order., method: test}
+effects:
+  transactions:
+    - {id: empty_waits, pattern: sync, kind: mbarrier_sync, count: "(p.items + batch_width - 1) // batch_width", note: Empty-wait invocations for one finite sequence only; replaces that component rather than adding to a complete handshake cost.}
+  storage: []
+  overlap: []
+scope:
+  predicate: "p.single_producer_sequence and p.retirement_is_prefix_ordered and p.generation_wait_exact and p.initial_slots_empty and p.each_item_published_once and p.consumer_readiness_unchanged and p.tail_waits_last_valid_item"
+  text: >-
+    One cooperative producer sequence over an ordered ring with one-/two-item batches and prefix-retired
+    old readers. Pinned accumulator-scale mixed GEMM waits/acquires the second wide
+    slot for a pair, still waits on both narrow inputs, publishes both outputs and
+    handles an odd output separately. Source allocation requires at least two wide
+    stages. Native asynchronous retirement ordering is a backend premise; source
+    release-call order alone does not prove it. Other batch widths, out-of-order
+    retirement or shared producer ownership need another verified variant.
+requires: []
+probed_on: []
+relations:
+  - {type: refines, target: per_slot_handshake, note: Only the empty-wait component is replaced; full/empty lifetime and publication obligations remain.}
+signature:
+  algorithm: One latest-credit wait protects an ordered short batch of distinct ring slots.
+  storage: Existing slot ring and generation state; no new data buffer.
+  boundary: Prefix retirement, exact wrap generation and odd tails.
+  resources: [issue]
+numeric_risk: Synchronization-only; missing the retirement-prefix premise permits live-slot overwrite.
+summary: >-
+  When a producer writes consecutive ring slots and later returned credits certify all earlier readers finished, consider waiting only on the last slot of a short batch. Preserve each item's publication and exact wrap generation, choose batch_width within capacity, and wait on the last valid tail item. The pinned conversion loop uses pairs plus an odd single tail; out-of-order completion invalidates the optimization even if release calls appear in source order.

@@ -1,0 +1,15 @@
+{
+  "template": "upper_bound_guarded_refinement@1",
+  "version": 1,
+  "relation": "Guarded and eager evaluation return the same strict-comparison result and required effects.",
+  "rank": "Unresolved scalar test, then remaining exact-reduction tiles.",
+  "assumes": [
+    {
+      "name": "bound",
+      "statement": "The upper bound is conservative in the admitted native arithmetic and threshold evaluation is pure."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "If x>=b>=h then x<h is false; otherwise the guarded path evaluates exactly the eager comparison. For source interior c, M<=sum(c*P)=c and (1-c)*M<=(1-c)*c imply M/(M+1-c)<=c. Source ops/speculative/reject_sampling.py:65-105 tests the same coin twice and only computes residual mass when coin<c. Exact rational boundary witnesses are checks/lazy_threshold.json. Native FP32 reduction/ratio bound still needs its declared conservative-rounding policy."
+}

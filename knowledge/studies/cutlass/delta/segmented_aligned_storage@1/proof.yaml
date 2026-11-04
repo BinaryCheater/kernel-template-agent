@@ -1,0 +1,22 @@
+template: segmented_aligned_storage@1
+version: 1
+relation: Erasing padding and inverting the local storage layout recovers each original payload segment in order, while its consumer addresses the matching region.
+rank: Remaining segments and valid local coordinates.
+assumes:
+  - {name: segments, statement: Complete immutable nonnegative lengths and legal alignment fit allocation and index width.}
+  - {name: layout, statement: Each selected local layout is injective and shared by producer and consumer.}
+  - {name: offsets, statement: Logical and storage prefixes are kept distinct and origin units agree.}
+  - {name: padding, statement: Padding is initialized under the bound policy and is unobserved or neutral under the original operation.}
+guarantees: []
+models: []
+note: >-
+  Each aligned extent is at least its logical length. Prefixing these extents
+  makes half-open storage regions disjoint, including zero-length regions. Mapping
+  a valid coordinate through its local injective layout preserves the payload.
+  For reduction scale columns, ceil(ceil(tokens/sf)/4)*4 equals
+  ceil(tokens/(4*sf))*4; multiplying storage-column ends by sf recovers the source
+  descriptor offset units. A chunked128-element scan is an implementation, not a
+  different padding contract; carry must preserve the previous chunk total and
+  inactive lanes still participate in synchronization. Scalar source-expression
+  and permutation replay checks witnesses across chunk boundaries. Native lane
+  layout, visibility and numerical tail behavior remain backend obligations.

@@ -1,0 +1,21 @@
+template: bitstream_packing@3
+version: 3
+relation: Extract code i from its code_bits consecutive bit positions; discard the
+  containers.
+rank: Unpacked logical bits remaining.
+assumes: []
+guarantees: []
+models: []
+note: 'Integer Euclidean division gives a unique container/offset for each bit i*code_bits+b;
+  disjoint i intervals prevent bit aliasing and inverse concatenation recovers all
+  codes. Native writers must own complete containers or use an ordered combine. Old32-code/int32
+  bindings keep their original ownership. New4-code/3-byte source has one exclusive
+  vector element writer; tested address algebra separately from device execution.
+  Version3 retains the same bit-coordinate injection and whole-stream extent. Ownership
+  proof is conditional on the selected unit: old complete32-code owners own every
+  contained container; whole-container owners instead cover each container exactly
+  once. Single-thread row OR writes therefore cannot race even when several rows would
+  fit one logical32-code group. Exact topology/byte round-trips in checks/navigation.json
+  cover padded binary rows. Native initialization is witnessed by srt/speculative/eagle_utils.py:195-236;
+  kernel byte/bit OR is in jit/include/sgl_kernel/speculative/eagle.cuh:145-228. No
+  overlapping atomic bitset updates are added.'

@@ -1,0 +1,85 @@
+{
+  "name": "subtree_reduce_root_broadcast",
+  "version": 1,
+  "level_from": 2,
+  "level_to": 3,
+  "change": "vertical",
+  "refines": "map",
+  "produces": [
+    "map",
+    "access"
+  ],
+  "object": {
+    "type": "subtree_reduce_root_broadcast",
+    "description": "When every rank needs a reduction and the chosen communication topology is a rooted tree, reduce disjoint child subtrees upward and broadcast the single finalized value downward."
+  },
+  "variables": [
+    {
+      "name": "reduce_warps",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": {
+        "lo": 1,
+        "hi": 32
+      },
+      "meaning": "Reduction worker budget when up/down stages use disjoint groups; root may fuse stages."
+    }
+  ],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_0",
+      "expr": "p.rooted_tree_covers_each_rank_once and p.child_subtrees_disjoint and p.reduction_grouping_admitted",
+      "meaning": "No duplicate or omitted contributions; tree order satisfies arithmetic policy.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_1",
+      "expr": "p.peer_transport_visible and p.stage_groups_and_barriers_disjoint and p.all_peers_progress",
+      "meaning": "Chunk publication and independent up/down roles cannot deadlock through mismatched protocol participation.",
+      "cls": "semantic"
+    }
+  ],
+  "program": {
+    "description": "Partition output into matching channel/chunk ranges. Each leaf sends local preprocessed input upward. Each internal node reduces its local contribution with one completed value per child subtree and sends one partial upward. Root combines all and applies final post operation exactly once. Broadcast finalized chunks down tree; internal nodes copy/forward and leaves store. Separate worker groups can overlap reduction of later chunks with broadcast of earlier chunks; same buffer lifetime and credits remain required. Root may fuse reduce-copy-send."
+  },
+  "backward_map": "Erase auxiliary organization and recover the visible results under the stated contract.",
+  "obligations": [
+    {
+      "name": "subtree",
+      "statement": "A partial sent by node v contains exactly one contribution from every node in its subtree.",
+      "method": "proof"
+    },
+    {
+      "name": "finalization",
+      "statement": "Root post operation is applied after all contributions once; forwarded values never reapply it.",
+      "method": "proof"
+    },
+    {
+      "name": "progress",
+      "statement": "All peer constructors, transfer steps and barriers have matching participation, including direct pointer exchange even if payload operation is buffered.",
+      "method": "proof"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.rooted_tree_covers_each_rank_once and p.child_subtrees_disjoint and p.reduction_grouping_admitted and p.peer_transport_visible and p.stage_groups_and_barriers_disjoint and p.all_peers_progress",
+    "text": "Associative/grouping-admitted reductions on a valid rooted topology, source fan-in up to3 and root fan-in up to2. Resource effects: O(tree height) stages with per-edge streamed chunks; optional split worker budget."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "When every rank needs a reduction and the chosen communication topology is a rooted tree, reduce disjoint child subtrees upward and broadcast the single finalized value downward.",
+    "storage": "O(tree height) stages with per-edge streamed chunks; optional split worker budget.",
+    "boundary": "all_reduce.h:86-225. SIMPLE half(+64 for large group) versus LL70/30 are heuristic bindings, not universal optimum.",
+    "resources": []
+  },
+  "numeric_risk": "Preserve the supplied arithmetic contract; reassociation, quantization and approximate search require separate permission.",
+  "summary": "When every rank needs a reduction and the chosen communication topology is a rooted tree, reduce disjoint child subtrees upward and broadcast the single finalized value downward. all_reduce.h:86-225. SIMPLE half(+64 for large group) versus LL70/30 are heuristic bindings, not universal optimum."
+}

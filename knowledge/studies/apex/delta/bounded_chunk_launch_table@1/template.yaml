@@ -1,0 +1,99 @@
+name: bounded_chunk_launch_table
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: work_assign
+produces:
+- work_assign
+- map
+object:
+  type: bounded_chunk_launch_table
+  description: When many small contiguous tensors share an elementwise operation,
+    batch tensor/chunk descriptors into bounded kernel arguments to amortize launches
+    without padding tensors to one size.
+variables:
+- name: chunk_size
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 1
+    hi: 2147483647
+  meaning: 'C: free positive chunk extent.'
+- name: tensor_capacity
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 1
+    hi: 255
+  meaning: Metadata capacity selected for operand depth and kernel argument budget.
+- name: block_capacity
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 1
+    hi: 320
+  meaning: Descriptor capacity selected for argument budget.
+constraints:
+- id: c0
+  expr: p.metadata_bytes <= hw.kernel_argument_bytes
+  meaning: All arguments including functor/scalars fit target launch limit.
+  cls: implementation
+preconditions:
+- id: pre0
+  expr: p.nonempty_tensors and p.contiguous_matching_operand_sizes and p.metadata_stable
+    and p.independent_chunk_writes
+  meaning: Positive tensor lengths, same-device contiguous operands, stable descriptors,
+    independent output ownership.
+  cls: semantic
+program:
+  description: For each nonempty tensor t enumerate chunks c=0..ceil(n_t/C)-1. Append
+    descriptor (local_tensor_slot,c). Flush when the tensor metadata or block descriptor
+    capacity is reached, or after the final chunk. If a flush splits a tensor, copy
+    its metadata into slot0 of the next batch and continue with the original chunk
+    number. A block reads descriptor b, uses each operand base plus c*C, and guards
+    local i by both i<C and c*C+i<n_t. Metadata is passed by value so later host batches
+    do not overwrite live arguments. Preserve per-tensor scalar metadata when rebasing
+    slots.
+backward_map: Host-built descriptor batches preserve the concatenation of independent
+  per-tensor element operations; no cross-tensor reduction or alias-dependent update
+  order is implied.
+obligations:
+- name: coverage
+  statement: Every tensor/chunk pair appears once across flushes; carried metadata
+    does not reset chunk index.
+  method: proof
+- name: addressing
+  statement: Local slot rebasing preserves original tensor and every guarded element
+    address.
+  method: proof
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: (p.metadata_bytes <= hw.kernel_argument_bytes) and (p.nonempty_tensors
+    and p.contiguous_matching_operand_sizes and p.metadata_stable and p.independent_chunk_writes)
+  text: Host-built descriptor batches preserve the concatenation of independent per-tensor
+    element operations; no cross-tensor reduction or alias-dependent update order
+    is implied.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: When many small contiguous tensors share an elementwise operation, batch
+    tensor/chunk descriptors into bounded kernel arguments to amortize launches without
+    padding tensors to one size.
+  boundary: Host-built descriptor batches preserve the concatenation of independent
+    per-tensor element operations; no cross-tensor reduction or alias-dependent update
+    order is implied.
+  resources:
+  - registers
+numeric_risk: Floating-point reassociation, casts and approximate functions require
+  an admitted numerical contract.
+summary: When many small contiguous tensors share an elementwise operation, batch
+  tensor/chunk descriptors into bounded kernel arguments to amortize launches without
+  padding tensors to one size.

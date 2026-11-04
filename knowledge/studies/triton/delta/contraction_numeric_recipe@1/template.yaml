@@ -1,0 +1,114 @@
+name: contraction_numeric_recipe
+version: 1
+level_from: 2
+level_to: 3
+change: vertical
+refines: contract
+produces:
+- contract
+- transfer
+object:
+  type: contraction_numeric_recipe
+  description: A contraction explicitly selects operand preparation and intrinsic
+    accumulation policy before layout selection.
+variables:
+- name: operand_preparation
+  kind: structure
+  binding: compile
+  role: software
+  domain:
+  - identity
+  - widen_e4m3_to_peer16
+  - fp32_to_tf32_rn
+  - fp32_to_tf32_rna
+  meaning: Numeric preparation of each affected operand, with source/target legality
+    guards.
+- name: accumulator
+  kind: structure
+  binding: compile
+  role: software
+  domain:
+  - f32
+  - f64
+  meaning: FP64 only when both source operands and selected backend support it.
+- name: imprecise_accumulation
+  kind: structure
+  binding: compile
+  role: software
+  domain:
+  - backend_default
+  - bounded
+  meaning: Pass through the requested intrinsic policy; this is not a promise about
+    a native instruction count.
+- name: imprecise_limit
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 1
+    hi: 65536
+  meaning: Requested maximum imprecise accumulation interval when bounded.
+constraints: []
+preconditions:
+- id: pre0
+  expr: p.requested_numeric_recipe and p.error_and_exception_policy_admitted
+  meaning: The coarse operation requests the selected preparation/accumulation recipe;
+    no equivalence to a higher-precision contraction is inferred.
+  cls: semantic
+- id: pre1
+  expr: p.operand_formats_and_backend_supported and p.rounding_mode_matches_target
+  meaning: Widening and TF32 rounding match the selected operand types and architecture.
+  cls: semantic
+- id: pre2
+  expr: p.preparation_before_layout_selection_and_exactly_once and p.product_coordinates_unchanged
+  meaning: Preparation is exposed before backend chooses fragments, preserving logical
+    contraction coordinates.
+  cls: semantic
+program:
+  description: For each affected input tile either preserve its representation; widen
+    E4M3 to the other operand FP16/BF16 type before dot lowering; or explicitly round
+    FP32 values to TF32 with nearest-even on Hopper+ and nearest-away on the source
+    Ampere path. Preserve unmodified operands. Initialize accumulator as FP64 only
+    for the both-FP64 route, otherwise FP32. Pass the declared allow_tf32 and max_num_imprecise_acc
+    policy to dot; do not infer the emitted instruction or its internal reduction
+    schedule from those flags alone. Apply identical policy in regular and persistent
+    routes so a scheduling choice does not silently change the requested numeric preparation.
+backward_map: Erase layout and execution assignment while retaining the selected prepared-input
+  and accumulator recipe; this recovers the requested contraction, not an unrounded
+  real-valued sum.
+obligations:
+- name: preparation_identity
+  statement: Every input coordinate receives the requested cast/rounding once before
+    fragment lowering.
+  method: test
+- name: native_policy
+  statement: Selected intrinsic/backend implements the requested numeric and accumulation
+    policy over the supported range and exceptions.
+  method: test
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: (p.requested_numeric_recipe and p.error_and_exception_policy_admitted)
+    and (p.operand_formats_and_backend_supported and p.rounding_mode_matches_target)
+    and (p.preparation_before_layout_selection_and_exactly_once and p.product_coordinates_unchanged)
+  text: Explicit numeric recipe for mixed E4M3/16-bit and FP32-to-TF32 NVIDIA contraction
+    paths. Source mode is architecture-gated, not universally interchangeable; native
+    instruction details and error bounds require separate lowering/assurance.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: A contraction explicitly selects operand preparation and intrinsic accumulation
+    policy before layout selection.
+  storage: Binding-specific counters, partials or output ranges.
+  boundary: Tile prefixes and logical membership.
+  resources: []
+numeric_risk: Integer counts must not overflow; ordering/rounding policy belongs to
+  the bound operation.
+summary: When changing persistence or operand layouts could hide a numeric conversion,
+  expose the operand preparation and accumulator policy first. Widen mixed E4M3 operands
+  before layout choice, or select the target-correct TF32 rounding explicitly. Bind
+  the intrinsic accumulation limit independently from tile scheduling and verify the
+  requested numeric contract.

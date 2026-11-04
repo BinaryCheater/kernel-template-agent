@@ -1,0 +1,15 @@
+{
+  "template": "cached_sparse_row_segmented_join@1",
+  "version": 1,
+  "relation": "The row cache matches the current source row/slice and emitted segments plus local accumulators equal the processed sparse pair contributions at their correct output row identities.",
+  "rank": "Remaining source slices, streamed nonzeros and unfinished row segments.",
+  "assumes": [
+    {
+      "name": "source_contract",
+      "statement": "NVIDIA sparse COO/CSR pairwise distance backend. Dense and hash shared caches have different resource bounds. rev tests cached value==0, so callers requiring structural support distinction must additionally rule out semantically different explicit zeros. Warp participation at tails requires realization verification."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Source-derived proof outline; no formal proof result or GPU execution claimed. cache: Every cached column has its source value; absent columns are zero without confusing explicit zeros and structural absence where the metric distinguishes them. segments: Every streamed contribution belongs to its correct B row and exactly one emitted partial segment. chunk_cover: Source hash splits and B chunks cover the intended support exactly once. support_union: Forward/reverse metric passes include required intersection and symmetric-difference terms without duplication. The relation is a proposed source-level invariant; the stated finite-work rank depends on the explicit environment progress assumptions. Device ordering and numeric premises have not been discharged by schema validation."
+}

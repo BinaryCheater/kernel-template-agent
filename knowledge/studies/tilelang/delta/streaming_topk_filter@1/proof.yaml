@@ -1,0 +1,21 @@
+template: streaming_topk_filter@1
+version: 1
+relation: The candidate state contains an allowed top-k of every processed prefix.
+rank: Remaining input scan tiles.
+assumes:
+- name: select
+  statement: Compaction is exact and its threshold is no greater than the least retained value.
+- name: ties
+  statement: Any size-k selection among tied values is allowed.
+- name: scan
+  statement: Every valid input is visited once and appends fit the candidate buffer.
+guarantees: []
+models: []
+note: After compaction k retained values dominate every discarded old value. Any new value <= threshold
+  is dominated by those same k values; later better values can only raise the kth order statistic. Appending
+  survivors and exact compaction therefore preserve the running top-k invariant. Before appending, candidate
+  count is <2*k; one tile contributes at most scan_tile values, proving the capacity bound independently
+  of input distribution. At the final tile compact any surplus. TileLang deep_select/example_deep_select.py:262-268
+  chooses a coprime scan stride and capacity rounded above 2*k+block, :343-391 filters, and :432-459 compacts.
+  Constant/all-hit data do not permit smaller scratch. Native comparison/counter/alias behavior and hierarchical
+  shard merge remain separate obligations; no custom checker is added for the order-statistic induction.

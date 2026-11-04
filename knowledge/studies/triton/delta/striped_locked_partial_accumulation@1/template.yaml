@@ -1,0 +1,90 @@
+name: striped_locked_partial_accumulation
+version: 1
+level_from: 2
+level_to: 3
+change: vertical
+refines: reduce
+produces:
+- reduce
+- store
+- sync
+object:
+  type: striped_locked_partial_accumulation
+  description: Independent row contributors are hashed to locked vector partial accumulators,
+    then combined in a separate pass.
+variables:
+- name: groups
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 1
+    hi: 65536
+  meaning: Number of lock-protected vector partial slots.
+constraints: []
+preconditions:
+- id: pre0
+  expr: p.contributors_partition_complete and p.row_to_slot_is_mod_groups
+  meaning: Every row contribution enters one designated partial slot.
+  cls: semantic
+- id: pre1
+  expr: p.locks_and_initialized_flags_zeroed and p.lock_release_publishes_whole_vector
+  meaning: A zero lock protects the entire vector and its first-writer flag.
+  cls: semantic
+- id: pre2
+  expr: p.final_pass_waits_all_contributors and p.read_only_actual_nonempty_slots
+    and p.rounding_order_admitted
+  meaning: Combiner sees complete nonempty slots and admits lock-arrival accumulation
+    order.
+  cls: semantic
+program:
+  description: Contributor row r uses slot r%groups. Compute its partial vector. Acquire
+    that slot mutex with compare-and-swap. If initialized flag is zero, set it and
+    store the partial without reading old scratch; otherwise load the complete prior
+    vector and add the partial under the lock. Publish all vector stores before releasing
+    the mutex. After the contributor kernel completes, reduce only slots with actual
+    contributors into final output. groups controls lock contention versus scratch
+    and final-combine traffic; it does not split a row numerical statistic.
+backward_map: Expand each locked slot into the original row partial vectors in actual
+  acquisition order, then combine all slots once.
+obligations:
+- name: first_writer
+  statement: No slot is read before a completed initializing contribution, and updates
+    cannot lose concurrent vector elements.
+  method: proof
+- name: slot_combine
+  statement: Each original contribution enters one slot and every nonempty complete
+    slot enters the final combine once.
+  method: test
+- name: progress
+  statement: Lock holders and waiting contributors can make progress under the launch/runtime
+    contract.
+  method: test
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: (p.contributors_partition_complete and p.row_to_slot_is_mod_groups) and
+    (p.locks_and_initialized_flags_zeroed and p.lock_release_publishes_whole_vector)
+    and (p.final_pass_waits_all_contributors and p.read_only_actual_nonempty_slots
+    and p.rounding_order_admitted)
+  text: Vector partial accumulation from independent rows with whole-vector mutexes
+    and fresh flags per invocation. Floating-point order depends on lock acquisition.
+    Unused slots must be excluded or initialized by a separate policy.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Independent row contributors are hashed to locked vector partial accumulators,
+    then combined in a separate pass.
+  storage: Binding-specific counters, partials or output ranges.
+  boundary: Tile prefixes and logical membership.
+  resources: []
+numeric_risk: Integer counts must not overflow; ordering/rounding policy belongs to
+  the bound operation.
+summary: When many rows contribute the same parameter-gradient vector, choose a bounded
+  number of striped partial slots instead of one partial per row. Hash row modulo
+  groups, initialize on first lock acquisition and update the entire vector while
+  locked. Reject a final reduction that reads never-initialized slots or overlaps
+  active writers.

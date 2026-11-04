@@ -1,0 +1,80 @@
+{
+  "name": "occupancy_bit_rank_addressing",
+  "version": 1,
+  "level_from": 2,
+  "level_to": 3,
+  "change": "vertical",
+  "refines": "map",
+  "produces": [
+    "map",
+    "access"
+  ],
+  "object": {
+    "type": "occupancy_bit_rank_addressing",
+    "description": "When requested sparse pixel coordinates are unique and sorted within each tile, encode membership in bits and recover the packed record address by population-count rank."
+  },
+  "variables": [
+    {
+      "name": "word_bits",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": {
+        "lo": 32,
+        "hi": 64
+      },
+      "meaning": "Legal unsigned occupancy word width; source uses uint32."
+    }
+  ],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_0",
+      "expr": "p.unique_in_tile_positions and p.sorted_packed_records and p.zero_initialized_words",
+      "meaning": "One set bit corresponds to exactly one record in ascending pixel-position order.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_1",
+      "expr": "p.tile_ownership_exclusive and p.mask_and_map_published",
+      "meaning": "Single tile writer ORs bits; readers see matching map generation.",
+      "cls": "semantic"
+    }
+  ],
+  "program": {
+    "description": "For tile position s, set bit s%W of word s//W. A reader returns invalid if bit is clear; otherwise rank is popcount of all earlier words plus popcount(word & ((1<<(s%W))-1)); read pixel_map[tile_start+rank]. Use width-safe masks for zero and boundary positions. Duplicate coordinates must be rejected or deduplicated before constructing this representation."
+  },
+  "backward_map": "Erase auxiliary organization and recover the visible results under the stated contract.",
+  "obligations": [
+    {
+      "name": "bijection",
+      "statement": "Ascending set-bit rank is a bijection from requested positions to packed records.",
+      "method": "proof"
+    },
+    {
+      "name": "ownership",
+      "statement": "Masks start zero and have one tile owner; publication precedes all readers.",
+      "method": "proof"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.unique_in_tile_positions and p.sorted_packed_records and p.zero_initialized_words and p.tile_ownership_exclusive and p.mask_and_map_published",
+    "text": "Unique sparse coordinates; this is membership/rank, not multiplicity-preserving compaction. Resource effects: One bit per tile pixel plus packed mapping; rank work over preceding words."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "When requested sparse pixel coordinates are unique and sorted within each tile, encode membership in bits and recover the packed record address by population-count rank.",
+    "storage": "One bit per tile pixel plus packed mapping; rank work over preceding words.",
+    "boundary": "SparseTileLayout.cu:132-165 and RasterizeSparseAddressing.cuh:49-74. Duplicate-coordinate behavior is not certified by inspected source checks.",
+    "resources": []
+  },
+  "numeric_risk": "Preserve the supplied arithmetic contract; reassociation, quantization and approximate search require separate permission.",
+  "summary": "When requested sparse pixel coordinates are unique and sorted within each tile, encode membership in bits and recover the packed record address by population-count rank. SparseTileLayout.cu:132-165 and RasterizeSparseAddressing.cuh:49-74. Duplicate-coordinate behavior is not certified by inspected source checks."
+}

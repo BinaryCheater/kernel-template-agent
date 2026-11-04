@@ -1,0 +1,15 @@
+{
+  "template": "enumerated_target_mass_sampling@1",
+  "version": 1,
+  "relation": "A tested candidate i owns an interval of width P_i, so its direct emitted mass is P_i. The failure event has mass1-sum_tested(P); its independent normalized remaining-target sample contributes P_j for every untested j. Thus each history samples exactly the target categorical law under the stated ideal/native contract.",
+  "rank": "Remaining candidate siblings, then unresolved final categorical row.",
+  "assumes": [
+    {
+      "name": "target_and_randomness",
+      "statement": "Target rows are normalized at the emitted histories; conditional uniforms are independent and follow their declared endpoint law."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "The candidate intervals are disjoint and have the exact target masses. Fallback occurs with their complement mass R and emits any untested j with conditional probability P_j/R, giving P_j. Induct across accepted tree histories; the variable-length emitted block is a stopping prefix of a target continuation, not a target law conditioned on block length. R0 fallback must be unreachable or explicitly handled under native endpoints. Host exact rational mass partitions are checks/enumerated_mass.json. Uniform-loop redundant metadata stores and vector/CUB numerical behavior are not validated by that mass proof."
+}

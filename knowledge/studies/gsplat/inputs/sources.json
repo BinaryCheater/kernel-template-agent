@@ -1,0 +1,7 @@
+{
+  "upstream": "https://github.com/nerfstudio-project/gsplat",
+  "revision": "512d366b67073d77ca099ede742683c165dfc23b",
+  "archive": "/Users/dingyi/kta-data/dev/operator-sources/nerfstudio-project/gsplat/512d366b67073d77ca099ede742683c165dfc23b/worker-e-source.tar.gz",
+  "tree": "/Users/dingyi/kta-data/dev/operator-sources/nerfstudio-project/gsplat/512d366b67073d77ca099ede742683c165dfc23b/nerfstudio-project-gsplat-512d366",
+  "scope": "complete superproject archive; external nested dependencies absent"
+}

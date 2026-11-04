@@ -1,0 +1,133 @@
+name: self_resetting_partition_queue
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: work_assign
+produces:
+- work_assign
+- sync
+- store
+object:
+  type: partition_local_dynamic_ticket_queue_with_retirement_reset
+  description: Independently assign complete tasks by partition-local tickets and restore zero counters
+    after all claimers retire, permitting completion-ordered invocation reuse without a separate memset.
+variables: []
+constraints: []
+preconditions:
+- id: pre_items
+  expr: p.partition_tasks_independent_complete_and_uniquely_named
+  meaning: Each partition has independent uniquely indexed tasks; one successful ticket owns a complete
+    output task. Task arithmetic and inputs are independent of which worker claims it, so dynamic completion
+    order does not define a floating reduction order.
+  cls: semantic
+- id: pre_counter
+  expr: p.two_counter_banks_zero_initialized_and_integer_claim_bound_safe
+  meaning: Each active partition has an atomic next-ticket word and a retirement word, both zero before
+    its first launch. With P claimers and N valid tasks, source two-lookahead policy performs N+2P total
+    fetch-add claims, which must fit its nonnegative signed ticket range and address arithmetic.
+  cls: implementation
+- id: pre_members
+  expr: p.actual_partition_claimer_count_matches_atomic_wrap_limit
+  meaning: Actual grid has P_t=ceil((B-t)/T) claimers for partition t. Exactly one leader per claimer
+    takes tickets and retires once; zero-work claimers still retire. Retirement wraps at P_t, not at a
+    uniform capacity count or number of live tasks.
+  cls: implementation
+- id: pre_retire
+  expr: p.claimer_has_issued_all_counter_accesses_before_retirement
+  meaning: A worker retires only after issuing its last fetch-add claim and will never use the ticket
+    counter again in this invocation. In-flight prefetched valid tasks remain its responsibility before
+    local completion. Retirement is not a promise that every output store by every CTA thread has completed.
+  cls: implementation
+- id: pre_reset
+  expr: p.atomic_retirement_chain_orders_last_claimer_reset_after_all_claimers
+  meaning: Device-scope acquire-release wrapping increment serializes retirement; the leader observing
+    the last previous count resets next-ticket to zero after all claimers have left that counter. Only
+    that leader resets it, and the wrapping retirement word itself returns to zero.
+  cls: implementation
+- id: pre_epoch
+  expr: p.next_invocation_orders_after_whole_kernel_completion_and_workspace_is_exclusive
+  meaning: Counters and tensor inputs stay owned through the whole kernel. Reuse is ordered after complete
+    kernel execution on the same stream or an equivalent event dependency, not merely after the retirement
+    count wraps. Concurrent streams/graphs use separate counter storage or explicit serialization.
+  cls: implementation
+- id: pre_geometry
+  expr: p.partition_geometry_and_counter_bank_offsets_coherent
+  meaning: Ticket bank offset t and retirement bank offset T+t match the same active partition count and
+    actual grid. A later geometry may reuse the buffer only after prior completion, with sufficient all-zero
+    active capacity. Captured launches retain their own valid counter epoch.
+  cls: implementation
+- id: pre_backend
+  expr: p.native_atomic_scope_and_prefetch_pipeline_supported
+  meaning: Concrete source is SM100/103/107 deterministic Cake width4 depthwise-convolution forward, using
+    one CTA leader and two claimed lookahead tasks per CTA. Native memory scopes, double-buffer input
+    transfers, task tails and release ordering need the selected backend implementation.
+  cls: implementation
+program:
+  description: For partition t, start next[t]=0 and retired[t]=0 with exactly P_t workers. Each worker
+    leader claims two initial tickets with atomic fetch-add, stages valid task inputs and shares its tickets
+    within the CTA. For each valid current task, claim one further lookahead ticket, compute and publish
+    that complete task, and advance the private lookahead queue; out-of-range tickets do not access task
+    payload. Stop when the next task is invalid, after draining every valid ticket already owned. Each
+    leader then performs one device-scope acquire-release atomic increment of retired[t], wrapping at
+    P_t. The leader observing previous count P_t-1 resets next[t]=0; the wrapping increment already resets
+    retired[t]=0. No claimer may access next[t] after retirement. The retirement protocol protects counter
+    reuse only; full output visibility and the next invocation still wait for whole-kernel completion.
+    Reuse the now-zero buffer on the same completion-ordered stream/graph generation, or use separate
+    storage for concurrent launches. Dynamic task assignment never changes the arithmetic inside a task.
+backward_map: Order successful in-range ticket claims by their atomic sequence. They give a bijection
+  to tasks0..N-1, with each task produced once from unchanged inputs. Erase out-of-range claims and retirement/reset
+  operations after their final use; completed kernel leaves both banks at the original zero state for
+  the next ordered invocation.
+obligations:
+- name: task_coverage
+  statement: All in-range tickets are consumed exactly once despite lookahead and arbitrary worker interleaving;
+    invalid tickets have no payload access.
+  method: test
+- name: reset_order
+  statement: The reset occurs only after every possible counter claimer retires, with exact participant
+    count and no later claim from the current epoch.
+  method: proof
+- name: reuse_epoch
+  statement: Whole-kernel completion separates invocations; a zero retirement word is not mistaken for
+    completed outputs or permission for concurrent reuse.
+  method: test
+- name: native_pipeline
+  statement: Ticket broadcast, input staging, CTA synchronization and tail computation preserve the declared
+    owner-local task recipe.
+  method: test
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: (p.partition_tasks_independent_complete_and_uniquely_named) and (p.two_counter_banks_zero_initialized_and_integer_claim_bound_safe)
+    and (p.actual_partition_claimer_count_matches_atomic_wrap_limit) and (p.claimer_has_issued_all_counter_accesses_before_retirement)
+    and (p.atomic_retirement_chain_orders_last_claimer_reset_after_all_claimers) and (p.next_invocation_orders_after_whole_kernel_completion_and_workspace_is_exclusive)
+    and (p.partition_geometry_and_counter_bank_offsets_coherent) and (p.native_atomic_scope_and_prefetch_pipeline_supported)
+  text: FlashInfer deterministic zero-history width4 causal-convolution forward, source f5497330bfd286211643,
+    SM100/103/107. Partition is channel tile; token chunk has n_sub*8 rows and actual grid gives tile-specific
+    CTA count. Two int32 words per tile start/end zero; atomic retired counter is unsigned wrapping increment,
+    ticket word is signed fetch-add. Reuse removes a separate per-call counter clear under a whole-kernel
+    stream dependency. It is not an inter-CTA output publication barrier, an overlapping epoch protocol
+    or a generic persistent service queue.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Partition-local atomic task tickets with two-lookahead claims and last-claimer counter reset.
+  storage: Zero-initialized next-ticket/retirement banks per partition, plus CTA-local lookahead and staged
+    task buffers.
+  boundary: Exact tile-specific claimer count, no post-retirement ticket access, integer bounds and whole-kernel
+    invocation separation.
+  resources:
+  - dram
+  - shared
+  - registers
+  - cta
+numeric_risk: Dynamic assignment preserves output bits only when each task owns its complete arithmetic.
+  Using retirement wrap as output completion or resetting while a prefetched claimer is active mixes epochs;
+  a wrong participant count can reset tickets early.
+summary: For independent task partitions with repeated ordered launches, let workers claim complete tasks
+  dynamically and reset the ticket counter when the last claimer retires. Keep retirement separate from
+  output completion and give concurrent launches separate counter epochs.

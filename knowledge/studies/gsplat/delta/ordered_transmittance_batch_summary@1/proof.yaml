@@ -1,0 +1,15 @@
+{
+  "template": "ordered_transmittance_batch_summary@1",
+  "version": 1,
+  "relation": "Every local summary maps incoming (C,T) to (C+T*C_batch,T*Q_batch). Folded prefix equals the ordered accepted prefix; replay begins at the exact saved crossing-batch prefix.",
+  "rank": "Unfolded batches plus candidates remaining in at most one replay batch.",
+  "assumes": [
+    {
+      "name": "source_contract",
+      "statement": "Real affine compositing or explicitly admitted floating regrouping; nonnegative alpha below one for inverse replay. Exact stopping requires replay, not full crossing-batch fold."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Source-derived proof outline; no formal proof result or GPU execution claimed. summary: Each batch summary denotes the same affine color/throughput action on any incoming C,T. crossing: First crossing batch replay recovers exact accepted prefix; threshold equality follows policy. checkpoint: All checkpoints are published before backward; gradients of shared inputs are combined without loss."
+}

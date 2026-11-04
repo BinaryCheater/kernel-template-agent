@@ -1,0 +1,169 @@
+name: low_rank_state_journal
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: store
+produces:
+- store
+- map
+- contract
+object:
+  type: checkpoint_plus_accepted_decayed_rank_one_journal
+  description: Keep recent accepted recurrent corrections as low-rank key/correction/gate records, evaluate
+    the virtual state by contractions, and periodically fold only accepted history into its checkpoint.
+variables:
+- name: draft_tokens
+  kind: numeric
+  binding: compile
+  role: boundary
+  domain:
+  - 4
+  - 8
+  meaning: Native HMMA draft window; runtime acceptance chooses a consecutive prefix after outputs are
+    computed.
+- name: flush_min
+  kind: numeric
+  binding: runtime
+  role: software
+  domain:
+    lo: 1
+    hi: 16
+  meaning: Fold accepted history when P reaches this threshold; the lazy source default17-T folds only
+    when another full draft window would exceed logical window16.
+constraints:
+- id: c_threshold
+  expr: flush_min <= 17 - draft_tokens
+  meaning: No request may be unable both to append within logical capacity and to flush. Physical32 additionally
+    retains old16 plus speculative T without overlap.
+  cls: implementation
+preconditions:
+- id: pre_state
+  expr: p.scalar_decayed_rank_one_state_and_logical_checkpoint_generation_defined
+  meaning: A V-major represented state is a base checkpoint plus ordered scalar-decayed rank-one corrections.
+    Each u_j was computed against the same preceding virtual state from its matching generation; u is
+    not raw V and cannot be recomputed from another checkpoint without replaying feedback.
+  cls: implementation
+- id: pre_frames
+  expr: p.journal_keys_corrections_and_cumulative_gate_frames_match and p.inactive_ring_operands_finite_or_zeroed_before_mma
+  meaning: Store normalized keys k, correction vectors u and cumulative log gates G relative to the current
+    checkpoint. G_j includes decay through insertion j. Empty history has G_anchor0 and no live contributions;
+    invalid slots are masked before exponentiation, not by multiplying stale data by zero afterward. Inactive
+    K/U lanes must remain finite (for example from zero-initialized finite ring records) or be explicitly
+    zeroed before MMA; a zero weight does not sanitize NaN/Inf payloads.
+  cls: implementation
+- id: pre_retention
+  expr: p.accepted_history_is_consecutive_and_speculative_suffix_not_published
+  meaning: P entries are previously accepted history. T draft corrections append speculatively; accepting
+    a consecutive a in[0,T] publishes only that prefix, leaving stale suffix entries outside the live
+    window. Diagnostic acceptance counts cannot replace a.
+  cls: implementation
+- id: pre_ring
+  expr: p.ring_base_and_live_length_valid_and_append_window_disjoint_from_live_readers
+  meaning: A shared32-slot physical ring has live length0..16, base0..31, and logical row j maps to(base+j)%32.
+    Appends target(base+P+s)%32 for0<=s<T, always after the old window and disjoint from all old-window
+    readers across grouped value heads.
+  cls: implementation
+- id: pre_ownership
+  expr: p.unique_live_slots_and_one_shared_key_writer_per_key_group
+  meaning: Per-request mutable slots are unique, value-head u/G/checkpoint slices are disjoint, shared
+    normalized-key rows have one elected writer, and all readers agree on the same key-group/head mapping
+    and generation.
+  cls: implementation
+- id: pre_flush
+  expr: p.flush_folds_only_previously_accepted_history_and_rebases_current_draft_gates
+  meaning: When P>=flush_min, fold exactly old P entries into the checkpoint, not current drafts. New
+    draft entries still append after old P, but their G values restart from zero relative to the folded
+    checkpoint. Without flush, new G includes old anchor G_P.
+  cls: implementation
+- id: pre_cursor
+  expr: p.all_layers_and_head_readers_complete_before_one_cursor_commit
+  meaning: 'Kernel bodies observe unchanged old base/P. After every layer/head completes, commit cursors
+    once: flushed base becomes(base+P)%32 and len=a; nonflushed base stays and len=P+a. No layer commits
+    shared cursors early; future verify waits for complete checkpoint/journal publication.'
+  cls: implementation
+- id: pre_numeric
+  expr: p.journal_correction_gate_and_checkpoint_fold_precision_admitted
+  meaning: Normalization stage, stored k/u/G precision, exp differences, scalar weighting, MMA products,
+    checkpoint rounding and optional stochastic state rounding have an explicit admitted recipe. Mathematical
+    representation equivalence is not native bitwise equality across folds/backends.
+  cls: implementation
+- id: pre_backend
+  expr: p.threshold_shape_target_dtypes_and_rounding_mode_implemented
+  meaning: Selected target supports T and chosen ring/state dtypes and rounding mode. This first binding
+    is T4/8, logical window16 and physical32, with flush_min<=17-T. UMMA broader T/mixed-u/stochastic-rounding
+    menus require their own numeric/RNG binding.
+  cls: implementation
+program:
+  description: 'Let base checkpoint H0 precede accepted records j=0..P-1. For P>0 let Gp=G_(P-1), w_j=exp(Gp-G_j),
+    bdec=exp(Gp); for P0 use Gp0,bdec1 and zero history. Represent H= bdec*H0+sum_(j<P) w_j*u_j*k_j^T.
+    Project any required key/query x as bdec*(H0*x)+sum_j w_j*u_j*(k_j dot x), avoiding eager full-state
+    materialization. Use that virtual H to compute T current draft outputs and feedback corrections under
+    the declared chunk recipe. Append new normalized k,u,G at(base+P+s)%32 with one shared-key writer,
+    disjoint from the old live window. If P<flush_min, keep checkpoint and use Gnew=Gp+local_G. If P>=flush_min,
+    fold old P into H0 with one declared checkpoint rounding, use Gnew=local_G, and exclude all current
+    drafts from this fold. After every layer/head finishes, acceptance a publishes one cursor update:
+    no flush len=P+a; flush base=(base+P)%32,len=a. Rejected draft suffix remains stale outside the live
+    prefix. An acceptance of zero after flush still materializes prior accepted history into checkpoint
+    but adds no draft update. Read/write lifetime and checkpoint/gate frame publish together before the
+    next verify.'
+backward_map: Expand the journal projection and checkpoint fold; distributivity yields the same declared
+  virtual state before and after rebase. Current correction prefixes are causal and independent of later
+  draft suffixes, so publishing only a entries gives the accepted state. Folding is a representation change
+  of old accepted history, not acceptance of current drafts.
+obligations:
+- name: virtual_state_identity
+  statement: Checkpoint plus decayed low-rank journal equals its declared sequential represented state
+    and yields the matching key/query projections.
+  method: proof
+- name: accepted_prefix_and_rebase
+  statement: Flush rebases old accepted history only; all accepted-prefix outcomes, including zero, retain
+    correct new gate frames and cursors.
+  method: test
+- name: shared_reader_ring_safety
+  statement: Modulo32 append locations cannot overwrite the old live window needed by sibling value-head
+    CTAs; shared keys have one writer.
+  method: test
+- name: numeric_and_cursor_publication
+  statement: All native correction/fold/RNG stages meet the numerical contract and shared cursors advance
+    once after all layer/head users finish.
+  method: test
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: flush_min <= 17 - draft_tokens and (p.scalar_decayed_rank_one_state_and_logical_checkpoint_generation_defined)
+    and (p.journal_keys_corrections_and_cumulative_gate_frames_match and p.inactive_ring_operands_finite_or_zeroed_before_mma)
+    and (p.accepted_history_is_consecutive_and_speculative_suffix_not_published) and (p.ring_base_and_live_length_valid_and_append_window_disjoint_from_live_readers)
+    and (p.unique_live_slots_and_one_shared_key_writer_per_key_group) and (p.flush_folds_only_previously_accepted_history_and_rebases_current_draft_gates)
+    and (p.all_layers_and_head_readers_complete_before_one_cursor_commit) and (p.journal_correction_gate_and_checkpoint_fold_precision_admitted)
+    and (p.threshold_shape_target_dtypes_and_rounding_mode_implemented)
+  text: FlashInfer GDN history journal on SM90+ HMMA, K=V128, T4/8, accepted window<=16, physical ring32.
+    The earlier verify-only16-slot ring requires P+T<=16 and external flush. This version captures its
+    journal algebra through the safer32-slot fused-fold binding; it does not claim that earlier wrapper
+    directly accepts32-slot tensors. UMMA T1..8, FP16-u/BF16-k and stochastic checkpoint rounding are
+    numeric/backend extensions. Raw-input replay, arbitrary nonlinear updates, ring eviction without fold
+    and atomic multilayer commit are outside this version.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Project a checkpoint-plus-rank-one journal and periodically fold accepted history while speculative
+    entries remain separate.
+  storage: Low-rank normalized-key, correction and cumulative-gate ring beside one checkpoint; old readers
+    and new append use disjoint windows.
+  boundary: Generation-correct corrections, accepted prefix, local/absolute gate rebase, shared key ownership
+    and once-after-all-layers cursor publication.
+  resources:
+  - dram
+  - smem
+  - registers
+  - tensor
+numeric_risk: Correction caching freezes prediction rounding; folding introduces checkpoint rounding and
+  may differ from raw-input sequential replay. Stale gate exponentiation, early shared cursor updates
+  or folding unaccepted drafts changes future state.
+summary: When recent recurrent state changes are low rank, retain accepted corrections instead of rewriting
+  the full state every verify. Evaluate virtual state through journal contractions, append drafts outside
+  all old-reader windows, and periodically fold only prior accepted history. Rebase gates and publish
+  cursors once after all layers, then expose only the accepted draft prefix.

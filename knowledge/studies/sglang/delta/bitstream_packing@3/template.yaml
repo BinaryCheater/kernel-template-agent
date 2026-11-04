@@ -1,0 +1,126 @@
+name: bitstream_packing
+version: 3
+level_from: 3
+level_to: 4
+change: vertical
+refines: store
+produces:
+- store
+- map
+object:
+  type: contiguous_code_bitstream
+  description: Fixed-width unsigned codes stored consecutively across word boundaries,
+    with an inverse extractor.
+variables:
+- name: code_bits
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 1
+    hi: 8
+  meaning: Independent stored width of one code; interpretation as signed or floating
+    point belongs to its consumer.
+- name: word_bits
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+  - 8
+  - 32
+  meaning: Byte containers for source QuACK or32-bit containers for Humming; extraction
+    uses matching word width.
+- name: ownership_unit
+  kind: structure
+  binding: compile
+  role: software
+  domain:
+  - complete32_codes
+  - whole_containers
+  meaning: One writer owns a complete32-code group or a positive whole-container stream
+    such as one padded mask row. In both cases every physical container has exclusive
+    ownership.
+constraints:
+- id: c_width
+  expr: code_bits >= 1 and code_bits <= 8 and (word_bits == 8 or word_bits == 32)
+  meaning: Supported logical code/container widths.
+  cls: implementation
+- id: c_whole_groups
+  expr: p.length >= 1 and (p.length * code_bits) % word_bits == 0
+  meaning: The finite code bitstream ends on a whole physical container.
+  cls: implementation
+- id: c_owner_unit
+  expr: ownership_unit != 'complete32_codes' or p.length % 32 == 0
+  meaning: The old32-code realization has no partial ownership group; whole-container
+    streams retain the existing whole-bitstream extent constraint.
+  cls: implementation
+preconditions:
+- id: pre_code_range
+  expr: p.min_code >= 0 and p.max_code < 2 ** code_bits
+  meaning: Codes fit without loss; outside this premise the implementation retains
+    only their low bits.
+  cls: semantic
+- id: pre_writer
+  expr: p.each_container_has_one_writer_and_no_rmw_races and p.all_output_containers_initialized_before_or
+  meaning: Each output container is initialized and updated by one owner; no concurrent
+    OR operation loses another writer's bits.
+  cls: implementation
+program:
+  description: 'Initialize length*code_bits/word_bits containers to0. Logical bit
+    b of code i maps to physical bit i*code_bits+b, container floor((i*code_bits+b)/word_bits),
+    offset modulo word_bits. Packing ORs those disjoint bit intervals; extraction
+    concatenates the matching source bits. Container ownership must prevent read-modify-write
+    races. Source QuACK6-bit codes use4 codes per3 bytes; Humming32-code groups preserve
+    their original owner mapping and32-bit extractor. The common algorithm does not
+    require every code fit within one container. Version3 makes writer partition explicit:
+    a padded binary mask row may be one whole-container stream per node. Zero padding
+    is part of that stream, not a masked uninitialized tail. Row bit i remains container
+    floor(i/word_bits),offset i%word_bits for code_bits=1; byte-container rows may
+    contain1/2/4 bytes.'
+backward_map: Extract code i from its code_bits consecutive bit positions; discard
+  the containers.
+obligations:
+- name: bit_identity
+  statement: Each logical bit (i,b) maps to physical bit i*code_bits+b, injectively
+    and with the same value after unpacking.
+  method: exhaustive
+- name: group_ownership
+  statement: For complete32_codes, each complete32-code group has one writer and inactive
+    final-CTA threads write nothing. For whole_containers, each whole output container
+    belongs to one writer; no partial read-modify-write crosses that ownership boundary.
+  method: exhaustive
+- name: memory_safety
+  statement: All visible reads and writes are in range; final-CTA inactive local arrays
+    require separate CUDA language and sanitizer review.
+  method: test
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: p.length >= 1 and (p.length * code_bits) % word_bits == 0 and p.min_code
+    >= 0 and p.max_code < 2 ** code_bits and (ownership_unit != 'complete32_codes'
+    or p.length % 32 == 0) and p.each_container_has_one_writer_and_no_rmw_races and
+    p.all_output_containers_initialized_before_or
+  text: Version2 complete bitstream/code/container domains retained; version3 explicitly
+    separates32-code group ownership from exclusive whole-container ownership. Source
+    EAGLE ancestry rows use code_bits1,word_bits8,length8/16/32 (zero padded),whole_containers
+    and one writer per row. Humming32-code ownership remains complete32_codes. QuACK
+    whole-byte streams retain their own native exclusive-container partition. Partial
+    final physical containers and overlapping non-atomic OR writers remain excluded.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Fixed-width code concatenation and inverse extraction across 32-bit words.
+  reuse: null
+  storage: Packed contiguous global-memory words, register-local groups during conversion.
+  boundary: Complete physical containers, fixed code width, zero initialization and
+    exclusive container ownership; optional32-code group realization.
+  resources: []
+numeric_risk: None for in-range codes; truncating out-of-range input is outside the
+  lossless premise.
+summary: When fixed-width codes or boolean visibility rows feed byte/word consumers,
+  concatenate exact logical bit intervals. Choose an exclusive32-code group or whole-container
+  writer partition; a padded8/16/32-bit mask row can belong to one node thread. Preserve
+  inverse extraction and initialized padding.

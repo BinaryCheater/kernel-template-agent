@@ -1,0 +1,50 @@
+name: power_of_two_scale_encoding
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: store
+produces: [map, store]
+object:
+  type: exponent_scale_code
+  description: An unsigned biased-exponent byte representing a positive normal FP32 power-of-two scale without changing its value.
+variables:
+  - {name: site, kind: structure, binding: compile, role: software, domain: [producer,layout_transform], meaning: Encode when producing metadata or in a separate layout transform before consumption.}
+constraints:
+  - {id: c_exact_domain, expr: "p.min_scale_exponent >= -126 and p.max_scale_exponent <= 127 and p.scales_positive_normal_pow2", meaning: Every live input scale has zero sign/mantissa and exponent byte1..254., cls: semantic}
+  - {id: c_consumer, expr: "p.consumer_supports_ue8m0", meaning: The consuming scale decoder interprets byte e as 2**(e-127)., cls: implementation}
+preconditions:
+  - {id: pre_exact, expr: "p.min_scale_exponent >= -126 and p.max_scale_exponent <= 127 and p.scales_positive_normal_pow2", meaning: Extraction is lossless on live scales; source guard alone also accepts zero and infinity., cls: semantic, same_as: c_exact_domain}
+  - {id: pre_padding, expr: "p.padding_not_logical_scale", meaning: Filled padding code0 is never interpreted as a live zero scale., cls: semantic}
+program:
+  description: >-
+    For each live scale s, reinterpret its FP32 bits u, emit code=(u>>23)&255,
+    and preserve the logical metadata coordinate. The consumer decodes code e to 2**(e-127).
+    Words of four bytes, MN transposes, per-group word boundaries and shared-memory
+    UTCCP permutations are separate storage refinements. A layout implementation may
+    emit code0 for padding; it is a finite positive UE8M0 value rather than numerical zero.
+backward_map: Decode each live byte with the declared biased-exponent representation at its original logical metadata coordinate.
+obligations:
+  - {name: value_identity, statement: Decoding each live exponent byte recovers the original FP32 scale exactly over the admitted domain., method: exhaustive}
+  - {name: metadata_identity, statement: Every live scale keeps its logical owner through encoding and any separately composed physical layout., method: exhaustive}
+  - {name: padding_exclusion, statement: Padding code0 and reserved code255 are never substituted for a required live scale., method: test}
+effects: {transactions: [], storage: [], overlap: []}
+scope:
+  predicate: "p.scales_positive_normal_pow2 and p.consumer_supports_ue8m0"
+  text: >-
+    Value-preserving storage for already-defined positive normal FP32 power-of-two metadata,
+    exponents -126..127. Rounding arbitrary scales upward to powers of two is a different
+    numerical policy. The source's sign/mantissa guard is weaker than this exactness domain:
+    it permits zero and positive infinity, whose UE8M0 codes mean a positive minimum and NaN.
+    Operand quantization and byte packing are separate steps.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Extract the biased exponent of an already-normalized power-of-two scale.
+  storage: One byte per live scale before independent word packing and layout.
+  boundary: Excludes FP32 zero,subnormals,infinity and non-powers-of-two from the value-preserving claim.
+  resources: []
+numeric_risk: No change on the admitted domain; applying the extraction to zero or infinity changes values and is outside the contract.
+summary: >-
+  Use when the consumer supports UE8M0 and scale metadata is already positive normal FP32 powers of two; choose producer or layout_transform encoding and preserve each scale's owner. Extract the exponent byte and let the consumer decode it with bias127, for example FP32 scale8 becomes code130 and decodes to8. Zero padding is a storage convention and must remain outside the live scale domain.

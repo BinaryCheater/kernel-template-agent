@@ -1,0 +1,86 @@
+{
+  "name": "first_failure_prefix",
+  "version": 1,
+  "level_from": 2,
+  "level_to": 3,
+  "change": "vertical",
+  "refines": "reduce",
+  "produces": [
+    "map",
+    "reduce"
+  ],
+  "object": {
+    "type": "first_failure_prefix",
+    "description": "When the accepted length is the leading run of independently available true predicates, reduce the first false index instead of carrying a serial live-prefix flag."
+  },
+  "variables": [
+    {
+      "name": "strategy",
+      "kind": "structure",
+      "binding": "compile",
+      "role": "software",
+      "domain": [
+        "serial_live_prefix",
+        "parallel_first_false"
+      ],
+      "meaning": "Serial leading-prefix recurrence or minimum failure-position reduction."
+    }
+  ],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_0",
+      "expr": "p.length >= 0 and p.predicates_available_without_prefix_side_effects",
+      "meaning": "Every valid predicate can be evaluated independently from already available inputs; skipping later predicate evaluation has no required side effect.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_1",
+      "expr": "p.padding_uses_length_sentinel and p.accepted_length_not_total_match_count",
+      "meaning": "Padding contributes only the neutral endpoint length; result means a consecutive leading prefix.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_2",
+      "expr": "p.same_predicate_semantics_and_original_positions",
+      "meaning": "No changed comparison/tie/NaN policy or position permutation is introduced.",
+      "cls": "semantic"
+    }
+  ],
+  "program": {
+    "description": "For predicates b_i,i=0..length-1, the serial form increments a count only while every preceding predicate remains true. The parallel form maps a true valid position to the endpoint length and a false position to its original index, then takes minimum together with length. Empty/all-true rows return length. Consumers may use that index to load one boundary/bonus record if the declared input has it; no extra matching positions beyond the first failure are accepted."
+  },
+  "backward_map": "The minimum false index j has all b_i true for i<j and b_j false if j<length, exactly matching the serial leading-prefix count. Padding has no smaller value and cannot change j.",
+  "obligations": [
+    {
+      "name": "representation_identity",
+      "statement": "The minimum false index j has all b_i true for i<j and b_j false if j<length, exactly matching the serial leading-prefix count. Padding has no smaller value and cannot change j.",
+      "method": "proof"
+    },
+    {
+      "name": "native_mapping",
+      "statement": "Indices, padding, sentinels and output ownership implement the logical mapping.",
+      "method": "test"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "(p.length >= 0 and p.predicates_available_without_prefix_side_effects) and (p.padding_uses_length_sentinel and p.accepted_length_not_total_match_count) and (p.same_predicate_semantics_and_original_positions)",
+    "text": "Source DFlash dflash.py:8-63 versus326-347: length=block_size-1, b_i=(candidate[i+1]==target[i]), bonus=target[result]. Original full output buffer beyond commit_len is not required invalid. Nonempty vector reductions may implement empty logical length with padded neutral lanes."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "When the accepted length is the leading run of independently available true predicates, reduce the first false index instead of carrying a serial live-prefix flag.",
+    "storage": "Per-instance records and optional materialized view.",
+    "boundary": "Source DFlash dflash.py:8-63 versus326-347: length=block_size-1, b_i=(candidate[i+1]==target[i]), bonus=target[result]. Original full output buffer beyond commit_len is not required invalid. Nonempty vector reductions may implement empty logical length with padded neutral lanes.",
+    "resources": []
+  },
+  "numeric_risk": "No arithmetic approximation; original predicate or topology and identity must be preserved.",
+  "summary": "When the accepted length is the leading run of independently available true predicates, reduce the first false index instead of carrying a serial live-prefix flag."
+}

@@ -1,0 +1,147 @@
+name: document_stencil_halo_pullback
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: contract
+produces:
+- map
+- transfer
+- reduce
+- sync
+- store
+object:
+  type: partitioned_causal_stencil_forward_and_reverse_halo
+  description: Route original input history forward and unrounded preactivation adjoints backward by document
+    token coordinates, optionally co-packing operands with one row plan.
+variables:
+- name: operand_exchange
+  kind: structure
+  binding: compile
+  role: software
+  domain:
+  - per_operand
+  - channel_packed
+  meaning: Use one forward/reverse halo exchange for each operand or concatenate channel columns of multiple
+    operands sharing the same document-row plan into one exchange per direction.
+constraints: []
+preconditions:
+- id: pre_partition
+  expr: p.document_fragments_cover_each_token_once_and_keep_global_offsets
+  meaning: Nonempty fragments partition each document in chronological token coordinates, independent
+    of rank/local ordering. Every halo token has one owning fragment; document boundaries denote zeros
+    rather than tokens in adjacent packed documents.
+  cls: semantic
+- id: pre_stencil
+  expr: p.width_four_causal_taps_and_activation_gradient_stage_explicit
+  meaning: The width4 depthwise stencil uses tap0 on t-3 through tap3 on t. Forward BF16 input/history
+    and FP32 taps form the declared FP32 preactivation and SiLU recipe. Backward differentiates that FP32
+    preactivation, not a BF16-rounded checkpoint.
+  cls: semantic
+- id: pre_routes
+  expr: p.history_and_future_dpre_routes_resolve_absolute_document_tokens
+  meaning: History row k for fragment start a resolves a-3+k; future dpre row m for its end b resolves
+    b+m, for k,m=0..2. Missing before/after-document rows use sentinels. Short fragments may source three
+    rows from several nonadjacent fragment/rank owners.
+  cls: implementation
+- id: pre_slots
+  expr: p.send_receive_offsets_splits_and_replication_match_one_context_generation
+  meaning: Destination-major sends and source-major receives agree in row order and split counts, including
+    same-rank peers. A head dpre row is replicated once per distinct predecessor-fragment consumer, up
+    to3 consumers in this source. Slots have unique writers and no uninitialized sentinel read.
+  cls: implementation
+- id: pre_backward
+  expr: p.raw_dpre_returned_and_owner_adds_each_legal_tap_once_before_cast
+  meaning: Backward returns FP32 dpre at boundary output positions, not already-rounded dx. Each input
+    owner applies the appropriate FP32 tap to every future dpre contribution in its admitted local order,
+    combines local contributions and performs one final BF16 dx cast. dweight is this rank fragment outputs
+    partial, not a hidden global reduction.
+  cls: implementation
+- id: pre_packing
+  expr: operand_exchange != 'channel_packed' or p.packed_operands_share_row_routes_and_channel_prefixes_exact
+  meaning: Packed operands share document partition, row routing and collective order. Concatenate operand
+    channel columns with exact prefix widths, exchange once per direction and unpack contiguous views/copies
+    without changing operand numeric stages. Different row plans cannot be co-packed by shape alone.
+  cls: implementation
+- id: pre_lifetime
+  expr: p.forward_history_and_reverse_dpre_publish_before_kernel_read_and_live_through_use
+  meaning: Wait for forward history before local stencil reads and reverse dpre before input-gradient
+    folds. Preserve original input/tap/context generations through recompute; a retained history handle
+    removes forward exchange replay only, not reverse exchange.
+  cls: implementation
+- id: pre_backend
+  expr: p.source_target_contiguous_shapes_and_halo_programs_supported
+  meaning: Concrete backend supports SM100/103/107, contiguous BF16 packed rows, channels multiple8, FP32
+    width4 taps and no bias. Empty ranks still participate in matching exchange and emit zero dweight;
+    source graph/capture context readiness remains required.
+  cls: implementation
+program:
+  description: Prepare row routes from immutable document/global-token coordinates. For fragment [a,b),
+    forward halo k=0..2 names token a-3+k; find its actual owner, even across multiple short fragments,
+    or use zero before document start. Gather original BF16 rows into destination-major sends, exchange
+    and wait, then run the local width4 stencil and activation. For backward recompute FP32 preactivation
+    gradients dpre for the first up to3 output rows of each fragment. For every predecessor fragment ending
+    at e that needs output e+m, place that dpre in its unique send slot; the same output dpre may be copied
+    to several predecessor consumers. Exchange FP32 rows and wait. Each input owner folds the next up
+    to3 output dpre rows through the correct taps into its pending FP32 dx, alongside its local stencil
+    pullback, before one BF16 output cast. Compute local tap gradients from this rank owned output positions
+    with matching history. For channel_packed, concatenate operand columns on each identical row slot,
+    multiply row splits by total channels, then unpack by channel prefixes and run unchanged per-operand
+    kernels. Empty ranks preserve collective order. Retaining immutable forward history for checkpoint
+    replay does not remove reverse dpre transport.
+backward_map: Expand each history and future-adjoint route to its absolute document token. Every forward
+  stencil edge t<-t-lag has one original input value; its transpose edge returns dpre[t]*tap[3-lag] exactly
+  once to that input owner. Copying one dpre to multiple predecessor fragments represents distinct input
+  edges, not duplicate contributions to one dx. Channel packing preserves each operand edge identity.
+obligations:
+- name: global_token_routing
+  statement: Forward history and reverse future-output routes stay within the same document and find the
+    actual owner across short fragments.
+  method: test
+- name: transpose_edges
+  statement: Each stencil transpose edge contributes exactly once before final dx rounding, including
+    replicated dpre consumers.
+  method: proof
+- name: packed_exchange_identity
+  statement: Co-packed channels retain operand identity, row splits and numeric stages in both directions.
+  method: test
+- name: native_order_and_lifetime
+  statement: Activation derivative stage, FP32 accumulation order, waits, context generation and final
+    BF16 cast match native requirements.
+  method: test
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: (p.document_fragments_cover_each_token_once_and_keep_global_offsets) and (p.width_four_causal_taps_and_activation_gradient_stage_explicit)
+    and (p.history_and_future_dpre_routes_resolve_absolute_document_tokens) and (p.send_receive_offsets_splits_and_replication_match_one_context_generation)
+    and (p.raw_dpre_returned_and_owner_adds_each_legal_tap_once_before_cast) and (operand_exchange !=
+    'channel_packed' or p.packed_operands_share_row_routes_and_channel_prefixes_exact) and (p.forward_history_and_reverse_dpre_publish_before_kernel_read_and_live_through_use)
+    and (p.source_target_contiguous_shapes_and_halo_programs_supported)
+  text: FlashInfer Cake deterministic KCP width4 depthwise causal convolution with SiLU on SM100/103/107;
+    BF16 activations/dy/dx, FP32 taps and returned dpre, no bias and C divisible by8. Halo plan uses global
+    document offsets and up to3 consumers per head row. KCP backward differentiates FP32 preactivation
+    and therefore does not promise bitwise equality to the separate zero-history backend that differentiates
+    a BF16 checkpoint. Tap gradients remain rank-local fixed-order partials. Generic network progress,
+    arbitrary stencil widths and native arithmetic equivalence require their own binding.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Absolute-document history gather and transpose stencil adjoint routing, with per-operand
+    or channel-packed exchanges.
+  storage: Original BF16 history and FP32 dpre halo pools, replicated per distinct predecessor consumer;
+    pending dx stays FP32 until final cast.
+  boundary: Short/empty fragments, document starts/ends, row sentinels, coherent route generation and
+    one-use transpose edges.
+  resources:
+  - dram
+  - registers
+  - shared
+numeric_risk: Immediate-predecessor-only history is wrong for short fragments. Returning rounded dx or
+  changing SiLU preactivation precision changes gradients; channel co-packing is valid only for the same
+  row plan.
+summary: When a causal stencil spans rank fragments, route halo rows by absolute document tokens and send
+  unrounded boundary preactivation gradients back to the actual input owners. Merge all tap contributions
+  before the final cast; operands with identical row plans may share an exchange by packing channels.

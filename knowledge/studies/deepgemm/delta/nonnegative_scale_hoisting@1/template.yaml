@@ -1,0 +1,49 @@
+name: nonnegative_scale_hoisting
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: reduce
+produces: [map, reduce]
+object:
+  type: factored_relu_scale
+  description: One nonnegative scale factored through ReLU and optionally through a weighted sum over a group that shares the scale.
+variables:
+  - {name: placement, kind: structure, binding: compile, role: software, domain: [after_activation, after_reduction], meaning: Apply the shared scale after each ReLU or once after the weighted group reduction.}
+constraints:
+  - {id: c_scale, expr: "p.min_scale >= 0 and p.scale_shared_over_group", meaning: ReLU is positively homogeneous and the same scale applies to every term in the factored group., cls: semantic}
+preconditions:
+  - {id: pre_finite, expr: "p.finite_values and p.finite_scale and p.relu_requested", meaning: "The coarse operation uses ReLU with finite scores,weights and scales.", cls: semantic}
+  - {id: pre_numerics, expr: "p.numeric_contract_allows_scale_hoisting", meaning: The caller admits the selected intermediate rounding and multiplication/addition order., cls: semantic}
+program:
+  description: >-
+    Refine y=sum_i weight_i*relu(scale*score_i). With after_activation compute
+    sum_i weight_i*(scale*relu(score_i)); with after_reduction compute
+    scale*sum_i weight_i*relu(score_i). A parallel reduction may apply this to
+    each local group before combining its partials, provided all those groups
+    use the same output's scale. Signed weights are allowed; the scale is nonnegative.
+backward_map: Move the scale back inside ReLU and each weighted term using nonnegative homogeneity and distributivity, under the admitted numerical contract.
+obligations:
+  - {name: homogeneity, statement: ReLU(scale*x) equals scale*ReLU(x) for every admitted finite score and nonnegative scale in exact arithmetic., method: exhaustive}
+  - {name: scale_ownership, statement: Every factored term belongs to the output and group for which this scale is defined., method: exhaustive}
+  - {name: numerical_policy, statement: "Finite-precision placement and reduction order satisfy the requested tolerance,including cancellation and large scales.", method: test}
+effects: {transactions: [], storage: [], overlap: []}
+scope:
+  predicate: "p.relu_requested and p.min_scale >= 0 and p.scale_shared_over_group"
+  text: >-
+    Multiplicative nonnegative scales shared over a weighted group of ReLU inputs.
+    Signed weights are legal. Negative scales invalidate homogeneity; per-term scales
+    cannot move outside a group reduction. The source witness is SM90 MQA with one
+    positive quantization scale per KV token shared across query heads. Arbitrary
+    nonlinearities,affine offsets and changed quantization are outside this rule.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Factor a shared nonnegative scale through ReLU and a weighted group reduction.
+  storage: Original score/weight intermediates and one scale per factored output group.
+  boundary: Sign of the scale and constancy over the reduction group.
+  resources: []
+numeric_risk: Changing scale placement and sum order changes rounding; signed-weight cancellation,zero scales and large_dynamic_range require numerical admission.
+summary: >-
+  Use for weighted ReLU reductions with one nonnegative scale shared over the group; choose after_activation or after_reduction placement. Apply ReLU to unscaled scores and move the scale to the chosen site, for example scale2 and scores[-3,4] with weights[1,-1] give2*(0-4)=-8. Keep a separate scale for each output and require numerical admission before changing finite-precision placement.

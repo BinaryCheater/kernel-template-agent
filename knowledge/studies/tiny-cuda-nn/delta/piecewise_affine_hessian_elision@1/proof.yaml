@@ -1,0 +1,23 @@
+template: piecewise_affine_hessian_elision@1
+version: 1
+relation: The reduced second reverse graph equals the selected affine piece's complete local derivative graph.
+rank: Remaining requested second reverse derivative paths.
+assumes:
+  - {name: affine_piece, statement: "A(theta) and b(theta) are independent of coordinates within the selected region and its frozen support."}
+  - {name: graph, statement: "The incoming g_y is independent in this local derivative and all requested mixed and upstream paths are retained."}
+  - {name: numerical, statement: "The selected-piece derivative and affine numerical model are admitted."}
+guarantees: []
+models: []
+note: >-
+  Differentiate g_x=A(theta)^T*g_y with respect to x, g_y and theta. The x path
+  vanishes; contracting with v gives A(theta)*v for g_y, and a generally nonzero
+  parameter derivative through A. At y=theta*x, theta=3,g_y=2,v=5 gives input
+  second-path0, upstream-gradient path15 and parameter path10. At y=x*y the
+  mixed-coordinate Hessian is1, rejecting a Cartesian bilinear substitution.
+  Source include/tiny-cuda-nn/encodings/internal/permuto.h:56-123 fixes elevation,
+  nearest lattice point and residual rank, :175-205 forms affine barycentric
+  weights and d+1 vertex reads, :404-517 retains mixed parameter/upstream paths,
+  and :897-906 writes requested pure input second derivatives as zero. Region
+  ties, hash keys, random shifts and level masks must refer to the same forward
+  piece. No cross-boundary distributional statement or enclosing-loss Hessian
+  simplification is made; native numerical derivatives remain unverified.

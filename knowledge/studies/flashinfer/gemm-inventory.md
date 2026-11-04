@@ -1,0 +1,28 @@
+# GEMM design inventory
+
+The [discovery manifest](inputs/gemm-source-scope.json) retains2175 GEMM-named
+and grouped_mm paths plus top-level definitions in four entry modules. This is
+a source-discovery set, not2175 independent designs or a closed coverage claim.
+Paths below are relative to the retained [tree](inputs/sources.json).
+
+| Design group | Routes / representatives | Distinct choices and current disposition |
+|---|---|---|
+| Dense and batched BF16 | gemm/gemm_base.py -> dense_bf16_gemm_direct.py, TGV, cuTile, CUTLASS wrappers, cuBLASLt/cuDNN | Tile/operand orientation, native warp/tcgen05 routes, tail and alpha/beta contracts. Wrapper/provider menus inventoried; TGV lookahead wait and swap-AB source bindings in current trace; [tiny-GEMM and alpha/beta dispositions recorded](trace-gemm-remaining-designs.md); deeper native bodies and cluster split-K named. |
+| Small-M swapped operands and cluster split-K | gemm_base.py:_SwapAB -> jit/cake_bf16_bmm_swap_ab and generated csrc | Weight/token axes, output transpose, K partition and cluster merge; compiled shape menus are policy. Source route recorded; split merge remains a representative. |
+| Ragged/masked cuTile GEMM | kernels/cutile/{ragged_bmm,ragged_scaled_bmm,ragged_block_scaled_bmm,masked_bmm,masked_scaled_bmm,gemm_alpha_beta}_cutile.py | Expert-prefix tile decode, alignment, logical masks, scale grouping and final alpha/beta. Block-scaled ragged representative traced; [masked scaled arithmetic, scale unswizzle and alpha/beta bindings recorded](trace-gemm-remaining-designs.md); physical-tail and mixed-cast boundaries explicit. |
+| Grouped FP8 contiguous M | group_gemm_fp8_nt_groupwise_contiguous -> kernels/grouped_gemm_contiguous_blackwell.py | Expert ownership by first row of aligned M tile, FP32 block-scale promotion, accumulator/epilogue roles and persistent scheduling. [Deep-K scale windows, promotion and fused epilogue traced](trace-grouped-promotion-and-fused-output.md); native resource/numerical obligations named. |
+| Grouped packed/variable problems | grouped_mm/core.py, include/flashinfer/gemm/group_gemm*.cuh | m_indptr/provider descriptor layout, arbitrary group shapes, gather/scatter and grouping. cuDNN boundary recorded; retained native group schedulers remain. group_gemv.cuh/group_gemm_lora.cuh are TODO-only headers, not kernels. |
+| Task-scheduled grouped/batched GEMM | prims_ts/batched_gemm/ -> resources/tasks/kernel | One block/expert; routed A/scales, CLC, block-scaled UMMA, fused gates and quantized epilogues. Wider physical-CGA multicast extracted in atom_owned_cluster_multicast@1; [Routed data/scale identity traced](trace-routed-gemm-and-ordered-wgrad.md); [MX floor-output recipe traced](trace-mx-floor-output-quantization.md); remaining native variants named. |
+| FP8/MXFP8/NVFP4/MXFP4 scaled GEMM | gemm_base.py, include/flashinfer/gemm/*fp[48]*, dense_blockscaled_gemm_sm100*.py, SM120/B12x providers | Hardware scaled-MMA versus software promotion, scale-factor layouts, dtype/architecture-specific decoders. Existing rule composition is available; concrete recipe families remain. |
+| BF16×FP4 and cast-A | gemm_bf16_fp4*.py, prims_ts/tmem_sf_resources.py and mixed dtype providers | [Native-layout W4A16 decoder/staging and split reduction traced](trace-svdquant-and-w4a16.md); [CastA decoder/TMEM and masked mixed-format boundaries recorded](trace-gemm-remaining-designs.md); TMEM-site extension and native target maps remain named gaps. |
+| SVDQuant / low-rank correction | gemm_svdquant.py, cake_quant_lora_gemm.py, svdquant_sm120_*.py, nvfp4_svdquant_* | Smoothing, low-rank down/up contractions, fused correction relative to output casts/gates, prefix/route policy. [SVDQuant/raw-prepared adapter scale and smoothing channels traced](trace-svdquant-and-w4a16.md); native preprocessing overlap and remaining target low-rank realizations named. |
+| Router and tiny GEMM | gemm/routergemm.py, dsv3_router_gemm.cuh, TGV/tinygemm routes | [Raw-score router and tiny-GEMM role/ring bindings recorded](trace-gemm-remaining-designs.md); router does not fuse normalization/selection. Native two-channel release join and target variants named. |
+| Fused activation/output quantization | cake_grouped_fp8_fused_silu_quant.py, gmem_c_resources.py, FP4 epilogues | [SwiGLU/E4M3 grouped representative traced](trace-grouped-promotion-and-fused-output.md), preserving gate/up and activation BF16 checkpoints and full128-column scale. [MX floor-anchor output extracted](trace-mx-floor-output-quantization.md); zero/subnormal conversion and remaining low-bit epilogues named. |
+| Deterministic grouped training | grouped_mm/cake.py -> experimental deterministic grouped packages | [Forward/dgrad/wgrad and ordered tail ownership traced](trace-routed-gemm-and-ordered-wgrad.md); multi-contributor FP32 reducer extracted, singleton/empty and native protocol boundaries named. |
+| External/precompiled providers | gemm_base.py and grouped_mm/cudnn, trtllm GEMM wrappers | Bind descriptors/target support and retained code boundary. CUTLASS dependency bodies remain absent and its separate study stays paused; do not fetch them. |
+
+Continue by distinct design, reusing existing tile/scale/partition/gather rules
+where their fields actually bind. Shared kernels serving several generated
+entries need one representative, not repeated per-entry traces or checks.
+
+[Remaining GEMM representatives](trace-gemm-remaining-designs.md) bind raw router scores, alpha/beta load semantics and masked scale coordinates, and name TMEM/two-channel/native cluster gaps. Continue with standalone quantization/layout and non-GEMM families; revisit these named gaps in final full-library reconciliation.

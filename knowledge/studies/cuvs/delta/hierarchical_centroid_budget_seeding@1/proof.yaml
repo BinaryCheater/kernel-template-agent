@@ -1,0 +1,15 @@
+{
+  "template": "hierarchical_centroid_budget_seeding@1",
+  "version": 1,
+  "relation": "Fine quotas partition exactly K output centers; each completed interval contains the local trainer output for its corresponding coarse group.",
+  "rank": "Untrained coarse groups, then untrained fine intervals and remaining capped global refinements.",
+  "assumes": [
+    {
+      "name": "source_contract",
+      "statement": "NVIDIA hierarchical balanced KMeans center initialization. Source rounds quota sequentially with remaining budgets, so na\u00efvely rounding independent proportional quotas is not equivalent. Does not guarantee exact Lloyd optimum or strict population balance."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Source-derived proof outline; no formal proof result or GPU execution claimed. budget: Every nonempty group receives a positive quota and all quotas sum exactly to K. output_ownership: Each local training group writes only its assigned center interval. sample_scope: Training caps and subsampling are recorded as approximation choices, not coverage of all rows. refinement_boundary: Global prediction/refinement consumes the complete center seed only after every local trainer finishes."
+}

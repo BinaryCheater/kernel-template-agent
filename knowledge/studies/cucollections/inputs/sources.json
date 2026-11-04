@@ -1,0 +1,7 @@
+{
+  "upstream": "https://github.com/NVIDIA/cuCollections",
+  "revision": "aeb188dc2355f85e4ec77469196363e6e5822e6b",
+  "archive": "/Users/dingyi/kta-data/dev/operator-sources/NVIDIA/cuCollections/aeb188dc2355f85e4ec77469196363e6e5822e6b/worker-e-source.tar.gz",
+  "tree": "/Users/dingyi/kta-data/dev/operator-sources/NVIDIA/cuCollections/aeb188dc2355f85e4ec77469196363e6e5822e6b/cuCollections-aeb188dc2355f85e4ec77469196363e6e5822e6b",
+  "scope": "complete superproject archive; nested external dependencies not materialized"
+}

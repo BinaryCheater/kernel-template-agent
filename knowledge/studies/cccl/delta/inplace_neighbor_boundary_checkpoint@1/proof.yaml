@@ -1,0 +1,14 @@
+template: inplace_neighbor_boundary_checkpoint@1
+version: 1
+relation: Replace checkpoint and captured tile reads by their original pre-write input
+  values, recovering an out-of-place adjacent-neighbor operation.
+rank: Unprocessed source items or unmerged partials.
+assumes:
+- name: contract
+  statement: The stated partition, comparator/count and publication premises hold.
+guarantees: []
+models: []
+note: Source agent_adjacent_difference.cuh:130-245 and AgentDifferenceInit below it.
+  Global checkpoint-before-write order preserves all hazardous remote reads; local
+  tile capture preserves the remaining reads. This is input preservation, not adjacent_boundary_reuse@1
+  endpoint function optimization.

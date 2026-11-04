@@ -1,0 +1,14 @@
+template: nonnegative_scale_hoisting@1
+backend: cuda
+isa: {family: sm, min: '90', max: '90'}
+requires: []
+isa_constraints:
+  - {id: source_site, expr: "placement == 'after_reduction'", meaning: Source multiplies each local weighted head partial by its KV token's scale before a four-lane sum., cls: implementation}
+fragments: {}
+code_markers: [sm90_fp8_mqa_logits,scale_kv_0,scale_kv_1]
+expected_sass: []
+probed_on: []
+summary: >-
+  SM90 dense and paged MQA compute FP32 raw dot products, apply ReLU and head weights,
+  then apply a per-KV-token scale to local head sums before shuffle reduction. Exact
+  nonnegative scale commutation is conditional; the public FP32 scale input is not sign-validated.

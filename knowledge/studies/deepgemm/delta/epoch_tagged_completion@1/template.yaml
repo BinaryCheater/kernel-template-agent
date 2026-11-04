@@ -1,0 +1,54 @@
+name: epoch_tagged_completion
+version: 1
+level_from: 4
+level_to: 5
+change: vertical
+refines: sync
+produces: [sync, store]
+object:
+  type: epoch_completion_counter
+  description: A reusable completion counter whose state combines a launch epoch with a producer arrival count so stale completion cannot satisfy a new wait.
+variables:
+  - {name: participants, kind: numeric, binding: compile, role: boundary, domain: {lo: 1, hi: 64}, meaning: Actual producers of this completion domain; derived from the upstream partition.}
+constraints:
+  - {id: c_count, expr: "participants == p.producer_count", meaning: The terminal count matches the contributing producers., cls: semantic}
+  - {id: c_epoch_range, expr: "p.epoch >= 0 and p.epoch <= 2 ** 57 - 2", meaning: This version's64-bit state and128-wide epoch tags do not wrap., cls: implementation}
+preconditions:
+  - {id: pre_lifetime, expr: "p.one_live_epoch_per_buffer and p.previous_epoch_retired", meaning: No new epoch overlaps a previous user of the same counter or payload., cls: semantic}
+  - {id: pre_memory, expr: "p.release_acquire_supported and p.producers_can_progress", meaning: The environment implements the required publication ordering and allows awaited producers to execute., cls: implementation}
+program:
+  description: >-
+    For epoch e use base=(e+1)*128 in one64-bit counter. An initializer publishes base.
+    Before arriving each producer waits until unsigned64(state-base)<participants;
+    it then publishes its completed payload and atomically increments the counter with
+    release ordering exactly once. A consumer acquires until state==base+participants
+    before reading all payloads. All users of the counter and payload retire before a
+    separate grid exit count permits advancing the shared epoch and resetting that exit count.
+    Advancing the epoch is not itself permission to overwrite still-live payloads.
+backward_map: Replace the tagged counter with one completed-producer event per payload and a join after every event; erase the epoch once all users have retired.
+obligations:
+  - {name: current_generation, statement: A stale counter value never satisfies current-epoch initialization or completion waits., method: exhaustive}
+  - {name: exact_arrivals, statement: Every required producer arrives exactly once after publishing its payload and no unrelated producer increments this counter., method: exhaustive}
+  - {name: visibility, statement: An acquiring terminal wait observes all completed producers' payload writes through the required release ordering., method: test}
+  - {name: retirement, statement: Epoch advancement and payload reuse follow every producer and consumer's last use of the current generation., method: test}
+  - {name: progress, statement: Initializers and awaited producers can run without circular waits or residency deadlock., method: test}
+effects: {transactions: [], storage: [], overlap: []}
+scope:
+  predicate: "p.one_live_epoch_per_buffer and p.release_acquire_supported"
+  text: >-
+    Device-local completion joins with1..64 arrivals per counter and one nonoverlapping
+    launch epoch per shared buffer. This version fixes64-bit states and128-wide tags.
+    It joins separately stored partials rather than atomically combining their numerical
+    values. Repeated graph execution must acquire a new epoch even when a grid identifier
+    is reused. Source progress and release-sequence visibility require device evidence.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Initialize a fresh epoch tag then join exact producer arrivals and retire before reuse.
+  storage: One tagged counter per completion domain plus shared epoch and grid exit count.
+  boundary: Stale completion from graph replay and reuse before a consumer's last read.
+  resources: []
+numeric_risk: No numerical ordering is implied; the consumer's partial-combine order is a separate refinement.
+summary: >-
+  Use when repeated launches reuse completion state and payload buffers; bind participants to the actual producer count and keep only one live epoch. Tag the counter with128*(epoch+1), accept initialization in the current count interval and wait for the exact terminal count before consumption. For16 split producers a stale previous-epoch terminal cannot satisfy the next join; advance the epoch only after every user retires.

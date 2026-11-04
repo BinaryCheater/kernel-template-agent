@@ -1,0 +1,19 @@
+workload: >-
+  Partial proposed dense split-K composition: Float16 A/B, FP32 partials, Float16 C,
+  M128,N128,K256,L1, one-CTA MMA tile128x128, physical cluster1x1x2,
+  four K64 mainloop tiles split into two nonempty ranges. Source CLC coordinate
+  queries require guarded lowering or correction before execution. K-partition,
+  input staging, MMA and fragment-to-output mapping are explicit external edges.
+items:
+  - key: work_owner
+    template: launch_cancellation_work_reuse@1
+    applies_to: Cooperative cluster work identity shared by TMA/MMA/epilogue roles; one controller warp and six reader warps per physical CTA.
+    bindings: {participants: 416}
+    after: []
+    code_markers: [is_first_cta_in_cluster, num_clc_stage, clc_pipeline]
+  - key: shard_combine
+    template: scatter_reduce_output_shards@1
+    applies_to: Defined FP32 partials of the same tile;128 thread fragments of128 elements divided into two64-element owner shards, after the external K64 partition/MMA edge.
+    bindings: {peers: 2}
+    after: [work_owner]
+    code_markers: [sender_idx, mailbox_layout, my_shard_start]

@@ -1,0 +1,15 @@
+{
+  "template": "ranked_detour_neighbor_pruning@1",
+  "version": 1,
+  "relation": "Detour counters equal the processed earlier-neighbor two-hop matches; selected unique outputs minimize the declared count/rank key while protected-edge composition preserves its reserved subset.",
+  "rank": "Unprocessed detour matches, then remaining degree slots and merge candidates.",
+  "assumes": [
+    {
+      "name": "source_contract",
+      "statement": "NVIDIA CAGRA graph optimization. This is a route-selection heuristic, not proof of nearest-neighbor recall or global connectivity unless the protected-edge mechanism establishes that separately."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Source-derived proof outline; no formal proof result or GPU execution claimed. detour_count: Each admitted A->D->B match increments the intended later direct-edge counter exactly once under input duplicate policy. selection: Tagged minimum preserves count priority then source rank and rejects invalid/self entries under declared policy. unique_output: Repeated output contains no duplicate node and has the requested degree or explicit insufficient-candidate failure. protected_capacity: Connectivity-preserving composition retains every designated protected edge and cannot overflow the degree budget. The relation is a proposed source-level invariant; the stated finite-work rank depends on the explicit environment progress assumptions. Device ordering and numeric premises have not been discharged by schema validation."
+}

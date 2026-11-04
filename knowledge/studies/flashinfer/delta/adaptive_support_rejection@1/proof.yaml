@@ -1,0 +1,45 @@
+template: adaptive_support_rejection@1
+version: 1
+relation: 'With exact fresh categorical proposals, erase rejection/pruning history: output i has probability
+  w_i/sum_{j in A}w_j for i in A and zero otherwise. Each rejection removes a positive nontarget level,
+  so at most the number of distinct rejected positive levels plus1 draws occur. With per-proposal total-variation
+  error epsilon and unchanged exact certificates, a coupling/union bound gives at most width*epsilon output
+  deviation.'
+rank: Number of positive nontarget weight levels remaining above low.
+assumes:
+- name: pre_weights
+  statement: One finite row has nonnegative normalized weights; target support contains positive mass.
+    Zero-weight coordinates never enter the proposal set.
+- name: pre_target
+  statement: Membership is count{w>value}<k or sum{w>value}<top_p over the original row, including entire
+    boundary-value cohorts; exact-cardinality ID tie breaking is a different contract.
+- name: pre_bounds
+  statement: Use1<=k<=width or0<top_p<=1, initially low0/high1; positive target weights exceed low and
+    high is a certified accepted threshold.
+- name: pre_certificates
+  statement: Counts/masses and strict comparisons certify the requested target membership. Each new low
+    cutoff excludes only nontarget weights.
+- name: pre_draws
+  statement: Every attempt samples original weights restricted to w>low, using that exact remaining mass
+    and fresh independent conditional random draws; draw/output/invocation identities are explicit.
+- name: pre_progress
+  statement: Rejection raises the cutoff at least to the sampled weight, removing a nonempty level; successful
+    exit returns only a membership-certified sample, without arbitrary truncation.
+- name: pre_generation
+  statement: All rounds refer to the same row/threshold metadata, including output-to-data-row mapping;
+    collective scans/reductions complete consistently.
+- name: pre_numeric
+  statement: Native CDF arithmetic, random endpoint grid, last-valid fallback and any per-draw deviation
+    are declared. Exact categorical proposals give the exact restricted target law; otherwise retain a
+    bound accumulated over the finite attempt count.
+guarantees: []
+models: []
+note: include/flashinfer/sampling.cuh:860-994 and :995-1120 sample above low with q, inspect full-row
+  strictly-greater count/mass at sampled and midpoint pivots, accept when statistic<limit, otherwise update
+  low/high/q. DeviceSamplingFromProb:581-654 uses strict CDF>u and records last-valid fallback; exact
+  ideal proposal law is a logical premise, not a native assertion. count_certified_topk_filter@1 certifies
+  a bounded candidate list for exact selection, whereas this rule preserves a stochastic conditional law
+  through adaptive supersets. counter_indexed_mask_replay@1 supplies identity discipline but not this
+  changing-support proposal law. Logical exact-rational enumeration checks both cut schedules, ties, zero
+  weights and full support, and distinguishes stale q/renormalized certificate mistakes; native CURAND/CDF
+  error and termination remain obligations.

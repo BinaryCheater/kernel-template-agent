@@ -1,0 +1,72 @@
+name: periodic_phase_prefix
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: scan
+produces:
+- scan
+- map
+object:
+  type: periodic_phase_prefix
+  description: When only a periodic phase is observable through rotation, scan phase
+    increments and reduce modulo the period at chunk boundaries to bound carried magnitude.
+variables: []
+constraints: []
+preconditions:
+- id: pre0
+  expr: p.period_positive and p.consumers_periodic_or_canonical and p.phase_rounding_admitted
+    and p.chunk_partition_complete
+  meaning: Period and consumer contract, admitted floating-point range reduction and
+    complete prefixes.
+  cls: semantic
+program:
+  description: For increments delta_t and initial phase theta, form within-chunk inclusive
+    prefix theta+sum_(j<=t)delta_j, emit modulo P, and carry modulo P of theta+sum_chunk(delta).
+    This represents the same phase on the quotient R/(P Z) in exact arithmetic; all
+    consumers must be P-periodic or explicitly consume the canonical representative.
+    Source P=2*pi, delta=tanh(angle_projection)*pi*dt. Pairwise or split-half rotary
+    layouts must pair the same two coordinates in producer and consumer. A backend
+    that leaves phase unwrapped is a different numerical realization; large-angle
+    accuracy and modulo seam derivatives require their own contract.
+backward_map: "Periodic phase state, source rotary2\u03C0 with masked padded increments0.\
+  \ This is quotient-state equivalence, not equality of floating-point cumsum algorithms\
+  \ or raw phase arrays."
+obligations:
+- name: quotient_prefix
+  statement: Adding any integer multiple of P to the carried phase leaves the next
+    emitted phase equivalent.
+  method: proof
+- name: pair_layout
+  statement: Rotation maps the intended coordinate pairs and leaves unrotated coordinates
+    unchanged.
+  method: proof
+- name: numeric_seam
+  statement: Range reduction, trig approximation and backward derivative are admitted
+    around modulo seams.
+  method: proof
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: (p.period_positive and p.consumers_periodic_or_canonical and p.phase_rounding_admitted
+    and p.chunk_partition_complete)
+  text: "Periodic phase state, source rotary2\u03C0 with masked padded increments0.\
+    \ This is quotient-state equivalence, not equality of floating-point cumsum algorithms\
+    \ or raw phase arrays."
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: When only a periodic phase is observable through rotation, scan phase
+    increments and reduce modulo the period at chunk boundaries to bound carried magnitude.
+  boundary: "Periodic phase state, source rotary2\u03C0 with masked padded increments0.\
+    \ This is quotient-state equivalence, not equality of floating-point cumsum algorithms\
+    \ or raw phase arrays."
+  resources:
+  - registers
+numeric_risk: Floating-point reassociation, casts and approximate functions require
+  an admitted numerical contract.
+summary: When only a periodic phase is observable through rotation, scan phase increments
+  and reduce modulo the period at chunk boundaries to bound carried magnitude.

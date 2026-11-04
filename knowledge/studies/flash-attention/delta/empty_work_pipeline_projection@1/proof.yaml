@@ -1,0 +1,27 @@
+template: empty_work_pipeline_projection@1
+version: 1
+relation: Empty-epoch specialization preserves declared outputs and the event dependencies/generations of every later nonempty epoch.
+rank: Remaining logical work epochs and unconsumed retained control events.
+assumes:
+  - {name: predicate, statement: "All participants agree which work is empty and which channels remain part of its protocol."}
+  - {name: events, statement: "Retained channels have matching publications/acknowledgments and skipped channels leave every role's generation unchanged."}
+  - {name: lifetime, statement: "Prior acknowledgments/readers retire before reuse and no retained control token authorizes nonexistent payload reads."}
+guarantees: []
+models: []
+note: >-
+  Induct over work epochs. A nonempty epoch follows the original graph.
+  An empty control-only epoch advances the retained control producer/consumer
+  states together, while payload channel states are unchanged. A skip-data
+  epoch changes neither side of any omitted channel. Thus the next nonempty
+  epoch starts at matching generations, and owned empty-output actions preserve
+  the operator contract. For two empty epochs followed by one nonempty epoch,
+  a per-work control channel has three publications and three acknowledgments,
+  while a data-only channel can have just one. Removing the two publications
+  without changing its control consumer creates missing waits; publishing two
+  fake data-ready events instead permits unwritten reads. Source
+  flash_attn/cute/block_sparse_utils.py:98-147 defines forward and backward
+  protocols; :833-953 implements empty correction, :1097-1146 handles the
+  synthetic softmax signal, and backward load helpers predicate all work on
+  the same loop count. Native barrier phases, tail counts and progress remain
+  executable obligations. Existing per_slot_handshake@1 describes filled
+  payload generations, not this conditional choice of participating channels.

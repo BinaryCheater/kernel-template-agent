@@ -1,0 +1,17 @@
+template: shifted_innovation_recurrence@1
+version: 1
+relation: Linear decayed state with two adjacent innovation terms. Mamba3 eta=dt*(1-sigmoid(trap)),
+  gamma=dt*sigmoid(trap), alpha=exp(ADT). No state-dependent nonlinear gate can be
+  moved through this identity.
+rank: Number of input elements or state transitions still to consume.
+assumes:
+- name: source_contract
+  statement: Source binding and stated scope hold.
+guarantees: []
+models: []
+note: 'Source-derived candidate, not independently admitted. state_translation: Substitute
+  Tprev=Sprev+eta_current*Uprev to recover original recurrence exactly in real arithmetic.
+  output_correction: Strict-past transformed history plus gamma_current*current projected
+  innovation equals original projected state. boundary_state: Seed and returned state
+  convert eta*U at invocation boundaries exactly once. Native lowering and numerical
+  error remain open; see trace and checks.'

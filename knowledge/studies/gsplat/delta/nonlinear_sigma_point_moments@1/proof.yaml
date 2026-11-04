@@ -1,0 +1,15 @@
+{
+  "template": "nonlinear_sigma_point_moments@1",
+  "version": 1,
+  "relation": "After point j, accumulated mean and second moment equal the declared weighted sums of the first j transformed sigma points; final centered covariance uses the distinct covariance weights.",
+  "rank": "2D+1 sigma points remaining.",
+  "assumes": [
+    {
+      "name": "source_contract",
+      "statement": "NVIDIA UT3DGS camera projection. This is an approximation of nonlinear image moments, not exact projected Gaussian distribution. Source any-valid mode still accumulates all projected numerical values and needs a separate defined-invalid-point contract; it is not the all-valid instance. Camera-specific loop-unroll/slerp policy is a realization choice."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Source-derived proof outline; no formal proof result or GPU execution claimed. quadrature: Sigma coordinates and separate mean/covariance weights match the requested3D quadrature exactly. projection: Each point uses the same model parameters and its declared shutter-pose evaluation. validity: Invalid sigma points are not silently dropped/renormalized under the all-valid version. covariance: Negative center weights do not imply positive covariance; inversion follows explicit determinant/diagonal validity policy."
+}

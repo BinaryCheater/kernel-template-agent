@@ -1,0 +1,22 @@
+template: softmax_probability_recomputation@1
+version: 1
+relation: A recomputed tile equals the corresponding normalized logical probability tile under the checkpoint and numerical premises.
+rank: Remaining probability tiles required by the consumer.
+assumes:
+  - {name: same_row, statement: "Recomputed scaled logits, support and checkpoint belong to the same forward row and unchanged operands."}
+  - {name: finite_mass, statement: "The row mass is positive and finite; excluded entries are zeroed and tails do not affect valid rows."}
+  - {name: numeric_policy, statement: "Checkpoint rounding, score replay and exponent/cast errors are admitted by the consuming algorithm."}
+guarantees: []
+models: []
+note: >-
+  For valid support S, L=log(sum_j_in_S exp(x_j)); hence exp(x_i-L)
+  equals exp(x_i)/sum_j_in_S exp(x_j). Setting other positions to zero recovers
+  the logical softmax row. Dividing L by ln(2) gives the base2 expression in the
+  Template. Tiling and transposing ownership do not change this row identity.
+  For logits (0,ln(3)), checkpoint L2=2 reconstructs (1/4,3/4), independent of
+  which tile is requested first. TileLang example_mha_bwd_bshd.py saves base2
+  LSE in forward and uses exp2(QK*scale-LSE) in backward before its derivative
+  contractions. This identity does not prove bitwise equality with a rounded
+  forward probability tile. Native score order, mask/tail bindings and the
+  numerical error policy must be checked before executable admission. No custom
+  checker is added for this elementary algebraic extraction.

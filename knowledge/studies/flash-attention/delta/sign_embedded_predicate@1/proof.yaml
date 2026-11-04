@@ -1,0 +1,26 @@
+template: sign_embedded_predicate@1
+version: 1
+relation: The encoded scalar preserves the original nonnegative magnitude and predicate, or all observable consumer results under the comparison mode's zero-insensitivity contract.
+rank: Payload/predicate pairs not yet encoded or decoded for their consumers.
+assumes:
+  - {name: domain, statement: "The original payload is finite nonnegative and storage magnitude conversion is admitted."}
+  - {name: sign, statement: "Storage preserves the required sign and consumers retain the encoded value until the last predicate use."}
+  - {name: zero, statement: "Use signbit for exact zero predicate recovery, or prove every consumer is insensitive when payload magnitude is zero."}
+guarantees: []
+models: []
+note: >-
+  For v>0, abs(c)=v and c>=0 equals keep. At v=0 both +0>=0 and -0>=0,
+  while signbit distinguishes them. Thus the comparison mode preserves results
+  only if changing the predicate at zero is unobservable. Source dropout.h:
+  26-33,77-80 encodes kept v/dropped -v. Forward flash_fwd_kernel.h:356-364
+  can store that signed diagnostic. Backward flash_bwd_kernel.h:537-552
+  retains signed FP32 P and makes a separate ReLU-converted MMA operand;
+  :584-595 evaluates c*(a-d) for c>=0 and c*d otherwise. With c=+P/-P,
+  this is P*(keep*a-d), so it is zero at P=0 for finite a,d regardless of
+  the ambiguous zero predicate. The source applies keep-rate/score scales
+  separately; this encoding rule does not derive those scales. The retained
+  logical check compares both branches and signed zeros and shows that ReLU
+  destroys dropped-payload magnitudes. Native packed comparisons, conversion
+  and underflow behavior remain implementation obligations. The exact integer
+  carry codec in carry_compensated_parameter_split@1 has a different payload,
+  decoder and invariant and cannot supply this Boolean sign channel.

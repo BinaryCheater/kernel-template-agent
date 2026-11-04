@@ -1,0 +1,15 @@
+{
+  "template": "peer_read_owned_collective@1",
+  "version": 1,
+  "relation": "After j peer loads at coordinate i, owner accumulator contains exactly the first j peers in its bound cyclic order. Disjoint owner map covers coordinates; final fanout copies the completed value to consumer set.",
+  "rank": "Peer coordinates and peer loads remaining.",
+  "assumes": [
+    {
+      "name": "source_contract",
+      "statement": "Directly accessible symmetric peers and resident progress. This is full peer-read fan-in per owned coordinate, not ring reduce-scatter."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Source-derived proof outline; no formal proof result or GPU execution claimed. cover: Every owned coordinate reads each peer exactly once; all coordinates have one owner. consumers: Completed value is stored once to every declared consumer, without overwriting an unread input. numeric: Accumulator type, casts and peer reduction order match selected numerical contract; changing backend need not be bitwise equal."
+}

@@ -1,0 +1,9 @@
+{
+  "upstream": "https://github.com/NVIDIA/TransformerEngine",
+  "revision": "b021980343e33fdd5b091f95fd13f82e05d581af",
+  "archive_url": "https://codeload.github.com/NVIDIA/TransformerEngine/tar.gz/b021980343e33fdd5b091f95fd13f82e05d581af",
+  "archive": "/Users/dingyi/kta-data/dev/operator-sources/NVIDIA/TransformerEngine/b021980343e33fdd5b091f95fd13f82e05d581af/source.tar.gz",
+  "archive_sha256": "f57a8856a0f4f9d07b1502d964c6b6faad36c385a1225c885ef4de15d88850e4",
+  "tree": "/Users/dingyi/kta-data/dev/operator-sources/NVIDIA/TransformerEngine/b021980343e33fdd5b091f95fd13f82e05d581af/TransformerEngine-b021980343e33fdd5b091f95fd13f82e05d581af",
+  "scope": "Full pinned top-level archive; submodules not materialized. NVIDIA source designs only."
+}

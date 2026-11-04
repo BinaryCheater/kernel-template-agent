@@ -1,0 +1,105 @@
+{
+  "name": "bitplane_integer_dot_reconstruction",
+  "version": 1,
+  "level_from": 2,
+  "level_to": 3,
+  "change": "vertical",
+  "refines": "map",
+  "produces": [
+    "map",
+    "access"
+  ],
+  "object": {
+    "type": "bitplane_integer_dot_reconstruction",
+    "description": "When small unsigned codes are stored in bit planes or packed nibbles, compute the integer dot in that representation and apply row metadata only after the exact code reduction."
+  },
+  "variables": [
+    {
+      "name": "word_bits",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": [
+        32
+      ],
+      "meaning": "Native packed/popcount word width."
+    },
+    {
+      "name": "max_code_bits",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": [
+        4
+      ],
+      "meaning": "Narrow source witness: binary or nibble unsigned codes; wider variants require their own range bound."
+    }
+  ],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_0",
+      "expr": "p.codes_unsigned_in_range and p.bit_order_consistent",
+      "meaning": "Producer/consumer agree on per-row code/bit mapping; codes are unsigned, not signed bipolar values.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_1",
+      "expr": "p.integer_accumulator_no_overflow and p.tail_bits_zero",
+      "meaning": "Exact integer reduction fits its accumulator and padded codes contribute zero.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_2",
+      "expr": "p.metadata_rows_match and p.decoded_metric_policy_defined",
+      "meaning": "Each operand keeps its own lower/scale/sum/correction metadata and final metric convention is explicit.",
+      "cls": "semantic"
+    }
+  ],
+  "program": {
+    "description": "For bit-sliced codes, sum over plane pairs(i,j) of popcount(A_plane_i AND B_plane_j)*2**(i+j). For packed4b words, separately mask low/high nibble byte lanes and perform two unsigned dp4a operations. A packed1b operand can expand each MSB-first bit into a corresponding unsigned nibble0/1 for the same u4 dot engine, preserving coordinate order. After the integer dot, combine per-row lower/scale and code-sum terms to recover the declared affine-decoded dot; then apply L2/IP/cosine correction and clamp/normalization policy separately."
+  },
+  "backward_map": "Erase auxiliary organization and recover the visible results under the stated contract.",
+  "obligations": [
+    {
+      "name": "integer_dot",
+      "statement": "Every original coordinate product contributes exactly once with its correct bit weight, independent of storage path.",
+      "method": "proof"
+    },
+    {
+      "name": "promotion",
+      "statement": "Packed1b to4b preserves0/1 values and source coordinate order, never maps bits to +/-1 implicitly.",
+      "method": "proof"
+    },
+    {
+      "name": "metadata",
+      "statement": "Affine cross terms use document/query row metadata and retained code sums from the same rows.",
+      "method": "proof"
+    },
+    {
+      "name": "range",
+      "statement": "All plane shifts, integer sums and tail reads remain within declared bounds.",
+      "method": "proof"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.codes_unsigned_in_range and p.bit_order_consistent and p.integer_accumulator_no_overflow and p.tail_bits_zero and p.metadata_rows_match and p.decoded_metric_policy_defined",
+    "text": "NVIDIA BBQ local-join code inner products, binary/packed4b/bit-sliced representations. Integer dot exactness does not imply original-vector distance exactness; quantization corrections and original norm metadata define the final approximate metric. Resource effects: Bit-plane dot costs code_bits_A*code_bits_B popcount streams; packed4b uses two dp4a per word; u4 promotion increases binary operand storage4x before MMA. Target engine determines tradeoff."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "When small unsigned codes are stored in bit planes or packed nibbles, compute the integer dot in that representation and apply row metadata only after the exact code reduction.",
+    "storage": "Bit-plane dot costs code_bits_A*code_bits_B popcount streams; packed4b uses two dp4a per word; u4 promotion increases binary operand storage4x before MMA. Target engine determines tradeoff.",
+    "boundary": "Codes A=[1,2],B=[3,1] give raw dot5. Plane intersections weighted by2**(i+j) must give5 as well. Binary bit1 expands to nibble1, not15 or signed-1; swapping MSB-first coordinate order changes asymmetric products.",
+    "resources": []
+  },
+  "numeric_risk": "Preserve the supplied arithmetic contract; reassociation, quantization and approximate search require separate permission.",
+  "summary": "When small unsigned codes are stored in bit planes or packed nibbles, compute the integer dot in that representation and apply row metadata only after the exact code reduction. Codes A=[1,2],B=[3,1] give raw dot5. Plane intersections weighted by2**(i+j) must give5 as well. Binary bit1 expands to nibble1, not15 or signed-1; swapping MSB-first coordinate order changes asymmetric products."
+}

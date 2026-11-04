@@ -1,0 +1,15 @@
+{
+  "template": "truncated_range_midpoint_quantization@1",
+  "version": 1,
+  "relation": "Each written code is the requested saturated truncation under original range metadata; its prepared decoder pair represents exactly the specified half-step reconstruction policy.",
+  "rank": "Unconverted elements and unprepared decoder metadata.",
+  "assumes": [
+    {
+      "name": "source_contract",
+      "statement": "NVIDIA scalar quantizer QT4/QT6/QT8 and uniform4/uniform8 finite positive-range paths. FP16 and direct8 conversion have different policies and are separate realizations. This implements a requested lossy format; no original-vector error guarantee is implied."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Source-derived proof outline; no formal proof result or GPU execution claimed. numeric_policy: Clamp and truncate at all bucket boundaries according to the actual floating arithmetic. metadata_identity: Each feature uses its original encoder metadata and corresponding prepared decoder metadata. decode_boundary: Maximum code decodes to a+r+0.5*r/Q, which is the declared policy rather than an assumed clamp to a+r. publication: Per-feature shared decoder metadata is initialized and synchronized before use. The relation is a proposed source-level invariant; the stated finite-work rank depends on the explicit environment progress assumptions. Device ordering and numeric premises have not been discharged by schema validation."
+}

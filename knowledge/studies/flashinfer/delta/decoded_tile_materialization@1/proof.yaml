@@ -1,0 +1,32 @@
+template: decoded_tile_materialization@1
+version: 1
+relation: Each shared decoded operand read corresponds to the same logical fragment-local decoding under the fixed metadata, arithmetic and numerical contract.
+rank: Logical packed tile elements not yet decoded for their consumers.
+assumes:
+  - {name: decoder, statement: "Code ordering, scale ownership and finite-precision decoder steps are fixed and equal between paths."}
+  - {name: layout, statement: "Each element has one decode/write owner and the compute load map reads that element's decoded coordinate."}
+  - {name: lifetime, statement: "All shared writes publish before consumers, and every reader retires before reuse or alias overwrite."}
+  - {name: realization, statement: "The selected path is implemented and fits the actual resource budget."}
+guarantees: []
+models: []
+note: >-
+  Pointwise decoder equality gives the same logical T-valued tile. Layout
+  correspondence and publication let each consumer replace its local decoder
+  by a shared read of that T value; completed readers allow storage reuse.
+  Source include/flashinfer/attention/prefill.cuh:1436-1539 converts one padded
+  16-element FP4 block into two 16-byte output blocks. Its eight payload bytes
+  occupy the first half of a 16-byte shared block; the other half is padding.
+  One byte of E4M3 scale belongs to each 16-element group. The source uses the
+  same E2M1 table, scale conversion and 16-bit multiply order as inline decode;
+  that source assertion still needs native numeric/layout evidence.
+  FP8 repack casts codes only; token/head scales remain outside that boundary.
+  Source :168-176,423-445 and :4717-4845 couple the allocated buffer and actual
+  mainloop calls, with K and V sharing decoded scratch only after their readers.
+  POD/persistent traits without FP4 repack consumers keep that capability false.
+  fused_dequantization@1 specifically implements inline integer-weight decode
+  with a limited scale menu; it does not encode a cooperative decoded tile or
+  group16 E2M1 arithmetic. physical_storage@1 protects an existing value's
+  occupancy but does not choose whether to repeat or materialize its decoder.
+  The logical check distinguishes adjacent unequal scale groups and padded
+  input/output block coordinates. Native conversions, special values, swizzles
+  and asynchronous publication remain implementation obligations.

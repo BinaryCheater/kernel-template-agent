@@ -1,0 +1,62 @@
+name: empty_work_pipeline_projection
+version: 1
+level_from: 4
+level_to: 5
+change: vertical
+refines: sync
+produces: [sync, map]
+object:
+  type: no_work_epoch_protocol
+  description: The subset of control and payload events retained when all computation for a logical pipeline work epoch is empty.
+variables:
+  - {name: empty_protocol, kind: structure, binding: compile, role: software, domain: [control_only, skip_data_epoch], meaning: "Retain the externally required per-work control handshake or leave all data-pipeline states unchanged on an empty epoch; choose with the matching consumer protocol."}
+preconditions:
+  - {id: pre_empty, expr: "p.all_roles_agree_empty_at_same_logical_scope and p.empty_outputs_and_side_effects_defined", meaning: "Every role observes the same empty scope; required zero outputs, statistics or external effects still have an owner.", cls: semantic}
+  - {id: pre_projection, expr: "p.retained_event_graph_matches_all_waiters and p.no_phantom_payload_readiness", meaning: "Every retained wait has its matching event and no empty signal authorizes reading unwritten payload.", cls: semantic}
+  - {id: pre_generation, expr: "p.retained_channels_advance_matching_generations and p.skipped_channels_leave_all_role_states_unchanged", meaning: "Control channels advance together and omitted payload channels preserve producer/consumer generations on every role.", cls: semantic}
+  - {id: pre_lifetime, expr: "p.prior_epoch_readers_retired_and_acks_drained and p.next_epoch_phase_agreement and p.progress_supported", meaning: "Old readers/acknowledgments cannot be confused with the next nonempty epoch, and every required signaling role can run.", cls: implementation}
+constraints: []
+program:
+  description: >-
+    Specialize each logical work epoch on its shared emptiness predicate. Keep
+    the original event graph when work is nonempty. For control_only, remove
+    payload production/consumption but execute the declared no-work control
+    publication and acknowledgment once, including required downstream empty
+    output/statistic handling. Do not signal data-ready barriers for nonexistent
+    operands or MMA results. For skip_data_epoch, skip both sides of each omitted
+    data channel and do not advance any of their indices/phases; retain scheduler
+    advancement and required empty-output stores as separate owned work. Drain
+    prior acknowledgments before reusing retained control channels and preserve
+    all declared tail/progress conditions. The two protocols are not interchangeable
+    unless every waiter and state transition is rewritten consistently.
+backward_map: Reinsert semantically empty payload work at the omitted epoch. The original outputs and retained control dependencies are recovered, while future nonempty epochs see the same declared channel generations.
+obligations:
+  - {name: role_agreement, statement: "All roles predicate the same empty epoch or stage and preserve required outputs/side effects.", method: test}
+  - {name: event_balance, statement: "Every retained waiter has its matching current-generation event; skipped channels change no participant state and no unwritten payload is consumed.", method: proof}
+  - {name: transition_progress, statement: "Empty-to-empty, nonempty-to-empty and empty-to-nonempty transitions maintain phase agreement and lifetime/progress.", method: test}
+effects: {transactions: [], storage: [], overlap: []}
+scope:
+  predicate: "p.all_roles_agree_empty_at_same_logical_scope and p.empty_outputs_and_side_effects_defined and p.retained_event_graph_matches_all_waiters and p.no_phantom_payload_readiness and p.retained_channels_advance_matching_generations and p.skipped_channels_leave_all_role_states_unchanged and p.prior_epoch_readers_retired_and_acks_drained and p.next_epoch_phase_agreement and p.progress_supported"
+  text: >-
+    Conditional no-work epochs in role-specialized reusable pipelines. Empty
+    arithmetic does not by itself permit skipping synchronization. This does
+    not cover divergent role predicates, changing a control-only path to skip-all
+    without adapting consumers, or one-shot unmatched tails reused persistently.
+requires: []
+probed_on: []
+relations:
+  - {type: refines, target: per_slot_handshake, note: "States which channel generations participate on an empty logical epoch; per-slot handshake still supplies payload readiness and reuse on nonempty epochs."}
+signature:
+  algorithm: Project a pipeline event graph onto its required no-work control protocol.
+  storage: Existing payload/control channels with explicit retained or unchanged generations.
+  boundary: Empty-epoch role agreement, acknowledgment drain and next-epoch phase.
+  resources: [synchronization]
+numeric_risk: Empty outputs and normalization statistics must retain the operator's defined convention.
+summary: >-
+  When an empty sparse tile removes all arithmetic, decide which pipeline
+  channels still represent a logical work epoch. A forward empty tile may
+  publish synthetic no-work statistics and require acknowledgment, while a
+  backward empty tile may skip both producer and consumer data states entirely.
+  Keep each retained channel balanced and every omitted channel unchanged.
+  Skipping a signal while its consumer still waits, or signaling nonexistent
+  P/O payload, is invalid even though the mathematical tile is empty.

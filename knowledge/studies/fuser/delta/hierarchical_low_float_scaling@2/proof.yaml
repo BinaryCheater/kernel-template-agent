@@ -1,0 +1,27 @@
+template: hierarchical_low_float_scaling@2
+version: 1
+relation: The emitted tuple decodes to the requested hierarchical quantized values.
+rank: Remaining complete local groups.
+assumes:
+- name: format
+  statement: The representation and its two levels of scale are requested by the caller.
+- name: positive
+  statement: Coarse and stored local scales are positive finite and numerical conversions
+    match the selected policy.
+guarantees: []
+models: []
+note: 'Define d=float(s)*S_dec after storing s. Encoding q=cast_E2M1(x/d) and decoding
+  q*d form the specified quantizer. Without scale rounding, d=a/6 algebraically; rounding
+  s before the code conversion generally breaks that cancellation, so the exact stored
+  s must determine encoding. For coarse M=2688, S_enc=1; a group a=6 stores s=1 and
+  x=3 encodes q=3, decoding 3. A different coarse domain changes the E4M3 rounding
+  frame even for the same local group. Source core_nvfp4.cuh:72-111 computes stored/coarse
+  scales; quantize_transpose_nvfp4.cuh:922-933 uses the stored scale to derive the
+  data multiplier. This is a representation identity, not lossless quantization or
+  native layout validation. Version2 replaces only scale provenance: for any admitted
+  supplied positive S, stored s=E4M3(amax*S/6), code=E2M1(x/(s/S)), decoder=q*s/S.
+  Thus rounded s remains paired; amax-derived provenance is not used in that local
+  identity. Source Fuser runtime/block_quantization_kernels.cu:202-267. All version1
+  fields/obligations retain ownership; new coarse_scale_source=amax_derived replays
+  old cases, supplied_positive changes only the stated domain. Native conversion checks
+  remain open.'

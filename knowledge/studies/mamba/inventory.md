@@ -1,0 +1,24 @@
+# Current NVIDIA design inventory
+
+Reconciled the retained source tree, public operation modules and build/dispatch registrations. Utility/cache/DSL helpers are assigned to their consuming kernel families, rather than counted as independent operators. [Complete source listing](inputs/source-files.txt); [concrete design ledger](designs.md) supplies mechanisms, exact rule fields, choices, constraints and representative source locations. The original inventory is preserved in inventory-initial.md.
+
+| Read representative / design group | Disposition and binding |
+|---|---|
+| Selective scan common.h:138–172; fwd_kernel.cuh:219–268 | ordered_affine_prefix@1 real or complex coordinate maps. Input coefficient exp(delta*A), b=delta*u with variable B folded if needed. Constant B/C product can factor outside scan; variable coefficient remains per token. Tail(1,0) and chunk prefix callback preserve last state. |
+| Selective scan backward bwd_kernel.cuh and reverse_scan.cuh | Reverse affine adjoint carry consumes subsequent gradient and transition; saved per-chunk forward aggregate seeds forward replay within chunk. Parameter gradients are separate reductions. |
+| SSD cumsum/chunk_state/state_passing/chunk_scan | chunked_decayed_outer_product_state@1 chunk_tokens=64 or256,decay_mode=scalar_log_prefix for complete unsegmented source domain. New @2 permits masked tail and explicit segment reset; migration retains same variable names and old bindings. |
+| SSD bmm ssd_bmm.py:52–93 | output_tiling@2 tile_m=BLOCK_SIZE_M,tile_n=BLOCK_SIZE_N,executor=cta; reduction_partition@1 contiguous_sequential along dstate with group_size=BLOCK_SIZE_K. Upper whole tiles return before load; partial diagonal cells masked later. |
+| Direct state update selective_state_update.py:95–132 | one state row per batch/head and tile_D; a=exp(A*dt),b=B*dt*x. TIE_HDIM broadcasts scalar a/dt rather than matrix. After state store compute sum(state*C), D*x, SiLU(z). |
+| Mamba3 SISO step mamba3_siso_step.py:145–222 | alpha=exp(ADT),eta=dt*(1-trap),gamma=dt*trap; S=alpha*Sprev+alpha*eta*(vprev outer kprev)+gamma*(v outer k). Pairwise rotary uses accumulated phase; state projection casts state,Q to BF16. |
+| Mamba3 SISO chunk fwd.py:292–350,353–444 | shifted_innovation_recurrence@1: K_t multiplied by gamma_t+eta_(t+1); QK diagonal computed from unrotated Q,K with gamma_t; strict temporal lower mask then add diagonal separately. Initial S adds eta_first*Uprev before chunk carry. |
+| Mamba3 phase angle_dt.py:86–122 | periodic_phase_prefix@1: delta=tanh(angle)*pi*dt, chunk cumsum then modulo2π and carry modulo2π. |
+| Mamba3 TileLang MIMO fwd.py:193–246,303–400 | time_rank_causal_contraction@1 rank_channels=R. i=t*R+r. Strict causal iff i//R>j//R. Same-time full R×R dot uses unrotated QK and gamma, not diagonal i==j. PsiV=V*input projection; rank output combines Phi and optional gates. |
+| TileLang varlen MIMO fwd_varlen.py | Same chunk body instantiated with per-sequence cu_seqlens and chunk_offsets, masked chunk tails and owned initial/final S,K,V states. |
+| CuTe step mamba3_step_fn.py:358–500 | Same trapezoid recurrence, MIMO innovations summed in register fragments. async_transfer@1 mechanism=instruction,issue_point=prologue,complete_point=wait_group_then_barrier; native wait_group2 for B/Bstate/Xproj,1 for state/C,0 for final projections; each wait reflects the actual committed group order. output_tiling@2 tile_m=tile_D,tile_n=1,executor=cta. |
+| Mamba3 backward siso_bwd.py:436–603; TileLang bwd.py:1184–1334 | Reverse chunk adjoint dSprev=exp(chunk_sum)*dS+Q^T*(dO*exp(prefix)); dQ/dK/dV combine within-chunk triangular products with boundary-state products. dADT combines prefix and suffix contributions through cumsum identity at592. Rotary pullback reverses pair rotation and sums shared-angle contributions. |
+| Group sharing grouped_head_reduction.py:10–35,67–94 | reduction_partition@1 assignment=contiguous_ranges,group_size=H/G: head h maps group floor(h/(H/G)); sum that contiguous fiber. Fused kernel also writes per-head bias partial over row tile then finalizes across row blocks. |
+| Norm, gate, activation layernorm_gated.py:100–146 | output_tiling@2 one row/group per program; reduction_partition@1 for mean/squared centered sum or RMS sum, operator_fusion@2 for gate/affine output. group_size divides N; BLOCK_N=min(64KB/element_size,next_pow2(group_size)). |
+
+Additional numerical/representation branches described outside the tables are part of the same ledger: Tail/segment migration and the composition of phase, shifted innovation, rank causality and state carry.
+
+Coverage: materially distinct designs have concrete dispositions; remaining candidate obligations concern native lowering, memory ordering and numeric assurance. No major unread family is used as a completion exception.

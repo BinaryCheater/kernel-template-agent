@@ -1,0 +1,15 @@
+{
+  "template": "anisotropic_residual_coordinate_update@1",
+  "version": 1,
+  "relation": "The maintained projection h equals (x-q) dot normalized(x) after all accepted updates, and each accepted step strictly lowers the declared finite-arithmetic anisotropic cost.",
+  "rank": "Remaining capped rounds and ordered coordinate proposals, independent of strict-decrease magnitude.",
+  "assumes": [
+    {
+      "name": "source_contract",
+      "statement": "NVIDIA ScaNN noise-shaped BF16 conversion. Sequential update order is part of the heuristic; parallel acceptance from stale h changes the algorithm. Zero norms and nonfinite/representation endpoint cases require explicit handling before use."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Source-derived proof outline; no formal proof result or GPU execution claimed. cost_delta: a+b*h equals the change of ||r||^2+(eta-1)*(r dot u)^2 under the single-coordinate proposal. latest_projection: Each decision uses projection after all earlier accepted proposals. representation: Neighbor-step direction and sign handling produce a valid adjacent requested code, including representation boundaries. termination: Finite cap terminates; no claim of global minimum or exact convergence. The relation is a proposed source-level invariant; the stated finite-work rank depends on the explicit environment progress assumptions. Device ordering and numeric premises have not been discharged by schema validation."
+}

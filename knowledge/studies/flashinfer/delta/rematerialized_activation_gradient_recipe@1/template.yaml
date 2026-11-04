@@ -1,0 +1,145 @@
+name: rematerialized_activation_gradient_recipe
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: contract
+produces:
+- map
+- reduce
+- store
+object:
+  type: activation_backward_rematerialization_and_precision_recipe
+  description: 'Select a complete admitted activation-gradient recipe: recomputed preactivation stages,
+    derivative checkpoint, local partial precision and final reduction/cast chain.'
+variables:
+- name: gradient_recipe
+  kind: structure
+  binding: compile
+  role: software
+  domain:
+  - rounded_compatibility
+  - unrounded_wide_merge
+  meaning: Source rounded compatibility evaluates SiLU derivative at BF16-rounded preactivation and merges
+    FP32 partials in FP32. Unrounded recipe uses its FP32 preactivation/FMA program and merges the same
+    FP32 partial format in FP64 before a mandatory FP32 total checkpoint. These are coupled source routes,
+    not freely interchangeable flags.
+constraints: []
+preconditions:
+- id: pre_contract
+  expr: p.selected_gradient_recipe_explicitly_admitted_by_training_numeric_contract
+  meaning: Caller selects a named backward numerical recipe, including where the activation derivative
+    is evaluated. This is an approximation/convention through the forward cast, not the mathematical derivative
+    of a discrete BF16 quantizer or an algebraic identity between recipes.
+  cls: semantic
+- id: pre_replay
+  expr: p.original_inputs_parameters_document_masks_and_forward_generation_retained
+  meaning: Backward rematerializes the same stencil inputs, parameters, optional bias and document support
+    from the original forward generation. Halo derivative rows follow the same recipe as interior rows;
+    no hidden state or changed weights enter reconstruction.
+  cls: implementation
+- id: pre_preactivation
+  expr: p.whole_preactivation_arithmetic_recipe_and_derivative_checkpoint_bound
+  meaning: Specify tap product/add/FMA order, optional bias added after taps, preactivation FP32 operations,
+    optional BF16 round-and-widen, sigmoid approximation/FTZ and derivative grouping. Merely selecting
+    FP32 versus BF16 does not fix the arithmetic recipe.
+  cls: implementation
+- id: pre_partials
+  expr: p.local_input_gradient_and_parameter_partial_stages_explicit
+  meaning: Local dx accumulates in declared FP32 order then casts to BF16. Tap/bias partials are stored
+    in FP32 under the actual token/grid partition; widening those stored values later cannot recover information
+    already lost in their local computation.
+  cls: implementation
+- id: pre_merge
+  expr: p.final_reducer_precision_tree_and_all_output_casts_explicit
+  meaning: Reducer specifies FP32 or widened FP64 additions and its lane/halving tree, then converts the
+    final sum to FP32. BF16 gradient destinations apply a further BF16 conversion from that FP32 value;
+    do not substitute direct FP64-to-BF16 rounding.
+  cls: implementation
+- id: pre_types
+  expr: p.load_types_and_actual_gradient_destination_types_match_flags
+  meaning: BF16/FP32 tap and bias loads widen into the same declared FP32 recipe; gradient stores follow
+    actual dweight/dbias destination dtype, which may differ from parameter dtype. Flag bits and buffer
+    strides must describe those actual tensors.
+  cls: implementation
+- id: pre_join
+  expr: p.exclusive_partial_rows_publish_before_reducer_and_live_through_reads
+  meaning: Each existing CTA partial has unique ownership, empty streams emit zero and capacity holes
+    are unread. The reducer waits for producer completion, and scratch/output generation remains owned
+    through all consumers.
+  cls: implementation
+- id: pre_backend
+  expr: p.selected_named_recipe_bias_dtype_route_and_target_native_programs_exist
+  meaning: Concrete backend ships selected route for SM100/103/107, width4 depthwise convolution plus
+    SiLU, contiguous BF16 x/dy/dx and C divisible by8. Optional architecture routes are checked, not inferred
+    from a vocabulary name. Source rounded and unrounded choices select coupled native programs and final
+    merge precision.
+  cls: implementation
+program:
+  description: Retain original forward operands and document metadata; do not retain a large preactivation
+    tensor. On backward rematerialize each four-tap preactivation with the selected program arithmetic
+    order and bias-last stage. For rounded_compatibility, round preactivation to BF16 and widen to FP32
+    before applying the declared approximate SiLU derivative; for unrounded_wide_merge, evaluate at the
+    unrounded FP32 preactivation using its native FMA recipe. Apply the same selected derivative to all
+    local/halo rows. Accumulate dx and tap/bias partials with declared FP32 order; write dx through its
+    BF16 cast and exclusive parameter partials as FP32. After producer completion, merge all live partials
+    with the selected fixed tree in FP32 for rounded_compatibility or FP64 after widening each stored
+    FP32 partial for unrounded_wide_merge. Convert final parameter totals to FP32, then either store FP32
+    or convert that FP32 total to BF16 according to the actual output tensor dtype. Keep parameter load
+    and output store flags independent. Compare against the selected admitted gradient convention, not
+    against an assumed exact derivative of the quantized forward.
+backward_map: Expand every stored partial into the selected rematerialized derivative and local products
+  under its fixed arithmetic recipe. This recovers the chosen native backward convention with unchanged
+  coordinates/generation and declared casts; no equivalence between the two conventions or recovery of
+  discarded FP32 information is asserted.
+obligations:
+- name: recipe_recovery
+  statement: Recomputed preactivation, derivative stage and optional bias reproduce the selected backward
+    numerical convention at every stencil coordinate.
+  method: test
+- name: partial_and_final_precision
+  statement: FP32 local partials, FP32/FP64 final tree and FP32-then-optional-BF16 store chain preserve
+    their actual boundaries.
+  method: test
+- name: dtype_binding
+  statement: Loads and stores follow actual operand and destination formats, including independently provided
+    gradient buffers.
+  method: test
+- name: publication_and_support
+  statement: Every local/halo contribution and live partial is included once after its producer, with
+    document isolation and scratch lifetime.
+  method: proof
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: (p.selected_gradient_recipe_explicitly_admitted_by_training_numeric_contract) and (p.original_inputs_parameters_document_masks_and_forward_generation_retained)
+    and (p.whole_preactivation_arithmetic_recipe_and_derivative_checkpoint_bound) and (p.local_input_gradient_and_parameter_partial_stages_explicit)
+    and (p.final_reducer_precision_tree_and_all_output_casts_explicit) and (p.load_types_and_actual_gradient_destination_types_match_flags)
+    and (p.exclusive_partial_rows_publish_before_reducer_and_live_through_reads) and (p.selected_named_recipe_bias_dtype_route_and_target_native_programs_exist)
+  text: FlashInfer deterministic zero-history Cake width4 depthwise convolution training on SM100/103/107.
+    BF16 activations/dy/dx, BF16 or FP32 taps and optional bias; FP32 or BF16 parameter gradient destinations.
+    Source silu_grad_preactivation bf16/fp32 selects rounded compatibility versus unrounded/FMA plus FP64-final-merge
+    native routes. Both retain FP32 local parameter partials and final FP32 total checkpoint. Native exp2/reciprocal
+    approximations, input finite/range policy and error acceptance belong to the binding; this rule does
+    not claim exact autodiff through a cast or universal error improvement.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Rematerialize activation derivatives under a selected checkpoint/arithmetic recipe, then
+    merge stored partials at an explicit precision and cast chain.
+  storage: Original operands/metadata and FP32 local parameter partials; no retained preactivation array
+    or hidden full-FP64 local gradient.
+  boundary: Raw versus rounded preactivation, bias-last order, native FMA recipe, local versus final precision
+    and actual output dtype.
+  resources:
+  - dram
+  - registers
+  - shared
+numeric_risk: Changing derivative checkpoint or FMA order changes gradients. FP64 final merge cannot repair
+  local FP32 losses, and FP64-to-FP32-to-BF16 may differ from a direct BF16 rounding.
+summary: When backward rematerializes an activation, bind its complete derivative recipe rather than a
+  single dtype label. Preserve the original rounded or unrounded checkpoint convention, local partial
+  format and full final reduction/cast chain; wide final merging is distinct from wide local arithmetic.

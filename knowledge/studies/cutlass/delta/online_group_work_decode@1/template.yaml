@@ -1,0 +1,56 @@
+name: online_group_work_decode
+version: 1
+level_from: 4
+level_to: 5
+change: vertical
+refines: work_assign
+produces: [work_assign, map]
+object:
+  type: monotone_group_prefix_cursor
+  description: A worker inverts cumulative per-group work counts online and retains its matched prefix while its queried work indices increase.
+variables:
+  - {name: cache_shapes, kind: structure, binding: compile, role: software, domain: [false, true], meaning: Keep two per-lane windows of problem-shape tuples or load shapes on demand; prefix cursor state is retained in both paths.}
+constraints:
+  - {id: c_counts, expr: "p.counts_nonnegative and p.count_table_complete and p.prefix_fits_int32", meaning: Counts describe every group and their cumulative total fits the pinned32-bit arithmetic., cls: implementation}
+preconditions:
+  - {id: pre_order, expr: "p.query_indices_nonnegative and p.queries_monotone", meaning: Each worker's new linear work index never moves behind its retained prefix., cls: semantic}
+  - {id: pre_metadata, expr: "p.problem_metadata_immutable", meaning: Counts and cached shapes stay valid throughout the worker's queries., cls: semantic}
+program:
+  description: >-
+    Retain the matched group and its cumulative start/end. A new index inside that
+    half-open interval reuses the group. Otherwise scan groups forward in32-lane
+    windows, padding out-of-range lanes with zero counts. Compute inclusive prefix
+    ends and count lanes whose end is <= the query; the first larger end identifies
+    its group and query-minus-group-start is its local work index. If no group owns
+    the query, return invalid and do not consume its metadata. Optionally cache two
+    shape windows, refreshing their group identities when advancing the cursor.
+backward_map: Enumerate all groups' work units in input order; each valid linear index returns the group and offset at that position in the concatenation.
+obligations:
+  - {name: inverse_prefix, statement: Every valid query has exactly one owning half-open group interval and the correct local offset even with zero-count groups., method: exhaustive}
+  - {name: cache_identity, statement: Retained prefix and optional shape-cache entries refer to the same immutable group metadata as an independent full search., method: test}
+  - {name: bounds, statement: Invalid lanes and queries do not read or publish nonexistent group metadata; every window advance makes progress through zero-count groups., method: test}
+effects:
+  transactions: []
+  storage:
+    - {id: cached_shapes, level: reg, scope: thread, bytes: "2 * p.shape_bytes", when: "cache_shapes", note: Logical two-tuple payload; physical register allocation/spilling is unmeasured.}
+  overlap: []
+scope:
+  predicate: "p.counts_nonnegative and p.count_table_complete and p.prefix_fits_int32 and p.query_indices_nonnegative and p.queries_monotone and p.problem_metadata_immutable"
+  text: >-
+    Increasing per-worker queries into a finite concatenation of variable-size
+    groups, with32-lane prefix/ballot search and optional two-window shape cache.
+    The pinned grouped GEMM computes M/N cluster counts for L1 problems; K0 still
+    owns output units. Spatial tile decode, descriptor mutation, MMA and output
+    arithmetic are separate. A new query order, wider integer prefix, lane width
+    or multi-batch group implementation needs an explicit variant or guarded binding.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Stateful inverse prefix over group work counts with monotone queries.
+  storage: Prefix cursor and optional per-lane two-window shape cache.
+  boundary: Does not support backwards queries with retained cursor or mutable metadata.
+  resources: [reg, issue]
+numeric_risk: No arithmetic-value change; counts and work ownership must remain exact.
+summary: >-
+  When a persistent worker receives increasing linear tile indices across differently sized problems, consider decoding their group online instead of materializing one descriptor per tile. Preserve the inverse of the immutable count prefix and bind cache_shapes only to metadata-load strategy; the cursor still requires monotone queries. The pinned implementation searches32 groups per window for L1 GEMMs, and counts[1,2,2] map index2 to group1/local1 even when group1 has K0; backwards queries or new batch/lane layouts need a variant.

@@ -1,0 +1,15 @@
+{
+  "template": "offset_indexed_sparse_incidence@1",
+  "version": 1,
+  "relation": "Each materialized (offset,output)->input edge is exactly the coarse geometric neighbor relation; its presence bit is one iff that edge exists. Deduplicated output IDs identify coordinates, not contributors.",
+  "rank": "Unprocessed input/offset pairs, then unresolved output identities and unpublished incidence entries.",
+  "assumes": [
+    {
+      "name": "source_contract",
+      "statement": "NVIDIA generated CUDA sparse convolution with unique active coordinates. General, transposed and submanifold coordinate predicates are separate bindings. Mask split partitions offset bits without omitting or double counting a contribution."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Source-derived proof outline; no formal proof result or GPU execution claimed. edge_exactness: Each valid geometric edge appears once and no missing neighbor contributes. output_identity: Competing input contributors share the same deduplicated output identity. mask_publication: Masks begin at zero, competing bits use atomic OR, and map/mask writes complete before consumption. The relation is a proposed source-level invariant; the stated finite-work rank depends on the explicit environment progress assumptions. Device ordering and numeric premises have not been discharged by schema validation."
+}

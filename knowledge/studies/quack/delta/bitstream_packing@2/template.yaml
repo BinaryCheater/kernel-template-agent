@@ -1,0 +1,95 @@
+name: bitstream_packing
+version: 2
+level_from: 3
+level_to: 4
+change: vertical
+refines: store
+produces:
+- store
+- map
+object:
+  type: contiguous_code_bitstream
+  description: Fixed-width unsigned codes stored consecutively across word boundaries,
+    with an inverse extractor.
+variables:
+- name: code_bits
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 1
+    hi: 8
+  meaning: Independent stored width of one code; interpretation as signed or floating
+    point belongs to its consumer.
+- name: word_bits
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+  - 8
+  - 32
+  meaning: Byte containers for source QuACK or32-bit containers for Humming; extraction
+    uses matching word width.
+constraints:
+- id: c_width
+  expr: code_bits >= 1 and code_bits <= 8 and (word_bits == 8 or word_bits == 32)
+  meaning: Supported logical code/container widths.
+  cls: implementation
+- id: c_whole_groups
+  expr: p.length >= 1 and (p.length * code_bits) % word_bits == 0
+  meaning: The finite code bitstream ends on a whole physical container.
+  cls: implementation
+preconditions:
+- id: pre_code_range
+  expr: p.min_code >= 0 and p.max_code < 2 ** code_bits
+  meaning: Codes fit without loss; outside this premise the implementation retains
+    only their low bits.
+  cls: semantic
+program:
+  description: Initialize length*code_bits/word_bits containers to0. Logical bit b
+    of code i maps to physical bit i*code_bits+b, container floor((i*code_bits+b)/word_bits),
+    offset modulo word_bits. Packing ORs those disjoint bit intervals; extraction
+    concatenates the matching source bits. Container ownership must prevent read-modify-write
+    races. Source QuACK6-bit codes use4 codes per3 bytes; Humming32-code groups preserve
+    their original owner mapping and32-bit extractor. The common algorithm does not
+    require every code fit within one container.
+backward_map: Extract code i from its code_bits consecutive bit positions; discard
+  the containers.
+obligations:
+- name: bit_identity
+  statement: Each logical bit (i,b) maps to physical bit i*code_bits+b, injectively
+    and with the same value after unpacking.
+  method: exhaustive
+- name: group_ownership
+  statement: Each complete 32-code group has exactly one writer; an inactive thread
+    in the final CTA writes no word.
+  method: exhaustive
+- name: memory_safety
+  statement: All visible reads and writes are in range; final-CTA inactive local arrays
+    require separate CUDA language and sanitizer review.
+  method: test
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: p.length >= 1 and (p.length * code_bits) % word_bits == 0 and p.min_code
+    >= 0 and p.max_code < 2 ** code_bits
+  text: Version1 complete32-code/int32 domain retained. Version2 includes byte-container
+    complete bitstreams from QuACK FP4/FP6 packers. Partial final physical container
+    is excluded; native write ownership remains realization-specific.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Fixed-width code concatenation and inverse extraction across 32-bit words.
+  reuse: null
+  storage: Packed contiguous global-memory words, register-local groups during conversion.
+  boundary: Only complete 32-code groups; a CTA may contain inactive threads.
+  resources: []
+numeric_risk: None for in-range codes; truncating out-of-range input is outside the
+  lossless premise.
+summary: When fixed-width codes must feed a byte- or word-based consumer, concatenate
+  their disjoint logical bit intervals with the same inverse extractor; source QuACK
+  packs four6-bit codes into three bytes. Container width and complete-stream extent
+  are explicit.

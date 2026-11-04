@@ -1,0 +1,80 @@
+name: symmetric_tile_mirroring
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: map
+produces:
+- map
+- store
+object:
+  type: symmetric_tile_mirroring
+  description: When the whole output contract is symmetric under transpose, compute
+    one triangular tile representative and write its transpose partner instead of
+    computing both contractions.
+variables:
+- name: group_tiles
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 1
+    hi: 1048576
+  meaning: 'n: derived square output group count.'
+constraints: []
+preconditions:
+- id: pre0
+  expr: p.output_contract_symmetric and p.group_square and p.mirror_stores_disjoint
+    and p.tail_stores_guarded
+  meaning: Contraction, epilogue and any beta*C together are symmetric.
+  cls: semantic
+program:
+  description: For n square tile groups, enumerate triangular work indices0..n*(n+1)/2-1.
+    Decode row r with r*(r+1)/2 <= idx < (r+1)*(r+2)/2, and c=idx-r*(r+1)/2. Compute
+    tile(r,c), store it, and for r!=c also store its transpose at(c,r). Suppress the
+    second store on diagonal groups. Apply a full-output symmetry premise including
+    epilogue and preexisting beta*C. A non-square CTA decomposition may form square
+    cluster groups; mirror only at that group granularity and preserve internal transpose
+    layout. Approximate sqrt decoding must be checked at integer triangular boundaries
+    or corrected.
+backward_map: Symmetric output maps, not arbitrary GEMM. Erasing triangular scheduling
+  and mirrored stores recovers a full symmetric matrix under the complete epilogue
+  contract.
+obligations:
+- name: triangle_bijection
+  statement: Triangular decode hits each lower triangle group exactly once.
+  method: proof
+- name: mirror_coverage
+  statement: Off-diagonal transpose stores fill the other half once; diagonal is written
+    once.
+  method: proof
+- name: numeric_symmetry
+  statement: Reusing one computed value for its partner is admitted by the numeric
+    contract.
+  method: proof
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: (p.output_contract_symmetric and p.group_square and p.mirror_stores_disjoint
+    and p.tail_stores_guarded)
+  text: Symmetric output maps, not arbitrary GEMM. Erasing triangular scheduling and
+    mirrored stores recovers a full symmetric matrix under the complete epilogue contract.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: When the whole output contract is symmetric under transpose, compute
+    one triangular tile representative and write its transpose partner instead of
+    computing both contractions.
+  boundary: Symmetric output maps, not arbitrary GEMM. Erasing triangular scheduling
+    and mirrored stores recovers a full symmetric matrix under the complete epilogue
+    contract.
+  resources:
+  - registers
+numeric_risk: Floating-point reassociation, casts and approximate functions require
+  an admitted numerical contract.
+summary: When the whole output contract is symmetric under transpose, compute one
+  triangular tile representative and write its transpose partner instead of computing
+  both contractions.

@@ -1,0 +1,85 @@
+{
+  "name": "symmetric_matrix_packing",
+  "version": 1,
+  "level_from": 2,
+  "level_to": 3,
+  "change": "vertical",
+  "refines": "map",
+  "produces": [
+    "map",
+    "access"
+  ],
+  "object": {
+    "type": "symmetric_matrix_packing",
+    "description": "When every consumer accepts a symmetric matrix representation, store only one triangular set of independent values and retain the matching symmetric derivative convention."
+  },
+  "variables": [
+    {
+      "name": "dimension",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": {
+        "lo": 1,
+        "hi": 1024
+      },
+      "meaning": "Symmetric square matrix dimension; source3."
+    }
+  ],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_0",
+      "expr": "p.matrix_exactly_symmetric and p.all_consumers_accept_triangular_representation",
+      "meaning": "Off-diagonal mirrored entries are one logical value, not independent inputs.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_1",
+      "expr": "p.packed_order_declared and p.symmetric_tangent_gradient_contract and p.capacity_valid",
+      "meaning": "Packed order and backward interpretation are shared; gradient is tested only on symmetric perturbations.",
+      "cls": "semantic"
+    }
+  ],
+  "program": {
+    "description": "Store upper-triangle coordinates in lexicographic row order (i,j),i<=j. Index=sum_{a<i}(D-a)+(j-i); packed size D*(D+1)/2. Read lower entries from their upper mirror. For a gradient on packed values, choose a symmetric full-matrix gradient representative: diagonal unchanged, each off-diagonal packed gradient split equally between mirrored positions. This representative has the same inner product with every symmetric matrix perturbation. For a full-matrix gradient contracted back to independent packed variables, sum mirrored off-diagonal gradients. Do not use this packing for nonsymmetric data or independent off-diagonal parameters."
+  },
+  "backward_map": "Erase auxiliary organization and recover the visible results under the stated contract.",
+  "obligations": [
+    {
+      "name": "value",
+      "statement": "Unpacking mirrors exactly the original symmetric matrix at every coordinate.",
+      "method": "proof"
+    },
+    {
+      "name": "gradient",
+      "statement": "Packed directional derivative equals the full-gradient inner product on the symmetric tangent space.",
+      "method": "proof"
+    },
+    {
+      "name": "order",
+      "statement": "Every consumer uses same triangular ordering and forward/backward representation generation.",
+      "method": "proof"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.matrix_exactly_symmetric and p.all_consumers_accept_triangular_representation and p.packed_order_declared and p.symmetric_tangent_gradient_contract and p.capacity_valid",
+    "text": "Real symmetric matrices and symmetric perturbations; half splitting requires admitted arithmetic. Complex Hermitian conjugation is outside this version. Resource effects: D*(D+1)/2 scalar slots versus D\u00b2, plus triangular address decoding."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "When every consumer accepts a symmetric matrix representation, store only one triangular set of independent values and retain the matching symmetric derivative convention.",
+    "storage": "D*(D+1)/2 scalar slots versus D\u00b2, plus triangular address decoding.",
+    "boundary": "QuatScaleToCovarCUDA.cu:35-115,205-285 uses3x3 upper order00,01,02,11,12,22; backward halves off-diagonal v_covar/v_preci before symmetric VJP.",
+    "resources": []
+  },
+  "numeric_risk": "Preserve the supplied arithmetic contract; reassociation, quantization and approximate search require separate permission.",
+  "summary": "When every consumer accepts a symmetric matrix representation, store only one triangular set of independent values and retain the matching symmetric derivative convention. QuatScaleToCovarCUDA.cu:35-115,205-285 uses3x3 upper order00,01,02,11,12,22; backward halves off-diagonal v_covar/v_preci before symmetric VJP."
+}

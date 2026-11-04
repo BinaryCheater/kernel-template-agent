@@ -1,0 +1,17 @@
+template: sorted_run_topk@1
+backend: cuda
+isa: {family: sm, min: '100', max: '100'}
+requires: [shfl_sync]
+isa_constraints:
+  - {id: c_four, expr: "run_length == 4", meaning: This source uses a four-element lane sorting network., cls: implementation}
+fragments: {}
+code_markers: [sort4_best_first, select_warp_topk, warp_reduce_best]
+expected_sass: []
+probed_on: []
+summary: >-
+  DeepGEMM epilogue/sm100_mega_gate.cuh holds four consecutive experts per lane
+  in each 128-expert wave. A five-comparator network sorts each run and packs its
+  original offsets into eight bits. Each run uses a three-bit cursor so exhausted
+  value four is representable. A warp max followed by minimum tied identity selects
+  each winner; only its lane/wave cursor advances. The shfl capability entry alone
+  does not certify the reduction instructions or collective execution.

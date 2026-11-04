@@ -1,0 +1,83 @@
+name: cyclic_warp_row_skew
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: access
+produces:
+- access
+object:
+  type: cyclic_warp_row_skew
+  description: A warp-indexed shared tile cyclically shifts each warp row digit to
+    vary its bank placement.
+variables:
+- name: row_width
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 1
+    hi: 65536
+  meaning: Contiguous elements per row digit; divides the NVIDIA 32-lane warp.
+- name: warp_skew
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 0
+    hi: 31
+  meaning: Coefficient of warp index in cyclic row shift; source binds one.
+constraints:
+- id: c0
+  expr: 32 % row_width == 0 and warp_skew < 32 / row_width
+  meaning: Within-warp row digits fit the lane decomposition.
+  cls: semantic
+preconditions:
+- id: pre0
+  expr: p.writer_reader_use_same_skew and p.shared_lifetime_valid
+  meaning: Writes and reads agree on the same address permutation and lifetime.
+  cls: semantic
+program:
+  description: Let R=32/row_width. A logical element indexed by chunk,warp,row,column
+    uses address chunk*p.block_threads+warp*32+((row+warp_skew*warp)%R)*row_width+column,
+    with 0<=row<R and 0<=column<row_width. Invert row=(stored_row-warp_skew*warp)%R.
+    Choose warp_skew to change peer-warp bank incidence without changing values; validate
+    the actual reader request footprint before claiming fewer bank passes.
+backward_map: Invert the cyclic shift for each warp and recover the original logical
+  shared tile.
+obligations:
+- name: address_bijection
+  statement: Cyclic row addition is a permutation independently within each warp chunk.
+  method: proof
+- name: bank_footprint
+  statement: Chosen skew achieves its claimed bank behavior for the actual vector/read
+    grouping.
+  method: test
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: 32 % row_width == 0 and warp_skew < 32 / row_width and p.writer_reader_use_same_skew
+    and p.shared_lifetime_valid
+  text: NVIDIA warp-indexed shared tiles with row_width dividing32 and matching read/write
+    mapping. Source row_width8 gives R4,warp_skew1. No universal conflict-free guarantee
+    is encoded.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: A warp-indexed shared tile cyclically shifts each warp row digit to vary
+    its bank placement.
+  storage: Source-bound physical buffer; exact byte count and capacity supplied by
+    binding.
+  boundary: Coordinate identity and storage lifetime.
+  resources:
+  - smem
+  - reg
+numeric_risk: Address/storage transformation preserves values; arithmetic changes
+  require separate obligations.
+summary: When a cross-warp reduction reads same-bank rows from several warp partials,
+  shift each warp row digit cyclically before storing. Choose skew zero for identity
+  or one for the observed outer-statistic layout; preserve the inverse reader map.
+  This exposes addition modulo row-count rather than mislabeling it an XOR swizzle.

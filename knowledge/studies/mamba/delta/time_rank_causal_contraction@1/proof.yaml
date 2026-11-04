@@ -1,0 +1,15 @@
+template: time_rank_causal_contraction@1
+version: 1
+relation: MIMO causal contractions with grouped time coordinates; feature/head grouping
+  and rank projection are workload inputs, not automatically interchangeable dimensions.
+rank: Number of input elements or state transitions still to consume.
+assumes:
+- name: source_contract
+  statement: Source binding and stated scope hold.
+guarantees: []
+models: []
+note: "Source-derived candidate, not independently admitted. temporal_mask: Quotient\
+  \ comparison excludes every same-time rank pair from past history. same_time: Separate\
+  \ R\xD7R block includes every current-step input/output rank interaction exactly\
+  \ once. rank_pullback: Backward sums the same sharing fibers used by forward head/rank\
+  \ broadcasts. Native lowering and numerical error remain open; see trace and checks."

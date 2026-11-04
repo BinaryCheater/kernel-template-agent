@@ -1,0 +1,23 @@
+template: adjacent_boundary_reuse@1
+version: 1
+relation: Each emitted interval equals the declared difference F(b+1)-F(b) under the admitted boundary-evaluation arithmetic.
+rank: Unemitted adjacent intervals.
+assumes:
+  - {name: shared_input, statement: "All bins in one group use the same logical input and boundary function."}
+  - {name: seam, statement: "For subgroup exchange, F(B)=F(0)+endpoint_jump on the declared coordinate domain, and subgroup alignment/participation are valid."}
+  - {name: numerical, statement: "Boundary reuse and seam reconstruction satisfy the declared error policy."}
+guarantees: []
+models: []
+note: >-
+  Serial induction maintains left=F(b), evaluates right=F(b+1), emits right-left
+  and sets left=right. Subgroup lane b<B-1 receives exactly F(b+1); the last
+  lane receives F(0) and the seam correction reconstructs F(B). Source
+  include/tiny-cuda-nn/encodings/oneblob.h:46-68 uses shuffle width B and +1 for
+  the last forward-CDF bin; :99-126 and :300-350 use serial carry in SoA and
+  generated paths. With B=4 and identifiable boundaries [10,13,19,28], a declared
+  endpoint F(4)=38 gives outputs[3,6,9,10] and jump28. Wrapping without the jump
+  would give -18 for the last interval. For the source periodic quartic-CDF sum
+  and x in[0,1], the translated outer terms differ by1 through saturation; native
+  approximation/rounding must still be admitted. Derivative CDF seam jump is not
+  automatically1. Physical storage alone does not choose evaluation sharing or
+  correct the seam, and ordinary tensor permutation alone supplies neither.

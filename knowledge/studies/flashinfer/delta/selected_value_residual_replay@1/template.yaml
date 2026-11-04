@@ -1,0 +1,129 @@
+name: selected_value_residual_replay
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: contract
+produces:
+- reduce
+- map
+- contract
+- store
+object:
+  type: selected_value_error_rows_replayed_without_mass
+  description: Append selected value quantization residuals with copied key identities, using extra PV
+    terms while retaining only original-support mass.
+variables:
+- name: repair_tokens
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 1
+    hi: 2147483647
+  meaning: Number of unique original rows to repair; source ranks squared per-channel decoded residual
+    energy, independent of query probability.
+constraints:
+- id: c_budget
+  expr: repair_tokens >= 1 and repair_tokens <= p.original_key_rows and p.value_features >= 1
+  meaning: Unique repaired original rows fit the selected budget.
+  cls: semantic
+preconditions:
+- id: pre_residual
+  expr: p.base_value_quantizer_and_residual_decoder_explicit and p.same_per_channel_scale_for_base_and_repair
+  meaning: Repair codes represent V/s minus the actual decoded base code, not V itself or a residual from
+    another quantizer generation.
+  cls: semantic
+- id: pre_selection
+  expr: p.selected_original_rows_unique_in_range and p.repair_padding_codes_zero
+  meaning: Every selected source row is corrected once; padding adds no numerator contribution.
+  cls: semantic
+- id: pre_score
+  expr: p.repair_keys_query_mask_bias_and_positions_replay_original_scores_with_admitted_rounding
+  meaning: Each replay row refers to the original key and support identity. Requantized copied keys and
+    changed reduction order need an explicit error contract.
+  cls: implementation
+- id: pre_mass
+  expr: p.only_original_rows_contribute_to_final_denominator and p.original_tail_rows_retained_once
+  meaning: Repair/padding rows add no denominator mass; original rows, including a moved partial tail,
+    remain present exactly once.
+  cls: semantic
+- id: pre_frame
+  expr: p.base_repair_numerator_and_kept_mass_share_online_frame and p.frame_changes_rescale_all_old_contributions_once
+  meaning: Both correction and base terms use a common reference even when replay changes the physical
+    traversal/max history.
+  cls: semantic
+- id: pre_numeric
+  expr: p.base_repair_probability_and_output_cast_error_admitted and p.final_kept_mass_positive_finite
+  meaning: The output is a selected approximation with a positive original-support denominator; duplicated
+    keys do not make it exact.
+  cls: implementation
+- id: pre_lifetime
+  expr: p.repair_maps_codes_scales_and_keys_same_generation_and_alive and p.native_replay_path_and_resources_supported
+  meaning: Prepared residual/code/key maps and scratch remain paired through the complete consumer.
+  cls: implementation
+program:
+  description: Encode original values with per-channel s[d] and base codes b[j,d]. Choose repair_tokens
+    unique rows by the selected policy. For selected j form e[j,d]=V[j,d]/s[d]-decode(b[j,d]) and store
+    narrow repair code r[j,d]=encode(e[j,d]) with copied key/score identity j. Original rows contribute
+    w[j]*decode(b[j,d]) to N and w[j] to kept mass L. Replay rows contribute w_replay[j]*decode(r[j,d])
+    to N and zero to L. Keep all terms in the current online frame, correcting N and L at reference updates.
+    A diagnostic all-row mass may be maintained but must not normalize output. Finalize s[d]*N[d]/L and
+    the declared output cast. Physical repair tiles may precede the moved original partial tail; roles,
+    not a naive physical cutoff, determine denominator membership.
+backward_map: With identical common-frame original/replay weights, combine each selected base and repair
+  term into w[j]*(decode(b[j])+decode(r[j])). Unselected rows retain their base value, and normalization
+  counts each original key once. Native replay/cast differences are admitted separately.
+obligations:
+- name: residual_identity
+  statement: Repair residuals are computed from the actual stored base code and use its decoder/scale
+    generation.
+  method: test
+- name: weight_replay
+  statement: Copied keys retain original score/mask identity, and replay probability differences meet
+    the numeric policy.
+  method: test
+- name: mass_roles
+  statement: All original rows contribute once to kept mass; no replay or padding row does, including
+    around a relocated tail.
+  method: test
+- name: selection_lifetime
+  statement: Selection is unique and complete within budget; keys, codes and metadata remain paired and
+    live.
+  method: test
+scope:
+  predicate: (repair_tokens >= 1 and repair_tokens <= p.original_key_rows and p.value_features >= 1) and
+    (p.base_value_quantizer_and_residual_decoder_explicit and p.same_per_channel_scale_for_base_and_repair)
+    and (p.selected_original_rows_unique_in_range and p.repair_padding_codes_zero) and (p.repair_keys_query_mask_bias_and_positions_replay_original_scores_with_admitted_rounding)
+    and (p.only_original_rows_contribute_to_final_denominator and p.original_tail_rows_retained_once)
+    and (p.base_repair_numerator_and_kept_mass_share_online_frame and p.frame_changes_rescale_all_old_contributions_once)
+    and (p.base_repair_probability_and_output_cast_error_admitted and p.final_kept_mass_positive_finite)
+    and (p.repair_maps_codes_scales_and_keys_same_generation_and_alive and p.native_replay_path_and_resources_supported)
+  text: Source VC-Attention V repair, dense fixed-length D128 MHA, demean disabled, E4M3 base/repair values,
+    BF16 or separately quantized E4M3 Q/K. Repair records occupy full128-row tiles inserted before the
+    shifted original tail. The source chooses high residual energy without an accuracy-optimality guarantee.
+    No exact equivalence of later recomputed ExpCast weights or independently scaled repair keys is assumed.
+signature:
+  algorithm: Replay selected key scores to add value quantization residuals without duplicating normalization
+    mass.
+  storage: Selected IDs, copied keys, narrow value residual rows and a separate kept original mass.
+  boundary: Original-row versus repair-row mass membership; same base code/scale generation and score
+    identity.
+  resources:
+  - tensor
+  - dram
+  - registers
+numeric_risk: 'Counting copied-key rows in the denominator changes attention. Repair does not necessarily
+  improve every query: selection ignores query probabilities, and new score/probability casts can introduce
+  their own error.'
+summary: When a small fraction of V rows carry large quantization residuals, replay only those key identities
+  with narrow residual values. Add their PV corrections but keep them out of the denominator. Preserve
+  the original partial tail and base-code generation, and check replay rounding instead of assuming a
+  copied key gives identical native probabilities.
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+requires: []
+probed_on: []
+relations: []

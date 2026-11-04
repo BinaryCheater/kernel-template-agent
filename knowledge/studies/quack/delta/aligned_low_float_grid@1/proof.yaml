@@ -1,0 +1,17 @@
+template: aligned_low_float_grid@1
+version: 1
+relation: "Pinned E2M1-in-FP16 embedding with scale2^-14 and extraction bit9. Source\
+  \ rounding.py:727\u2013750; native lowering, stochastic perturbation and special-value\
+  \ equivalence remain separate premises."
+rank: Number of input elements or state transitions still to consume.
+assumes:
+- name: source_contract
+  statement: Source binding and stated scope hold.
+guarantees: []
+models: []
+note: 'Source-derived candidate, not independently admitted. grid_identity: Each finite
+  target code maps to the declared carrier bit pattern and extracts back to itself.
+  interval_identity: Carrier floor and bit extraction choose the target interval floor
+  before saturation. boundary_policy: Subnormal knee, saturation and NaN/sign conventions
+  match the target conversion contract. Native lowering and numerical error remain
+  open; see trace and checks.'

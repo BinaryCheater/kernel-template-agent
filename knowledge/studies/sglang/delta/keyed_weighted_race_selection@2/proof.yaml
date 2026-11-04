@@ -1,0 +1,15 @@
+{
+  "template": "keyed_weighted_race_selection@2",
+  "version": 2,
+  "relation": "For a fixed score recipe and original token/random identity, replace shard summaries by their records; associative lexicographic max preserves the token. In exact arithmetic logw-log(-log(U))=-log(-log(U)/w) is strictly increasing in log(U)/w, so the two score forms have the same argmax when U and weights correspond. Finite native score-form changes require their admitted rounding policy.",
+  "rank": "Unprocessed valid row coordinates, then unmerged shard summaries.",
+  "assumes": [
+    {
+      "name": "premises",
+      "statement": "All named input, ordering and numerical premises hold."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Lexicographic maximum is associative and each shard winner dominates every record it replaces. Complement log1p avoids rounding the largest 32-bit hash to u=1. This proof preserves a declared finite-hash selector, not cryptographic quality or an exact categorical law. Native underflow/division may create score ties or infinities; source requires a matching policy. Host partition/endpoint witnesses are checks/keyed_race.json. Version2 preserves the original partition proof for either fixed score recipe. Exact score-form equivalence follows from applying the strictly increasing function f(a)=-log(-a) to a=log(U)/w<0; normalization is a common additive score shift. Uniform complement is a declared coupling change, not an automatic consequence of changing score form. Source ops/speculative/dspark/markov_sample.py:35-165. Host exact counter lane and approximate scalar score ordering witnesses are in checks/log_race.json; native FP32 ranks/endpoints are explicit obligations."
+}

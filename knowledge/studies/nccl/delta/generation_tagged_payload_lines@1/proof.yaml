@@ -1,0 +1,15 @@
+{
+  "template": "generation_tagged_payload_lines@1",
+  "version": 1,
+  "relation": "Each unretired physical slot belongs to one live generation; receiver accepts only all-tag-matching lines of that generation under the hardware visibility premise.",
+  "rank": "Finite lines and transfers remaining, conditioned on peer progress; polling has no unconditional termination proof.",
+  "assumes": [
+    {
+      "name": "source_contract",
+      "statement": "Source-derived conditional transport protocol. Volatile vector operations alone are not a portable release/acquire proof. LL/LL128 are distinct hardware realizations."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Source-derived proof outline; no formal proof result or GPU execution claimed. ready: No payload from an older generation may be accepted for g; the hardware visibility premise connects matching tags to data. reuse: Credits prevent overwrite while any reader holds the old slot. rollover: Unused lines cannot retain a tag that aliases a later live generation."
+}

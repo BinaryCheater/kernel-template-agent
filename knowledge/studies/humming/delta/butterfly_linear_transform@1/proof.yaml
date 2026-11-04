@@ -1,0 +1,19 @@
+template: butterfly_linear_transform@1
+version: 1
+relation: After s stages each value equals the signed sum over indices differing only in the s processed index bits.
+rank: Unprocessed register stages plus lane stages, then the final normalization.
+assumes:
+  - {name: transform_contract, statement: The input contract requests normalized Hadamard on complete blocks., expr: "p.normalized_hadamard"}
+  - {name: synchronization, statement: Full participant masks and the selected block or tile barriers preserve scratch lifetimes.}
+guarantees: []
+models: []
+note: >-
+  Declared outline. Initialisation uses singleton sums. Each XOR pairing doubles the
+  processed subcube with the correct sign, proving the matrix coefficient inductively.
+  Normalization completes the coarse transform. checks/mechanisms.py compares all basis
+  vectors at H=4,32,128,256,512,V=4 against an independent Walsh parity matrix, including the
+  shared-memory boundary at H/V=64; reversed high-branch sign is rejected. This arithmetic
+  replay does not execute CUDA shuffles or barriers. Next evidence for scratch_lifetime:
+  exact source-pinned multi-block CUDA transform with racecheck; for numeric_error:
+  FP32/rsqrt error versus the caller's tolerance on cancellation and dynamic-range inputs.
+  No proof checker model is registered by this proposal.

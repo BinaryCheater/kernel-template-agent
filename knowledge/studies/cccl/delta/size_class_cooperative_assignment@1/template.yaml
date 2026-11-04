@@ -1,0 +1,102 @@
+name: size_class_cooperative_assignment
+version: 1
+level_from: 2
+level_to: 3
+change: vertical
+refines: work_assign
+produces:
+- work_assign
+- map
+- store
+- sync
+object:
+  type: size_class_cooperative_assignment
+  description: Independent tasks are partitioned by size and assigned thread-, subgroup-
+    or CTA-cooperative executors.
+variables:
+- name: thread_threshold
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 1
+    hi: 65536
+  meaning: Maximum task size in the thread-cooperative class.
+- name: subgroup_threshold
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 1
+    hi: 65536
+  meaning: Maximum size in the subgroup-cooperative class.
+- name: subgroup_width
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 1
+    hi: 65536
+  meaning: Threads collaborating on one middle-class task.
+constraints: []
+preconditions:
+- id: pre0
+  expr: thread_threshold <= subgroup_threshold and p.size_classification_consistent
+  meaning: Size classes are ordered, exhaustive and use one size unit.
+  cls: semantic
+- id: pre1
+  expr: p.task_ids_preserved and p.class_worklists_exact_once and p.cooperative_lane_maps_partition_task
+  meaning: Partitioning and cooperative item maps preserve every original task exactly
+    once.
+  cls: semantic
+- id: pre2
+  expr: p.scratch_and_launch_legal and p.task_outputs_independent
+  meaning: Cooperative resources/participants are legal and task outputs do not conflict.
+  cls: semantic
+program:
+  description: 'Classify each task by its actual or safe upper-bound size: thread
+    class up to thread_threshold, subgroup class up to subgroup_threshold, otherwise
+    CTA class. Preserve original task IDs in class worklists. A subgroup lane l handles
+    offsets l+j*subgroup_width; CTA thread l uses l+j*block_threads; a single thread
+    iterates its whole tiny task. Locally service smaller classes and enqueue larger
+    tasks when the source uses a separate kernel; allocate queue slots by exact count
+    prefixes. An alternative uniform launch may choose one class for all tasks using
+    a declared maximum task size. Operator-specific reduction/scan/copy is unchanged
+    inside each task.'
+backward_map: Erase class queues and executor grouping to recover the original independent
+  per-task computations over all assigned item offsets.
+obligations:
+- name: task_cover
+  statement: Every task enters one size class and each of its items is assigned to
+    one cooperating lane.
+  method: proof
+- name: queue_and_resources
+  statement: Class queues, lane masks and per-task scratch match the selected launch.
+  method: test
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: (thread_threshold <= subgroup_threshold and p.size_classification_consistent)
+    and (p.task_ids_preserved and p.class_worklists_exact_once and p.cooperative_lane_maps_partition_task)
+    and (p.scratch_and_launch_legal and p.task_outputs_independent)
+  text: Independent variable-size tasks with legal cooperative bodies and explicit
+    size units. Classification threshold is a scheduling policy, not a numerical change.
+    Subgroup collectives require their own full-participation contract.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Independent tasks are partitioned by size and assigned thread-, subgroup-
+    or CTA-cooperative executors.
+  storage: Binding-specific counters, partials or output ranges.
+  boundary: Tile prefixes and logical membership.
+  resources: []
+numeric_risk: Integer counts must not overflow; ordering/rounding policy belongs to
+  the bound operation.
+summary: When a batch mixes tiny and large tasks, choose size thresholds and cooperative
+  width rather than giving every task a full CTA. Preserve descriptor identities through
+  partitioning. Memcpy may service tiny buffers locally and queue large ones; segmented
+  reduction can choose a subgroup launch from a safe maximum segment size. Reject
+  queues that lose task identity or lanes that execute another task collective.

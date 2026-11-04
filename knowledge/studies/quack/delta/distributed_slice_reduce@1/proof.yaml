@@ -1,0 +1,15 @@
+template: distributed_slice_reduce@1
+version: 1
+relation: Within one aligned NVIDIA warp subgroup, original slice g mod S is completely
+  reduced in the first E slots of lane g; forget lane ownership to recover the full
+  vector reduction.
+rank: Number of input elements or state transitions still to consume.
+assumes:
+- name: source_contract
+  statement: Source binding and stated scope hold.
+guarantees: []
+models: []
+note: 'Source-derived candidate, not independently admitted. ownership: Induction
+  on m halves the owned data domain and doubles represented input lanes. unique_store:
+  Only g<S stores slice g, avoiding duplicates when L>S. Native lowering and numerical
+  error remain open; see trace and checks.'

@@ -1,0 +1,96 @@
+{
+  "name": "hashed_max_rank_sketch",
+  "version": 1,
+  "level_from": 2,
+  "level_to": 3,
+  "change": "vertical",
+  "refines": "map",
+  "produces": [
+    "map",
+    "access"
+  ],
+  "object": {
+    "type": "hashed_max_rank_sketch",
+    "description": "When approximate cardinality can use a fixed register sketch, hash each item to a register and retain the maximum leading-zero rank, keeping identical hash/precision across merges."
+  },
+  "variables": [
+    {
+      "name": "precision",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": {
+        "lo": 4,
+        "hi": 30
+      },
+      "meaning": "Number of register-index hash bits; exact source constructor/resource bounds narrow the usable range."
+    }
+  ],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_0",
+      "expr": "p.hash_uniformity_contract and p.precision_fits_hash",
+      "meaning": "Hash width supports the register prefix and rank suffix; any cardinality accuracy assumption is explicit.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_1",
+      "expr": "p.registers_initialized_zero_and_atomic_max",
+      "meaning": "Registers start zero and concurrent updates retain maximum rank.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_2",
+      "expr": "p.merge_hash_precision_identical",
+      "meaning": "Merged sketches have the same hash identity, precision, register order and rank definition.",
+      "cls": "semantic"
+    }
+  ],
+  "program": {
+    "description": "For hash h of width W, choose register h>>(W-precision). Compute rank=countl_zero((h<<precision)|(1<<(precision-1)))+1, where padding bounds the all-zero suffix rank. Atomically maximize that register. Merge sketches registerwise max. Estimate from z=sum(2**(-register)) and v=number of zero registers; apply the declared HLL/HLL++ finalizer with linear-counting/bias correction branches. Duplicate items repeat idempotent register updates, not increments."
+  },
+  "backward_map": "Erase auxiliary organization and recover the visible results under the stated contract.",
+  "obligations": [
+    {
+      "name": "register_identity",
+      "statement": "Prefix bits choose the correct register, suffix rank excludes those prefix bits and remains representable.",
+      "method": "proof"
+    },
+    {
+      "name": "merge_equivalence",
+      "statement": "Registerwise max equals processing the union of item streams with the same policy.",
+      "method": "proof"
+    },
+    {
+      "name": "estimator_contract",
+      "statement": "Estimate finalizer and precision-specific constants match declared policy; register equivalence does not prove statistical accuracy.",
+      "method": "proof"
+    },
+    {
+      "name": "concurrency",
+      "statement": "Every max update and merge is atomic at the required scope and reads follow completed producers.",
+      "method": "proof"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.hash_uniformity_contract and p.precision_fits_hash and p.registers_initialized_zero_and_atomic_max and p.merge_hash_precision_identical",
+    "text": "NVIDIA HLL register-state refinement. Precision changes the approximation contract/storage; constructor limits and hash width must be checked before choosing precision. Standard-error claims are outside this source extraction. Resource effects: Fixed2**precision integer registers regardless of item count; per-item one hash/rank/max update, final estimate scans registers rather than stored unique keys."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "When approximate cardinality can use a fixed register sketch, hash each item to a register and retain the maximum leading-zero rank, keeping identical hash/precision across merges.",
+    "storage": "Fixed2**precision integer registers regardless of item count; per-item one hash/rank/max update, final estimate scans registers rather than stored unique keys.",
+    "boundary": "Two hashes assigned register3 with ranks2 and5 leave5 regardless of order or duplicate repetition. Adding ranks to get7 would be a histogram, not this sketch. Different precisions cannot merge by raw register index.",
+    "resources": []
+  },
+  "numeric_risk": "Preserve the supplied arithmetic contract; reassociation, quantization and approximate search require separate permission.",
+  "summary": "When approximate cardinality can use a fixed register sketch, hash each item to a register and retain the maximum leading-zero rank, keeping identical hash/precision across merges. Two hashes assigned register3 with ranks2 and5 leave5 regardless of order or duplicate repetition. Adding ranks to get7 would be a histogram, not this sketch. Different precisions cannot merge by raw register index."
+}

@@ -1,0 +1,16 @@
+template: lookahead_prefix_group_decode@1
+version: 1
+relation: Subgroup lookahead inversion of a concatenation of tiled ragged groups.
+  Source32 lanes handle31 sequence lengths; this differs from loading32 independent
+  group-count tuples.
+rank: Number of input elements or state transitions still to consume.
+assumes:
+- name: source_contract
+  statement: Source binding and stated scope hold.
+guarantees: []
+models: []
+note: 'Source-derived candidate, not independently admitted. lookahead: Each boundary
+  difference uses the adjacent boundary and the next window overlaps exactly one boundary.
+  inverse_prefix: First interval end>query owns query uniquely, skipping zero-count
+  groups. cache: Cached interval can serve a query only while start<=query<end. Native
+  lowering and numerical error remain open; see trace and checks.'

@@ -1,0 +1,51 @@
+name: tensor_axis_permutation
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: access
+produces: [access]
+object:
+  type: strided_permuted_view
+  description: A rank-three view whose axis extents and strides are permuted together while retaining the backing allocation.
+variables:
+  - {name: axis0, kind: numeric, binding: compile, role: software, domain: {lo: 0, hi: 2}, meaning: Source axis represented by output axis0.}
+  - {name: axis1, kind: numeric, binding: compile, role: software, domain: {lo: 0, hi: 2}, meaning: Source axis represented by output axis1.}
+  - {name: axis2, kind: numeric, binding: compile, role: software, domain: {lo: 0, hi: 2}, meaning: Source axis represented by output axis2.}
+constraints:
+  - {id: c_permutation, expr: "axis0 != axis1 and axis0 != axis2 and axis1 != axis2", meaning: Every source axis has one destination axis., cls: semantic}
+preconditions:
+  - {id: pre_rank, expr: "p.rank == 3 and p.backing_allocation_retained", meaning: The source descriptor has three extents/strides and its allocation remains live., cls: implementation}
+  - {id: pre_consumer, expr: "p.consumer_accepts_permuted_strides", meaning: The selected consumer supports the resulting strides and rewrites coordinate semantics consistently., cls: implementation}
+program:
+  description: >-
+    Construct an output view with unchanged allocation and base offset. Its extent i is
+    source_extent[axis_i] and its stride i is source_stride[axis_i]. For output coordinate
+    j set source coordinate at axis_i equal to j_i. This step performs no element movement.
+    Apply it independently to other operands or metadata only with their own descriptors;
+    packed scale rows are not ordinary data coordinates.
+backward_map: Invert the axis permutation on coordinates and restore the original extents/strides; the physical element address is unchanged.
+obligations:
+  - {name: index_bijection, statement: Every valid output coordinate maps to exactly one valid source coordinate and vice versa., method: exhaustive}
+  - {name: address_identity, statement: The base plus stride dot coordinate address is identical in the two views., method: exhaustive}
+  - {name: consumer_contract, statement: The consuming operation interprets the renamed axes and strides consistently; a subsequent contiguous reshape is a separate transformation., method: test}
+effects: {transactions: [], storage: [], overlap: []}
+scope:
+  predicate: "p.rank == 3 and p.consumer_accepts_permuted_strides"
+  text: >-
+    Rank-three tensor access descriptors with a retained backing allocation. This changes
+    the view rather than the stored values; writable aliasing remains the same as the
+    source descriptor. Each contraction operand and each packed metadata descriptor must
+    be checked separately against the downstream contract. Consumers requiring contiguous
+    storage need a separate materialization, not a silent reshape.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Permute shape and stride metadata with an inverse coordinate map.
+  storage: Shared backing allocation; no new data buffer.
+  boundary: Downstream contiguity and packed-metadata interpretation.
+  resources: []
+numeric_risk: None for the view itself; a changed reduction order in a later contraction is a separate obligation.
+summary: >-
+  Use when a consumer can read a rank-three tensor through permuted strides; bind axis0/axis1/axis2 to the desired source-axis order. Permute extents and strides together and rewrite coordinates by the inverse permutation, for example order1,0,2 changes a BHR descriptor into HBR without copying. Bind scale-metadata views separately and validate the consumer's stride requirements before composing the contraction.

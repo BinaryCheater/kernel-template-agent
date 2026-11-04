@@ -1,0 +1,14 @@
+template: code_domain_group_requantization@1
+version: 1
+relation: Interpret output codes with their new E8M0 metadata as the requested MXFP8
+  quantization of the original decoded NVFP4 values including the outer row scale.
+rank: Unprocessed source items or unmerged partials.
+assumes:
+- name: contract
+  statement: The stated partition, comparator/count and publication premises hold.
+guarantees: []
+models: []
+note: Source numerics_details/mxfp_details/_upcast_from_mxfp.py:130-190. Packed fields
+  contain independent magnitude maxima, so the code-domain step is exact. Scale folding
+  is conditional on the admitted finite normal arithmetic domain; native decode/cast
+  and rounding assurance remain open.

@@ -1,0 +1,106 @@
+{
+  "name": "credit_gated_circular_transfer",
+  "version": 1,
+  "level_from": 2,
+  "level_to": 3,
+  "change": "vertical",
+  "refines": "map",
+  "produces": [
+    "map",
+    "access"
+  ],
+  "object": {
+    "type": "credit_gated_circular_transfer",
+    "description": "When peers repeatedly reuse a bounded communication FIFO, use monotone ready/consumed sequence numbers to gate both payload reads and slot overwrites."
+  },
+  "variables": [
+    {
+      "name": "fifo_steps",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": [
+        8
+      ],
+      "meaning": "Source NCCL_STEPS binding must be verified against include/device definitions; fixed for this instance."
+    },
+    {
+      "name": "steps_per_slice",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": {
+        "lo": 1,
+        "hi": 8
+      },
+      "meaning": "Protocol slice advances this many sequence units and fits FIFO capacity."
+    }
+  ],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_0",
+      "expr": "p.sequence_no_wrap and p.peer_protocol_agrees",
+      "meaning": "Both endpoints use matching sequence units, slot mapping and initial counters without wrap.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_1",
+      "expr": "p.payload_publication_and_consumption_ordered",
+      "meaning": "Ready is published after writes are visible and consumed is published only after last read.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_2",
+      "expr": "p.peers_can_progress and p.abort_handled",
+      "meaning": "Peers can execute awaited work and failure/abort is propagated.",
+      "cls": "semantic"
+    }
+  ],
+  "program": {
+    "description": "For sequence s and slice increment d, sender waits until consumed+fifo_steps >= s+d before writing slot s%fifo_steps; receiver waits until ready>=s+d before reading it. After payload work, synchronize participant threads and publish the corresponding advanced counter: sender publishes ready after visibility fence, receiver publishes consumed after final payload read. This separates permission to read a produced slice from permission to overwrite a retired slice."
+  },
+  "backward_map": "Erase auxiliary organization and recover the visible results under the stated contract.",
+  "obligations": [
+    {
+      "name": "no_overwrite",
+      "statement": "A sender cannot reuse a circular slot while its previous receiver still reads it.",
+      "method": "proof"
+    },
+    {
+      "name": "no_stale_read",
+      "statement": "A receiver does not accept a previous generation of the same slot as the current slice.",
+      "method": "proof"
+    },
+    {
+      "name": "visibility",
+      "statement": "Transport-specific polling and payload loads observe publication across the actual peer memory domain.",
+      "method": "proof"
+    },
+    {
+      "name": "progress",
+      "statement": "Credit dependencies and participant scheduling admit progress or terminate on abort.",
+      "method": "proof"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.sequence_no_wrap and p.peer_protocol_agrees and p.payload_publication_and_consumption_ordered and p.peers_can_progress and p.abort_handled",
+    "text": "NVIDIA CUDA NCCL SIMPLE buffered point-to-point slice protocol. Direct registered buffers, network FIFO offsets and multimem polling need their own pointer/ordering bindings. Source volatile polling is not promoted to a generic C++ acquire proof. Resource effects: Bounded circular payload storage fifo_steps*step_elements and ready/consumed counters per connection; polling and barriers per slice. Smaller slices increase synchronization frequency."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "When peers repeatedly reuse a bounded communication FIFO, use monotone ready/consumed sequence numbers to gate both payload reads and slot overwrites.",
+    "storage": "Bounded circular payload storage fifo_steps*step_elements and ready/consumed counters per connection; polling and barriers per slice. Smaller slices increase synchronization frequency.",
+    "boundary": "For fifo_steps=8,d=1,s=8, sender requires consumed>=1 before overwriting slot0; receiver requires ready>=9 to accept new slot0. Seeing ready=1 from the prior cycle must not satisfy the wait.",
+    "resources": []
+  },
+  "numeric_risk": "Preserve the supplied arithmetic contract; reassociation, quantization and approximate search require separate permission.",
+  "summary": "When peers repeatedly reuse a bounded communication FIFO, use monotone ready/consumed sequence numbers to gate both payload reads and slot overwrites. For fifo_steps=8,d=1,s=8, sender requires consumed>=1 before overwriting slot0; receiver requires ready>=9 to accept new slot0. Seeing ready=1 from the prior cycle must not satisfy the wait."
+}

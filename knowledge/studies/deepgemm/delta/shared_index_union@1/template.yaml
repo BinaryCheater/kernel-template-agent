@@ -1,0 +1,54 @@
+name: shared_index_union
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: work_assign
+produces: [work_assign, map]
+object:
+  type: shared_union_descriptor
+  description: Sorted unique shared indices with a separate split-local output-slot map for each of two consumers.
+variables:
+  - {name: items_per_split, kind: numeric, binding: compile, role: software, domain: {lo: 1, hi: 8192}, meaning: Maximum union indices represented by one descriptor split; a partial final split is padded.}
+constraints:
+  - {id: c_offsets, expr: "p.max_row_items <= 4096", meaning: Source-bounded row slots fit the intermediate15-bit slot and final16-bit offset representation., cls: implementation}
+  - {id: c_pair, expr: "p.num_consumers == 2", meaning: This version stores two independent incidence maps., cls: implementation}
+preconditions:
+  - {id: pre_sorted, expr: "p.sorted_unique_rows and p.indices_valid", meaning: Each input row is a strictly increasing list of valid logical source indices; either may be empty., cls: semantic}
+  - {id: pre_compatible, expr: "p.same_index_meaning and p.payload_reusable", meaning: Equal keys denote the same source payload for both consumers., cls: semantic}
+program:
+  description: >-
+    Merge two sorted index lists, emit each union key once, and retain each consumer's
+    original slot or absence. Split the union into chunks of items_per_split. At the
+    first union key of each split record each row's current insertion cursor as slot_base.
+    For each present row encode original_slot-slot_base; encode absence as65535.
+    Consumer scatter writes its result to slot_base+slot_offset only when present.
+    Pad unused final-split entries with both rows absent. Logical-to-physical translation
+    and actual payload gathering are separate refinements.
+backward_map: Scatter the shared indexed results through each row's incidence map to recover that consumer's original index order.
+obligations:
+  - {name: union_once, statement: Every key in either row appears exactly once in the shared union and no other key appears., method: exhaustive}
+  - {name: row_slot_identity, statement: Each original row slot is recovered exactly once from its own base and offset; absence never creates an output., method: exhaustive}
+  - {name: split_padding, statement: Tail padding carries absent slots for both consumers and cannot write a logical result., method: exhaustive}
+  - {name: publication, statement: Descriptor payload and slot maps are visible before their consumers read them and remain live throughout use., method: test}
+effects: {transactions: [], storage: [], overlap: []}
+scope:
+  predicate: "p.num_consumers == 2 and p.sorted_unique_rows and p.same_index_meaning"
+  text: >-
+    Two sorted unique logical-index lists with at most4096 entries each and reusable equal-key
+    payloads. The union can share data loads or input preparation; consumer-specific arithmetic
+    remains separate. Paged users must have compatible page tables for paired rows; unaligned
+    sparse blocks must merge by resolved token starts rather than by incomparable block IDs.
+    This rule does not claim a speedup; overlap, merge cost and payload reuse require measurements.
+requires: []
+probed_on: []
+relations:
+  - {type: enables, target: indexed_gather, note: Each union key supplies one shared gather coordinate; consumer incidence maps retain their distinct output slots.}
+signature:
+  algorithm: Sorted two-row union with split-local incidence maps and exact scatter recovery.
+  storage: Union keys plus two slot offsets per key and two bases per split.
+  boundary: Empty row,duplicates shared between rows,split carry and final padding.
+  resources: []
+numeric_risk: No arithmetic change for independent consumers; any reordered reduction or changed consumer precision is a separate step.
+summary: >-
+  Use when two consumers request sorted unique indices with the same payload meaning; choose items_per_split and merge each equal key into one shared entry. Keep each row's original slot as a split base plus offset so results scatter back independently, for example lists[0,2,4] and[1,2,4] share keys2/4 while retaining slots1/2 in both rows. Require compatible physical mappings before composing a paged gather and ignore every padded absent slot.

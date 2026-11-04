@@ -1,0 +1,15 @@
+{
+  "template": "phase_separated_credit_repartition@1",
+  "version": 1,
+  "relation": "Each live receive slot has one producer credit and one payload generation; phase banks isolate allocation epochs, and credit returns only after final read. Source requests protect a distinct send lifetime.",
+  "rank": "Finite rounds/peer steps remaining; network progress assumed and no unconditional polling bound.",
+  "assumes": [
+    {
+      "name": "source_contract",
+      "statement": "Source GIN inbox four-phase bank and completed peer rounds; phase separation is a protocol premise needing backend signal-order proof."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Source-derived proof outline; no formal proof result or GPU execution claimed. allocation: Initial credits sum to B and no simultaneously live producers share a slot. retirement: A new producer receives slot credit only after prior payload readers retire. phase: No current or in-flight next phase signal is reset; phase wrap cannot alias live old state."
+}

@@ -1,0 +1,14 @@
+template: cyclic_tile_reduction_partition@1
+version: 1
+relation: For each logical k recover tile=k//tile_size, owner=tile%participants, iteration=tile//participants
+  and within-tile=k%tile_size; combine all owned products once.
+rank: Unprocessed source items or unmerged partials.
+assumes:
+- name: contract
+  statement: The stated partition, comparator/count and publication premises hold.
+guarantees: []
+models: []
+note: Source matmul_details/_matmul.py K-loop and _p_matmul.py:388-413; matmul.py:185-193,791-824
+  and epilogue pid_k==0 bias. Division/remainder gives a constructive inverse. Generated
+  default split count considers SM/grid coverage and at least four tiles per owner,
+  but is a dispatch heuristic, not semantic evidence or a universal performance law.

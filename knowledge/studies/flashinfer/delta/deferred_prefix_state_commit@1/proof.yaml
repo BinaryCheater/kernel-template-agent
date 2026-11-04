@@ -1,0 +1,53 @@
+template: deferred_prefix_state_commit@1
+version: 1
+relation: Erase speculative readouts and retention mechanics. The authoritative transition sequence is
+  exactly the accepted F0..F_(a-1) from the original checkpoint, with zero-length identity and the requested
+  after-token tracking states. Snapshot selection and replay preserve the same declared recurrence/error
+  contract; no bitwise equivalence across different arithmetic recipes is assumed.
+rank: Accepted transitions not yet materialized into the authoritative checkpoint.
+assumes:
+- name: pre_recurrence
+  statement: State evolves by declared ordered transitions F_t and optional readouts. Linear window records
+    and the initial checkpoint refer to one immutable verification generation.
+- name: pre_freeze
+  statement: Speculative verification observes virtual states/readouts but leaves authoritative state
+    frozen. Parallel/MMA verification arithmetic may have a declared error policy distinct from commit
+    replay.
+- name: pre_retention
+  statement: Snapshots retain post-token S_(t+1); tape retains every update dependency at its declared
+    stage/dtype, not merely readout inputs. Output-only query data need not be saved when state updates
+    do not depend on it.
+- name: pre_parameters
+  statement: Replay uses the required normalization, cached gate stage and arithmetic recipe; parameters
+    not already resolved in tape remain immutable/versioned until commit.
+- name: pre_prefix
+  statement: Accepted count a denotes exactly the consecutive prefix from this checkpoint. Commit never
+    starts from a speculative all-token state or from another checkpoint epoch.
+- name: pre_slots
+  statement: Live mutable checkpoint slots are unique/in range, invalid requests do no state/cache writes,
+    and retained windows/snapshots are private or coherently owned. Optional track destinations are distinct
+    and disjoint from live mutated slots.
+- name: pre_tracking
+  statement: An optional zero-based track step b saves S_(b+1) only for0<=b<a. Zero accepted count and
+    out-of-prefix steps leave tracking storage unchanged.
+- name: pre_once
+  statement: One window generation commits at most once. All state shards/layers finish before a consumer
+    treats the committed checkpoint generation as ready; no atomic multi-layer publication is implied.
+- name: pre_lifetime
+  statement: Commit sees complete records and accepted counts; the next verification cannot overwrite
+    retained data until commit/tracking readers retire.
+- name: pre_backend
+  statement: Chosen retention/backend/shape has an implemented path and its state numerical policy is
+    admitted. Snapshot and replay paths need not be bitwise interchangeable without that separate premise.
+guarantees: []
+models: []
+note: flashinfer/gdn_decode.py:1434-1447,1655-1674 requires ReplaySSM frozen verify, forbids full intermediate
+  snapshots/scatter at the same time, and retains raw K/V plus computed log-decay/beta by slot. :1802-1868
+  defines accepted lengths, linear one-use windows, unique live slots and optional after-token tracking.
+  gdn_kernels/gdn_replayssm_spec_fold.py:80-219 skips invalid/zero accepted requests, loads the checkpoint,
+  folds each accepted record in order, tracks after its update and writes final FP32 state. Queries do
+  not enter this state fold; raw K normalizes with the same epsilon/policy as verification. SIMT FP32
+  and tcgen05 TF32-style folds have distinct numerical/backend gates. Logical tests compare snapshot/replay
+  accepted prefixes, omit queries from state records, distinguish zero/no-op, accepted versus diagnostic
+  counts, after-token tracking, double commit, stale windows and bad slot ownership. Native folding arithmetic/visibility
+  is not claimed by those abstract tests.

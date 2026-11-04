@@ -1,0 +1,62 @@
+name: grouped_head_row_packing
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: access
+produces: [access, map]
+object:
+  type: packed_query_head_row_view
+  description: A view that splits query heads by KV group and folds the within-group head index into the query sequence row axis, with matching metadata coordinates.
+variables:
+  - {name: group_size, kind: numeric, binding: compile, role: boundary, domain: {lo: 1, hi: 128}, meaning: "Query heads sharing each KV head; determined by the workload, not chosen independently of it."}
+constraints:
+  - {id: c_group, expr: "p.query_heads == group_size * p.kv_heads", meaning: "This version uses complete equal groups without padded logical heads.", cls: semantic}
+preconditions:
+  - {id: pre_kv, expr: "p.grouped_heads_share_kv and p.source_shape_strides_retained", meaning: "All grouped query heads use the same KV head and the original allocation/strides remain available.", cls: semantic}
+  - {id: pre_coordinates, expr: "p.mask_and_score_mod_decode_original_token_head and p.output_and_statistics_use_matching_packing", meaning: "Packed rows preserve original token/head coordinates in masks, score callbacks, O, LSE and derivative metadata.", cls: semantic}
+  - {id: pre_layout, expr: "p.consumer_accepts_hierarchical_packed_view and p.allocation_lifetime_and_write_ownership_valid", meaning: "The backend accepts the packed access layout; all accesses and writes remain in bounds with correct ownership.", cls: implementation}
+  - {id: pre_gradient, expr: "p.kv_gradient_reductions_include_all_grouped_heads", meaning: "When gradients are requested, K/V contributions sum over every original head in the group; a view change cannot discard that reduction.", cls: semantic}
+program:
+  description: >-
+    For token t and query head h, let kv=h//group_size and u=h modulo group_size.
+    Use packed row r=t*group_size+u and KV-head coordinate kv. Keep base pointer
+    and other dimensions unchanged. Represent the row axis hierarchically as
+    (u,t), with strides (source_head_stride,source_token_stride), and the remaining
+    head axis with stride group_size*source_head_stride. Decode t=r//group_size
+    and h=kv*group_size+(r modulo group_size) at every semantic consumer. Apply
+    the corresponding view separately to output, LSE and derivative tensors,
+    whose head-axis positions/strides need not equal Q's. Tile packed rows only
+    after this coordinate contract is established; physical TMA rank workarounds,
+    head padding and materialized copies are distinct implementation bindings.
+backward_map: Decode each packed row to its unique original token/head pair and restore the original extents and strides. The same element address and logical metadata identity are recovered.
+obligations:
+  - {name: bijection_and_address, statement: "Packed rows and KV-head coordinates are a bijection with original token/query-head pairs, preserving every element address.", method: proof}
+  - {name: semantic_metadata, statement: "Masks, callbacks, statistics, output and derivative state consistently decode the original token/head identity.", method: test}
+  - {name: native_layout_and_gradient, statement: "Backend layout/rank lowering and any K/V gradient reduction preserve the complete grouped-head contract.", method: test}
+effects: {transactions: [], storage: [], overlap: []}
+scope:
+  predicate: "p.grouped_heads_share_kv and p.source_shape_strides_retained and p.mask_and_score_mod_decode_original_token_head and p.output_and_statistics_use_matching_packing and p.consumer_accepts_hierarchical_packed_view and p.allocation_lifetime_and_write_ownership_valid and p.kv_gradient_reductions_include_all_grouped_heads"
+  text: >-
+    Equal complete query-head groups with one through128 heads per KV head and
+    a stride-preserving hierarchical view. This does not admit padded head lanes
+    through ordinary modulo decoding, implicit contiguous reshapes, independently
+    mixing KV groups or assuming a Q head-axis position for LSE. Sparse MLA's
+    dynamic-head TMA padding requires an additional guarded implementation.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Fold the within-KV-group query-head index into sequence rows while preserving logical token/head semantics.
+  reuse: Query heads sharing K/V can occupy one row tile and reuse its operands.
+  storage: Original backing allocation through a hierarchical view; no mandatory copy.
+  boundary: Complete groups, original semantic indices and metadata/gradient agreement.
+  resources: [tensor, dram]
+numeric_risk: The view preserves values; a changed contraction/reduction association in a consuming kernel requires separate numerical admission.
+summary: >-
+  When grouped-query heads reuse one KV head but query rows are too few, pack
+  each token's within-group heads into the row dimension. Row r=t*g+u retains
+  token t=r//g and head kv*g+u. For g3,token2,head7, use KV group2,row7.
+  Remap masks/LSE/gradients too. Physical head padding must not wrap a fake
+  head into the next token through modulo decoding. A rank-three axis
+  permutation alone cannot express this split-and-fold mapping.

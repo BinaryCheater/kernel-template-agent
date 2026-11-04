@@ -1,0 +1,15 @@
+{
+  "template": "selected_group_residual_encoding@1",
+  "version": 1,
+  "relation": "Each completed original group corresponds to one base code and, if selected, one residual code computed from its decoded base.",
+  "rank": "Unencoded original groups plus selected residual groups.",
+  "assumes": [
+    {
+      "name": "numeric_contract",
+      "statement": "The application admits the declared lossy quantization; positive finite decoder scales and matching consumer layout are supplied."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "For G groups and R repairs, unselected positions0..G-R-1 precede selected base positionsG-R,G-R+2,... and their adjacent residuals; ranges cover0..G+R-1 exactly. Residual formation uses the actual stored base scale and decoded payload, so a different rounding generation is invalid. This establishes representation identity, not an error bound. Source arcquantFP4.cu:190\u2013287. Bounded mapping witness in ../../checks/replay.json; native conversion, numerical error and consumer replay remain open."
+}

@@ -1,0 +1,15 @@
+{
+  "template": "key_grouped_incidence_reindexing@1",
+  "version": 1,
+  "relation": "For each active original route r, read its unique destination through route_to_destination and recover its original token and associated metadata. This restores every incidence once, including repeated token identities; inactive routes remain excluded.",
+  "rank": "Unplaced active original routes.",
+  "assumes": [
+    {
+      "name": "counts_and_ownership",
+      "statement": "Exact counts define disjoint complete intervals; each reservation/stable rank yields one distinct destination in its route's interval."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Within each group the number of assigned routes equals interval live length; injective destinations therefore give a bijection. Recording original route identity constructs its inverse, while token IDs may repeat without being merged. Lower bounds recover the same group intervals from a sorted complete permutation after subtracting the known negative prefix. A route-to-token map alone is not invertible when topk>1; the route inverse is necessary. Host checks/grouped_routes.json covers duplicate token incidences, empty groups, invalid prefix and alternate atomic orders. Native cursor/scan visibility and padded metadata formats remain realization obligations."
+}

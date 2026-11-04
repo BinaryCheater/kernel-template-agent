@@ -1,0 +1,80 @@
+name: attention_value_axis_partition
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: contract
+produces: [reduce, store, contract, sync]
+object:
+  type: score_partition_to_value_partition_exchange
+  description: Keep score production partitioned by keys but choose between full-value partial outputs and disjoint value-feature outputs using a shared probability tile and common normalization state.
+variables:
+  - {name: value_ownership, kind: structure, binding: compile, role: software, domain: [full_value_partials,disjoint_value_features], meaning: Keep one full value-output partial per key owner or exchange weights so each owner computes a disjoint feature slice.}
+constraints:
+  - {id: c_shape, expr: "p.value_features >= 1 and p.query_rows >= 1 and p.key_tile >= 1 and p.weight_element_bytes == 2", meaning: "The represented row/key/feature tile is nonempty and the exchanged probability element is FP16/BF16.", cls: semantic}
+  - {id: c_participants, expr: "p.participants == 4 and p.value_features % p.participants == 0", meaning: "This source-backed binding uses four cooperating key/feature owners with equal output slices.", cls: implementation}
+  - {id: c_statistics, expr: "p.row_statistics_bytes == 8 * p.participants * p.query_rows", meaning: "Each score owner publishes one FP32 max/sum pair per query row; this shared size is derived rather than independently tuned.", cls: resource}
+preconditions:
+  - {id: pre_partition, expr: "p.key_tiles_disjoint_complete and p.query_rows_and_score_semantics_match_across_owners and p.value_features_have_unique_final_owners", meaning: "Score shards cover each tile once and preserve query/head/mask identity; the feature-sharded path has one final writer per output feature.", cls: semantic}
+  - {id: pre_state, expr: "p.same_defined_initial_state_and_empty_support_contract and p.old_numerator_corrected_before_new_weighted_terms and p.final_positive_mass_or_explicit_empty_branch", meaning: "Both organizations preserve initialized online state, correct only old contributions and finalize zero-mass rows explicitly.", cls: semantic}
+  - {id: pre_exchange, expr: "value_ownership == 'full_value_partials' or (p.shared_weights_in_actual_common_reference and p.row_max_sum_publication_complete and p.probability_tile_exact_write_read_map and p.all_probability_readers_retire_before_reuse)", meaning: "Feature owners read every key shard's weight in one common reference, with completed row statistics and a safe complete probability-tile exchange.", cls: implementation}
+  - {id: pre_combine, expr: "value_ownership == 'disjoint_value_features' or p.partial_outputs_merged_with_matching_normalizers", meaning: "The full-feature partial path must combine both weighted numerators and their matching normalization states.", cls: semantic}
+  - {id: pre_numeric, expr: "p.fp16_or_bf16_weight_storage_with_fp32_accumulation and p.softmax_exp_weight_cast_and_reassociation_admitted and p.no_uncompensated_probability_gain", meaning: "This version binds ordinary FP16/BF16 probability staging and FP32 output accumulation; score/weight casts and changed association are admitted, with no unaccounted numerator gain.", cls: implementation}
+  - {id: pre_backend, expr: "p.selected_organization_backend_legal_and_resources_fit", meaning: "The selected organization has a supported layout/instruction implementation and fits actual register/shared-memory budgets; a source-derived dispatch choice is not automatically a free runtime knob.", cls: implementation}
+program:
+  description: >-
+    Initially each of four owners computes QK scores for its disjoint key shard.
+    With full_value_partials, retain each owner's own online reference/mass and
+    a full-feature weighted numerator, then merge all four states before output.
+    With disjoint_value_features, combine the four row maxima with the prior
+    common reference to obtain r_new, derive c=exp(r_old-r_new), and correct the
+    old common mass. Each score owner computes its key weights exp(score-r_new),
+    writes them once to shared P at their original row/key positions, and publishes
+    its row weight sum. Combine sums into one common mass d. After publication,
+    feature owner j consumes the complete shared P across all key shards and
+    V[:,j*Dv/4:(j+1)*Dv/4], applying c to its old numerator before adding P*V.
+    Repeat per key tile. Divide each disjoint feature numerator by the common d
+    at finalization and write it once; no cross-owner output-vector combine is
+    required. Preserve actual exponent base/score units, masked weights and
+    defined V tails. Do not normalize each score shard independently and then
+    concatenate its outputs, or let a feature owner read only its old key shard.
+backward_map: Concatenate the disjoint feature numerators and expand their complete key sums; this equals the merge of all key-sharded full-feature numerators in the same normalization frame under the admitted numerical policy.
+obligations:
+  - {name: score_and_feature_partition, statement: "Every logical score and weighted output term appears once, and disjoint feature owners cover the original output without overlap or omission.", method: proof}
+  - {name: common_frame, statement: "Every exchanged weight and output correction uses the same row reference/mass generation, including masked/empty transitions.", method: test}
+  - {name: exchange_lifetime, statement: "All P/statistic writes complete before readers, shared layouts agree, and every reader retires before reuse or alias overwrite.", method: test}
+  - {name: numerical_binding, statement: "Native exponent, probability conversion, MMA order and final division satisfy the declared numerical policy for each organization.", method: test}
+effects:
+  transactions: []
+  storage:
+    - {id: shared_weights, level: smem, scope: cta, bytes: "p.query_rows * p.key_tile * p.weight_element_bytes + p.row_statistics_bytes", when: "value_ownership == 'disjoint_value_features'"}
+    - {id: feature_numerator, level: reg, scope: warp, bytes: "4 * p.query_rows * (p.value_features // p.participants)", when: "value_ownership == 'disjoint_value_features'"}
+    - {id: full_numerator, level: reg, scope: warp, bytes: "4 * p.query_rows * p.value_features", when: "value_ownership == 'full_value_partials'"}
+  overlap: []
+scope:
+  predicate: "p.participants == 4 and p.value_features % p.participants == 0 and p.key_tiles_disjoint_complete and p.query_rows_and_score_semantics_match_across_owners and p.value_features_have_unique_final_owners and p.same_defined_initial_state_and_empty_support_contract and p.old_numerator_corrected_before_new_weighted_terms and p.final_positive_mass_or_explicit_empty_branch and (value_ownership == 'full_value_partials' or (p.shared_weights_in_actual_common_reference and p.row_max_sum_publication_complete and p.probability_tile_exact_write_read_map and p.all_probability_readers_retire_before_reuse)) and (value_ownership == 'disjoint_value_features' or p.partial_outputs_merged_with_matching_normalizers) and p.fp16_or_bf16_weight_storage_with_fp32_accumulation and p.softmax_exp_weight_cast_and_reassociation_admitted and p.no_uncompensated_probability_gain and p.selected_organization_backend_legal_and_resources_fit"
+  text: >-
+    Four owners within one cooperative CTA query group, ordinary FP16/BF16 P
+    staging and FP32 output accumulators. Source paged prefill selects feature
+    ownership for value widths above256 divisible by the four owners, including
+    width512. Other owner counts, FP8 P-gain paths, inter-CTA exchange or partial
+    query/head layouts need additional implementation/numerical bindings. Resource
+    expressions describe the numerator and exchange only, not total kernel usage.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Exchange key-sharded probabilities in a common online frame, then assign complete-key PV contractions to disjoint value-feature owners.
+  reuse: The shared score/weight tile serves every feature owner without repeating QK.
+  storage: Per-owner output numerator shrinks by four while shared P and per-tile row-statistic exchange are added.
+  boundary: Complete key reads, unique feature writers, common frame and safe probability publication.
+  resources: [registers, smem, tensor]
+numeric_risk: Common per-tile normalization and feature-owned PV change association and probability rounding relative to late merging of independently framed key-shard outputs.
+summary: >-
+  When value width makes each key owner's full output accumulator expensive,
+  keep QK partitioned by keys but redistribute PV ownership across value features.
+  First agree on row max/mass and exchange the complete weight tile; then each
+  owner contracts all keys for only its feature slice. Four owners reduce each
+  output numerator to one quarter at the cost of shared P and per-tile joins.
+  Reading only the old key shard or mixing independently normalized P changes
+  the result. Final output features need no cross-owner vector reduction.

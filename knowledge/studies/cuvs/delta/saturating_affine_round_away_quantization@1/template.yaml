@@ -1,0 +1,89 @@
+{
+  "name": "saturating_affine_round_away_quantization",
+  "version": 1,
+  "level_from": 2,
+  "level_to": 3,
+  "change": "vertical",
+  "refines": "map",
+  "produces": [
+    "map",
+    "access"
+  ],
+  "object": {
+    "type": "saturating_affine_round_away_quantization",
+    "description": "When scalar calibration defines integer endpoints, apply explicit endpoint saturation and half-away-from-zero affine rounding, preserving a matching inverse map."
+  },
+  "variables": [
+    {
+      "name": "integer_bits",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": [
+        8
+      ],
+      "meaning": "Observed instantiated signed int8 format; numerical boundary choice."
+    }
+  ],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_0",
+      "expr": "p.finite_endpoints_and_inputs and p.min_not_above_max",
+      "meaning": "Calibration endpoints and inputs are finite and min<=max.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_1",
+      "expr": "p.half_away_rounding_requested and p.inverse_policy_matches",
+      "meaning": "Quantization contract specifies lroundf half-away rounding and inverse uses the identical affine metadata.",
+      "cls": "semantic"
+    }
+  ],
+  "program": {
+    "description": "Set qmin=-128,qmax=127. For max>min let s=(qmax-qmin)/(max-min), o=qmin-min*s; for equal endpoints set s=1,o=qmin-min. Encode x<=min as qmin, x>=max as qmax, otherwise lroundf(s*x+o) then signed int8 cast. Decode (q-o)/s. Endpoint branches take precedence, including the equal-endpoint case. Calibration may estimate endpoints from fixed-seed sorted row samples and quantile positions, but that policy is separate from this conversion."
+  },
+  "backward_map": "Erase auxiliary organization and recover the visible results under the stated contract.",
+  "obligations": [
+    {
+      "name": "rounding",
+      "statement": "Interior half values follow away-from-zero integer rounding, not nearest-even or truncation.",
+      "method": "proof"
+    },
+    {
+      "name": "saturation",
+      "statement": "Endpoint branches prevent out-of-range integer conversion and preserve equality precedence.",
+      "method": "proof"
+    },
+    {
+      "name": "metadata",
+      "statement": "Encoding and inverse use the same finite affine scale/offset and dtype conventions.",
+      "method": "proof"
+    },
+    {
+      "name": "degenerate",
+      "statement": "Equal endpoints follow explicit two-endpoint step behavior rather than divide by zero.",
+      "method": "proof"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.finite_endpoints_and_inputs and p.min_not_above_max and p.half_away_rounding_requested and p.inverse_policy_matches",
+    "text": "NVIDIA cuVS scalar quantizer instantiated for float/double/half to int8. Interior arithmetic uses the source temporary type and lroundf conversion, so cross-type precision changes need numerical review. Nonfinite and reversed calibration ranges excluded. Resource effects: Two affine metadata scalars, one conversion per input; saturation branches add comparisons, compact int8 storage handled separately."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "When scalar calibration defines integer endpoints, apply explicit endpoint saturation and half-away-from-zero affine rounding, preserving a matching inverse map.",
+    "storage": "Two affine metadata scalars, one conversion per input; saturation branches add comparisons, compact int8 storage handled separately.",
+    "boundary": "With min=-128,max127, s1,o0: x=-0.5 encodes-1 whereas nearest-even gives0; x0.5 encodes1. With equal endpoints a, x<=a maps-128 and x>a maps127, with s1 inverse metadata, not a constant decoder.",
+    "resources": []
+  },
+  "numeric_risk": "Preserve the supplied arithmetic contract; reassociation, quantization and approximate search require separate permission.",
+  "summary": "When scalar calibration defines integer endpoints, apply explicit endpoint saturation and half-away-from-zero affine rounding, preserving a matching inverse map. With min=-128,max127, s1,o0: x=-0.5 encodes-1 whereas nearest-even gives0; x0.5 encodes1. With equal endpoints a, x<=a maps-128 and x>a maps127, with s1 inverse metadata, not a constant decoder."
+}

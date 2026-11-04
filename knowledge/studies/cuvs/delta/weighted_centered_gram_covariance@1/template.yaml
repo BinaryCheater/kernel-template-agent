@@ -1,0 +1,96 @@
+{
+  "name": "weighted_centered_gram_covariance",
+  "version": 1,
+  "level_from": 2,
+  "level_to": 3,
+  "change": "vertical",
+  "refines": "map",
+  "produces": [
+    "map",
+    "access"
+  ],
+  "object": {
+    "type": "weighted_centered_gram_covariance",
+    "description": "When full weighted covariance is needed and centered arithmetic is required, form square-root-weighted centered rows and compute their Gram matrix before normalization."
+  },
+  "variables": [
+    {
+      "name": "batch_rows",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": {
+        "lo": 1,
+        "hi": 2147483647
+      },
+      "meaning": "Number of samples accumulated per matrix batch; changing it changes floating reduction order."
+    }
+  ],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_0",
+      "expr": "p.weights_nonnegative and p.center_and_denominator_defined",
+      "meaning": "Weights are finite nonnegative; mean center and normalization denominator are explicit, denominator positive.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_1",
+      "expr": "p.matrix_product_numeric_policy_admitted and p.batches_cover_samples",
+      "meaning": "Gram-product arithmetic and beta accumulation are allowed; batches partition samples exactly.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_2",
+      "expr": "p.symmetric_output_contract and p.regularization_defined",
+      "meaning": "Output covariance is symmetric with declared diagonal regularization.",
+      "cls": "semantic"
+    }
+  ],
+  "program": {
+    "description": "For each component k and sample i form Y[i,d]=sqrt(weight[i,k])*(X[i,d]-mean[k,d]). Accumulate C[k]=sum_batches transpose(Y)*Y, using beta0 first then beta1 for subsequent batches. Divide by the explicit denominator, mirror one authoritative triangle and add reg_covar to diagonal. Means and responsibilities are fixed across the centered accumulation pass. Raw second moment minus mean outer product is a separate numerical algorithm, not substituted without its own denominator/rounding argument."
+  },
+  "backward_map": "Erase auxiliary organization and recover the visible results under the stated contract.",
+  "obligations": [
+    {
+      "name": "weighted_product",
+      "statement": "Each Gram term equals the specified weighted centered outer product under admitted sqrt/multiply rounding.",
+      "method": "proof"
+    },
+    {
+      "name": "batch_accumulation",
+      "statement": "Each sample contributes once and first/subsequent beta settings preserve all batches.",
+      "method": "proof"
+    },
+    {
+      "name": "center_lifetime",
+      "statement": "All batches use the same finalized means and weight generation.",
+      "method": "proof"
+    },
+    {
+      "name": "symmetry",
+      "statement": "Triangle mirroring has unique writers and regularization is added once per diagonal.",
+      "method": "proof"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.weights_nonnegative and p.center_and_denominator_defined and p.matrix_product_numeric_policy_admitted and p.batches_cover_samples and p.symmetric_output_contract and p.regularization_defined",
+    "text": "NVIDIA GMM full covariance M-step. Source denominator is N_k+10*epsilon, so that exact regularized convention must be retained; no unregularized normalization or equivalence to diagonal raw moments implied. Resource effects: Materializes batch_rows*dim centered scratch per component and contracts dim*dim Gram outputs; often reuses matrix multiplication infrastructure, with additional pass over samples after means finish."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "When full weighted covariance is needed and centered arithmetic is required, form square-root-weighted centered rows and compute their Gram matrix before normalization.",
+    "storage": "Materializes batch_rows*dim centered scratch per component and contracts dim*dim Gram outputs; often reuses matrix multiplication infrastructure, with additional pass over samples after means finish.",
+    "boundary": "Points0 and2, weights1 each, center1, denominator2 give Gram2/2=1. If denominator is2+epsilon, preserve that value. Reusing stale center0 gives Gram4 and a different covariance.",
+    "resources": []
+  },
+  "numeric_risk": "Preserve the supplied arithmetic contract; reassociation, quantization and approximate search require separate permission.",
+  "summary": "When full weighted covariance is needed and centered arithmetic is required, form square-root-weighted centered rows and compute their Gram matrix before normalization. Points0 and2, weights1 each, center1, denominator2 give Gram2/2=1. If denominator is2+epsilon, preserve that value. Reusing stale center0 gives Gram4 and a different covariance."
+}

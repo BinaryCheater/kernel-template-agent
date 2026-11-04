@@ -1,0 +1,15 @@
+template: early_dependent_grid_launch@1
+version: 1
+relation: Move independent dependent-grid prologue work after predecessor completion
+  and erase the early scheduling trigger; all dependent data reads still see the completed
+  predecessor result.
+rank: Unprocessed source items or unmerged partials.
+assumes:
+- name: contract
+  statement: The stated partition, comparator/count and publication premises hold.
+guarantees: []
+models: []
+note: Source python/tutorials/11-programmatic-dependent-launch.py:28-67. Any execution
+  with early independent work can be serialized across the completion wait because
+  that work touches no predecessor-produced state; the wait restores the original
+  data dependency. Native GDC launch/wait and resource progress are explicit obligations.

@@ -1,0 +1,95 @@
+{
+  "name": "paired_regular_hadamard_rotation",
+  "version": 1,
+  "level_from": 3,
+  "level_to": 4,
+  "change": "vertical",
+  "refines": "contract",
+  "produces": [
+    "map",
+    "contract",
+    "store"
+  ],
+  "object": {
+    "type": "paired_orthogonal_regular_butterfly_operands",
+    "description": "Activation and weight reduction-axis blocks transformed by the same normalized regular-quartet Hadamard product before a contraction."
+  },
+  "variables": [
+    {
+      "name": "group_size",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": [
+        64,
+        128,
+        256,
+        512
+      ],
+      "meaning": "Admitted rotation block along K; changing it changes quantization error and needs the numerical search contract."
+    }
+  ],
+  "constraints": [
+    {
+      "id": "c_shape",
+      "expr": "p.K % group_size == 0",
+      "meaning": "Both operands partition into the same complete reduction-axis rotation groups.",
+      "cls": "implementation"
+    }
+  ],
+  "preconditions": [
+    {
+      "id": "pre_pair",
+      "expr": "p.activation_weight_same_transform_and_group_origins and p.rotated_weights_generation_matches",
+      "meaning": "Offline weight and online activation transforms use the identical matrix, coordinates and source weight generation.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_numeric",
+      "expr": "p.rotation_and_subsequent_quantization_error_admitted and p.transform_cast_recipe_fixed",
+      "meaning": "Exact dot preservation does not certify rounded transforms or subsequentINT8 quantization; casts, normalization and group choice are admitted.",
+      "cls": "implementation"
+    }
+  ],
+  "program": {
+    "description": "On each H-element block apply one regular4-point stage per base4 digit. For each quartet that differs in the selected two index bits, computeS=(x0+x1)+(x2+x3) and y_d=S-2*x_(d xor3). If log2(H) is odd, finish with a sum/difference2-point stage on the remaining top bit. Multiply every output by1/sqrt(H). Apply the same normalized transform to each activation and weightK block; contract transformed coordinates with the original output association. AnyINT8 quantizer and epilogue scales are separate refinements. Keep offline rotated weights immutable for every consuming activation generation."
+  },
+  "backward_map": "Each regular4 matrix has orthogonal rows with norm2; the optional2-point factor has normsqrt2. The normalized tensor product is orthogonal, so paired operand inner products equal original inner products in exact arithmetic.",
+  "obligations": [
+    {
+      "name": "orthogonal_pair",
+      "statement": "Both operands use identical orthogonal matrix/group origins, so every group dot is preserved before rounding.",
+      "method": "proof"
+    },
+    {
+      "name": "index_mapping",
+      "statement": "Register/lane quartet partners match the requested index digits and no group boundary is crossed.",
+      "method": "exhaustive"
+    },
+    {
+      "name": "numeric",
+      "statement": "Normalization, transform casts and any following quantization meet the admitted contract for chosen group size.",
+      "method": "test"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.K % group_size == 0 and p.activation_weight_same_transform_and_group_origins and p.rotation_and_subsequent_quantization_error_admitted",
+    "text": "Source ConvRot block sizes64/128/256/512, BF16 source activation withFP32 regular butterfly and normalized paired weight transform. Different from Sylvester Hadamard. Mean is preserved across all output coordinates only for pure4-point products(H64,256); odd-bit sizes add a2-point stage. No measured quantization improvement claimed."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "Paired normalized regular4-point butterfly rotation, with optional final2-point factor.",
+    "storage": "Offline rotated weight and online transformed activation; ownership/retention separate.",
+    "boundary": "CompleteK groups, odd-log2 final factor, immutable weight generation.",
+    "resources": []
+  },
+  "numeric_risk": "Regular and Sylvester transforms are not interchangeable quantizers although both are orthogonal; rounding and group size change code scales and error.",
+  "summary": "Before an admitted quantized contraction, apply the same normalized regular-quartet rotation to activation and weightK groups. Choose64/128/256/512 elements per group; preserve identical coordinate maps and weight generation. Pure4-point products distribute a constant input uniformly, unlike Sylvester, while odd-bit groups include a final2-point factor. Benefits require numerical/performance evidence for the workload."
+}

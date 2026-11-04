@@ -1,0 +1,80 @@
+name: lookahead_prefix_group_decode
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: work_assign
+produces:
+- work_assign
+- map
+object:
+  type: lookahead_prefix_group_decode
+  description: When work counts derive from adjacent prefix boundaries, reserve one
+    subgroup lane for lookahead so a single cooperative load supplies both ends of
+    each group interval.
+variables:
+- name: lanes
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 2
+    hi: 32
+  meaning: 'W: source32 lanes,31 groups per window.'
+constraints: []
+preconditions:
+- id: pre0
+  expr: p.monotone_boundaries and p.nonnegative_monotone_queries and p.prefix_counts_fit
+    and p.metadata_immutable and p.tile_extent_positive
+  meaning: Valid prefix sequence and monotone queries preserve cached-window validity.
+  cls: semantic
+program:
+  description: For W lanes load prefix boundary P[b+lane] for valid boundary indices.
+    Lane l<W-1 gets count ceil((P[b+l+1]-P[b+l])/tile_extent)*other_tiles; last lane
+    contributes0. Inclusive scan counts, ballot interval-end<=query to find the first
+    containing group, then broadcast group start/count. Advance next window by W-1
+    groups, retaining the shared boundary. Cache matched group/start/end only while
+    queries remain within that half-open interval. Zero-length groups have count0
+    and never capture valid work. Past-last queries return invalid before consuming
+    metadata.
+backward_map: Subgroup lookahead inversion of a concatenation of tiled ragged groups.
+  Source32 lanes handle31 sequence lengths; this differs from loading32 independent
+  group-count tuples.
+obligations:
+- name: lookahead
+  statement: Each boundary difference uses the adjacent boundary and the next window
+    overlaps exactly one boundary.
+  method: proof
+- name: inverse_prefix
+  statement: First interval end>query owns query uniquely, skipping zero-count groups.
+  method: proof
+- name: cache
+  statement: Cached interval can serve a query only while start<=query<end.
+  method: proof
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: (p.monotone_boundaries and p.nonnegative_monotone_queries and p.prefix_counts_fit
+    and p.metadata_immutable and p.tile_extent_positive)
+  text: Subgroup lookahead inversion of a concatenation of tiled ragged groups. Source32
+    lanes handle31 sequence lengths; this differs from loading32 independent group-count
+    tuples.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: When work counts derive from adjacent prefix boundaries, reserve one
+    subgroup lane for lookahead so a single cooperative load supplies both ends of
+    each group interval.
+  boundary: Subgroup lookahead inversion of a concatenation of tiled ragged groups.
+    Source32 lanes handle31 sequence lengths; this differs from loading32 independent
+    group-count tuples.
+  resources:
+  - registers
+numeric_risk: Floating-point reassociation, casts and approximate functions require
+  an admitted numerical contract.
+summary: When work counts derive from adjacent prefix boundaries, reserve one subgroup
+  lane for lookahead so a single cooperative load supplies both ends of each group
+  interval.

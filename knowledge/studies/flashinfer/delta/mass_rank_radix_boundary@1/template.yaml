@@ -1,0 +1,172 @@
+name: mass_rank_radix_boundary
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: reduce
+produces:
+- reduce
+- map
+- store
+- contract
+object:
+  type: weighted_radix_mass_crossing
+  description: Find the descending value cohort where cumulative probability mass crosses a requested
+    fraction, then normalize the entire retained cohort.
+variables:
+- name: key_bits
+  kind: numeric
+  binding: compile
+  role: boundary
+  domain:
+  - 16
+  - 32
+  meaning: Width of the admitted sortable value representation, giving radix digit widths11/5 or11/11/10.
+    Native registration is32-bit;16-bit is an inferred logical binding requiring its own backend.
+- name: candidate_access
+  kind: structure
+  binding: compile
+  role: software
+  domain:
+  - rescan_original
+  - compact_if_fits
+  meaning: Re-read the immutable original row at each prefix pass or compact a complete incoming prefix
+    into a bounded bank when it fits. Source uses capacity-dependent rescan/compaction.
+constraints:
+- id: c_shape
+  expr: p.length >= 1 and p.histogram_bins >= 2048 and p.counts_and_indices_fit_int32 and p.candidate_capacity
+    >= 0
+  meaning: Nonempty row, bins for11-bit digits, exact bounded counters and optional nonnegative compact
+    capacity.
+  cls: implementation
+preconditions:
+- id: pre_values
+  expr: p.finite_nonnegative_values and p.positive_finite_total_mass and p.mass_fraction_in_open_zero_closed_one
+  meaning: Values are finite nonnegative masses; total W>0 and requested fraction0<p<=1 define target
+    mass p*W, which stays positive finite.
+  cls: implementation
+- id: pre_keys
+  expr: p.descending_key_encoding_monotone_and_equal_values_share_key and p.zero_and_special_key_policy_explicit
+    and p.selected_key_width_has_implemented_backend
+  meaning: A fixed16/32-bit sortable encoding orders positive values descending and groups equal values;
+    zeros cannot replace a positive crossing and nonfinite values are excluded. The selected key width
+    has an implemented native binding; source registration uses FP32 only.
+  cls: implementation
+- id: pre_partition
+  expr: p.each_active_occurrence_histogrammed_once and p.histogram_count_and_mass_domains_identical
+  meaning: Every occurrence matching the accumulated key prefix contributes once to its digit mass and
+    companion count, preserving repeated values.
+  cls: implementation
+- id: pre_mass
+  expr: p.mass_accumulation_prefix_scan_and_residual_subtraction_policy_explicit and p.native_mass_comparisons_preserve_requested_crossing
+  meaning: The declared exact or admitted finite-precision sums and residual target subtraction choose
+    the same requested first cumulative>= crossing; deterministic storage alone does not prove this.
+  cls: implementation
+- id: pre_capacity
+  expr: candidate_access != 'compact_if_fits' or (p.complete_active_count_known_before_compaction and
+    p.compact_only_when_count_fits_capacity and p.overflow_rescans_original_without_dropping_values)
+  meaning: An optional compact table is used only after its complete incoming prefix count fits the buffer;
+    otherwise rescan original input. Never truncate an overflowing active prefix.
+  cls: implementation
+- id: pre_cache
+  expr: candidate_access != 'compact_if_fits' or (p.compact_values_preserve_occurrence_multiplicity_and_prefix
+    and p.compact_bank_publication_and_lifetime_safe)
+  meaning: Compact buffers contain every incoming-prefix occurrence, including duplicates, and publish
+    before later passes. Physical order may vary because the final apply pass rereads original coordinates.
+  cls: implementation
+- id: pre_lifetime
+  expr: p.histograms_and_counters_initialized_per_row_pass and p.all_producer_partials_published_before_boundary_fold
+    and p.pass_dependencies_and_original_row_generation_stable
+  meaning: Each pass reads a complete current histogram/count table, with reset, producer completion and
+    pass/kernel ordering; original data/metadata remain immutable through final apply.
+  cls: implementation
+- id: pre_apply
+  expr: p.final_threshold_cohort_inclusive_and_original_coordinates_preserved and p.retained_mass_exceeds_native_normalization_floor
+    and p.output_cast_and_normalization_error_admitted
+  meaning: Final output keeps every original value>=threshold and divides by the complete retained mass
+    under the admitted cast policy. Source fallback at retained mass<=1e-8 is outside this normalized
+    binding.
+  cls: implementation
+program:
+  description: Encode each value by the declared descending key. Start with empty prefix and residual
+    target r=p*sum(values). For each most-significant digit (11-bit chunks, final5 or10), histogram only
+    occurrences matching the previous prefix, storing both total mass H[b] and occurrence count N[b].
+    Traverse bins in descending-value order and choose the first occupied bin b whose cumulative mass
+    through b is>=r. Subtract mass of all earlier bins from r, append b to the prefix and retain its count
+    for the next pass. Count is presence/capacity metadata, never the mass rank. In rescan_original mode
+    filter the original row anew. In compact_if_fits, a pass may copy its complete incoming-prefix occurrences
+    into a private bank only when the known count fits; else read original input and omit that compact
+    output. Following passes still filter by their current prefix within any broader cached incoming prefix.
+    First pass reads original input. After all key bits, decode threshold tau, rescan original coordinates
+    and retain every value>=tau, including the entire equality cohort; normalize by their complete retained
+    mass and cast output. Compaction order is not output order and no boundary-ID subset is selected.
+backward_map: Sort the original nonnegative values descending, find the first cumulative mass>=p*W, take
+  its value tau, and retain every original occurrence with value>=tau. Erasing radix digits and optional
+  compact transport recovers this same threshold-cohort normalization.
+obligations:
+- name: weighted_prefix
+  statement: At each digit, earlier-bin mass plus residual target identifies the same global descending
+    weighted crossing; companion counts never substitute for masses.
+  method: proof
+- name: occurrence_and_capacity
+  statement: Every active occurrence contributes once even after optional compaction; known-count guards
+    and original rescans prevent capacity loss.
+  method: test
+- name: cohort_apply
+  statement: The final decoded value identifies the complete equality cohort and the retained mass/output
+    coordinates match the original row.
+  method: test
+- name: native_sum_and_completion
+  statement: Native sum reconstruction, comparison rounding, histogram reset and all-producer publication
+    implement the admitted weighted crossing and normalization.
+  method: test
+effects:
+  transactions: []
+  storage:
+  - id: candidate_banks
+    level: dram
+    scope: kernel
+    bytes: 2 * p.candidate_capacity * p.element_bytes
+    when: candidate_access == 'compact_if_fits'
+  overlap: []
+scope:
+  predicate: p.length >= 1 and p.histogram_bins >= 2048 and p.counts_and_indices_fit_int32 and p.candidate_capacity
+    >= 0 and (p.finite_nonnegative_values and p.positive_finite_total_mass and p.mass_fraction_in_open_zero_closed_one)
+    and (p.descending_key_encoding_monotone_and_equal_values_share_key and p.zero_and_special_key_policy_explicit
+    and p.selected_key_width_has_implemented_backend) and (p.each_active_occurrence_histogrammed_once
+    and p.histogram_count_and_mass_domains_identical) and (p.mass_accumulation_prefix_scan_and_residual_subtraction_policy_explicit
+    and p.native_mass_comparisons_preserve_requested_crossing) and (candidate_access != 'compact_if_fits'
+    or (p.complete_active_count_known_before_compaction and p.compact_only_when_count_fits_capacity and
+    p.overflow_rescans_original_without_dropping_values)) and (candidate_access != 'compact_if_fits' or
+    (p.compact_values_preserve_occurrence_multiplicity_and_prefix and p.compact_bank_publication_and_lifetime_safe))
+    and (p.histograms_and_counters_initialized_per_row_pass and p.all_producer_partials_published_before_boundary_fold
+    and p.pass_dependencies_and_original_row_generation_stable) and (p.final_threshold_cohort_inclusive_and_original_coordinates_preserved
+    and p.retained_mass_exceeds_native_normalization_floor and p.output_cast_and_normalization_error_admitted)
+  text: AIR top-p source uses11-bit descending CUB sortable digits, full-row mass fraction, per-bin mass
+    and count, two bounded candidate banks, and inclusive final threshold. FP32 key schedule11/11/10 and16-bit11/5
+    are representation-derived. Source float atomics versus deterministic mantissa/count reconstruction
+    are separate native arithmetic bindings; neither alone establishes exact-real cumulative sums. Source
+    normalization floor1e-8, nonfinite values, ID-limited tie splitting and arbitrary weighted keys independent
+    of their values are outside this version. csrc/renorm.cu registers float only. The16-bit schedule
+    follows the generic header and has logical checks, not registered native support.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Prefix-restricted weighted radix crossing with complete-cohort normalization.
+  storage: Mass/count histograms, residual target/prefix, optional two capacity-bounded value banks and
+    final original-row output.
+  boundary: Monotone key, original occurrence multiplicity, mass rather than count rank, safe rescan and
+    inclusive equal-value cohort.
+  resources:
+  - dram
+  - smem
+  - registers
+  - issue
+numeric_risk: Floating-point atomic order or deterministic sum reconstruction may move a mass boundary.
+  Losing a compact overflow, confusing candidate counts with mass, or splitting equality cohorts changes
+  support and normalization.
+summary: When a top-p boundary is defined by cumulative mass rather than element count, use descending
+  radix mass histograms to refine only its current value prefix. Carry residual target mass and separate
+  counts; compact a prefix only when its full count fits, otherwise rescan original values. Keep the complete
+  boundary-value cohort and normalize from the original coordinates with an explicit native sum policy.

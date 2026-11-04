@@ -1,0 +1,15 @@
+{
+  "template": "blurred_gaussian_opacity_compensation@1",
+  "version": 1,
+  "relation": "Blurred covariance equals original covariance+eps*I and, when floor inactive, opacity_new*sqrt(det_new)=opacity_old*sqrt(det_old). With floor active only the explicit compensated formula is guaranteed.",
+  "rank": "Finite covariance and opacity operations remaining.",
+  "assumes": [
+    {
+      "name": "source_contract",
+      "statement": "NVIDIA EWA/UT3DGS antialiasing metadata. Source MIN_COMPENSATION0.005 bounds opacity scaling. Pixel sampling, support truncation and nonlinear camera approximations remain separate from continuous mass identity."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Source-derived proof outline; no formal proof result or GPU execution claimed. mass_relation: Without floor activation, opacity_new*sqrt(det_blur)=opacity_old*sqrt(det_orig). single_application: Compensation is applied once across projection/consumer boundaries, never both omitted and doubled. floor_boundary: Floor activation is visible in the contract and is not described as exact mass preservation. shape_metadata: Conic/radius and opacity correspond to the same blurred covariance generation."
+}

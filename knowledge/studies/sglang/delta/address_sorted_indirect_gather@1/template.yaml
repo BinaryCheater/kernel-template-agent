@@ -1,0 +1,92 @@
+{
+  "name": "address_sorted_indirect_gather",
+  "version": 1,
+  "level_from": 4,
+  "level_to": 5,
+  "change": "vertical",
+  "refines": "transfer",
+  "produces": [
+    "map",
+    "transfer"
+  ],
+  "object": {
+    "type": "sorted_request_inverse_map",
+    "description": "Data-dependent permutation of indirect row requests, with original destination positions retained."
+  },
+  "variables": [
+    {
+      "name": "request_order",
+      "kind": "structure",
+      "binding": "runtime",
+      "role": "software",
+      "domain": [
+        "original",
+        "ascending_row_id"
+      ],
+      "meaning": "Whether to keep caller order or sort requests by row ID before launching gathers."
+    }
+  ],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_independent",
+      "expr": "p.request_reads_immutable and p.distinct_output_slots and p.request_ids_in_bounds",
+      "meaning": "Each original request owns one distinct destination, though source row IDs may repeat; source and output do not destructively alias.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_order",
+      "expr": "p.row_id_order_matches_address_order and p.sort_returns_full_permutation",
+      "meaning": "Sorted-row realization assumes row-monotone source addresses and retains one original slot for every request.",
+      "cls": "implementation"
+    }
+  ],
+  "program": {
+    "description": "For request list ids[i], choose original order or obtain sorted_ids[j]=ids[perm[j]] with a full permutation perm. Launch gather for sorted_ids[j] and write decoded row into output[perm[j]], applying the same row-local decode as original order. Do not deduplicate equal source IDs: each original output slot remains represented. Sorting affects access sequence only, not feature layout or numerical decode."
+  },
+  "backward_map": "For each original output i, choose unique j with perm[j]=i; its gathered source is ids[i], so erasing the request permutation yields the original gather.",
+  "obligations": [
+    {
+      "name": "permutation",
+      "statement": "All original request slots are represented once, including repeated source IDs and equal-key ties.",
+      "method": "exhaustive"
+    },
+    {
+      "name": "decode_identity",
+      "statement": "Reordered reads use the identical source generation, row decode, feature coordinates and destination slots.",
+      "method": "test"
+    },
+    {
+      "name": "visibility",
+      "statement": "Sorted IDs and permutation are ready before gather and remain live through all destination writes.",
+      "method": "test"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.request_reads_immutable and p.distinct_output_slots and p.request_ids_in_bounds",
+    "text": "Independent row gathers with row-monotone address mapping; pinned Engram implementation optionally torch.sorts row IDs, gathers FP8/E8M0 data from device or accessible host pointers and writes BF16 outputs in original order. Benefit is a locality hypothesis for translation/page reach and must be measured; sorting overhead may dominate."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [
+    {
+      "type": "requires",
+      "target": "indexed_gather",
+      "note": "Every permuted request retains the original indirect row semantics."
+    }
+  ],
+  "signature": {
+    "algorithm": "Sort independent gather requests by source address while scattering to original destinations.",
+    "reuse": "Nearby requests may share source memory translations/pages; no fewer logical rows are requested.",
+    "storage": "Sorted IDs and original-position permutation.",
+    "boundary": "Duplicate IDs remain separate requests; host pointers must be device-accessible.",
+    "resources": []
+  },
+  "numeric_risk": "No arithmetic reassociation in per-row decode. Other fused reductions and overlapping destinations are outside scope.",
+  "summary": "When an indirect table gather touches random rows beyond translation/page reach, choose ascending source-row request order and retain original destination indices. Duplicate row IDs remain separate requests; row decode and output order stay unchanged. Sorting trades preparation and index storage for possible locality, requiring measurement on the intended memory mapping."
+}

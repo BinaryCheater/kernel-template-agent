@@ -1,0 +1,69 @@
+name: alternating_size_ring_packing
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: store
+produces: [store, access]
+object:
+  type: phase_dependent_three_slot_occupancy
+  description: Three logical pipeline slots for alternating large/small operands, packed with a phase-dependent middle address and explicit cross-slot lifetime obligations.
+variables:
+  - {name: packing, kind: structure, binding: compile, role: software, domain: [uniform, pointer_shifted], meaning: "Reserve three maximum-sized slots or pack alternating operands with a shifted middle pointer."}
+  - {name: large_bytes, kind: numeric, binding: compile, role: boundary, domain: {lo: 1, hi: 1048576}, meaning: "Live footprint of the larger operand tile, including layout padding."}
+  - {name: small_bytes, kind: numeric, binding: compile, role: boundary, domain: {lo: 1, hi: 1048576}, meaning: "Live footprint of the smaller operand tile, including layout padding."}
+constraints:
+  - {id: c_sizes, expr: "large_bytes >= small_bytes and p.logical_slots == 3", meaning: "This mapping covers exactly three slots with ordered positive footprint sizes.", cls: semantic}
+  - {id: c_alignment, expr: "p.transfer_alignment_bytes > 0 and large_bytes % p.transfer_alignment_bytes == 0 and small_bytes % p.transfer_alignment_bytes == 0 and (packing == 'uniform' or ((large_bytes + small_bytes) % (2 * p.transfer_alignment_bytes) == 0 and (large_bytes - small_bytes) % (2 * p.transfer_alignment_bytes) == 0))", meaning: "Nominal stride and phase correction preserve the required native address alignment.", cls: implementation}
+  - {id: c_capacity, expr: "(packing == 'uniform' and 3 * large_bytes <= p.capacity_bytes) or (packing == 'pointer_shifted' and 2 * large_bytes + small_bytes <= p.capacity_bytes)", meaning: "The selected physical allocation fits the storage budget.", cls: resource}
+preconditions:
+  - {id: pre_sequence, expr: "p.operands_alternate_large_small and p.producer_consumer_logical_phase_match", meaning: "Logical generation0 is large, subsequent generations alternate, and producers/consumers translate their native phases to the same logical parity.", cls: semantic}
+  - {id: pre_lifetime, expr: "p.every_overlapping_occupancy_retired_before_write and p.native_read_footprints_match_tile_footprints", meaning: "Before a write, all earlier async readers of any overlapping physical range have retired, including neighboring logical slots.", cls: semantic}
+  - {id: pre_backend, expr: "p.base_and_phase_addresses_legal and p.operand_ready_before_read", meaning: "Native transfer/MMA layouts accept the shifted addresses and consumers see complete current-generation payload.", cls: implementation}
+program:
+  description: >-
+    Let L=large_bytes,S=small_bytes and logical generation g use slot i=g modulo3
+    and logical wrap parity h=floor(g/3) modulo2. Uniform mode uses address i*L
+    and allocation3L. Pointer-shifted mode uses nominal stride D=(L+S)/2 and
+    address i*D, except slot1 adds (L-S)/2 when h=0 and subtracts it when h=1.
+    Allocation is2L+S. In parity0 the simultaneous ranges are large at0, small
+    atL, large atL+S; parity1 uses small at0, large atS, small atL+S. Translate
+    producer/consumer phase conventions explicitly. Before each write, retire
+    all overlapping prior occupancies, not just the previous generation of slot i.
+    Readiness and native async completion remain separate from address packing.
+backward_map: Associate each read with its logical generation and forget the phase-dependent physical address. Under readiness/lifetime premises it reads exactly the operand held by a dedicated maximum-sized slot.
+obligations:
+  - {name: address_and_capacity, statement: "All phase-specific operand footprints are aligned, in bounds and pairwise disjoint within each complete three-slot parity frame.", method: exhaustive}
+  - {name: transition_lifetime, statement: "Every changed physical range is free of all earlier async readers before writing, including cross-slot overlap during parity transitions.", method: test}
+  - {name: phase_agreement, statement: "Producer and consumer use identical logical generation, size and physical address despite any opposite native phase convention.", method: test}
+effects:
+  transactions: []
+  storage:
+    - {id: uniform, level: smem, scope: cta, bytes: "3 * large_bytes", when: "packing == 'uniform'"}
+    - {id: shifted, level: smem, scope: cta, bytes: "2 * large_bytes + small_bytes", when: "packing == 'pointer_shifted'"}
+  overlap: []
+scope:
+  predicate: "p.operands_alternate_large_small and p.producer_consumer_logical_phase_match and p.every_overlapping_occupancy_retired_before_write and p.native_read_footprints_match_tile_footprints and p.base_and_phase_addresses_legal and p.operand_ready_before_read"
+  text: >-
+    Three-slot alternating-size storage with complete footprint and lifetime
+    bindings. Source one-CTA hd192/128 uses three KV stages and a phase-dependent
+    middle offset; two-CTA halves payloads and disables this layout. Generic
+    arbitrary odd-slot rings, unknown padded footprints and treating per-slot
+    release as proof of neighboring-range retirement are outside scope.
+requires: []
+probed_on: []
+relations:
+  - {type: refines, target: physical_storage, note: "Supplies a concrete phase-address mapping and reduced capacity bound; the lifetime condition must include every overlapping occupancy."}
+signature:
+  algorithm: Pack alternating-size operands in a three-slot ring by shifting the middle slot across wrap parity.
+  storage: Pointer-shifted mode reserves2L+S instead of3L bytes.
+  boundary: Cross-slot overlap at parity transitions and native phase/address agreement.
+  resources: [smem]
+numeric_risk: Address/lifetime transformation only; an admitted native layout binding preserves operand values.
+summary: >-
+  When an odd three-slot pipeline alternates larger and smaller operand tiles,
+  consider shifting its middle address by wrap parity instead of reserving the
+  maximum footprint for every slot. This saves L-S bytes. Source128-row FP16
+  K192/V128 has L49152,S32768 and reserves131072 rather than147456 bytes.
+  Per-slot readiness is insufficient: a newly large edge slot can overlap a
+  still-live middle operand, so prove retirement for every overlapping range.

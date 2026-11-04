@@ -1,0 +1,14 @@
+workload: "Partial routed BF16 MegaMoE L2 for hidden256,intermediate256 and four L1 N128 fragments per M block. The input ring's complete reuse/lifetime proof is external. These nodes describe the read dependency and K64 reduction grouping; individual groups execute as their fragment becomes available."
+items:
+  - key: fragment_reads
+    template: fragment_parity_publication@1
+    applies_to: L1 post-SwiGLU fragment publication for one ring slot; each BF16 L2 K64 read depends on one fragment.
+    bindings: {num_fragments: 4, group_size: 1}
+    after: []
+    code_markers: []
+  - key: l2_reduction
+    template: reduction_partition@1
+    applies_to: Each L2 output dot over256 intermediate coordinates; read each K64 group after its fragment's wait.
+    bindings: {num_groups: 4, group_size: 64, assignment: contiguous_sequential}
+    after: [fragment_reads]
+    code_markers: []

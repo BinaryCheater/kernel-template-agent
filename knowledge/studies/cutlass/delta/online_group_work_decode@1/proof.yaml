@@ -1,0 +1,22 @@
+template: online_group_work_decode@1
+version: 1
+relation: The retained cursor agrees with the immutable group prefix; each returned valid pair is the inverse concatenation coordinate of its query index.
+rank: Remaining groups in a forward search; a cursor hit finishes immediately.
+assumes:
+  - {name: counts, statement: Group counts are nonnegative and complete and cumulative sums fit the selected integer representation.}
+  - {name: query_order, statement: Each worker's nonnegative query indices are monotonically increasing or equal.}
+  - {name: metadata, statement: Problem shapes remain immutable and any shape-cache tuple preserves its group identity.}
+guarantees: []
+models: []
+note: >-
+  Inclusive prefix ends are nondecreasing. Counting ends <= q skips exactly the
+  groups whose half-open intervals end before or at q, including zero-sized
+  intervals. A valid hit has start<=q<end and local=q-start. Otherwise the scan
+  advances32 groups, strictly reducing its remaining-group rank. The cursor can
+  retain a matched interval because later queries never need an earlier group.
+  Bounds masking makes padded lanes contribute zero without publishing metadata.
+  The replay compares independent bisect inversion with window32 scans and retained
+  cursor queries through group counts1/2/31/32/33/64/65/97 and several static strides.
+  It preserves a backwards-query counterexample. The source grouped shape cache
+  and emitted warp instructions remain implementation obligations; no target
+  register allocation, registered checker model or ProofSummary is claimed.

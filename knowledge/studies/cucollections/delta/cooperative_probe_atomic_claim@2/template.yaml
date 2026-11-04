@@ -1,0 +1,118 @@
+{
+  "name": "cooperative_probe_atomic_claim",
+  "version": 2,
+  "level_from": 2,
+  "level_to": 3,
+  "change": "vertical",
+  "refines": "map",
+  "produces": [
+    "map",
+    "access"
+  ],
+  "object": {
+    "type": "cooperative_probe_atomic_claim",
+    "description": "When a hash insertion probes several buckets together, elect one available lane and atomically claim a whole packed slot before advancing the probe."
+  },
+  "variables": [
+    {
+      "name": "group_size",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": [
+        1,
+        2,
+        4,
+        8,
+        16,
+        32
+      ],
+      "meaning": "Cooperative tile size, must divide CUDA warp and match selected probe implementation."
+    },
+    {
+      "name": "slot_bytes",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": [
+        4,
+        8,
+        16
+      ],
+      "meaning": "Whole-slot atomic width;16-byte requires packable representation and native128-bit CAS capability."
+    }
+  ],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_0",
+      "expr": "p.keys_exclude_sentinels and p.equal_keys_same_probe",
+      "meaning": "Valid keys exclude empty/erased markers and equal keys follow the same probing sequence.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_1",
+      "expr": "p.capacity_sufficient and p.probe_covers_capacity",
+      "meaning": "Probe reaches free storage under valid capacity/load assumptions.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_2",
+      "expr": "p.slot_aligned and p.no_concurrent_erase and p.group_participation",
+      "meaning": "Packed atomic alignment is valid, no concurrent erase, all tile lanes participate.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_wide",
+      "expr": "slot_bytes <= 8 or (p.slot_representation_packable and p.native_cas128_supported and p.target_sm >= 90)",
+      "meaning": "Wide packed slots use a real atomic128-bit path rather than split key/payload operations.",
+      "cls": "implementation"
+    }
+  ],
+  "program": {
+    "description": "For one input key/value, each cooperative lane reads its current probe bucket and classifies slots as equal, available or unequal. If any lane observes an equal key, unique-key insertion returns duplicate. Otherwise elect the lowest available lane, attempt whole-slot compare-exchange from empty to desired key/value and broadcast status. On success return inserted; on same-key failure return duplicate; on other-key interference retry the same probe round before advancing. Advance only when the group has no available slot."
+  },
+  "backward_map": "Erase auxiliary organization and recover the visible results under the stated contract.",
+  "obligations": [
+    {
+      "name": "linearization",
+      "statement": "Whole-slot CAS is the successful insertion linearization point and no observer can see a claimed key without its paired payload in this packed scope.",
+      "method": "proof"
+    },
+    {
+      "name": "unique_key",
+      "statement": "Equal-key insertions converge to one retained slot under the same probe and retry order.",
+      "method": "proof"
+    },
+    {
+      "name": "coverage",
+      "statement": "Cooperative probe buckets cover capacity without skipping an available earlier round.",
+      "method": "proof"
+    },
+    {
+      "name": "publication",
+      "statement": "A consuming phase starts after insertions complete; relaxed atomic claim alone does not publish unrelated memory.",
+      "method": "proof"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.keys_exclude_sentinels and p.equal_keys_same_probe and p.capacity_sufficient and p.probe_covers_capacity and p.slot_aligned and p.no_concurrent_erase and p.group_participation and slot_bytes <= 8 or (p.slot_representation_packable and p.native_cas128_supported and p.target_sm >= 90)",
+    "text": "Unique-key whole-slot atomic claim on NVIDIA CUDA;4/8-byte baseline or packable16-byte native CAS at sm90+ with supported toolchain. Split nonpacked payload and concurrent erase excluded."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "When a hash insertion probes several buckets together, elect one available lane and atomically claim a whole packed slot before advancing the probe.",
+    "storage": "Group-wide bucket reads plus one CAS attempt per elected slot; smaller groups reduce per-key parallelism while larger groups read more candidates together. Table storage remains capacity*slot_bytes.",
+    "boundary": "Two different keys colliding at one empty slot: one CAS wins, loser retries rather than skipping all other lanes in the round. Two equal keys: loser recognizes duplicate. Non-atomic check-then-store loses either entry.",
+    "resources": []
+  },
+  "numeric_risk": "Preserve the supplied arithmetic contract; reassociation, quantization and approximate search require separate permission.",
+  "summary": "When a hash insertion probes several buckets together, elect one available lane and atomically claim a whole packed slot before advancing the probe. Two different keys colliding at one empty slot: one CAS wins, loser retries rather than skipping all other lanes in the round. Two equal keys: loser recognizes duplicate. Non-atomic check-then-store loses either entry. Version2 widens only packed slot width to16 bytes under explicit representation/target capability guards; version1 bindings remain unchanged."
+}

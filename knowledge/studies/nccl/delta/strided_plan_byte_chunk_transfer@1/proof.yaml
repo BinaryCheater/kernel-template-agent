@@ -1,0 +1,15 @@
+{
+  "template": "strided_plan_byte_chunk_transfer@1",
+  "version": 1,
+  "relation": "After emitted prefix m bytes, those bytes equal the logical plan slice [b,b+m); remaining begins at the mixed-radix coordinate of b+m, with no duplicated or omitted inner bytes.",
+  "rank": "Bytes remaining in chunk, decreasing by positive piece size.",
+  "assumes": [
+    {
+      "name": "source_contract",
+      "statement": "Contiguous-inner strided plans over registered windows; no transpose or packing equality is inferred outside supplied paired strides."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Source-derived proof outline; no formal proof result or GPU execution claimed. coordinates: Mixed-radix iteration and inner offset reconstruct exactly the original tensor region coordinates. chunk_cover: Piece intervals partition requested byte chunk without gaps/overlap, even when endpoints cut inner transfers. publication: Observed final signal covers every piece and source is retained until provider no longer reads it."
+}

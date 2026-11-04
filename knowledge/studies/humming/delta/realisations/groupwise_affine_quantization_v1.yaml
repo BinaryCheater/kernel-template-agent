@@ -1,0 +1,15 @@
+template: groupwise_affine_quantization@1
+backend: cuda
+isa:
+  family: sm
+  min: '75'
+requires: []
+isa_constraints: []
+fragments: {}
+code_markers:
+- quant_weight
+- __float2int_rn
+expected_sass: []
+probed_on: []
+summary: kernel/quant_weight.cuh:178-307; one warp per group, floating scale and integer/floating ZP.
+  No full numerical-domain proof.

@@ -1,0 +1,92 @@
+name: centered_moment_merge
+version: 1
+level_from: 2
+level_to: 3
+change: vertical
+refines: reduce
+produces:
+- reduce
+- contract
+object:
+  type: mergeable_centered_statistics
+  description: When a row statistic spans several warps or CTAs, merge count, mean and centered squared
+    deviation instead of materializing all values or subtracting large raw second moments. Counts may
+    be omitted from transport only when equal partition sizes are known. Preserve the count and normalization
+    convention; floating-point reassociation remains part of the numerical policy.
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+requires: []
+probed_on: []
+relations: []
+summary: When a row statistic spans several warps or CTAs, merge count, mean and centered squared deviation
+  instead of materializing all values or subtracting large raw second moments. Counts may be omitted from
+  transport only when equal partition sizes are known. Preserve the count and normalization convention;
+  floating-point reassociation remains part of the numerical policy.
+variables:
+- name: count_mode
+  kind: structure
+  binding: compile
+  role: software
+  domain:
+  - explicit
+  - equal_inferred
+  meaning: Carry each partition count or reconstruct equal nonempty counts from the partition shape.
+constraints:
+- id: c_counts
+  expr: count_mode != 'equal_inferred' or p.equal_nonempty_partition_counts
+  meaning: Omitted counts are justified only by the actual partition cardinalities.
+  cls: semantic
+preconditions:
+- id: pre_partition
+  expr: p.disjoint_complete_samples and p.partial_counts_match and p.partial_centered_stats_valid
+  meaning: Each partial summarizes its exact sample set as count, mean and sum of squared deviations.
+  cls: semantic
+- id: pre_empty
+  expr: p.zero_count_identity_guarded and p.nonempty_final_domain
+  meaning: Empty partials are explicit identities and no undefined zero-total merge is evaluated.
+  cls: semantic
+- id: pre_numeric
+  expr: p.finite_sample_domain and p.moment_merge_rounding_admitted and p.statistics_visible_before_merge
+  meaning: Finite arithmetic, changed merge order and partial publication satisfy the numerical and visibility
+    contract.
+  cls: implementation
+program:
+  description: A partial over samples A carries n_A, mean mu_A and M2_A=sum_(x in A)(x-mu_A)^2. Merge
+    disjoint nonempty A and B with n=n_A+n_B, delta=mu_A-mu_B, mu=(n_A*mu_A+n_B*mu_B)/n and M2=M2_A+M2_B+delta^2*n_A*n_B/n.
+    Return the other operand for a zero-count identity and guard the zero/zero case. At the end population
+    variance is M2/n; RMS second moment is M2/n+mu^2. With equal_inferred, transport only mu,M2 and recover
+    each level count from its exact partition shape. Local partial statistics may use separate mean and
+    centered-deviation passes; merging them does not require an online per-sample Welford update.
+backward_map: Replace every merged partial by the union of its disjoint samples; the state summarizes
+  the same global count, mean and centered squared deviation.
+obligations:
+- name: moment_identity
+  statement: The merge equations give the count, mean and centered second moment of the disjoint union.
+  method: proof
+- name: count_inference
+  statement: Implicit counts match every partition including tails and inactive lanes.
+  method: test
+- name: numeric_and_visibility
+  statement: Native arithmetic and publication match the admitted partial-state merge.
+  method: test
+scope:
+  predicate: (count_mode != 'equal_inferred' or p.equal_nonempty_partition_counts) and p.disjoint_complete_samples
+    and p.partial_counts_match and p.partial_centered_stats_valid and p.zero_count_identity_guarded and
+    p.nonempty_final_domain and p.finite_sample_domain and p.moment_merge_rounding_admitted and p.statistics_visible_before_merge
+  text: Scalar finite centered moments with exact nonnegative sample counts and population normalization.
+    TransformerEngine tuned norm paths compute mean/M2 per warp, merge equal-size warp/CTA partials with
+    inferred counts and store FP32 mean/rsigma. Uneven tails need explicit counts or a separately justified
+    padding policy. Exact floating-point associativity, automatic stability bounds and arbitrary weighted
+    sample measures are outside this version.
+signature:
+  algorithm: Merge centered moments by count-weighted mean and between-partition correction.
+  storage: Count/mean/M2 state; equal partitions may communicate only mean/M2.
+  boundary: Exact sample membership, count and centered-moment convention.
+  resources:
+  - registers
+  - smem
+  - dram
+numeric_risk: "Avoiding raw E[x\xB2]-E[x]\xB2 does not remove floating-point error; count representation,\
+  \ merge tree and epsilon/final normalization remain numerical choices."

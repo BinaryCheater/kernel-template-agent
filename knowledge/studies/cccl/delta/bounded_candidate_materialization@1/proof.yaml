@@ -1,0 +1,14 @@
+template: bounded_candidate_materialization@1
+version: 1
+relation: Erase the selected physical input representation; every pass sees exactly
+  the active original occurrences.
+rank: Unprocessed source items or unmerged partials.
+assumes:
+- name: contract
+  statement: The stated partition, comparator/count and publication premises hold.
+guarantees: []
+models: []
+note: Source agent_topk.cuh:595-646 and following filter/histogram paths. The complete
+  buffer is a bijective materialization of active original occurrences. Replacing
+  it by predicate replay preserves membership, so subsequent histogram/rank operations
+  are unchanged. Performance differs through repeated input reads.

@@ -1,0 +1,15 @@
+{
+  "template": "symmetric_matrix_packing@1",
+  "version": 1,
+  "relation": "Packed upper entry(i,j) equals both mirrored symmetric values. Packed gradient paired with independent symmetric perturbations equals full gradient paired with its symmetric expansion.",
+  "rank": "Upper-triangle entries remaining.",
+  "assumes": [
+    {
+      "name": "source_contract",
+      "statement": "Real symmetric matrices and symmetric perturbations; half splitting requires admitted arithmetic. Complex Hermitian conjugation is outside this version."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Source-derived proof outline; no formal proof result or GPU execution claimed. value: Unpacking mirrors exactly the original symmetric matrix at every coordinate. gradient: Packed directional derivative equals the full-gradient inner product on the symmetric tangent space. order: Every consumer uses same triangular ordering and forward/backward representation generation."
+}

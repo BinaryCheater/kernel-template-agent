@@ -1,0 +1,15 @@
+{
+  "template": "ring_reduce_scatter_allgather@1",
+  "version": 1,
+  "relation": "Each in-flight chunk contains one contribution from each rank already traversed; a finalized chunk has all contributions once and subsequent forwarding copies it without additional reduction.",
+  "rank": "Remaining finite reduce/forward communication steps, channel loops and chunks.",
+  "assumes": [
+    {
+      "name": "source_contract",
+      "statement": "NVIDIA CUDA NCCL ring AllReduce with at least two ranks. Protocol SIMPLE/LL/LL128 has a separate transport realization. Noncommutative reductions require an explicitly compatible rank order; floating sums follow source ordering and rounding."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Source-derived proof outline; no formal proof result or GPU execution claimed. contributions: Before a chunk completes, it accumulates exactly one original contribution per rank. completed_owner: Chunk r completes at ring index r before allgather forwarding begins for that chunk. coverage: Every valid vector element belongs to exactly one channel/loop/chunk and reaches every output rank. post_operation: Final normalization/post-op occurs once after all contributions, never at each hop. The relation is a proposed source-level invariant; the stated finite-work rank depends on the explicit environment progress assumptions. Device ordering and numeric premises have not been discharged by schema validation."
+}

@@ -1,0 +1,114 @@
+name: segmented_bit_packing
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: store
+produces:
+- map
+- store
+object:
+  type: independently_byte_padded_boolean_segments
+  description: Pack each variable-length boolean segment into its own whole-byte range, with selectable
+    within-byte bit order and zero tail padding.
+variables:
+- name: bit_order
+  kind: structure
+  binding: compile
+  role: boundary
+  domain:
+  - big
+  - little
+  meaning: 'Consumer representation contract: first value occupies bit7 or bit0 of its byte; not a free
+    numerical or traversal choice.'
+constraints:
+- id: c_segments
+  expr: p.segments >= 1 and p.total_input_values >= 0 and p.total_input_values <= 2147483640
+  meaning: At least one possibly empty segment; pinned Int32 preparation/dispatch and length+7 arithmetic
+    fit.
+  cls: implementation
+preconditions:
+- id: pre_segments
+  expr: p.boolean_inputs and p.input_prefix_monotone_and_complete and p.input_and_output_prefixes_immutable
+  meaning: Input segments are disjoint slices of one boolean array; their exact nonnegative lengths and
+    prefixes are fixed throughout packing.
+  cls: implementation
+- id: pre_prefix
+  expr: p.output_prefix_is_sum_of_per_segment_ceil_length_over_8 and p.prefix_and_length_plus_7_arithmetic_fit
+  meaning: Output starts sum independently rounded byte lengths, not global input bit offsets; input/packed
+    prefixes, lengths+7 and loop counters cannot overflow.
+  cls: implementation
+- id: pre_ownership
+  expr: p.each_output_byte_has_one_writer and p.allocated_output_covers_packed_prefix and p.segment_grid_supported_and_loop_progress_guaranteed
+  meaning: Every required byte has one exclusive producer and fits its output allocation; empty segments
+    issue no payload store. The selected segment grid fits native launch limits and every segment loop
+    terminates.
+  cls: implementation
+- id: pre_tail
+  expr: p.partial_final_byte_uses_zero_for_missing_boolean_values and p.consumer_uses_matching_order_lengths_and_prefix
+  meaning: Inactive final-byte positions are zero; every reader uses the same bit order and original semantic
+    lengths instead of treating padding as input.
+  cls: implementation
+- id: pre_lifetime
+  expr: p.published_prefixes_and_inputs_precede_pack and p.output_payload_and_prefix_publish_before_readers
+    and p.input_output_alias_safe
+  meaning: Input and metadata generations remain valid through packing, buffers do not overwrite live
+    input, and consumers see matching output bytes/prefixes.
+  cls: implementation
+program:
+  description: Let input starts I and lengths L_s=I[s+1]-I[s]. Construct B[0]=0 and B[s+1]=B[s]+ceil(L_s/8).
+    Segment s writes bytes B[s]..B[s+1]-1. For byte j initialize zero, then for t=0..7 read x[I[s]+8*j+t]
+    only when8*j+t<L_s, otherwise use false. Set bit7-t for bit_order=big or bit t for little. No byte
+    contains values from another segment, including adjacent short/empty segments. Emit packed bytes and
+    B together. A decoder reads the declared bit at B[s]+i//8 for each original local i<L_s; it never
+    interprets byte padding as additional values. A flat pack is the one-segment instance. Zero-segment
+    batches need an explicit no-launch extension outside this version.
+backward_map: For every segment/local coordinate read its selected bit from the matching byte prefix;
+  discard zero tail positions and recover the original boolean array exactly.
+obligations:
+- name: coordinate_identity
+  statement: Each semantic boolean maps injectively to its own segment byte and selected bit; unpack returns
+    its original value.
+  method: exhaustive
+- name: prefix_and_tails
+  statement: Byte prefixes sum per-segment rounded extents, including empty segments, and every nonsemantic
+    final-byte bit is zero.
+  method: test
+- name: ownership_and_publication
+  statement: Exclusive byte writers and immutable prefixes avoid races and publish the same payload generation
+    to consumers.
+  method: test
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: p.segments >= 1 and p.total_input_values >= 0 and p.total_input_values <= 2147483640 and
+    (p.boolean_inputs and p.input_prefix_monotone_and_complete and p.input_and_output_prefixes_immutable)
+    and (p.output_prefix_is_sum_of_per_segment_ceil_length_over_8 and p.prefix_and_length_plus_7_arithmetic_fit)
+    and (p.each_output_byte_has_one_writer and p.allocated_output_covers_packed_prefix and p.segment_grid_supported_and_loop_progress_guaranteed)
+    and (p.partial_final_byte_uses_zero_for_missing_boolean_values and p.consumer_uses_matching_order_lengths_and_prefix)
+    and (p.published_prefixes_and_inputs_precede_pack and p.output_payload_and_prefix_publish_before_readers
+    and p.input_output_alias_safe)
+  text: Source quantization/packbits.py prepares per-segment byte prefixes then converts both prefixes
+    to Int32; quantization.cuh uses one CTA per segment,256 threads and8 values per thread, zero-filling
+    incomplete loads. Individual empty segments are admitted. This version does not extend to arbitrary
+    multi-bit codes, 32-bit containers, nonboolean conversion semantics, cross-segment bit concatenation
+    or zero-grid launches.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Independently byte-align variable boolean segments with reversible within-byte bit order.
+  storage: One byte per up-to8 local boolean values plus a separate byte-prefix table.
+  boundary: Segment-local bit origins, original lengths, zero tail fill, matching consumer order and bounded
+    prefix arithmetic.
+  resources:
+  - dram
+  - registers
+numeric_risk: None for boolean values on the admitted domain. Treating padding as logical values, mixing
+  global and local bit offsets or using the other bit order changes masks.
+summary: When variable-length boolean masks need independent byte ranges, round each segment length to
+  bytes and prefix-sum those rounded extents. Select the consumer bit order, reset bit position at every
+  segment and zero-fill the last byte. This preserves empty and short segments without letting adjacent
+  masks share a byte; retain original lengths for decoding.

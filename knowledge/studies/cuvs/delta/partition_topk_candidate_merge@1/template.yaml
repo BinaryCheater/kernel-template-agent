@@ -1,0 +1,96 @@
+{
+  "name": "partition_topk_candidate_merge",
+  "version": 1,
+  "level_from": 2,
+  "level_to": 3,
+  "change": "vertical",
+  "refines": "map",
+  "produces": [
+    "map",
+    "access"
+  ],
+  "object": {
+    "type": "partition_topk_candidate_merge",
+    "description": "When candidates are partitioned across indexes or devices, merge at most k winners per partition with explicit global identity translation and completion before final selection."
+  },
+  "variables": [
+    {
+      "name": "partitions",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": {
+        "lo": 1,
+        "hi": 1048576
+      },
+      "meaning": "Candidate partitions/shards; can be a scheduling choice only if union contract stays fixed."
+    }
+  ],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_0",
+      "expr": "p.partitions_cover_declared_candidates and p.local_winners_sound",
+      "meaning": "Every declared candidate belongs to the intended partition and local pruning retains all candidates needed under the agreed top-k order.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_1",
+      "expr": "p.identity_translation_injective and p.invalid_sentinels_preserved",
+      "meaning": "Local IDs translate to unique global identities, while invalid slots stay invalid and cannot win.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_2",
+      "expr": "p.metric_comparators_compatible and p.all_partitions_complete",
+      "meaning": "Every local/merge stage uses compatible metric and tie policy; inputs finish writing before merge.",
+      "cls": "semantic"
+    }
+  ],
+  "program": {
+    "description": "Compute local top-k pairs for each partition, retaining actual valid count and original score. Translate local IDs with partition base or mapping, never translating invalid sentinels as data. Gather pairs into query-major rows using the current batch size, not a maximum-batch stride. Select global k from their union; a tree may repeatedly merge pairs of partition groups under the same order. For max-close metrics negate scores only under a matching sign/return convention. Index search approximation remains upstream; this merge does not restore candidates already omitted there."
+  },
+  "backward_map": "Erase auxiliary organization and recover the visible results under the stated contract.",
+  "obligations": [
+    {
+      "name": "local_pruning",
+      "statement": "Every discarded partition candidate is dominated by k retained candidates in that partition under the final comparator.",
+      "method": "proof"
+    },
+    {
+      "name": "identity",
+      "statement": "Translation is one-to-one over valid IDs and invalid padding never enters rank output.",
+      "method": "proof"
+    },
+    {
+      "name": "layout",
+      "statement": "Query/partition/rank offsets agree between producers and consumer for full and partial batches.",
+      "method": "proof"
+    },
+    {
+      "name": "completion",
+      "statement": "Cross-stream/device reads follow all producer writes, including intermediate tree stages.",
+      "method": "proof"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.partitions_cover_declared_candidates and p.local_winners_sound and p.identity_translation_injective and p.invalid_sentinels_preserved and p.metric_comparators_compatible and p.all_partitions_complete",
+    "text": "NVIDIA multi-index/composite, multi-GPU sharded and tiered candidate merging. Exactness is relative to the declared candidate set and sound local selection; ANN local search supplies an approximate set, not exact global nearest neighbors. Duplicate records across replicated partitions need deduplication or an explicitly multiplicity-preserving contract. Resource effects: O(partitions*k) candidates per query plus transfer/temporary buffers; root vs tree merge trades aggregate root work for intermediate selections and communications."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "When candidates are partitioned across indexes or devices, merge at most k winners per partition with explicit global identity translation and completion before final selection.",
+    "storage": "O(partitions*k) candidates per query plus transfer/temporary buffers; root vs tree merge trades aggregate root work for intermediate selections and communications.",
+    "boundary": "Two partitions have local IDs0,1 but bases0 and100: winners(0,score1) and(0,score2) represent global0 and100. Last batch of3 queries must use stride3 per rank, not the allocated maximum8. Translating invalid -1 to99 creates a false valid candidate.",
+    "resources": []
+  },
+  "numeric_risk": "Preserve the supplied arithmetic contract; reassociation, quantization and approximate search require separate permission.",
+  "summary": "When candidates are partitioned across indexes or devices, merge at most k winners per partition with explicit global identity translation and completion before final selection. Two partitions have local IDs0,1 but bases0 and100: winners(0,score1) and(0,score2) represent global0 and100. Last batch of3 queries must use stride3 per rank, not the allocated maximum8. Translating invalid -1 to99 creates a false valid candidate."
+}

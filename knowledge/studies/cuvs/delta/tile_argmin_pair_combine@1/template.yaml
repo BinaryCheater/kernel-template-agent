@@ -1,0 +1,96 @@
+{
+  "name": "tile_argmin_pair_combine",
+  "version": 1,
+  "level_from": 2,
+  "level_to": 3,
+  "change": "vertical",
+  "refines": "map",
+  "produces": [
+    "map",
+    "access"
+  ],
+  "object": {
+    "type": "tile_argmin_pair_combine",
+    "description": "When distance tiles feed nearest-neighbor output, reduce each tile to value/identity pairs and merge those pairs atomically as one logical state instead of materializing every distance."
+  },
+  "variables": [
+    {
+      "name": "tile_columns",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": {
+        "lo": 1,
+        "hi": 65536
+      },
+      "meaning": "Candidate columns per producer tile; resource/menu constraints supplied by realization."
+    }
+  ],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_0",
+      "expr": "p.pair_comparator_total_and_shared and p.invalid_pairs_lose",
+      "meaning": "Tile and global reductions use the same value/identity comparator, with padded pairs losing.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_1",
+      "expr": "p.output_initialized_once and p.competing_pair_updates_serialized",
+      "meaning": "Each row output starts at a defined losing pair; concurrent value/ID changes are serialized as one logical pair.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_2",
+      "expr": "p.completion_before_read and p.producers_can_progress",
+      "meaning": "Readers/reset follow all producer updates and locking cannot deadlock residency.",
+      "cls": "semantic"
+    }
+  ],
+  "program": {
+    "description": "Produce a distance tile and combine norm/metric epilogue while values remain on chip. Reduce each output row over tile columns into one (score,global_candidate_id) using the declared comparator. Merge the local pair with the existing row pair under a row/bin mutex: acquire, read old complete pair, apply comparator, store the selected complete pair, publish writes, release. When one CTA exclusively owns the full candidate row, omit only the global mutex while preserving the same pair reduction. Final output is one winning pair per query row."
+  },
+  "backward_map": "Erase auxiliary organization and recover the visible results under the stated contract.",
+  "obligations": [
+    {
+      "name": "tile_cover",
+      "statement": "Every valid candidate is represented by exactly one producer tile before local reduction.",
+      "method": "proof"
+    },
+    {
+      "name": "pair_identity",
+      "statement": "Winning score and ID always come from the same candidate, including ties.",
+      "method": "proof"
+    },
+    {
+      "name": "atomic_combine",
+      "statement": "Competing CTAs cannot interleave scalar stores into a mixed score/ID pair.",
+      "method": "proof"
+    },
+    {
+      "name": "fusion_boundary",
+      "statement": "All norm/metric transforms required for ranking occur before local argmin, not after pruning changes winners.",
+      "method": "proof"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.pair_comparator_total_and_shared and p.invalid_pairs_lose and p.output_initialized_once and p.competing_pair_updates_serialized and p.completion_before_read and p.producers_can_progress",
+    "text": "NVIDIA fused distance-NN SIMT and CUTLASS epilogues. Comparator tie and metric convention are workload-bound. A scalar atomicMin on score alone cannot publish a consistent separate ID. Resource effects: Avoids materialized query*candidate distance matrix, retaining tile accumulators and O(query_rows) winner pairs; mutex/bin contention and epilogue reductions replace matrix write/read traffic."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "When distance tiles feed nearest-neighbor output, reduce each tile to value/identity pairs and merge those pairs atomically as one logical state instead of materializing every distance.",
+    "storage": "Avoids materialized query*candidate distance matrix, retaining tile accumulators and O(query_rows) winner pairs; mutex/bin contention and epilogue reductions replace matrix write/read traffic.",
+    "boundary": "Tile winners(score2,id7) and(score1,id9) must yield(1,9). Separate unsynchronized stores can produce(1,7), a pair no tile produced. Empty tail tiles offer a losing pair, not ID0 with a real score.",
+    "resources": []
+  },
+  "numeric_risk": "Preserve the supplied arithmetic contract; reassociation, quantization and approximate search require separate permission.",
+  "summary": "When distance tiles feed nearest-neighbor output, reduce each tile to value/identity pairs and merge those pairs atomically as one logical state instead of materializing every distance. Tile winners(score2,id7) and(score1,id9) must yield(1,9). Separate unsynchronized stores can produce(1,7), a pair no tile produced. Empty tail tiles offer a losing pair, not ID0 with a real score."
+}

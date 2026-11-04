@@ -1,0 +1,139 @@
+name: contiguous_group_tile_walk
+version: 1
+level_from: 4
+level_to: 4
+change: vertical
+refines: work_assign
+produces:
+- work_assign
+- map
+- reduce
+- store
+object:
+  type: contiguous_flat_tiles_with_per_group_segment_slots
+  description: Partition a rectangular group-by-tile space into balanced contiguous CTA intervals and
+    emit one reduction partial per group/CTA intersection.
+variables:
+- name: workers
+  kind: numeric
+  binding: runtime
+  role: software
+  domain:
+    lo: 1
+    hi: 65535
+  meaning: CTA interval count; source chooses min(SM count,total allocated tiles) before deriving partial
+    capacity.
+constraints:
+- id: c_domain
+  expr: p.groups >= 1 and p.tiles_per_group >= 1 and workers >= 1 and workers <= p.groups * p.tiles_per_group
+  meaning: Every worker interval is nonempty in the rectangular tile domain.
+  cls: semantic
+- id: c_capacity
+  expr: p.partial_slots_per_group >= p.maximum_derived_group_segments and p.maximum_derived_group_segments
+    >= 1
+  meaning: Storage capacity covers the maximum actual number of CTA intersections with any group.
+  cls: resource
+preconditions:
+- id: pre_domain
+  expr: p.rectangular_group_tile_enumeration_complete_and_unique and p.masked_tail_tiles_contribute_defined_identity
+  meaning: Each logical group has the same allocated tile extent; validity tails contribute a defined
+    reduction identity.
+  cls: semantic
+- id: pre_combine
+  expr: p.segment_state_and_combiner_preserve_original_group_reduction and p.segment_states_include_matching_normalization_metadata
+  meaning: Partial states retain the data/frame needed to recover the original group reduction under the
+    admitted arithmetic policy.
+  cls: semantic
+- id: pre_slots
+  expr: p.segment_slot_formula_matches_worker_intersections and p.unused_partial_slots_have_defined_identity_and_no_stale_reads
+  meaning: Every nonempty group/CTA intersection has a unique per-group slot; merge padding cannot read
+    stale state.
+  cls: implementation
+- id: pre_state
+  expr: p.group_accumulators_reset_at_each_intersection_and_inputs_keep_original_group_coordinates and
+    p.pipeline_generations_continue_consistently_across_group_changes
+  meaning: Math state resets when changing groups while input rings retain the correct cumulative generations
+    and logical group identity.
+  cls: implementation
+- id: pre_resources
+  expr: p.integer_products_and_inverse_owner_formula_fit_types and p.selected_persistent_body_resources_and_progress_legal
+  meaning: Flattened indices and inverse products fit their integer types; actual CTA resources/launch
+    are legal.
+  cls: implementation
+- id: pre_completion
+  expr: p.all_partial_writes_complete_before_group_combine and p.partial_storage_lives_until_all_readers_retire
+  meaning: The combiner sees completed partials and scratch is not reset while readers remain.
+  cls: implementation
+program:
+  description: Let P be group count, T allocated tiles per group and S=P*T. CTA c owns [floor(c*S/workers),floor((c+1)*S/workers)).
+    Within this interval decode group=floor(slot/T) and tile=slot%T. For each intersected group g compute
+    lo=max(0,start-g*T) and hi=min(T,end-g*T), initialize that group accumulator and process [lo,hi) under
+    its original masks. Slot owner(s)=floor(((s+1)*workers-1)/S). Assign the completed group partial to
+    segment=c-owner(g*T), with segment count owner(g*T+T-1)-owner(g*T)+1. Derive maximum_derived_group_segments
+    by taking the maximum of these counts across g; do not treat it as an independently tunable split
+    number. Emit exactly one complete state per nonempty intersection and combine all actual group segments
+    once. Initialize or predicate unused capacity slots to identity. If every group has one segment and
+    the backend supports it, the worker may finalize directly. On group changes reset logical row/accumulator
+    state but preserve any live input pipeline ring generations and retirement rules across the walk.
+backward_map: Unroll every CTA interval into its original group/tile coordinates; group intersections
+  partition each original reduction exactly once, and the declared state combiner reconstructs that group
+  result.
+obligations:
+- name: flat_cover
+  statement: Half-open worker intervals are disjoint and cover every flattened tile exactly once.
+  method: proof
+- name: inverse_and_slots
+  statement: The inverse owner formula and group segment index uniquely cover all group intersections
+    with no partial-slot collision.
+  method: proof
+- name: state_and_pipeline
+  statement: Group math reset, tail identity and cumulative input pipeline generations preserve each original
+    group without stale state.
+  method: test
+- name: combine_and_capacity
+  statement: Derived capacity fits every group, unused slots are safe, and all complete partial states
+    precede their consumers.
+  method: test
+effects:
+  transactions: []
+  storage:
+  - id: group_partials
+    level: dram
+    scope: kernel
+    bytes: p.groups * p.partial_slots_per_group * p.partial_state_bytes
+  overlap: []
+scope:
+  predicate: p.rectangular_group_tile_enumeration_complete_and_unique and p.masked_tail_tiles_contribute_defined_identity
+    and p.segment_state_and_combiner_preserve_original_group_reduction and p.segment_states_include_matching_normalization_metadata
+    and p.segment_slot_formula_matches_worker_intersections and p.unused_partial_slots_have_defined_identity_and_no_stale_reads
+    and p.group_accumulators_reset_at_each_intersection_and_inputs_keep_original_group_coordinates and
+    p.pipeline_generations_continue_consistently_across_group_changes and p.integer_products_and_inverse_owner_formula_fit_types
+    and p.selected_persistent_body_resources_and_progress_legal and p.all_partial_writes_complete_before_group_combine
+    and p.partial_storage_lives_until_all_readers_retire
+  text: Rectangular independent groups with fixed allocated tiles per group and a valid partial-state
+    combiner. Source persistent QSA uses (row,KV head) groups,64-selection tiles and min(SM count,total
+    slots) workers, with normalized partials and LSE. Varying valid lengths are predicates inside the
+    allocated rectangle. Ragged tile-prefix domains, global atomic stealing and a fixed equal split count
+    per group are outside this version. Native resident-resource and cross-group pipeline behavior remain
+    bindings.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Balanced contiguous flattened intervals with exact per-group partial numbering.
+  reuse: Each worker can process adjacent tiles and cross group boundaries while amortizing resident CTA/pipeline
+    setup.
+  storage: Derived maximum segment capacity per group; no global next-task counter or explicit full task
+    list is required by this arithmetic.
+  boundary: Correct inverse owner, variable group split counts, per-group reset and persistent ring lifetime.
+  resources:
+  - launch
+  - dram
+  - smem
+numeric_risk: Changing worker count changes group split boundaries and therefore the partial combine association
+  and rounding. Normalized attention partials require matching LSE/frame metadata, not plain addition.
+summary: When a grouped reduction has many uniform tile slots but an awkward number of row-level CTAs,
+  split the flattened group-by-tile line into contiguous CTA intervals. Workers walk adjacent tiles and
+  may cross groups; each group intersection emits one numbered partial. Derive per-group segment counts
+  and capacity from the interval boundaries. Preserve original group coordinates, reset math at group
+  changes and keep persistent input-ring generations consistent.

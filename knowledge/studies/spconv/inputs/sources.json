@@ -1,0 +1,8 @@
+{
+  "upstream": "https://github.com/traveller59/spconv",
+  "revision": "263d6b47425ef843c82f997b12d8b714013d216c",
+  "license": "Apache-2.0",
+  "archive": "/Users/dingyi/kta-data/dev/operator-sources/traveller59/spconv/263d6b47425ef843c82f997b12d8b714013d216c/worker-e-source.tar.gz",
+  "tree": "/Users/dingyi/kta-data/dev/operator-sources/traveller59/spconv/263d6b47425ef843c82f997b12d8b714013d216c/spconv-263d6b47425ef843c82f997b12d8b714013d216c",
+  "scope": "complete superproject archive; external cumm dependency absent"
+}

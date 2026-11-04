@@ -1,0 +1,63 @@
+name: rounding_residual_checkpoint
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: store
+produces: [map, store, access]
+object:
+  type: paired_arithmetic_rounding_checkpoint
+  description: Save a high-precision value as a rounded low-precision value and an optional same-format rounded arithmetic residual, then reconstruct in the accumulator format.
+variables:
+  - {name: encoding, kind: structure, binding: compile, role: software, domain: [rounded_only, rounded_and_residual], meaning: Choose one low-precision checkpoint or a paired checkpoint with a separately rounded residual.}
+constraints: []
+preconditions:
+  - {id: pre_formats, expr: "p.finite_accumulator_values and p.rounded_values_and_residuals_finite and p.low_format_exactly_embeds_in_accumulator and p.cast_rounding_and_subnormal_policy_bound", meaning: "Bind accumulator/low formats and every cast, subtraction, addition and underflow policy; all intermediate values are finite.", cls: implementation}
+  - {id: pre_pair, expr: "p.checkpoint_coordinates_and_generation_match and p.checkpoint_visible_before_consumer and p.checkpoint_storage_survives", meaning: "High and residual values come from the same producer value, coordinate and generation, and survive until their consumer.", cls: semantic}
+  - {id: pre_consumer, expr: "p.consumer_reconstructs_in_accumulator and p.reconstruction_and_downstream_error_admitted", meaning: "The consumer adds in the accumulator format before its operation; its numerical policy admits reconstruction and downstream error.", cls: implementation}
+program:
+  description: >-
+    Let A be the producer accumulator format, T the smaller checkpoint format,
+    and x the already-finalized A value, including its final output scale. Set
+    h=round_T(x). For rounded_only save h and reconstruct xhat=A(h). For
+    rounded_and_residual compute r=fl_A(x-A(h)), save l=round_T(r), and reconstruct
+    xhat=fl_A(A(h)+A(l)). Save h and l with identical coordinate/generation ownership.
+    The residual is computed from the same x just rounded into h, before releasing
+    that producer fragment. A consumer may stream chunks, reconstruct each chunk,
+    and retain only its reduction partials. Do not add h+l in T, compute the
+    residual after discarding x, or treat the pair as an exact bit codec.
+backward_map: Decode the checkpoint with its selected encoding to the admitted approximation xhat of the original finalized accumulator value x, retaining its logical coordinate and generation.
+obligations:
+  - {name: arithmetic_error, statement: "The actual casts and arithmetic satisfy the declared reconstruction and consumer error budget, including subnormals and range boundaries.", method: test}
+  - {name: paired_visibility, statement: "Every consumer reads matching high/residual coordinates and generations after publication and before reuse.", method: test}
+  - {name: downstream_order, statement: "Reconstruction happens in the accumulator format before downstream multiplication/reduction, with the admitted association.", method: test}
+effects:
+  transactions: []
+  storage:
+    - {id: checkpoint, level: dram, scope: kernel, bytes: "p.elements * p.low_element_bytes", when: "encoding == 'rounded_only'"}
+    - {id: checkpoint_pair, level: dram, scope: kernel, bytes: "2 * p.elements * p.low_element_bytes", when: "encoding == 'rounded_and_residual'"}
+  overlap: []
+scope:
+  predicate: "p.finite_accumulator_values and p.rounded_values_and_residuals_finite and p.low_format_exactly_embeds_in_accumulator and p.cast_rounding_and_subnormal_policy_bound and p.checkpoint_coordinates_and_generation_match and p.checkpoint_visible_before_consumer and p.checkpoint_storage_survives and p.consumer_reconstructs_in_accumulator and p.reconstruction_and_downstream_error_admitted"
+  text: >-
+    Finite arithmetic checkpoint pairs with explicit formats and rounding policy.
+    The source binds A=FP32 and T=BF16 for sparse MLA training output and its
+    backward row statistic. Other formats require their own numerical binding.
+    This does not promise exact FP32 recovery, a universal relative error bound,
+    less storage than one FP32 checkpoint, or an interchangeable integer codec.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Save a rounded value and optionally its rounded arithmetic residual; reconstruct before consuming.
+  storage: One or two low-format arrays; the paired BF16 case uses the same bytes as one FP32 array.
+  boundary: Finite intermediates, paired ownership, explicit rounding and downstream error.
+  resources: [dram, registers]
+numeric_risk: Rounding the residual and the reconstructed sum can still lose information; output rounding error enters downstream row reductions and can dominate a centered gradient near cancellation.
+summary: >-
+  When a low-precision output is also a training checkpoint and its rounding
+  corrupts a later statistic, optionally save the rounding residual in a second
+  low-precision array. Reconstruct both in the accumulator format before use.
+  BF16 high1 plus low2^-9 recovers FP32(1+2^-9), but more detailed residuals
+  can still round away. The pair improves a numerical checkpoint under its
+  admitted error policy; it is not lossless storage or necessarily fewer bytes.

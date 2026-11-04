@@ -1,0 +1,75 @@
+name: deferred_gradient_scalar
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: map
+produces:
+- map
+- store
+object:
+  type: deferred_gradient_scalar
+  description: When saving a low-precision gradient that will be multiplied by a small
+    global normalization, retain the unnormalized local derivative and apply the scalar
+    after reload to avoid storing prematurely underflowed values.
+variables: []
+constraints: []
+preconditions:
+- id: pre0
+  expr: p.scalar_normalizer_positive_finite and p.local_checkpoint_in_range and p.delayed_rounding_contract_admitted
+    and p.invocation_scalar_matches_checkpoint
+  meaning: Finite positive normalizer, no checkpoint overflow, admitted numerical
+    policy and matching saved invocation.
+  cls: semantic
+program:
+  description: 'Compute local derivative g in accumulator precision, store q=cast_T(g),
+    then in backward return cast_out(q*upstream/normalizer). Compare against store
+    cast_T(g/normalizer): these are different rounded programs and must be explicitly
+    admitted under the caller numerical policy. Keep the positive normalizer and upstream
+    scalar associated with the same invocation; inactive entries store0. Source focal
+    loss computes analytic derivative with focal weights then delays division by num_positives_sum
+    to backward, where upstream loss gradient is also available. This trades later
+    multiply/divide for a larger checkpoint magnitude, not exact commutation through
+    rounding.'
+backward_map: Scalar-normalized derivative checkpoints with source low-precision focal
+  gradient; no bitwise equivalence to early normalization and no guarantee when unnormalized
+  checkpoint overflows.
+obligations:
+- name: real_identity
+  statement: Without rounding, moving one common scalar across storage preserves each
+    derivative.
+  method: proof
+- name: numeric_stage
+  statement: Actual store/reload/output casts meet the admitted error/range policy,
+    including near underflow.
+  method: proof
+- name: scalar_lifetime
+  statement: Every checkpoint uses its own normalizer and upstream scalar.
+  method: proof
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: (p.scalar_normalizer_positive_finite and p.local_checkpoint_in_range
+    and p.delayed_rounding_contract_admitted and p.invocation_scalar_matches_checkpoint)
+  text: Scalar-normalized derivative checkpoints with source low-precision focal gradient;
+    no bitwise equivalence to early normalization and no guarantee when unnormalized
+    checkpoint overflows.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: When saving a low-precision gradient that will be multiplied by a small
+    global normalization, retain the unnormalized local derivative and apply the scalar
+    after reload to avoid storing prematurely underflowed values.
+  boundary: Scalar-normalized derivative checkpoints with source low-precision focal
+    gradient; no bitwise equivalence to early normalization and no guarantee when
+    unnormalized checkpoint overflows.
+  resources:
+  - registers
+numeric_risk: Floating-point reassociation, casts and approximate functions require
+  an admitted numerical contract.
+summary: When saving a low-precision gradient that will be multiplied by a small global
+  normalization, retain the unnormalized local derivative and apply the scalar after
+  reload to avoid storing prematurely underflowed values.

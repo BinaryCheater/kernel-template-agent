@@ -1,0 +1,15 @@
+template: power_of_two_scale_encoding@1
+backend: cuda
+isa: {family: sm, min: '100', max: '100'}
+requires: []
+isa_constraints:
+  - {id: source_site, expr: "site == 'layout_transform'", meaning: This CUDA witness is the scale-layout transform path., cls: implementation}
+fragments: {}
+code_markers: [transpose_and_pack_fp32_into_ue8m0,pack_fp32_into_ue8m0,0x807fffffu]
+expected_sass: []
+probed_on: []
+summary: >-
+  DeepGEMM fixed revision: csrc/apis/layout.hpp selects the SM100 transform;
+  impls/smxx_layout.cuh extracts four exponent fields directly into one word. Only
+  positive normal power-of-two live inputs are in this rule's exactness domain.
+  Word grouping and MN/UTCCP permutations are separate composition obligations.

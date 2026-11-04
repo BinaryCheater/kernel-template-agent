@@ -1,0 +1,53 @@
+name: sorted_run_topk
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: reduce
+produces: [map, reduce]
+object:
+  type: sorted_candidate_runs
+  description: Disjoint sorted candidate runs with one consumption cursor per run and an ordered top-k output.
+variables:
+  - {name: run_length, kind: numeric, binding: compile, role: software, domain: {lo: 1, hi: 32}, meaning: Maximum number of candidates stored and sorted together in each run.}
+  - {name: k, kind: numeric, binding: compile, role: boundary, domain: {lo: 1, hi: 32}, meaning: Requested output count; this changes the workload rather than its numerical approximation.}
+constraints:
+  - {id: c_requested, expr: "k == p.requested_k and k <= p.valid_count", meaning: Return exactly the requested number of valid candidates., cls: semantic}
+  - {id: c_runs, expr: "p.run_capacity == run_length and p.disjoint_complete_runs", meaning: Runs fit their storage and partition the valid candidate identities., cls: semantic}
+preconditions:
+  - {id: pre_order, expr: "p.finite_valid_scores and p.unique_candidate_ids and p.tie_break_smallest_id", meaning: Descending score then ascending identity is a total order on valid candidates., cls: semantic}
+  - {id: pre_mask, expr: "p.invalid_candidates_excluded and p.comparisons_preserve_order", meaning: Padding and exhausted runs never win and comparisons implement the requested order., cls: semantic}
+program:
+  description: >-
+    Sort each run by descending score then ascending candidate identity. Start every
+    cursor at zero. For each of k rounds offer the first unconsumed candidate of every
+    nonempty run, select the globally best head under the same total order, emit that
+    identity and advance only its run's cursor. Exhausted runs offer no candidate.
+backward_map: Forget the runs and cursors; emitted identities are the first k entries of a global sort under the requested order.
+obligations:
+  - {name: run_partition, statement: Every valid candidate appears in exactly one run with its original score and identity., method: exhaustive}
+  - {name: head_invariant, statement: A run head dominates every remaining candidate in that run under the same total order., method: exhaustive}
+  - {name: winner_progress, statement: Each round emits the best remaining valid candidate and advances exactly its cursor without overflowing cursor storage., method: exhaustive}
+  - {name: collective_realisation, statement: The collective sees all offered heads and resolves equal scores by the same identity order without inactive-lane contamination., method: test}
+effects: {transactions: [], storage: [], overlap: []}
+scope:
+  predicate: "p.finite_valid_scores and p.unique_candidate_ids and p.disjoint_complete_runs"
+  text: >-
+    Exact finite-score top-k selection with distinct identities and deterministic
+    smallest-identity tie breaking. Runs may be shorter than their capacity. NaN ranking,
+    approximate selection, duplicate identities and changed score transformations are
+    outside this rule. Run count is derived from the chosen partition, not fixed here.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Sort local runs and repeatedly merge their best unconsumed heads.
+  storage: Candidate runs plus one cursor per run and k output identities.
+  boundary: Exhausted runs must not win; ties share one total order across all levels.
+  resources: []
+numeric_risk: Selection compares the supplied scores exactly; upstream rounding or nonlinear transformation can change ties and needs its own contract.
+summary: >-
+  Use for exact top-k when candidates are distributed in small local groups. Choose
+  run_length, bind the requested k, sort each run once and consume only the winning
+  head each round. Runs [(7,id3),(2,id0)] and [(7,id1),(4,id2)] yield ids1,3,2 for k3.
+  Keep descending-score/smallest-id order identical in local sorting and global merging.

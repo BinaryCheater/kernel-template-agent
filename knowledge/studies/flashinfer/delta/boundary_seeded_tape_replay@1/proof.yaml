@@ -1,0 +1,55 @@
+template: boundary_seeded_tape_replay@1
+version: 1
+relation: Replace each replayed artifact by its matching forward artifact at the same sequence/fragment/state
+  generation and numeric stage. Every backward consumer then receives the same admitted operands and reverse
+  boundary adjoints. Boundary retention removes only the dependency subgraph already represented by S_in,
+  not the reverse communication or local feedback itself.
+rank: Backward-required forward artifacts not yet supplied from retention or matching replay.
+assumes:
+- name: pre_forward
+  statement: Forward resolves fragment-entry states through an ordered summary/exchange/merge phase, then
+    computes deterministic local factors and recurrent tapes. Enumerate every backward consumer, its required
+    state/factor stage and the separate reverse boundary-adjoint exchange.
+- name: pre_inputs
+  statement: Original local inputs, parameter/gate/norm stages, document/fragment order and precision
+    options remain unchanged or versioned through replay. Context/shape checks alone do not establish
+    input content identity.
+- name: pre_boundary
+  statement: When boundaries are retained, they include every nonlocal entry-state dependency; local subsegment
+    starts are saved or reconstructible from them and local factors. A whole-rank zero seed cannot replace
+    a crossing fragment entry state.
+- name: pre_tapes
+  statement: Recreated before-chunk states, corrected values, factors, gate rows and normalization checkpoints
+    match the forward stages required by backward under its declared equality/error contract. Matching
+    real recurrence alone does not prove native BF16/TF32 tape identity.
+- name: pre_none
+  statement: No-artifact mode reruns boundary resolution including required forward exchange/merge with
+    the same rank/fragment order and progress contract; it cannot silently start from zero or omit network
+    dependencies.
+- name: pre_output
+  statement: Replay may omit the forward output program only when the specific backward/recompute has
+    no consumer of that output. Torch checkpoint recompute that must provide outputs follows its own frame/liveness
+    proof, not this retention choice alone.
+- name: pre_lifetime
+  statement: Saved boundaries, optional transfers and replayed tapes publish before their consumers and
+    remain alive through the last reader. Original forward arenas cannot be reused as retained tapes without
+    explicit storage ownership; after that reader release does not extend into unrelated backward work.
+- name: pre_reverse
+  statement: Reusing forward boundary seeds removes their forward replay work only; backward still computes
+    local adjoint offsets, exchanges/merges required boundary adjoints and performs seeded reverse local
+    walks.
+- name: pre_backend
+  statement: Backend implements selected retention for target/shape, grouped Q/K heads, optional normalization/raw-gate
+    path and graph mode. Source package/context/precision compatibility checks remain part of the binding.
+guarantees: []
+models: []
+note: experimental/cake_gdn_det_train_kcp/cake_kcp.py:584-599 saves no local tapes in light mode;4022-4066
+  splits normal/replay/retained-S_in paths;4185-4256 regenerates fwd_prep, local carries and seeded tape
+  walks without forward exchange;4276-4355 selects saved/full/kept/replay operands then still starts backward
+  adjoint work;5048-5116 records and validates boundary/context/precision metadata. Concrete kcp_fwdh_tape
+  body cake_gdn_det_train_01f0e0eab26c58ff3953_kcp_kernel.cu:323-391 indexes S_in per fragment/head or
+  zero at declared starts and walks chunks forward;807-849 stores h/v_new tapes. Concrete kcp_dhu_tape
+  body cake_gdn_det_train_8b193b1101cc03b7d704_kcp_kernel.cu:323-384 indexes dS_out and walks chunks backward,
+  with BF16 dh/dv_new tapes and FP32 carry. Exact scalar delta-tape tests compare replay retention modes
+  with finite-difference polynomial gradients; native tape equivalence, communication progress and checkpoint
+  frame proofs remain separate obligations.

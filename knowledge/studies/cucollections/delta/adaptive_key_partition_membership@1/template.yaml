@@ -1,0 +1,105 @@
+{
+  "name": "adaptive_key_partition_membership",
+  "version": 1,
+  "level_from": 2,
+  "level_to": 3,
+  "change": "vertical",
+  "refines": "map",
+  "produces": [
+    "map",
+    "access"
+  ],
+  "object": {
+    "type": "adaptive_key_partition_membership",
+    "description": "When an exact integer set varies in local density, partition keys by a high-bit prefix and choose sorted low-key arrays or fixed bitsets per partition, preserving the serialized container contract."
+  },
+  "variables": [
+    {
+      "name": "low_bits",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": [
+        16
+      ],
+      "meaning": "Low-key domain size65536 in each32-bit Roaring container."
+    },
+    {
+      "name": "array_cutoff",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": [
+        4096
+      ],
+      "meaning": "Source format cardinality cutoff; changing it requires matching format metadata/consumer."
+    }
+  ],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_0",
+      "expr": "p.sorted_unique_container_members and p.metadata_offsets_valid",
+      "meaning": "Each container low-key set is sorted unique and serialized counts/offsets identify valid payload ranges.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_1",
+      "expr": "p.container_tags_match_payload and p.input_width_contract",
+      "meaning": "Array/bitset/run tags agree with actual encoding;32/64-bit key partition rules match producer and consumer.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_2",
+      "expr": "p.immutable_completed_build",
+      "meaning": "Membership reads a complete immutable bitmap or correctly ordered imported serialized buffer.",
+      "cls": "semantic"
+    }
+  ],
+  "program": {
+    "description": "Split a32-bit key into high16 container key and low16 member. Locate high key by linear search for fewer than8 containers, otherwise binary search. Without a run tag, decode cardinality as stored_card+1; cardinality<=4096 uses sorted uint16 lows, otherwise an8192-byte bitset. Array membership uses linear or binary search, bitset uses word/bit test. Imported run containers test inclusive interval start<=low<=start+stored_length. Builder sorts/deduplicates as required, identifies container starts, scans payload sizes, schedules array/bitset construction and serializes offsets.64-bit membership first selects the high32 bucket then applies32-bit logic."
+  },
+  "backward_map": "Erase auxiliary organization and recover the visible results under the stated contract.",
+  "obligations": [
+    {
+      "name": "partition_identity",
+      "statement": "Recombining high prefix and low member recovers exactly the original integer without signed/truncation changes.",
+      "method": "proof"
+    },
+    {
+      "name": "representation",
+      "statement": "Every container type denotes the same exact local set its metadata describes.",
+      "method": "proof"
+    },
+    {
+      "name": "search_order",
+      "statement": "High keys/arrays/runs are ordered as required, with inclusive run ends and card-minus-one decoded correctly.",
+      "method": "proof"
+    },
+    {
+      "name": "serialization",
+      "statement": "Aligned/misaligned loads and computed/stored offsets remain within the immutable payload and agree with format.",
+      "method": "proof"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.sorted_unique_container_members and p.metadata_offsets_valid and p.container_tags_match_payload and p.input_width_contract and p.immutable_completed_build",
+    "text": "NVIDIA Roaring bitmap32/64 membership. Native builder emits arrays/bitsets; run membership consumes imported serialized format rather than assuming this builder emits runs. Container search threshold8 is policy, array cutoff4096 is format-sensitive. Resource effects: Sparse containers cost2*card bytes, dense bitsets8192 bytes per16-bit domain; high-prefix directory and optional offsets add overhead. Different density choices change storage/read work without approximating membership."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "When an exact integer set varies in local density, partition keys by a high-bit prefix and choose sorted low-key arrays or fixed bitsets per partition, preserving the serialized container contract.",
+    "storage": "Sparse containers cost2*card bytes, dense bitsets8192 bytes per16-bit domain; high-prefix directory and optional offsets add overhead. Different density choices change storage/read work without approximating membership.",
+    "boundary": "Key0x12340007 selects high0x1234,low7. A run(start5,length2) includes5,6,7; using length as an exclusive end wrongly omits7. Cardinality4096 array and4097 bitset must return the same exact set semantics.",
+    "resources": []
+  },
+  "numeric_risk": "Preserve the supplied arithmetic contract; reassociation, quantization and approximate search require separate permission.",
+  "summary": "When an exact integer set varies in local density, partition keys by a high-bit prefix and choose sorted low-key arrays or fixed bitsets per partition, preserving the serialized container contract. Key0x12340007 selects high0x1234,low7. A run(start5,length2) includes5,6,7; using length as an exclusive end wrongly omits7. Cardinality4096 array and4097 bitset must return the same exact set semantics."
+}

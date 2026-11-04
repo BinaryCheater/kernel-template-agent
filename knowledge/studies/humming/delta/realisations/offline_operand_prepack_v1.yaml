@@ -1,0 +1,15 @@
+template: offline_operand_prepack@1
+backend: cuda
+isa:
+  family: sm
+  min: '75'
+requires: []
+isa_constraints: []
+fragments: {}
+code_markers:
+- weight_repack_nk
+- humming_pack_weight
+expected_sass: []
+probed_on: []
+summary: A16/B4, mode3, 64x64 source repack plus MMA B-layout composition. CUDA preprocessing instance
+  of constant operand layout; other widths remain GAP09.

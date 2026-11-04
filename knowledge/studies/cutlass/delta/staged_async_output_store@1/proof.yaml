@@ -1,0 +1,24 @@
+template: staged_async_output_store@1
+version: 1
+relation: Each issued output subtile is either stored visibly at its destination or represented by an async write holding the exact finalized value captured from its shared generation; unread generations retain their source bytes.
+rank: Three times unissued output subtiles plus unfinished source-read and destination-write events in the finite transfer stream.
+assumes:
+  - {name: visibility, statement: Required proxy fences and writer synchronization make the complete shared subtile visible before copy issue.}
+  - {name: ordered_source_wait, statement: Waiting for at most N unread committed groups retires the older prefix of source reads and preserves their captured values for later writes.}
+  - {name: distinct_outputs, statement: Each live output element belongs to exactly one output subtile with legal copy bounds.}
+  - {name: output_observation, statement: Readers wait for destination-write completion and storage is not reclaimed before all source reads have completed.}
+guarantees: []
+models: []
+note: >-
+  Immediately after commit u, a wait allowing S-1 unread groups guarantees that
+  group u-S+1 and every older group has finished its source read. The next reuse
+  of slot (u+1)%S belongs to group u-S+1, so its bytes can be overwritten safely.
+  The captured value remains associated with its distinct destination until write
+  completion. The final read drain protects shared reclamation; it does not prove
+  global visibility. A separate write-completion dependency discharges the final
+  observation relation. Source PipelineTmaStore uses wait_group(S-1,read=True)
+  and its tail uses wait_group(0,read=True). The scalar replay checks S1..8 and
+  finite streams with independent delayed destination writes, retaining an unsafe
+  weaker-wait counterexample. Hardware memory ordering and complete destination
+  observation require implementation evidence. No registered checker model or
+  whole-subject ProofSummary is claimed.

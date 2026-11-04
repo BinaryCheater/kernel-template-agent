@@ -1,0 +1,102 @@
+{
+  "name": "head_partitioned_hierarchical_collective",
+  "version": 1,
+  "level_from": 2,
+  "level_to": 3,
+  "change": "vertical",
+  "refines": "map",
+  "produces": [
+    "map",
+    "access"
+  ],
+  "object": {
+    "type": "head_partitioned_hierarchical_collective",
+    "description": "When local peers share several network heads, stripe chunks across heads and compose local reduce/scatter, inter-group reduction, then local broadcast/gather."
+  },
+  "variables": [
+    {
+      "name": "head_count",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": {
+        "lo": 1,
+        "hi": 64
+      },
+      "meaning": "Declared local head/rail count; actual topology and arity cap constrain it."
+    },
+    {
+      "name": "chunk_size",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": {
+        "lo": 1,
+        "hi": 1073741824
+      },
+      "meaning": "Elements per head/channel stripe."
+    }
+  ],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_0",
+      "expr": "p.head_stripes_partition_output and p.local_groups_partition_ranks and p.stage_layout_maps_agree",
+      "meaning": "Each output stripe and rank contribution has one path through the hierarchy.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_1",
+      "expr": "p.network_or_head_tree_reduction_contract and p.local_transport_contract and p.post_operation_owner_explicit",
+      "meaning": "External offload or tree reduces each local partial once and returns final result; post-op location is explicit.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_2",
+      "expr": "p.role_groups_progress and p.registration_and_notification_contract",
+      "meaning": "Bypassing payload copies does not bypass control credit/notification obligations.",
+      "cls": "semantic"
+    }
+  ],
+  "program": {
+    "description": "For each loop stripe assign (channel,head) a disjoint chunk. Scatter source contribution to its head; head reduces all local rank inputs. Network offload or an inter-head tree combines one partial per local group. Returned completed value is finalized by the declared unique post-op owner then broadcast/gathered locally. Bind chunk address permutation consistently: ordinary ((channel*heads)+head)*chunk or registered ((head*channels)+channel)*chunk. Run scatter/reduce/return/gather in disjoint barrier groups; registered direct buffers may replace copies with notifications, preserving protocol steps and buffer lifetime."
+  },
+  "backward_map": "Erase auxiliary organization and recover the visible results under the stated contract.",
+  "obligations": [
+    {
+      "name": "hierarchical_partition",
+      "statement": "Local subgroups cover contributors once, and head stripes cover each output once.",
+      "method": "proof"
+    },
+    {
+      "name": "permutation",
+      "statement": "Both address layouts are bijections on valid channel/head pairs and every stage uses the same selected map.",
+      "method": "proof"
+    },
+    {
+      "name": "completion",
+      "statement": "Final post-op occurs once after cross-group reduction; notification and receive completion precede use.",
+      "method": "proof"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.head_stripes_partition_output and p.local_groups_partition_ranks and p.stage_layout_maps_agree and p.network_or_head_tree_reduction_contract and p.local_transport_contract and p.post_operation_owner_explicit and p.role_groups_progress and p.registration_and_notification_contract",
+    "text": "Explicit local and network collective contracts; no proof of correctness for an arbitrary offload provider. NVLS is an alternative local hardware realization with its own capability guard. Resource effects: Four worker roles pipeline stages; head count and stripe size control traffic distribution."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "When local peers share several network heads, stripe chunks across heads and compose local reduce/scatter, inter-group reduction, then local broadcast/gather.",
+    "storage": "Four worker roles pipeline stages; head count and stripe size control traffic distribution.",
+    "boundary": "all_reduce.h:248-635; registered order differs across channel/head dimensions. CollNetChain is the head_count1 sequential local path, not the same topology performance.",
+    "resources": []
+  },
+  "numeric_risk": "Preserve the supplied arithmetic contract; reassociation, quantization and approximate search require separate permission.",
+  "summary": "When local peers share several network heads, stripe chunks across heads and compose local reduce/scatter, inter-group reduction, then local broadcast/gather. all_reduce.h:248-635; registered order differs across channel/head dimensions. CollNetChain is the head_count1 sequential local path, not the same topology performance."
+}

@@ -1,0 +1,27 @@
+template: first_occurrence_record_scatter@1
+version: 1
+relation: For each valid destination choose its lowest-index proposing input once and apply the original
+  complete record encoder; all other proposals and invalid mappings have no output effect.
+rank: Remaining valid input proposals and record writes.
+assumes:
+- name: identity
+  statement: Destination slots are stable and distinct valid slots have disjoint records.
+- name: election
+  statement: Earlier scan is complete and uniform, or reset/claims complete before owner reads.
+- name: whole_record
+  statement: Only the selected input writes all record fields and restoration cannot enable another writer.
+- name: lifetime
+  statement: Old readers retire before updates and new consumers wait for complete writes.
+guarantees: []
+models: []
+note: 'For destination s let I_s be the proposing input IDs. If nonempty it has a unique minimum m. Earlier
+  scan rejects i iff I_s has an element below i, so only m writes. AtomicMin from UINT32_MAX yields min
+  I_s after every claim completes, so the owner equality gives the same m. The record is written by one
+  elected input, and disjoint slot records cannot interfere. Native multi-field stores are not atomic:
+  kernel completion remains required for consumer visibility. Source csrc/sparse_mla_sm120/dsv4_nvfp4_cache_ops.cu:115-211
+  provides earlier scan or reset/claim/winner kernels and restores zero padding; cake_dsv41_fp8_cache_ops.cu:255-274
+  uses only earlier scan because its 528-byte record has no owner padding. indexed_additive_scatter@1
+  sums every valid occurrence and cannot supply first-winner selection. first_writer_atomic_combine@1
+  lets partial zero initialize a reduction before all other partials add, not the lowest logical input writing a whole
+  record. Logical checks enumerate duplicate maps, claim permutations, invalid destinations and stale
+  owners; native atomics, warp voting, encoder mapping and record visibility remain obligations.'

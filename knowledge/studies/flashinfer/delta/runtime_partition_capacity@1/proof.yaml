@@ -1,0 +1,37 @@
+template: runtime_partition_capacity@1
+version: 1
+relation: Forget inactive physical capacity slots and concatenate useful aligned ranges; every live tile
+  occurs exactly once and the declared partial-state merge recovers the complete reduction. Empty work
+  follows its explicit output policy.
+rank: Unprocessed logical contributions.
+assumes:
+- name: pre_partition
+  statement: Visible source tiles partition completely, with exact logical masks; merge representation
+    and rounding are specified.
+- name: pre_count
+  statement: Count, division metadata and workload lengths belong to one immutable invocation generation.
+    Count/alignment products and ceil numerators fit their integer types; precomputed exact-division metadata
+    matches the divisor.
+- name: pre_address
+  statement: Scratch addresses use C, never live A; collective ranks and resource allocations retain their
+    prepared topology.
+- name: pre_publish
+  statement: Only completed useful partials may be loaded; inactive caller scratch may be stale or uninitialized.
+- name: pre_retire
+  statement: An early-retired CTA cannot leave a barrier arrival, dependency release or TMEM retirement
+    outstanding.
+- name: pre_neutral
+  statement: Fixed collective participants remain present even when their logical contribution is empty.
+- name: pre_empty
+  statement: A=0 has declared output semantics without reading scratch; replay resets and concurrent workspace
+    ownership remain valid.
+guarantees: []
+models: []
+note: Source flashinfer/attention/prims_ts/kernels/fmha_decode/fmha_decode_resources/helpers_kv_tile_idx.py:80-112,229-275
+  derives aligned local span and active prefix; decode.py:1456-1474 separates requested count and prepared
+  capacity. fmha_decode_kernel.py:2839-2880 initializes resources and acquires PDL dependency before runtime
+  pruning/retirement. reduction.py:615-685 distributes useful splits over fixed reducer ranks and guards
+  loads before touching partials. reduction_partition@1 provides partition/merge algebra but assumes no
+  empty groups and does not distinguish logical active count from capacity strides and physical synchronization
+  participants. Logical checks cover zero/tails/alignment, count changes and poisoned inactive scratch.
+  Native PDL/TMEM/cluster teardown and range-specific merge arithmetic remain realization obligations.

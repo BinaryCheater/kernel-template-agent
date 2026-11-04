@@ -1,0 +1,19 @@
+template: integer_operand_widening@1
+version: 1
+relation: Each widened fragment value equals the integer interpretation of the stored code at the same logical coordinate.
+rank: Remaining fragment values or complete eight-value blocks.
+assumes:
+  - {name: format, statement: Raw codes have the declared signed/unsigned interpretation and the requested compute type represents their entire integer range exactly.}
+  - {name: order, statement: Fragment loads and any offline permutation match the selected conversion path and full-block boundary.}
+  - {name: backend, statement: The target/compiler implements the selected conversion primitive and no unsupported tail is consumed.}
+guarantees: []
+models: []
+note: >-
+  The two's-complement decode partitions raw codes at the sign bit; unsigned codes
+  retain their magnitude. F16 and BF16 exactly represent all declared integer
+  values. The eight-value permutation is a bijective self-inverse, so pairing it
+  with the corresponding converter restores natural coordinates. Exhaustive scalar
+  replay covers1056 code/type pairs and distinctive coordinate blocks, including
+  a mismatch without the paired inverse. The source intrinsic documents its same
+  shuffle mapping; no emitted PTX/SASS or native converter execution is claimed.
+  Scales and changed reduction grouping are outside this identity proof.

@@ -1,0 +1,15 @@
+{
+  "template": "saturating_affine_round_away_quantization@1",
+  "version": 1,
+  "relation": "Written codes equal the endpoint-precedence and half-away affine conversion contract; inverse metadata remains the same pair used to define encoding.",
+  "rank": "Unconverted input elements.",
+  "assumes": [
+    {
+      "name": "source_contract",
+      "statement": "NVIDIA cuVS scalar quantizer instantiated for float/double/half to int8. Interior arithmetic uses the source temporary type and lroundf conversion, so cross-type precision changes need numerical review. Nonfinite and reversed calibration ranges excluded."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Source-derived proof outline; no formal proof result or GPU execution claimed. rounding: Interior half values follow away-from-zero integer rounding, not nearest-even or truncation. saturation: Endpoint branches prevent out-of-range integer conversion and preserve equality precedence. metadata: Encoding and inverse use the same finite affine scale/offset and dtype conventions. degenerate: Equal endpoints follow explicit two-endpoint step behavior rather than divide by zero. The relation is a proposed source-level invariant; the stated finite-work rank depends on the explicit environment progress assumptions. Device ordering and numeric premises have not been discharged by schema validation."
+}

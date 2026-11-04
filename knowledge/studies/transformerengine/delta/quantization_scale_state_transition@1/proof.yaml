@@ -1,0 +1,20 @@
+template: quantization_scale_state_transition@1
+version: 1
+relation: The implementation refines the selected stateful quantization recipe, not an equivalence between
+  recipes.
+rank: Remaining ordered recipe updates.
+assumes:
+- name: epoch
+  statement: The producer domain is complete, launches are ordered and state ownership is exclusive.
+- name: arithmetic
+  statement: The selected finite-domain scale arithmetic and numerical recipe are preserved.
+guarantees: []
+models: []
+note: Current mode must complete reset then absmax then scale update before casting. Delayed mode selects
+  from a snapshot of the old history; if old history is [9,7,2,5], roll-and-clear yields [0,2,5,9] while
+  maximum selection still sees all old values. For [2,64,1,3], recent selects 2 and window-max selects
+  64; swapping them changes the output recipe. The snapshot of slot 0 and read-before-write ordering make
+  in-place rolling valid. TransformerEngine tests/cpp/operator/test_cast_transpose_current_scaling.cu:123-133
+  selects the current launch chain; common/recipe/delayed_scaling.cu:84-153 supplies the history transition.
+  This outline does not prove native concurrency, exceptional IEEE propagation or framework placement
+  of every epoch update.

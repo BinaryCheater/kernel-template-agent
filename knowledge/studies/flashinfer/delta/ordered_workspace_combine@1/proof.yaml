@@ -1,0 +1,37 @@
+template: ordered_workspace_combine@1
+version: 1
+relation: Concatenate the useful floor-partition ranges to recover every reduction step once. The final
+  value is the explicitly ordered FP32 sum of those fixed partials; changing producer completion order
+  leaves that sequence unchanged.
+rank: Unwritten producer slots followed by uncombined useful split indices.
+assumes:
+- name: pre_partition
+  statement: Each partial has a fixed arithmetic order and output identity; masks preserve the complete
+    reduction including its ragged tail.
+- name: pre_slots
+  statement: No atomic shared accumulation occurs between producers; each useful slot contains complete
+    FP32 state before the separate merge starts. Floor-range products and workspace address arithmetic
+    must not overflow.
+- name: pre_presence
+  statement: Live-slot predicates come from the same partition metadata; inactive slots can remain uninitialized.
+- name: pre_owner
+  statement: Each final element has one merge owner, with no conflicting direct main-kernel writes and
+    no stores into row padding.
+- name: pre_numeric
+  statement: Linear ascending slot order and one final cast define reproducibility; comparison against
+    other partitions/trees requires a separate rounding contract.
+- name: pre_backend
+  statement: Vector loads respect alignment; workspace remains immutable through all reducer readers and
+    is exclusive across concurrent launches.
+guarantees: []
+models: []
+note: Source flashinfer/experimental/cake_moe_grouped_det_gemm/csrc/cake_moe_grouped_det_gemm/cake_moe_grouped_det_gemm_ed9a74f36ba13a52183d_kernel.cu:674-757
+  computes floor ranges and exclusive tail slots; multi-contributor states store FP32. The bc774d802e4f0b3ac27c
+  reducer:65-143 derives the same ranges, skips hi==lo slots and sums s ascending before output conversion.
+  Source singleton whole-range path writes C directly; reducer stores only when more than one contributor
+  exists, so singleton scratch reads in that utility are a separate realization boundary, not admitted
+  by this multi-contributor rule. ordered_global_combine@1 serializes producer CTAs through locks and
+  output-buffer updates; split_combine_kernel@1 decodes normalized attention states. Neither supplies
+  separate linear FP32 workspace slots and range-hole predicates. Logical checks cover scattered live
+  slots, completion permutations, cancellation and intermediate-rounding changes; native GEMM/stream publication
+  and resource lifetime remain obligations.

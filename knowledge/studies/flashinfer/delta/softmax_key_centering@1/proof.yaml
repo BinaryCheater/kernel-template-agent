@@ -1,0 +1,31 @@
+template: softmax_key_centering@1
+version: 1
+relation: In exact arithmetic add c=a*dot(q,mu) to every centered row score and its centered LSE; row
+  softmax and weighted values are unchanged. Additional subtraction/quantization errors are governed by
+  the admitted numeric policy.
+rank: Remaining valid key vectors and score rows.
+assumes:
+- name: center
+  statement: One finite mu applies to every ordinary key of the row.
+- name: score
+  statement: The affine score transform uses the same query and scale, with unchanged additive bias/mask.
+- name: extras
+  statement: Every extra normalization logit shifts by the same row constant or is absent.
+- name: numeric
+  statement: The caller admits finite subtraction, quantization and native contraction effects, and restores
+    non-normalized consumers as needed.
+guarantees: []
+models: []
+note: 'a*q dot (K_j-mu)+b_j=x_j-c, c=a*q dot mu. Thus exp(x_j-c)/sum_l exp(x_l-c)=exp(x_j)/sum_l exp(x_l),
+  while LSE_centered=LSE_original-c. Mean optimality is not needed for invariance: any shared mu satisfies
+  the identity. Block-dependent centers introduce different c per block and require explicit compensation;
+  a sink left unshifted changes the denominator. Quantizing after subtraction is not translation-equivariant,
+  so only the ideal identity is exact. Source experimental/cake_fp8_attention/csrc stats-finalize program
+  ending 8f4172c0adf623a761c9 :63-90 forms channel sums/S; quantizer ending bf0833d889569b5406df :140-198
+  subtracts mean and derives two half-tile K scales, with zeroed invalid rows and positive scale floors.
+  Source attention returns output only, no original-frame LSE; extending it would require offset data
+  and output changes. online_rescaled_reduction@2 moves the exponential reference after scores exist,
+  not an operand center before quantization. nonnegative_scale_hoisting@1 moves multiplicative scales
+  through ReLU and cannot supply additive key translation. Logical checks cover shared versus per-block
+  centers, masked rows, LSE restoration, sinks and a centered INT8 range witness. Native mean/casts, INT8/FP8
+  MMA and error budgets remain obligations.'

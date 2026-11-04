@@ -1,0 +1,98 @@
+name: cyclic_tile_reduction_partition
+version: 1
+level_from: 2
+level_to: 3
+change: vertical
+refines: reduce
+produces:
+- reduce
+- store
+- sync
+object:
+  type: cyclic_tile_reduction_partition
+  description: Parallel reduction participants own cyclic tiles rather than contiguous
+    reduction ranges.
+variables:
+- name: participants
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 1
+    hi: 65536
+  meaning: Independent partial-result participants.
+- name: tile_size
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 1
+    hi: 65536
+  meaning: Consecutive logical reduction indices per owned tile.
+constraints: []
+preconditions:
+- id: pre0
+  expr: p.associative_commutative_exact_combine and p.changed_float_order_admitted
+  meaning: The requested combine admits this exact-arithmetic partition and its floating-point
+    order.
+  cls: semantic
+- id: pre1
+  expr: p.tail_mask_identity and p.empty_participants_emit_identity and p.partial_generation_complete
+  meaning: Tails/empty owners contribute the identity and final combine waits for
+    all partials.
+  cls: semantic
+- id: pre2
+  expr: p.additive_epilogue_once_and_nonlinear_epilogue_after_combine
+  meaning: Bias/additive checkpoints occur once; nonlinear activation/quantization
+    waits for the combined value.
+  cls: semantic
+program:
+  description: 'Participant s owns logical tiles s+j*participants and within each
+    owns k=(s+j*participants)*tile_size+u for u in [0,tile_size), masked by k<length.
+    Accumulate those products in increasing j, store a separate partial indexed by
+    s, then combine every participant exactly once. The matmul instance restores packed
+    operand offsets independently: W tile increment is packed_tile_K*participants
+    while logical X increment is tile_size*participants. Apply bias only to s=0 or
+    after final combine; defer nonlinear activation and output quantization to the
+    final reduction pass. Empty participants publish neutral partials instead of reading
+    invalid data.'
+backward_map: For each logical k recover tile=k//tile_size, owner=tile%participants,
+  iteration=tile//participants and within-tile=k%tile_size; combine all owned products
+  once.
+obligations:
+- name: cyclic_cover
+  statement: Every logical reduction index has exactly one owner and one iteration,
+    including the final partial tile.
+  method: test
+- name: partial_and_epilogue
+  statement: All partials complete before combination; additive and nonlinear epilogues
+    have the required exact-once placement.
+  method: test
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: (p.associative_commutative_exact_combine and p.changed_float_order_admitted)
+    and (p.tail_mask_identity and p.empty_participants_emit_identity and p.partial_generation_complete)
+    and (p.additive_epilogue_once_and_nonlinear_epilogue_after_combine)
+  text: Tile-cyclic split-K and equivalent reductions with separate participant-indexed
+    scratch. Existing reduction_partition@1 and @2 name strided threads/warps and
+    contiguous ranges, but do not expose the cyclic tile width/participant map as
+    a compiled assignment.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Parallel reduction participants own cyclic tiles rather than contiguous
+    reduction ranges.
+  storage: Binding-specific counters, partials or output ranges.
+  boundary: Tile prefixes and logical membership.
+  resources: []
+numeric_risk: Integer counts must not overflow; ordering/rounding policy belongs to
+  the bound operation.
+summary: When split-K should interleave consecutive K tiles across independent partial
+  owners, select participant count and tile width separately. Advance each owner by
+  tile_width*participants, retain its scratch identity and combine after all owners
+  finish. Packed operand byte strides follow their own tile sizes; nonlinear epilogues
+  belong after the complete sum.

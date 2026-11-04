@@ -1,0 +1,162 @@
+name: chunked_decayed_outer_product_state
+version: 2
+level_from: 2
+level_to: 3
+change: vertical
+refines: map
+produces:
+- map
+- contract
+object:
+  type: chunk_boundary_state
+  description: When a causal weighted outer-product recurrence has a state much smaller than its token-pair
+    matrix, compute intra-chunk interactions by triangular contractions and carry only the boundary state
+    between chunks. Preserve temporal order and the exact boundary convention; chunk width trades local
+    pair work against state traffic. Scalar log-decay gates are supported; feature-dependent delta rules
+    need a separate factorization.
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+requires: []
+probed_on: []
+relations: []
+summary: 'When a scalar outer-product recurrence runs over packed sequences, compute causal local interactions
+  and carry only boundary state. Logical chunks may be clipped subranges of shared physical blocks: mask
+  both pairwise axes, rebase scalar gate prefixes at each actual sequence start and preserve independent
+  seed/carry ownership.'
+variables:
+- name: chunk_tokens
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+  - 64
+  - 128
+  - 256
+  unit: tokens
+  meaning: Physical token block extent; version1 complete witnesses64/256 retained, FlashInfer datacenter
+    Blackwell SSD witness128 added. Other extents need implemented binding.
+- name: decay_mode
+  kind: structure
+  binding: compile
+  role: software
+  domain:
+  - none
+  - scalar_log_prefix
+  meaning: No decay, or one cumulative scalar log-decay per token and head within the chunk.
+- name: chunk_domain
+  kind: structure
+  binding: compile
+  role: boundary
+  domain:
+  - complete_sequence_chunks
+  - clipped_physical_subranges
+  meaning: 'Workload representation: complete chunks of one sequence, or logical sequence subranges sharing
+    aligned physical blocks. Bind from input/metadata layout; do not ignore sequence boundaries.'
+constraints:
+- id: c_chunks
+  expr: p.sequence_length >= 0 and (chunk_domain != 'complete_sequence_chunks' or (p.sequence_length >
+    0 and p.sequence_length % chunk_tokens == 0))
+  meaning: Version1 positive complete chunks remain; clipped logical subranges may be short or empty within
+    complete physical backing.
+  cls: semantic
+preconditions:
+- id: pre_recurrence
+  expr: p.scalar_decay_outer_product_recurrence and p.sequence_origins_match and p.initial_state_defined
+  meaning: The recurrence is H_i=exp(g_i)*H_(i-1)+k_i outer v_i, output q_i times H_i; sequence origin
+    and initial state are fixed.
+  cls: semantic
+- id: pre_frames
+  expr: decay_mode != 'none' or p.all_log_decays_zero
+  meaning: The no-decay specialization binds every gate to zero.
+  cls: semantic
+- id: pre_numeric
+  expr: p.exponents_in_range and p.reassociation_and_state_casts_admitted and p.tail_and_output_ownership_valid
+  meaning: Gate exponentiation, contraction regrouping, state casts and output shard combination satisfy
+    the numerical and ownership policy.
+  cls: implementation
+- id: pre_subranges
+  expr: chunk_domain == 'complete_sequence_chunks' or (p.complete_physical_backing_and_ordered_exact_logical_subranges
+    and p.shared_physical_blocks_have_disjoint_sequence_output_ownership)
+  meaning: Each logical sequence lists ordered physical block subranges[lo,hi), whose valid tokens cover
+    that sequence exactly once. Different sequences may reference the same physical block, but own disjoint
+    subranges and separate state seeds/outputs.
+  cls: implementation
+- id: pre_segment_frames
+  expr: p.local_gate_prefixes_rebased_at_actual_subrange_start_and_end
+  meaning: For a subrange[lo,hi), subtract the prefix at lo-1 from incoming-state factors and use prefix
+    at hi-1 for outgoing state. Pairwise gate differences remain inside that same sequence subrange; no
+    previous sequence decay enters its initial state.
+  cls: implementation
+- id: pre_masks
+  expr: p.both_pairwise_axes_and_state_insertion_range_masked_before_consumers_and_stores
+  meaning: Pairwise query/key rows both lie in[lo,hi); state insertions are restricted to it; only owned
+    output rows store. Source intermediate masks and exponent recipes preserve finite/neutral operands
+    at each consuming contraction.
+  cls: implementation
+- id: pre_state_generations
+  expr: p.each_sequence_state_initialized_and_chunk_carry_published_before_readers
+  meaning: Initial/zero state is independent per sequence/head. Carry accumulates only that sequence and
+    is published to contraction readers before reuse. Empty sequence performs no token update and preserves
+    its initial state under the declared state-storage recipe.
+  cls: implementation
+program:
+  description: For each sequence initialize its carried state H from its own seed. complete_sequence_chunks
+    uses each full block[0,C); clipped_physical_subranges resolves ordered records(physical_block,lo,hi),
+    with0<=lo<hi<=C and separate sequence/head identity. In one logical subrange let c_i be the scalar
+    cumulative log decay measured from its actual start, so c_i=physical_prefix_i-physical_prefix_(lo-1),
+    with absent prefix0. For valid query i output exp(c_i)*q_i*H + sum_(lo<=j<=i) exp(c_i-c_j)*(q_i dot
+    k_j)*v_j. Compute local pairwise contraction followed by V, masking both query/key coordinates to
+    the owned subrange. After all readers capture incoming H, form H_next=exp(c_(hi-1))*H+sum_(lo<=j<hi)
+    exp(c_(hi-1)-c_j)*(k_j outer v_j). Mask insertion range before its MMA consumes it; publish completed
+    H_next to the next logical chunk, regardless of the neighboring sequence occupying other physical
+    rows. Empty sequence runs no subrange/update and returns its seed. decay_mode=none sets all log decays0.
+    Final optional D*x and z*sigmoid(z) stages are separate after the recurrence output. Stage precision/state
+    operand conversion and native pipeline ownership are explicit bindings, not erased by this real equation.
+backward_map: Expand each valid logical subrange in token order. Local causal and incoming-state terms
+  partition the same sequence history, each prior insertion carries exactly subsequent scalar decays,
+  and rebasing cancels physical prefix contributions before lo. Disjoint output masks and per-sequence
+  initialization prevent shared physical rows from crossing histories. Full-block positive sequences recover
+  version1.
+obligations:
+- name: prefix_identity
+  statement: Local and incoming-state terms partition causal history without overlap and use matching
+    decay prefixes.
+  method: proof
+- name: state_boundary
+  statement: Every output uses the incoming state before it is overwritten; the next chunk receives the
+    completed outgoing state.
+  method: test
+- name: numeric_binding
+  statement: Chosen state precision and factored exponent arithmetic meet the numerical contract.
+  method: test
+- name: shared_physical_boundaries
+  statement: Clip both pairwise axes and insertion/output ranges, rebase incoming/outgoing gate factors,
+    and keep separate initial/carry state for each logical sequence sharing a physical block.
+  method: test
+scope:
+  predicate: p.sequence_length >= 0 and (chunk_domain != 'complete_sequence_chunks' or (p.sequence_length
+    > 0 and p.sequence_length % chunk_tokens == 0)) and (p.scalar_decay_outer_product_recurrence and p.sequence_origins_match
+    and p.initial_state_defined) and (decay_mode != 'none' or p.all_log_decays_zero) and (p.exponents_in_range
+    and p.reassociation_and_state_casts_admitted and p.tail_and_output_ownership_valid) and (chunk_domain
+    == 'complete_sequence_chunks' or (p.complete_physical_backing_and_ordered_exact_logical_subranges
+    and p.shared_physical_blocks_have_disjoint_sequence_output_ownership)) and (p.local_gate_prefixes_rebased_at_actual_subrange_start_and_end)
+    and (p.both_pairwise_axes_and_state_insertion_range_masked_before_consumers_and_stores) and (p.each_sequence_state_initialized_and_chunk_carry_published_before_readers)
+  text: 'Version1 complete scalar outer-product chunks64/256 remain addressable. Added concrete binding:
+    FlashInfer SSD CuTe datacenter Blackwell tcgen05,128-token aligned physical blocks, logical packed-sequence
+    intersections, FP32 carried state and declared FP16/BF16 contraction copies. H has dstate-by-headdim
+    axes; k is B, v is processed_dt*x, q is C. Separate prefix uses A*processed_dt in natural-log space.
+    Complete physical backing is required by this wrapper; generic arbitrary unbacked physical tails are
+    outside. Featurewise gates and delta feedback remain excluded.'
+signature:
+  algorithm: Factor causal recurrence into local triangular contractions and sequential boundary states.
+  storage: Key-by-value state plus chunk tiles instead of a full token-pair matrix.
+  boundary: Incoming state excludes the logical subrange; outgoing state includes it. Shared physical
+    blocks have independent logical sequence frames/owners.
+  resources:
+  - registers
+  - smem
+  - tensor
+numeric_risk: Changes summation and state conversion order; factored exp(c_i-c_j) must remain in range.
+  No bitwise equivalence is claimed.

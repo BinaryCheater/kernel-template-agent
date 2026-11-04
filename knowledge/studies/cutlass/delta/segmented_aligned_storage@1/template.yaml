@@ -1,0 +1,70 @@
+name: segmented_aligned_storage
+version: 1
+level_from: 4
+level_to: 5
+change: vertical
+refines: store
+produces: [store, map]
+object:
+  type: segment_local_padded_regions
+  description: Each payload segment occupies its own aligned storage region and carries a storage prefix distinct from the original logical prefix.
+variables:
+  - {name: alignment, kind: numeric, binding: compile, role: boundary, domain: {lo: 1, hi: 65536}, meaning: Alignment in payload-axis elements required by the selected consumer layout; the pinned scale layouts require128 rows or4 scale columns.}
+constraints:
+  - {id: c_layout, expr: "alignment == p.required_alignment and p.padded_extent_fits_allocation and p.prefix_fits_int32", meaning: Padding is dictated by the bound consumer layout and its allocation/integer limits., cls: implementation}
+preconditions:
+  - {id: pre_segments, expr: "p.segment_lengths_nonnegative and p.segment_table_complete and p.segment_metadata_immutable", meaning: Every payload segment is described consistently from preparation through use., cls: semantic}
+  - {id: pre_map, expr: "p.producer_consumer_storage_map_agree and p.logical_and_storage_offsets_distinguished", meaning: Producer and consumer share segment-local storage origins; offsets for other unpadded tensors stay logical., cls: semantic}
+  - {id: pre_padding, expr: "p.padding_initialized and p.padding_unobserved_or_neutral", meaning: Missing payload coordinates are initialized under the bound policy and either unobserved or neutral under the original operation., cls: semantic}
+  - {id: pre_layout, expr: "p.storage_layout_matches_padding and p.offsets_ready_before_use", meaning: Selected per-segment physical layout and published storage-prefix metadata are supported., cls: implementation}
+program:
+  description: >-
+    For payload segment length Lg, allocate Pg=ceil(Lg/alignment)*alignment elements
+    on its axis. Build storage starts as prefix sums of Pg, retaining logical starts
+    from the original lengths separately. Place each valid local coordinate x at
+    storage_start[g]+x, then apply the selected segment-local physical layout.
+    Initialize padding under the bound policy; require it to be unobserved or neutral. Consumers select
+    the matching segment and use its storage origin and local coordinate; unpadded
+    operands continue to use their logical origins. Empty segments occupy zero
+    storage. Publish all storage origins before use. Reusing the logical prefix
+    as storage prefix is legal only when every segment already meets alignment.
+backward_map: Discard each region's padding and invert its local physical layout; concatenate only valid payload coordinates in original segment order.
+obligations:
+  - {name: payload_identity, statement: Every valid segment/local coordinate selects its original payload without collision or crossing segment padding., method: exhaustive}
+  - {name: prefix_identity, statement: Storage starts equal sums of separately padded segment extents and are distinguished from logical starts., method: test}
+  - {name: padding_policy, statement: Extra coordinates cannot change visible results and never expose uninitialized payload., method: test}
+effects:
+  transactions: []
+  storage:
+    - {id: padded_payload, level: gmem, scope: device, bytes: "p.padded_payload_bytes", note: "Total layout-specific allocation supplied by the bound family; includes valid payload and padding, not an additional duplicate allocation."}
+  overlap: []
+scope:
+  predicate: "p.segment_lengths_nonnegative and p.segment_table_complete and p.segment_metadata_immutable and p.producer_consumer_storage_map_agree and p.logical_and_storage_offsets_distinguished and p.padding_initialized and p.padding_unobserved_or_neutral and p.storage_layout_matches_padding and p.offsets_ready_before_use"
+  text: >-
+    Independent padding of finite payload segments with an explicit storage-origin
+    map and supported segment-local layout. MoE scale rows use alignment128;
+    reduction scale columns use alignment4 after ceil(tokens/sf_vec_size), while
+    descriptor offsets retain token-equivalent units sf_vec_size times the padded
+    columns. Data tensors remain unpadded. Prefix metadata storage/scan cost is separate and unpriced here.
+    Native32_4_4 layout, descriptor proxy
+    visibility and reduction-tail neutrality require their own implementation
+    binding. Selecting the rule does not license changing the consumer's required
+    alignment or reusing padded origins for unpadded operands.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Separate-round each payload segment and preserve logical/storage origins.
+  storage: Independently padded payload regions and storage-prefix metadata.
+  boundary: Empty segments, padding neutrality and origin-unit agreement.
+  resources: [gmem, issue]
+numeric_risk: Wrong segment bases select another group's scales; non-neutral or live padding can change reductions.
+summary: >-
+  When a consumer requires aligned metadata groups but data remains concatenated
+  without that padding, consider separate aligned regions for the metadata. Round
+  each payload segment before taking its storage prefix, preserve the logical
+  prefix for unpadded data and match the producer's segment-local layout. The MoE
+  scale instance uses128 rows or4 scale columns, with requested zero fill and distinct
+  token/scale origins. Rounding the fused total or substituting token offsets for
+  padded scale offsets is invalid. Alignment is fixed by the consuming layout,
+  not an independent tuning knob in this source binding.

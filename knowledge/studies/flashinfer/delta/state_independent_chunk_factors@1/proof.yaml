@@ -1,0 +1,49 @@
+template: state_independent_chunk_factors@1
+version: 1
+relation: Substitute W=K_restore^T*T and P=C*T. Associativity recovers R=T*(V-EK*H_operand), then original
+  output and state contractions under the admitted reassociation/cast policy. Preparing factors early
+  is legal because they do not depend on H or V.
+rank: State-chain chunks not yet consumed after factor publication.
+assumes:
+- name: pre_factors
+  statement: Each chunk has state-independent EK, EQ, E_end, K_restore, causal C and weighted feedback
+    T with R=T*(V-EK*H). H_next=diag(E_end)*H+K_restore^T*R and Y=EQ*H+C*R under the admitted chunk feedback
+    contract.
+- name: pre_independence
+  statement: Prepare only W=K_restore^T*T and P=C*T plus EK,EQ,E_end; these depend on matching Q/K/gates/beta
+    and normalization parameters, not incoming H or original V. No precomputed state-dependent residual
+    may be reused for another H.
+- name: pre_generations
+  statement: Q/K/gates/beta/normalization and sequence/chunk order remain coherent through preparation
+    and all readers; original V remains available to the chain. Changed inputs require regeneration before
+    reuse.
+- name: pre_layout
+  statement: Each prepared payload has a declared logical-to-physical map. Store, global layout, TMA image
+    and each MMA reader compose to the same coordinates, including different instruction readers. Local
+    writer/reader self-consistency alone is insufficient.
+- name: pre_publish
+  statement: Prepared mode finishes every factor write and async store, then publishes through an ordered
+    kernel/stream dependency before chain reads. Scratch is private to an invocation or its prior consumers
+    have retired; this version does not use a cross-kernel flag ring.
+- name: pre_chain
+  statement: Each sequence/head/value shard has one state chain, consumes chunks in logical order, and
+    finishes old-state projections before replacement. Value shards own disjoint state/output elements
+    and share read-only factors.
+- name: pre_numeric
+  statement: Folding T into W/P and workspace stores change association/rounding. Preserve the explicit
+    state-operand conversion used in X/output and the declared carried-state recipe; both supplies meet
+    the admitted error policy rather than bitwise equivalence.
+- name: pre_backend
+  statement: Selected on-chain or prepared route is implemented for this target/shape/dtype; actual chunk
+    prefix fits capacity and producer/consumer use matching sequence origins. Dispatch occupancy thresholds
+    are tuning policy, not legality or speed guarantees.
+guarantees: []
+models: []
+note: kda_chunked_bt16.py:7609-7705 composes W from weighted inverse and K_restore;7960-8158 prepares
+  causal P, EK/EQ and split W stores with async-store retirement. host_unified:9580-9665 publishes metadata
+  in a prior kernel, runs host_prep fully first on the same stream then host_chain_dv2; removed chain-first
+  two-stream flag-ring is not this binding. kernel_chain_dv2:8642-8705 owns one64-value-row half and reads
+  common factors;9200-9375 orders old-state projection, state pack/rescale and optional checkpoints. Coordinate
+  test must follow current helper:547-565 uses key^8, despite stale token-dependent XOR in the header
+  around6358. Exact factor checks and labeled workspace coordinates do not validate native async protocol
+  or rounding.

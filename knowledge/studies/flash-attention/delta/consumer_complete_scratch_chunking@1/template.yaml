@@ -1,0 +1,69 @@
+name: consumer_complete_scratch_chunking
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: store
+produces: [store, map, sync]
+object:
+  type: consumer_complete_reusable_chunk_scratch
+  description: Partition independent producer rows into chunks and reuse one intermediate buffer only after every consumer of the previous chunk has completed.
+variables:
+  - {name: chunk_rows, kind: numeric, binding: runtime, role: software, domain: {lo: 1, hi: 2147483647}, meaning: Maximum logical rows materialized in the reusable intermediate; last chunk may be smaller.}
+constraints:
+  - {id: c_rows, expr: "p.rows >= 1 and p.bytes_per_row >= 1", meaning: This version handles nonempty producer-row domains with positive per-row intermediate storage., cls: semantic}
+  - {id: c_capacity, expr: "min(chunk_rows, p.rows) * p.bytes_per_row <= p.scratch_capacity_bytes", meaning: The largest live chunk fits the scratch allocation., cls: resource}
+preconditions:
+  - {id: pre_partition, expr: "p.producer_rows_independent and p.all_consumer_edges_enumerated and p.row_partition_exact_once", meaning: "Every row belongs to one chunk and all consumers of its intermediate are known; no producer recurrence crosses chunks.", cls: semantic}
+  - {id: pre_coordinates, expr: "p.global_row_identity_preserved_in_every_semantic_consumer and p.chunk_views_and_tail_bounds_valid", meaning: "Local chunk coordinates decode original row/head/sequence identity, including causal masks, support selection, metadata and tail stores.", cls: semantic}
+  - {id: pre_outputs, expr: "p.disjoint_output_slices_or_defined_cross_chunk_reduction and p.shared_accumulators_initialized_once and p.cross_chunk_numeric_order_admitted", meaning: "Outputs are disjoint slices or explicit complete reductions; shared accumulators are initialized once for the full invocation and changed reduction order is admitted.", cls: semantic}
+  - {id: pre_lifetime, expr: "p.producer_completion_precedes_each_consumer and p.all_chunk_consumers_complete_before_scratch_reuse and p.no_external_consumer_needs_old_intermediate", meaning: "Every chunk's producer completes before its consumers, all consumers complete before reuse, and no later external user needs an overwritten intermediate.", cls: implementation}
+program:
+  description: >-
+    Replace a full rows-by-intermediate_width temporary with storage for
+    min(chunk_rows,rows) rows. For starts a=0,chunk_rows,... let b=min(a+chunk_rows,rows).
+    Produce the original intermediate for global rows[a,b) into scratch rows[0,b-a).
+    Bind every consumer with both the chunk-local views and the original global
+    row/sequence identity. Run all consumers of that intermediate before the next
+    producer reuses scratch. Write independent outputs to their original[a,b)
+    slices; accumulate shared indexed/reduced outputs using the full invocation's
+    defined initial state. Final partial chunks expose only b-a rows. Preserve
+    masks by explicit original coordinates or a proven equivalent view/offset
+    transformation. Kernel/stream dependencies may establish completion without
+    a host synchronization, but issuing a consumer is not proof it has completed.
+backward_map: Concatenate the produced logical chunk intermediates in global row order and compose their consumers, recovering the original full-intermediate dataflow and complete output reductions.
+obligations:
+  - {name: partition_and_coordinates, statement: "Every original row is produced/consumed once, and all masks, indices, sequence boundaries and output coordinates retain their original semantics.", method: test}
+  - {name: consumer_lifetime, statement: "Every dependent consumer finishes reading a chunk before its scratch is overwritten, including asynchronously issued consumers.", method: test}
+  - {name: output_composition, statement: "Output slices are complete/disjoint or reduced exactly with one initial state and an admitted cross-chunk numerical order.", method: test}
+effects:
+  transactions: []
+  storage:
+    - {id: scratch, level: dram, scope: kernel, bytes: "min(chunk_rows, p.rows) * p.bytes_per_row"}
+  overlap: []
+scope:
+  predicate: "p.rows >= 1 and p.bytes_per_row >= 1 and p.producer_rows_independent and p.all_consumer_edges_enumerated and p.row_partition_exact_once and p.global_row_identity_preserved_in_every_semantic_consumer and p.chunk_views_and_tail_bounds_valid and p.disjoint_output_slices_or_defined_cross_chunk_reduction and p.shared_accumulators_initialized_once and p.cross_chunk_numeric_order_admitted and p.producer_completion_precedes_each_consumer and p.all_chunk_consumers_complete_before_scratch_reuse and p.no_external_consumer_needs_old_intermediate"
+  text: >-
+    A finite row-independent producer with an explicit complete consumer set and
+    reusable global scratch. Source sparse MLA chunks query tokens, with varlen
+    or batch1 contiguous views, retaining global K/V accumulators. Persistent
+    checkpoints needed by later external passes, cross-chunk producer recurrences
+    and implicit mask-coordinate changes are outside this version. Smaller
+    scratch trades for repeated launches/setup; no speedup is claimed.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Materialize one row chunk and drain all its consumers before reusing intermediate storage.
+  reuse: One intermediate allocation serves every chunk while original output identities remain intact.
+  storage: At most min(chunk_rows,rows) times intermediate bytes per row instead of full rows times bytes per row.
+  boundary: Complete consumer set, original semantic coordinates and cross-chunk output reduction.
+  resources: [dram]
+numeric_risk: Chunking can alter cross-row atomic/reduction interleaving; remapping sequence lengths or causal offsets incorrectly changes the mathematical support.
+summary: >-
+  When a multi-kernel computation retains a large intermediate that only nearby
+  consumers need, produce a row chunk, run every consumer, then reuse its scratch.
+  Keep original row identities in masks and metadata, and initialize shared
+  gradient accumulators once across all chunks. This bounds transient storage
+  without requiring one fused kernel; omitting a consumer or rebasing a causal
+  mask as though the chunk were the whole sequence changes the result.

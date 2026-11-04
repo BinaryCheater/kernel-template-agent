@@ -1,0 +1,28 @@
+template: cost_partitioned_worklists@1
+version: 1
+relation: The flattened disjoint worker ranges enumerate the same independent complete tasks as the original
+  grid.
+rank: Remaining task descriptors in each worker range.
+assumes:
+- name: enumeration
+  statement: Input tasks cover original work once and are independent under the admitted output contract.
+- name: append
+  statement: Every input task appends to exactly one worker list with all descriptor fields intact.
+- name: storage
+  statement: Prefix offsets partition the complete flattened sequence and every CTA traverses exactly
+    its own valid range.
+- name: execution
+  statement: Plan generations are stable and every role safely retires one task before advancing.
+guarantees: []
+models: []
+note: 'Induct on planner appends: worker lists are disjoint and their union is the processed task prefix.
+  Selecting a worker by estimated load changes only list membership, so cost accuracy is irrelevant to
+  this invariant. Flattening is a bijection from list positions to descriptor positions. Worker prefix
+  intervals are disjoint and cover the flattened sequence; local counter increments visit each position
+  once. Head replication needs an additional bijection from (stored task, grid head) to original head-specific
+  tasks. Source attention/scheduler.cuh:981-1001,1053-1194 binds cost=2*CTA_Q+effective_KV, decreasing
+  request KV length and reverse query tiles. hopper/tile_scheduler.cuh:81-188 advances within work_indptr
+  ranges. runtime_work_descriptors@1 has chunk/padding plans and one descriptor per CTA; persistent_tile_scheduler@1
+  offers stride or atomic fetch. Neither exposes least-load assignment and variable-length per-CTA lists.
+  Native plan transfer, role agreement and pipeline/state retirement need device evidence. A small logical
+  witness checks exact descriptors, empty ranges, replication and mismatched metadata.'

@@ -1,0 +1,56 @@
+name: output_prefix_work_filter
+version: 1
+level_from: 4
+level_to: 5
+change: restriction
+refines: work_assign
+produces: [work_assign, map]
+object:
+  type: prefix_valid_output_work_unit
+  description: A cooperative output work unit is retained exactly when its row interval intersects the current group's valid prefix, with an optional unfiltered initial unit.
+variables:
+  - {name: unit_rows, kind: numeric, binding: compile, role: boundary, domain: {lo: 1, hi: 65536}, meaning: Rows covered by the entire cooperating work unit rather than one member CTA.}
+  - {name: bypass_initial, kind: structure, binding: compile, role: software, domain: [false, true], meaning: Allow each worker's first valid unit to execute without filtering; padding remains unobservable and allocated.}
+constraints:
+  - {id: c_unit, expr: "unit_rows == p.cooperative_unit_rows and p.prefix_bounds_legal", meaning: Prefix lengths are within allocated row capacities and the unit covers all cooperating peers., cls: semantic}
+preconditions:
+  - {id: pre_domain, expr: "p.base_work_partition_exact and p.prefix_metadata_immutable", meaning: Base work visits each valid output exactly once and prefix metadata stays fixed., cls: semantic}
+  - {id: pre_padding, expr: "p.padding_accesses_safe and p.padding_writes_unobserved", meaning: Retained partial or initial units may execute and store padding without changing a visible result., cls: semantic}
+  - {id: pre_control, expr: "p.invalid_work_checked_before_metadata and p.peers_share_filter_result and p.roles_share_kept_sequence", meaning: Only valid work reads metadata; all cooperating peers and pipeline roles agree on the retained units., cls: implementation}
+program:
+  description: >-
+    Enumerate each worker's base sequence of cooperative output units. Check validity
+    before reading a unit's group prefix. Except for an optionally bypassed initial
+    unit, compute the first row of the whole cooperating unit and keep it iff that
+    row is less than the group's valid row count. Skip empty units without advancing
+    their compute/input/output pipelines; publish the same next retained unit or
+    terminal marker to every role. Retained units preserve the original coordinate
+    mapping and output arithmetic, including any allocated unobservable padding.
+backward_map: Reinsert the omitted units whose row intervals are wholly outside the visible output prefix; these units have no visible outputs.
+obligations:
+  - {name: visible_coverage, statement: Every visible output coordinate is retained exactly once and no skipped unit intersects the valid row prefix., method: exhaustive}
+  - {name: cooperative_agreement, statement: Peers classify their whole cooperative unit identically and every pipeline role consumes the same retained sequence., method: test}
+  - {name: bounded_metadata, statement: Terminal or invalid work does not read nonexistent prefix metadata., method: test}
+  - {name: padding_contract, statement: Extra rows from a partial or bypassed initial unit are allocated and have no observable output effect., method: test}
+effects: {transactions: [], storage: [], overlap: []}
+scope:
+  predicate: "p.prefix_bounds_legal and p.base_work_partition_exact and p.prefix_metadata_immutable and p.padding_accesses_safe and p.padding_writes_unobserved and p.invalid_work_checked_before_metadata and p.peers_share_filter_result and p.roles_share_kept_sequence"
+  text: >-
+    Output rows valid on [0,valid_rows) separately for each group, with disjoint
+    cooperative row units. This is not element masking: a unit crossing the boundary
+    still executes padded rows. The pinned masked grouped example filters subsequent
+    units using the cluster's first row and bypasses initial units. Its scheduler
+    reads group metadata after advancing to possibly invalid work, so validity-first
+    guarding is required before a backend binding satisfies this rule. Non-prefix
+    masks or observable padding writes need a different implementation or variant.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Remove cooperative output work wholly outside immutable valid row prefixes.
+  storage: Prefix metadata and a shared retained-work sequence.
+  boundary: Does not suppress padded rows within retained units or change reduction arithmetic.
+  resources: [issue]
+numeric_risk: Retained output arithmetic is unchanged; padding and output observability are part of the contract.
+summary: >-
+  When grouped output buffers have allocated row capacity but only a prefix is visible, consider filtering whole cooperative work units before their pipelines. Preserve every visible output once and let all peers and roles follow the same retained sequence; bind unit_rows to the cluster footprint, not one CTA. With128-row units and valid_rows1, retain the first unit and skip starts128 onward; partial units still write padding, and the pinned source needs a validity guard before terminal metadata lookup.

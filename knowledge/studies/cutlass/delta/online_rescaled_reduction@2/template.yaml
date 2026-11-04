@@ -1,0 +1,76 @@
+name: online_rescaled_reduction
+version: 2
+level_from: 3
+level_to: 3
+change: expansion
+refines: reduce
+produces: [reduce, map]
+object:
+  type: running_reduction_state
+  description: A finite reference and common positive weight gain represent a streamed denominator and weighted numerator in the same normalization frame.
+variables:
+  - {name: state, kind: structure, binding: compile, role: software, domain: [max_sum, max_sum_acc], meaning: "Carry a reference and denominator, optionally the weighted numerator; legacy names retain max even when the selected reference can lag it."}
+  - {name: rescale_point, kind: structure, binding: compile, role: software, domain: [per_tile, before_next_mma, after_mma], meaning: Physical placement of correction; the implementation must correct exactly the old contributions before combining frames.}
+  - {name: finalize, kind: structure, binding: compile, role: software, domain: [deferred_divide, none], meaning: Normalize once or expose the framed state to a later consumer.}
+  - {name: traversal, kind: structure, binding: compile, role: software, domain: [ascending, descending], meaning: Order of a complete disjoint tile partition.}
+  - {name: inf_guard, kind: structure, binding: compile, role: software, domain: [false, true], meaning: Legacy implementation choice for masked-prefix handling; neither choice admits an undefined final zero denominator.}
+  - {name: reference_policy, kind: structure, binding: compile, role: software, domain: [running_max, lagged_max], meaning: Update to the new maximum immediately or retain the old finite reference while its natural-logit increase divided by ln2 is at most threshold_log2.}
+  - {name: threshold_log2, kind: numeric, binding: compile, role: software, domain: {lo: 0, hi: 8}, meaning: Maximum permitted base2 logit lag before updating the reference; source selects0 or8.}
+  - {name: weight_gain_log2, kind: numeric, binding: compile, role: software, domain: {lo: 0, hi: 8}, meaning: Common weight gain G=2**weight_gain_log2 applied to denominator and numerator; source FP8 selects0 or8.}
+constraints:
+  - {id: c_policy, expr: "reference_policy != 'running_max' or threshold_log2 == 0", meaning: Immediate-max projection has no lag threshold., cls: semantic}
+  - {id: c_range, expr: "p.reference_and_gain_within_numeric_range", meaning: The selected reference lag and weight gain fit exponent and storage ranges including every extra denominator term., cls: implementation}
+preconditions:
+  - {id: pre_partition, expr: "p.assoc and p.rescalable and p.complete_disjoint_tiles and p.no_nonidentity_terms_dropped", meaning: Every logical contribution is retained once and correction is distributive under the admitted numerical contract., cls: semantic}
+  - {id: pre_initial, expr: "p.initial_state_valid and p.masked_terms_are_zero and p.final_denominator_positive_finite", meaning: Initialization/masked prefixes are defined and final normalization has positive finite mass., cls: semantic}
+  - {id: pre_frame, expr: "p.common_gain_constant and p.extra_denominator_terms_share_frame and p.numerator_denominator_reference_match", meaning: All ordinary and extra contributions use the same reference and gain; gain is fixed across the stream., cls: semantic}
+  - {id: pre_backend, expr: "p.state_transitions_match_recurrence and p.casts_and_math_admitted and p.finalize_log_compensation_exact", meaning: Physical correction order and stored-state precision implement the declared recurrence and compensate the gain in LSE., cls: implementation}
+program:
+  description: >-
+    Work in natural scaled-logit units x. Carry a finite reference r and zero-initialized
+    L and optionally O. With constant G=2**weight_gain_log2, the invariant is
+    L=G*sum_seen(exp(x-r)) and O=G*sum_seen(exp(x-r)*v). For each tile choose
+    candidate=max(r,max_finite_tile_logit); running_max selects candidate, while
+    lagged_max keeps r when (candidate-r)/ln(2)<=threshold_log2 and selects candidate
+    otherwise. With chosen r_new, c=exp(r-r_new). Correct exactly the old state by c,
+    then add G*exp(x-r_new) and its weighted values for this tile. Masked elements add
+    zero. A denominator-only extra logit a, such as a zero-valued attention sink,
+    adds G*exp(a-r) to L in the same frame. At finalization output O/L and, when
+    requested, natural LSE=r+log(L)-log(G), or divide that result by ln2 for base2 LSE.
+    With finalize=none expose r,L,O,G together. Storage conversion and fast exp2
+    lowering are separately admitted implementations, not an exact-floating claim.
+backward_map: Divide L and O by their common G*exp(-r); their ratio becomes the complete normalized weighted sum, and removing log(G) recovers the original logsumexp.
+obligations:
+  - {name: invariant, statement: After every tile the state equals the retained prefix sums in the declared reference/gain frame; reference need not equal the exact maximum., method: proof}
+  - {name: finalize_equivalence, statement: Common-frame normalization and gain-compensated LSE recover the original positive-mass operator under the declared numerical policy., method: test}
+  - {name: extra_terms, statement: Every denominator-only contribution receives the same reference and gain as ordinary weights., method: test}
+  - {name: masked_prefixes, statement: Empty masked prefixes have defined state transitions and final zero-mass rows are excluded or handled by a separate admitted variant., method: test}
+  - {name: implementation_order, statement: "Correction, cast, exp/log and storage ranges realize the recurrence without applying an old-frame factor to new-frame contributions.", method: test}
+effects: {transactions: [], storage: [], overlap: []}
+scope:
+  predicate: "p.assoc and p.rescalable and p.complete_disjoint_tiles and p.no_nonidentity_terms_dropped and p.initial_state_valid and p.masked_terms_are_zero and p.final_denominator_positive_finite and p.common_gain_constant and p.extra_denominator_terms_share_frame and p.numerator_denominator_reference_match and p.state_transitions_match_recurrence and p.casts_and_math_admitted and p.finalize_log_compensation_exact and p.reference_and_gain_within_numeric_range"
+  text: >-
+    Complete streamed positive-mass exponential reductions with finite references and
+    a fixed positive common gain. Source FMHA uses lag8 to avoid small correction
+    updates and FP8 gain256 at lag0 or gain1 at lag8. Nonidentity tile pruning is
+    excluded. Source sink plus nonunit gain fails the common-frame premise until
+    compensated; final fully masked/zero-mass rows require another binding. This is
+    a versioned extension with an explicit finite-domain projection, not automatic
+    promotion of every version1 source/proof or of native packed/TMEM operations.
+requires: []
+probed_on: []
+relations:
+  - {type: enables, target: approximate_math_rewrite, note: Exp2 with folded scale implements the same frame when its numerical policy is admitted.}
+signature:
+  algorithm: Stream exponential weights with a selectable finite reference and common gain.
+  storage: Reference plus framed denominator and optional weighted accumulator.
+  boundary: Reference lag, common scaling of extra terms, positive mass and log compensation.
+  resources: [fma, sfu]
+numeric_risk: Finite real identities do not admit overflowing exponentials, P quantization, fused arithmetic or dropped mass without their declared numerical policies.
+summary: >-
+  When online attention's reference updates trigger costly accumulator correction,
+  consider retaining a bounded-lag reference. Preserve the weighted-sum frame rather
+  than requiring that reference to remain the exact maximum. A common probability
+  gain can improve narrow storage range only when numerator, denominator and sink
+  terms share it and LSE subtracts its logarithm. Require positive final mass and
+  admitted native range/precision; nonzero pruning is a separate transformation.

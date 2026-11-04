@@ -1,0 +1,15 @@
+template: history_suffix_pullback@1
+version: 1
+relation: "Differentiable suffix history, source widths2\u20134 including invocation\
+  \ shorter than history. This is independent of the numeric convolution weights and\
+  \ does not imply gradients through discrete sequence ids."
+rank: Number of input elements or state transitions still to consume.
+assumes:
+- name: source_contract
+  statement: Source binding and stated scope hold.
+guarantees: []
+models: []
+note: 'Source-derived candidate, not independently admitted. suffix_address: q=L-W+1+j
+  maps every returned sample to its original stream coordinate. pullback_sum: Each
+  df appears once at that coordinate and adds to all ordinary stencil contributions.
+  Native lowering and numerical error remain open; see trace and checks.'

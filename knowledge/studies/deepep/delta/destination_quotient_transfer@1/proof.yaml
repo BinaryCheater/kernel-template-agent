@@ -1,0 +1,15 @@
+{
+  "template": "destination_quotient_transfer@1",
+  "version": 1,
+  "relation": "The pending and delivered records partition the required logical deliveries under the declared expansion map.",
+  "rank": "Number of undelivered logical records plus remaining intermediate batches.",
+  "assumes": [
+    {
+      "name": "transport",
+      "statement": "Transport completes and payload is visible before publication; buffers remain live until consumers complete."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Initialization has no delivered records. Quotient by equal class; store the full recipient incidence list. Each class is sent once and its incidence entries reconstruct exactly the original destination set. The source witness is hybrid_dispatch.cuh:395\u2013457 with expert-to-scaleout-rank integer division; direct dispatch uses rank classes. Misuse: dropping expert 3 when experts 2 and 3 share a rank loses a distinct expert computation. Native transport ordering and forward progress remain open. See ../../trace.md and ../../checks/replay.json."
+}

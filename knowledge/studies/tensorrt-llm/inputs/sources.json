@@ -1,0 +1,39 @@
+{
+  "upstream": "https://github.com/NVIDIA/TensorRT-LLM",
+  "revision": "f71076c08a20a4c84214908d55f1b0322f4b8368",
+  "license": "Apache-2.0 plus third-party notices",
+  "root": "/Users/dingyi/kta-data/dev/operator-sources/NVIDIA/TensorRT-LLM/f71076c08a20a4c84214908d55f1b0322f4b8368/representatives",
+  "scope": "Partial representative files retained and hashed; complete Git tree inventory retained. Full archive transfer failed and is not a verified source input.",
+  "files": [
+    {
+      "path": "cpp/tensorrt_llm/kernels/arcquantFP4.cu",
+      "sha256": "372a046145e98356bce6e0d54deb0915b53cfe9423fb2287c016ea446881cfa6"
+    },
+    {
+      "path": "cpp/tensorrt_llm/kernels/fmhaDispatcher.cpp",
+      "sha256": "910eae9502daaf77f2c7f866212aa955122c1931a2e82210931de10744e7e87b"
+    },
+    {
+      "path": "cpp/tensorrt_llm/kernels/fusedSampling/fusedSamplingKernelsCommon.cuh",
+      "sha256": "76c87190c169791626ea17cee028514ee41641e156bb0a8fb64c7c147d1d508d"
+    },
+    {
+      "path": "cpp/tensorrt_llm/kernels/fusedSampling/fusedSamplingMultiCta.cu",
+      "sha256": "edbd5025551ac37f3b1d8a25344f672e836d79e41f9dcfe1abdf4e57e65f7662"
+    },
+    {
+      "path": "cpp/tensorrt_llm/kernels/fusedSampling/fusedSamplingSingleCta.cu",
+      "sha256": "927dbb7071e3a6363b6d9a60cc9faed36f24ded049b70780f5144a358c6bedd7"
+    },
+    {
+      "path": "cpp/tensorrt_llm/kernels/fusedSampling/fusedSamplingKernels.cu",
+      "sha256": "207ebc9d86468070e0125ca94291a5b779ecfed00284addc6b721252225370c0"
+    },
+    {
+      "path": "cpp/tensorrt_llm/kernels/decoderMaskedMultiheadAttention/decoderXQARunner.cpp",
+      "sha256": "0720722b69af0629a8ba64eece1c0df5304503df47c8bfe894ba17a611a5859c"
+    }
+  ],
+  "incomplete_archive": "/Users/dingyi/kta-data/dev/operator-sources/NVIDIA/TensorRT-LLM/f71076c08a20a4c84214908d55f1b0322f4b8368/source.tar.gz",
+  "archive_transfer_status": "curl exited92; partial bytes retained, never extracted or used"
+}

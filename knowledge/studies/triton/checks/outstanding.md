@@ -1,0 +1,7 @@
+# Outstanding realization and proof checks
+
+Failed CLC coordinate accessor nontrapping behavior for tutorial12 @2; native TMA indexed row/register layouts and bounds; scaled-MMA scale fragments and rounding; shared/async proxy fences and engine scope; control/input/TMEM/output ring completion and final drain. Before promoting those Realisations, compile the exact source configuration through the Executor, inspect the selected NVIDIA lowering and run distinguishing coordinate/generation checks. The current source-study does not authorize GPU experiments.
+
+Timing: these checks gate independent assurance/admission of the affected premise. The source extraction closes at candidate + outline + source binding, with these premises explicit. No measured/proved assurance is assigned here.
+
+Production additions: native FP4/FP8 code conversion and UE8M0/direct-E4M3 rounding at format boundaries; exact supported scale-fold range for NVFP4→MXFP8; destination-scale/code identity for ragged/scatter outputs; actual Hopper prepared-bit BF16 decoder and Blackwell shuffled TMA consumer; multi-rank symmetric-memory generation publication/progress and unique occurrence maps at callers; output atomics' initialization/completion and integer overflow bounds. Candidates explicitly restrict exceptional/subnormal/overflow groups where source arithmetic needs a wider numerical contract. Finite witnesses establish the named logical mappings, not native arithmetic or communication assurance.

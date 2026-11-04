@@ -1,0 +1,94 @@
+name: privatized_bin_accumulation
+version: 1
+level_from: 2
+level_to: 3
+change: vertical
+refines: reduce
+produces:
+- reduce
+- store
+- sync
+object:
+  type: privatized_bin_accumulation
+  description: A per-worker bin table absorbs sample updates before combining nonzero
+    bin totals globally.
+variables:
+- name: table_location
+  kind: structure
+  binding: compile
+  role: software
+  domain:
+  - shared
+  - global_private
+  meaning: Where each CTA-private table lives.
+- name: update_grouping
+  kind: structure
+  binding: compile
+  role: software
+  domain:
+  - individual
+  - local_equal_runs
+  meaning: Count each decoded bin or coalesce adjacent equal decoded bins within one
+    thread.
+constraints: []
+preconditions:
+- id: pre0
+  expr: p.sample_partition_exact and p.bin_decoder_consistent and p.invalid_bins_ignored
+  meaning: Each valid sample has one decoded bin and every private/final map agrees.
+  cls: semantic
+- id: pre1
+  expr: p.private_tables_zeroed and p.final_table_zeroed and p.counts_fit and p.private_storage_fits
+  meaning: Initial counter state and resource capacity are explicit.
+  cls: semantic
+- id: pre2
+  expr: p.private_updates_atomic and p.private_updates_complete_before_flush and p.final_updates_atomic
+  meaning: Concurrent updates and table-flush ordering are safe.
+  cls: semantic
+program:
+  description: Partition samples among workers. Initialize one private counter table
+    per worker/channel. Decode each valid sample to a bin. Individual mode atomically
+    adds one to its private bin. local_equal_runs mode forms maximal equal-bin runs
+    in each thread item sequence and atomically adds each run length once, ignoring
+    invalid bins. After all worker updates retire, flush nonzero private counters
+    through the output-bin decoder with atomic additions to the initialized global
+    histogram. Shared/global-private tables realize the same count decomposition;
+    source blended mode assigns location by CTA parity.
+backward_map: Sum each private count by logical output bin to recover exactly the
+  original sample histogram.
+obligations:
+- name: count_conservation
+  statement: Every valid sample contributes exactly one, even when equal-bin runs
+    are compressed.
+  method: proof
+- name: flush_visibility
+  statement: Private table publication precedes flush and final atomic sums retain
+    every worker contribution.
+  method: test
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: (p.sample_partition_exact and p.bin_decoder_consistent and p.invalid_bins_ignored)
+    and (p.private_tables_zeroed and p.final_table_zeroed and p.counts_fit and p.private_storage_fits)
+    and (p.private_updates_atomic and p.private_updates_complete_before_flush and
+    p.final_updates_atomic)
+  text: Integer sample histograms with consistent channel/bin mapping and bounded
+    counters. RLE grouping is thread-local decoded-bin equality, not sorting and not
+    global run encoding.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: A per-worker bin table absorbs sample updates before combining nonzero
+    bin totals globally.
+  storage: Binding-specific counters, partials or output ranges.
+  boundary: Tile prefixes and logical membership.
+  resources: []
+numeric_risk: Integer counts must not overflow; ordering/rounding policy belongs to
+  the bound operation.
+summary: When many samples contend on the same output bins, accumulate per-worker
+  tables and flush counts. Choose shared/global-private storage and optionally coalesce
+  adjacent equal bins inside each thread. Bins [2,2,5,5,5] become updates (2,+2),(5,+3);
+  invalid bins contribute nothing. Extra private capacity and initialization trade
+  against fewer global atomics.

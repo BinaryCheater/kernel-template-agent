@@ -1,0 +1,8 @@
+{
+  "upstream": "https://github.com/NVIDIA/cccl",
+  "revision": "b31ec15aa3424670e0878ed770ef80d51b36fa0b",
+  "tree": "/Users/dingyi/kta-data/dev/operator-sources/NVIDIA/cccl/b31ec15aa3424670e0878ed770ef80d51b36fa0b/source-b31ec15aa3424670e0878ed770ef80d51b36fa0b",
+  "archive": "/Users/dingyi/kta-data/dev/operator-sources/NVIDIA/cccl/b31ec15aa3424670e0878ed770ef80d51b36fa0b/worker-d-source.tar.gz",
+  "scope": "Full superproject archive; submodule contents not materialized",
+  "license": "Component licenses retained; Apache-2.0 with LLVM exceptions and BSD component headers"
+}

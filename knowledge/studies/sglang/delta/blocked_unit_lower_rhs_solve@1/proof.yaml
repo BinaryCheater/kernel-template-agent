@@ -1,0 +1,15 @@
+{
+  "template": "blocked_unit_lower_rhs_solve@1",
+  "version": 1,
+  "relation": "All completed block rows satisfy the corresponding unit-lower system equations for the original RHS.",
+  "rank": "Four minus completed block rows, with remaining rows inside current block.",
+  "assumes": [
+    {
+      "name": "unit_lower",
+      "statement": "The diagonal coefficient is1, the upper triangle is0, and numerical solve/product policy is explicit."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "First block has no prior coupling. Assume earlier blocks complete; subtract allAbjXj terms and solve the local unit-lower system, establishing the next block equation. Induction gives the full solve without inverse storage. Compared with blocked_unit_lower_inverse@1, this object ownsRHS blocks, not inverse matrix blocks; inverse can be a distinct realization with different storage/rounding. Source kda_prefill.cu:1044\u20131107; source narrow-product residual policy and native sync remain open. Exact integer/rational RHS witness in checks/triangular_rhs.py."
+}

@@ -1,0 +1,14 @@
+workload: "Partial SM100 MegaGate for T16,H4096,E128,k8,deterministic mode and no ranking bias. Raw-logit partial reduction precedes exact top-k; nonlinear selected-score evaluation and weight normalization are external edges. The two-CTA publication join is external."
+items:
+  - key: logit_partition
+    template: reduction_partition@1
+    applies_to: Each token/expert dot over4096 hidden coordinates with a single K split.
+    bindings: {num_groups: 1, group_size: 4096, assignment: contiguous_parallel}
+    after: []
+    code_markers: []
+  - key: rank_candidates
+    template: sorted_run_topk@1
+    applies_to: 128 finite raw logits partitioned into32 four-element lane runs; raw ranking is the source policy for the no-bias branch.
+    bindings: {run_length: 4, k: 8}
+    after: [logit_partition]
+    code_markers: []

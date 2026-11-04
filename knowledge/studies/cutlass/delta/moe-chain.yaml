@@ -1,0 +1,26 @@
+workload: >-
+  Partial proposed backward MoE composition: FP16 A/B/C, FP32 accumulator,
+  hidden128/intermediate256, four expert token lengths8/0/40/16 and cumulative
+  ends8/8/48/64, MMA128x128x64, cluster1x1, no output accumulation, separate setup.
+  Expert output counts2/2/2/2; K counts1/0/1/1. Source scheduler sentinel/tail
+  protocol requires correction. Native descriptor visibility, fragment mapping,
+  transfer clipping, setup zero extents and derived resource budget are external.
+items:
+  - key: descriptor_table
+    template: precompute_transfer_descriptors@1
+    applies_to: AB tuple for each expert; local K consumer coordinates do not repeat the encoded token offset; setup precedes all transfer consumers.
+    bindings: {descriptors_per_problem: 2}
+    after: []
+    code_markers: [desc_init_kernel, construct_and_write, get_desc_ptr]
+  - key: expert_decode
+    template: online_group_work_decode@2
+    applies_to: Immutable expert output counts with monotone per-cluster queries; physical decode and shortest-axis selection remain family glue.
+    bindings: {search: scalar_forward, cache_shapes: false}
+    after: []
+    code_markers: [_advance_expert_to_contain, expert_tile_start, expert_tile_end]
+  - key: output_source_ring
+    template: staged_async_output_store@1
+    applies_to: After external descriptor-relative TMA/MMA and defined K0 register-zero path; two stages is a logical candidate conditional on source-derived resource/layout legality.
+    bindings: {stages: 2}
+    after: [descriptor_table, expert_decode]
+    code_markers: [num_tiles_executed, c_buffer, c_pipeline]

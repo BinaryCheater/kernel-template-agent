@@ -1,0 +1,130 @@
+name: blocked_thread_register_layout
+version: 1
+level_from: 2
+level_to: 3
+change: vertical
+refines: access
+produces:
+- access
+- store
+object:
+  type: blocked_thread_register_layout
+  description: Hierarchical register/lane/warp digits map a rectangular logical tile
+    to physical thread registers.
+variables:
+- name: S0
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 1
+    hi: 65536
+  meaning: Rows per thread register subtile.
+- name: S1
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 1
+    hi: 65536
+  meaning: Columns per thread register subtile.
+- name: T0
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 1
+    hi: 65536
+  meaning: Lane rows per warp.
+- name: T1
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 1
+    hi: 65536
+  meaning: Lane columns per warp.
+- name: W0
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 1
+    hi: 65536
+  meaning: Warp rows per CTA.
+- name: W1
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 1
+    hi: 65536
+  meaning: Warp columns per CTA.
+- name: order
+  kind: structure
+  binding: compile
+  role: software
+  domain:
+  - row_major
+  - column_major
+  meaning: Fastest-varying dimension when decoding each hierarchy digit.
+constraints: []
+preconditions:
+- id: pre0
+  expr: T0 * T1 == 32 and p.factor_sizes_are_powers_of_two
+  meaning: NVIDIA warp has 32 lanes with compatible block factors.
+  cls: semantic
+- id: pre1
+  expr: p.tensor_shape_multiple_of_block_shape and p.logical_elements_assigned_once
+  meaning: This version admits full block shapes or whole repetitions without physical
+    broadcast replicas.
+  cls: semantic
+- id: pre2
+  expr: p.register_capacity_and_launch_legal
+  meaning: Register subtiles and warps fit the selected launch.
+  cls: semantic
+program:
+  description: Define block extents B0=S0*T0*W0,B1=S1*T1*W1. Decode lane id into (l0,l1)
+    with extents (T0,T1), warp id into (w0,w1) with extents(W0,W1), and within-thread
+    register id into (r0,r1) with extents(S0,S1), using the selected fastest dimension.
+    Coordinate i=(w0*T0+l0)*S0+r0+q0*B0, j=(w1*T1+l1)*S1+r1+q1*B1 for outer repetition
+    digits(q0,q1). Higher shape repetitions add registers. Source tensors smaller
+    than block shape physically broadcast replicas; that regime requires an explicit
+    replica ownership policy and is outside this first version.
+backward_map: Erase physical thread/register hierarchy to recover the same logical
+  tensor coordinates and values.
+obligations:
+- name: hierarchy_bijection
+  statement: Every valid logical coordinate has one register/lane/warp/repetition
+    decomposition.
+  method: proof
+- name: consumer_layout
+  statement: Loads, stores, collective and MMA consumers interpret the chosen mapping
+    consistently.
+  method: test
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: (T0 * T1 == 32 and p.factor_sizes_are_powers_of_two) and (p.tensor_shape_multiple_of_block_shape
+    and p.logical_elements_assigned_once) and (p.register_capacity_and_launch_legal)
+  text: Rank-two whole-block distributed tensors on 32-lane NVIDIA warps, power-of-two
+    hierarchy factors and whole repetitions. Smaller-shape broadcast replicas are
+    explicitly excluded; consumer-specific MMA layouts require a realization binding.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Hierarchical register/lane/warp digits map a rectangular logical tile
+    to physical thread registers.
+  storage: Binding-specific counters, partials or output ranges.
+  boundary: Tile prefixes and logical membership.
+  resources: []
+numeric_risk: Integer counts must not overflow; ordering/rounding policy belongs to
+  the bound operation.
+summary: When choosing how a tensor tile spreads over registers, lanes and warps,
+  vary the hierarchy factors and their digit order separately. S=[2,4],T=[16,2],W=[2,2]
+  gives a 64x16 block and eight registers per thread. A 128x128 tensor repeats that
+  block 2x8 times, giving 128 registers per thread before liveness effects. Do not
+  treat smaller replicated tensors as unique-writer maps.

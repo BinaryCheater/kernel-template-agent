@@ -1,0 +1,14 @@
+template: merge_path_partition@1
+version: 1
+relation: Concatenate output intervals in diagonal order to obtain the stable global
+  merge of the original two sequences.
+rank: Unprocessed source items or unmerged partials.
+assumes:
+- name: contract
+  statement: The stated partition, comparator/count and publication premises hold.
+guarantees: []
+models: []
+note: Source block_merge_sort.cuh:41-61; device/dispatch/dispatch_merge.cuh:106-134;
+  agent_merge.cuh:180-270. The stable merge prefix is monotone on each diagonal. Its
+  unique A/B counts invert prefix length; adjacent prefix differences partition both
+  sources. Test equal keys to distinguish tie bias.

@@ -1,0 +1,96 @@
+{
+  "name": "event_ordered_host_device_staging",
+  "version": 1,
+  "level_from": 2,
+  "level_to": 3,
+  "change": "vertical",
+  "refines": "map",
+  "produces": [
+    "map",
+    "access"
+  ],
+  "object": {
+    "type": "event_ordered_host_device_staging",
+    "description": "When host batches feed GPU work across streams, give host staging and device slots separate release events so an input copy cannot overwrite live compute or block its own future submission."
+  },
+  "variables": [
+    {
+      "name": "device_slots",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": [
+        1,
+        2
+      ],
+      "meaning": "Observed single/double device buffering menu; pinned host slots mirror reusable transfer sources."
+    }
+  ],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_0",
+      "expr": "p.stream_events_supported and p.source_lifetime_valid",
+      "meaning": "Copy/compute streams support events and source memory remains live until H2D completion.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_1",
+      "expr": "p.all_consumers_submitted_before_release and p.slot_generation_matched",
+      "meaning": "Release event follows the last consumer in compute stream; waits bind the intended event record generation.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_2",
+      "expr": "p.pinned_staging_for_pageable_source",
+      "meaning": "Pageable input uses retained pinned staging where asynchronous submission is required for progress.",
+      "cls": "semantic"
+    }
+  ],
+  "program": {
+    "description": "Before copying into a recycled device slot, copy stream waits on its previous compute-release event. Copy the selected batch, record a ready event on copy stream, and enqueue a compute-stream wait on that ready generation before consumers. After all consumers are submitted, record release on compute stream. For pageable host input, wait for the previous H2D completion before refilling the pinned host staging slot, then submit H2D from that pinned slot and record host-reusable completion. Host slot may be refilled while device computation still reads the device slot; device reuse waits longer. Already resident identical batches can reuse without a transfer."
+  },
+  "backward_map": "Erase auxiliary organization and recover the visible results under the stated contract.",
+  "obligations": [
+    {
+      "name": "generation",
+      "statement": "Each compute consumer sees the batch matching its position, not another generation of the slot.",
+      "method": "proof"
+    },
+    {
+      "name": "separate_retirement",
+      "statement": "Host staging waits for H2D reads; device destination waits for compute reads.",
+      "method": "proof"
+    },
+    {
+      "name": "event_capture",
+      "statement": "Every wait captures the intended record before an event is re-recorded for another generation.",
+      "method": "proof"
+    },
+    {
+      "name": "submission_progress",
+      "statement": "Host submission cannot block on a device reuse event that needs not-yet-submitted compute to finish.",
+      "method": "proof"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.stream_events_supported and p.source_lifetime_valid and p.all_consumers_submitted_before_release and p.slot_generation_matched and p.pinned_staging_for_pageable_source",
+    "text": "NVIDIA CUDA out-of-core KMeans batch loader. This host/device stream protocol is not the CTA barrier semantics of seed multi_buffer_rotation@2 or global-to-shared scope of async_transfer@1. Exception teardown drains both streams before storage/events are destroyed. Resource effects: One/two device batch buffers plus optional pinned host staging and three event types per slot; allows overlap but adds host copy for pageable inputs. No overlap benefit claimed without timing."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "When host batches feed GPU work across streams, give host staging and device slots separate release events so an input copy cannot overwrite live compute or block its own future submission.",
+    "storage": "One/two device batch buffers plus optional pinned host staging and three event types per slot; allows overlap but adds host copy for pageable inputs. No overlap benefit claimed without timing.",
+    "boundary": "At batch2 reusing device slot0, pinned host slot0 becomes reusable when batch0 H2D finishes; device slot0 only when batch0 compute finishes. Treating those as one event either overwrites live GPU data or needlessly delays host staging.",
+    "resources": []
+  },
+  "numeric_risk": "Preserve the supplied arithmetic contract; reassociation, quantization and approximate search require separate permission.",
+  "summary": "When host batches feed GPU work across streams, give host staging and device slots separate release events so an input copy cannot overwrite live compute or block its own future submission. At batch2 reusing device slot0, pinned host slot0 becomes reusable when batch0 H2D finishes; device slot0 only when batch0 compute finishes. Treating those as one event either overwrites live GPU data or needlessly delays host staging."
+}

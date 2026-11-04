@@ -1,0 +1,102 @@
+name: distributed_slice_reduce
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: reduce
+produces:
+- reduce
+object:
+  type: distributed_slice_reduce
+  description: When each lane needs only a slice of a vector reduction, exchange ownership
+    while reducing instead of replicating the whole reduced vector in every lane.
+variables:
+- name: lanes
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 1
+    hi: 32
+  meaning: 'L: selected subgroup size, power of two.'
+- name: slices
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 1
+    hi: 32
+  meaning: 'S: fragment size / slice_elems, derived from fragment shape.'
+- name: slice_elems
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 1
+    hi: 1024
+  meaning: 'E: coupled contiguous elements per owned slice.'
+- name: stride
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 1
+    hi: 32
+  meaning: Power-of-two lane spacing fixed by layout.
+constraints:
+- id: c0
+  expr: is_pow2(lanes) and is_pow2(slices) and is_pow2(stride) and slices <= lanes
+    and lanes * stride <= 32
+  meaning: Aligned subgroup fits a warp.
+  cls: implementation
+preconditions:
+- id: pre0
+  expr: p.full_subgroup_active and p.same_plane_layout and p.associative_commutative_merge
+    and p.rounding_admitted
+  meaning: Every lane participates; coupled planes have the same slice mapping.
+  cls: semantic
+program:
+  description: 'Let L lanes each hold S slices of E values. First fold lane partners
+    at XOR offsets S,2S,... below L. For m=S/2,...,1: lanes with group_index bit m
+    clear swap slices r and r+m; shuffle the lower slot from the partner at XOR m*stride;
+    merge it with the local upper slot into the lower slot. Move all coupled planes
+    together. At completion lane g owns original slice g mod S in slots [0,E); permit
+    only g<S to store. Compared with a full butterfly over S*E entries at every level,
+    shrinking the live slice set reduces communication and spreads final stores.'
+backward_map: Within one aligned NVIDIA warp subgroup, original slice g mod S is completely
+  reduced in the first E slots of lane g; forget lane ownership to recover the full
+  vector reduction.
+obligations:
+- name: ownership
+  statement: Induction on m halves the owned data domain and doubles represented input
+    lanes.
+  method: proof
+- name: unique_store
+  statement: Only g<S stores slice g, avoiding duplicates when L>S.
+  method: proof
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: (is_pow2(lanes) and is_pow2(slices) and is_pow2(stride) and slices <=
+    lanes and lanes * stride <= 32) and (p.full_subgroup_active and p.same_plane_layout
+    and p.associative_commutative_merge and p.rounding_admitted)
+  text: Within one aligned NVIDIA warp subgroup, original slice g mod S is completely
+    reduced in the first E slots of lane g; forget lane ownership to recover the full
+    vector reduction.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: When each lane needs only a slice of a vector reduction, exchange ownership
+    while reducing instead of replicating the whole reduced vector in every lane.
+  boundary: Within one aligned NVIDIA warp subgroup, original slice g mod S is completely
+    reduced in the first E slots of lane g; forget lane ownership to recover the full
+    vector reduction.
+  resources:
+  - registers
+numeric_risk: Floating-point reassociation, casts and approximate functions require
+  an admitted numerical contract.
+summary: When each lane needs only a slice of a vector reduction, exchange ownership
+  while reducing instead of replicating the whole reduced vector in every lane.

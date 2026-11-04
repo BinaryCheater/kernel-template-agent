@@ -1,0 +1,15 @@
+{
+  "template": "affine_piece_prefix_state@1",
+  "version": 1,
+  "relation": "A completed piece(L,c) maps any admitted entry state to the result of its ordered chunk recurrence; a running piece entry equals the original prefix state.",
+  "rank": "Number of unbuilt chunk summaries plus unprocessed local chunks and required prefix applications.",
+  "assumes": [
+    {
+      "name": "affine",
+      "statement": "Chunk updates are right-affine and the application admits the declared summary arithmetic; summaries are immutable after publication."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Identity(I,0) mapsS toS. Appending(Lj,cj) gives(SL+c)Lj+cj=S(LLj)+(cLj+cj). Induct over a piece and then preceding pieces, excluding own piece from its entry prefix. Noncommuting2x2 matrices in checks/affine_prefix.py distinguish reversed multiplication. Native BF16/TF32 numerical admission and fused-grid scheduling progress remain open. Source jit/csrc/attention/kda_prefill.cu:1114\u20131129,1490\u20131581,1949\u20131954."
+}

@@ -1,0 +1,51 @@
+name: butterfly_linear_transform
+version: 1
+level_from: 3
+level_to: 5
+change: vertical
+refines: map
+produces: [map, transfer, sync]
+object:
+  type: normalized_butterfly_block
+  description: A power-of-two block transformed by staged sum/difference pairs and a final inverse-square-root normalization.
+variables:
+  - {name: H, kind: numeric, binding: compile, role: boundary, domain: {lo: 2, hi: 512, pow2: true}, meaning: Transform block extent fixed by the requested normalized Hadamard operation.}
+  - {name: V, kind: numeric, binding: compile, role: software, domain: {lo: 1, hi: 32, pow2: true}, meaning: Values per lane; chooses the boundary between register and cross-lane butterflies.}
+  - {name: threads, kind: numeric, binding: compile, role: software, domain: {lo: 32, hi: 1024, step: 32}, meaning: Participating CTA threads for one or more complete transform blocks.}
+constraints:
+  - {id: c_blocks, expr: "H % V == 0 and threads % (H // V) == 0", meaning: Each block consists of a whole number of lanes and the CTA holds whole blocks., cls: semantic}
+  - {id: c_lanes, expr: "H // V <= 1024 and (H // V <= 32 or (H // V) % 32 == 0)", meaning: Cross-warp blocks contain whole warps., cls: implementation}
+preconditions:
+  - {id: pre_requested, expr: "p.normalized_hadamard and p.length % H == 0", meaning: The coarse operation already requests this transform on complete blocks., cls: semantic}
+program:
+  description: >-
+    Treat each lane's V values as contiguous indices. Apply log2(V) register butterflies
+    pairing index i with i xor 2**stage. Then apply log2(H/V) lane butterflies, using
+    XOR shuffle for the first five lane stages and shared memory for later stages.
+    Each pair produces low+high and low-high. Shared stages have both write-before-read
+    and read-before-reuse barriers. Multiply all outputs by 1/sqrt(H).
+backward_map: Each stage is the corresponding factor of the Sylvester Hadamard matrix; composing the factors and normalization yields the requested block transform.
+obligations:
+  - {name: matrix_identity, statement: Every output coefficient equals the normalized Walsh sign for its logical input and output indices., method: exhaustive}
+  - {name: no_cross_block, statement: Pairing never mixes independent transform blocks even when several occupy one CTA., method: exhaustive}
+  - {name: scratch_lifetime, statement: Shared-stage writes complete before reads and no next-stage write destroys a live value., method: test}
+  - {name: numeric_error, statement: FP32 additions and rsqrt normalization satisfy the caller's transform tolerance., method: test}
+effects: {transactions: [], storage: [], overlap: []}
+scope:
+  predicate: "p.normalized_hadamard"
+  text: >-
+    A requested normalized block Hadamard transform, not an unrestricted change to a GEMM
+    operand. H is a boundary parameter; V and thread grouping change the implementation.
+    The bounded candidate domain is supported by the source's power-of-two conditions;
+    register capacity and exact compiled layouts remain target-specific obligations.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Register then XOR-shuffle then shared-memory sum/difference butterfly.
+  storage: Registers and shared scratch for blocks wider than one warp.
+  boundary: Complete independent power-of-two blocks; normalization after all stages.
+  resources: []
+numeric_risk: Reassociation and approximate inverse square root alter FP32 rounding; finite exact basis checks cover indices only.
+summary: >-
+  Use for a requested normalized Hadamard transform on complete power-of-two blocks. Bind H to the transform length. Choose V values per lane and a compatible thread count; H/V lanes own one block. With H=32 and V=4, eight lanes cooperate. V changes which pairwise additions and subtractions stay in registers and which require communication. Preserve the transform order and final normalization.

@@ -1,0 +1,651 @@
+{
+  "upstream": "https://github.com/deepseek-ai/DeepGEMM",
+  "revision": "5081f8513af57e61696de4f4f04b0e707ffb503e",
+  "license": "MIT",
+  "tree": "/Users/dingyi/kta-data/dev/operator-sources/deepseek-ai/DeepGEMM/5081f8513af57e61696de4f4f04b0e707ffb503e/DeepGEMM-5081f8513af57e61696de4f4f04b0e707ffb503e",
+  "archive": "/Users/dingyi/kta-data/dev/operator-sources/deepseek-ai/DeepGEMM/5081f8513af57e61696de4f4f04b0e707ffb503e/source.tar.gz",
+  "archive_sha256": "4f2c4d851bda66e4e4c76df57cee6ece5d569e8a2614ffe2167b8f00518131f3",
+  "scope": "Complete superproject archive. Both direct submodules retained separately; see submodule-sources.json for fixed revisions and used file hashes. Nested submodule bodies are not implied.",
+  "files": [
+    {
+      "path": ".github/workflows/_build.yml",
+      "sha256": "7e62ef72a6a05b879d8df6ddacea98f8a99515d190262ae0b7f3cfe34b7900f1"
+    },
+    {
+      "path": ".github/workflows/build.yml",
+      "sha256": "adc4f52e4bb6b83487b67603aa2d9691d584b03b8fd3c8af15bcd146fe664d7a"
+    },
+    {
+      "path": ".github/workflows/publish.yml",
+      "sha256": "ec1e42aa16e457e98eb121a66d8cc85a2b71fb4b762800a42a27d446717c9548"
+    },
+    {
+      "path": ".gitignore",
+      "sha256": "a4f534b7704645d19607dfede37c6970d6c491e3e5b0211dfecd42de3c7888b5"
+    },
+    {
+      "path": ".gitmodules",
+      "sha256": "a8fcf997d55e91a56eb7aa10ccb22823c02c095973d5a40c2c297e052154148e"
+    },
+    {
+      "path": "CMakeLists.txt",
+      "sha256": "8f05c0443af4daf527f25706f44fef53291de658b86f10ee5c06e30d1435ca62"
+    },
+    {
+      "path": "LICENSE",
+      "sha256": "6c73a30c14a2938abaa6afe98ebb19e6d81dac5bd4ace0cb05c61c20afa37b85"
+    },
+    {
+      "path": "README.md",
+      "sha256": "1112521165450d617bf0ff0cc06d8944f7b4548ecf4727e1d16143671014a4d2"
+    },
+    {
+      "path": "build.sh",
+      "sha256": "461b2032a33400da58bc547f396ecda8afdf8cb27fb6fdb0cb312af04f9a6932"
+    },
+    {
+      "path": "csrc/apis/attention.hpp",
+      "sha256": "00f9293d641baa33199e62a25112540a7c105ec955ba7996d403eeea7f3b84bd"
+    },
+    {
+      "path": "csrc/apis/config.hpp",
+      "sha256": "61b70480befeac43bd7a59bc07943867bb0864f21696c7ba5baff5b214deefcf"
+    },
+    {
+      "path": "csrc/apis/einsum.hpp",
+      "sha256": "4cf93429a767add7ae1acf3a3660ea309e314aec29350c831ef245f8464d89a2"
+    },
+    {
+      "path": "csrc/apis/epilogue_class.hpp",
+      "sha256": "f28a7201628d2c3bff94603cbd8b4952731ece2a10f91484025766ffc4ca2ff7"
+    },
+    {
+      "path": "csrc/apis/gemm.hpp",
+      "sha256": "7cfdbdcf9fcc524bc715bc744f49f74b8fbab4b91e590cf7eeb3c0946d35770d"
+    },
+    {
+      "path": "csrc/apis/hyperconnection.hpp",
+      "sha256": "0c73a4ad3f96d7ce59b8801aee423b715629b856e3845f87602e631fd3248dae"
+    },
+    {
+      "path": "csrc/apis/layout.hpp",
+      "sha256": "63ec154c971aae1d014e5c9ebfda93af983a0e695d6dc8c5897382642d240c2c"
+    },
+    {
+      "path": "csrc/apis/locality_domain.hpp",
+      "sha256": "9ba4d8cd931a19094569c52daf67629bf201ee9c6e3b5ea5ef30cce025e7079f"
+    },
+    {
+      "path": "csrc/apis/mega_gate.hpp",
+      "sha256": "1e0cfc3361a1551476d10dbd9a9f11b7121851d956ce6ad7cb3ad0a529fae186"
+    },
+    {
+      "path": "csrc/apis/mega_mhc.hpp",
+      "sha256": "8a46910b0fe34595ebc441e091ebcb654ddb0292e121a3109a96752e80c897b1"
+    },
+    {
+      "path": "csrc/apis/mega_moe.hpp",
+      "sha256": "b52f852760daf2e3a54c20920b8d5dc2f88320daa05c9b0ca21331108c8625c7"
+    },
+    {
+      "path": "csrc/indexing/main.cu",
+      "sha256": "66d358a51832b73e3aae4a5476d06b316b58129f9bfec71564a1c30b49ba69ba"
+    },
+    {
+      "path": "csrc/jit_kernels/heuristics/common.hpp",
+      "sha256": "c629883eef88c332ae11bc21fc696ccd91999ed0f2b137c1d3249ed7a0b10f14"
+    },
+    {
+      "path": "csrc/jit_kernels/heuristics/config.hpp",
+      "sha256": "3e8173e4dd49a3dd3f7d305fa663741b16f32f7ff5c11efa702d09448bf3ca98"
+    },
+    {
+      "path": "csrc/jit_kernels/heuristics/mega_gate.hpp",
+      "sha256": "2084d423d8f612da3a8419da5b8ccd03aa95b890c94e5b1bd16071faf44471a9"
+    },
+    {
+      "path": "csrc/jit_kernels/heuristics/mega_moe.hpp",
+      "sha256": "24961c1f738a504b7f965d9513059b7f400d466746ed4251844a0a221a0ca11e"
+    },
+    {
+      "path": "csrc/jit_kernels/heuristics/runtime.hpp",
+      "sha256": "5c2733f5f720a45492d756ce6292dff867022d2f09bc4a2d8af3b59b53803efa"
+    },
+    {
+      "path": "csrc/jit_kernels/heuristics/sm100.hpp",
+      "sha256": "0d658df9eacacbc3648bde7c3ab895ca64eac2618ce8e98791926cee246da6eb"
+    },
+    {
+      "path": "csrc/jit_kernels/heuristics/sm90.hpp",
+      "sha256": "f2a9f9e9e6d224fccc976a33e7ccb6c6e4af65eeb5482ed811997c29e6598f75"
+    },
+    {
+      "path": "csrc/jit_kernels/heuristics/utils.hpp",
+      "sha256": "bfdbe43398c3bf72d9a32b60a832a39924eeddf65fe34de3c4989b6303b9a1c7"
+    },
+    {
+      "path": "csrc/jit_kernels/impls/epilogue_class.hpp",
+      "sha256": "72f461a20f81fe877e22803020742c37d99bc1cf51c08ea50df11ee0428f8261"
+    },
+    {
+      "path": "csrc/jit_kernels/impls/runtime_utils.hpp",
+      "sha256": "4bf8ef8948ec8249656331da7de7fcfb917f009e89eee0d45bce2d8155c96a4a"
+    },
+    {
+      "path": "csrc/jit_kernels/impls/sm100_bf16_gemm.hpp",
+      "sha256": "930b3ab90e1a5b7d7618ab6781d65cc94c6a576587ab70b5001cf8ef4ac440a2"
+    },
+    {
+      "path": "csrc/jit_kernels/impls/sm100_bf16_mega_gate.hpp",
+      "sha256": "e3a48a93b609978f8e2ad283449d76d140c3f8076043782905d47c3e2258daff"
+    },
+    {
+      "path": "csrc/jit_kernels/impls/sm100_bf16_mega_moe.hpp",
+      "sha256": "cd4d93e6cc9bb0eaa2d4a7721911c9c48b3dc8eb33d72ea38fb43144b71396c1"
+    },
+    {
+      "path": "csrc/jit_kernels/impls/sm100_bmk_bnk_mn.hpp",
+      "sha256": "02e180967718a6264b3d0ef7f0d6de5b70105ccbf438df47fe3d933ab86cf96e"
+    },
+    {
+      "path": "csrc/jit_kernels/impls/sm100_fp8_fp4_gemm_1d1d.hpp",
+      "sha256": "cc9d1099e6ccca0e1adc5df0e931c60d53bd163ae57953dc0b8f8cfb8bdf8481"
+    },
+    {
+      "path": "csrc/jit_kernels/impls/sm100_fp8_fp4_mega_moe.hpp",
+      "sha256": "d54e0149ea3e6eee497c118f6466e7bb57ae11ceccfc674ddda86212eae38f4b"
+    },
+    {
+      "path": "csrc/jit_kernels/impls/sm100_locality_domain.hpp",
+      "sha256": "70994abac23fce62264d09621022680074351de477ce407d379bd097becc91c0"
+    },
+    {
+      "path": "csrc/jit_kernels/impls/sm100_mega_mhc.hpp",
+      "sha256": "9d8505958ae590f4b05c8c85b138351a4518dd53d77a84825dec1a350cc4b2d3"
+    },
+    {
+      "path": "csrc/jit_kernels/impls/sm100_mqa_logits.hpp",
+      "sha256": "1ce448d9ac3a3f3440b347e7ed2ab020df5325e09460813687849ce903173373"
+    },
+    {
+      "path": "csrc/jit_kernels/impls/sm100_sparse_mqa_logits.hpp",
+      "sha256": "07874e7f7e393923354a84bd0e53ad05812c529f20731d765db0a5b0d650c6b4"
+    },
+    {
+      "path": "csrc/jit_kernels/impls/sm100_tf32_hc_prenorm_gemm.hpp",
+      "sha256": "bb44f58ef1a08217c0c72cb6f065b11d5a2ddcbadb7cd963cd8fc905edae9bf2"
+    },
+    {
+      "path": "csrc/jit_kernels/impls/sm90_bf16_gemm.hpp",
+      "sha256": "ef81cdc07bbb2a34e25e061352f8e8db9e82b1e272dc706db891c587c15eb2ca"
+    },
+    {
+      "path": "csrc/jit_kernels/impls/sm90_bmk_bnk_mn.hpp",
+      "sha256": "a800c3a2b6e50022fc250b92b609e91d6b28947ba16dd406291d6fb409f1076d"
+    },
+    {
+      "path": "csrc/jit_kernels/impls/sm90_fp8_gemm_1d1d.hpp",
+      "sha256": "61b012b0c1ef009f565be8af4767124c7ae42b623014293c58cdc78c7a1110e2"
+    },
+    {
+      "path": "csrc/jit_kernels/impls/sm90_fp8_gemm_1d2d.hpp",
+      "sha256": "9034410635d599c5c1d9fb95a33bec499d063580981ac25a5634899454c2a6aa"
+    },
+    {
+      "path": "csrc/jit_kernels/impls/sm90_fp8_mqa_logits.hpp",
+      "sha256": "605cb64235179e3a5e466dc32b2cd7de05c2c65061aae91caf516c2ead9fc339"
+    },
+    {
+      "path": "csrc/jit_kernels/impls/sm90_tf32_hc_prenorm_gemm.hpp",
+      "sha256": "9570a7ce9465568b887c4b5ae16d581b83cd5b557781a40b2ff94cb89907b1cc"
+    },
+    {
+      "path": "csrc/jit_kernels/impls/smxx_cublaslt.hpp",
+      "sha256": "299127c1cc67a0ea6bd6c0959b52bb7d407cefc0f4539074e6e2bf899ee3721c"
+    },
+    {
+      "path": "csrc/jit_kernels/impls/smxx_layout.hpp",
+      "sha256": "0f50d561d474090452785d628acef09e59b849dc964477c1140cf494d0fbec4a"
+    },
+    {
+      "path": "csrc/python_api.cpp",
+      "sha256": "d38bbae0b8850103b56e3a058c7098708b2e0390b7ba87172e6505d672bbf8ab"
+    },
+    {
+      "path": "csrc/runtime/jit.hpp",
+      "sha256": "6669e2d6867429727a139f9eee27e72e760ac735d6ab38cc79921434925d3d14"
+    },
+    {
+      "path": "csrc/runtime/locality_domain.hpp",
+      "sha256": "0c9293ac285a9a4750913f73530ef7d8279396e4e022ed7783e0f620f5ee462b"
+    },
+    {
+      "path": "csrc/runtime/mlopart.hpp",
+      "sha256": "43c7760d9097cccee39d850d502844043806eba402ffa9ff44144ce63b939b87"
+    },
+    {
+      "path": "csrc/runtime/runtime.hpp",
+      "sha256": "ec2bec12ed6e3b0777e9cd9eeb219e2177eae276ed45326d0f298aae43d3396a"
+    },
+    {
+      "path": "csrc/utils/compatibility.hpp",
+      "sha256": "dedda83af6e4c4adc3a821cd85bc5a0113fd09abded917f5f0f940f3b12813a6"
+    },
+    {
+      "path": "csrc/utils/exception.hpp",
+      "sha256": "162f410d0493aad576e54bf65667cef60347161e9318ab6532562bf9007c9b08"
+    },
+    {
+      "path": "csrc/utils/layout.hpp",
+      "sha256": "934f4c492fc763222fdd4dd401ab5a8e150b278bddf7d7f1388b990f6cb6b4df"
+    },
+    {
+      "path": "csrc/utils/math.hpp",
+      "sha256": "fb3992c2e36d8a0d199011be013e14c2422d78e426933fb041bf42e42af850d1"
+    },
+    {
+      "path": "deep_gemm/__init__.py",
+      "sha256": "2b57dde0bc7707eb1f98a9d499618f9e47605fb715a85d91d4fe6716aa9b941e"
+    },
+    {
+      "path": "deep_gemm/include/deep_gemm/comm/barrier.cuh",
+      "sha256": "ef2906925dc5ab5178df4ba6a9a41da74270cebecd892d5a7a01dbdeab5dfd69"
+    },
+    {
+      "path": "deep_gemm/include/deep_gemm/common/compile.cuh",
+      "sha256": "a13373053608b286c1ac39ce771cdd6ab133f44ec4f016bd6fcbc5032132a1a9"
+    },
+    {
+      "path": "deep_gemm/include/deep_gemm/common/cute_tie.cuh",
+      "sha256": "872af0b873a9b367c01eaf68c321ddcd9d0f3c26ce7b8d3abfc8a66d89b8ad65"
+    },
+    {
+      "path": "deep_gemm/include/deep_gemm/common/exception.cuh",
+      "sha256": "ab6b2bd75c06c054fbbe97d5897efa7909d380ad531620770c031b3debdf2123"
+    },
+    {
+      "path": "deep_gemm/include/deep_gemm/common/math.cuh",
+      "sha256": "65aef0dbff42f066d2715c33b632f452cb4e21503fe168be0dca55aed0af9262"
+    },
+    {
+      "path": "deep_gemm/include/deep_gemm/common/packing.cuh",
+      "sha256": "7b216c4a4f94e6691e2f553b204f697257eac1312b71fd7d24e7b420815c67b8"
+    },
+    {
+      "path": "deep_gemm/include/deep_gemm/common/probe.cuh",
+      "sha256": "a8c3ba2421655c60f65eb9eb0f3fa943c3a6c462c241c4fe2fdab0aead9fe86b"
+    },
+    {
+      "path": "deep_gemm/include/deep_gemm/common/ring_pipeline.cuh",
+      "sha256": "d231e0ceb5e41d3128a82b3e326b6cfc5c46b58013edf0bfd48bf1704859711e"
+    },
+    {
+      "path": "deep_gemm/include/deep_gemm/common/tma_copy.cuh",
+      "sha256": "fc70f7a6548720e9e3f04355f1c54184658685297a20270f3ff559fff9ece5d9"
+    },
+    {
+      "path": "deep_gemm/include/deep_gemm/common/types.cuh",
+      "sha256": "0382bf27efb6deea5dc21a4f8ae21296494e513166c2682c63e498c70cefa6b2"
+    },
+    {
+      "path": "deep_gemm/include/deep_gemm/common/utils.cuh",
+      "sha256": "9fd0fdb872bb1d037370cab53918535c5e049b2936dd5e8b8af51648dfb843f2"
+    },
+    {
+      "path": "deep_gemm/include/deep_gemm/epilogue/operators.cuh",
+      "sha256": "4e916eab753dcc06eee8fe8664a8f1ba412a4724119cdbb04de52e01c12f7bf3"
+    },
+    {
+      "path": "deep_gemm/include/deep_gemm/epilogue/sm100_mega_gate.cuh",
+      "sha256": "e6122684592ce0abd15dbd6f85eb4cb12d81ca07a3e249832aa9c367e009e222"
+    },
+    {
+      "path": "deep_gemm/include/deep_gemm/epilogue/sm100_mega_mhc.cuh",
+      "sha256": "5bfb051b4d5d3705b00919a7100d9f11fc6466be5b436930b721d5dc051d2813"
+    },
+    {
+      "path": "deep_gemm/include/deep_gemm/epilogue/sm100_store_cd.cuh",
+      "sha256": "f90b1baca0b88bad39cd84a3634447e2a4f24c249ab067bfa6afb7eed5979aea"
+    },
+    {
+      "path": "deep_gemm/include/deep_gemm/epilogue/sm100_store_cd_swap_ab.cuh",
+      "sha256": "23cf25fed0aa5bcc26465a88cb3b11144d236f9697458d072dbb9171ad1edd8d"
+    },
+    {
+      "path": "deep_gemm/include/deep_gemm/impls/sm100_bf16_gemm.cuh",
+      "sha256": "bbf1498d6dd31518885203dfe5c853d5e4e64df618b32f75ee9c5707171b7712"
+    },
+    {
+      "path": "deep_gemm/include/deep_gemm/impls/sm100_bf16_mega_gate.cuh",
+      "sha256": "0fbf34534703aef9c1567be4b9b057ebf30c4ebc305ab36c4c60b2d23d7a0400"
+    },
+    {
+      "path": "deep_gemm/include/deep_gemm/impls/sm100_bf16_mega_moe.cuh",
+      "sha256": "0387bd9bea62644b6580fd88d9e29f62d13e6ae4d319046ef1b8590224d1b8c5"
+    },
+    {
+      "path": "deep_gemm/include/deep_gemm/impls/sm100_bmk_bnk_mn.cuh",
+      "sha256": "49f167d1a23a65ba9d2000e1a5e675818ac4357a558509643aa1bfffdb1aba0e"
+    },
+    {
+      "path": "deep_gemm/include/deep_gemm/impls/sm100_fp8_fp4_gemm_1d1d.cuh",
+      "sha256": "f567031e4f6e2b86b0ee99560c3eaff0160623a82e01aff0559fbeb3c2ec17b4"
+    },
+    {
+      "path": "deep_gemm/include/deep_gemm/impls/sm100_fp8_fp4_mega_moe.cuh",
+      "sha256": "9d577f200e482fb2deed3e9d8a8b6ec0f71d15df2782d4b8f0a5321102ccc970"
+    },
+    {
+      "path": "deep_gemm/include/deep_gemm/impls/sm100_locality_domain.cuh",
+      "sha256": "a94bd377d69954fa5f0f0046a9c90fc204ef68a8ac188e73b7ef37370c56ffef"
+    },
+    {
+      "path": "deep_gemm/include/deep_gemm/impls/sm100_mega_mhc.cuh",
+      "sha256": "0d18cabc70ffdae563629923d2ef56c8f4d7805c65b360ab8dba196b1d573c5d"
+    },
+    {
+      "path": "deep_gemm/include/deep_gemm/impls/sm100_mqa_logits.cuh",
+      "sha256": "3221a1809e2aeb3627b97cc9d56a1d3d8bee33422340cb76dd23b9b9b7d75b3d"
+    },
+    {
+      "path": "deep_gemm/include/deep_gemm/impls/sm100_sparse_mqa_logits.cuh",
+      "sha256": "af05828b6808909115cfbf2c933752daa3c285b1469b3e9a01471fdb2889bed0"
+    },
+    {
+      "path": "deep_gemm/include/deep_gemm/impls/sm100_tf32_hc_prenorm_gemm.cuh",
+      "sha256": "37d28d517a7805c65e75d233ddf4ea63fc91f132660ce2887d8732b09c10822b"
+    },
+    {
+      "path": "deep_gemm/include/deep_gemm/impls/sm90_bf16_gemm.cuh",
+      "sha256": "10351222861d94842d2c2583742cc2e6af065a072f200926b8859a756b4cd095"
+    },
+    {
+      "path": "deep_gemm/include/deep_gemm/impls/sm90_bmk_bnk_mn.cuh",
+      "sha256": "614f643a9daa971aca72e180ba10858daf9e59561bc14355cd53b5fde41bb340"
+    },
+    {
+      "path": "deep_gemm/include/deep_gemm/impls/sm90_fp8_gemm_1d1d.cuh",
+      "sha256": "8d2cc57af14b86458ad15b5268426fbd547d262d7816d4280cbd57a7d9cfd112"
+    },
+    {
+      "path": "deep_gemm/include/deep_gemm/impls/sm90_fp8_gemm_1d2d.cuh",
+      "sha256": "fe9a88b1a2cca65beebb3ea6103bbb5224c448c3a27d8351de1e3fc4baff787e"
+    },
+    {
+      "path": "deep_gemm/include/deep_gemm/impls/sm90_fp8_mqa_logits.cuh",
+      "sha256": "2f8d570cbc04f49342e25b89ef88b8a745ad89540fa1274fd94e5cb4510c935b"
+    },
+    {
+      "path": "deep_gemm/include/deep_gemm/impls/sm90_fp8_paged_mqa_logits.cuh",
+      "sha256": "99adfbe0ef9322756628c805d047fa572cf44494cdf25e5330376f0a2a5c33f9"
+    },
+    {
+      "path": "deep_gemm/include/deep_gemm/impls/sm90_tf32_hc_prenorm_gemm.cuh",
+      "sha256": "57f8d0f19f421f5a98a679cc0b8fb09908297621044260814ae59a6e541e131b"
+    },
+    {
+      "path": "deep_gemm/include/deep_gemm/impls/smxx_layout.cuh",
+      "sha256": "cb72206057f00bd25cdc2d502997535948aaf18d2c678f97447548e317ca1ea3"
+    },
+    {
+      "path": "deep_gemm/include/deep_gemm/layout/gemm.cuh",
+      "sha256": "b692f024495a4160dc65a8094bb13eae65be4c902d10436fce6446e6919d2b57"
+    },
+    {
+      "path": "deep_gemm/include/deep_gemm/layout/mega_gate.cuh",
+      "sha256": "543ca6ee1f5c2e2bb04144232fbbab26026afcd0e12d3a547891d1a306ba25e7"
+    },
+    {
+      "path": "deep_gemm/include/deep_gemm/layout/mega_mhc.cuh",
+      "sha256": "c1d42729953b12b8407e479db5f97aa32aa9a1f2a0d1e6da4ad19c29c13d60dc"
+    },
+    {
+      "path": "deep_gemm/include/deep_gemm/layout/mega_moe.cuh",
+      "sha256": "53008d96b7eeaeec35af54e1400a9a3149625bc39b385611fe544b08c5084b50"
+    },
+    {
+      "path": "deep_gemm/include/deep_gemm/layout/mqa_logits.cuh",
+      "sha256": "013b7c2fdb2d4f1592a9683091d3bc234e6d12481f7072b0ce27dd0024472e56"
+    },
+    {
+      "path": "deep_gemm/include/deep_gemm/layout/sparse_mqa_logits.cuh",
+      "sha256": "87b304a2aac049be9d7babbefa551d984905744495c10048efa896647b9635d5"
+    },
+    {
+      "path": "deep_gemm/include/deep_gemm/layout/sym_buffer.cuh",
+      "sha256": "b157512fd62a20bf09a8fab489d4dc209751d0560c1343829e78374dbf6578cb"
+    },
+    {
+      "path": "deep_gemm/include/deep_gemm/mma/sm100.cuh",
+      "sha256": "439c57d8aa4914c01dcb55a874ace4fdaecec4682ea1099ba36e3cb8b23f41ab"
+    },
+    {
+      "path": "deep_gemm/include/deep_gemm/mma/sm90.cuh",
+      "sha256": "548fe0c63d7f36527a3d2b87d5ee8f1330c6fb5cc98bec1bc4bd9e20735482ff"
+    },
+    {
+      "path": "deep_gemm/include/deep_gemm/ptx/ld_st.cuh",
+      "sha256": "21ba6d6284af47edb713ee9e925665fc732704b763613c1ce0cb7300a70fd755"
+    },
+    {
+      "path": "deep_gemm/include/deep_gemm/ptx/tcgen05.cuh",
+      "sha256": "7760eef80c6a38ee424974f6f48f8923a56465326c159c8a795e6e8f4fa76b42"
+    },
+    {
+      "path": "deep_gemm/include/deep_gemm/ptx/tma.cuh",
+      "sha256": "519bf2f4c26ef7368e6cd239027061ee2725fbb3efc89b7574233037de228d4a"
+    },
+    {
+      "path": "deep_gemm/include/deep_gemm/ptx/utils.cuh",
+      "sha256": "8a9d5e03afdeb20f53b1027e9f6f3a2ef45bb33152dba2b61d778684e1716412"
+    },
+    {
+      "path": "deep_gemm/include/deep_gemm/ptx/wgmma.cuh",
+      "sha256": "dad341b3c4d2a1ea3a68c6028b454c72c6ce6105e86dfcdea6aaef243164ec1b"
+    },
+    {
+      "path": "deep_gemm/include/deep_gemm/scheduler/gemm.cuh",
+      "sha256": "f48dfef610affd81d1cae7798bdf602d0e2c3b9aa7cc2c0df0376370eea97ed6"
+    },
+    {
+      "path": "deep_gemm/include/deep_gemm/scheduler/mega_gate.cuh",
+      "sha256": "4aef186a0bd654172b0573f24fe163666d5e882749d97aa7528d4163b7b50a4a"
+    },
+    {
+      "path": "deep_gemm/include/deep_gemm/scheduler/mega_mhc.cuh",
+      "sha256": "62478e72f1a23a84b2d172338eb52f205e9aab067338ecb4e5ce57e84faa2ac4"
+    },
+    {
+      "path": "deep_gemm/include/deep_gemm/scheduler/mega_moe.cuh",
+      "sha256": "1bf76529e321bd546216ba700ac5e8ca2f321b40486d134ef8465e223b117573"
+    },
+    {
+      "path": "deep_gemm/include/deep_gemm/scheduler/sm100_mqa_logits.cuh",
+      "sha256": "c284fac85297bda2f119d7df0e64be12d077b84ec5009623f59ab9924b49ab41"
+    },
+    {
+      "path": "deep_gemm/include/deep_gemm/scheduler/sm100_paged_mqa_logits.cuh",
+      "sha256": "60d5b64c2d8fb11ded1672b87840f712d48aa4575a58ead20199934b36fbe06c"
+    },
+    {
+      "path": "deep_gemm/include/deep_gemm/scheduler/sm100_sparse_mqa_logits_metadata.cuh",
+      "sha256": "36bc774f81a6431681c77010dfc98f374fa6389531d744080e146c6da2389677"
+    },
+    {
+      "path": "deep_gemm/include/deep_gemm/scheduler/sm90_paged_mqa_logits.cuh",
+      "sha256": "9fcac09c81dc92860f427229a91cd573b26cd51b9249b9ceabc96ad0983e12cb"
+    },
+    {
+      "path": "deep_gemm/jit_hooks/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "deep_gemm/legacy/__init__.py",
+      "sha256": "667f5068c618eceec4d9c839b8367273ddd8c2bd688be4510f0d0cd25296efde"
+    },
+    {
+      "path": "deep_gemm/legacy/a_fused_k_grouped_gemm.py",
+      "sha256": "9b4b5c96b17667b41d4e5ba7ebb75ae731fc92577a3a0d3872f379caa3568966"
+    },
+    {
+      "path": "deep_gemm/legacy/a_fused_m_grouped_gemm.py",
+      "sha256": "6d997188e26caf96e02c9e72edba269bab50c4a863830f57e7014b6642df1084"
+    },
+    {
+      "path": "deep_gemm/legacy/b_fused_k_grouped_gemm.py",
+      "sha256": "72cfbe2d38421fc3a6eeef5cc8f41497f42b10464112895d7e86ed55869b6f73"
+    },
+    {
+      "path": "deep_gemm/legacy/m_grouped_gemm.py",
+      "sha256": "dcbc27c583cbe0e600a94b66c2c28d51b5b79f46188582efbfd8fec801207044"
+    },
+    {
+      "path": "deep_gemm/legacy/tune_options.py",
+      "sha256": "73696872fa80d4b72cf25a469de55534f6689f4dfea84b66d150d57ded004b26"
+    },
+    {
+      "path": "deep_gemm/locality_domain.py",
+      "sha256": "05c903897e3d30f9a200ad714925d0ff4ad79e56911109c335c960a4cffcbecb"
+    },
+    {
+      "path": "deep_gemm/mega/__init__.py",
+      "sha256": "76ca530af15eaace8f868e091cd8562c93a0266e8d6ae9febed1ef778c95b1ce"
+    },
+    {
+      "path": "deep_gemm/testing/__init__.py",
+      "sha256": "860e35af472f2e293883f8d06b928058f05fd5c32a4f108e2d774958ee198529"
+    },
+    {
+      "path": "deep_gemm/testing/bench.py",
+      "sha256": "bb3aa23af8fac40ca57777feb14d0bee16d1f97de86fe9ed51dbd67cd098d00a"
+    },
+    {
+      "path": "deep_gemm/testing/numeric.py",
+      "sha256": "de92b73f28acb3c5f560fbb942161c88c7e849e6c52bb38fd20c67b8e4d747c7"
+    },
+    {
+      "path": "deep_gemm/testing/utils.py",
+      "sha256": "20e5e4450cec023dabd8e92e32d9d6b7500991b9264d1068e942999aa52afec0"
+    },
+    {
+      "path": "deep_gemm/utils/__init__.py",
+      "sha256": "bf31f6e9fc30482ef83a73d63fdb6ed4d46deec847b35c0f9d39816d9b923bb4"
+    },
+    {
+      "path": "deep_gemm/utils/dist.py",
+      "sha256": "acf0fc25aa44ca5a54f2f757a39d462f43cf4ea1585d49f3feb59deecffefee3"
+    },
+    {
+      "path": "deep_gemm/utils/layout.py",
+      "sha256": "eb8ad89745ebfa72bf1a6ded9129ee57f15515857787f0308bb92c61dcbc5b5a"
+    },
+    {
+      "path": "deep_gemm/utils/math.py",
+      "sha256": "9cdecd0c0a0a8b3c64af87107464c91510876110eb80bdb485ff1f74eda8ea0e"
+    },
+    {
+      "path": "deep_gemm/utils/mlopart.py",
+      "sha256": "243d74abb3b60ff9712632212ea0d2d4a05f064311a3191e297d90d0b27cedc7"
+    },
+    {
+      "path": "develop.sh",
+      "sha256": "c74b78f35e32713814c376426b815727cb1131a6a21fe053067c255faeac9e1c"
+    },
+    {
+      "path": "docs/scaling-factor-format.md",
+      "sha256": "305b14ffe32f2e794dfd67acd1275e1c3ddf5ad428267b48b7ea9aeb995e8c09"
+    },
+    {
+      "path": "install.sh",
+      "sha256": "eab29e56d8eb7cfb27a232cf92efdefdd1dc8efa32167b741da599c984a52486"
+    },
+    {
+      "path": "scripts/generate_pyi.py",
+      "sha256": "f0d0e7e9da88cf28b5808e60b024ff4bec3c42acf1099d23d3bb9e35b13c695c"
+    },
+    {
+      "path": "scripts/quick_plot_pm.py",
+      "sha256": "f67be05a2b303ac77480f32c175cff319367aa6088509e7cb0e7bfe10e281806"
+    },
+    {
+      "path": "scripts/run_ncu_mega_moe.sh",
+      "sha256": "ac0e10ccc20f34fe916bad1bc6dc75dc8f31e09d9af4ff9c9203c5bc46b00934"
+    },
+    {
+      "path": "setup.py",
+      "sha256": "7f67d3ec663b8fc80a30abfb10d96dd265a5c0ad5faa4eeb079e66795fe9aeef"
+    },
+    {
+      "path": "tests/generators.py",
+      "sha256": "1934de0420e1e43bfac444e629d8b5a9c3e1cf3603291d0ef8d0ddb4cd37232c"
+    },
+    {
+      "path": "tests/test_attention.py",
+      "sha256": "db01fc3ebfe7fc3fb3166979205e36f263f2d1aea3af469f4adb4816cfa5f64f"
+    },
+    {
+      "path": "tests/test_bf16.py",
+      "sha256": "1d0254a4f26f64202b206251db367e68617d813f63db5103990b6d846bccbb7c"
+    },
+    {
+      "path": "tests/test_einsum.py",
+      "sha256": "9d05cd4ccb9a09885a9eec7e00a8609ecbfd5364853ae7b76895dec5fd32c30c"
+    },
+    {
+      "path": "tests/test_fp8_fp4.py",
+      "sha256": "3f0f930f31948306cdc6cae989bf61c51b4b8d04e49df54da40cc7d0109e0c5a"
+    },
+    {
+      "path": "tests/test_hyperconnection.py",
+      "sha256": "f0757cec23a9e55e0ffeaf6a7c6280f141602aec4d57add6c6b9ab57ff97cd4a"
+    },
+    {
+      "path": "tests/test_layout.py",
+      "sha256": "7549eaf9c96751066d4adb6d7b98151b18710ba5225740f0269d81062039172b"
+    },
+    {
+      "path": "tests/test_lazy_init.py",
+      "sha256": "17e3dc043d0d886488364c675d6767e0f6b40588255884bfb4d199a98fc3cbab"
+    },
+    {
+      "path": "tests/test_legacy.py",
+      "sha256": "7a857e1f5311f5bae470e0e00eddd963ce02711e46a58393e88f9455c1482ef2"
+    },
+    {
+      "path": "tests/test_locality_domain.py",
+      "sha256": "eba11e052976593316bcb14a5f53e481bc80c0f049f412c6b5195e33cc06e43b"
+    },
+    {
+      "path": "tests/test_mega_gate.py",
+      "sha256": "b5ec09e0d871993e6d14f6ea7cd3b3c5187aad5884c2296cdedaa4afa2206ec6"
+    },
+    {
+      "path": "tests/test_mega_mhc.py",
+      "sha256": "fd578a6f7bc32c8c8a91bae4b0dd4636eff56167521815af4bcd6811354abab8"
+    },
+    {
+      "path": "tests/test_mega_moe.py",
+      "sha256": "f33f477dd3a21ae0d1d39e281012e35b88f1c6cce73aad60104e8f03a942246c"
+    },
+    {
+      "path": "tests/test_sanitizer.py",
+      "sha256": "463969809567c3767813e098a6c61dfb3bae3dfc01c972d18a8d65a23dc45633"
+    },
+    {
+      "path": "tests/utils.py",
+      "sha256": "3fd4ff5a7fa61f370222b79439c083884736b8163ce958a1cfbb35a4af5067ea"
+    },
+    {
+      "path": "third-party/tilelang_ops/__init__.py",
+      "sha256": "8f64a028cfef94f10f3284083f285b92ba681bd5727689b0dc387e592d9d396c"
+    },
+    {
+      "path": "third-party/tilelang_ops/swiglu_apply_weight_to_fp8.py",
+      "sha256": "301783c3429005bc8bf8ba9f1773e6e88b23fbc7787b00131598d412518d83de"
+    },
+    {
+      "path": "third-party/tilelang_ops/utils.py",
+      "sha256": "aab1e23090a64f2dcf83f199dd300be82e61c857569760ff9ecf206c64ce66c9"
+    }
+  ]
+}

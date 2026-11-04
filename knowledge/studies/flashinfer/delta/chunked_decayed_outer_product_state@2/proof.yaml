@@ -1,0 +1,44 @@
+template: chunked_decayed_outer_product_state@2
+version: 1
+relation: Expand each valid logical subrange in token order. Local causal and incoming-state terms partition
+  the same sequence history, each prior insertion carries exactly subsequent scalar decays, and rebasing
+  cancels physical prefix contributions before lo. Disjoint output masks and per-sequence initialization
+  prevent shared physical rows from crossing histories. Full-block positive sequences recover version1.
+rank: Logical subrange tokens not yet expanded into their original sequence recurrence.
+assumes:
+- name: pre_recurrence
+  statement: The recurrence is H_i=exp(g_i)*H_(i-1)+k_i outer v_i, output q_i times H_i; sequence origin
+    and initial state are fixed.
+- name: pre_frames
+  statement: The no-decay specialization binds every gate to zero.
+- name: pre_numeric
+  statement: Gate exponentiation, contraction regrouping, state casts and output shard combination satisfy
+    the numerical and ownership policy.
+- name: pre_subranges
+  statement: Each logical sequence lists ordered physical block subranges[lo,hi), whose valid tokens cover
+    that sequence exactly once. Different sequences may reference the same physical block, but own disjoint
+    subranges and separate state seeds/outputs.
+- name: pre_segment_frames
+  statement: For a subrange[lo,hi), subtract the prefix at lo-1 from incoming-state factors and use prefix
+    at hi-1 for outgoing state. Pairwise gate differences remain inside that same sequence subrange; no
+    previous sequence decay enters its initial state.
+- name: pre_masks
+  statement: Pairwise query/key rows both lie in[lo,hi); state insertions are restricted to it; only owned
+    output rows store. Source intermediate masks and exponent recipes preserve finite/neutral operands
+    at each consuming contraction.
+- name: pre_state_generations
+  statement: Initial/zero state is independent per sequence/head. Carry accumulates only that sequence
+    and is published to contraction readers before reuse. Empty sequence performs no token update and
+    preserves its initial state under the declared state-storage recipe.
+guarantees: []
+models: []
+note: Version1 pair is pinned under inputs/reuse-additions/chunked_decayed_outer_product_state@1. Existing
+  variables decay_mode and chunk_tokens keep their meaning, adding128 and a bound chunk_domain. Prefix
+  identity, state boundary and numeric binding retain their owners; new pre_subranges/pre_segment_frames/pre_masks/pre_state_generations
+  and shared_physical_boundaries own packed physical/logical boundaries. FlashInfer mamba/ssd_kernel.py:1374-1427
+  initializes each sequence state and IO carry copy,1440-1516 clips B insertion and rebases outgoing decay,1551-1578
+  updates FP32 state,2326-2370 clips both CB axes before causal exp weighting,1987-2013 rebases incoming
+  readout factors,3825-3895 resolves logical-to-physical records and shared-block limits. SSDCombined
+  physical128 backing and processed-dt/A prefix stages are source binding. Exact tests isolate shared-block
+  sequences and compare recurrence, local contraction, outgoing state and seed reset; no native stage-precision/publication
+  proof is inferred.

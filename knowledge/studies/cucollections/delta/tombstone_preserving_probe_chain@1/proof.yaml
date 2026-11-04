@@ -1,0 +1,15 @@
+{
+  "template": "tombstone_preserving_probe_chain@1",
+  "version": 1,
+  "relation": "Live keys remain reachable through the same probe sequence after any completed deletion; tombstones denote removed entries without terminating later-key searches.",
+  "rank": "Remaining finite probe slots and unresolved slot CAS attempts, under declared concurrency progress.",
+  "assumes": [
+    {
+      "name": "source_contract",
+      "statement": "NVIDIA static open-addressing erase paths using stable slot CAS and explicit erased marker. Concurrent arbitrary erase/reinsert is not proved by insertion-only slot publication rules; supported operator combinations must establish their own lifetime contract."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Source-derived proof outline; no formal proof result or GPU execution claimed. probe_preservation: Removing one slot cannot make later colliding keys unreachable. linearized_remove: Successful erase corresponds to the observed live key and failed interference is retried or reported consistently. sentinel_semantics: Every operation distinguishes empty, erased and live states as required. reader_lifetime: No consumer uses removed/replaced payload under a stale key observation without an admitted concurrency protocol."
+}

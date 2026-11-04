@@ -1,0 +1,91 @@
+name: ordered_prefix_lookback
+version: 1
+level_from: 2
+level_to: 3
+change: vertical
+refines: scan
+produces:
+- scan
+- store
+- sync
+object:
+  type: published_tile_prefix
+  description: Ordered per-tile aggregate and optional complete prefix published for
+    predecessor lookback.
+variables:
+- name: publication
+  kind: structure
+  binding: compile
+  role: software
+  domain:
+  - all
+  - anchors
+  meaning: Publish all completed inclusive prefixes or only fixed 32-tile anchors
+    for stable source grouping.
+constraints:
+- id: c_valid
+  expr: p.tiles_cover_in_order and p.local_scan_preserves_order and p.valid_store_guarded
+  meaning: Tiles cover input once in order and inactive lanes never alter a visible
+    valid prefix.
+  cls: semantic
+preconditions:
+- id: pre_op
+  expr: p.associative_contract and p.status_payload_consistent and p.predecessors_can_progress
+    and p.fresh_tile_state
+  meaning: Associativity under the numerical policy, safe publication and predecessor
+    progress are required.
+  cls: semantic
+program:
+  description: Each tile first computes its ordered aggregate and local prefixes.
+    Tile zero establishes the initial prefix. Other tiles publish PARTIAL aggregate;
+    inspect predecessor tiles in descending windows, but combine values in increasing
+    logical order. Stop at the nearest permitted INCLUSIVE predecessor and prepend
+    its inclusive value to all later partial aggregates. Prepend older window aggregates
+    to newer ones. This gives the exclusive tile prefix; combine it on the left of
+    each valid local prefix. Publish INCLUSIVE for all tiles in all mode, or only
+    tile indices divisible by 32 in anchors mode. Anchors mode waits for the designated
+    predecessor anchor before reducing its fixed window. Guard partial-tile output
+    stores.
+backward_map: Concatenate valid tile prefixes; ordered associative composition equals
+  a scan of the original input.
+obligations:
+- name: ordered_cover
+  statement: Lookback covers each predecessor exactly once in increasing operand order.
+  method: proof
+- name: publication
+  statement: A valid status identifies the matching completed aggregate or inclusive
+    payload.
+  method: test
+- name: progress
+  statement: Awaited predecessors can execute; stale state cannot satisfy a new invocation.
+  method: test
+- name: determinism
+  statement: Anchor mode has a fixed reduction tree and native operator behavior under
+    the admitted determinism policy.
+  method: test
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: p.tiles_cover_in_order and p.local_scan_preserves_order and p.associative_contract
+    and p.status_payload_consistent and p.predecessors_can_progress and p.fresh_tile_state
+  text: One-dimensional ordered scan with disjoint nonempty tiles, initialized state
+    and valid-tail stores. Supports associative noncommutative operators. Floating
+    point requires explicit reassociation policy; anchors alone is not cross-device
+    bitwise assurance. Segmented resets are outside this version.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Decoupled ordered predecessor lookback with optional fixed anchor publication.
+  storage: Aggregate/inclusive payload and state per tile plus CTA scan scratch.
+  boundary: First tile, partial last tile, stale invocation state and operand reversal.
+  resources: []
+numeric_risk: Default grouping may depend on publication timing; fixed anchors constrain
+  grouping but rounding and target policy still apply.
+summary: 'When a scan spans CTAs, publish local aggregates so each tile can recover
+  its exclusive prefix without a global barrier. Choose all-prefix lookback or fixed
+  32-tile anchors matching the source stable mode. Preserve older-before-newer operand
+  order: concatenating A,B,C must yield ABC, not CBA. Reject stale status/payload
+  pairs and launches that cannot schedule awaited predecessors.'

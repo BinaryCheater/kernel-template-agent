@@ -1,0 +1,15 @@
+template: butterfly_reduce_scatter_chunks@1
+version: 1
+relation: Gather the disjoint per-lane output chunks to reconstruct the vector reduction
+  of every original lane partial.
+rank: Unmapped coordinates or unretired readers.
+assumes:
+- name: binding
+  statement: Declared source layout and lifetime premises hold.
+guarantees: []
+models: []
+note: After one level, each owned half combines the same component from two disjoint
+  lane sets. Induction doubles the reduced lane set while halving owned components.
+  At log2(lanes) all input lanes are covered; component intervals partition the vector.
+  Source runtime/block_welford_outer.cu:11-58,:105-195. Numerical Welford merge binds
+  centered_moment_merge@1 explicitly, separate from address proof.

@@ -1,0 +1,16 @@
+template: diagonal_dependency_wavefront@1
+version: 1
+relation: Two-neighbor acyclic rectangular dynamic programs with declared boundary/terminal
+  rules; source one CTA per sequence and direction. All-negative-infinity logaddexp
+  needs a separately guarded implementation.
+rank: Number of input elements or state transitions still to consume.
+assumes:
+- name: source_contract
+  statement: Source binding and stated scope hold.
+guarantees: []
+models: []
+note: 'Source-derived candidate, not independently admitted. topology: Both parents
+  have diagonal d-1, so all current-diagonal cells are independent. frontier_lifetime:
+  All reads of previous frontier complete before its next overwrite. boundary: Single-parent
+  boundaries and terminal blank contribution recover the requested path sum. Native
+  lowering and numerical error remain open; see trace and checks.'

@@ -1,0 +1,7 @@
+{
+  "upstream": "https://github.com/NVIDIA/cuVS",
+  "revision": "f185a651778551c6e5dfd87e7cd604f59c5137e0",
+  "archive": "/Users/dingyi/kta-data/dev/operator-sources/NVIDIA/cuVS/f185a651778551c6e5dfd87e7cd604f59c5137e0/worker-e-source.tar.gz",
+  "tree": "/Users/dingyi/kta-data/dev/operator-sources/NVIDIA/cuVS/f185a651778551c6e5dfd87e7cd604f59c5137e0/cuVS-f185a651778551c6e5dfd87e7cd604f59c5137e0",
+  "scope": "complete superproject archive; nested external dependencies not materialized"
+}

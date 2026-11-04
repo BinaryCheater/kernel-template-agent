@@ -1,0 +1,19 @@
+template: blocked_unit_lower_inverse@1
+version: 1
+relation: The assembled block matrix D is the inverse of A under the declared arithmetic policy.
+rank: Remaining lower blocks in dependency order.
+assumes:
+- name: diagonal
+  statement: A is unit lower triangular and D_ii is a valid local inverse.
+- name: ordered
+  statement: All earlier D_kj blocks are available and their products satisfy the admitted numerical policy.
+guarantees: []
+models: []
+note: For i=j, (A*D)_ii=A_ii*D_ii=I. For i>j, (A*D)_ij=A_ii*D_ij+sum_(k=j..i-1) A_ik*D_kj=0 by substitution
+  of the program formula. Upper blocks are zero, giving A*D=I; finite square A is nonsingular because
+  its diagonal is one. In the scalar three-row example A lower entries (a,b,c) at (10,20,21), inverse
+  entries are (-a,c*a-b,-c); the cross term is essential. TileLang kda/chunk_inter_solve_fused.py:393-465
+  explicitly builds D10=-D11*A10*D00, then D20=-D22*(A20*D00+A21*D10), and the corresponding four-block
+  expressions. The driver uses chunk_size=64 and sub_chunk_size=16. This proves the block algebra, not
+  the residual of the native FP32 contractions and output casts. Native diagonal solver initialization
+  and executable residual admission remain obligations.

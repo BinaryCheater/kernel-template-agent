@@ -1,0 +1,27 @@
+template: query_center_residual_scores@1
+version: 1
+relation: Expand dot(q_i-mu_g,K_j)+dot(mu_g,K_j) to dot(q_i,K_j) in exact arithmetic; the compact broadcast
+  changes reuse, while admitted residual/correction rounding defines the selected approximation.
+rank: Remaining query/key score terms.
+assumes:
+- name: domain
+  statement: Each query selects one finite center and the same K/head generation in both terms.
+- name: sum
+  statement: Residual dot and mean dot combine once before scale/mask/softmax.
+- name: numeric
+  statement: Residual and correction finite-precision paths obey their admitted error contract.
+- name: broadcast
+  statement: Compact correction rows have correct group mapping, visibility and lifetime.
+guarantees: []
+models: []
+note: Linearity gives (q_i-mu_g) dot K_j + mu_g dot K_j=q_i dot K_j. C depends on j and generally cannot
+  be removed by softmax shift invariance. Reuse one C row for all i sharing g; changing correction-row
+  storage precision changes the arithmetic. Source flashinfer/nvfp4_attention_sm120.py:127-170 computes
+  head/block means, residual Q and FP32 compact correction with GQA reshape. csrc/nvfp4_attention_sm120/nvfp4_attention_sm120_binding.cu:293-299
+  enforces one row per128 query block or one head row. include/flashinfer/attention/sm120/nvfp4_attention_sm120/compute/consumer/delta_correction.cuh
+  broadcasts correction into score accumulators; qk_gemm.cuh:128-150 seeds it before residual GEMM and
+  masking. softmax_key_centering@1 discards a common row-constant key translation, not this key-varying
+  query correction. reduction_partition@1 can add components but does not choose shared mean extraction,
+  residual encoding and compact correction reuse. Logical checks distinguish omitted/scaled-wrong correction,
+  partial block mapping, key-center LSE offset and FP16 correction overflow. Native Q/scale maps, FP32
+  matmul and seeded MMA precision remain obligations.

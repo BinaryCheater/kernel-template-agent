@@ -1,0 +1,20 @@
+template: power_of_two_scale_encoding@1
+version: 1
+relation: Each completed live metadata element decodes to its original scale; unfinished elements retain FP32 values.
+rank: Number of unencoded live metadata elements.
+assumes:
+  - {name: input_values, statement: All live FP32 scales are positive normal powers of two with exponents -126..127.}
+  - {name: consumer_decoder, statement: The consuming hardware or software decodes exponent byte e in1..254 as 2**(e-127).}
+  - {name: layout_composition, statement: Independent packing/transpose rules preserve logical coordinates and distinguish padding.}
+guarantees: []
+models: []
+note: >-
+  Initialization has no completed elements. A positive normal FP32 power of two has
+  zero sign and mantissa and exponent field e=log2(s)+127 in1..254. Extraction returns e;
+  the consumer's decoding returns s exactly, preserving the relation. Each completed
+  element decreases the rank by one; completion covers the live metadata. checks/scale_storage.py
+  enumerates all254 admitted exponent values, tests uniquely tagged byte positions and
+  grouped storage prefixes, and retains counterexamples for zero/infinity. CUTLASS's
+  fixed float_ue8m0_t decoder supplies the source-level semantic witness. Device load,
+  UTCCP ordering and hardware consumption remain separate obligations. This outline has
+  no registered proof model or ProofResult.

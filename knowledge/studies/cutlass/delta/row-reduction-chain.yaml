@@ -1,0 +1,32 @@
+workload: >-
+  Partial RMSNorm composition: Float16, M2/N32768, weights present, eps1e-6,
+  SM100 branch, two CTAs per row, four contributing warps per CTA, one row
+  per block and128 threads. Input/copy layout, identity-filled padding if any,
+  local register sums and numeric admission are explicit external edges.
+  This witness has full aligned vectors and no N-padding. Native execution,
+  cluster launch support, remote completion and rsqrt error bounds remain open.
+items:
+  - key: warp_partials
+    template: cross_lane_reduction@1
+    applies_to: Defined FP32 local square sums; each full warp produces a uniform row partial.
+    bindings: {lanes: 32, result_to: all_lanes, combine_op: add}
+    after: []
+    code_markers: [warp_width, warp_val]
+  - key: replicated_combine
+    template: replicated_partial_reduce@1
+    applies_to: Eight unique sender/warp scalars per destination row;32 incoming bytes and a fresh phase0 barrier; final reader butterfly is inside this rule.
+    bindings: {peers: 2, warps_per_row: 4, combine_op: add}
+    after: [warp_partials]
+    code_markers: [store_shared_remote, expected_bytes, mbarrier_wait]
+  - key: reciprocal_root
+    template: approximate_math_rewrite@1
+    applies_to: Completed sum_sq divided by original N, then add eps; approximation error must be admitted.
+    bindings: {rewrite: rsqrt_approx, fused_fma: false}
+    after: [replicated_combine]
+    code_markers: [mean_sq, rstd]
+  - key: weighted_output
+    template: operator_fusion@1
+    applies_to: Defined rstd and retained local input chunk; optional weight is applied in FP32 before output cast, with no global intermediate materialization.
+    bindings: {consumer_kind: elementwise, intermediate_site: registers, fused_ops: norm_scale}
+    after: [reciprocal_root]
+    code_markers: [tXrX, y, tXrO]

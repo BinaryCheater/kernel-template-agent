@@ -1,0 +1,95 @@
+{
+  "name": "warp_threshold_bit_transpose",
+  "version": 1,
+  "level_from": 2,
+  "level_to": 3,
+  "change": "vertical",
+  "refines": "map",
+  "produces": [
+    "map",
+    "access"
+  ],
+  "object": {
+    "type": "warp_threshold_bit_transpose",
+    "description": "When binary signs must be packed contiguously but input reads should remain coalesced, collect strided threshold bits per lane then transpose them into consecutive output bytes."
+  },
+  "variables": [
+    {
+      "name": "pack_bits",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": [
+        8
+      ],
+      "meaning": "Source pack_t uint8 byte; input tile is32*pack_bits scalar elements."
+    }
+  ],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_0",
+      "expr": "p.thresholds_feature_aligned and p.finite_comparison_policy",
+      "meaning": "Per-feature threshold or zero and strict positive comparison match requested binary encoding.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_1",
+      "expr": "p.warp_scratch_ordered and p.full_warp_participation",
+      "meaning": "Lane scratch writes complete before cross-lane reads and scratch reuse follows all readers.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_2",
+      "expr": "p.output_stride_covers_tail",
+      "meaning": "Output allocation has ceil(logical_dim/pack_bits) bytes per row and tail bits begin zero.",
+      "cls": "semantic"
+    }
+  ],
+  "program": {
+    "description": "Assign one warp to an input vector. For input tile base J, lane l collects bit b from x[J+l+32*b]>threshold[J+l+32*b], with invalid coordinates zero. Store that lane-local pack in warp scratch. Output-byte lane t reads bit floor(t/4) from scratch lanes (t%4)*8 through (t%4)*8+7, placing them into its output bits0..7. Store byte J/8+t only if within ceil(dim/8). This transposes the32-by8 bit tile while preserving the logical consecutive-bit output format."
+  },
+  "backward_map": "Erase auxiliary organization and recover the visible results under the stated contract.",
+  "obligations": [
+    {
+      "name": "bit_mapping",
+      "statement": "Input coordinate J+l+32*b lands at output bit J+l+32*b exactly, with no swaps.",
+      "method": "proof"
+    },
+    {
+      "name": "strict_threshold",
+      "statement": "Equality to threshold produces0 and threshold metadata belongs to the same input feature.",
+      "method": "proof"
+    },
+    {
+      "name": "tail",
+      "statement": "Coordinates beyond dim do not set output bits or access input/threshold out of bounds.",
+      "method": "proof"
+    },
+    {
+      "name": "scratch_lifetime",
+      "statement": "All participating lanes observe current tile scratch and finish before next overwrite.",
+      "method": "proof"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.thresholds_feature_aligned and p.finite_comparison_policy and p.warp_scratch_ordered and p.full_warp_participation and p.output_stride_covers_tail",
+    "text": "NVIDIA binary quantization kernel uint8 pack. Source cross-lane shared-memory synchronization must be established for the target; the abstract mapping does not itself prove independent-thread scheduling safety. Threshold fitting is separate. Resource effects: Coalesced warp input loads, one byte scratch per lane and byte stores; transposition adds scratch/shuffle-equivalent work compared with scalar consecutive packing."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "When binary signs must be packed contiguously but input reads should remain coalesced, collect strided threshold bits per lane then transpose them into consecutive output bytes.",
+    "storage": "Coalesced warp input loads, one byte scratch per lane and byte stores; transposition adds scratch/shuffle-equivalent work compared with scalar consecutive packing.",
+    "boundary": "Coordinate33 is lane1,bit1 in the input pack, and becomes output byte4,bit1. Coordinate7 becomes byte0,bit7. A dim34 tail leaves higher bits of byte4 zero; repeated all-one codes would hide a transpose error.",
+    "resources": []
+  },
+  "numeric_risk": "Preserve the supplied arithmetic contract; reassociation, quantization and approximate search require separate permission.",
+  "summary": "When binary signs must be packed contiguously but input reads should remain coalesced, collect strided threshold bits per lane then transpose them into consecutive output bytes. Coordinate33 is lane1,bit1 in the input pack, and becomes output byte4,bit1. Coordinate7 becomes byte0,bit7. A dim34 tail leaves higher bits of byte4 zero; repeated all-one codes would hide a transpose error."
+}

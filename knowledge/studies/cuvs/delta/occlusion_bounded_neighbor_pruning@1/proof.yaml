@@ -1,0 +1,15 @@
+{
+  "template": "occlusion_bounded_neighbor_pruning@1",
+  "version": 1,
+  "relation": "Accepted IDs are a subset of ranked nonself candidates within the degree cap; each remaining occlusion records the maximum declared ratio induced by already accepted neighbors.",
+  "rank": "Remaining finite alpha passes and candidate positions, with accepted count bounded by degree.",
+  "assumes": [
+    {
+      "name": "source_contract",
+      "statement": "NVIDIA Vamana RobustPrune. Source alpha starts1 and multiplies1.2 until requested bound; that grid is policy, not a theorem of graph quality. Zero inter-candidate distances and duplicate-coordinate IDs need explicit ratio semantics."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Source-derived proof outline; no formal proof result or GPU execution claimed. ranking: Candidate merge/order/duplicate handling matches the source contract before pruning. occlusion: Each ratio uses the correct query-distance numerator and accepted-to-candidate denominator, with defined zero/nonfinite policy. cap_and_identity: At most max_degree nonself valid IDs are emitted and compaction retains exactly accepted entries. barriers: All candidate-coordinate readers and occlusion writers finish before reuse or next acceptance. The relation is a proposed source-level invariant; the stated finite-work rank depends on the explicit environment progress assumptions. Device ordering and numeric premises have not been discharged by schema validation."
+}

@@ -1,0 +1,7 @@
+{
+  "upstream": "https://github.com/NVIDIA/apex",
+  "revision": "575968bc1f9127ccd61003a681472a83af4ff1a1",
+  "tree": "/Users/dingyi/kta-data/dev/operator-sources/NVIDIA/apex/575968bc1f9127ccd61003a681472a83af4ff1a1/worker-c-source",
+  "archive": "/Users/dingyi/kta-data/dev/operator-sources/NVIDIA/apex/575968bc1f9127ccd61003a681472a83af4ff1a1/worker-c-source.tar.gz",
+  "scope": "Full superproject source; external submodules absent"
+}

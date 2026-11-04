@@ -1,0 +1,15 @@
+{
+  "template": "deadline_closed_committed_batch@1",
+  "version": 1,
+  "relation": "Every reserved query row belongs to one request generation and remains required until copied; only unreserved rows may be removed at closure, and completed results correspond to the original published pointers.",
+  "rank": "Uncopied committed rows, then unfinished search/scatter rows; eventual pointer submission is a premise, deadline alone does not establish progress.",
+  "assumes": [
+    {
+      "name": "source_contract",
+      "statement": "NVIDIA dynamic batching with system-scope pointer atomics and packed commit/closure state. Deadline adjusts batch occupancy, not request cancellation. Source mixed-width token access and host/device ordering require target-specific realization proof."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Source-derived proof outline; no formal proof result or GPU execution claimed. commit_vs_publish: A missing pointer does not imply an unused slot after reservation, and timeout cannot omit a committed request. close_atomicity: No new reservation can race past the closed-batch token into a generation being searched/recycled. request_identity: Each copied row and result scatter refer to the same original request and slot generation. completion: Request return/reuse follows result scatter, not pointer consumption or search enqueue. The relation is a proposed source-level invariant; the stated finite-work rank depends on the explicit environment progress assumptions. Device ordering and numeric premises have not been discharged by schema validation."
+}

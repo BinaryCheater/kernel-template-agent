@@ -1,0 +1,16 @@
+template: first_writer_atomic_combine@1
+backend: cuda
+isa:
+  family: sm
+  min: '75'
+requires: []
+isa_constraints: []
+fragments: {}
+code_markers:
+- barrier_acquire2
+- barrier_release2
+- atomic_reduce_add_f162
+expected_sass: []
+probed_on: []
+summary: Target-dependent native atomic or TMA branch only; no claim all SM75 devices implement every
+  update. epilogue/pipeline.cuh:108-133, gmem_writer.cuh:167-172.

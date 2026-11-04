@@ -1,0 +1,16 @@
+template: owner_routed_occurrence_copy@1
+version: 1
+relation: Erase placement by following each output occurrence back to its original
+  token/expert occurrence; fanout preserves one value per selected occurrence, inverse
+  copy preserves its own expert result.
+rank: Unprocessed source items or unmerged partials.
+assumes:
+- name: contract
+  statement: The stated partition, comparator/count and publication premises hold.
+guarantees: []
+models: []
+note: Source distributed.py:10-100,136-290 and distributed_details/mesh.py:119-172.
+  The actual EP-to-DP host shape already includes its occurrence domain; decoding
+  d by local extent must not silently divide it by top-k. Existing indexed_additive_scatter@1
+  atomically adds collisions, which is absent here. Native symmetric-memory ordering/progress
+  is a runtime obligation.

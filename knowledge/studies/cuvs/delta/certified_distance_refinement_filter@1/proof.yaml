@@ -1,0 +1,15 @@
+{
+  "template": "certified_distance_refinement_filter@1",
+  "version": 1,
+  "relation": "Every rejected candidate is outside the permitted winner/cutoff set by a conservative bound; survivors retain identity, and each dynamic threshold is certified by complete scores.",
+  "rank": "Unprocessed candidates and unfinished refinement terms among survivors.",
+  "assumes": [
+    {
+      "name": "source_contract",
+      "statement": "NVIDIA IVF-PQ partial nonnegative L2 sum and optional multi-stage quantized refinement. The generic rule applies to exact top-k of the declared final score; approximate error envelopes without proof remain hypotheses, not certified instances."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Source-derived proof outline; no formal proof result or GPU execution claimed. bound_soundness: No rejected candidate has a final score below L, including quantization and table rounding. threshold: Each shared threshold update remains an upper bound justified by k complete candidates, not k partial estimates. capacity: Every survivor is retained until refinement/selection completes. ties: Equal-bound pruning matches the final identity/tie policy. Unpublished candidate extended with an explicit fixed-radius workload-threshold alternative; top-k and fixed-radius threshold certificates are separate bindings. Equality comparison is explicitly workload-dependent: inclusive-radius equality must survive; arbitrary-tie top-k can reject equality when k complete winners certify threshold. The relation is a proposed source-level invariant; the stated finite-work rank depends on the explicit environment progress assumptions. Device ordering and numeric premises have not been discharged by schema validation."
+}

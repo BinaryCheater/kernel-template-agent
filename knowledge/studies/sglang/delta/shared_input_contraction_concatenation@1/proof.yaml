@@ -1,0 +1,15 @@
+{
+  "template": "shared_input_contraction_concatenation@1",
+  "version": 1,
+  "relation": "Restrict merged output columns to each original weight interval. Every reduction term then has the same input and weight coordinates as its separate contraction, recovering the branch output under the admitted numerical policy.",
+  "rank": "Remaining output coordinates or independent task instances.",
+  "assumes": [
+    {
+      "name": "premises",
+      "statement": "All stated common-input, independence, precision and completion premises hold."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Coordinate restriction proves the real-arithmetic identity because output feature intervals are disjoint and do not change K terms. It does not prove that a larger cuBLAS shape chooses the same reduction order. The MoE gate must retain FP32 through ranking; materializing all Z as BF16 first can change selected experts. Native GEMM-shape rounding remains the paired admission obligation; no GPU run is claimed."
+}

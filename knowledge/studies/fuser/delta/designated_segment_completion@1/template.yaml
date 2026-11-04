@@ -1,0 +1,88 @@
+name: designated_segment_completion
+version: 1
+level_from: 4
+level_to: 5
+change: vertical
+refines: sync
+produces:
+- sync
+- store
+object:
+  type: segmented_completion_phase
+  description: One designated coordinate joins separate producer publications within
+    each segment; optional all-participant retirement permits reuse.
+variables:
+- name: mode
+  kind: structure
+  binding: compile
+  role: software
+  domain:
+  - one_shot
+  - reusable
+  meaning: One designated consumer waits, or every participant joins with a second
+    retirement barrier.
+constraints:
+- id: c_participants
+  expr: p.arrivals == p.segment_size and p.segment_size >= 1 and p.segment_size <
+    2 ** 63
+  meaning: Exactly one arrival per producer and no count ambiguity.
+  cls: semantic
+preconditions:
+- id: pre_protocol
+  expr: p.counter_initialized and p.publication_visible and p.designated_consumer_unique
+    and p.awaited_producers_can_progress and p.no_overlapping_generations
+  meaning: Counter initialization, device publication ordering, unique consumer and
+    scheduling progress are supplied by the realization.
+  cls: implementation
+program:
+  description: Partition CTAs into independent segments and publish each CTA partial
+    in its unique scratch slot. Fence writes and synchronize the CTA before one representative
+    arrives. For phase bit H=2^63, ordinary producers add 1 and the designated last
+    coordinate adds H-(N-1), modulo 2^64. The designated coordinate waits for the
+    phase bit to differ from its pre-arrival state; in reusable mode every producer
+    waits. After the consumer finishes cleanup, reusable mode executes a second all-producer
+    join before scratch reuse. One-shot entrances use distinct scratch and counters.
+backward_map: Erase counters and phases, leaving a join after each producer publication
+  and retirement before destructive reuse.
+obligations:
+- name: phase_join
+  statement: The designated waiter cannot observe a phase transition until all N arrivals
+    occurred.
+  method: proof
+- name: publication
+  statement: The waiter reads every producer payload only after device-visible publication.
+  method: test
+- name: reuse
+  statement: One-shot entrances are disjoint and reusable mode retires all scratch
+    readers.
+  method: test
+- name: progress
+  statement: All awaited CTAs execute; persistent waiting cannot strand unscheduled
+    producers.
+  method: test
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: p.counter_initialized and p.publication_visible and p.awaited_producers_can_progress
+    and p.no_overlapping_generations
+  text: Device-local segmented CTA completion, one live phase per semaphore. This
+    source realization requires explicit scheduling/residency premises; it is not
+    a general oversubscribed-grid barrier. Effects unpriced.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Join separate CTA publications with a phase-flipping counter and designated
+    consumer.
+  storage: Per-entrance scratch plus per-segment 64-bit semaphore.
+  boundary: One-shot exit versus two joins for persistent scratch reuse.
+  resources: []
+numeric_risk: The completion protocol does not establish reduction associativity or
+  floating-point error bounds.
+summary: When independent CTA partials must be read by one cleanup CTA, separate publication
+  from numerical combination. Choose one-shot disjoint entrances or reusable phases
+  with a second retirement join. For three producers, two increments of one plus H-2
+  flip the phase only after all arrive. Reject a persistent launch whose waiting CTAs
+  can prevent a producer from being scheduled.

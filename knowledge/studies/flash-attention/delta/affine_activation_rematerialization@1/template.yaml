@@ -1,0 +1,69 @@
+name: affine_activation_rematerialization
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: store
+produces: [store, contract, map]
+object:
+  type: affine_activation_checkpoint_boundary
+  description: Choose whether backward retains both affine/activation values, retains only the affine value, or regenerates both from unchanged affine inputs.
+variables:
+  - {name: retention, kind: structure, binding: compile, role: software, domain: [affine_and_activation, affine_only, affine_inputs], meaning: Retained boundary of the deterministic affine-plus-activation chain; earlier boundaries trade more replay for fewer saved intermediates.}
+constraints: []
+preconditions:
+  - {id: pre_chain, expr: "p.affine_and_activation_deterministic_and_side_effect_free and p.forward_stage_order_and_casts_declared and p.all_backward_value_and_derivative_consumers_enumerated", meaning: "The chain and all backward consumers have explicit semantics, including activation choice, bias placement and intermediate casts.", cls: semantic}
+  - {id: pre_inputs, expr: "p.replay_inputs_weights_bias_and_auxiliary_state_unchanged and p.retained_state_coordinates_generations_and_lifetimes_match", meaning: "Every replay sees the forward invocation's inputs, weights, bias and auxiliary state; retained values remain alive with their original identity.", cls: semantic}
+  - {id: pre_value, expr: "p.retained_affine_checkpoint_is_full_value_not_derivative_only_codec", meaning: "When an affine value is retained, it is sufficient to regenerate the activation output; a ReLU derivative bitmask alone is not such a value.", cls: semantic}
+  - {id: pre_numeric, expr: "p.replayed_affine_activation_math_and_checkpoint_precision_admitted and p.replay_complete_before_all_backward_consumers", meaning: "Replayed backend algorithms, rounding, activation approximation and casts satisfy the numerical contract, and each recreated value is ready before every consumer.", cls: implementation}
+program:
+  description: >-
+    Let A=affine(X,W,b) and B=activation(A), with their forward stage precisions
+    and casts fixed. Backward needs B for a downstream weight gradient and A
+    for the activation derivative. With retention=affine_and_activation, save
+    both A and B. With affine_only, save A and regenerate B=activation(A)
+    before the downstream weight-gradient consumer. With affine_inputs, retain
+    X,W,b and regenerate A then B before their consumers, using the matching
+    forward logical operands, bias and stage precision. Retain the recomputed
+    A until the activation derivative completes. All modes preserve other
+    backward dependencies and residual/communication side effects. Do not
+    rerun a stochastic/state-mutating producer without a separate replay
+    contract or substitute a derivative-only AUX buffer for the full A value.
+backward_map: Replace every regenerated A/B with the corresponding saved forward value under the admitted numerical replay relation; the complete backward dataflow is recovered.
+obligations:
+  - {name: backward_dependency_closure, statement: "Each retention mode supplies the full value or declared derivative state required by every backward consumer, with no omitted consumer.", method: proof}
+  - {name: immutable_replay_boundary, statement: "Retained inputs, weights, bias and auxiliary data represent the same forward generation until replay finishes.", method: test}
+  - {name: replay_numerics, statement: "Replayed affine/activation and their casts/rounding satisfy forward-value and gradient accuracy policies for the selected backend.", method: test}
+effects:
+  transactions: []
+  storage:
+    - {id: both_values, level: dram, scope: kernel, bytes: "p.affine_bytes + p.activation_bytes", when: "retention == 'affine_and_activation'"}
+    - {id: affine_value, level: dram, scope: kernel, bytes: "p.affine_bytes", when: "retention == 'affine_only'"}
+    - {id: replay_boundary, level: dram, scope: kernel, bytes: "p.retained_boundary_bytes", when: "retention == 'affine_inputs'"}
+  overlap: []
+scope:
+  predicate: "p.affine_and_activation_deterministic_and_side_effect_free and p.forward_stage_order_and_casts_declared and p.all_backward_value_and_derivative_consumers_enumerated and p.replay_inputs_weights_bias_and_auxiliary_state_unchanged and p.retained_state_coordinates_generations_and_lifetimes_match and p.retained_affine_checkpoint_is_full_value_not_derivative_only_codec and p.replayed_affine_activation_math_and_checkpoint_precision_admitted and p.replay_complete_before_all_backward_consumers"
+  text: >-
+    Deterministic affine-plus-activation training chains with full-valued affine
+    checkpoints and immutable replay operands. Source GELU and squared-ReLU MLP
+    expose three retention levels. ReLU vendor AUX bitmasks, normalization-state
+    reconstruction, arbitrary graph checkpointing and random/stateful replay need
+    separate bindings. Boundary storage is explicit; it may already be retained
+    for other gradient consumers and is not automatically a new allocation.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Move the retained training boundary earlier across an affine-plus-activation chain and regenerate omitted values before backward consumers.
+  reuse: Retained forward inputs can regenerate intermediates needed by several backward stages.
+  storage: Both intermediates, affine value only, or the earlier immutable boundary; transient replay storage is separate.
+  boundary: Full checkpoint values, immutable operands, complete backward consumers and admitted replay precision.
+  resources: [dram, tensor, registers]
+numeric_risk: A different GEMM heuristic, activation approximation, bias/cast placement or changed weight generation can alter replayed values and every dependent gradient.
+summary: >-
+  When an MLP saves both affine input-to-activation and activation output for
+  training, choose an earlier retention boundary to reduce long-lived storage.
+  Save only the affine value and rerun activation, or retain original inputs and
+  rerun affine then activation. Preserve every forward cast and weight generation.
+  A ReLU AUX bitmask supports a derivative but cannot regenerate activation
+  magnitudes; it cannot stand in for the full affine checkpoint in this rule.

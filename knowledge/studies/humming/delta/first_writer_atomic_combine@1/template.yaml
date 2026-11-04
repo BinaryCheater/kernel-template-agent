@@ -1,0 +1,50 @@
+name: first_writer_atomic_combine
+version: 1
+level_from: 4
+level_to: 5
+change: vertical
+refines: reduce
+produces: [store, reduce, sync]
+object:
+  type: initialized_atomic_accumulator
+  description: One partial initializes an output tile before other partials atomically add into it; a countdown protects reuse.
+variables:
+  - {name: partials, kind: numeric, binding: runtime, role: software, domain: {lo: 2, hi: 10}, meaning: Number of partials of this output tile; this version uses the source scheduler's ten-slice bound.}
+  - {name: update, kind: structure, binding: compile, role: boundary, domain: [packed_atomic_add, bulk_reduce_add], meaning: Atomic element update engine; selected by the target and output path.}
+constraints:
+  - {id: c_count, expr: "partials == p.partial_count and partials >= 2", meaning: Countdown matches the actual number of producers., cls: semantic}
+preconditions:
+  - {id: pre_contract, expr: "p.reassociation_allowed and p.atomic_supported", meaning: Numeric contract allows nondeterministic update order and the target implements the update., cls: semantic}
+  - {id: pre_generation, expr: "p.lock_initial == 0 and p.no_overlapping_generation", meaning: Lock and output tile have one live launch generation., cls: semantic}
+program:
+  description: >-
+    Partial 0 waits for lock<=0, stores its tile, completes its writes, then publishes
+    lock=1-partials. Each other partial waits for lock<=-1, atomically adds each owned
+    output element, completes the update, then atomically increments lock. The last
+    completed update restores lock=0. No fixed ordering is imposed among nonzero partials.
+backward_map: Sum all partial values in their actual atomic linearization order; erase the lock and output staging.
+obligations:
+  - {name: initialization_visible, statement: Every atomic update follows visible completion of the initializing store., method: test}
+  - {name: exact_updates, statement: Every partial contributes once per output element and each element update is atomic., method: exhaustive}
+  - {name: completion_before_reuse, statement: Countdown increments follow completion of all updates of that partial and zero occurs only after every partial finished., method: test}
+  - {name: progress, statement: The initializing partial and all awaited producers can run under the actual launch residency and scheduler., method: test}
+effects: {transactions: [], storage: [], overlap: []}
+scope:
+  predicate: "p.reassociation_allowed and p.atomic_supported"
+  text: >-
+    Split reductions with one designated initializing partial and 2..10 partials per tile.
+    Humming selects this path for TMA stores or native packed atomic add with more than
+    three slices. That threshold is a dispatch policy, not a correctness requirement.
+    Effects remain unpriced until each element update and completion event is modeled.
+requires: []
+probed_on: []
+relations:
+  - {type: alternative_of, target: ordered_global_combine, note: Other partials are concurrent rather than lock-ordered by slice index.}
+signature:
+  algorithm: Initial store followed by atomic partial accumulation with completion countdown.
+  storage: Output tile and one global countdown per synchronization group.
+  boundary: Initial writer publishes a negative count; the last completion restores zero.
+  resources: []
+numeric_risk: Output precision rounding and nondeterministic atomic order; exact arithmetic witnesses do not settle floating-point error.
+summary: >-
+  Use when several blocks contribute to one output tile and the numerical contract allows unordered accumulation. Bind partials to the actual contributor count (2..10 here) and choose an update engine supported by the target. For four partials, publish the first store before letting the other three add; reuse the tile only after all four finish. The partial count comes from the upstream partition.

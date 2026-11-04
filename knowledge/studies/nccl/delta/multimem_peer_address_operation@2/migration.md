@@ -1,0 +1,3 @@
+# Version 1 to 2
+
+Old Fuser version remains addressable. Map old operation unchanged, pack_bytes=16, capability=FP32 vector4 add load or16-byte replicated store, target=SM90+ with supported toolchain. Membership and payload lifetime obligations unchanged; operation_values now also proves chosen type/pack numeric semantics. New min/max and scalar/subpart domains require new capability records and reopen numeric proofs. Both hardware guards apply to stores and loads; operation selection never bypasses registration or target checks. Source NCCL rejects unsupported combinations with trap/missing specialization. New instances require concrete legal records rather than inferring every combination from dtype names.

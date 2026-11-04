@@ -1,0 +1,16 @@
+template: fragment_parity_publication@1
+backend: cuda
+isa: {family: sm, min: '100', max: '100'}
+requires: [ld_acquire]
+isa_constraints: []
+fragments: {}
+code_markers: [L2KBlockDependency, pending_mask, red_xor_rel]
+expected_sass: []
+probed_on: []
+summary: >-
+  DeepGEMM scheduler/mega_moe.cuh assigns one mask bit to each completed L1 N128
+  epilogue, representing 64 post-SwiGLU features. BF16 L2 K64 reads wait on one bit;
+  FP8 L2 K128 reads wait on two. Mask generation is logical_pool_block/ring_blocks.
+  Release-XOR follows completed TMA stores; L2 acquire waits only its K block's bits.
+  The listed load capability does not certify native XOR release visibility or the
+  independent ring-capacity, reuse and scheduling obligations.

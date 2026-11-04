@@ -1,0 +1,15 @@
+{
+  "template": "selective_parameter_state_update@2",
+  "version": 1,
+  "relation": "After every step each inactive parameter has identical complete state. Active parameters equal the declared transition applied once; only active_count adds one local count and uses it for correction. Clockless gsplat keeps exactly p,m,v.",
+  "rank": "Finite parameter-feature owners remaining in the update.",
+  "assumes": [
+    {
+      "name": "clock_policy",
+      "statement": "(p.inactive_transition_is_identity_for_complete_state) and (p.gate_uses_declared_gradient_stage and p.group_membership_consistent and p.gradient_values_finite) and (p.no_omitted_state_or_side_effects and ((clock_policy == active_count and p.bias_correction_uses_parameter_active_clock) or (clock_policy == none and p.optimizer_has_no_local_clock_or_bias_correction))) and (p.parameter_state_exclusively_owned and p.gradient_epoch_ready and p.active_update_rounding_admitted)"
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Induct over epochs independently per parameter. An inactive epoch preserves the complete state and the active-transition count. An active epoch applies the original transition and increments that count, so the local counter used for debiasing remains equal to the number of transitions. Global scheduler clocks can still advance, because they are distinct state explicitly preserved by the composition. Source include/tiny-cuda-nn/optimizers/adam.h:82-95 returns before regularization and moment/weight writes, :111-132 uses ++param_steps[i], and :153-160 initializes the local clocks. The host optimizer step counter advances independently. With beta1=beta2=.5 and initial moments0, gradient2 gives(1,2) after one active update; skipping a later zero gradient preserves these values and clock1. A dense transition would produce(.5,1), clock2, demonstrating why a generic zero-input argument is insufficient. Floating conversion, overflow, device publication and performance remain executable binding obligations."
+}

@@ -1,0 +1,154 @@
+name: adaptive_support_rejection
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: contract
+produces:
+- map
+- reduce
+- contract
+object:
+  type: certified_adaptive_conditional_sampler
+  description: Sample a value-threshold support without materializing its sorted list, rejecting proposals
+    and pruning only certified nontarget weight levels.
+variables:
+- name: criterion
+  kind: structure
+  binding: compile
+  role: boundary
+  domain:
+  - above_count
+  - above_mass
+  meaning: 'Requested membership: original full-row count above the candidate is less than k, or original
+    mass above it is less than top_p.'
+- name: refinement
+  kind: structure
+  binding: compile
+  role: software
+  domain:
+  - sampled_threshold
+  - paired_midpoint
+  meaning: After rejection, prune at the sampled value alone or additionally evaluate its midpoint with
+    the certified high threshold. Source uses paired_midpoint; sampled_threshold is an inferred simpler
+    schedule.
+constraints:
+- id: c_width
+  expr: p.width >= 1
+  meaning: At least one row coordinate.
+  cls: semantic
+preconditions:
+- id: pre_weights
+  expr: p.finite_nonnegative_weights and p.original_weight_sum_is_one and p.positive_target_support_nonempty
+  meaning: One finite row has nonnegative normalized weights; target support contains positive mass. Zero-weight
+    coordinates never enter the proposal set.
+  cls: implementation
+- id: pre_target
+  expr: p.support_uses_full_row_strictly_greater_statistics and p.boundary_tie_cohorts_admitted
+  meaning: Membership is count{w>value}<k or sum{w>value}<top_p over the original row, including entire
+    boundary-value cohorts; exact-cardinality ID tie breaking is a different contract.
+  cls: implementation
+- id: pre_bounds
+  expr: p.count_limit_between_one_and_width_or_mass_limit_in_open_zero_closed_one and p.initial_low_zero_high_one
+  meaning: Use1<=k<=width or0<top_p<=1, initially low0/high1; positive target weights exceed low and high
+    is a certified accepted threshold.
+  cls: implementation
+- id: pre_certificates
+  expr: p.full_row_certificates_match_requested_support_and_comparison_policy and p.rejected_threshold_removes_no_target_weight
+  meaning: Counts/masses and strict comparisons certify the requested target membership. Each new low
+    cutoff excludes only nontarget weights.
+  cls: implementation
+- id: pre_draws
+  expr: p.each_proposal_uses_current_original_mass and p.fresh_conditional_categorical_draws_and_rng_domains_explicit
+  meaning: Every attempt samples original weights restricted to w>low, using that exact remaining mass
+    and fresh independent conditional random draws; draw/output/invocation identities are explicit.
+  cls: implementation
+- id: pre_progress
+  expr: p.each_rejection_removes_at_least_the_sampled_weight_level and p.accepted_sample_is_only_success_exit
+  meaning: Rejection raises the cutoff at least to the sampled weight, removing a nonempty level; successful
+    exit returns only a membership-certified sample, without arbitrary truncation.
+  cls: implementation
+- id: pre_generation
+  expr: p.row_weights_limits_and_mapping_immutable_through_attempts and p.all_certificate_and_draw_participants_converged
+  meaning: All rounds refer to the same row/threshold metadata, including output-to-data-row mapping;
+    collective scans/reductions complete consistently.
+  cls: implementation
+- id: pre_numeric
+  expr: p.cdf_rng_endpoint_fallback_and_rounding_policy_admitted and p.proposal_error_budget_explicit
+  meaning: Native CDF arithmetic, random endpoint grid, last-valid fallback and any per-draw deviation
+    are declared. Exact categorical proposals give the exact restricted target law; otherwise retain a
+    bound accumulated over the finite attempt count.
+  cls: implementation
+program:
+  description: 'Define C(t)=count_i(w_i>t) for above_count or sum_i(w_i>t) for above_mass, and limit=k
+    or top_p. Target A contains positive-weight indices with C(w_i)<limit. Start low=0, high=1, q=1. Each
+    round draw i categorically from S={j:w_j>low} with probabilities w_j/q, retaining original weights
+    and q=sum_S(w). Scan the full original row to evaluate C(w_i). If it is below limit, return i. Otherwise
+    reject i and choose t=w_i. With paired_midpoint also evaluate m=(w_i+high)/2 under the declared arithmetic:
+    if C(m)<limit set high=m and retain t=w_i; otherwise set t=m. Set low=t and q=sum_{w>t}w, then draw
+    again with fresh conditional randomness. Both cutoffs remove only rejected target classes. Never renormalize
+    the row before computing the next full-row membership certificate, reuse the previous uniform without
+    a proved conditional remapping, or return an uncertified last proposal after a round cap.'
+backward_map: 'With exact fresh categorical proposals, erase rejection/pruning history: output i has probability
+  w_i/sum_{j in A}w_j for i in A and zero otherwise. Each rejection removes a positive nontarget level,
+  so at most the number of distinct rejected positive levels plus1 draws occur. With per-proposal total-variation
+  error epsilon and unchanged exact certificates, a coupling/union bound gives at most width*epsilon output
+  deviation.'
+obligations:
+- name: support_invariant
+  statement: Every proposal set retains the same complete target A with its original relative weights;
+    every removed threshold class is certified outside A.
+  method: proof
+- name: conditional_law
+  statement: Fresh categorical proposals and immediate acceptance give the original weights conditioned
+    on A despite adaptive rejection history.
+  method: proof
+- name: finite_progress
+  statement: Each rejection removes at least one positive nontarget weight level, and no arbitrary cap/fallback
+    returns an out-of-support result.
+  method: test
+- name: native_random_and_numeric
+  statement: RNG identity, remaining mass, CDF endpoints, tie comparisons and finite-precision error meet
+    the requested sampling policy.
+  method: test
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: p.width >= 1 and (p.finite_nonnegative_weights and p.original_weight_sum_is_one and p.positive_target_support_nonempty)
+    and (p.support_uses_full_row_strictly_greater_statistics and p.boundary_tie_cohorts_admitted) and
+    (p.count_limit_between_one_and_width_or_mass_limit_in_open_zero_closed_one and p.initial_low_zero_high_one)
+    and (p.full_row_certificates_match_requested_support_and_comparison_policy and p.rejected_threshold_removes_no_target_weight)
+    and (p.each_proposal_uses_current_original_mass and p.fresh_conditional_categorical_draws_and_rng_domains_explicit)
+    and (p.each_rejection_removes_at_least_the_sampled_weight_level and p.accepted_sample_is_only_success_exit)
+    and (p.row_weights_limits_and_mapping_immutable_through_attempts and p.all_certificate_and_draw_participants_converged)
+    and (p.cdf_rng_endpoint_fallback_and_rounding_policy_admitted and p.proposal_error_budget_explicit)
+  text: FlashInfer sampling.cuh TopKSamplingFromProbKernel and TopPSamplingFromProbKernel use a sampled
+    pivot and midpoint, full-row count/mass certificates, updated surviving mass and fresh curand_uniform
+    calls. Target ties are whole weight cohorts under strict-greater statistics, not exactly k stable
+    IDs or a tie-split nucleus. Source native scan fallback, finite RNG grid, seed/offset state and floating-point
+    mass classification remain realization obligations. Top-k-first/top-p composition, min-p and speculative
+    decoding have separate support/acceptance contracts.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Adaptive rejection with support-preserving probability-threshold pruning.
+  storage: Current low/high, surviving mass, sample and full-row certificate reductions; no explicit sorted
+    support list required.
+  boundary: Original target statistics, boundary tie cohorts, fresh conditional proposals, exact remaining
+    mass and acceptance-only termination.
+  resources:
+  - dram
+  - registers
+  - smem
+  - issue
+numeric_risk: Finite CDF endpoints, inaccurate remaining mass, shared uniforms, rounded boundary certificates
+  or a capped last-candidate return can alter the categorical law. Whole boundary cohorts can contain
+  more than k entries.
+summary: When a threshold-defined categorical support is expensive to sort/materialize, repeatedly sample
+  from a certified superset and prune rejected weight levels. Use a full-row count or mass certificate,
+  keep all target weights in every candidate set, update its original mass and use fresh conditional randomness.
+  This preserves the target-conditioned law while allowing sampled-only or sampled-plus-midpoint refinement;
+  retain whole boundary ties unless another contract is supplied.

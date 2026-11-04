@@ -1,0 +1,91 @@
+{
+  "name": "affine_piece_prefix_state",
+  "version": 1,
+  "level_from": 3,
+  "level_to": 4,
+  "change": "vertical",
+  "refines": "scan",
+  "produces": [
+    "map",
+    "contract",
+    "sync"
+  ],
+  "object": {
+    "type": "affine_piece_summary",
+    "description": "A contiguous recurrence piece summarized as a right-acting affine state map, allowing a later piece to reconstruct its entry state from preceding summaries."
+  },
+  "variables": [
+    {
+      "name": "piece_chunks",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": {
+        "lo": 1,
+        "hi": 65536
+      },
+      "meaning": "Consecutive recurrence chunks per piece; source distributes a bounded piece count from shape policy, with possibly shorter final piece."
+    }
+  ],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_affine",
+      "expr": "p.chunk_state_update_is_right_affine and p.complete_ordered_chunk_partition and p.summary_storage_ready_before_use",
+      "meaning": "Chunk j has state updateS_next=S*L_j+c_j; local outputs may depend on the entry state, and summaries use the same ordered factors.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_numeric",
+      "expr": "p.summary_precision_and_reassociation_admitted and p.producer_consumer_progress_supported",
+      "meaning": "Summary representation and matrix arithmetic have an explicit error contract; waiting consumers cannot prevent producers from running.",
+      "cls": "implementation"
+    }
+  ],
+  "program": {
+    "description": "Partition the ordered chunk sequence into contiguous pieces. In each piece initializeL=I,c=0. For each chunk map(Lj,cj), updateL=L*Lj and c=c*Lj+cj in order. Publish completed piece(L,c). To start piece r, initializeS=S0 and apply every preceding piece map in order S=S*L_piece+c_piece; then run its own local chunk recurrence and outputs from this reconstructed entry state. Consumers wait for matching piece readiness and retain summary generation identity. First piece usesS0 directly; final short pieces include only valid chunks."
+  },
+  "backward_map": "Expand every piece map into its ordered constituent chunk maps. Substitution recovers the original recurrence and each local entry state in exact arithmetic; source summary/storage rounding is covered only by the admitted numerical policy.",
+  "obligations": [
+    {
+      "name": "compose",
+      "statement": "Piece composition preserves chronological order and each chunk occurs once.",
+      "method": "exhaustive"
+    },
+    {
+      "name": "entry_state",
+      "statement": "Each piece starts from the prefix excluding its own map, applied to the correct initial state and sequence.",
+      "method": "test"
+    },
+    {
+      "name": "publication_progress",
+      "statement": "Summary publication precedes reads, all producers can run, and storage stays live until every prefix consumer finishes.",
+      "method": "test"
+    },
+    {
+      "name": "numerical",
+      "statement": "Summary casts, TF32 products and reassociation satisfy the admitted source approximation.",
+      "method": "test"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.chunk_state_update_is_right_affine and p.complete_ordered_chunk_partition and p.summary_precision_and_reassociation_admitted",
+    "text": "Ordered right-affine matrix-state recurrences. Source KDA prefill uses64-token chunks,K=V128, BF16 pieceL, FP32 piecec and TF32 prefix application on SM100a/103a. No commutative scan premise; no automatic native forward-progress or exact floating-point equivalence."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "Summarize contiguous affine recurrence pieces and reconstruct their prefix entry states independently.",
+    "storage": "One matrix linear map plus offset per piece; source maps and factors stay live through prefix consumers.",
+    "boundary": "Sequence starts, ragged last chunk, final short piece and readiness epochs.",
+    "resources": []
+  },
+  "numeric_risk": "Matrix composition and summary casts change rounding and can amplify error; source SEQ0 factors also intentionally differ, so its policy is not a byte-equivalent realization of the fused route.",
+  "summary": "When chunk state updates are affine, summarize contiguous pieces and let a later piece reconstruct its entry state from earlier summaries. Choose piece size to trade summary work/storage against a shorter local state chain. Preserve noncommutative chronological order, distinguish prefix from inclusive state and admit summary precision explicitly."
+}

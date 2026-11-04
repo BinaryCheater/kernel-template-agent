@@ -1,0 +1,15 @@
+template: binned_floating_accumulator@1
+version: 1
+relation: Interpret each binned state through its primary/carry decoding recipe; completed
+  state represents the admitted reproducible sum of its deposited inputs.
+rank: Unprocessed source items or unmerged partials.
+assumes:
+- name: contract
+  statement: The stated partition, comparator/count and publication premises hold.
+guarantees: []
+models: []
+note: Source detail/rfa.cuh:45-103,:249-402,:409-463,:645-688; selected dispatch/dispatch_reduce_deterministic.cuh:52-95
+  and kernels/kernel_reduce_deterministic.cuh:130-198. Collector decoding and numerical
+  reproducibility require independent analysis/native witnesses; the proposal records
+  the actual design and its unresolved numerical obligations, rather than assuming
+  scalar associativity.

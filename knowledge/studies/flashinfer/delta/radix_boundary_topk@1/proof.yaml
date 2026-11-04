@@ -1,0 +1,29 @@
+template: radix_boundary_topk@1
+version: 1
+relation: The score boundary and tied-ID cut represent the first min(k,valid_count) identities under descending
+  score then descending original ID, with signed zeros equal.
+rank: Remaining scan phases or unresolved rank digits.
+assumes:
+- name: encoding
+  statement: Finite score keys preserve order and signed zeros compare equal; IDs are distinct.
+- name: histogram
+  statement: Each active identity contributes once to completed bins for the shared prefix.
+- name: rank
+  statement: All participants preserve the same residual rank and prefix between passes.
+- name: emit
+  statement: The boundary predicates emit the exact selected identities with no slot collisions.
+guarantees: []
+models: []
+note: At each step current rank r is measured among the current matching-prefix keys. Descending digit
+  bins partition that set. If H keys lie in better bins, the target lies in the unique bin with H<r<=H+count;
+  replacing r by r-H preserves its identity. After 32 bits the exact boundary score remains, with r required
+  equal-score entries. Applying the same argument to unique tied IDs gives exactly r largest IDs. All
+  scores above the boundary plus these ties total want, independent of presentation. Source sm120_dsa_indexer.cuh:154-163
+  defines the signed-zero-folded order encoding; :998-1065 implements four byte passes; :1200-1252 finalizes
+  score/ID boundaries; :782-879 uses distributed 11/11/10 passes. :2428-2451 collects boundary-qualified
+  IDs. Exact fallback skips ID phases only when all boundary ties can be retained within capacity, then
+  the finalizer still performs the required tie selection. Source sorted_run_topk@1 instead merges sorted
+  small runs with k<=32 and smallest-ID ties, so no direct field substitution supplies this mechanism.
+  Native histogram fences, last-arriver progress, count bounds, descriptor score identity and emission
+  publication need their own evidence. Logical checks exercise both digit schedules, signed zeros, negative
+  scores, crowded ties, arbitrary input order and exact residual rank.

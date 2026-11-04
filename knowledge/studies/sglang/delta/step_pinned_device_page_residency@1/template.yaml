@@ -1,0 +1,110 @@
+{
+  "name": "step_pinned_device_page_residency",
+  "version": 1,
+  "level_from": 3,
+  "level_to": 4,
+  "change": "vertical",
+  "refines": "map",
+  "produces": [
+    "map",
+    "store",
+    "transfer",
+    "sync"
+  ],
+  "object": {
+    "type": "step_pinned_device_page_residency",
+    "description": "When a step needs only a bounded subset of expert payloads, decide residency on the device, pin every page needed by that step, and replace only unneeded slots before copying the complete payload generation and remapping route IDs."
+  },
+  "variables": [
+    {
+      "name": "page_slots",
+      "kind": "numeric",
+      "binding": "runtime",
+      "role": "software",
+      "domain": {
+        "lo": 1,
+        "hi": 1048576
+      },
+      "meaning": "Cached complete expert payload slots; source requires total routed entries per step no greater than this capacity."
+    }
+  ],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_0",
+      "expr": "p.route_count <= page_slots and p.initial_slot_maps_mutually_inverse and p.required_ids_valid_or_inactive",
+      "meaning": "The source capacity bound guarantees room for every required unique expert; slot/expert maps initially agree.",
+      "cls": "implementation"
+    },
+    {
+      "id": "pre_1",
+      "expr": "p.previous_slot_readers_complete and p.one_serial_plan_writer and p.step_counter_monotone_without_wrap",
+      "meaning": "No prior step still consumes a replaceable slot; plan updates serialize and current-step age markers cannot alias an older generation.",
+      "cls": "implementation"
+    },
+    {
+      "id": "pre_2",
+      "expr": "p.all_initially_required_residents_pinned_before_eviction and p.newly_installed_pages_pinned_immediately",
+      "meaning": "Every current-step resident is protected before victim selection; duplicates of newly installed IDs reuse their slot.",
+      "cls": "implementation"
+    },
+    {
+      "id": "pre_3",
+      "expr": "p.victim_is_oldest_unpinned_then_smallest_slot and p.eviction_updates_both_maps",
+      "meaning": "Choose LRU among pages not used by this step, preserving deterministic slot ties and inverse maps.",
+      "cls": "implementation"
+    },
+    {
+      "id": "pre_4",
+      "expr": "p.host_payload_immutable_mapped_and_accessible and p.all_payload_tensors_use_same_plan",
+      "meaning": "Every paged weight/scale tensor reads the same expert\u2192slot plan from valid mapped source storage.",
+      "cls": "implementation"
+    },
+    {
+      "id": "pre_5",
+      "expr": "p.run_consumers_wait_for_complete_payload_generation and p.inactive_routes_have_zero_weight",
+      "meaning": "Slot assignment alone is not data readiness; readers wait for all required page copies, and inactive routes cannot contribute.",
+      "cls": "implementation"
+    }
+  ],
+  "program": {
+    "description": "Advance the device step counter. Mark all already resident experts required by this step with its age. Process missing required IDs in route order; choose the oldest unpinned slot, then smallest slot ID, evict its old inverse map, install the new expert in both maps, pin it at current age, and append one expert/slot copy plan record. A repeated expert is now resident and creates no second copy. Copy every tensor of each planned expert into the same chosen slot using the plan count read on the device. After the complete copy generation is ready, execute routes using resident slot IDs and original route weights. Inactive routes use a safe slot and zero weight. Do not start a subsequent eviction while prior payload readers remain active."
+  },
+  "backward_map": "For each active original expert route, its remapped slot contains that same expert's complete matching payload generation before use; weights and route multiplicity are unchanged. Unneeded cache pages affect only replacement work, not visible expert results.",
+  "obligations": [
+    {
+      "name": "logical_identity",
+      "statement": "For each active original expert route, its remapped slot contains that same expert's complete matching payload generation before use; weights and route multiplicity are unchanged. Unneeded cache pages affect only replacement work, not visible expert results.",
+      "method": "proof"
+    },
+    {
+      "name": "publication_and_lifetime",
+      "statement": "Native readiness, index maps and memory lifetimes implement the declared complete generation.",
+      "method": "test"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "(p.route_count <= page_slots and p.initial_slot_maps_mutually_inverse and p.required_ids_valid_or_inactive) and (p.previous_slot_readers_complete and p.one_serial_plan_writer and p.step_counter_monotone_without_wrap) and (p.all_initially_required_residents_pinned_before_eviction and p.newly_installed_pages_pinned_immediately) and (p.victim_is_oldest_unpinned_then_smallest_slot and p.eviction_updates_both_maps) and (p.host_payload_immutable_mapped_and_accessible and p.all_payload_tensors_use_same_plan) and (p.run_consumers_wait_for_complete_payload_generation and p.inactive_routes_have_zero_weight)",
+    "text": "Source paged_experts.cuh:27-159 uses one warp for device plan updates, one lane committing each eviction, and mapped pinned-host\u2192GPU gather over all paged tensors. Source guard is routed-entry count<=K, stronger than distinct-working-set capacity. Copy units16/4/2 bytes follow tensor row width and alignment. Counter overflow, concurrent plan writers, incomplete tensor generations and inaccessible host pointers are excluded."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "When a step needs only a bounded subset of expert payloads, decide residency on the device, pin every page needed by that step, and replace only unneeded slots before copying the complete payload generation and remapping route IDs.",
+    "storage": "Reusable bounded payload slots with explicit generation identity.",
+    "boundary": "Source paged_experts.cuh:27-159 uses one warp for device plan updates, one lane committing each eviction, and mapped pinned-host\u2192GPU gather over all paged tensors. Source guard is routed-entry count<=K, stronger than distinct-working-set capacity. Copy units16/4/2 bytes follow tensor row width and alignment. Counter overflow, concurrent plan writers, incomplete tensor generations and inaccessible host pointers are excluded.",
+    "resources": [
+      "gmem",
+      "smem",
+      "registers"
+    ]
+  },
+  "numeric_risk": "If U is the required unique set with|U|<=route_count<=K, every previously required resident is pinned and every newly installed member is pinned. Before the next missing member is placed, fewer than|U|<=K slots are pinned, so an unpinned victim exists. Updating both inverse maps preserves their bijection; duplicates find the new slot. Matching complete payload copies establish result identity. Host checks/page_residency.json covers repeated routes, tie victims and all-needed pinning; native mapped-host bandwidth and synchronization are not claimed.",
+  "summary": "When a step needs only a bounded subset of expert payloads, decide residency on the device, pin every page needed by that step, and replace only unneeded slots before copying the complete payload generation and remapping route IDs."
+}

@@ -1,0 +1,15 @@
+template: value_lowbit_index_tag@1
+version: 1
+relation: Finite nonzero narrow-float values widened exactly to FP32 with enough vacant
+  mantissa bits. Ranking uses fewer register planes; this rule does not authorize
+  truncating meaningful FP32 mantissa bits.
+rank: Number of input elements or state transitions still to consume.
+assumes:
+- name: source_contract
+  statement: Source binding and stated scope hold.
+guarantees: []
+models: []
+note: 'Source-derived candidate, not independently admitted. value_restore: Clearing
+  tag bits exactly restores every input value. order_and_ties: Encoded comparisons
+  preserve unequal-value rank and select smaller index for ties. Native lowering and
+  numerical error remain open; see trace and checks.'

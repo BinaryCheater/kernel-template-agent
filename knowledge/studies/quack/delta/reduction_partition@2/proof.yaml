@@ -1,0 +1,12 @@
+template: reduction_partition@2
+version: 1
+relation: Combining the group partial results gives the sum over all reduction indices,
+  because the groups partition the index set; forget the groups.
+rank: Unprocessed reduction indices plus uncombined split identities/partials.
+assumes: []
+guarantees: []
+models: []
+note: 'Uniform policy inherits version1 partition argument. Balanced starts telescope:
+  start(s+1)=start(s)+count(s); start0=0,end(last)=length. Empty ranges cover nothing
+  and add combine identity; they must still complete the fixed participant protocol.
+  Native visibility and nonlinear epilogue exactly-once remain open obligations.'

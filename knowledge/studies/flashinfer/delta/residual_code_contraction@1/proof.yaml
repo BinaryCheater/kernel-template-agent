@@ -1,0 +1,39 @@
+template: residual_code_contraction@1
+version: 1
+relation: Distributivity identifies s*(H+L) with a contraction over reconstructed weights s*(decode(h)+decode(l))
+  in exact arithmetic. Native separate-MMA rounding and encoding error define the selected approximation
+  to the original numerator; the original denominator is unchanged.
+rank: Uncontracted high/low weight components.
+assumes:
+- name: pre_domain
+  statement: The complete finite weight/value contraction is identified before encoding; low residual
+    components may be signed.
+- name: pre_scale
+  statement: Each row/tile uses one decoder scale and its declared FP32 encode multiplier; every component
+    shares that scale and V generation.
+- name: pre_encode
+  statement: Compute residual before releasing the producer value, using the actual rounded high code;
+    never clamp low residuals to nonnegative probabilities.
+- name: pre_contraction
+  statement: Separate MMAs cover identical key/value coordinates; sum high/low FP32 products and decode
+    scale once.
+- name: pre_mass
+  statement: Probability encoding changes the PV numerator; it does not replace denominator mass by code
+    sums or add another copy of mass.
+- name: pre_numeric
+  statement: Two-code arithmetic is an admitted approximation; scale reciprocals, signed low underflow,
+    saturation and MMA association are part of the recipe.
+- name: pre_lifetime
+  statement: Both component tiles retain coordinate/generation identity until every MMA reader finishes;
+    selected single/paired mode must be implemented.
+guarantees: []
+models: []
+note: Source flashinfer/experimental/b12x/attention/dense_mla/_math.py:383-394 computes signed E4M3 low
+  from the decoded high. pv_fp8:465-606 reduces a per-head64-key maximum, derives s and reciprocal, stores
+  high rows0..7/low rows8..15, issues separate m16n8k32 products and adds x0+x2 or x1+x3 in FP32 before
+  multiplying row_scale. online_softmax:263-379 keeps pre-encoding mass; write_partial_or_final normalizes
+  and applies V descale. rounding_residual_checkpoint@1 requires reconstruction in the accumulator before
+  downstream multiplication, so it does not express this two-contraction order. selected_value_residual_replay@1
+  repairs selected V rows, not every probability code. Logical witnesses cover signed residual, common
+  scale, high-only projection, tiny residual underflow and one/duplicate denominator. Native ldmatrix/MMA
+  coordinates, contraction association and quantitative error remain realization obligations.

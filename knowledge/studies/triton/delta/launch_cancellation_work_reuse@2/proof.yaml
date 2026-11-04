@@ -1,0 +1,48 @@
+template: launch_cancellation_work_reuse@2
+version: 1
+relation: Each original launch identity is exactly one of pending native dispatch,
+  owned by one active cooperative worker, or completed; cancellation transfers pending
+  ownership without duplicating it.
+rank: Lexicographic pair (2*N - native_starts - successful_cancellations - retired_workers,
+  remaining finite phases of the current work/response exchange); target fairness
+  supplies phase progress.
+assumes:
+- name: target_ownership
+  statement: A successful cancellation atomically removes one pending native group
+    and no successful response returns that identity twice.
+- name: source_work_identity
+  statement: Initial launch and successful response coordinates decode bijectively
+    to independent cooperative work groups and preserve local role offsets.
+- name: response_order
+  statement: The response is completed/published before reads and remains unchanged
+    until every actual reader has released it.
+- name: failure_protocol
+  statement: Coordinates are queried only after success and no request follows an
+    observed failure.
+- name: progress
+  statement: Uncancelled pending groups eventually dispatch natively and all owned
+    groups and response exchanges finish.
+guarantees: []
+models: []
+note: Native dispatch moves one identity from pending to one active owner. Successful
+  cancellation moves a different pending identity to an existing worker's next iteration
+  while preventing its native launch. Completion moves the identity to completed.
+  A failure retires a reuse loop without removing any pending work; pending work can
+  still dispatch natively. The bounded model enumerates N1..5 ownership states, permits
+  failure while pending work remains and checks exactly-once terminal coverage. Each
+  pending identity can be removed only once by native dispatch or cancellation, and
+  each natively created worker retires at most once; thus the first rank component
+  is nonnegative and decreases at those transitions. There are at most N successful
+  claims and N failed retiring responses; the finite response protocol and group computations
+  finish under the fairness premise. The source's one-slot CLC response pipeline motivates
+  reader counts224 for one CTA or416 for two CTAs. Its clc_response wrapper constructs
+  three coordinate-query IR operations unconditionally; guarded lowering must be established
+  or corrected before that wrapper is an admitted Realisation of this rule. No safe
+  emitted lowering, GPU run, registered checker model or ProofSummary is claimed by
+  this candidate outline. Version2 migration preserves all old fields/obligations
+  with coordinate_decode=guarded. Speculative extraction is erased as an unobservable
+  operation on the failed branch only under nontrapping/accessor premises. Source
+  Gluon 12-cluster-launch-control.py:78-88 extracts program_id unconditionally; :154-184
+  guards the next iteration by has_work. Native failed-accessor behavior remains an
+  explicit open obligation, so this is conditional reuse, not a proved source failure-path
+  claim.

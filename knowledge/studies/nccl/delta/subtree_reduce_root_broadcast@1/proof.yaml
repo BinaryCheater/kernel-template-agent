@@ -1,0 +1,15 @@
+{
+  "template": "subtree_reduce_root_broadcast@1",
+  "version": 1,
+  "relation": "Each published upward partial equals the grouping-admitted reduction of the disjoint subtree rooted at its sender. A downward chunk equals the root-finalized whole-tree result.",
+  "rank": "Remaining tree edges per chunk in upward/downward topological order.",
+  "assumes": [
+    {
+      "name": "source_contract",
+      "statement": "Associative/grouping-admitted reductions on a valid rooted topology, source fan-in up to3 and root fan-in up to2."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Source-derived proof outline; no formal proof result or GPU execution claimed. subtree: A partial sent by node v contains exactly one contribution from every node in its subtree. finalization: Root post operation is applied after all contributions once; forwarded values never reapply it. progress: All peer constructors, transfer steps and barriers have matching participation, including direct pointer exchange even if payload operation is buffered."
+}

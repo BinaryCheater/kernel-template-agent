@@ -1,0 +1,8 @@
+{
+  "upstream": "https://github.com/triton-lang/triton",
+  "revision": "3412130d638105963a34c3e8c622a98f843625ae",
+  "tree": "/Users/dingyi/kta-data/dev/operator-sources/triton-lang/triton/3412130d638105963a34c3e8c622a98f843625ae/source-3412130d638105963a34c3e8c622a98f843625ae",
+  "archive": "/Users/dingyi/kta-data/dev/operator-sources/triton-lang/triton/3412130d638105963a34c3e8c622a98f843625ae/worker-d-source.tar.gz",
+  "scope": "Full superproject archive; submodule contents not materialized",
+  "license": "MIT (retained LICENSE)"
+}

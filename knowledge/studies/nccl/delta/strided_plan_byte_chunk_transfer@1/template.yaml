@@ -1,0 +1,91 @@
+{
+  "name": "strided_plan_byte_chunk_transfer",
+  "version": 1,
+  "level_from": 2,
+  "level_to": 3,
+  "change": "vertical",
+  "refines": "map",
+  "produces": [
+    "map",
+    "access"
+  ],
+  "object": {
+    "type": "strided_plan_byte_chunk_transfer",
+    "description": "When a network operation moves a strided tensor region, flatten only its logical contiguous-inner byte stream and split each byte chunk back into source/destination-strided pieces."
+  },
+  "variables": [
+    {
+      "name": "chunk_bytes",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": {
+        "lo": 1,
+        "hi": 1073741824
+      },
+      "meaning": "Logical byte chunk size used for publication or forwarding."
+    }
+  ],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_0",
+      "expr": "p.outer_counts_positive and p.inner_bytes_positive and p.transfer_plan_in_bounds",
+      "meaning": "Mixed-radix outer coordinates and contiguous inner byte ranges fit registered source/destination windows.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_1",
+      "expr": "p.destination_regions_disjoint_or_ordered and p.plan_covers_requested_region_once",
+      "meaning": "Plan specifies a one-to-one logical transfer, with explicit ordering for any overlapping destinations.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_2",
+      "expr": "p.same_queue_piece_order_and_final_signal_covers_prior_puts and p.window_lifetime_valid",
+      "meaning": "Last-piece signal implies preceding pieces completed under provider contract, not arbitrary cross-queue order.",
+      "cls": "semantic"
+    }
+  ],
+  "program": {
+    "description": "Decode outer iteration i from last outer dimension to first using idx=i%count[d],i//=count[d]; src/dst offsets are respective base plus sum idx*stride. For logical byte chunk [b,b+n), firstIter=b//inner, firstOffset=b%inner. Repeatedly copy min(inner-offset,remaining) bytes at mapped src/dst offsets, advance iteration and reset offset0. Signal once on final piece after all earlier pieces in the same ordered provider path. Ring forwarding reads the completed destination layout rather than original source layout. Direct per-inner-transfer signals are a different explicitly counted realization."
+  },
+  "backward_map": "Erase auxiliary organization and recover the visible results under the stated contract.",
+  "obligations": [
+    {
+      "name": "coordinates",
+      "statement": "Mixed-radix iteration and inner offset reconstruct exactly the original tensor region coordinates.",
+      "method": "proof"
+    },
+    {
+      "name": "chunk_cover",
+      "statement": "Piece intervals partition requested byte chunk without gaps/overlap, even when endpoints cut inner transfers.",
+      "method": "proof"
+    },
+    {
+      "name": "publication",
+      "statement": "Observed final signal covers every piece and source is retained until provider no longer reads it.",
+      "method": "proof"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.outer_counts_positive and p.inner_bytes_positive and p.transfer_plan_in_bounds and p.destination_regions_disjoint_or_ordered and p.plan_covers_requested_region_once and p.same_queue_piece_order_and_final_signal_covers_prior_puts and p.window_lifetime_valid",
+    "text": "Contiguous-inner strided plans over registered windows; no transpose or packing equality is inferred outside supplied paired strides. Resource effects: Avoids flattening entire tensor; plan/chunk sizes determine number of puts and signals."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "When a network operation moves a strided tensor region, flatten only its logical contiguous-inner byte stream and split each byte chunk back into source/destination-strided pieces.",
+    "storage": "Avoids flattening entire tensor; plan/chunk sizes determine number of puts and signals.",
+    "boundary": "contrib/nccl_m2n/src/reshard_kernels.cuh:25-88 and reshard_user_window.cu:92-260,316-440.",
+    "resources": []
+  },
+  "numeric_risk": "Preserve the supplied arithmetic contract; reassociation, quantization and approximate search require separate permission.",
+  "summary": "When a network operation moves a strided tensor region, flatten only its logical contiguous-inner byte stream and split each byte chunk back into source/destination-strided pieces. contrib/nccl_m2n/src/reshard_kernels.cuh:25-88 and reshard_user_window.cu:92-260,316-440."
+}

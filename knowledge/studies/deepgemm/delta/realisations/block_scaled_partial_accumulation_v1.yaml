@@ -1,0 +1,15 @@
+template: block_scaled_partial_accumulation@1
+backend: cuda
+isa: {family: sm, min: '90', max: '90'}
+requires: [wgmma]
+isa_constraints:
+  - {id: source_granularity, expr: "partial_k == 128 and gran_k_a == 128 and gran_k_b == 128 and gran_m == 1 and gran_n == 128", meaning: SM90 1D2D kernel's source specialization., cls: implementation}
+fragments: {}
+code_markers: [sm90_fp8_gemm_1d2d_impl,scale_0_0,final_accum]
+expected_sass: []
+probed_on: []
+summary: >-
+  DeepGEMM impls/sm90_fp8_gemm_1d2d.cuh completes four K32 WGMMA instructions,
+  then promotes with per-row A and per128-column B scales into a distinct final
+  FP32 accumulator. CUTLASS's pinned MMA_64x96x32_F32E4M3E4M3_SS_TN supplies the
+  selected inline-PTX boundary; no emitted artifact or measured numerical tolerance.

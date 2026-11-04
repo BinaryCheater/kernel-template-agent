@@ -1,0 +1,27 @@
+template: grouped_sparse_union_masks@1
+version: 1
+relation: For each row select the union keys whose membership bits are set and undo the common page mapping;
+  the original valid key set is recovered without changing that row normalization support.
+rank: Unmarked input positions and unnumbered bitmap words.
+assumes:
+- name: sets
+  statement: Duplicate key occurrences are semantically one membership.
+- name: mapping
+  statement: Every grouped row shares one valid logical-key to physical-payload map.
+- name: rank
+  statement: Prefix popcounts assign every set bitmap bit one ascending logical-key column.
+- name: consumer
+  statement: Every row mask uses the same rank and controls its own normalization after completed publication.
+guarantees: []
+models: []
+note: A bitmap OR marks key k iff at least one row selects k. Its ascending rank is the number of set
+  keys below k, yielding a bijection from the union onto [0,U). Setting each row mask at rank(k) recovers
+  exactly that row set when the shared union is restricted by the mask. Physical slots can be unordered
+  after page mapping without changing column identity. Source flashinfer/token_sparse.py:166-279 marks
+  a common bitmap, prefix-numbers words, writes page-translated union slots and uses four row teams that
+  reset mask staging after each row. shared_index_union@1 handles two sorted unique input rows with split-local
+  output-slot maps; it does not encode arbitrary grouped bitmap membership consumed as dense masks or
+  common per-row normalization. stable_sparse_support_compaction@1 preserves repeated occurrences and
+  therefore is not this set union. The logical witness checks five rows/four-team staging, page-swapped
+  physical order, duplicate collapse versus weighted occurrences and a row mask omitted at normalization.
+  Native bitmap atomics, scan ranks, mask publication and masked attention execution remain obligations.

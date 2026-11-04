@@ -1,0 +1,15 @@
+template: duplicate_balanced_set_partition@1
+version: 1
+relation: Concatenate local outputs to recover the requested sorted multiset operation,
+  with equal-key counts paired consistently across partition boundaries.
+rank: Unprocessed source items or unmerged partials.
+assumes:
+- name: contract
+  statement: The stated partition, comparator/count and publication premises hold.
+guarantees: []
+models: []
+note: Source agent_set_operations.cuh:107-150,:156-207,:578-637. Interpret equal occurrences
+  as paired by ordinal across A and B. The stair-step correction assigns matched pairs
+  consistently; the star advances the B side of an otherwise split pair. Native biased-search
+  and packed-coordinate realization need the explicit witness in checks/design_witnesses.py;
+  general proof remains reviewer-visible.

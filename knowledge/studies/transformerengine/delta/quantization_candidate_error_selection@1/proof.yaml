@@ -1,0 +1,19 @@
+template: quantization_candidate_error_selection@1
+version: 1
+relation: The output is one constructed candidate and minimizes the two declared computed group scores.
+rank: Remaining candidate groups.
+assumes:
+- name: paired
+  statement: Every candidate score uses its eventual code/scale representation and the same valid input
+    domain.
+- name: metric
+  statement: Scores are finite and reduction/arithmetic/tie policy match the declared metric.
+guarantees: []
+models: []
+note: 'If e4<e6 the rule emits candidate 4, otherwise candidate 6, proving selected_score<=e4 and <=e6.
+  For square groups the selected score is a sum over every row sharing one scale: independent row decisions
+  could assign inconsistent scales and invalidate that comparison. Ties choose map6. Score sums need not
+  be divided by 16 or 256 because the divisor is common. TransformerEngine common/cast/nvfp4/quantize_4over6_kernel.cuh:105-125
+  constructs rounded scale candidates; :241-325 quantizes and scores them; :433-485 reduces square-group
+  errors and selects the coupled scale/packet. FP16 proxy products are a different score, not a proof
+  of the FP32 argmin. Native rounding and compact metadata layout remain executable obligations.'

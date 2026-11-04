@@ -1,0 +1,84 @@
+{
+  "name": "blurred_gaussian_opacity_compensation",
+  "version": 1,
+  "level_from": 2,
+  "level_to": 3,
+  "change": "vertical",
+  "refines": "map",
+  "produces": [
+    "map",
+    "access"
+  ],
+  "object": {
+    "type": "blurred_gaussian_opacity_compensation",
+    "description": "When a projected Gaussian is broadened by an isotropic pixel filter, pair covariance blur with a determinant-ratio opacity correction and keep any numerical floor explicit."
+  },
+  "variables": [],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_0",
+      "expr": "p.covariance_positive_definite and p.blur_nonnegative",
+      "meaning": "Original projected covariance is positive definite and eps2d>=0.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_1",
+      "expr": "p.compensation_policy_explicit and p.blur_consumers_consistent",
+      "meaning": "Projection/culling/rasterization agree whether compensation is applied and on its floor.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_2",
+      "expr": "p.finite_positive_determinants",
+      "meaning": "Original/blurred determinants and ratio are finite positive for the admitted arithmetic.",
+      "cls": "semantic"
+    }
+  ],
+  "program": {
+    "description": "Replace Sigma by Sigma_blur=Sigma+eps2d*I. Compute raw compensation=sqrt(det(Sigma)/det(Sigma_blur)); source uses sqrt(max(MIN_COMPENSATION^2,ratio)). Multiply opacity by compensation exactly once when the selected antialiasing path requests it, and invert the blurred covariance to obtain the conic. Continuous unnormalized2D Gaussian mass is preserved only when the compensation floor is inactive; the floored path is an explicitly modified numerical contract. Radius/opacity culling must use the same compensated-opacity convention as downstream rendering."
+  },
+  "backward_map": "Erase auxiliary organization and recover the visible results under the stated contract.",
+  "obligations": [
+    {
+      "name": "mass_relation",
+      "statement": "Without floor activation, opacity_new*sqrt(det_blur)=opacity_old*sqrt(det_orig).",
+      "method": "proof"
+    },
+    {
+      "name": "single_application",
+      "statement": "Compensation is applied once across projection/consumer boundaries, never both omitted and doubled.",
+      "method": "proof"
+    },
+    {
+      "name": "floor_boundary",
+      "statement": "Floor activation is visible in the contract and is not described as exact mass preservation.",
+      "method": "proof"
+    },
+    {
+      "name": "shape_metadata",
+      "statement": "Conic/radius and opacity correspond to the same blurred covariance generation.",
+      "method": "proof"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.covariance_positive_definite and p.blur_nonnegative and p.compensation_policy_explicit and p.blur_consumers_consistent and p.finite_positive_determinants",
+    "text": "NVIDIA EWA/UT3DGS antialiasing metadata. Source MIN_COMPENSATION0.005 bounds opacity scaling. Pixel sampling, support truncation and nonlinear camera approximations remain separate from continuous mass identity. Resource effects: Adds determinant ratio/sqrt and conic inversion to projection; broadens screen support while adjusting amplitude, potentially increasing covered tiles."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "When a projected Gaussian is broadened by an isotropic pixel filter, pair covariance blur with a determinant-ratio opacity correction and keep any numerical floor explicit.",
+    "storage": "Adds determinant ratio/sqrt and conic inversion to projection; broadens screen support while adjusting amplitude, potentially increasing covered tiles.",
+    "boundary": "Sigma=diag1,1 and eps1 gives det1->4,compensation0.5. Applying0.5 twice changes continuous mass; clamping a very small ratio to0.005 changes the mass intentionally.",
+    "resources": []
+  },
+  "numeric_risk": "Preserve the supplied arithmetic contract; reassociation, quantization and approximate search require separate permission.",
+  "summary": "When a projected Gaussian is broadened by an isotropic pixel filter, pair covariance blur with a determinant-ratio opacity correction and keep any numerical floor explicit. Sigma=diag1,1 and eps1 gives det1->4,compensation0.5. Applying0.5 twice changes continuous mass; clamping a very small ratio to0.005 changes the mass intentionally."
+}

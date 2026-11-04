@@ -1,0 +1,125 @@
+name: stable_sparse_support_compaction
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: work_assign
+produces:
+- map
+- store
+- work_assign
+object:
+  type: stable_valid_occurrence_prefix
+  description: Choose hole-preserving support rows or stably compact valid indexed occurrences into a
+    prefix while preserving original-slot validity and duplicate multiplicity.
+variables:
+- name: support_layout
+  kind: structure
+  binding: compile
+  role: software
+  domain:
+  - keep_positions
+  - stable_compact
+  meaning: Keep invalid holes with last-valid span or pack valid occurrences with a count.
+constraints:
+- id: c_capacity
+  expr: p.row_count >= 0 and p.row_capacity >= 1 and p.prepared_row_capacity >= p.row_capacity
+  meaning: Prepared rows can hold every valid occurrence and padding.
+  cls: resource
+preconditions:
+- id: pre_validity
+  expr: p.validity_decided_in_original_slot_coordinates and p.bounds_segment_causal_and_position_cuts_applied_before_compaction
+  meaning: All invalidity and position-prefix decisions refer to original slots and original query/key
+    identities.
+  cls: semantic
+- id: pre_order
+  expr: p.valid_occurrences_keep_original_relative_order_and_multiplicity
+  meaning: Retain every valid occurrence including repeated key IDs, in stable original order.
+  cls: semantic
+- id: pre_metadata
+  expr: p.key_translation_and_per_occurrence_metadata_follow_same_map
+  meaning: Translated key IDs and any slot-dependent metadata use the same stable map.
+  cls: semantic
+- id: pre_consumers
+  expr: p.all_consumers_use_transformed_rows_and_matching_length_definition and p.invalid_padding_never_contributes
+  meaning: Forward/backward and other consumers agree on row contents, count versus span, and invalid
+    padding.
+  cls: implementation
+- id: pre_publish
+  expr: p.prepared_rows_lengths_and_metadata_published_before_consumers_and_immutable_until_last_reader
+  meaning: The complete transformed support generation survives all consumers, including deferred backward.
+  cls: implementation
+- id: pre_numeric
+  expr: p.changed_tile_grouping_and_reduction_order_admitted and p.selected_compaction_kernel_and_capacity_legal
+  meaning: Stable logical order does not itself establish bitwise equality after changed tile grouping;
+    native capacity/scan legality is explicit.
+  cls: implementation
+program:
+  description: For each original row evaluate its validity predicate at original slot s, including source
+    index bounds, segment/causal identity and any caller position limit. With keep_positions, write the
+    already translated valid key/metadata at slot s and an invalid sentinel otherwise; the processing
+    span is last valid slot plus one, or zero. With stable_compact, let rank(s) be the number of valid
+    original slots before s. Write each valid occurrence at rank(s) with its translated key and associated
+    metadata, retain duplicates as separate entries, pad the remaining row invalid, and set processing
+    length to total valid count. Apply no original position cut again to the packed slots. Publish row,
+    length and metadata together. Every consumer, including backward, uses the same prepared representation
+    or an explicitly equivalent occurrence map; keep original-slot labels if a consumer needs them. Do
+    not sort by key ID or deduplicate as an incidental compaction step.
+backward_map: Expand valid packed positions through their original-slot occurrence order, restoring the
+  original valid key/metadata sequence with holes ignored; identical key multiplicities and semantic support
+  are recovered.
+obligations:
+- name: stable_occurrence_bijection
+  statement: Valid original occurrences map one-to-one in ascending slot order to packed positions, retaining
+    repeated IDs.
+  method: proof
+- name: validity_and_metadata
+  statement: All original-position decisions precede packing and translated keys plus slot-dependent metadata
+    follow the same map.
+  method: test
+- name: span_count_and_consumers
+  statement: Hole-preserving span and packed count are not interchanged; every forward/backward consumer
+    reads the same prepared support generation.
+  method: test
+- name: publication_and_numeric
+  statement: Scan/write bounds, publication lifetime and changed tile grouping satisfy native and numerical
+    policy.
+  method: test
+effects:
+  transactions: []
+  storage:
+  - id: prepared_support
+    level: dram
+    scope: kernel
+    bytes: p.row_count * (p.row_capacity * p.prepared_occurrence_bytes + p.length_bytes)
+  overlap: []
+scope:
+  predicate: p.validity_decided_in_original_slot_coordinates and p.bounds_segment_causal_and_position_cuts_applied_before_compaction
+    and p.valid_occurrences_keep_original_relative_order_and_multiplicity and p.key_translation_and_per_occurrence_metadata_follow_same_map
+    and p.all_consumers_use_transformed_rows_and_matching_length_definition and p.invalid_padding_never_contributes
+    and p.prepared_rows_lengths_and_metadata_published_before_consumers_and_immutable_until_last_reader
+    and p.changed_tile_grouping_and_reduction_order_admitted and p.selected_compaction_kernel_and_capacity_legal
+  text: Fixed-capacity sparse occurrence rows with explicit invalidity and stable relative order. Source
+    DSA training prepares global key rows from document-local inputs, applying original-slot topk_length
+    and optional causal support before compaction. Forward/backward retain the prepared rows and lengths.
+    No sorting/deduplication, gradients through discrete selection, or automatic equality of native tiled
+    rounding is supplied.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Stable prefix rank of valid original occurrences, with a matching count or hole-preserving
+    span.
+  reuse: Sparse consumers skip trailing invalid work and avoid carrying holes into later tiles.
+  storage: Prepared indexed support, optional occurrence metadata and one matching row length.
+  boundary: Original-position predicates, duplicate multiplicity and forward/backward support identity.
+  resources:
+  - dram
+  - launch
+numeric_risk: Stable occurrence order preserves mathematical support, but packing changes tile boundaries
+  and can change online max/reduction association and low-precision rounding.
+summary: When sparse rows contain invalid holes, consider packing valid occurrences into a stable prefix
+  so consumers process the valid count. Apply caller slot limits and causal/index validity first at original
+  positions, then prefix-rank the surviving occurrences. Keep duplicates and per-occurrence metadata,
+  and pass the same prepared support to backward. Cutting the packed prefix again or deduplicating changes
+  the operator.

@@ -1,0 +1,1619 @@
+{
+  "humming": {
+    "url": "https://github.com/vllm-project/humming",
+    "revision": "145bed14896b34b35bd6934dc35063975b47ee28",
+    "license": "Apache-2.0",
+    "root": "/Users/dingyi/kta-data/dev/humming-study/inputs/humming-145bed14896b34b35bd6934dc35063975b47ee28",
+    "archive": "/Users/dingyi/kta-data/dev/humming-study/inputs/humming.tar.gz",
+    "archive_sha256": "9087966f7c541cb859ac33a6834518b789c0b3719ff7b42ee1e3bb5dee906e14",
+    "files": [
+      {
+        "path": ".buildkite/pipeline.yml",
+        "sha256": "d203bc6cf8349d12ae15e1edee7deecf5562cf4dd446079b522dd8a4dc9997bb",
+        "lines": 163
+      },
+      {
+        "path": ".buildkite/run-tests.sh",
+        "sha256": "2f453828920ebb7fb4b09ec8ca5af00c6c29ba505cf9601b48033474d6d5be01",
+        "lines": 37
+      },
+      {
+        "path": ".clang-format",
+        "sha256": "10d52e0f96ddf18ab1ff7e62e9d3ee853de0db70bf1ebdd3e27d091115219e0c",
+        "lines": 18
+      },
+      {
+        "path": ".github/CODEOWNERS",
+        "sha256": "9bc328f9c7d20989fe5deb233e844f2f6c5acb1e9415a4eec18d8248adee1f1d",
+        "lines": 2
+      },
+      {
+        "path": ".github/workflows/build-wheel.yml",
+        "sha256": "1c9c5472adce41cdcd7a6c2cde4d9f97ed2010e6f7826587c99880dfa8fa4888",
+        "lines": 217
+      },
+      {
+        "path": ".github/workflows/publish.yml",
+        "sha256": "aec3c7769e8fd6f3083b11c471cf8d51685e7a5a01f7d5f8256aee2f0f9a62c5",
+        "lines": 26
+      },
+      {
+        "path": ".gitignore",
+        "sha256": "b90a6820469f46e568eb7b1aad9750ceb69e9b6e52adade261fccba3896721e0",
+        "lines": 27
+      },
+      {
+        "path": "AGENTS.md",
+        "sha256": "e5310eb51a4fc6a2e19907e56831e96ec11b7b2f8a8e6a3f17879acd54ff1b74",
+        "lines": 181
+      },
+      {
+        "path": "LICENSE",
+        "sha256": "c95bae1d1ce0235ecccd3560b772ec1efb97f348a79f0fbe0a634f0c2ccefe2c",
+        "lines": 202
+      },
+      {
+        "path": "README.md",
+        "sha256": "4cd912ddf0ab827f0137130b006263f52afaa4ea6296e0918a8ac61db8e188a4",
+        "lines": 97
+      },
+      {
+        "path": "benchmarks/bench_cutlass_w8a8.py",
+        "sha256": "5f36cd688754e7ea1b2f16c5fd4114c237dc35e4a1f14701e26add7d5517eec9",
+        "lines": 94
+      },
+      {
+        "path": "benchmarks/bench_humming.py",
+        "sha256": "ee4e11cc74b43dc6bfb8afa0063d06f1112bf29af9b957141b98ebe68110d977",
+        "lines": 263
+      },
+      {
+        "path": "benchmarks/bench_marlin.py",
+        "sha256": "bccd0c16a9ec8e3fd1acb6dcdbd8b78943681b403aef3852da01b102b90a13de",
+        "lines": 241
+      },
+      {
+        "path": "benchmarks/bench_torch.py",
+        "sha256": "a182ac8b745958510f2ebe3615c74cf473cc44b557412396042a09c2db263cc2",
+        "lines": 219
+      },
+      {
+        "path": "benchmarks/bench_triton_moe.py",
+        "sha256": "4debd6148e4cbd2f02bc0b016233ba3faed318a4296695b065121f71120d9296",
+        "lines": 242
+      },
+      {
+        "path": "benchmarks/results/4090/dense_n8192_k8192_g0/cutlass_w8a8_float8e4m3_float16.json",
+        "sha256": "2d9c11a28397d291f5d70d516ec2c9c14a90762b42666830d6defa9a13a42903",
+        "lines": 94
+      },
+      {
+        "path": "benchmarks/results/4090/dense_n8192_k8192_g0/humming_w1a16_int1_float16.json",
+        "sha256": "f2260e616e5c6da0c79ab7642c56594a795b222072b28f208a7b98880c5d1f30",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/4090/dense_n8192_k8192_g0/humming_w1a8_int1_float8e4m3.json",
+        "sha256": "7cee1f3dabd41f38ae3c51f371e0ec1d3bc45e169358502cc8fe2a35f695870e",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/4090/dense_n8192_k8192_g0/humming_w2a16_int2_float16.json",
+        "sha256": "43404238b9b639243115456b7b763862dfddc96add857e6fe5c5a801f4598a11",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/4090/dense_n8192_k8192_g0/humming_w2a8_int2_float8e4m3.json",
+        "sha256": "35eea765cc92d7d92dae67aec10f296ee33aef84c0d5aa97d07d1db505f68541",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/4090/dense_n8192_k8192_g0/humming_w3a16_int3_float16.json",
+        "sha256": "b4a8a0bf44e6902e9bdd91290bb662180f84b51a85aeac1d55b18af3d2fbc7b2",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/4090/dense_n8192_k8192_g0/humming_w3a8_int3_float8e4m3.json",
+        "sha256": "d62d1b9274532f414cccdcd40ab263c44ff44da8cc7a6dd3285e5a59e7a84c28",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/4090/dense_n8192_k8192_g0/humming_w4a16_int4_float16.json",
+        "sha256": "eac7007f83930c840c7fb747a2a03be0051d42d7294abd3dc1d5f734c2b05abe",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/4090/dense_n8192_k8192_g0/humming_w4a8_float4e2m1_float8e4m3.json",
+        "sha256": "44b4896e0f70df3fbd53cf64408832d7febf24e465b010bccde1a36d38253ec7",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/4090/dense_n8192_k8192_g0/humming_w5a16_int5_float16.json",
+        "sha256": "2b6e2a42fc221df2e1b73a76cf792ddfc824302c981352178db7886341d1ea89",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/4090/dense_n8192_k8192_g0/humming_w5a8_float5e2m2_float8e4m3.json",
+        "sha256": "b4f7fd54870c2ec7d7f39b9e7b28621908ff584ca735bf1a7a1eb0d82457d61c",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/4090/dense_n8192_k8192_g0/humming_w6a16_int6_float16.json",
+        "sha256": "67e567bb26d54b10a9da7b00b67a0749453256495a7d6a8473e8d69c75bceb94",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/4090/dense_n8192_k8192_g0/humming_w6a8_float6e2m3_float8e4m3.json",
+        "sha256": "d82b445cacfe6543c16a14f32af245028be3c6bf8c2172216b51c73b76ff8ef7",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/4090/dense_n8192_k8192_g0/humming_w7a16_int7_float16.json",
+        "sha256": "b50981d458f86078a64b1174a2fa6ede3919aaca40025321020cd3f75d9e3c27",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/4090/dense_n8192_k8192_g0/humming_w7a8_float7e3m3_float8e4m3.json",
+        "sha256": "6fc52130984594a72f533f62b5128e0ab446fc21bef7d80e04a0640793575438",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/4090/dense_n8192_k8192_g0/humming_w8a16_int8_float16.json",
+        "sha256": "b17deed18b976cf79d60cf958addff612bdf50feab182764965bfeaba58e986a",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/4090/dense_n8192_k8192_g0/humming_w8a8_float8e4m3_float8e4m3.json",
+        "sha256": "c87154eb11f8f932dec722cfcb6d436eeeb010e71d96bdcc079d9f181dadbef2",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/4090/dense_n8192_k8192_g0/marlin_w4a16_int4_float16.json",
+        "sha256": "b015c919b7caa84505b38eb4bff9faefedbead868e128a7c0350672d1f7ba861",
+        "lines": 98
+      },
+      {
+        "path": "benchmarks/results/4090/dense_n8192_k8192_g0/marlin_w4a8_int4_int8.json",
+        "sha256": "4de3f7855e1165d4b80fa8bb663ddb312c0ff8b1951c803548920a5178eed82a",
+        "lines": 98
+      },
+      {
+        "path": "benchmarks/results/4090/dense_n8192_k8192_g0/marlin_w8a16_float8e4m3_float16.json",
+        "sha256": "ad6c182f39013c6c0ce95d41eee4d7f35c14eae4cabacf7b6ccd71addfc475fb",
+        "lines": 98
+      },
+      {
+        "path": "benchmarks/results/4090/dense_n8192_k8192_g0/torch_w16a16_float16.json",
+        "sha256": "95beb34420b924daf1e052b091fafc183fdb873afb2e539bf56b31ed188a1572",
+        "lines": 92
+      },
+      {
+        "path": "benchmarks/results/4090/dense_n8192_k8192_g0_f16accum/humming_w1a16_int1_float16.json",
+        "sha256": "1d2a4971c111f2e1ed295d32758df8becf6c8b699395eba76d93732e5a9ee679",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/4090/dense_n8192_k8192_g0_f16accum/humming_w1a8_int1_float8e4m3.json",
+        "sha256": "da183321780e13edc53f47f0f23af1d4c2d36e15d5e8020cebf84aa521e7e95d",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/4090/dense_n8192_k8192_g0_f16accum/humming_w2a16_int2_float16.json",
+        "sha256": "62695b62d83e4fa2178e423061536e27ce7777d7cf691a24c2a19d06cc3f6638",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/4090/dense_n8192_k8192_g0_f16accum/humming_w2a8_int2_float8e4m3.json",
+        "sha256": "ce12e15c7d1e53bb7fa58087047d800912c4b07161c936d6131a147925dd2e37",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/4090/dense_n8192_k8192_g0_f16accum/humming_w3a16_int3_float16.json",
+        "sha256": "34c25f9af16d3e9f5f9cf784366ff135671de9f172dc6c6e6d4f0187ff96c3b6",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/4090/dense_n8192_k8192_g0_f16accum/humming_w3a8_int3_float8e4m3.json",
+        "sha256": "aeecf684edc2d3cb8a64e5469683ae75affb7f16eb7c5d3f8ffc62f7c505a072",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/4090/dense_n8192_k8192_g0_f16accum/humming_w4a16_int4_float16.json",
+        "sha256": "3caf362df63f77e9706f8484d9ebde36571ee5d5c6fb5f5c2689c2c24dd0c75a",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/4090/dense_n8192_k8192_g0_f16accum/humming_w4a8_float4e2m1_float8e4m3.json",
+        "sha256": "4d51a38bb160bd3eff3c9300f9868408b8b44bbf99427803b02192dc858961c6",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/4090/dense_n8192_k8192_g0_f16accum/humming_w5a16_int5_float16.json",
+        "sha256": "44d79b8ce2eaf57e8a67d28e61c7b034431a21cf37fe5e46f3c33b1464d8c1bb",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/4090/dense_n8192_k8192_g0_f16accum/humming_w5a8_float5e2m2_float8e4m3.json",
+        "sha256": "451e016881830b9401410133a8ee3e2a8ac5eab53541196bff096c8f6b58075e",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/4090/dense_n8192_k8192_g0_f16accum/humming_w6a16_int6_float16.json",
+        "sha256": "cd8fbadd3766b55851312ea2b1976788062f8b1075a12546ec139e1f06a70c9f",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/4090/dense_n8192_k8192_g0_f16accum/humming_w6a8_float6e2m3_float8e4m3.json",
+        "sha256": "6718e03d5fa2539705b24999e48d1c5680f18807314f398c8abd94b9afe2f40f",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/4090/dense_n8192_k8192_g0_f16accum/humming_w7a16_int7_float16.json",
+        "sha256": "8ba9cb347e6edb1b7f339a345fb1e64f090d9850f5c1052837b1c00d5b9a4ef7",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/4090/dense_n8192_k8192_g0_f16accum/humming_w7a8_float7e3m3_float8e4m3.json",
+        "sha256": "2b5425b7d5dca14d2a04702ef5fc410ceea8a90117523bfdc3051001e6ff5303",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/4090/dense_n8192_k8192_g0_f16accum/humming_w8a16_int8_float16.json",
+        "sha256": "0a3da2eae2282cf743d5dc0fbff6f19629063a08a1d9c5ff51e6d8b3e1406618",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/4090/dense_n8192_k8192_g0_f16accum/humming_w8a8_float8e4m3_float8e4m3.json",
+        "sha256": "9aeffc9fd53e0b37b0e0589814a2d50e7c331e2c6979728f2fd9abd70fdff670",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/4090/dense_n8192_k8192_g0_f16accum/torch_w16a16_float16.json",
+        "sha256": "c914ca7035a1ddaac49a4793d15d31ad6ad158ea4a4be11311ebeebf65b25713",
+        "lines": 93
+      },
+      {
+        "path": "benchmarks/results/a800/dense_n8192_k8192_g0/cutlass_w8a8_int8_float16.json",
+        "sha256": "d7e2dd0202e7aa705ecfc87f8ce3739ca5b76c51f02c5b63b004aa1293bb5758",
+        "lines": 94
+      },
+      {
+        "path": "benchmarks/results/a800/dense_n8192_k8192_g0/humming_w1a16_int1_float16.json",
+        "sha256": "dd84b0ec7658d0ee418e78bbe53729e116a19d56c45472a5b72d3df316280aaf",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/a800/dense_n8192_k8192_g0/humming_w1a4_int1_int4.json",
+        "sha256": "d6eb46c7dbede9bc8a9eec7990c0efda10e7c6eb893a4b717da462ede0760815",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/a800/dense_n8192_k8192_g0/humming_w1a8_int1_int8.json",
+        "sha256": "7c64688592ea546bc75444526f4b9c148d87dd87b8b8471e7d2a2ff2248d333d",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/a800/dense_n8192_k8192_g0/humming_w2a16_int2_float16.json",
+        "sha256": "dc9c7d679d3aa8f8dbe05541a10a479f46b8789316b64c694576076683e480b2",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/a800/dense_n8192_k8192_g0/humming_w2a4_int2_int4.json",
+        "sha256": "fcd496598976f7a39721d7739a5995540f421d448b25827626c6da94256de298",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/a800/dense_n8192_k8192_g0/humming_w2a8_int2_int8.json",
+        "sha256": "6ea49434375f3d065b3b255a6e4eacb421baa69fa36c9630b2b1d8ed9133b864",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/a800/dense_n8192_k8192_g0/humming_w3a16_int3_float16.json",
+        "sha256": "d10d9cbdb0eab6c079e2de9b9bfd32e62b566cf2c744ee4ad293fd26686a8e7a",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/a800/dense_n8192_k8192_g0/humming_w3a4_int3_int4.json",
+        "sha256": "cdaa650ef8e8a632cf3d140aa9f3bb6096500b088bbbb6f0076185b7ca0bc7c5",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/a800/dense_n8192_k8192_g0/humming_w3a8_int3_int8.json",
+        "sha256": "975387e8d1a0df6d57b86b3a5acdf6238b06f57da906fb4b066679835d1db203",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/a800/dense_n8192_k8192_g0/humming_w4a16_int4_float16.json",
+        "sha256": "bac256d7c96590394181421693a21a46e7304a663efb47472670b584de188404",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/a800/dense_n8192_k8192_g0/humming_w4a4_int4_int4.json",
+        "sha256": "187ee4ac5a71b04a0779a7f08d7651ff37a638a10a8583a7db44313c563c84c3",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/a800/dense_n8192_k8192_g0/humming_w4a8_int4_int8.json",
+        "sha256": "033dbe4392897e563d7e90cad03d762590fd3f668ad3a193802a475fbe4f87cd",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/a800/dense_n8192_k8192_g0/humming_w5a16_int5_float16.json",
+        "sha256": "afc6adac0d190e09d5d73f8dccbfb87b45d5096f4ca1243b3b3aa4e07a10c8b7",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/a800/dense_n8192_k8192_g0/humming_w5a8_int5_int8.json",
+        "sha256": "3ef8b8c6f19bfd7b56f568c38aa22943e475f2c4ce878309a24b5b2d4a136b66",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/a800/dense_n8192_k8192_g0/humming_w6a16_int6_float16.json",
+        "sha256": "8809bda323caa8c921805f56f6f2bfc273168e85f21b82eea5dbe891be61dbe1",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/a800/dense_n8192_k8192_g0/humming_w6a8_float6e3m2_int8.json",
+        "sha256": "8e36dfeab02b19d77c837016f235de54d0db6ee00c2b20a652812a58d678a8b0",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/a800/dense_n8192_k8192_g0/humming_w7a16_int7_float16.json",
+        "sha256": "fd0b2c9ea6a8be91e49f158f41d5b41160effd6fa600c05b0cf2afe87a8d9b55",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/a800/dense_n8192_k8192_g0/humming_w7a8_float7e4m2_int8.json",
+        "sha256": "084704c2c1b33874cd014cad01174eda131269df3e8324cfba63c682f4c1f2cf",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/a800/dense_n8192_k8192_g0/humming_w8a16_int8_float16.json",
+        "sha256": "89b6b83ae0df01d0590b6eb810cc65bc558fb32d914ace5c8ba05dfe1169c96f",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/a800/dense_n8192_k8192_g0/humming_w8a8_int8_int8.json",
+        "sha256": "f28ed2b99b760f279144bf2c92c713114803295c4523ba3293a7abfe6126539b",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/a800/dense_n8192_k8192_g0/marlin_w4a16_int4_float16.json",
+        "sha256": "8af183847ae7ddbf9b3d8b0fc17dc0fe9823db3c2e10067b521dface1a6cafa8",
+        "lines": 98
+      },
+      {
+        "path": "benchmarks/results/a800/dense_n8192_k8192_g0/marlin_w4a8_int4_int8.json",
+        "sha256": "db2c7564e16b1962320854b39e1dbb6f8257a54a247ab8c62d57337c347eb57c",
+        "lines": 98
+      },
+      {
+        "path": "benchmarks/results/a800/dense_n8192_k8192_g0/marlin_w8a16_int8_float16.json",
+        "sha256": "5f0843f3631ae3cdb2fd57775e7e019b3f6e04968c1e0c572ae0f46e22f16b40",
+        "lines": 98
+      },
+      {
+        "path": "benchmarks/results/a800/dense_n8192_k8192_g0/torch_w16a16_float16.json",
+        "sha256": "9bf713e4e3673a8ae9a0ffec14d4e104edc05f0cbe9184cc1ca16ddf9e81e771",
+        "lines": 92
+      },
+      {
+        "path": "benchmarks/results/h20/dense_n8192_k8192_g0/cutlass_w8a8_float8e4m3_float16.json",
+        "sha256": "a8ee86feb141aafb3d66148099611e7dd5a9a8462df6f5d1680e7cd506f70639",
+        "lines": 94
+      },
+      {
+        "path": "benchmarks/results/h20/dense_n8192_k8192_g0/humming_w1a16_int1_float16.json",
+        "sha256": "061677d3d5065a5be96ee94bd4bba914aefd0dd267a484424f304510ee275bf8",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/h20/dense_n8192_k8192_g0/humming_w1a8_int1_float8e4m3.json",
+        "sha256": "61f8608ffe04e60b813b352651d9834a011fa98d43de1ca74373c1d747f61f08",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/h20/dense_n8192_k8192_g0/humming_w2a16_int2_float16.json",
+        "sha256": "04f09d5272a72808f4b0a184e7c69e6d87350d08b76353b26f0dae57607bba07",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/h20/dense_n8192_k8192_g0/humming_w2a8_int2_float8e4m3.json",
+        "sha256": "df102414c0cf224d52929fdf66a14897706f57f5c1cde7a1f0aaacdd49b6c8ef",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/h20/dense_n8192_k8192_g0/humming_w3a16_int3_float16.json",
+        "sha256": "3df245d2da26cafe4ce1bba086693ed9a65853a23caa1a041c6df05a4d7a79c1",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/h20/dense_n8192_k8192_g0/humming_w3a8_int3_float8e4m3.json",
+        "sha256": "d5976f86d68f36891e7bb8fa4cf9a8912457d17941f38d4a2612a2ad07457c94",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/h20/dense_n8192_k8192_g0/humming_w4a16_int4_float16.json",
+        "sha256": "af36b85112a021b83a9791ff20f0a74f48e23c1d79cf5833cf83abf8db34c393",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/h20/dense_n8192_k8192_g0/humming_w4a8_int4_float8e4m3.json",
+        "sha256": "86c310317a966a528aaae0026852a2025ef5e4f3b220b8adc14bf5b2e4cf86bc",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/h20/dense_n8192_k8192_g0/humming_w5a16_int5_float16.json",
+        "sha256": "d674fb9219cc192f233ac18145365699b97708094984ab98bc75237cf84c30bc",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/h20/dense_n8192_k8192_g0/humming_w5a8_int5_float8e4m3.json",
+        "sha256": "dcb40c93b3b6e4463d9b5b1612cabac295d320f17198c6461910868bbff67fbc",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/h20/dense_n8192_k8192_g0/humming_w6a16_int6_float16.json",
+        "sha256": "b0dfa8f7178fb713be0ac0190d4f8a8129e180c16025384ab3e1e6f02f9587e6",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/h20/dense_n8192_k8192_g0/humming_w6a8_float6e3m2_float8e4m3.json",
+        "sha256": "99c1b3465684ef7ba37ca7cf28d988a582509c573531e339858dc5a108016191",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/h20/dense_n8192_k8192_g0/humming_w7a16_int7_float16.json",
+        "sha256": "49e721d8d7924460a04b3265c429785b389162196cf28145b6c9b2ffc16f61c2",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/h20/dense_n8192_k8192_g0/humming_w7a8_float7e4m2_float8e4m3.json",
+        "sha256": "3cd418c7650ece0600cb8f82be1ed3b7df6a0aa84f0648a02edf23e951a772a7",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/h20/dense_n8192_k8192_g0/humming_w8a16_int8_float16.json",
+        "sha256": "41eee5c8664f0d3fe2a35f4088566d6949cdb10ffef951aca79c6ad9f370ba4c",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/h20/dense_n8192_k8192_g0/humming_w8a8_float8e4m3_float8e4m3.json",
+        "sha256": "9262fd963154c5aafe18da6f2a1a9a92992c81b5bf2c61bc1c86db48d15e6731",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/h20/dense_n8192_k8192_g0/marlin_w4a16_int4_float16.json",
+        "sha256": "9634b30b6069af889afe5d03bc26780b55f4dd9c6e48fe765e24a5e0b9234c5d",
+        "lines": 98
+      },
+      {
+        "path": "benchmarks/results/h20/dense_n8192_k8192_g0/marlin_w4a8_int4_int8.json",
+        "sha256": "16fc399a42bfcb5d9d618b5f914b493125f9cd43b832da70a6e79d4cc08f7732",
+        "lines": 98
+      },
+      {
+        "path": "benchmarks/results/h20/dense_n8192_k8192_g0/marlin_w8a16_float8e4m3_float16.json",
+        "sha256": "1b18c0c7225ca0cf802a540da175cbbc44974bffa60ffea6f78b75e86db1b595",
+        "lines": 98
+      },
+      {
+        "path": "benchmarks/results/h20/dense_n8192_k8192_g0/torch_w16a16_float16.json",
+        "sha256": "63485bc92362d564129bc7650bd3e63a5044d18513a34824f8fce8f35cfc9cf8",
+        "lines": 92
+      },
+      {
+        "path": "benchmarks/results/h20/moe_e256_k8_n512_k7168_g128x128/humming_w1a8_int1_float8e4m3.json",
+        "sha256": "45000a90c92405c69ead771e63be9a27015eef88e81fcccf40fe8bafc6f37d04",
+        "lines": 103
+      },
+      {
+        "path": "benchmarks/results/h20/moe_e256_k8_n512_k7168_g128x128/humming_w2a8_int2_float8e4m3.json",
+        "sha256": "0bb954c99d7fe67dfc78e5f646057d2949d1352913e4ca0c474be0be86f79f70",
+        "lines": 103
+      },
+      {
+        "path": "benchmarks/results/h20/moe_e256_k8_n512_k7168_g128x128/humming_w3a8_int3_float8e4m3.json",
+        "sha256": "6e9942ec5a9e81b875a99d57793d6280651de63fabde361fc32d02615a8a3343",
+        "lines": 103
+      },
+      {
+        "path": "benchmarks/results/h20/moe_e256_k8_n512_k7168_g128x128/humming_w4a8_int4_float8e4m3.json",
+        "sha256": "bb0817df7ccc4ee8e0022a7b0d80e31f8cfa78178503810e8ae0941f246f6e55",
+        "lines": 103
+      },
+      {
+        "path": "benchmarks/results/h20/moe_e256_k8_n512_k7168_g128x128/humming_w5a8_int5_float8e4m3.json",
+        "sha256": "f3f98491e120017203f44e96d680bbd490a20885d8c3e75ced529cdea059c0ee",
+        "lines": 103
+      },
+      {
+        "path": "benchmarks/results/h20/moe_e256_k8_n512_k7168_g128x128/humming_w6a8_float6e3m2_float8e4m3.json",
+        "sha256": "e5ba3f7554b0a489579b3dcd4784752dc1e36d6a130c708782d9de1c3c7b879f",
+        "lines": 103
+      },
+      {
+        "path": "benchmarks/results/h20/moe_e256_k8_n512_k7168_g128x128/humming_w7a8_float7e4m2_float8e4m3.json",
+        "sha256": "069f3786723e669fec2d2dc7bc918ccc2615f79bd4937e46258d0ab277acf5e2",
+        "lines": 103
+      },
+      {
+        "path": "benchmarks/results/h20/moe_e256_k8_n512_k7168_g128x128/humming_w8a8_float8e4m3_float8e4m3.json",
+        "sha256": "cb255bf2e643888b6135d8299356b016e78b12d95f96cc43ffcd94882c71cdc8",
+        "lines": 103
+      },
+      {
+        "path": "benchmarks/results/h20/moe_e256_k8_n512_k7168_g128x128/triton_w8a8_float8e4m3_float16.json",
+        "sha256": "d07681accf676494a687f9370960a35dddf074fbc151d7251c081a24095f2d91",
+        "lines": 218
+      },
+      {
+        "path": "benchmarks/results/h20/moe_e256_k8_n7168_k256_g128x128/humming_w1a8_int1_float8e4m3.json",
+        "sha256": "83972318d352c854adaba0db59ead348c73c0870796779c98cc1ba32fdf49606",
+        "lines": 103
+      },
+      {
+        "path": "benchmarks/results/h20/moe_e256_k8_n7168_k256_g128x128/humming_w2a8_int2_float8e4m3.json",
+        "sha256": "8467f2fb404139c211c95b025bcc93d079bfeec9da33d973ad1dfad36ed42fd5",
+        "lines": 103
+      },
+      {
+        "path": "benchmarks/results/h20/moe_e256_k8_n7168_k256_g128x128/humming_w3a8_int3_float8e4m3.json",
+        "sha256": "517f1da75b9f67ee1a8c734c2617ec40261144a2655945d095df19311eee96a2",
+        "lines": 103
+      },
+      {
+        "path": "benchmarks/results/h20/moe_e256_k8_n7168_k256_g128x128/humming_w4a8_int4_float8e4m3.json",
+        "sha256": "11a87e75b39ff6287c74414ff5f96aa356c840c3ff4406db88f19f1e6b605075",
+        "lines": 103
+      },
+      {
+        "path": "benchmarks/results/h20/moe_e256_k8_n7168_k256_g128x128/humming_w5a8_int5_float8e4m3.json",
+        "sha256": "12657c6013f334daa3ca33f82b281d91937a6d4359b5776dd037693c8d2ff7fa",
+        "lines": 103
+      },
+      {
+        "path": "benchmarks/results/h20/moe_e256_k8_n7168_k256_g128x128/humming_w6a8_float6e3m2_float8e4m3.json",
+        "sha256": "790377dd83efd4f6a3390094a3e00c103aed078416bd6d422dffcbcd288a6058",
+        "lines": 103
+      },
+      {
+        "path": "benchmarks/results/h20/moe_e256_k8_n7168_k256_g128x128/humming_w7a8_float7e4m2_float8e4m3.json",
+        "sha256": "53e931f61d1895281ad6e4d9ef582fad1b2aa8b3a37b44851a33277be4b15b1a",
+        "lines": 103
+      },
+      {
+        "path": "benchmarks/results/h20/moe_e256_k8_n7168_k256_g128x128/humming_w8a8_float8e4m3_float8e4m3.json",
+        "sha256": "eebe327c19cfaa598c114adb45eec15ef8e9bb9fbe4acabcc6ce203d6e358137",
+        "lines": 103
+      },
+      {
+        "path": "benchmarks/results/h20/moe_e256_k8_n7168_k256_g128x128/triton_w8a8_float8e4m3_float16.json",
+        "sha256": "9779d4d1e40cfda5d3fb4afb4797219926448a2f0d4385152aa85a00773a3142",
+        "lines": 218
+      },
+      {
+        "path": "benchmarks/results/h200/dense_n8192_k8192_g0/cutlass_w8a8_float8e4m3_float16.json",
+        "sha256": "e3dd3a737502665d6993155e695042cb83ed19b46af0ae78b5b58ed1b500a9f6",
+        "lines": 94
+      },
+      {
+        "path": "benchmarks/results/h200/dense_n8192_k8192_g0/humming_w1a16_int1_float16.json",
+        "sha256": "80fa9e376c8319ed5b8d89e4ec26f2b496957ccb8c8945da45032b21efa891e0",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/h200/dense_n8192_k8192_g0/humming_w1a8_int1_float8e4m3.json",
+        "sha256": "02e7ae308bb61deb3414627e3c4e99e836d167f51930d4a0a2acce429f1ed5ac",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/h200/dense_n8192_k8192_g0/humming_w2a16_int2_float16.json",
+        "sha256": "2a45f136c8c400ee976450422b80150f5f19cfe384763f2ee0c33d1359be7d19",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/h200/dense_n8192_k8192_g0/humming_w2a8_int2_float8e4m3.json",
+        "sha256": "1d930e506e07200c575b871f9e2ff94e269a037977ad72ea0965e70a45ee8027",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/h200/dense_n8192_k8192_g0/humming_w3a16_int3_float16.json",
+        "sha256": "f497ad56179de35596c3aa8cb99e23dbba1bd89bb6f23ba8eecd732c0e37115f",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/h200/dense_n8192_k8192_g0/humming_w3a8_int3_float8e4m3.json",
+        "sha256": "48799a62391e536f949e465c465a68cafc1b2e68833ac54233606e3fadde098c",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/h200/dense_n8192_k8192_g0/humming_w4a16_int4_float16.json",
+        "sha256": "d1ea89f7690548db28c1f84bca0d18ab7c2d785a70ae65807460b02e83494e7c",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/h200/dense_n8192_k8192_g0/humming_w4a8_float4e2m1_float8e4m3.json",
+        "sha256": "66984c48be02264aada5732bc1485bba218e5f0b2ccc200ae737d6e93c9d6343",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/h200/dense_n8192_k8192_g0/humming_w5a16_int5_float16.json",
+        "sha256": "01f123a8ef482e48282b05f41d802f4c5214cc01c732baee1ee2c3e9ecf8134a",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/h200/dense_n8192_k8192_g0/humming_w5a8_float5e2m2_float8e4m3.json",
+        "sha256": "8d7ef273cfb490b1c8af7679ed9d43ace8bbaf34400a635cec03e218713704cd",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/h200/dense_n8192_k8192_g0/humming_w6a16_int6_float16.json",
+        "sha256": "5a001ab12ccb22f1e2f30f17d1e3b627888adb51acdea33bf14977f629bc4cc7",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/h200/dense_n8192_k8192_g0/humming_w6a8_float6e2m3_float8e4m3.json",
+        "sha256": "68edd15921d1e11dbb07ff71d2700b4e42ffd5f95fb0f39c4fda5b29cbeeb84f",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/h200/dense_n8192_k8192_g0/humming_w7a16_int7_float16.json",
+        "sha256": "8af418fac9fd220f5a9a870a4a67a7b6214b6847845ca69ca7493247c9788821",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/h200/dense_n8192_k8192_g0/humming_w7a8_float7e3m3_float8e4m3.json",
+        "sha256": "53afc5216cb6c713072cfa6f35248a7f07ec0bc02bda01f7e297fc30fb9aab97",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/h200/dense_n8192_k8192_g0/humming_w8a16_int8_float16.json",
+        "sha256": "6dc330420e64436fa259733d1592b09f918d2ef93217b488464421afdfbf200a",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/h200/dense_n8192_k8192_g0/humming_w8a8_float8e4m3_float8e4m3.json",
+        "sha256": "847fd6b06b4db2bfe8b0845d94265ef2da7990494aa53fbb3ac2aa1981be792f",
+        "lines": 100
+      },
+      {
+        "path": "benchmarks/results/h200/dense_n8192_k8192_g0/marlin_w4a16_int4_float16.json",
+        "sha256": "281b1d838fb196696749de9d591ef62456dcfae27aaf0b45449b253e5a33b362",
+        "lines": 98
+      },
+      {
+        "path": "benchmarks/results/h200/dense_n8192_k8192_g0/marlin_w4a8_int4_int8.json",
+        "sha256": "b0a89bd5588922e8f4483b64b49c57905b5e48f11abdcbc0b6d678d807dde443",
+        "lines": 98
+      },
+      {
+        "path": "benchmarks/results/h200/dense_n8192_k8192_g0/marlin_w8a16_int8_float16.json",
+        "sha256": "ae26be664827869d1eef25020f7d03e219243c9015597dd04f7a135c2cdeb614",
+        "lines": 98
+      },
+      {
+        "path": "benchmarks/results/h200/dense_n8192_k8192_g0/torch_w16a16_float16.json",
+        "sha256": "31da1beb7488539baaffb3ef57a693f7fbfee070529e4b1cce52cd2451b22099",
+        "lines": 92
+      },
+      {
+        "path": "docs/config.md",
+        "sha256": "745d386a26411778053e8dd05fc4bfdf5ed3a0e7167c866e37885a980110601b",
+        "lines": 446
+      },
+      {
+        "path": "humming/__init__.py",
+        "sha256": "4ada2947dc99e51c5441f71f8360b857fba7c6afded7b041acc3032ea7a35ef6",
+        "lines": 12
+      },
+      {
+        "path": "humming/build.py",
+        "sha256": "33ae9d905daca901bd778e0ce95a4cf34de4b748130dbd1d0f0766e96b262601",
+        "lines": 142
+      },
+      {
+        "path": "humming/config/__init__.py",
+        "sha256": "e3c4baeb7d8534f6431bfc04bd24f750006701fb76bfa4b21edb5a1ef8fb4d97",
+        "lines": 37
+      },
+      {
+        "path": "humming/config/base.py",
+        "sha256": "a2099f4aa25b45e7c5d5ca25916b88d8295090befa8a60ef0b74bad539ff15dc",
+        "lines": 152
+      },
+      {
+        "path": "humming/config/config.py",
+        "sha256": "00eceae9c35e0402b33a214c24ace7f3079a519f91161332faa3e83fba1297ae",
+        "lines": 757
+      },
+      {
+        "path": "humming/config/enum.py",
+        "sha256": "f0c3c28b5c198f3cf1312d343788ed1bb8047f859a0bb99e033d0329e1ecdb12",
+        "lines": 110
+      },
+      {
+        "path": "humming/config/mma.py",
+        "sha256": "426a3a55008f16dff8890650e4961d5571f37941c0b56be511507c1f47b500b6",
+        "lines": 783
+      },
+      {
+        "path": "humming/csrc/device_info.cpp",
+        "sha256": "9ae9f69d9a3b18a8a154fc7a88c9477acb72d7e5b92f82d3ea6263cc05e0c07d",
+        "lines": 521
+      },
+      {
+        "path": "humming/csrc/launcher/elf.h",
+        "sha256": "3fdf3ff5a30bbfd2e776d16587af2da612b183a369c311b11aba0c9ed74d657d",
+        "lines": 133
+      },
+      {
+        "path": "humming/csrc/launcher/launcher.cpp",
+        "sha256": "f770b473715a6f5389fb77c6e3a17390357a2df162558512d363d2afc1a29eae",
+        "lines": 455
+      },
+      {
+        "path": "humming/csrc/launcher/mapped_file.h",
+        "sha256": "8e24967d97c2d96d280371f24f11db099eecc1971b69f68e7e8b450a8ef6771c",
+        "lines": 105
+      },
+      {
+        "path": "humming/csrc/launcher/process_input.h",
+        "sha256": "7429d3a1f4d3df306dcbff66968a09f582c995ed215df0f00aca7d0ec5da2369",
+        "lines": 591
+      },
+      {
+        "path": "humming/csrc/launcher/tensor.h",
+        "sha256": "c738823573594ab6662cc3462bdeb22e6755c7ad3b860965f7616c7c28e2566f",
+        "lines": 538
+      },
+      {
+        "path": "humming/csrc/launcher/tma.h",
+        "sha256": "7fd8646c5fe981582e79e8282161cfeadb3d57d7693552091178cf8944befbcb",
+        "lines": 85
+      },
+      {
+        "path": "humming/csrc/launcher/torch_api.h",
+        "sha256": "7db80bf14ea331891634a94950a837390a104b4119751c76ac178f963325bc74",
+        "lines": 73
+      },
+      {
+        "path": "humming/csrc/launcher/utils.h",
+        "sha256": "d3ff1c9c19da6bb0f7e155543ace02af9a10b2be68031fce11577aa91c83c5c5",
+        "lines": 196
+      },
+      {
+        "path": "humming/csrc/nvrtc_compile.cpp",
+        "sha256": "a85bf2a8667021fd0f6f0e5ecc4fab2830aa820b4297b414f6536b4d0968f367",
+        "lines": 278
+      },
+      {
+        "path": "humming/csrc/patch_cubin.cpp",
+        "sha256": "1982b9e532d4eb68e2619df9c76c846d5cb68854ec73b7c207110ba56528a827",
+        "lines": 466
+      },
+      {
+        "path": "humming/device.py",
+        "sha256": "76157b39ef2cdfa12eb3146023d8a7753d7a68d3a5eb8ac14f6f46db3a7aabb1",
+        "lines": 152
+      },
+      {
+        "path": "humming/dtypes.py",
+        "sha256": "bc1acd4155bb4c940247c1227b80b231695496912a7d969de7d0dfa2b51aacaa",
+        "lines": 234
+      },
+      {
+        "path": "humming/forward.py",
+        "sha256": "0bacc502c43919cc573505f507af699f33db700f1029c4668fb1c26df9544b36",
+        "lines": 208
+      },
+      {
+        "path": "humming/include/humming/arith/epilogue_arith.cuh",
+        "sha256": "0a0a1c8c48f43d3533144b7a8cdf9ed40aa13fd6c36f3a85eeaadf3d79129c98",
+        "lines": 251
+      },
+      {
+        "path": "humming/include/humming/arith/exp_offset.cuh",
+        "sha256": "1e49492b96e5ffc7e61033dfee570cf271fb395519a101cdce5db299877d6941",
+        "lines": 161
+      },
+      {
+        "path": "humming/include/humming/arith/mainloop_arith.cuh",
+        "sha256": "0359b08464e835d4bf20dca2ecd8da1870a6648640f0a29dab78da008108b1c2",
+        "lines": 619
+      },
+      {
+        "path": "humming/include/humming/datatype/base_conversion.cuh",
+        "sha256": "2abd001be09a5cee4609f3e0123f981143e4157a6a28f893a9f1b37fb7dc8f73",
+        "lines": 75
+      },
+      {
+        "path": "humming/include/humming/datatype/dequant.cuh",
+        "sha256": "a2d90418bf32be15dee0dd49adc1071d1e527969aa5694fd4dcad410ad9cd80d",
+        "lines": 198
+      },
+      {
+        "path": "humming/include/humming/datatype/dequant_fused.cuh",
+        "sha256": "f424681b654a114f08fd07bc71dce4f2b9991c9a692e9d74178c3a7c3ed54561",
+        "lines": 76
+      },
+      {
+        "path": "humming/include/humming/datatype/dequant_native.cuh",
+        "sha256": "62c52ae50591060f13a2d4d83d7c6572d6227bf625a4001fb77860dee326fa8a",
+        "lines": 159
+      },
+      {
+        "path": "humming/include/humming/datatype/dequant_prepare.cuh",
+        "sha256": "d1b17ca2bfef89a836f4afad5d18fad50f6c331aa8118221261b13f99bbc5f28",
+        "lines": 68
+      },
+      {
+        "path": "humming/include/humming/datatype/dequant_single.cuh",
+        "sha256": "6a2d658b16d7ca17071a34507e003f3061591b53e65730e2e183a82f6ffe30b0",
+        "lines": 184
+      },
+      {
+        "path": "humming/include/humming/datatype/dtypes.cuh",
+        "sha256": "5880085b25479eee83a42daf261a26fa2d0139c5452fb979279047c9c8ea8118",
+        "lines": 79
+      },
+      {
+        "path": "humming/include/humming/epilogue/gmem_writer.cuh",
+        "sha256": "429cb068e24d1106a4e59a420f29bd61491353d0bd5eb64132c4b8da4e9710df",
+        "lines": 267
+      },
+      {
+        "path": "humming/include/humming/epilogue/pipeline.cuh",
+        "sha256": "ff293e2d9401769e7acad74331b573bff8e98bb190092956652ae634e53fed48",
+        "lines": 183
+      },
+      {
+        "path": "humming/include/humming/epilogue/smem_reducer.cuh",
+        "sha256": "221d30e929c2fc14a31fb4839b3ea219f6a818c9f4322109f7e5eb37bdbb52c6",
+        "lines": 116
+      },
+      {
+        "path": "humming/include/humming/epilogue/smem_writer.cuh",
+        "sha256": "2ea7af1603a00650ca758a24223b9bfdfd5deea9b5610d15c2a84ff86bc01c51",
+        "lines": 357
+      },
+      {
+        "path": "humming/include/humming/kernel/dequant_weight.cuh",
+        "sha256": "29203ea109247d66250f14ced9cb8402e5c9addcec39c0d739fd4fbbd07c4a89",
+        "lines": 52
+      },
+      {
+        "path": "humming/include/humming/kernel/humming.cuh",
+        "sha256": "c3f6f3a859a22994cf649b2ba2c8bdce93bdbc5bfc2abe3e1d8f0586b8f6147e",
+        "lines": 237
+      },
+      {
+        "path": "humming/include/humming/kernel/humming_umma.cuh",
+        "sha256": "ba52a1607acf4472d3ea89bbe0f7fc2a911c03010278ed8cd08040de6d344c37",
+        "lines": 440
+      },
+      {
+        "path": "humming/include/humming/kernel/humming_ws.cuh",
+        "sha256": "70b88113671d993fad05643b60380ad95f3965d5e91ee10319efd0904baf18c6",
+        "lines": 260
+      },
+      {
+        "path": "humming/include/humming/kernel/pack_weight.cuh",
+        "sha256": "3b3673b631bb16dbb7ca0df9a04b0c98cd6dbeace4efc99656c0cc65d14daf20",
+        "lines": 103
+      },
+      {
+        "path": "humming/include/humming/kernel/process.cuh",
+        "sha256": "3d4b0d56aa1bd877de0071c8a499f258680ac543cd1a60ec336615426705ba4e",
+        "lines": 323
+      },
+      {
+        "path": "humming/include/humming/kernel/process_input/activation.cuh",
+        "sha256": "a52a32bf45c8e1de80d3a052944eff05219ae29dcf105309ce95e179bb905996",
+        "lines": 149
+      },
+      {
+        "path": "humming/include/humming/kernel/process_input/context.cuh",
+        "sha256": "5e190eb0362812515d630038ab369578b08824db0fd136c0bd6b1889e26dddec",
+        "lines": 158
+      },
+      {
+        "path": "humming/include/humming/kernel/process_input/hadamard.cuh",
+        "sha256": "eb15fc31d322ba8904c967c5cd1f9fd46512d872b46e3cffce949cdb7d042a0a",
+        "lines": 97
+      },
+      {
+        "path": "humming/include/humming/kernel/process_input/quantization.cuh",
+        "sha256": "42c48fa3b7497f66a93947f6d281433eac14d5cda6dc4dd6698ba7c9bb3ed0e4",
+        "lines": 579
+      },
+      {
+        "path": "humming/include/humming/kernel/process_input/thread_task.cuh",
+        "sha256": "22b935f2af6daeb8c56de356fd5f9ca37110f8458f282e6a20e18d1f570731b1",
+        "lines": 41
+      },
+      {
+        "path": "humming/include/humming/kernel/process_input.cuh",
+        "sha256": "244f4bf777170fa5887e6a37f4d5b36397a5c1b632aae428637e7faab5e2a85b",
+        "lines": 301
+      },
+      {
+        "path": "humming/include/humming/kernel/process_mxfp4.cuh",
+        "sha256": "a3be517bcc506854a6aab4deabf5aecc5889a86a14186a080324e511eaffceea",
+        "lines": 69
+      },
+      {
+        "path": "humming/include/humming/kernel/quant_weight.cuh",
+        "sha256": "500ea9b9cb4467be44025b983352e06c1f444cc965d20ba0a45292e49ea5347a",
+        "lines": 307
+      },
+      {
+        "path": "humming/include/humming/kernel/tops_bench.cuh",
+        "sha256": "d58f6d84fae5228110c1d29240342da7b6827b8942527dd54c093f491ecd783f",
+        "lines": 50
+      },
+      {
+        "path": "humming/include/humming/memory/g2s_loader/loader_a.cuh",
+        "sha256": "42a9cca3fb59c05e29d32eb7c8bbe5f7da7c42378355454424808be0c80cbd6d",
+        "lines": 227
+      },
+      {
+        "path": "humming/include/humming/memory/g2s_loader/loader_as.cuh",
+        "sha256": "ed0329a0b3c21398fcfac7e7e32115427eba1b78718b25ac20bcca43006b0534",
+        "lines": 392
+      },
+      {
+        "path": "humming/include/humming/memory/g2s_loader/loader_b.cuh",
+        "sha256": "6feb815b123cf7bd97fafc162d0b61228729f241e50f732386e3dbda03a214ef",
+        "lines": 214
+      },
+      {
+        "path": "humming/include/humming/memory/g2s_loader/loader_bias.cuh",
+        "sha256": "245ab688ef7bf9bc3cb194e9aa06ba231818b4780fd62d7a62abae6f4ec12948",
+        "lines": 68
+      },
+      {
+        "path": "humming/include/humming/memory/g2s_loader/loader_bs.cuh",
+        "sha256": "21e9bf79a8f843a1f176cd670690a584fea0b508d4e52c9b8a54060597e3b5ee",
+        "lines": 180
+      },
+      {
+        "path": "humming/include/humming/memory/g2s_loader/loader_bs2.cuh",
+        "sha256": "80e5fb118093ffa702720b3695df89d97c20b995780fa117bfb72f957b9c9b4d",
+        "lines": 68
+      },
+      {
+        "path": "humming/include/humming/memory/g2s_loader/loader_bzp.cuh",
+        "sha256": "29139171224b0f2f4578e57f94dda13649a9637c82d92ceea53861ae57e732cc",
+        "lines": 105
+      },
+      {
+        "path": "humming/include/humming/memory/g2s_pipeline.cuh",
+        "sha256": "be2e6bfd5b5dd187d4ada9c7931a491e5e1c85abe3662d49a8931aa400fc85b8",
+        "lines": 520
+      },
+      {
+        "path": "humming/include/humming/memory/s2r_loader/loader_a.cuh",
+        "sha256": "325fbcb2b4bd794dae913945aeb796ef2dd7eadf07b2de16308c92a3856bf7ec",
+        "lines": 85
+      },
+      {
+        "path": "humming/include/humming/memory/s2r_loader/loader_as.cuh",
+        "sha256": "34bb40e1f614efa8e46447cc36cb06e7e5964a7dd55c26510fa5b2de3ac6ccbf",
+        "lines": 108
+      },
+      {
+        "path": "humming/include/humming/memory/s2r_loader/loader_b.cuh",
+        "sha256": "29ea66e70d1f1968de39aba91a1b5a2816bd6f12ffb0d65ab454706dd9297ff3",
+        "lines": 147
+      },
+      {
+        "path": "humming/include/humming/memory/s2r_loader/loader_bias.cuh",
+        "sha256": "f04c87f9e58cbf0c6cc1d3dd627b60ad9c874869fc49ff102f49bf0250f468f0",
+        "lines": 50
+      },
+      {
+        "path": "humming/include/humming/memory/s2r_loader/loader_bs.cuh",
+        "sha256": "02f2459b5f3f58c5d1f5282639cbb7040da0f5bf513c07bed28998b4118e79dd",
+        "lines": 223
+      },
+      {
+        "path": "humming/include/humming/memory/s2r_loader/loader_bzp.cuh",
+        "sha256": "f020906af7b9b54a415cd3281741284b59b15d9cf2c34fc28708de9eb42bba04",
+        "lines": 77
+      },
+      {
+        "path": "humming/include/humming/memory/s2r_pipeline.cuh",
+        "sha256": "68038c85ffb635c2bb9a82f20a2e0bba31fd0625e8dbd5bce2949988909dd372",
+        "lines": 132
+      },
+      {
+        "path": "humming/include/humming/mma/all.cuh",
+        "sha256": "f2cf035acecf4bd55340a95020c4e589f1f6b7e5cb44611f17a3731f5813da68",
+        "lines": 33
+      },
+      {
+        "path": "humming/include/humming/mma/mxmma.cuh",
+        "sha256": "99fa742f5b83b10b6deaab8065da97548f22634b8233e06a8354fde7f5b70eea",
+        "lines": 217
+      },
+      {
+        "path": "humming/include/humming/mma/umma.cuh",
+        "sha256": "43f79f8515e284743178a14f30295b6b9331f7c1cb50339645ff54a089aca9c8",
+        "lines": 392
+      },
+      {
+        "path": "humming/include/humming/mma/wgmma.cuh",
+        "sha256": "40d9ca42688399cf38babc91f421fca36bdbd5535234089e048e28021e76777e",
+        "lines": 273
+      },
+      {
+        "path": "humming/include/humming/mma/wmma.cuh",
+        "sha256": "7666f08f013d083d632601dfaf75100c1fdb6f5a240bdce5293779da666664b5",
+        "lines": 176
+      },
+      {
+        "path": "humming/include/humming/scheduler.cuh",
+        "sha256": "7dc0223cb2c2237166ace9d91665ce58c635137699a2c5b9605a101109a3204b",
+        "lines": 423
+      },
+      {
+        "path": "humming/include/humming/utils/all.cuh",
+        "sha256": "7cfd604795f05da3598333a6d8e4638a3523134036966c12d07b85b190f79ccb",
+        "lines": 14
+      },
+      {
+        "path": "humming/include/humming/utils/base.cuh",
+        "sha256": "f33fb01cdb2d2384728ba7f959af8b8011c995008652774f1821a7d2c6a96606",
+        "lines": 135
+      },
+      {
+        "path": "humming/include/humming/utils/context.cuh",
+        "sha256": "8377c2fe8bff6dfb53bb28f5557ebfab508ea64334159005a629918bd296f6ee",
+        "lines": 220
+      },
+      {
+        "path": "humming/include/humming/utils/enum.cuh",
+        "sha256": "6a1bd5ff43155c7fe51179a5974d06b86175818574d445bbf4ec032d7d457997",
+        "lines": 63
+      },
+      {
+        "path": "humming/include/humming/utils/ptx/barrier.cuh",
+        "sha256": "851d2cc785c295e573265b323ce39037e2577e06edb3136590a9f07e82ce8790",
+        "lines": 198
+      },
+      {
+        "path": "humming/include/humming/utils/ptx/legacy_load.cuh",
+        "sha256": "b31344764602e889f90432f39526eefd19885a681f0ffecc4865a9e58448ca41",
+        "lines": 274
+      },
+      {
+        "path": "humming/include/humming/utils/ptx/math.cuh",
+        "sha256": "fbb9012c8c0f12747130a4a0da2db6adf642fdfad80f2ead11c54b5557173c6f",
+        "lines": 28
+      },
+      {
+        "path": "humming/include/humming/utils/ptx/shared.cuh",
+        "sha256": "c328ff1d86c9078f008ca6e048f2f3686f5f6d6db0602c2be085eb51f505924c",
+        "lines": 112
+      },
+      {
+        "path": "humming/include/humming/utils/ptx/tcgen05.cuh",
+        "sha256": "7766f3388002623a4d64d86dda7e4541387ca7bd06ce59ea601c3ea57e2155fa",
+        "lines": 362
+      },
+      {
+        "path": "humming/include/humming/utils/ptx/tma.cuh",
+        "sha256": "b15e3f34cc3eaaa2166e88a4d80695f7a828623945732d641da5fa28f048f3e3",
+        "lines": 331
+      },
+      {
+        "path": "humming/include/humming/utils/ptx/warp.cuh",
+        "sha256": "b0fde9b624450ae0a5a928dab091d0e9d0dad005efee695277692e1840ef89a4",
+        "lines": 24
+      },
+      {
+        "path": "humming/include/humming/utils/ptx/wgmma.cuh",
+        "sha256": "61780c7b2551c8ece346b516cd773ec5aed1eb9bf9376322f245bd4e869c4619",
+        "lines": 29
+      },
+      {
+        "path": "humming/include/humming/utils/storage.cuh",
+        "sha256": "eaf9f0a6dc1004ba09cc54cea9a7572f2471c6b2a572bb72988edf0f91f80de9",
+        "lines": 295
+      },
+      {
+        "path": "humming/jit/__init__.py",
+        "sha256": "a4826b5d609d069f9a1136afaead1a9596f17ccf30f1830d66b6a2da96a1282a",
+        "lines": 3
+      },
+      {
+        "path": "humming/jit/compiler.py",
+        "sha256": "189f0b71c6c62f4017cba4454c306ff5c4c286e294c46d72d9c0cf1457783b40",
+        "lines": 323
+      },
+      {
+        "path": "humming/jit/runtime.py",
+        "sha256": "98890a69b95ad6ce0cf2be79f69149edc280e6956eb37235578713cbe6c74257",
+        "lines": 158
+      },
+      {
+        "path": "humming/kernel/__init__.py",
+        "sha256": "bd0704f1af42e306741991cc08066a8ffb8ea1a34ceb5486d6a5fbb22ef751e2",
+        "lines": 17
+      },
+      {
+        "path": "humming/kernel/dequant_weight.py",
+        "sha256": "396a50d08ce4441e993f1fb79270430322b8ff616b229fa26be74b8f2d56e7d1",
+        "lines": 65
+      },
+      {
+        "path": "humming/kernel/humming.py",
+        "sha256": "fcb8e8c78cc91ef304a85dc7d529959ac0fc8fd35f5166b45981fa32de0c74a6",
+        "lines": 756
+      },
+      {
+        "path": "humming/kernel/pack_weight.py",
+        "sha256": "b325f54789c3d019babf612e62a920a07b812602c5ea9de42954f71df3ac4493",
+        "lines": 44
+      },
+      {
+        "path": "humming/kernel/process_input.py",
+        "sha256": "bcc24dd9113b3ec912e7e2f52c4e03f5eda1ac3fa9654e111d53bb088ebfc912",
+        "lines": 207
+      },
+      {
+        "path": "humming/kernel/process_mxfp4.py",
+        "sha256": "535812a912222a9d1b0b6a5874b3c304f92dabd55f8437ba888427369d8239e8",
+        "lines": 64
+      },
+      {
+        "path": "humming/kernel/quant_weight.py",
+        "sha256": "066cf9d867bb039603e85fdf3dd69920ccaa52ac6a9be2f2afb630e51e0ea3fa",
+        "lines": 84
+      },
+      {
+        "path": "humming/kernel/repack_weight.py",
+        "sha256": "3e681df5c36d87b7a48329e3e68160fb52d7e64b879a8cb73cf8be5c0d10e03f",
+        "lines": 110
+      },
+      {
+        "path": "humming/kernel/tops_bench.py",
+        "sha256": "48a5e3a171553404f24840497ce11f4d458c19ab594ec69d877aa0f202754773",
+        "lines": 93
+      },
+      {
+        "path": "humming/kernel/unpack_weight.py",
+        "sha256": "593d4e8a24af95dd51ee5f4b144411b28b0210b2cd93ef076833c5e50b70ed43",
+        "lines": 45
+      },
+      {
+        "path": "humming/layer.py",
+        "sha256": "56df3c5eb35bf8e4316c6793c8e3405d307b81d41c3994204bd5a36bb2bf3c64",
+        "lines": 709
+      },
+      {
+        "path": "humming/ops/__init__.py",
+        "sha256": "194fcf84d6b317c80597b5e4d6f585ce2fcb684856484036dc9b58d994aab08d",
+        "lines": 33
+      },
+      {
+        "path": "humming/ops/bench.py",
+        "sha256": "39b15e8df39f48d5683b99d494a8b339901bbddcfb884db65717c6dcd89a885c",
+        "lines": 45
+      },
+      {
+        "path": "humming/ops/gemm.py",
+        "sha256": "98150b7115587259fc02463e35ad89e5dd520d74452636ea2e1b08e8ef30a6e1",
+        "lines": 100
+      },
+      {
+        "path": "humming/ops/input.py",
+        "sha256": "004c8cbcdd46d9335e6499fd1498d8d520c9e29b441f332347ff5304c15de937",
+        "lines": 193
+      },
+      {
+        "path": "humming/ops/launcher.py",
+        "sha256": "bc2d3fb62a9d08ea83ef9192fc56d2e145a2698364c4d423376e68f5377396cb",
+        "lines": 73
+      },
+      {
+        "path": "humming/ops/utils.py",
+        "sha256": "f40116b995c7c2bb20b5ee1293964d62d4d919b2205a13efb92093c3168a7ec7",
+        "lines": 279
+      },
+      {
+        "path": "humming/ops/weight.py",
+        "sha256": "7f6bca1efd58fa99146bf13c34ef74bb8d1aa8dc036224b28da0a78088e9016a",
+        "lines": 389
+      },
+      {
+        "path": "humming/schema/__init__.py",
+        "sha256": "34eef2fe4f6e8e269976c9c3113f7b3480c7ab468d399c6efa21594eff734dee",
+        "lines": 50
+      },
+      {
+        "path": "humming/schema/autoround.py",
+        "sha256": "b8494cd4d2e83b4bdcc23ecef223eab48b0b0a307941bd161aaed25f31e57e0b",
+        "lines": 94
+      },
+      {
+        "path": "humming/schema/awq.py",
+        "sha256": "75a2a510b063059fb2becdbfcc8323da21c58588ecaa3d46e54b0fb393d7d8fd",
+        "lines": 122
+      },
+      {
+        "path": "humming/schema/base.py",
+        "sha256": "23dbcd7d0023b4a33027720c7eeb4f06ab1956935d80e88858fef2a6d70bebaf",
+        "lines": 341
+      },
+      {
+        "path": "humming/schema/bitnet.py",
+        "sha256": "50a7566681305143c6bba3e8b5a6302a58bc0eb93cc8da7b5968aec947fc8c50",
+        "lines": 117
+      },
+      {
+        "path": "humming/schema/compressed_tensors.py",
+        "sha256": "1b4099af6796fa6de104dd25a64dcc9251da11156d49870ec24e9c5ea7bf2cae",
+        "lines": 397
+      },
+      {
+        "path": "humming/schema/fp8.py",
+        "sha256": "480a652c61b54dbd2a4a9bc19be0b0d3da8e477b17a47e68c817df50a0e14a8a",
+        "lines": 175
+      },
+      {
+        "path": "humming/schema/gpt_oss_mxfp4.py",
+        "sha256": "38b09bd2bb972f791ad0c137d5e26b53d8be1f8b71db2e5e3ae67222916c374e",
+        "lines": 43
+      },
+      {
+        "path": "humming/schema/gptq.py",
+        "sha256": "e08f18111d57682ecc3afa8325d058cf8ff59127d62c00fc5665db84de8ace23",
+        "lines": 114
+      },
+      {
+        "path": "humming/schema/humming.py",
+        "sha256": "d722939748250f4d02d177af5349e0604fa79e24213b6a5a6222ed36d68668e0",
+        "lines": 604
+      },
+      {
+        "path": "humming/schema/modelopt.py",
+        "sha256": "dada7c559a9e592e30c88cd09b4b964c4f518ea482a986f2462bb448a70f55c5",
+        "lines": 285
+      },
+      {
+        "path": "humming/schema/mxfp4.py",
+        "sha256": "643ae9de8c510c42d10ee2a65ce5453b256121a1e898cafe180bb6644880899b",
+        "lines": 78
+      },
+      {
+        "path": "humming/schema/quark.py",
+        "sha256": "0f2eb56472bc651e7ee3f344e8637d142809759871a0a56aee3029ec4c10be92",
+        "lines": 608
+      },
+      {
+        "path": "humming/testing/__init__.py",
+        "sha256": "92822abc0ffa13aecd2a831d4282ab5c042c5e4548fb9096965477413c5ed8fe",
+        "lines": 18
+      },
+      {
+        "path": "humming/testing/benchmark.py",
+        "sha256": "6f360434e123766f6ca885413c7f567a74d69adc87b65376b1da644b0905fa15",
+        "lines": 52
+      },
+      {
+        "path": "humming/testing/data.py",
+        "sha256": "da4eeeaf3d649f7077a94c4664b86fa05677bed72299be854acdc7b5740fc30f",
+        "lines": 176
+      },
+      {
+        "path": "humming/testing/device.py",
+        "sha256": "5d5850cc14e75985beabfc29ef79f400be185de2f8b99f7513c5b26388936809",
+        "lines": 68
+      },
+      {
+        "path": "humming/testing/process_input.py",
+        "sha256": "51ddaa1972220ac9bbbf30e1e0c93b13575fcd222b841949372e6b742bca4b4b",
+        "lines": 480
+      },
+      {
+        "path": "humming/testing/runner.py",
+        "sha256": "04a6bb1ff2500a22ef96fa62366be7f7c0a20cf6bdcdce36d69e0ad0c1e0ce83",
+        "lines": 696
+      },
+      {
+        "path": "humming/testing/tuning.py",
+        "sha256": "8fe24d6ba58219311ebb2b20890a89bfbf9bceb891c5701a6afd2bddce3b19fa",
+        "lines": 576
+      },
+      {
+        "path": "humming/transform.py",
+        "sha256": "0d9197adc80cb6fd5d078fb5a4e86cce7970cb96938f7b5862396ac73b1e24b3",
+        "lines": 691
+      },
+      {
+        "path": "humming/tune/__init__.py",
+        "sha256": "a4ce78b93fb237dc978150b9c74c25cc5895cdd9561a09b94f4fe71ac44719b1",
+        "lines": 186
+      },
+      {
+        "path": "humming/tune/base.py",
+        "sha256": "a83dddabf93c5dca8d2f4d0d576b49b5a9c43313fbda78d6011f730e1a6b607f",
+        "lines": 585
+      },
+      {
+        "path": "humming/tune/candidate.py",
+        "sha256": "fe32cc32b3c5d02a9f8407db5c58f8c930ebcefe293d3d96f575cabb0f9e212b",
+        "lines": 603
+      },
+      {
+        "path": "humming/tune/ppu_sm80.py",
+        "sha256": "2b111e08a0ec56c28efc7f77cd94fdfb447b4f62e2306f967943f0aad5a1df9e",
+        "lines": 133
+      },
+      {
+        "path": "humming/tune/process_input.py",
+        "sha256": "466c44fed11fd4c42cc66626d2803815175cc1d0b6b12504ad38398c9e540230",
+        "lines": 665
+      },
+      {
+        "path": "humming/tune/raster.py",
+        "sha256": "87208d3982ac213af75b3a4bfde7ce7e933c9de49a9001076d6b7311cd99f3dd",
+        "lines": 67
+      },
+      {
+        "path": "humming/tune/sm100.py",
+        "sha256": "52c62a1e46f9d1df74218f1c91dce391f052f3c7066593c3ea225189450fa814",
+        "lines": 1106
+      },
+      {
+        "path": "humming/tune/sm120.py",
+        "sha256": "6433bbd30f730b52b40b724e86b01f8a085bdc05c79151e331908ee04b36dbc0",
+        "lines": 896
+      },
+      {
+        "path": "humming/tune/sm121.py",
+        "sha256": "2b5ec612c655c58b1497a263c27e2ed0040a165ea786d775c4b93fb359f1c119",
+        "lines": 65
+      },
+      {
+        "path": "humming/tune/sm75.py",
+        "sha256": "4566f150627308b5cf1a728907bfc211c10e826f342461f6e2c52a86fa6628cc",
+        "lines": 57
+      },
+      {
+        "path": "humming/tune/sm8x.py",
+        "sha256": "6d747f73b0a7c469410ee86622a2920256b96082cf975b5570039b70fa7d2839",
+        "lines": 114
+      },
+      {
+        "path": "humming/tune/sm90.py",
+        "sha256": "31e7314c95932bd4380430b20ac17bee7070a14bb59e058067f09e27b885c0ba",
+        "lines": 369
+      },
+      {
+        "path": "humming/tune/sm90_h20.py",
+        "sha256": "4a254126c7a72587258dbe028b3f57f0c59756708a60e917d976c91baec45159",
+        "lines": 647
+      },
+      {
+        "path": "humming/tune/sm90_policies.py",
+        "sha256": "861ec1ab367331a514a0ab30b994f45d32cddde54ca5b8c612d55aefef5227d7",
+        "lines": 1744
+      },
+      {
+        "path": "humming/utils/__init__.py",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "lines": 0
+      },
+      {
+        "path": "humming/utils/cpu.py",
+        "sha256": "441e028829c28ad49c0d013fa3f88283f3709fafd86727e3144b4c0c9a32b153",
+        "lines": 100
+      },
+      {
+        "path": "humming/utils/cubin.py",
+        "sha256": "1e27774f4ddc1dcc8c88e9e99fa4491643b749414f12032c6e098980a8e1b375",
+        "lines": 215
+      },
+      {
+        "path": "humming/utils/cuda.py",
+        "sha256": "9a2cefbc285eece8270c30a093d077960dda0cb58afec8b6342d2eb43c44e664",
+        "lines": 266
+      },
+      {
+        "path": "humming/utils/device.py",
+        "sha256": "84bd2235270df5c223e9a54cf67f0053872c9f676150a7fa8cd6bbb6efc8de18",
+        "lines": 124
+      },
+      {
+        "path": "humming/utils/jit.py",
+        "sha256": "b2f6c3c71274bc4c23aa275ef597eddb521830ba225fd69123be316be78ad965",
+        "lines": 267
+      },
+      {
+        "path": "humming/utils/math.py",
+        "sha256": "f95087e5195c91db27d9c6d295450c4381a63adcfd1a264a2414007233891287",
+        "lines": 32
+      },
+      {
+        "path": "humming/utils/nvrtc.py",
+        "sha256": "60f4af46281fe5d52ecc0a8f95d27cead33b3c0a9f76f3f4c043918dbbaf6d9b",
+        "lines": 160
+      },
+      {
+        "path": "humming/utils/smem.py",
+        "sha256": "77949ca1b9cc618b2f8da7291bf0d4ea0be95d963f7a27e2e8f66e45ae71c00c",
+        "lines": 293
+      },
+      {
+        "path": "humming/utils/weight.py",
+        "sha256": "57e0fb1e6001310bf16406ef3653192c1d992eb2889b17b93028a3d52d5901e6",
+        "lines": 312
+      },
+      {
+        "path": "pyproject.toml",
+        "sha256": "723e13d152cdd83ac8bb8e01fcff575b1c429c4a9174e95bd3bc50aea3d1c976",
+        "lines": 93
+      },
+      {
+        "path": "tests/kernels/humming/test_accumulation.py",
+        "sha256": "1a7189bf08007835f28832931b18cae68e3f287c8cd2f4a0c8341f5e8c876916",
+        "lines": 143
+      },
+      {
+        "path": "tests/kernels/humming/test_block_scaled.py",
+        "sha256": "75d291cc1981e730662ba058236d1f1e9eb722d67074690c30803ff92ded990f",
+        "lines": 354
+      },
+      {
+        "path": "tests/kernels/humming/test_datatype.py",
+        "sha256": "9235244e11c5a6f024b0d3a0c992ba3acd624d4febdae5ecbd3c579abf95d262",
+        "lines": 183
+      },
+      {
+        "path": "tests/kernels/humming/test_moe.py",
+        "sha256": "97ae52e131c593832b0c2091e745a889a968f73c21bcb7047d019dfb50a86014",
+        "lines": 396
+      },
+      {
+        "path": "tests/kernels/humming/test_mxfp4.py",
+        "sha256": "a8bf113f6795d35205a3fdada1ed2ec351aca6b5120346f0b652516d9249b8e8",
+        "lines": 277
+      },
+      {
+        "path": "tests/kernels/humming/test_scale.py",
+        "sha256": "76020d7654570577473d472d2336c9bc5bee6ca605e74bef802cbe7b421b5283",
+        "lines": 299
+      },
+      {
+        "path": "tests/kernels/humming/test_shape.py",
+        "sha256": "d47a7a8d92241fd89883852462d270103e99aca3649b7779ed6cd62236bb9831",
+        "lines": 415
+      },
+      {
+        "path": "tests/kernels/humming/test_special_paths.py",
+        "sha256": "1f66f16f5e356919fa674c38db089f85d015285e5441581f6a7041dbc8a2e206",
+        "lines": 356
+      },
+      {
+        "path": "tests/kernels/humming/test_zero_point.py",
+        "sha256": "d9c9eaa848e8eb1e682d524da2bd43d9f1d71a25b57b8454247d85a136ee5d54",
+        "lines": 134
+      },
+      {
+        "path": "tests/kernels/process_input/test_layout.py",
+        "sha256": "74cc82431cec9ff5eb4f88cd8646ca189b1407a1001bab6d0f370e44dee17ee6",
+        "lines": 135
+      },
+      {
+        "path": "tests/kernels/process_input/test_matrix.py",
+        "sha256": "2298dcf1e8e55901cd582efe9d1cbd48e3b73eee6bc1750d438a787c44e94c7d",
+        "lines": 94
+      },
+      {
+        "path": "tests/kernels/process_input/test_scale.py",
+        "sha256": "6ff658e8e5573b336dbae36791ab2bb3fea4d683e3ace8b9bb10ab0fcbd2bb00",
+        "lines": 164
+      },
+      {
+        "path": "tests/native/device_info_mock.cpp",
+        "sha256": "26bde8aa517ed801b5e72df231a3cb0482a32a7d36e4e9f79740a46da64ae1f7",
+        "lines": 76
+      },
+      {
+        "path": "tests/test_jit_infrastructure.py",
+        "sha256": "6bf1e0cda409c22bba39bdf2d43f6d1f4185e1b6b3dc256512bb24ea42592c97",
+        "lines": 634
+      },
+      {
+        "path": "tests/test_sm8x_heuristics.py",
+        "sha256": "925b542486df86acc1974b00b4dca8e0c89ccc1ebcfdf2ea9a7d51c3f5f04022",
+        "lines": 71
+      },
+      {
+        "path": "tests/test_sm90_h20_heuristics.py",
+        "sha256": "fcb3074696f574d45e8ba30647d5b2e797208bddb4261c80fd2f3079ccf24616",
+        "lines": 119
+      },
+      {
+        "path": "tests/test_sm90_heuristics.py",
+        "sha256": "f17b586031a10af1b536b4a86323d7300f33bd300d83c98c62f70b1855a06d87",
+        "lines": 516
+      },
+      {
+        "path": "tests/test_tuning_candidates.py",
+        "sha256": "967f4e1829c55358dbfdc1e324c17816a1884543261ca7e62915792c674ef016",
+        "lines": 738
+      },
+      {
+        "path": "tools/build_native.py",
+        "sha256": "4efefaaa7dfbff4130ddc0c61759fe757b2800de720ea45ed3c25b9c9871acb7",
+        "lines": 25
+      }
+    ]
+  },
+  "vllm": {
+    "revision": "c1d8fade8d392a010b80aaa0de55f6f0f02a4ebb",
+    "scope": "Partial archive: two catalog adapters and four helper files followed to resolve the linear conversion/application boundary. Other vLLM modules omitted.",
+    "files": [
+      {
+        "path": "/Users/dingyi/kta-data/dev/humming-study/inputs/vllm_linear_humming.py",
+        "source_path": "vllm/model_executor/kernels/linear/mixed_precision/humming.py",
+        "url": "https://raw.githubusercontent.com/vllm-project/vllm/c1d8fade8d392a010b80aaa0de55f6f0f02a4ebb/vllm/model_executor/kernels/linear/mixed_precision/humming.py",
+        "sha256": "fcd3c22e9edf9c39340554bad2fb0e872d895fff72a4a33b84f40015971aeedb",
+        "lines": 94
+      },
+      {
+        "path": "/Users/dingyi/kta-data/dev/humming-study/inputs/vllm_fused_humming_moe.py",
+        "source_path": "vllm/model_executor/layers/fused_moe/experts/fused_humming_moe.py",
+        "url": "https://raw.githubusercontent.com/vllm-project/vllm/c1d8fade8d392a010b80aaa0de55f6f0f02a4ebb/vllm/model_executor/layers/fused_moe/experts/fused_humming_moe.py",
+        "sha256": "449bffc9819a4c655f0b513e17054b892ef860c5a7f4fd3ca708714bb0784911",
+        "lines": 1125
+      },
+      {
+        "path": "/Users/dingyi/kta-data/dev/humming-study/inputs/vllm_humming_utils_init.py",
+        "source_path": "vllm/model_executor/layers/quantization/utils/humming/__init__.py",
+        "url": "https://raw.githubusercontent.com/vllm-project/vllm/c1d8fade8d392a010b80aaa0de55f6f0f02a4ebb/vllm/model_executor/layers/quantization/utils/humming/__init__.py",
+        "sha256": "0e47fce6ac03825f76d07d2caebefb42fa23c77f876af3913b3c54d9d661e57e",
+        "lines": 57
+      },
+      {
+        "path": "/Users/dingyi/kta-data/dev/humming-study/inputs/vllm_utils_humming.py",
+        "source_path": "vllm/utils/humming.py",
+        "url": "https://raw.githubusercontent.com/vllm-project/vllm/c1d8fade8d392a010b80aaa0de55f6f0f02a4ebb/vllm/utils/humming.py",
+        "sha256": "8ba7ebc0107f535bcfad2ffc753f603d59cac62acb0d1129732cdd522613a6fc",
+        "lines": 126
+      },
+      {
+        "path": "/Users/dingyi/kta-data/dev/humming-study/inputs/vllm_humming_linear_utils.py",
+        "source_path": "vllm/model_executor/layers/quantization/utils/humming/linear.py",
+        "url": "https://raw.githubusercontent.com/vllm-project/vllm/c1d8fade8d392a010b80aaa0de55f6f0f02a4ebb/vllm/model_executor/layers/quantization/utils/humming/linear.py",
+        "sha256": "2bcfc1387ce01526ea0a078c18b35214f5950ef741ed175c8df9d51b7588363c",
+        "lines": 265
+      },
+      {
+        "path": "/Users/dingyi/kta-data/dev/humming-study/inputs/vllm_humming_schema.py",
+        "source_path": "vllm/model_executor/layers/quantization/utils/humming/schema.py",
+        "url": "https://raw.githubusercontent.com/vllm-project/vllm/c1d8fade8d392a010b80aaa0de55f6f0f02a4ebb/vllm/model_executor/layers/quantization/utils/humming/schema.py",
+        "sha256": "4a9a2d12114ff96cdebc632bc851ac77dce91e622de6fa426c22cb1985f18683",
+        "lines": 437
+      }
+    ],
+    "license": "Apache-2.0 (SPDX headers in retained files)"
+  },
+  "pool_snapshot": "pool-snapshot.json",
+  "documentation": [
+    {
+      "url": "https://docs.nvidia.com/cuda/parallel-thread-execution/",
+      "version": "PTX ISA 9.4",
+      "path": "/Users/dingyi/kta-data/dev/humming-study/inputs/ptx-isa.html",
+      "sha256": "f1e14ad07468e26bf3724e41be86f3a68ab7914bcf0fc9824a6ad31a1eb2ec26",
+      "used_sections": [
+        "Matrix fragments for mma.m16n8k16 with floating point type",
+        "Async instruction completion and memory synchronization are obligations, not proven results"
+      ]
+    }
+  ]
+}

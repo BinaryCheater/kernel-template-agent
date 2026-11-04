@@ -1,0 +1,71 @@
+name: monotone_first_match_pruning
+version: 1
+level_from: 2
+level_to: 3
+change: vertical
+refines: map
+produces:
+- map
+- store
+object:
+  type: monotone_first_match_pruning
+  description: An atomic best index bounds increasing tile searches for the first
+    matching input.
+variables: []
+constraints: []
+preconditions:
+- id: pre0
+  expr: p.request_is_first_matching_index and p.tile_indices_increase_per_worker and
+    p.predicate_deterministic
+  meaning: Search requests a minimum index and every worker future range has a known
+    monotone lower bound.
+  cls: semantic
+- id: pre1
+  expr: p.best_initialized_to_length and p.best_updates_atomic_min and p.tile_search_finds_local_first
+  meaning: Published best is always a valid found index or sentinel.
+  cls: semantic
+program:
+  description: Initialize global best=N. Workers visit disjoint increasing index tiles.
+    Before a tile with lower bound L read global best; if best<L, exit because no
+    future index can improve it. Otherwise evaluate the tile predicate, reduce to
+    its earliest match, atomically minimize global best and exit that worker on a
+    found tile. A stale relaxed best may postpone pruning but cannot suppress an improving
+    match. Sentinel N means no match after all workers complete.
+backward_map: Erase skipped ranges whose indices exceed a witnessed matching index;
+  remaining atomic minima equal the earliest matching original input.
+obligations:
+- name: safe_pruning
+  statement: Every skipped index is strictly greater than an already found valid matching
+    index.
+  method: proof
+- name: coverage
+  statement: Every potentially improving index is searched unless a smaller valid
+    match was already published.
+  method: test
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: (p.request_is_first_matching_index and p.tile_indices_increase_per_worker
+    and p.predicate_deterministic) and (p.best_initialized_to_length and p.best_updates_atomic_min
+    and p.tile_search_finds_local_first)
+  text: First-index queries over immutable inputs with deterministic predicate, disjoint
+    increasing worker tiles and a globally atomic minimum. Does not justify pruning
+    arbitrary find-any or max-value searches.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: An atomic best index bounds increasing tile searches for the first matching
+    input.
+  storage: Binding-specific counters, partials or output ranges.
+  boundary: Tile prefixes and logical membership.
+  resources: []
+numeric_risk: Integer counts must not overflow; ordering/rounding policy belongs to
+  the bound operation.
+summary: When looking for the first matching index, use the best published index to
+  stop workers whose future tiles start later. A relaxed stale bound costs extra work
+  and preserves correctness because best only decreases. Preserve monotone worker
+  order; an arbitrary later-index match cannot justify skipping an earlier unseen
+  tile.

@@ -1,0 +1,77 @@
+name: descriptor_union_completion_count
+version: 1
+level_from: 2
+level_to: 3
+change: vertical
+refines: sync
+produces:
+- sync
+- work_assign
+object:
+  type: descriptor_union_completion_count
+  description: Expected MMA completion arrivals are derived from the union of descriptor-driven
+    issuing CTA sets.
+variables:
+- name: instruction_group
+  kind: structure
+  binding: compile
+  role: software
+  domain:
+  - one_cta
+  - two_ctas
+  meaning: Two-CTA atoms elect only even CTA ranks in the source.
+constraints: []
+preconditions:
+- id: pre0
+  expr: p.descriptors_share_cluster_bit_count and p.cga_bases_match_payload_identity
+  meaning: Descriptor CGA bases describe the same physical cluster and actual operand
+    replication.
+  cls: semantic
+- id: pre1
+  expr: p.backend_commit_issuers_match_source_union and p.barrier_count_uses_derived_union_size
+  meaning: Barrier registration counts unique issuers, not per-operand multiplicity.
+  cls: semantic
+program:
+  description: Enumerate candidate CTA ranks c in the cluster; in two_ctas mode skip
+    odd c. A descriptor admits c when every nonzero CGA basis bit position i has (c
+    & (1<<i))==0; zero bases impose no restriction. Count c once if any descriptor
+    admits it. With no descriptors or multicast disabled use one arrival. Initialize
+    stage-release and accumulator-ready barriers using this derived unique issuer
+    count; do not multiply arrivals by the number of descriptors or assume count equals
+    physical CTA count.
+backward_map: Replace the barrier arrival count by the number of actual unique issuing
+  CTA atoms whose engine completion the receiver joins.
+obligations:
+- name: union_count
+  statement: Each actual source issuer is counted once even when several descriptors
+    elect the same CTA.
+  method: proof
+- name: backend_incidence
+  statement: Descriptor predicate matches actual native issuer/recipient completion
+    routing.
+  method: test
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: (p.descriptors_share_cluster_bit_count and p.cga_bases_match_payload_identity)
+    and (p.backend_commit_issuers_match_source_union and p.barrier_count_uses_derived_union_size)
+  text: The Gluon tcgen05 multicast helper with up to four shared descriptors and
+    matching cluster bit count. Derived arrival count is not an optimizer knob; cluster
+    layout and instruction group are inputs.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Expected MMA completion arrivals are derived from the union of descriptor-driven
+    issuing CTA sets.
+  storage: Binding-specific counters, partials or output ranges.
+  boundary: Tile prefixes and logical membership.
+  resources: []
+numeric_risk: Integer counts must not overflow; ordering/rounding policy belongs to
+  the bound operation.
+summary: When multicast MMA has several operand replication patterns, derive completion
+  arrivals from the union of elected CTA issuers. A CTA elected by both A and B still
+  sends one commit arrival; two-CTA mode counts only its even-rank atom owner. Registering
+  per-descriptor totals can deadlock, while counting too few allows premature reuse.

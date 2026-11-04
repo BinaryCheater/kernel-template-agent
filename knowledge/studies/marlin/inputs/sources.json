@@ -1,0 +1,83 @@
+{
+  "upstream": "https://github.com/IST-DASLab/marlin",
+  "revision": "1f25790bdd49fba53106164a24666dade68d7c90",
+  "license": "Apache-2.0",
+  "tree": "/Users/dingyi/kta-data/dev/operator-sources/IST-DASLab/marlin/1f25790bdd49fba53106164a24666dade68d7c90/marlin-1f25790bdd49fba53106164a24666dade68d7c90",
+  "archive": "/Users/dingyi/kta-data/dev/operator-sources/IST-DASLab/marlin/1f25790bdd49fba53106164a24666dade68d7c90/source.tar.gz",
+  "archive_sha256": "7f6d14bbbd6ac65fb28090060321b629e8426093cbaa7bc681d34547f6bf9141",
+  "scope": "Complete pinned superproject archive; all18 file blobs verified against retained Git tree.",
+  "files": [
+    {
+      "path": ".gitignore",
+      "sha256": "ec2797e7fcbc7c3f212863540d8cbf19fd30be91cccc886ebf37b67c7b372686"
+    },
+    {
+      "path": "LICENSE",
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+    },
+    {
+      "path": "README.md",
+      "sha256": "932be7cfcd7eb90f2ce42f2c6ba75eda73400d635ede09961b83ffae9d23d5d1"
+    },
+    {
+      "path": "assets/marlin.png",
+      "sha256": "7e9e984ae28e34bc46f5a36d59736b5c01ee56f56acc66eec6b59d23cb662f90"
+    },
+    {
+      "path": "assets/models.png",
+      "sha256": "107ecf4a107e140af3d59ee9d56e09fa7ea887d29d913c18c1c036074979687c"
+    },
+    {
+      "path": "assets/peak.png",
+      "sha256": "781ef3146345bde690695be8ddd8a390296a00b4b53957c878cd0c4b974071b1"
+    },
+    {
+      "path": "assets/sustained.png",
+      "sha256": "f0bf6c55820e06199579f0d64f27c056c2491d61db72c8527e189646bead476d"
+    },
+    {
+      "path": "bench.py",
+      "sha256": "a6a315624894acb6a7d67efa88d87a82d991b7bdd9db08c069b2b0ebe29f59b2"
+    },
+    {
+      "path": "gptq/datautils.py",
+      "sha256": "4758a75bd7e45b3de2699105129bb01a2a5603996a6188f1f838d130db4bca4b"
+    },
+    {
+      "path": "gptq/eval.py",
+      "sha256": "07687075f4adb95a585d5d7f23b289eced681176aa59f12fec326e71d74a1e40"
+    },
+    {
+      "path": "gptq/gptq.py",
+      "sha256": "5209b5d6cce63b2ec37aef73b70f1d1945f6625aa8f4de90dda0641158e43762"
+    },
+    {
+      "path": "gptq/llama2.py",
+      "sha256": "f437a13ae9ae40f2a9728e57c6bc12d96e31caf3fe75c65cdcd343cf07957099"
+    },
+    {
+      "path": "gptq/quant.py",
+      "sha256": "da3664b19b87f0459b85c506850cfaaa33b89eab25627e1625ecdf53990f08ca"
+    },
+    {
+      "path": "marlin/__init__.py",
+      "sha256": "1ede5735805b71b07f1f8be624812f912d02127ec7f7740fd2373f41a19377e6"
+    },
+    {
+      "path": "marlin/marlin_cuda.cpp",
+      "sha256": "0cd2f1688b342dac9da5aece3931e619def508c90a65face6218240437c1208e"
+    },
+    {
+      "path": "marlin/marlin_cuda_kernel.cu",
+      "sha256": "dd7ee08c62cb0ef6d6f905bc6bbd8adfb7808a95f62127eb52707c56f72eabae"
+    },
+    {
+      "path": "setup.py",
+      "sha256": "0078d11ea8783b41b4d35714ff1587518cd2a1c6ef203da71f4997367adcc505"
+    },
+    {
+      "path": "test.py",
+      "sha256": "0bcd4c7657b6f31dd1fc0ec15fc66efc10c248cc01f7cd7661e3704f656553a7"
+    }
+  ]
+}

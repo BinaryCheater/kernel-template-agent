@@ -1,0 +1,62 @@
+name: scatter_reduce_output_shards
+version: 1
+level_from: 4
+level_to: 5
+change: vertical
+refines: reduce
+produces: [transfer, reduce, sync, store]
+object:
+  type: peer_owned_reduction_shards
+  description: Each cooperative peer owns a disjoint output shard and combines its local partial with one received shard from every other peer through sender-specific mailboxes.
+variables:
+  - {name: peers, kind: numeric, binding: compile, role: boundary, domain: {lo: 2, hi: 16}, meaning: Number of defined input partials and disjoint output shards in the cooperative group.}
+constraints:
+  - {id: c_partition, expr: "peers == p.partial_count and p.elements_per_thread % peers == 0", meaning: Each thread's fragment splits into equal peer-owned shards., cls: semantic}
+  - {id: c_capacity, expr: "(peers - 1) * p.threads * (p.elements_per_thread // peers) * p.element_bytes + p.control_bytes <= p.mailbox_capacity_bytes", meaning: Sender-specific receive slots and control state fit the mailbox budget., cls: resource}
+preconditions:
+  - {id: pre_partials, expr: "p.local_partials_defined and p.accumulator_fp32 and p.numeric_reassociation_allowed", meaning: Defined FP32 partials and the numerical contract admit the specified owner-first combine order; empty K contributors supply an identity or are excluded., cls: semantic}
+  - {id: pre_layout, expr: "p.fragment_map_equal_and_injective and p.async_peer_store_supported", meaning: Peers agree on fragment coordinates and the target can deliver shard bytes to the selected peer mailbox., cls: implementation}
+  - {id: pre_generation, expr: "p.full_bytes_and_empty_acks_correct and p.mailbox_phase_ordered", meaning: Full signals follow all expected bytes and no sender overwrites a generation before every receiver has read it., cls: semantic}
+program:
+  description: >-
+    For peer count S and per-thread fragment extent E, peer r owns indices
+    r*(E/S)..(r+1)*(E/S)-1. Each sender s keeps its own shard locally and sends
+    receiver r's shard to r's slot s-(s>r), with thread index innermost in memory.
+    Receiver r arms FULL for (S-1)*threads*(E/S)*element_bytes, waits for all incoming
+    shard bytes and combines its local shard first, then received slots in ascending
+    sender order with self omitted. After all its readers finish, r acknowledges
+    each sender's EMPTY event. A sender waits for its previous S-1 acknowledgements
+    before reusing outgoing mailbox slots. Only peer r stores r's combined shard.
+backward_map: Gather the disjoint owner output shards and replace each by the reduction of all defined peer partials at its original fragment coordinate, retaining the declared floating-point order.
+obligations:
+  - {name: exact_contributors, statement: Each owned element combines exactly one partial from every peer with no sender-slot collision., method: exhaustive}
+  - {name: exact_output_owner, statement: Every original output fragment coordinate is stored by exactly its owning peer and maps injectively to the final output., method: exhaustive}
+  - {name: generation_lifetime, statement: Full waits follow all shard bytes and empty acknowledgements follow every mailbox reader before the sender can overwrite the next generation., method: test}
+  - {name: defined_numeric_partials, statement: Every peer contributes a defined partial including identity values for empty upstream partitions when admitted; the actual combine order meets the numerical contract., method: test}
+effects:
+  transactions: []
+  storage:
+    - {id: mailbox, level: smem, scope: cta, bytes: "(peers - 1) * p.threads * (p.elements_per_thread // peers) * p.element_bytes + p.control_bytes"}
+  overlap: []
+scope:
+  predicate: "p.local_partials_defined and p.accumulator_fp32 and p.numeric_reassociation_allowed and p.fragment_map_equal_and_injective and p.async_peer_store_supported and p.full_bytes_and_empty_acks_correct and p.mailbox_phase_ordered"
+  text: >-
+    Defined same-layout FP32 partial output fragments distributed across a cooperative
+    peer group, with equal per-thread output shards and sender-specific remote
+    shared mailboxes. No arithmetic atomics or one-CTA finalizer is introduced.
+    FP32 combines follow owner-first then ascending-other-sender order; global
+    output casting/epilogue operations remain separate. Remote store cost and
+    latency are unpriced; mailbox storage is explicit.
+requires: []
+probed_on: []
+relations:
+  - {type: requires, target: reduction_partition, note: Upstream K partitions must produce a defined local partial for every peer.}
+signature:
+  algorithm: Scatter partial output shards to their owners and reduce each owner locally before disjoint final stores.
+  reuse: Sender-specific mailbox slots reused only after recipient acknowledgements.
+  storage: One receive shard per other sender plus full/empty control state.
+  boundary: Undefined empty partials and incompatible peer fragment layouts are excluded.
+  resources: [smem, issue]
+numeric_risk: Owner-first ordering and upstream K partitioning alter floating-point grouping; numerical acceptance is a required premise.
+summary: >-
+  When K is split across cooperating peers that hold the same output fragment, consider distributing final output shards among those peers and sending each owner its required contributions. Preserve one defined FP32 contribution per peer and one final writer per element; require equal fragment maps, E divisible by peers and read acknowledgements before mailbox reuse. The pinned DSMEM binding uses128 threads and owner-first FP32 addition, but empty source K partitions need an identity write or exclusion and other accumulation types require their own numerical variant.

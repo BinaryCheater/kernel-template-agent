@@ -1,0 +1,95 @@
+{
+  "name": "persistent_descriptor_query_service",
+  "version": 1,
+  "level_from": 2,
+  "level_to": 3,
+  "change": "vertical",
+  "refines": "map",
+  "produces": [
+    "map",
+    "access"
+  ],
+  "object": {
+    "type": "persistent_descriptor_query_service",
+    "description": "When repeated small query batches should share resident CTAs, hand each worker a published job descriptor and retain it until all assigned query outputs have completed."
+  },
+  "variables": [
+    {
+      "name": "descriptor_capacity",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": [
+        8192
+      ],
+      "meaning": "Observed maximum descriptor slots; query assignment itself is runtime."
+    }
+  ],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_0",
+      "expr": "p.descriptors_published_before_handle and p.system_scope_fences",
+      "meaning": "Host/device publisher establishes descriptor visibility before assigning a worker handle; readers use matching system memory ordering.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_1",
+      "expr": "p.exact_query_assignment and p.descriptor_not_reused_early",
+      "meaning": "Each query completes once and descriptors/results remain live until all workers retire.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_2",
+      "expr": "p.counter_initialized_and_no_wrap and p.stop_sentinel_agreed",
+      "meaning": "Per-job completion count starts valid and shutdown sentinel is recognized by every resident worker.",
+      "cls": "semantic"
+    }
+  ],
+  "program": {
+    "description": "Each persistent CTA polls its own worker handle. Thread0 observes a job/query assignment, resets the handle to wait-for-work and performs a system acquire fence. A warp loads the descriptor blob into shared storage and the CTA synchronizes. Execute the query against descriptor input/output pointers. Every thread publishes its output writes with system release ordering, then synchronize. Thread0 increments the descriptor completion count; the final query sets the job completion flag. A new worker assignment must not mutate a still-live descriptor. A no-more-work handle exits collectively."
+  },
+  "backward_map": "Erase auxiliary organization and recover the visible results under the stated contract.",
+  "obligations": [
+    {
+      "name": "descriptor_lifetime",
+      "statement": "Resetting a worker handle frees assignment mailbox only, not the descriptor or result buffers.",
+      "method": "proof"
+    },
+    {
+      "name": "complete_visibility",
+      "statement": "Job completion becomes observable only after all assigned queries publish their results.",
+      "method": "proof"
+    },
+    {
+      "name": "exact_assignment",
+      "statement": "One query arrival corresponds to one finished query, including empty/output-filtered queries.",
+      "method": "proof"
+    },
+    {
+      "name": "shutdown",
+      "statement": "All CTA threads take the same stop path and cannot leave peers at a barrier.",
+      "method": "proof"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.descriptors_published_before_handle and p.system_scope_fences and p.exact_query_assignment and p.descriptor_not_reused_early and p.counter_initialized_and_no_wrap and p.stop_sentinel_agreed",
+    "text": "NVIDIA CAGRA single-CTA persistent query service. Actual mailbox publisher must be checked for matching ordering and buffer retirement before instantiation. Search algorithm and its recall remain separate from service protocol. Resource effects: Resident CTAs avoid repeated kernel launches; descriptor copies, per-worker polls, per-query completion atomics and persistent residency consume resources. No measured crossover inferred."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "When repeated small query batches should share resident CTAs, hand each worker a published job descriptor and retain it until all assigned query outputs have completed.",
+    "storage": "Resident CTAs avoid repeated kernel launches; descriptor copies, per-worker polls, per-query completion atomics and persistent residency consume resources. No measured crossover inferred.",
+    "boundary": "A two-query job sets completion only on the second arrival. If worker0 resets its mailbox after reading query0, host may send another assignment but must not overwrite the first descriptor while worker1 still computes query1.",
+    "resources": []
+  },
+  "numeric_risk": "Preserve the supplied arithmetic contract; reassociation, quantization and approximate search require separate permission.",
+  "summary": "When repeated small query batches should share resident CTAs, hand each worker a published job descriptor and retain it until all assigned query outputs have completed. A two-query job sets completion only on the second arrival. If worker0 resets its mailbox after reading query0, host may send another assignment but must not overwrite the first descriptor while worker1 still computes query1."
+}

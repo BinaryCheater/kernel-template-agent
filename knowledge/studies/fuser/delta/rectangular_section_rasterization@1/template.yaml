@@ -1,0 +1,80 @@
+name: rectangular_section_rasterization
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: work_assign
+produces:
+- work_assign
+object:
+  type: rectangular_section_rasterization
+  description: A two-dimensional independent tile grid traversed by rectangular sections
+    and then intra-section coordinates.
+variables:
+- name: section_m
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 1
+    hi: 65536
+  meaning: Rows per traversal section.
+- name: section_n
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 1
+    hi: 65536
+  meaning: Columns per traversal section.
+constraints:
+- id: c0
+  expr: p.tile_rows >= 1 and p.tile_cols >= 1
+  meaning: Independent output grid is nonempty.
+  cls: semantic
+preconditions:
+- id: pre0
+  expr: p.independent_tiles and p.padded_coordinates_guarded
+  meaning: Tile permutation is legal and padded section coordinates are not executed
+    as valid outputs.
+  cls: semantic
+program:
+  description: Create a padded grid of ceil_div(tile_rows,section_m)*ceil_div(tile_cols,section_n)
+    sections. Decode section index in row-major order, then intra-section coordinates
+    in row-major order. Map m=section_row*section_m+local_row,n=section_col*section_n+local_col.
+    Skip coordinates m>=tile_rows or n>=tile_cols. Fuser split/reorder domains realize
+    this traversal; output masks remain the underlying tiled operator obligation.
+backward_map: Forget traversal order and padding; every valid output tile has one
+  section and one intra-section coordinate.
+obligations:
+- name: bijection
+  statement: Euclidean division maps every valid tile to exactly one section/local
+    coordinate.
+  method: proof
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: p.tile_rows >= 1 and p.tile_cols >= 1 and p.independent_tiles and p.padded_coordinates_guarded
+  text: Independent rectangular output tiles, positive section sizes, guarded padded
+    sections. This adds independent M and N section factors beyond block_rasterization@1
+    grouped_m; it makes no cache-traffic savings guarantee.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: A two-dimensional independent tile grid traversed by rectangular sections
+    and then intra-section coordinates.
+  storage: Source-bound physical buffer; exact byte count and capacity supplied by
+    binding.
+  boundary: Coordinate identity and storage lifetime.
+  resources:
+  - smem
+  - reg
+numeric_risk: Address/storage transformation preserves values; arithmetic changes
+  require separate obligations.
+summary: When locality requires grouping both tile axes, choose separate M/N section
+  sizes instead of one grouped-axis width. A 2x4 section groups eight nearby output
+  tiles; a short final section must skip padded coordinates. The optimizer varies
+  section sizes while tile extents come from upstream output tiling.

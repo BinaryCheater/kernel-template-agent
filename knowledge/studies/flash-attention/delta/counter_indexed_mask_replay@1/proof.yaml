@@ -1,0 +1,29 @@
+template: counter_indexed_mask_replay@1
+version: 1
+relation: Reconstructing the mask from its retained invocation descriptor and stable logical coordinate/component map gives exactly the original discrete mask.
+rank: Original mask elements not yet regenerated for a consumer.
+assumes:
+  - {name: generator, statement: "The descriptor fixes the entire deterministic integer generator, byte/component extraction and comparison."}
+  - {name: map, statement: "Forward and replay map each original logical element to equal in-range random addresses/components."}
+  - {name: lifetime, statement: "Invocation state is reserved once and published before early exits, then retained unchanged through replay."}
+guarantees: []
+models: []
+note: >-
+  Equality of the generator inputs and selected output component implies equality
+  of its integer result and mask comparison. No stream-order visitation assumption
+  is needed because each address is derived from the original coordinate. Source
+  dropout.h:14-46 uses offset=base+(batch*heads+head)*32+lane and a packed pair
+  (row_block16,col_block32) as subsequence, with 16 bytes per lane invocation.
+  philox.cuh:34-56 runs six keyed rounds plus one final round, not ten. Forward
+  flash_fwd_kernel.h:73-86 saves seed/offset before its first row early exit;
+  backward flash_bwd_kernel.h:448-449,537-545 uses the saved state and maps its
+  possibly different MMA ownership to the same canonical blocks. The source-level
+  canonical block for query35,key77 is(2,2); full native lane/component mapping
+  across those layouts remains an implementation obligation. flash_api.cpp:
+  508-516 reserves batch*heads*32 offsets once under the generator lock.
+  The logical check replays retained source integer arithmetic under reordered
+  block traversal, distinguishes seven from ten rounds, and exhausts byte
+  threshold boundaries. keep=0.9 uses threshold229 and byte<=threshold, so its
+  ideal uniform-byte keep rate is230/256, not0.9; the source scales by1/0.9.
+  No statistical-quality, native lowering, graph-capture or unbiasedness claim
+  follows from these deterministic replay witnesses.

@@ -1,0 +1,178 @@
+name: bounded_history_warmup
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: map
+produces:
+- map
+- contract
+- store
+object:
+  type: independent_recurrent_intervals_from_bounded_zero_seed_warmup
+  description: Split a long forgetting recurrent chain at admitted cuts, recomputing a short overlap from
+    zero before publishing each owned interval. Rejecting a cut extends its preceding owner rather than
+    losing work.
+variables:
+- name: cut_policy
+  kind: structure
+  binding: compile
+  role: software
+  domain:
+  - exact_only
+  - bounded_reset
+  meaning: Keep the original sequential state chain, or admit nonzero cuts only under an explicit transported-state/output
+    error budget.
+- name: max_gate_scan_chunks
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+  - 8
+  meaning: Native source inspects up to8 prior64-update chunks for gate-product saturation; pair alignment
+    can add one more executed leading chunk.
+- name: log2_gate_threshold
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+  - -24
+  meaning: Native recent-gate test threshold. It guides cut candidates; a reusable error certificate additionally
+    needs valid state and correction-transport bounds.
+constraints:
+- id: c_shape
+  expr: p.chunk_updates == 64 and p.planned_cut_count >= 1 and p.planned_cut_count <= 48
+  meaning: Native merged GDP split uses64-update chunks in even pairs and up to48 planned items per sequence/head.
+  cls: implementation
+preconditions:
+- id: pre_dynamics
+  expr: p.scalar_gated_delta_transition_and_shared_replay_inputs
+  meaning: V-major H evolves by scalar decay then ordered beta*(v-H*k) outer k corrections. Exact and
+    reset histories see identical inputs/parameters, including gate stage, key normalization and beta;
+    only their starting state differs.
+  cls: implementation
+- id: pre_transport
+  expr: p.transport_bound_covers_actual_warmup_and_owned_interval
+  meaning: A declared transport bound covers the difference map from actual warm-up start b through each
+    written state/readout. Each update contributes alpha*(I-beta*k*k^T); bounding only alpha is valid
+    only if every relevant correction is nonexpansive in the chosen norm. Finite, correctly rounded upper
+    bounds refer to actual executed gate/normalization arithmetic, not an unqualified approximate-log
+    test.
+  cls: implementation
+- id: pre_state
+  expr: p.omitted_starting_state_norm_bound_valid_for_each_reset
+  meaning: For each zero reset, M bounds the norm of the exact state at its actual warm-up start, including
+    any extra leading chunk for native alignment. Input value/state magnitude and prior carried error
+    cannot be ignored.
+  cls: implementation
+- id: pre_budget
+  expr: cut_policy == 'exact_only' or (p.reset_state_bound * p.transport_bound + p.state_rounding_budget
+    <= p.state_tolerance and p.max_readout_norm * p.reset_state_bound * p.transport_bound + p.output_rounding_budget
+    <= p.output_tolerance)
+  meaning: A reset is admitted only when its transported omitted-state error plus replay rounding budget
+    fits the declared state and output tolerances. Query norm includes output scale. Gate threshold alone
+    is not an absolute error certificate.
+  cls: implementation
+- id: pre_partition
+  expr: p.planned_cuts_sorted_unique_aligned_and_first_anchor_exact
+  meaning: Planned cuts are ordered/unique, align complete real-token groups and native chunk-pair requirements,
+    and begin at0 with the true initial state. The first anchor is always active; exact-only suppresses
+    all nonzero cuts.
+  cls: implementation
+- id: pre_ownership
+  expr: p.active_cut_writes_until_next_active_cut_and_warmup_writes_suppressed
+  meaning: An active cut writes from its cut through the next active cut or sequence end; inactive cuts
+    write nothing. Warm-up may overlap other items reads but never publishes their outputs/checkpoints.
+    Only the last active interval writes final state.
+  cls: implementation
+- id: pre_probe
+  expr: p.cut_test_and_forward_scan_agree_on_one_immutable_gate_generation
+  meaning: Candidate admission and predecessor endpoint scans use the same gate/input generation and deterministic
+    threshold/certificate predicate. Scan capacity covers every later planned cut; a rejected cut cannot
+    leave a hole or create overlapping ownership.
+  cls: implementation
+- id: pre_lifetime
+  expr: p.all_replay_inputs_and_initial_state_live_until_readers_retire
+  meaning: Replay records stay valid through all independent items. Original seed readers finish before
+    any final-state alias write. Publication flags/dependencies and workspace epochs are real source obligations,
+    not supplied by the numerical bound.
+  cls: implementation
+- id: pre_backend
+  expr: p.selected_cut_policy_and_warmup_execution_supported
+  meaning: Exact-only or bounded-reset execution, chunk size, target, snapshot and state-slot contracts
+    are implemented. This first version covers scalar-gated GDP/GDN-compatible transitions, not arbitrary
+    nonlinear or feature-channel gate bounds.
+  cls: implementation
+program:
+  description: Plan aligned candidate cuts0=c0<c1<... in a sequence. In exact_only retain only c0 and
+    run the exact initial-state chain. In bounded_reset, for each nonzero cut c inspect up to8 preceding64-update
+    chunks for recent cumulative log2 decay<=-24; select the shortest passing overlap, extend its start
+    backward if required for the native pair alignment, and admit only when actual omitted-state transport
+    and rounding meet the explicit state/output budget. A cut without admission is inactive. Each active
+    item starts from the true initial state at0, or zero at its own warm-up start b<=c, replays ordered
+    transitions to c without stores, and writes only [c,next_active_cut) or [c,end). Later planned but
+    inactive cuts are skipped; the preceding active item extends across them. The last active item publishes
+    final state after seed readers retire. The source finds next active cut by forward predicate scans
+    instead of materializing an active list; either realization must use one immutable gate generation
+    and identical admission. Outputs and checkpoint positions remain real-token aligned through grouped
+    substep mapping.
+backward_map: For two histories with identical inputs, delta after one correction is alpha*delta*(I-beta*k*k^T).
+  Product norm bounds transport the omitted warm-up seed to each observation; adding declared rounding
+  error yields the state/output budget. Active-cut half-open intervals partition the full sequence exactly,
+  with overlap contributing only recomputation.
+obligations:
+- name: difference_transport
+  statement: Bound each correction and gate map, the omitted seed and each readout, rather than treating
+    a gate product alone as an absolute error bound.
+  method: proof
+- name: interval_partition
+  statement: First active cut, skipped candidates, warm-up suppression and next-active endpoints cover
+    every real output once with one final-state owner.
+  method: test
+- name: certificate_recipe
+  statement: Executed gate approximation, key normalization, rounding and actual aligned warm-up start
+    satisfy the selected upper bounds.
+  method: test
+- name: seed_and_workspace_retirement
+  statement: Original seed and replay inputs remain live, and final state cannot overwrite a seed still
+    being read by another item.
+  method: test
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: p.chunk_updates == 64 and p.planned_cut_count >= 1 and p.planned_cut_count <= 48 and (p.scalar_gated_delta_transition_and_shared_replay_inputs)
+    and (p.transport_bound_covers_actual_warmup_and_owned_interval) and (p.omitted_starting_state_norm_bound_valid_for_each_reset)
+    and (cut_policy == 'exact_only' or (p.reset_state_bound * p.transport_bound + p.state_rounding_budget
+    <= p.state_tolerance and p.max_readout_norm * p.reset_state_bound * p.transport_bound + p.output_rounding_budget
+    <= p.output_tolerance)) and (p.planned_cuts_sorted_unique_aligned_and_first_anchor_exact) and (p.active_cut_writes_until_next_active_cut_and_warmup_writes_suppressed)
+    and (p.cut_test_and_forward_scan_agree_on_one_immutable_gate_generation) and (p.all_replay_inputs_and_initial_state_live_until_readers_retire)
+    and (p.selected_cut_policy_and_warmup_execution_supported)
+  text: SM90 merged GDP prefill splits long sequence/head work into independent64-update chunk-pair items.
+    Source cut alignment is lcm(2,n), n1..4; scan8 prior chunks and threshold-24 are exported settings.
+    The source tests gate saturation, while this reusable candidate explicitly restricts admitted inputs/error
+    budgets through seed and correction-transport bounds. The source threshold is not a demonstrated certificate
+    for arbitrary raw K/V/initial state. Featurewise gates, exact bitwise equivalence and a generic numerical
+    stability guarantee are excluded.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Admit bounded-error zero-seed warm-up cuts and partition output ownership by successive active
+    cuts.
+  storage: Independent local states plus overlapping replay inputs; no full state exchange at admitted
+    cuts.
+  boundary: Actual transport/seed/readout budget, consistent cut predicate, warm-up read-only region and
+    single final owner.
+  resources:
+  - registers
+  - smem
+  - tensor
+  - dram
+numeric_risk: A tiny gate product can still leave large absolute error from a large omitted state or an
+  amplifying beta/key correction. Native approximate log/exp and state/solve rounding consume part of
+  the tolerance.
+summary: When a recurrent chain forgets its boundary state fast enough under a declared error budget,
+  run intervals independently after a short zero-seed warm-up. Certify omitted-state transport, not only
+  gate decay; rejected cuts extend the preceding owner, and warm-up outputs remain private.

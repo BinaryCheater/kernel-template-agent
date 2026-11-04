@@ -1,0 +1,125 @@
+name: chunk_ready_collective_pipeline
+version: 1
+level_from: 4
+level_to: 5
+change: vertical
+refines: sync
+produces:
+- sync
+- transfer
+- contract
+object:
+  type: kernel_collective_chunk_handoff
+  description: Expose collective/GEMM overlap by publishing only the completed logical chunks needed by
+    the next stage.
+variables:
+- name: direction
+  kind: structure
+  binding: compile
+  role: boundary
+  domain:
+  - gather_input
+  - scatter_output
+  meaning: All-gather chunk supplies a GEMM input, or completed GEMM output chunk feeds reduce-scatter.
+- name: handoff_mode
+  kind: structure
+  binding: compile
+  role: software
+  domain:
+  - stream_event
+  - device_counter
+  meaning: Separate chunk launches publish completion through CUDA events, or a supported vendor/kernel
+    protocol publishes each chunk through device counters.
+constraints:
+- id: c_partition
+  expr: p.num_chunks > 0 and p.chunk_partition_complete_disjoint
+  meaning: Chunk domains cover the requested input/output exactly once.
+  cls: semantic
+- id: c_counter
+  expr: handoff_mode != 'device_counter' or p.producer_consumer_counter_contract_supported
+  meaning: Counter granularity and producer/consumer roles are supported by the selected native provider.
+  cls: implementation
+preconditions:
+- id: pre_dependencies
+  expr: p.chunk_stage_dependencies_match and p.each_chunk_ready_before_consumer and p.collective_ownership_matches
+  meaning: Input/output chunk maps and collective ownership match every consumer dependency.
+  cls: semantic
+- id: pre_memory
+  expr: p.publication_visible_to_consumer and p.transfer_completion_before_publication and p.buffer_and_workspace_reuse_ordered
+  meaning: Signal visibility and buffer lifetime cover the actual transfer/compute completion, not just
+    launch.
+  cls: implementation
+- id: pre_epoch
+  expr: p.counter_or_event_epoch_owned and p.all_participating_streams_joined and p.communication_progress_guaranteed
+  meaning: Launch epochs, final stream join and scheduling guarantee progress without stale completion
+    reuse.
+  cls: implementation
+- id: pre_numeric
+  expr: p.collective_numeric_policy_admitted and p.scale_metadata_matches_payload
+  meaning: Rank reduction and any quantized communication preserve the requested numerical/scale contract.
+  cls: semantic
+program:
+  description: Partition the communicated matrix axis into logical chunks. For gather_input, each resident/local
+    or received chunk may feed its GEMM only after its payload and metadata are complete; keep output
+    addresses keyed to original chunk identity even when arrival order is cyclic. For scatter_output,
+    a chunk reduce-scatter may begin only after the matching GEMM contribution is complete, and it produces
+    exactly that rank-owned output range. stream_event uses a completion event recorded after each producing
+    launch and a wait on its consumer stream. device_counter uses a supported chunk-granularity producer/consumer
+    counter protocol with its explicit initialization, ready/consumed transition and memory ordering.
+    Independent later producers/earlier consumers may overlap. Keep per-stream workspaces disjoint or
+    ordered, and release payload buffers only after their final consumers. Join all compute, communication
+    and optional copy streams before exposing the complete result or reusing launch state.
+backward_map: Serialize the same chunk producers and consumers in dependency order; concatenating gathered/GEMM
+  chunks or rank-owned reduce-scatter chunks recovers the requested collective-plus-contraction result.
+obligations:
+- name: chunk_cover
+  statement: Every logical chunk is produced, consumed and placed once with the required collective rank
+    ownership.
+  method: proof
+- name: ready_means_complete
+  statement: Native event/counter publication implies the complete payload and metadata are visible to
+    the consumer.
+  method: test
+- name: lifetime_and_join
+  statement: No buffer/counter/workspace is reused early and final completion joins every participating
+    stream.
+  method: test
+- name: progress
+  statement: Concurrent communication/GEMM kernels have a supported forward-progress and resource allocation
+    contract.
+  method: test
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: p.num_chunks > 0 and p.chunk_partition_complete_disjoint and (handoff_mode != 'device_counter'
+    or p.producer_consumer_counter_contract_supported) and p.chunk_stage_dependencies_match and p.each_chunk_ready_before_consumer
+    and p.collective_ownership_matches and p.publication_visible_to_consumer and p.transfer_completion_before_publication
+    and p.buffer_and_workspace_reuse_ordered and p.counter_or_event_epoch_owned and p.all_participating_streams_joined
+    and p.communication_progress_guaranteed and p.collective_numeric_policy_admitted and p.scale_metadata_matches_payload
+  text: CUDA stream/event or explicitly supported device-counter handoff between GEMM and all-gather/reduce-scatter
+    chunks. Source TransformerEngine provides event-split and cuBLAS atomic-counter paths, plus an external
+    cuBLASMp alternative. Counter mode in this pinned source is gated to CUDA 12.2..<13 and cuBLAS 12.2.5..<13.
+    This rule does not supply the unavailable vendor tile-publication implementation, arbitrary cross-device
+    memory ordering, network protocol or a measured overlap benefit. Bulk unrelated work overlap is a
+    separate no-chunk-dependency case.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Dependency-preserving chunk handoff between matrix contraction and collective communication.
+  storage: Registered payload chunks, per-stream scratch and event/counter launch state retained through
+    final join.
+  boundary: Chunk identity, completion visibility, collective ownership and forward progress.
+  resources:
+  - dram
+  - tensor
+  - interconnect
+numeric_risk: Quantized reduce-scatter must bind decoder scales and accumulation precision; moving a scale
+  outside a rank reduction requires a common admitted factor.
+summary: When collective completion of the whole matrix delays otherwise independent GEMM chunks, or GEMM
+  completion delays independent output reduce-scatter chunks, publish readiness at the shared chunk boundary.
+  Choose event-separated launches or a supported device-counter protocol, preserve original chunk identities,
+  and join every stream before reuse. Chunk size/resource allocation may trade more launches and communication
+  overhead for overlap; no benefit is assumed without measurement.

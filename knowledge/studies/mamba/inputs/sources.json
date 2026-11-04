@@ -1,0 +1,7 @@
+{
+  "upstream": "https://github.com/state-spaces/mamba",
+  "revision": "e9594ce1c732d97440f0332fdc43170a2294dbfa",
+  "tree": "/Users/dingyi/kta-data/dev/operator-sources/state-spaces/mamba/e9594ce1c732d97440f0332fdc43170a2294dbfa/worker-c-source",
+  "archive": "/Users/dingyi/kta-data/dev/operator-sources/state-spaces/mamba/e9594ce1c732d97440f0332fdc43170a2294dbfa/worker-c-source.tar.gz",
+  "scope": "Full superproject source; external submodules absent"
+}

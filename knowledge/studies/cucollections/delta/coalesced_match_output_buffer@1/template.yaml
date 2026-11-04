@@ -1,0 +1,105 @@
+{
+  "name": "coalesced_match_output_buffer",
+  "version": 1,
+  "level_from": 2,
+  "level_to": 3,
+  "change": "vertical",
+  "refines": "map",
+  "produces": [
+    "map",
+    "access"
+  ],
+  "object": {
+    "type": "coalesced_match_output_buffer",
+    "description": "When hash probes can yield many matches per key, accumulate paired probe/match records in bounded shared buffers and reserve global output ranges per flush."
+  },
+  "variables": [
+    {
+      "name": "buffer_multiplier",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": [
+        1
+      ],
+      "meaning": "Source shared buffer reserve in maximum-match steps."
+    },
+    {
+      "name": "flushing_lanes",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": [
+        32
+      ],
+      "meaning": "One warp shares a flush buffer; probing group size must divide it."
+    }
+  ],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_0",
+      "expr": "p.matches_complete_and_paired and p.output_capacity_sufficient",
+      "meaning": "Probe traversal finds all admitted matches, preserves duplicate multiplicity and output allocation covers every emitted pair.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_1",
+      "expr": "p.max_matches_per_step_bounded and p.buffer_capacity_valid",
+      "meaning": "A probe step produces at most flushing_lanes*bucket_size records; buffer holds pending count plus the next step.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_2",
+      "expr": "p.buffer_writers_synchronized and p.global_reservations_atomic",
+      "meaning": "All shared writes complete before flush; atomic output reservation allocates disjoint global ranges.",
+      "cls": "semantic"
+    }
+  ],
+  "program": {
+    "description": "Each probing subgroup ballots matching slots, counts matches per bucket, reserves a shared-buffer interval and writes (probe_key,matched_slot) pairs at ballot-prefix offsets. All probing subgroups in a flushing warp share a counter/buffer. Before another probe step can exceed capacity, synchronize, atomically reserve count global records once, broadcast base and cooperatively copy the buffered pairs. Reset shared count only after flush reads finish; flush the final remainder. Output order is unspecified unless a later ordering stage establishes it."
+  },
+  "backward_map": "Erase auxiliary organization and recover the visible results under the stated contract.",
+  "obligations": [
+    {
+      "name": "multiplicity",
+      "statement": "Every matching slot yields one paired record per logical probe, including duplicate input keys.",
+      "method": "proof"
+    },
+    {
+      "name": "local_capacity",
+      "statement": "Preflush threshold leaves room for an all-match next probe step.",
+      "method": "proof"
+    },
+    {
+      "name": "output_ownership",
+      "statement": "Each flush owns a disjoint global interval, and probe/match arrays use exactly the same offset.",
+      "method": "proof"
+    },
+    {
+      "name": "lifetime",
+      "statement": "Flush sees completed shared records and reset follows all reads.",
+      "method": "proof"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.matches_complete_and_paired and p.output_capacity_sufficient and p.max_matches_per_step_bounded and p.buffer_capacity_valid and p.buffer_writers_synchronized and p.global_reservations_atomic",
+    "text": "NVIDIA open-addressing multimap/multiset retrieve_if/retrieve paths. Exact membership is separate from output reservation; insufficient caller output capacity has undefined source behavior and is excluded. Resource effects: Shared capacity=(buffer_multiplier*32*bucket_size)+32 records per warp; one global counter reservation per flush replaces one reservation per match, at cost of buffering and synchronization."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "When hash probes can yield many matches per key, accumulate paired probe/match records in bounded shared buffers and reserve global output ranges per flush.",
+    "storage": "Shared capacity=(buffer_multiplier*32*bucket_size)+32 records per warp; one global counter reservation per flush replaces one reservation per match, at cost of buffering and synchronization.",
+    "boundary": "For bucket_size2, max next step64 and buffer96, pending40 must flush before another all-match step. Reserving probe array at base100 but match array at base104 destroys pair correspondence even if each array stays in bounds.",
+    "resources": []
+  },
+  "numeric_risk": "Preserve the supplied arithmetic contract; reassociation, quantization and approximate search require separate permission.",
+  "summary": "When hash probes can yield many matches per key, accumulate paired probe/match records in bounded shared buffers and reserve global output ranges per flush. For bucket_size2, max next step64 and buffer96, pending40 must flush before another all-match step. Reserving probe array at base100 but match array at base104 destroys pair correspondence even if each array stays in bounds."
+}

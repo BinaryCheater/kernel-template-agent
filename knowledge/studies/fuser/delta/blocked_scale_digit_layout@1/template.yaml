@@ -1,0 +1,98 @@
+name: blocked_scale_digit_layout
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: access
+produces:
+- access
+object:
+  type: blocked_scale_digit_layout
+  description: A padded two-dimensional scale table split into row/column digits and
+    physically interleaved.
+variables:
+- name: R_outer
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 1
+    hi: 65536
+  meaning: 'Fast row digit: row modulo R_outer.'
+- name: R_inner
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 1
+    hi: 65536
+  meaning: 'Other within-tile row digit: row//R_outer modulo R_inner.'
+- name: C
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 1
+    hi: 65536
+  meaning: Contiguous scale columns per column tile.
+constraints:
+- id: c0
+  expr: p.padded_rows % (R_outer * R_inner) == 0 and p.padded_cols % C == 0
+  meaning: Allocation contains whole digit tiles.
+  cls: semantic
+- id: c1
+  expr: p.padded_rows >= p.rows and p.padded_cols >= p.cols
+  meaning: Every logical scale is inside the padded table.
+  cls: semantic
+preconditions:
+- id: pre0
+  expr: p.scale_coordinates_paired_with_codes and p.consumer_uses_same_digit_layout
+  meaning: Producer and decoder agree on the logical scale coordinate.
+  cls: semantic
+- id: pre1
+  expr: p.allocation_lifetime_valid and p.integer_offsets_fit
+  meaning: Storage and offset arithmetic are valid.
+  cls: semantic
+program:
+  description: For logical (r,c), let rt=r//(R_outer*R_inner), ro=r%R_outer, ri=(r//R_outer)%R_inner,
+    ct=c//C, ci=c%C. Store in contiguous digit order [rt,ct,ro,ri,ci]. Offset=rt*p.padded_cols*R_outer*R_inner+ct*R_outer*R_inner*C+ro*R_inner*C+ri*C+ci.
+    Padding storage is separate from logical scale ownership and must not emit scales
+    for nonexistent code groups.
+backward_map: Invert the radix digits to r=rt*R_outer*R_inner+ri*R_outer+ro and c=ct*C+ci,
+  recovering the original scale table.
+obligations:
+- name: digit_bijection
+  statement: Every valid scale has exactly one physical address and inverse.
+  method: proof
+- name: consumer_pairing
+  statement: Code and decoded scale use the same logical group despite physical layout.
+  method: test
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: p.padded_rows % (R_outer * R_inner) == 0 and p.padded_cols % C == 0 and
+    p.padded_rows >= p.rows and p.padded_cols >= p.cols and p.scale_coordinates_paired_with_codes
+    and p.consumer_uses_same_digit_layout and p.allocation_lifetime_valid and p.integer_offsets_fit
+  text: Positive row/column digit sizes, padded allocation and exact integer addressing.
+    Fuser NVFP4 binding R_outer=32,R_inner=4,C=4. Does not change scale values or
+    choose quantization groups.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: A padded two-dimensional scale table split into row/column digits and
+    physically interleaved.
+  storage: Source-bound physical buffer; exact byte count and capacity supplied by
+    binding.
+  boundary: Coordinate identity and storage lifetime.
+  resources:
+  - smem
+  - reg
+numeric_risk: Address/storage transformation preserves values; arithmetic changes
+  require separate obligations.
+summary: When a scale consumer expects small column groups interleaved with row subtiles,
+  split coordinates into digits rather than copying a plain transpose. Bind row digit
+  sizes and column group; r=33,c=5 at (32,4,4) maps to [0,1,1,1,1]. Reject consumers
+  using an ordinary row-major or differently ordered digit table.

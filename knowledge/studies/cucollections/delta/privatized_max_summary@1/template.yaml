@@ -1,0 +1,96 @@
+{
+  "name": "privatized_max_summary",
+  "version": 1,
+  "level_from": 2,
+  "level_to": 3,
+  "change": "vertical",
+  "refines": "map",
+  "produces": [
+    "map",
+    "access"
+  ],
+  "object": {
+    "type": "privatized_max_summary",
+    "description": "When many updates contend on the same max-register summary, accumulate independent block-local summaries and merge their completed register maxima into one global summary."
+  },
+  "variables": [
+    {
+      "name": "local_registers",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": {
+        "lo": 1,
+        "hi": 1073741824
+      },
+      "meaning": "Summary register count; must fit chosen private shared/global capacity."
+    }
+  ],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_0",
+      "expr": "p.input_partition_complete and p.summary_mapping_identical",
+      "meaning": "Every admitted update is processed and every private/global summary uses the same register/rank mapping.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_1",
+      "expr": "p.local_global_initial_zero and p.max_updates_atomic",
+      "meaning": "All summaries begin at their max identity and competing register updates are atomic.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_2",
+      "expr": "p.local_updates_complete_before_merge and p.global_read_after_merge",
+      "meaning": "Local producers finish before flush and final estimate follows every block merge.",
+      "cls": "semantic"
+    }
+  ],
+  "program": {
+    "description": "Initialize a CTA-private register array to zero, synchronize, apply each assigned item update as local atomic max, synchronize, then cooperatively atomic-max every local register into the corresponding global register. If shared allocation/reservation is unavailable, process items with direct global max instead. Vectorized item reads use exactly one tail owner to avoid omissions; repeated items do not change idempotent max semantics."
+  },
+  "backward_map": "Erase auxiliary organization and recover the visible results under the stated contract.",
+  "obligations": [
+    {
+      "name": "summary_preservation",
+      "statement": "Each local array is the maximum of its assigned updates, and final global is their pointwise maximum.",
+      "method": "proof"
+    },
+    {
+      "name": "phase_lifetime",
+      "statement": "Private initialization precedes updates and merge reads follow all updates.",
+      "method": "proof"
+    },
+    {
+      "name": "tail_cover",
+      "statement": "Vector groups and scalar remainder cover the item domain without missing a remainder.",
+      "method": "proof"
+    },
+    {
+      "name": "resources",
+      "statement": "Local register bytes fit shared allocation; fallback changes placement, not sketch mapping.",
+      "method": "proof"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.input_partition_complete and p.summary_mapping_identical and p.local_global_initial_zero and p.max_updates_atomic and p.local_updates_complete_before_merge and p.global_read_after_merge",
+    "text": "NVIDIA HLL add_if shared/global kernels. CCCL privatized_bin_accumulation@1 counts+1 and sums private counters; it cannot encode max-register flush unchanged. This rule preserves register state and does not introduce a cardinality accuracy claim. Resource effects: Shared summary per CTA plus one global merge per register can reduce global contention but adds full-array clear/flush work; benefit depends on input volume, precision and resident block count."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "When many updates contend on the same max-register summary, accumulate independent block-local summaries and merge their completed register maxima into one global summary.",
+    "storage": "Shared summary per CTA plus one global merge per register can reduce global contention but adds full-array clear/flush work; benefit depends on input volume, precision and resident block count.",
+    "boundary": "Private arrays[0,5,1] and[2,3,1] merge to[2,5,1], not[2,8,2]. Tail item after vector groups must update the same hash/register policy before its owning block merges.",
+    "resources": []
+  },
+  "numeric_risk": "Preserve the supplied arithmetic contract; reassociation, quantization and approximate search require separate permission.",
+  "summary": "When many updates contend on the same max-register summary, accumulate independent block-local summaries and merge their completed register maxima into one global summary. Private arrays[0,5,1] and[2,3,1] merge to[2,5,1], not[2,8,2]. Tail item after vector groups must update the same hash/register policy before its owning block merges."
+}

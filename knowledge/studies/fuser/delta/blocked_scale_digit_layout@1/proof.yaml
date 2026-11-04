@@ -1,0 +1,13 @@
+template: blocked_scale_digit_layout@1
+version: 1
+relation: Invert the radix digits to r=rt*R_outer*R_inner+ri*R_outer+ro and c=ct*C+ci,
+  recovering the original scale table.
+rank: Unmapped coordinates or unretired readers.
+assumes:
+- name: binding
+  statement: Declared source layout and lifetime premises hold.
+guarantees: []
+models: []
+note: Euclidean division uniquely yields bounded digits; mixed-radix flattening is
+  injective and inverse reconstructs r,c. Source runtime/block_quantization_kernels.cu:16-58
+  and :290-315. Unique-coordinate witness in checks/design_witnesses.py.

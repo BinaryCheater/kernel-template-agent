@@ -1,0 +1,108 @@
+name: load_compute_store_role_pipeline
+version: 1
+level_from: 2
+level_to: 3
+change: vertical
+refines: work_assign
+produces:
+- work_assign
+- map
+- store
+- sync
+object:
+  type: load_compute_store_role_pipeline
+  description: Three warp roles communicate through independent input and output generation
+    rings.
+variables:
+- name: load_slots
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 1
+    hi: 65536
+  meaning: Input ring slots shared by load and compute roles.
+- name: store_slots
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 1
+    hi: 65536
+  meaning: Output ring slots shared by compute and store roles.
+- name: compute_warps
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 1
+    hi: 65536
+  meaning: Default compute-role warp count; source binds four or eight.
+constraints: []
+preconditions:
+- id: pre0
+  expr: p.role_warps_and_register_budgets_fit and p.all_roles_same_trip_count
+  meaning: Role resources fit rounded NVIDIA warpgroup allocation and every role processes
+    the same generations.
+  cls: semantic
+- id: pre1
+  expr: p.barriers_initialized_and_input_output_phase_maps_match and p.proxy_fences_between_shared_and_async_accesses
+  meaning: Ready/empty barriers and asynchronous proxy visibility match both rings.
+  cls: semantic
+- id: pre2
+  expr: p.store_source_reads_retire_before_empty_publication and p.final_stores_drained
+  meaning: Output storage is not released before pending store reads finish.
+  cls: semantic
+program:
+  description: Allocate input ring with full/empty barriers per load_slots and output
+    ring with separate full/empty barriers per store_slots. Load role waits empty
+    at slot i%load_slots and phase opposite floor(i/load_slots)%2, registers expected
+    input bytes and issues TMA loads. Compute waits input full at that phase, captures
+    input in registers, fences shared/async proxy access and signals input empty.
+    Compute forms output, waits output empty at its independently derived phase, stores/fences
+    it and signals output full. Store role waits output full, issues TMA stores, permits
+    store_slots-1 groups in flight and signals the oldest output slot empty only after
+    its store source reads complete. Drain final stores. Source uses one load warp
+    and one store warp with 24-register worker budgets, plus default compute warps;
+    actual allocation rounds the worker roles into warpgroups.
+backward_map: Serialize each generation load, computation and output store while erasing
+  the two physical rings and three actor roles.
+obligations:
+- name: generation_identity
+  statement: Every role reads the same generation and each ring is released only after
+    its last reader.
+  method: proof
+- name: proxy_and_store_completion
+  statement: Native ready/empty publication includes proxy fences and completed store-source
+    reads.
+  method: test
+- name: role_progress
+  statement: Role allocation and waits have no circular missing-generation dependency.
+  method: test
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: (p.role_warps_and_register_budgets_fit and p.all_roles_same_trip_count)
+    and (p.barriers_initialized_and_input_output_phase_maps_match and p.proxy_fences_between_shared_and_async_accesses)
+    and (p.store_source_reads_retire_before_empty_publication and p.final_stores_drained)
+  text: Finite equal-trip three-role CTA pipelines with independent input/output ring
+    lengths and native TMA/mbarrier support. This exposes the separate store-role
+    ring/resources absent from warp_specialization@1 fields.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Three warp roles communicate through independent input and output generation
+    rings.
+  storage: Binding-specific counters, partials or output ranges.
+  boundary: Tile prefixes and logical membership.
+  resources: []
+numeric_risk: Integer counts must not overflow; ordering/rounding policy belongs to
+  the bound operation.
+summary: When compute should overlap both input movement and output stores, use separate
+  load, compute and store roles with independently sized rings. A two-slot input ring
+  and three-slot output ring need different modulo/phase counters. A ready barrier
+  does not replace the async proxy fence, and output empty may be published only after
+  TMA finishes reading that slot.

@@ -1,0 +1,7 @@
+{
+  "upstream": "https://github.com/facebookresearch/faiss",
+  "revision": "1d40eebe82718de25e030c092406ebc916c36a0f",
+  "archive": "/Users/dingyi/kta-data/dev/operator-sources/facebookresearch/faiss/1d40eebe82718de25e030c092406ebc916c36a0f/worker-e-source.tar.gz",
+  "tree": "/Users/dingyi/kta-data/dev/operator-sources/facebookresearch/faiss/1d40eebe82718de25e030c092406ebc916c36a0f/faiss-1d40eebe82718de25e030c092406ebc916c36a0f",
+  "scope": "complete superproject archive; nested external dependencies not materialized"
+}

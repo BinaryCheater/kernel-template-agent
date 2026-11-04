@@ -1,0 +1,102 @@
+name: count_bucketed_sparse_row_reduction
+version: 1
+level_from: 2
+level_to: 3
+change: vertical
+refines: reduce
+produces:
+- reduce
+- store
+- sync
+object:
+  type: count_bucketed_sparse_row_reduction
+  description: Rows are stably bucketed by active contributor count, then reduced
+    by ascending bitmap member indices.
+variables:
+- name: chain_factor
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 1
+    hi: 65536
+  meaning: Adjacent feature tiles processed by one row executor.
+- name: heavy_subtiles
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 1
+    hi: 65536
+  meaning: Independent row subtiles for the heavy bucket (source binds2).
+constraints: []
+preconditions:
+- id: pre0
+  expr: p.mask_feature_broadcast and p.reduction_extent <= 32 and p.nonzero_mask_means_active
+  meaning: One contributor bitmap describes every feature of a row.
+  cls: semantic
+- id: pre1
+  expr: p.row_permutation_exact and p.original_row_identity_retained and p.bucket_limits_cover_counts
+  meaning: Reordering changes execution order only; dispatch limits cover every active
+    contributor.
+  cls: semantic
+- id: pre2
+  expr: p.admitted_add_order_and_decode_scale_policy and p.output_tiles_disjoint
+  meaning: Ascending contributor accumulation, scale decoding and output ownership
+    match the requested numeric contract.
+  cls: semantic
+program:
+  description: 'Count nonzero contributor-mask entries per row. Within each planner
+    CTA interleaved row enumeration, stable-partition into counts>=4, counts3, counts2,
+    counts<=1, keeping the original row IDs and scattering back to that same enumeration
+    of destination positions. This is not a global stable sort. For a tile of reordered
+    rows dispatch from its maximum count: at most1, exactly2, exactly3 use those static
+    loop bounds; mixed/heavy tiles use the full reduction extent and may split independent
+    row subtiles. Build each row uint32 bitmap from nonzero mask entries. At every
+    iteration obtain ffs(bitmap)-1, mask an empty bitmap, then clear its least significant
+    set bit. Load only that contributor, apply its micro/global/per-element scales
+    in declared order, and add. An empty row produces zero. Chain adjacent feature
+    tiles under the same row metadata, then store at original row IDs. This is count-class
+    ordering, not least-loaded heap assignment.'
+backward_map: Invert the row permutation and expand the bitmap loop into the original
+  masked contributor sum in ascending contributor index order.
+obligations:
+- name: bucket_cover
+  statement: Every original row appears once, and every dispatched loop limit covers
+    all of its set bits.
+  method: test
+- name: bitmap_order
+  statement: ffs/clear-lowest enumerates each active contributor once in ascending
+    original order, including empty rows.
+  method: proof
+- name: tile_ownership
+  statement: Heavy row subtiles and chained feature ranges partition outputs without
+    duplicating row contributions.
+  method: test
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: (p.mask_feature_broadcast and p.reduction_extent <= 32 and p.nonzero_mask_means_active)
+    and (p.row_permutation_exact and p.original_row_identity_retained and p.bucket_limits_cover_counts)
+    and (p.admitted_add_order_and_decode_scale_policy and p.output_tiles_disjoint)
+  text: Feature-broadcast sparse masks with at most32 contributors; general per-feature
+    masks use the separate ordinary masked loop. Reordering is safe for independent
+    rows. Source thresholds1/2/3 are a compiled menu, not a measured universal optimum.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Rows are stably bucketed by active contributor count, then reduced by
+    ascending bitmap member indices.
+  storage: Binding-specific counters, partials or output ranges.
+  boundary: Tile prefixes and logical membership.
+  resources: []
+numeric_risk: Integer counts must not overflow; ordering/rounding policy belongs to
+  the bound operation.
+summary: When rows have a small bounded contributor axis and varying sparsity, bucket
+  by active count and enumerate only bitmap members. Keep original row IDs through
+  the permutation so dense output order is preserved. Static short loops and heavy
+  row subtiles are independent scheduling choices; feature-dependent masks cannot
+  share one bitmap.

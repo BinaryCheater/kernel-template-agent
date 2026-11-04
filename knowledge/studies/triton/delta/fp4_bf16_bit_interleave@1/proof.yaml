@@ -1,0 +1,14 @@
+template: fp4_bf16_bit_interleave@1
+version: 1
+relation: Extract each source nibble using the inverse bit incidence map, restoring
+  its original byte and low/high position.
+rank: Unprocessed source items or unmerged partials.
+assumes:
+- name: contract
+  statement: The stated partition, comparator/count and publication premises hold.
+guarantees: []
+models: []
+note: Source hopper_value.py:_compress_fp4, _compress_fourth, _pack_bits and _unpack_bits.
+  Existing bitstream_packing@2 concatenates bits and operand_bitfield_placement@1
+  shifts one byte; neither supplies this32-bit permutation. The finite bit-incidence
+  witness is separate from native decoder assurance.

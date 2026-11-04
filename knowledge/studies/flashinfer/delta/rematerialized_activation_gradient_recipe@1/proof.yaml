@@ -1,0 +1,50 @@
+template: rematerialized_activation_gradient_recipe@1
+version: 1
+relation: Expand every stored partial into the selected rematerialized derivative and local products under
+  its fixed arithmetic recipe. This recovers the chosen native backward convention with unchanged coordinates/generation
+  and declared casts; no equivalence between the two conventions or recovery of discarded FP32 information
+  is asserted.
+rank: Derivative rows not yet reconstructed, followed by live local partials not yet merged and final
+  gradient stores not yet issued.
+assumes:
+- name: pre_contract
+  statement: Caller selects a named backward numerical recipe, including where the activation derivative
+    is evaluated. This is an approximation/convention through the forward cast, not the mathematical derivative
+    of a discrete BF16 quantizer or an algebraic identity between recipes.
+- name: pre_replay
+  statement: Backward rematerializes the same stencil inputs, parameters, optional bias and document support
+    from the original forward generation. Halo derivative rows follow the same recipe as interior rows;
+    no hidden state or changed weights enter reconstruction.
+- name: pre_preactivation
+  statement: Specify tap product/add/FMA order, optional bias added after taps, preactivation FP32 operations,
+    optional BF16 round-and-widen, sigmoid approximation/FTZ and derivative grouping. Merely selecting
+    FP32 versus BF16 does not fix the arithmetic recipe.
+- name: pre_partials
+  statement: Local dx accumulates in declared FP32 order then casts to BF16. Tap/bias partials are stored
+    in FP32 under the actual token/grid partition; widening those stored values later cannot recover information
+    already lost in their local computation.
+- name: pre_merge
+  statement: Reducer specifies FP32 or widened FP64 additions and its lane/halving tree, then converts
+    the final sum to FP32. BF16 gradient destinations apply a further BF16 conversion from that FP32 value;
+    do not substitute direct FP64-to-BF16 rounding.
+- name: pre_types
+  statement: BF16/FP32 tap and bias loads widen into the same declared FP32 recipe; gradient stores follow
+    actual dweight/dbias destination dtype, which may differ from parameter dtype. Flag bits and buffer
+    strides must describe those actual tensors.
+- name: pre_join
+  statement: Each existing CTA partial has unique ownership, empty streams emit zero and capacity holes
+    are unread. The reducer waits for producer completion, and scratch/output generation remains owned
+    through all consumers.
+- name: pre_backend
+  statement: Concrete backend ships selected route for SM100/103/107, width4 depthwise convolution plus
+    SiLU, contiguous BF16 x/dy/dx and C divisible by8. Optional architecture routes are checked, not inferred
+    from a vocabulary name. Source rounded and unrounded choices select coupled native programs and final
+    merge precision.
+guarantees: []
+models: []
+note: cake_jit.py:2638-2697 defines routes and load/store flags;backward_route selects bias/fp32g/dtype
+  routes. Native rounded9c8310a1d3fa9b8ccffa:450-470 forms tap mul/add preactivation, BF16-rounds then
+  widens before derivative; unroundedc8027a64ba3cc38333bf:435-455 uses unrounded FP32 FMA chain. Reducerce49146b9fef24adb47e:93-176
+  widens FP32 partials to double, uses fixed tree and casts total back to float before optional BF16 store.
+  Logical stage checks isolate derivative checkpoint, FMA grouping, local versus final loss and double
+  rounding; native approximation and full pipeline equality remain implementation obligations.

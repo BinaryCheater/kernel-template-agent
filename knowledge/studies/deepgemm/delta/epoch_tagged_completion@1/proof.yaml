@@ -1,0 +1,21 @@
+template: epoch_tagged_completion@1
+version: 1
+relation: In epoch e the counter base plus c denotes exactly c completed producer publications; consumers read payload only after the terminal current-epoch state.
+rank: Unfinished producers then unfinished consumers and grid users in the current finite epoch.
+assumes:
+  - {name: atomic_publication, statement: Release increments and an acquiring terminal load implement the required payload-publication ordering.}
+  - {name: scheduling, statement: The producer scheduler invokes each contributor once and permits all awaited producers to progress.}
+  - {name: isolated_epoch, statement: The buffer has one live launch epoch and all users retire before the next epoch starts.}
+guarantees: []
+models: []
+note: >-
+  Initialization publishes base with zero completed producers. Each exact-once publication
+  followed by release increment increases c by one without changing the epoch tag. With
+  participants<=64 and tag spacing128 the previous completed state lies below the new
+  base; unsigned subtraction rejects it throughout the nonwrapping declared epoch range.
+  The acquiring wait for base+participants cannot complete with a missing arrival under
+  exact-once scheduling. Retiring every user protects the next epoch's payload lifetime.
+  checks/mhc_schedule.py enumerates current/stale count intervals and small arrival orders,
+  plus the CTA/task ownership and epoch-exit arithmetic. It does not prove the GPU release
+  sequence or asynchronous red completion. Next: a device memory-model check and repeated
+  graph launches with delayed producers/consumers. No proof model or ProofResult is registered.

@@ -1,0 +1,15 @@
+{
+  "template": "reverse_transmittance_replay@1",
+  "version": 1,
+  "relation": "Before reverse candidate i, T_after equals product through i and suffix equals final forward-weighted colors strictly after i. Dividing by 1-alpha_i recovers T_before and adding current weighted color extends suffix.",
+  "rank": "Accepted contributors remaining in reverse order.",
+  "assumes": [
+    {
+      "name": "source_contract",
+      "statement": "NVIDIA3DGS serial/sparse conic backward paths. MAX_ALPHA0.99 makes1-alpha>=0.01 while source denominator floor1e-6 is inactive. World-space saturation policies that store post-saturationT require separate checkpoint bindings; this version follows serial exclusive saturation."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Source-derived proof outline; no formal proof result or GPU execution claimed. prefix_recovery: Restored prefix matches the saved forward recurrence under admitted finite-precision inversion. suffix_invariant: Suffix color equals contributions strictly after the current layer, scaled in the original forward frame. acceptance_replay: Skipped/capped/last/saturating cases use the same branch and identity convention as forward. gradient_ownership: Per-pixel contributions to shared primitive attributes are all retained through warp grouping and atomic accumulation."
+}

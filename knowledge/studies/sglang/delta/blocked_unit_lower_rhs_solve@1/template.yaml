@@ -1,0 +1,92 @@
+{
+  "name": "blocked_unit_lower_rhs_solve",
+  "version": 1,
+  "level_from": 3,
+  "level_to": 4,
+  "change": "vertical",
+  "refines": "contract",
+  "produces": [
+    "contract",
+    "map",
+    "sync"
+  ],
+  "object": {
+    "type": "completed_triangular_rhs_block",
+    "description": "Completed rows of a unit-lower triangular solve, published to supply off-diagonal matrix products for later row blocks."
+  },
+  "variables": [
+    {
+      "name": "block_order",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": [
+        16
+      ],
+      "meaning": "Diagonal block rows; pinned64-row source uses four16-row blocks. Other orders require a realization."
+    }
+  ],
+  "constraints": [
+    {
+      "id": "c_shape",
+      "expr": "p.order == 4 * block_order and p.rhs_columns >= 1",
+      "meaning": "Four-block source binding with one or more RHS columns.",
+      "cls": "implementation"
+    }
+  ],
+  "preconditions": [
+    {
+      "id": "pre_matrix",
+      "expr": "p.unit_lower_matrix and p.coefficients_rhs_same_generation and p.products_and_casts_admitted",
+      "meaning": "Solve(I+A)X=B whereA is strictly lower; cross-block products and diagonal serial substitutions have a declared numerical policy.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_storage",
+      "expr": "p.completed_blocks_ready_and_alive and p.workspaces_fit and p.all_rhs_columns_covered",
+      "meaning": "Every earlier row block is visible and retained for all later couplings; workspace and RHS column ownership are valid.",
+      "cls": "implementation"
+    }
+  ],
+  "program": {
+    "description": "For block rowb in order0..3, startRb=Bb. Compute cross-block couplingRb-=sum(j<b)Abj*Xj using completed blocks. Solve(I+Abb)Xb=Rb by forward substitution within the16-row block independently per RHS column. PublishXb and any narrow packed transpose required by later coupling products. Do not construct or store the full inverse. Retain completed blocks until their final coupling consumer finishes."
+  },
+  "backward_map": "For each completed blockb, rearrangeXb+AbbXb+sum(j<b)AbjXj=Bb; together the four equations recover(I+A)X=B.",
+  "obligations": [
+    {
+      "name": "rhs_equations",
+      "statement": "Each block solves its diagonal unit-lower system after subtracting every preceding block coupling once.",
+      "method": "exhaustive"
+    },
+    {
+      "name": "dependency",
+      "statement": "Every coupling reads a completed matching-generationXj and all RHS columns have unique owners.",
+      "method": "test"
+    },
+    {
+      "name": "precision",
+      "statement": "Narrow operand encodings and dropped component products satisfy the declared solve residual policy.",
+      "method": "test"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.unit_lower_matrix and p.order == 4 * block_order and p.products_and_casts_admitted",
+    "text": "Pinned four16-row unit-lower RHS solve. KDA source64x256 RHS uses FP32 local substitution and three BF16 cross productshi*hi+lo*hi+hi*lo, excludinglo*lo, then storesP BF16 andu0 FP32. Generic exact algebra does not certify those numerical approximations or the SEQ0 inverse-block variant."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "Block forward substitution with matrix off-diagonal couplings and serial in-block triangular solves.",
+    "storage": "Completed RHS rows and optional transposed narrow coupling operands; no full inverse.",
+    "boundary": "Strictly lower coefficients, diagonal implicit1, prior blocks only.",
+    "resources": []
+  },
+  "numeric_risk": "Three-product BF16 expansion omits low*low and changes rounding; compare residual and end-to-end application error separately.",
+  "summary": "When a unit-lower triangular system has many RHS columns, solve block rows in order: use matrix products for completed off-diagonal couplings and forward substitution inside each small diagonal block. This trades row-level serialization for parallel RHS work without materializing a full inverse. Choose only the admitted16-row source block and retain packed completed rows through later couplings."
+}

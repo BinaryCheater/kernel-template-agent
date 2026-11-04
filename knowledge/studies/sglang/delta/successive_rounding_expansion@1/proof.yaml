@@ -1,0 +1,15 @@
+{
+  "template": "successive_rounding_expansion@1",
+  "version": 1,
+  "relation": "At every component, original x equals the sum of completed decoded components plus the remaining arithmetic residual.",
+  "rank": "Three minus emitted component count.",
+  "assumes": [
+    {
+      "name": "rounding",
+      "statement": "FP32 subtraction and BF16 nearest-even conversion with subnormals match the stated finite safe range."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Initialization residual=x. Subtract exactly the actually rounded component, preserving the decomposition invariant whenever subtraction is exact; the exponent/precision argument must show the third residual is BF16-representable within the declared domain. CPU bit-model witnesses cover selected boundaries and many deterministic mantissas, not a whole-domain proof or native GPU certification. Native conversion and independent MMA error remain open. Source quantization/bf16x3_split.py:14\u201324, consumer gemm/router_gemv.py:452\u2013461."
+}

@@ -1,0 +1,14 @@
+workload: "Partial SM100 FP8 sparse MQA input chain: two sorted index rows share KV/SF gathers; split512 tokens and sparse block8 give64 union blocks per split. Physical translation and consumer arithmetic remain external edges."
+items:
+  - key: union_indices
+    template: shared_index_union@1
+    applies_to: Two compatible logical sparse-block prefixes for one Q pair.
+    bindings: {items_per_split: 64}
+    after: []
+    code_markers: []
+  - key: gather_shared_payload
+    template: indexed_gather@1
+    applies_to: One sparse-block payload row after the union key has been translated to a physical block coordinate.
+    bindings: {granularity: row, index_prefetch: smem_batched, index_reuse: 1}
+    after: [union_indices]
+    code_markers: []

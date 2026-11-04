@@ -1,0 +1,45 @@
+template: reverse_affine_boundary_transport@1
+version: 1
+relation: Substitute each fragment affine adjoint map into the reverse document chain. The returned boundary
+  for fragment f is exactly the adjoint produced by all fragments strictly after f; applying its own local
+  seeded reverse walk then recovers its full contribution. Both transport organizations preserve this
+  noncommutative order.
+rank: Document predecessor links not yet supplied with their future boundary adjoint.
+assumes:
+- name: pre_affine
+  statement: Each fragment has S_out=M_f*S_in+B_f in column-state convention. Its local backward with
+    zero exit adjoint gives d_f, so its entry adjoint is M_f^T*lambda_out+d_f. The source document terminal
+    adjoint is zero.
+- name: pre_order
+  statement: Chronological fragment chains and their reverse predecessor maps are complete, disjoint per
+    document/head and independent of rank numbering. Owner capacity padding is never a live head.
+- name: pre_maps
+  statement: Saved forward M_f^T or resent backward M_f storage must resolve the same mathematical M_f^T
+    operator, with explicit load orientation, matching local inputs and numeric generation.
+- name: pre_numeric
+  statement: Zero-seed local reverse summaries and native FP32/TF32 stages implement the declared adjoint
+    approximation. Exact affine algebra does not establish bitwise agreement with a reassociated sequential
+    backward.
+- name: pre_owner
+  statement: Owner mode sends local adjoint summaries to head owners, waits before merging, then returns
+    the exclusive exit adjoint to each preceding fragment. All ranks including empty head owners use matching
+    collective order and compact split sizes.
+- name: pre_ring
+  statement: Source neighbor-hop mode is restricted to documents spanning at most three ranks, with local
+    maps available for each hop and save_transfer disabled. Hop count follows document neighbors, not
+    a cyclic rank permutation.
+- name: pre_lifetime
+  statement: Wait before consuming received data, publish each boundary before local tape walks and retire
+    transport/map storage after its last reader. Overlapped document-end walks run exactly once; their
+    aliased value-adjoint updates are not idempotent.
+- name: pre_scope
+  statement: Selected backend implements the partition, local segment carries, head groups, exchange and
+    summary layout. No crossing fragments requires no boundary exchange; it still performs local backward.
+guarantees: []
+models: []
+note: cake_kcp.py:1691-1693 defines the stored-map/operator orientation;1898-1993 binds owner and local
+  adjoint families;2184-2245 constructs reverse owner chains;3709-3799 propagates bounded document-neighbor
+  hops;4276-4445 selects summary form, exchange, waits and local tape walks. cake_kcp_plan.py:1774-1815
+  builds reverse predecessor offsets. Native c8 affine merge c6958a0a4ed5cb55a9a1 uses FP32 __fmaf_rn
+  chains and publishes entering/final states; no native communication execution is claimed. Exact matrix
+  tests cover transpose/order/exclusive-boundary algebra, not cross-rank progress or numeric-stage equivalence.

@@ -1,0 +1,16 @@
+template: persistent_value_rematerialization@1
+version: 1
+relation: Every consumer sees F of the same retained immutable frontier.
+rank: Later consumers still requiring a replay.
+assumes:
+- name: pure
+  statement: Producer DAG is deterministic and all dependencies are retained.
+- name: numeric
+  statement: Replay operations and types meet the same numerical contract.
+guarantees: []
+models: []
+note: 'Induct over the producer DAG: frontier leaves are identical; identical pure
+  operations over identical operands produce identical contract values. Replacing
+  one replay at a time yields the retained-value computation. Live-set capacity and
+  native compiler arithmetic are separate obligations. Source: normalization_utils.cpp:845-933
+  and :1380-1433; see trace-design-families.md.'

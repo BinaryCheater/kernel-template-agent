@@ -1,0 +1,92 @@
+name: thread_ownership_exchange
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: access
+produces:
+- access
+- store
+- transfer
+- sync
+object:
+  type: thread_ownership_exchange
+  description: A materialized tile at a selected producer/consumer boundary transfers
+    ownership between two thread mappings.
+variables:
+- name: exchange_boundary
+  kind: structure
+  binding: compile
+  role: software
+  domain:
+  - cached_input
+  - cached_output
+  meaning: Observed placement alternatives where the fusion switches thread ownership.
+constraints:
+- id: c0
+  expr: p.writer_map_bijective and p.reader_map_covers_required_tile
+  meaning: Each logical tile point has one writer and every consumer can find its
+    required points.
+  cls: semantic
+- id: c1
+  expr: p.tile_bytes <= p.shared_capacity_bytes
+  meaning: Exchange tile fits shared storage.
+  cls: semantic
+preconditions:
+- id: pre0
+  expr: p.all_writes_visible_before_reads and p.no_overwrite_before_last_reader and
+    p.all_participants_converge
+  meaning: CTA publication, convergence and storage lifetime protect exchange.
+  cls: semantic
+- id: pre1
+  expr: p.boundary_preserves_value_and_coordinate_semantics
+  meaning: The selected cache boundary contains values matching the consumers at that
+    point.
+  cls: semantic
+program:
+  description: At exchange_boundary allocate shared tile S. Threads of writer mapping
+    W store value V(x) at the shared address for logical coordinate x. Synchronize
+    the participating CTA. Threads with consumer mapping R read S at the address for
+    their required x, then release the tile only after all readers retire. Input and
+    output vector widths may differ provided vector_width*unroll equals each thread
+    mapping assigned element count.
+backward_map: 'Erase shared storage and the ownership maps: consumer of coordinate
+  x reads the same logical V(x) written at the chosen boundary.'
+obligations:
+- name: coordinate_identity
+  statement: Writer and reader shared addresses agree for each logical coordinate.
+  method: proof
+- name: lifetime
+  statement: Publication precedes every read and retirement precedes every destructive
+    reuse.
+  method: test
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: p.writer_map_bijective and p.reader_map_covers_required_tile and p.tile_bytes
+    <= p.shared_capacity_bytes and p.all_writes_visible_before_reads and p.no_overwrite_before_last_reader
+    and p.all_participants_converge and p.boundary_preserves_value_and_coordinate_semantics
+  text: CTA-local materialized tensor tiles with two explicit bijective ownership
+    maps and legal vector accesses. This is not the metadata-only tensor_axis_permutation@1
+    and not the GEMM-specific shared_memory_tiling@1.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: A materialized tile at a selected producer/consumer boundary transfers
+    ownership between two thread mappings.
+  storage: Source-bound physical buffer; exact byte count and capacity supplied by
+    binding.
+  boundary: Coordinate identity and storage lifetime.
+  resources:
+  - smem
+  - reg
+numeric_risk: Address/storage transformation preserves values; arithmetic changes
+  require separate obligations.
+summary: When fused inputs and outputs require different contiguous lane directions,
+  choose an explicit cache boundary to exchange a tile through shared memory. Bind
+  cached_input or cached_output and both thread maps; a 32x32 tile on 256 threads
+  may use four-element vectors on one side and two-element vectors with two unrolled
+  operations on the other. Synchronize before readers switch ownership.
