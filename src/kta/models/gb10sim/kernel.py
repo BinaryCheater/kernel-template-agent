@@ -281,7 +281,10 @@ def generic_kernel(
         elif rotating:
             scale = l2_rotating_miss(window, kind, m)
         else:
-            scale = l2_warm_miss(r.footprint, kind, m)
+            # round 11 (wr_*): reads a launch uses once stay on the L2's probation list beside the
+            # stores; re-read lines are protected (HGEMM)
+            once = m.P["warm_window_writes"] and r.loaded < 1.5 * r.footprint
+            scale = l2_warm_miss(r.footprint + (L.get("write_bytes", 0) if once else 0), kind, m)
         # the kernel's arguments, 8 bytes each from the first parameter slot, by name
         slots = {P0_SLOT + 8 * i: n for i, n in enumerate(L.get("params", ()))}
         byname = {
@@ -308,6 +311,10 @@ def generic_kernel(
         rb, miss = fb - wb, 1.0
     else:  # warm (round 3, probe l2reuse): the re-read misses by the footprint
         rb, miss = fb, l2_warm_miss(fb, kind, m)
+    kw["dram_writes_counted"] = wb > 0
+    kw["dirty_full"] = not rotating and L.get("write_bytes", 0) > m.P["stg_dirty_bytes"]
+    if any(x.base in ("RED", "REDG") for x in ins):
+        kw["atomic_bytes"] = L.get("write_bytes", 0)
     if miss > 0:
         kw = {
             **kw,

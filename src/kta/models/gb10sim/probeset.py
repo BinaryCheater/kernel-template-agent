@@ -727,6 +727,7 @@ def load_curve_cases(b: Batch, name: str = "load_curve", gs=LOAD_G, zs=LOAD_Z) -
                 grid_blocks=g,
                 grid_dim=(g, 1, 1),
                 copy_lines=[4],
+                copy_contiguous=True,
                 **kw,
             )
 
@@ -796,7 +797,8 @@ def l2_cap_cases(b: Batch) -> list[Case]:
             per_sm = math.ceil(g / m.sms)
             smem = L2_CAP_SMEM if kind == "cp" else 0
             rmax = occupancy({"threads": L2_CAP_T}, 8, smem, m)
-            extra = {"copy_lines": [lines]} if kind == "cp" else {}
+            contig = s == 16
+            extra = {"copy_lines": [lines], "copy_contiguous": contig} if kind == "cp" else {}
             if kind == "ld":
                 extra = {"ldg_lines": [(lines, nbytes, False)]}
             return SM(

@@ -25,6 +25,8 @@ instruction gates on and holds, its latency and read-counter rule) come from the
 from __future__ import annotations
 
 import heapq
+import itertools
+import math
 import re
 import struct
 from collections import OrderedDict
@@ -32,7 +34,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from .lanes import Lanes, footprint, lut3, shared_part_sector, width_of
+from .lanes import Lanes, contiguous, footprint, lut3, shared_part_sector, width_of
 from .machine import Machine, OpClass, default_machine
 from .sass import Ins, main_loop, parse
 
@@ -78,6 +80,16 @@ class Warp:
     ssy: list[list[Any]] = field(default_factory=list)
 
 
+def _interp(x: float, pts: list[list[float]]) -> float:
+    """Piecewise linear in log x over `pts` [[x, y], ...], flat outside."""
+    if x <= pts[0][0]:
+        return pts[0][1]
+    for (x0, y0), (x1, y1) in itertools.pairwise(pts):
+        if x <= x1:
+            return y0 + (y1 - y0) * math.log(x / x0) / math.log(x1 / x0)
+    return pts[-1][1]
+
+
 class SM:
     def __init__(
         self,
@@ -107,6 +119,10 @@ class SM:
         stack_bytes: int | None = None,
         wave_miss: list[tuple] | None = None,
         burst_bytes: float = 0.0,
+        atomic_bytes: float = 0.0,
+        dram_writes_counted: bool = False,
+        dirty_full: bool = False,
+        copy_contiguous: bool = False,
     ):
         self.ins = ins
         # KTA (PERFMODEL): with `trace`, every issue and the binding reason of every wait is kept
@@ -160,6 +176,14 @@ class SM:
         self.stack_bytes = stack_bytes if stack_bytes is not None else _stack_bytes(ins)
         self.stack_lru: OrderedDict = OrderedDict()
         self.st_bytes = 0.0  # bytes this SM has stored, for the chip's dirty limit
+        # round 11 (rw_*): sectors waiting at the SM's store port, until when: a later store merges
+        self.st_pending: dict[Any, float] = {}
+        self.dram_writes_counted = dram_writes_counted  # the DRAM clock already holds the writes
+        # round 11 (wr_*): repeated launches writing past the dirty limit find it full at the start
+        self.dirty_full = dirty_full
+        # round 11 (atom_*): the bytes a launch's lane-spread atomics land on
+        self.atomic_bytes = atomic_bytes
+        self.copy_contiguous = copy_contiguous
         self.next_block = self.resident
         self.live = {}
         self.finished = 0
@@ -270,6 +294,7 @@ class SM:
         # cycles per line of the L1 data path and its latency; a miss takes the copy path (address
         # stage, L2 or DRAM, the SM's return port) into registers
         self.ldg_default = ldg_lines is None
+        self.ldg_spread = bool(ldg_lines) and ldg_lines[0][0] >= 8  # a driver's lanes (l2_cap)
         self.ldg_lines = ldg_lines or [(4, 512, False)]
         # KTA (PERFMODEL round 3): without a driver-supplied list, an LDG's lines and sectors come
         # from its width and its 32 lanes' addresses (lanes.py), and a line another load of this SM
@@ -297,7 +322,7 @@ class SM:
         self.bar_arrived = {}
         self.last_issue: list[Warp | None] = [None] * n
         self.count: dict[str, Any] = {"issued": 0, "HMMA": 0, "LDSM": 0, "LDGSTS": 0, "BAR": 0}
-        self.count.update(ldg_sectors=0, ldg_miss_sectors=0.0)
+        self.count.update(ldg_sectors=0, ldg_miss_sectors=0.0, stg_l2_sectors=0)
         self.assumed_latency: dict[str, int] = {}
         self.pc_count = [0] * len(ins)  # dynamic weight per instruction (the opcode ranking)
         self.busy: dict[str, float] = {"tensor": 0, "smem": 0, "fill": 0}
@@ -320,7 +345,7 @@ class SM:
         self.count["ldg_sectors"] += n_sect
         hits = 0
         self.l1_wait, self.l1_new = 0.0, []
-        if addr is not None and all(sym[0] == "c" for sym, _ in addr[0]):
+        if addr is not None and all(sym[0] in ("c", "u") for sym, _ in addr[0]):
             # round 5 (probe row_reduce): the L1 fills sectors; a line hits only for those it holds
             for k, mask in keys.items():
                 have = self.l1.get(k, 0)
@@ -761,7 +786,7 @@ class SM:
         addr0 = None
         if w.lanes is not None:
             # round 6: read before the step, a load may overwrite its own address register
-            if cls.handler in ("ldg", "smem_op", "cp_async", "stg"):
+            if cls.handler in ("ldg", "smem_op", "cp_async", "stg", "red"):
                 addr0 = w.lanes.address(x.args, w.vals)
             # the guard as the lane tracking sees it: none, known false, known true or unknown
             runs = True if not x.pred else (False if not executes else pv)
@@ -1082,13 +1107,14 @@ class SM:
             arrive = lsu_done + P["ldgsts_l2_latency_clk"]
             lat = ((lsu_done, arrive, "l2", "L2 latency", "sim.ldgsts_l2_latency_clk"),)
         ret = max(arrive, t["l2_return"])
-        t["l2_return"] = ret + self.ret_clk
+        ret_clk = self._copy_ret_clk(addr0, width_of(x.op))
+        t["l2_return"] = ret + ret_clk
         if state is None:
             for k in keys:
                 self.line_fill[k] = arrive
         if self._chip_bound():
-            t["l2_chip"] = max(t["l2_chip"], now) + P["l2_chip_read_share"] * self.ret_clk
-        self.busy["fill"] += self.ret_clk
+            t["l2_chip"] = max(t["l2_chip"], now) + P["l2_chip_read_share"] * ret_clk
+        self.busy["fill"] += ret_clk
         w.pending[w.gid] = w.pending.get(w.gid, 0) + 1
         trr = None
         if self.trace:
@@ -1102,6 +1128,29 @@ class SM:
         else:
             self.ev(ret, "write", w, w.gid)
         return None, lsu_done, None, trr
+
+    def _copy_ret_clk(self, addr0: Any, width: int) -> float:
+        """Round 11 (probe l2_cap): the chip's rate goes by pattern. A copy of contiguous lanes
+        moves at `l2_contig_B_per_clk`, lanes in their own sectors by `l2_chip_sectors_per_clk`;
+        tile copies keep the frozen aggregate (`ret_clk`)."""
+        P = self.P
+        if self.copy_contiguous or (addr0 is not None and contiguous(addr0, width)):
+            port = P["l2_contig_port_clk_per_512B"]
+            return max(port, 512 * self.active_sms / P["l2_contig_B_per_clk"])
+        if addr0 is not None and footprint(addr0, width)[1] >= 32:
+            return max(self.ret_clk, 32 * self.active_sms / P["l2_chip_sectors_per_clk"])
+        return self.ret_clk
+
+    def _ldg_chip_clk(self, addr0: Any, width: int, lines: int) -> float:
+        """Round 11 (probe l2_cap): lanes spread over sectors load by the chip's sectors and lines
+        per clock; 0 for lanes that share lines."""
+        n = 32 if addr0 is None and self.ldg_spread else 0
+        if addr0 is not None:
+            n = footprint(addr0, width)[1]
+        if n < 16:
+            return 0.0
+        a, P = self.active_sms, self.P
+        return max(n * a / P["l2_chip_sectors_per_clk"], lines * a / P["l2_chip_ldg_lines_per_clk"])
 
     def _op_ldg(self, w, x, cls, now, addr0):
         P, t = self.P, self.t
@@ -1149,6 +1198,7 @@ class SM:
             else:
                 arrive = lsu_done + P["ldg_l2_latency_clk"]
             ret = max(arrive, t["l2_return"])
+            transfer = max(transfer, self._ldg_chip_clk(addr0, width_of(x.op), lines))
             t["l2_return"] = ret + transfer
             if self._chip_bound():
                 share = P["l2_chip_read_share"] * self.ret_clk * nbytes / 512
@@ -1240,6 +1290,13 @@ class SM:
             self.red_lines * P["red_pair_clk_per_line"] * self.stg_share,
             nb * self.active_sms / chip,
         )
+        if self.atomic_bytes and (addr0 is None or footprint(addr0, 4)[1] >= 16):
+            # round 11 (atom_*): lanes in their own sectors: requests, by the region they land on
+            # (4 KiB regions map to one target) and how often one word comes round
+            regions = max(1.0, self.atomic_bytes / P["red_region_bytes"])
+            rate = min(P["red_chip_atomics_per_clk"], P["red_region_atomics_per_clk"] * regions)
+            rate *= _interp(self.atomic_bytes, P["red_merge_gain_by_bytes"])
+            per = max(per, 32 * self.active_sms / rate)
         start = max(now, t["store_port"])
         t["store_port"] = start + per
         self.busy["red"] = self.busy.get("red", 0) + per
@@ -1307,17 +1364,42 @@ class SM:
         rate = P[f"stg_chip_B_per_clk_{w_}"]  # the lanes unknown: by width, as measured
         if addr0 is not None and by_sector:
             rate = P["stg_chip_B_per_clk"]
-            nbytes = footprint(addr0, width_of(x.op))[1] * 32
+            n_sect = footprint(addr0, width_of(x.op))[1]
+            nbytes = n_sect * 32
+            run = w_ == "4B" and contiguous(addr0, 4)
             # round 8 (probe store_spread): sectors several lanes fill in part (TileLang's tile
             # store), wherever the rows lie, take their own rate
-            if shared_part_sector(addr0, width_of(x.op)):
+            if not run and shared_part_sector(addr0, width_of(x.op)):
                 rate = P["stg_chip_wide_B_per_clk"]
-            elif w_ == "4B" and nbytes == 128:  # 32 lanes contiguous: a 128-byte line
-                pair = P["stg_tpc_clk_per_instr_line"] * self.stg_share
+            elif w_ == "4B":  # round 11 (rw_*): 32 lanes in a run: lines, else by sectors
+                pair = max(P["stg_tpc_clk_per_instr_line"], n_sect * P["stg_pair_clk_per_sector"])
+                pair *= self.stg_share
+            # round 11 (rw_*, wr_*, counters): a store merges with its own warp's queued sector
+            # or with queued writes of the same words; other warps' words in a sector stay apart
+            words: dict[int, list[int]] = {}
+            for o in addr0[1]:
+                words.setdefault(o >> 5, []).append(o >> 2)
+            pend, base = self.st_pending, addr0[0]
+            fresh = [
+                s
+                for s, ws in words.items()
+                if w_ != "4B"
+                or (
+                    pend.get((w.wid, base, s), 0.0) <= now
+                    and not all(pend.get((base, x), 0.0) > now for x in ws)
+                )
+            ]
+            if P["stg_queue_merge"]:
+                nbytes = max(0, n_sect - len(words) + len(fresh)) * 32
+            self.count["stg_l2_sectors"] += len(fresh)
             # above what the L2 holds dirty the chip writes at the DRAM's rate (store_lines, r7b)
             self.st_bytes += 32 * width_of(x.op)  # one lane per sector or not: bytes written
-            if self.st_bytes * self.active_sms > P["stg_dirty_bytes"]:
-                rate = min(rate, self.m.C["dram_write_GBs"] / self.m.C["clock_under_load_GHz"])
+            if self.dirty_full or self.st_bytes * self.active_sms > P["stg_dirty_bytes"]:
+                wr = self.m.C["dram_write_GBs"] / self.m.C["clock_under_load_GHz"]
+                rate = min(rate, wr)
+                if P["dram_writes_shared"] and not self.dram_writes_counted:
+                    # round 11 (wr_*): reads and written-back bytes take turns on the DRAM
+                    t["dram_queue"] += nbytes * self.active_sms / wr
         chip = nbytes / (rate / self.active_sms)
         start = max(now, t["store_port"])
         if P["l2_chip_read_share"] > 0 and chip >= pair:
@@ -1331,6 +1413,14 @@ class SM:
             t["stg_chip"] = done
             per = pair
         t["store_port"] = start + per
+        if addr0 is not None and by_sector:
+            if len(pend) > 1 << 16:
+                self.st_pending = pend = {k: v for k, v in pend.items() if v > now}
+            leave = max(t["store_port"], t["stg_chip"])
+            for s, ws in words.items():
+                pend[(w.wid, base, s)] = leave
+                for x in ws:
+                    pend[(base, x)] = leave
         self.busy["stg"] = self.busy.get("stg", 0) + per
         heapq.heappush(self.stq, t["store_port"])
         trr = [(now, start, "store_port", "queue (stores)", None)] if self.trace else None

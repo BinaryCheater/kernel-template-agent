@@ -484,6 +484,11 @@ def footprint(addr: Val, width: int) -> tuple[dict[tuple, int], int]:
     return lines, len(sectors)
 
 
+def contiguous(addr: Val, width: int) -> bool:
+    """Round 11: the 32 lanes follow one another, `width` bytes apart."""
+    return all(b - a == width for a, b in zip(addr[1], addr[1][1:], strict=False))
+
+
 def shared_part_sector(addr: Val, width: int) -> bool:
     """Round 8: some 32-byte sector holds more than one lane and is not full."""
     lanes: dict[int, int] = {}
