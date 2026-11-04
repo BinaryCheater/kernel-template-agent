@@ -6,8 +6,6 @@
 #define alignas _tl_orig_alignas
 #endif
 #include <tl_templates/cuda/copy.h>
-#include <tl_templates/cuda/copy_sm90.h>
-#include <tl_templates/cuda/copy_sm100.h>
 #include <tl_templates/cuda/reduce.h>
 #include <tl_templates/cuda/scan.h>
 #include <tl_templates/cuda/ldsm.h>
@@ -24,9 +22,10 @@ extern "C" __global__ void __launch_bounds__(128, 1) gemm_kernel(const half_t* _
   void* Sc_shared = ((void*)((char*)buf_dyn_shmem + 6144));
   void* A_shared = ((void*)((char*)buf_dyn_shmem + 6912));
   void* B_shared = ((void*)((char*)buf_dyn_shmem + 31488));
-  float C_local[16384];
+  float C_local[128];
+  float t[1];
   #pragma unroll
-  for (int i = 0; i < 4096; ++i) {
+  for (int i = 0; i < 32; ++i) {
     float broadcast_var = 0x0p+0f/*0.000000e+00*/;
     *(float4*)(C_local + (i * 4)) = make_float4(broadcast_var, broadcast_var, broadcast_var, broadcast_var);
   }
@@ -103,7 +102,7 @@ extern "C" __global__ void __launch_bounds__(128, 1) gemm_kernel(const half_t* _
     tl::cp_async_commit();
     tl::cp_async_wait<5>();
     __syncthreads();
-    C_local[0] = (((float)((half_t*)A_shared)[((ko % 3) * 4096)]) + ((float)((half_t*)B_shared)[0]));
+    t[0] = (((float)((half_t*)A_shared)[((ko % 3) * 4096)]) + ((float)((half_t*)B_shared)[0]));
     __syncthreads();
     #pragma unroll
     for (int i_5 = 0; i_5 < 4; ++i_5) {
@@ -148,7 +147,7 @@ extern "C" __global__ void __launch_bounds__(128, 1) gemm_kernel(const half_t* _
   }
   tl::cp_async_wait<4>();
   __syncthreads();
-  C_local[0] = (((float)((half_t*)A_shared)[4096]) + ((float)((half_t*)B_shared)[0]));
+  t[0] = (((float)((half_t*)A_shared)[4096]) + ((float)((half_t*)B_shared)[0]));
   tl::cp_async_wait<3>();
   __syncthreads();
   #pragma unroll
@@ -186,7 +185,7 @@ extern "C" __global__ void __launch_bounds__(128, 1) gemm_kernel(const half_t* _
   }
   tl::cp_async_wait<2>();
   __syncthreads();
-  C_local[0] = (((float)((half_t*)A_shared)[8192]) + ((float)((half_t*)B_shared)[0]));
+  t[0] = (((float)((half_t*)A_shared)[8192]) + ((float)((half_t*)B_shared)[0]));
   tl::cp_async_wait<1>();
   __syncthreads();
   #pragma unroll
@@ -224,20 +223,20 @@ extern "C" __global__ void __launch_bounds__(128, 1) gemm_kernel(const half_t* _
   }
   tl::cp_async_wait<0>();
   __syncthreads();
-  C_local[0] = (((float)((half_t*)A_shared)[0]) + ((float)((half_t*)B_shared)[0]));
-  if (((int)threadIdx.x) == 0) {
-    #pragma unroll
-    for (int i_9 = 0; i_9 < 1024; ++i_9) {
-      half_t C_local_cast_12[16];
-      for (int vec = 0; vec < 4; ++vec) {
-        uint2 __25;
-        float4 v__20 = *(float4*)(C_local + ((i_9 * 16) + (vec * 4)));
-        ((half2*)(&__25))[0] = __float22half2_rn(((float2*)(&v__20))[0]);
-        ((half2*)(&__25))[1] = __float22half2_rn(((float2*)(&v__20))[1]);
-        *(uint2*)(C_local_cast_12 + (vec * 4)) = __25;
-      }
-      tl::store_global_256(&(*(ulonglong4*)(C + ((((((int)blockIdx.y) * 262144) + ((i_9 >> 3) * 2048)) + (((int)blockIdx.x) * 128)) + ((i_9 & 7) * 16)))), *(ulonglong4*)(C_local_cast_12 + 0));
-    }
+  t[0] = (((float)((half_t*)A_shared)[0]) + ((float)((half_t*)B_shared)[0]));
+  #pragma unroll
+  for (int i_9 = 0; i_9 < 32; ++i_9) {
+    *(float4*)(C_local + (i_9 * 4)) = make_float4(t[0], t[0], t[0], t[0]);
+  }
+  #pragma unroll
+  for (int i_10 = 0; i_10 < 32; ++i_10) {
+    half_t C_local_cast_12[4];
+    uint2 __25;
+    float4 v__20 = *(float4*)(C_local + (i_10 * 4));
+    ((half2*)(&__25))[0] = __float22half2_rn(((float2*)(&v__20))[0]);
+    ((half2*)(&__25))[1] = __float22half2_rn(((float2*)(&v__20))[1]);
+    *(uint2*)(C_local_cast_12 + 0) = __25;
+    *(uint2*)(C + (((((((int)blockIdx.y) * 262144) + (i_10 * 8192)) + ((((int)threadIdx.x) >> 5) * 2048)) + (((int)blockIdx.x) * 128)) + ((((int)threadIdx.x) & 31) * 4))) = *(uint2*)(C_local_cast_12 + 0);
   }
 }
 
