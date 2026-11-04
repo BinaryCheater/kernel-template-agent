@@ -268,6 +268,7 @@ def generic_kernel(
     fb = L["footprint_bytes"]
     cache = L.get("cache")
     rotating = cache in ("rotating", "cold")
+    once = False
     ldg = [x for x in ins if x.base == "LDG"]
     kind = "cs" if ldg and all(".EF" in x.op for x in ldg) else "ca"
     # round 4: the written buffers (gen.py `write_bytes`) are DRAM traffic beside the reads
@@ -312,8 +313,11 @@ def generic_kernel(
     else:  # warm (round 3, probe l2reuse): the re-read misses by the footprint
         rb, miss = fb, l2_warm_miss(fb, kind, m)
     kw["dram_writes_counted"] = wb > 0
-    # round 11 (wr_*): W 16 MiB pays all of it, 4 none; HGEMM's 9.4 MB of rewritten C stays free
-    kw["dirty_full"] = not rotating and L.get("write_bytes", 0) > 1.5 * m.P["stg_dirty_bytes"]
+    # round 11 (wr_*, r11b): repeated launches writing past the limit find it full from the start:
+    # W 6 MiB pays nothing, 7 most of it, beside single-use reads; beside re-read lines (HGEMM's
+    # 9.4 MB of rewritten C) only past 1.5 times the limit, up to 16 MiB unmeasured
+    w_limit = m.P["stg_dirty_once_bytes"] if once else 1.5 * m.P["stg_dirty_bytes"]
+    kw["dirty_full"] = not rotating and L.get("write_bytes", 0) > w_limit
     if any(x.base in ("RED", "REDG") for x in ins):
         kw["atomic_bytes"] = L.get("write_bytes", 0)
     if miss > 0:

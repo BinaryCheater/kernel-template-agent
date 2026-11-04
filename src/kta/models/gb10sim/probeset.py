@@ -840,7 +840,7 @@ def l2_local_cases(b: Batch) -> list[Case]:
                 grid_blocks=g,
                 grid_dim=(g, 1, 1),
                 copy_lines=[4],
-                copy_contiguous=mode == 0,
+                copy_contiguous=True,
                 **kw,
             )
 

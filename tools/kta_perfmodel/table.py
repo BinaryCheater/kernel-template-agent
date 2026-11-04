@@ -875,7 +875,7 @@ CLASSES = (
     ("MoE GEMM", r"^moe_", 1),
     ("w4a16 GEMM", r"^w4gemm", 1),
     ("NVFP4 GEMM", r"^nvfp4gemm", 1),
-    ("hand-written CUDA", r"^hand_", 0),
+    ("hand-written CUDA", r"^hand_", 5),
     ("generated mixes", r"^stress_", 0),
     ("library operators", r"^lib_", 0),
 )
