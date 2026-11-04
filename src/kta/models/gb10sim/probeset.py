@@ -975,6 +975,37 @@ def store_spread_cases(b: Batch) -> list[Case]:
     ]
 
 
+STORE_MERGE_POINTS = (
+    (1, 4096, 4),
+    (1, 4096, 8),
+    (1, 4096, 32),
+    (2, 4096, 4),
+    (2, 4096, 8),
+    (2, 4096, 16),
+    (2, 512, 8),
+    (4, 4096, 4),
+    (4, 4096, 8),
+    (4, 512, 8),
+    (8, 4096, 8),
+    (8, 4096, 16),
+    (8, 512, 16),
+    (16, 4096, 16),
+    (16, 4096, 32),
+    (32, 4096, 32),
+)
+
+
+def store_merge_cases(b: Batch) -> list[Case]:
+    """Round 12: store_spread's kernel, steps inside a warp's sectors (probe store_merge)."""
+    return [
+        _span_case(
+            b, f"store_merge L{ln}_R{r}_S{st}_g{g}", f"_Z1kILi{ln}ELi{r}ELi{st}EEvPyPjS1_", 128, g
+        )
+        for ln, r, st in STORE_MERGE_POINTS
+        for g in (128, 512)
+    ]
+
+
 ARITH_POINTS = (
     *((2, 0, a) for a in (0, 32, 128, 512)),
     *((2, 2, a) for a in (0, 32, 128, 512)),
@@ -1474,6 +1505,7 @@ BUILDERS = (
     ("probe-warp_map", warp_map_cases),
     ("probe-copy_dram", copy_dram_cases),
     ("probe-store_spread", store_spread_cases),
+    ("probe-store_merge", store_merge_cases),
     ("probe-arith_beside", arith_beside_cases),
     ("probe-first_reader", first_reader_cases),
     ("probe-first_share", first_share_cases),

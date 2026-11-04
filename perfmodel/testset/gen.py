@@ -1137,6 +1137,7 @@ def _w4(out: Path, name: str, tile: tuple, cache: str, kw=None, **more) -> None:
 # round 11. Reads and stores past the L2: r reads and w stores per thread pass over E MiB of
 # elements (LOOP §3, hand_triad, hand_stencil): how the DRAM's read and write time combine, and
 # whether written bytes churn a warm read.
+MB = 1 << 20
 WR_POINTS = (
     (1, 0, 8),
     (1, 0, 16),
@@ -1243,6 +1244,246 @@ __global__ void __launch_bounds__(256) k_rw(unsigned* out) {{
         _source_kernel(out, f"hand_{name}", text, grid, block, sizes, "hand", "breadth hand")
 
 
+# round 12, blind rows: predictions committed before the run, no parameter taken from them. name:
+# (grid, block, [buffer bytes], bytes written or None); the first buffer is the written or atomic one
+HAND12 = {
+    "memset": ((2048, 1, 1), (256,), [64 * MB], None),
+    "revcopy": ((512, 1, 1), (256,), [32 * MB, 32 * MB], None),
+    "gather": ((128, 1, 1), (256,), [8 * MB, 32 * MB], None),
+    "scatter": ((512, 1, 1), (256,), [32 * MB], None),
+    "aos": ((128, 1, 1), (256,), [34 * MB, 2 * MB], 16 * MB),
+    "rewrite": ((1024, 1, 1), (256,), [5 * MB], None),
+    "atomblock": ((1024, 1, 1), (256,), [4096], 256),
+    "atomline": ((1024, 1, 1), (256,), [2 * MB], None),
+    "atomret": ((1024, 1, 1), (256,), [4096, 1 * MB], None),
+    "atommax": ((1024, 1, 1), (256,), [16 << 10], None),
+    "atom64": ((1024, 1, 1), (256,), [64 << 10], None),
+    "mixrwa": ((512, 1, 1), (256,), [16 << 10, 8 * MB, 8 * MB], None),
+    "rankpush": ((1024, 1, 1), (256,), [1 * MB, 4 * MB], None),
+    "tally2d": ((64, 64, 1), (16, 16), [1024, 16 * MB, 4 * MB], None),
+    "jacobi3d": ((8192, 1, 1), (256,), [8 * MB, 8 * MB], None),
+    "axpy": ((1024, 1, 1), (256,), [32 * MB, 32 * MB], None),
+    "fanout": ((512, 1, 1), (256,), [5 * MB, MB // 2], None),
+    "csr": ((4096, 1, 1), (256,), [4 * MB, 8 * MB, 16 * MB], None),
+    "maskstore": ((512, 1, 1), (256,), [16 * MB, 16 * MB], None),
+}
+T128 = (("256", "128"),)  # threads halved, grid doubled, the same bytes
+# one change from a kernel above, by text: base, tag, axis, grid, buffers, written, replacements
+WI_HAND12 = (
+    ("memset", "m8", "shape", (512, 1, 1), [16 * MB], None, ()),
+    ("memset", "t128", "threads", (4096, 1, 1), [64 * MB], None, T128),
+    ("revcopy", "t128", "threads", (1024, 1, 1), [32 * MB, 32 * MB], None, T128),
+    ("gather", "m4", "shape", None, [8 * MB, 4 * MB], None, (("8388607u", "1048575u"),)),
+    ("scatter", "m4", "shape", None, [4 * MB], None, (("8388607u", "1048575u"),)),
+    (
+        "aos",
+        "f1",
+        "stores removed",
+        None,
+        None,
+        8 * MB,
+        (("a[i * 16 + 1]", "//"), ("a[i * 16 + 2]", "//")),
+    ),
+    ("rewrite", "j1", "stores removed", None, None, None, (("j < 4", "j < 1"),)),
+    ("atomline", "w8", "shape", None, [512 << 10], None, (("* 32u", "* 8u"),)),
+    ("atommax", "b64", "shape", None, [256], None, (("4095u", "63u"),)),
+    (
+        "mixrwa",
+        "noatom",
+        "compute removed",
+        None,
+        None,
+        None,
+        (("atomicAdd(&h[(v ^ (v >> 7)) & 4095u], 1u);", ""),),
+    ),
+    ("mixrwa", "nostore", "stores removed", None, None, None, (("a[i] = v ^ k;", ""),)),
+    (
+        "mixrwa",
+        "noload",
+        "loads removed",
+        None,
+        None,
+        None,
+        (("unsigned v = b[i];", "unsigned v = (unsigned)i * 2654435761u;"),),
+    ),
+    ("mixrwa", "t128", "threads", (1024, 1, 1), None, None, T128),
+    ("axpy", "m8", "shape", (256, 1, 1), [8 * MB, 8 * MB], None, ()),
+    ("axpy", "t128", "threads", (2048, 1, 1), None, None, T128),
+    ("fanout", "s16", "shape", None, None, None, (("* 1024", "* 8"),)),
+    ("maskstore", "all", "stores removed", None, None, None, (("if (v & 256u) ", ""),)),
+)
+# question 29, D800: stack rows at new thread counts, words and resident blocks
+STACK12 = (
+    *((t, n, g) for t in (64, 128, 256) for n in (64, 256) for g in (48, 144)),
+    (64, 1024, 96),
+    (128, 1024, 96),
+)
+HGEMM_BLIND12_SHAPE = {"M": 2560, "N": 2048, "K": 1536}
+HGEMM_BLIND12 = {
+    **HGEMM_BLIND7,
+    "c128x128x32_s2_t128_sw8": (128, 128, 32, 2, 128, 8),
+    "c128x128x48_s3_t128": (128, 128, 48, 3, 128, 0),
+}
+HG12_AXIS = {"s2": "stages", "s4": "stages", "sw8": "raster"}
+WK12 = {  # rows behind the wrong what-ifs and t64 (2048 cube, warm): which part moves
+    "bk8": ((128, 128, 8, 3, 128, 0), {}, "wi_hg_b_warm", "tile"),
+    "bk16_nocompute": (
+        (128, 128, 16, 3, 128, 0),
+        {"compute": False},
+        "wi_hg_bk16_warm",
+        "compute removed",
+    ),
+    "bk16_nostore": (
+        (128, 128, 16, 3, 128, 0),
+        {"store": "shared"},
+        "wi_hg_bk16_warm",
+        "stores removed",
+    ),
+    "t64_nocompute": (
+        (128, 128, 32, 3, 64, 0),
+        {"compute": False},
+        "wi_hg_t64_warm",
+        "compute removed",
+    ),
+    "t64_nostore": (
+        (128, 128, 32, 3, 64, 0),
+        {"store": "shared"},
+        "wi_hg_t64_warm",
+        "stores removed",
+    ),
+    "sw8_nocompute": (
+        (128, 128, 32, 3, 128, 8),
+        {"compute": False},
+        "wi_hg_sw8_warm",
+        "compute removed",
+    ),
+    "sw8_nostore": (
+        (128, 128, 32, 3, 128, 8),
+        {"store": "shared"},
+        "wi_hg_sw8_warm",
+        "stores removed",
+    ),
+}
+GEMV12 = {"N": 2048, "K": 8192, "group": 64, "n_part": 4, "reduce": 32}
+ROWS12 = {"M": 256, "N": 8192}
+DECODE12 = {**DECODE, "H": 16, "G": 4, "S": 2048, "D": 256}
+FA12 = {**FA, "S": 1024, "H": 12, "D": 128}
+
+
+def _round12(out: Path) -> None:
+    src_dir = Path(__file__).parent / "hand12"
+    for name, (grid, block, sizes, written) in HAND12.items():
+        text = (src_dir / f"{name}.cu").read_text()
+        _source_kernel(
+            out, f"bl_{name}", text, grid, block, sizes, "hand", "breadth blind", written=written
+        )
+    for name, tag, axis, grid, sizes, written, subs in WI_HAND12:
+        g0, block, s0, w0 = HAND12[name]
+        text = (src_dir / f"{name}.cu").read_text()
+        for old, new in subs:
+            if new == "//":  # a statement dropped
+                text = re.sub(rf"\n[^\n]*{re.escape(old)}[^\n]*", "", text)
+            else:
+                text = text.replace(old, new)
+        wi = {"whatif": {"base": f"bl_{name}", "axis": axis}}
+        if subs is T128:
+            block = (128,)
+        _source_kernel(
+            out,
+            f"bl_{name}_{tag}",
+            text,
+            grid or g0,
+            block,
+            sizes or s0,
+            "hand",
+            "breadth blind",
+            written=written if written is not None else w0,
+            **wi,
+        )
+    for t, n, g in STACK12:
+        src = f"""// round 12: {n} words of stack per thread, stored and loaded four passes
+__global__ void __launch_bounds__({t}) k_stk(unsigned* sink) {{
+  volatile unsigned a[{n}];
+  unsigned s = threadIdx.x;
+  for (int i = 0; i < {n}; i++) a[i] = s;
+  for (int r = 0; r < 4; r++)
+    for (int i = 0; i < {n}; i++) {{
+      a[(i * 5 + threadIdx.x) & {n - 1}] = s + i;
+      s ^= a[(i * 3 + r) & {n - 1}];
+    }}
+  if (s == 12345) sink[0] = 1;
+}}
+"""
+        _source_kernel(
+            out, f"stk_t{t}_n{n}_g{g}", src, (g, 1, 1), (t,), [4096], "hand", "stack_path"
+        )
+    sh = HGEMM_BLIND12_SHAPE
+    M, N, K = sh["M"], sh["N"], sh["K"]
+    pre = f"hgemm_m{M}n{N}k{K}"
+    for name, tile in HGEMM_BLIND12.items():
+        for cache, tail in (("warm", ""), ("rotating", " rotating")):
+            suffix = "" if cache == "warm" else "_rotating"
+            base = f"{pre}_c128x128x32_s3_t128{suffix}"
+            more = (
+                {}
+                if f"{pre}_{name}{suffix}" == base
+                else {"whatif": {"base": base, "axis": "design"}}
+            )
+            _hgemm(
+                out,
+                f"{pre}_{name}{suffix}",
+                tile,
+                sh,
+                cache,
+                set=f"hgemm {M}x{N}x{K}{tail}",
+                **more,
+            )
+    base = f"{pre}_c128x128x32_s3_t128"
+    for v, opt, axis, stages in (
+        ("nocompute", {"compute": False}, "compute removed", 3),
+        ("nostore", {"store": "shared"}, "stores removed", 3),
+        ("noload", {"load": False}, "loads removed", 0),
+    ):
+        more = {"whatif": {"base": base, "axis": axis}}
+        tile = (128, 128, 32, stages, 128, 0)
+        _hgemm(out, f"{base}_{v}", tile, sh, "warm", opt, set="whatif hgemm warm", **more)
+    for v, (tile, opt, base, axis) in WK12.items():
+        more = {"whatif": {"base": base, "axis": axis}}
+        _hgemm(out, f"wk_{v}", tile, SHAPE, "warm", opt, set="whatif hgemm warm", **more)
+    for v, (kw, axis) in WI_GEMV.items():
+        for cache in ("warm", "rotating"):
+            more = _wi(v, f"wi12_gemv_b_{cache}", axis)
+            group = f"whatif gemv {cache}"
+            _gemv_row(out, f"wi12_gemv_{v}_{cache}", {**GEMV12, **kw}, cache, set=group, **more)
+    for v, (kw, axis) in WI_RMS.items():
+        for cache in ("warm", "rotating"):
+            more = _wi(v, f"wi12_rms_b_{cache}", axis)
+            _rms(
+                out,
+                f"wi12_rms_{v}_{cache}",
+                ROWS12,
+                cache,
+                kw,
+                set=f"whatif rmsnorm {cache}",
+                **more,
+            )
+    for v, (kw, axis) in WI_SOFTMAX.items():
+        more = _wi(v, "wi12_softmax_b_warm", axis)
+        _softmax(out, f"wi12_softmax_{v}_warm", ROWS12, kw, set="whatif softmax warm", **more)
+    for v in ("b", "s1", "s3", "split4", "split16", "bn32"):
+        kw, axis = WI_DECODE[v]
+        for cache in ("warm", "rotating"):
+            more = _wi(v, f"wi12_dec_b_{cache}", axis)
+            group = f"whatif decode {cache}"
+            _decode_part(out, f"wi12_dec_{v}_{cache}", {**DECODE12, **kw}, cache, set=group, **more)
+    for v in ("b", "s1", "s3", "bn32", "bm128", "t64", "nostore", "nov", "noexp"):
+        kw, axis = dict(WI_FA[v][0]), WI_FA[v][1]
+        more = _wi(v, "wi12_fa_b_warm", axis)
+        writes = () if kw.get("store") else (-1,)
+        f = {**FA12, **kw}
+        _fa(out, f"wi12_fa_{v}_warm", f, "warm", False, writes, set="whatif fa warm", **more)
+
+
 def main(out: Path) -> None:
     _hand(out)
     _round11(out)
@@ -1268,6 +1509,7 @@ def main(out: Path) -> None:
         ("rows8", _rows8),
         ("nvfp4", _nvfp4),
         ("blind9", _blind9),
+        ("round12", _round12),
     ):
         try:  # a kernel that fails to generate is reported; the others stand
             gen(out)
@@ -1361,7 +1603,6 @@ def _wi(name: str, base: str, axis: str) -> dict:
 
 # round 10: kernels from outside TileLang, first-scored blind, a separate breadth set
 # name: (grid, block, smem, [buffer bytes, read or written last]). Sources in testset/hand/
-MB = 1 << 20
 HAND = {
     "triad": ((1024, 1, 1), (256,), [64 * MB, 64 * MB, 64 * MB]),
     "stencil": ((128, 128, 1), (16, 16), [16 * MB, 16 * MB]),
@@ -1387,6 +1628,7 @@ def _source_kernel(
     group: str,
     rot: int = 1,
     written: int | None = None,
+    **more,
 ):
     """A kernel with its own source: `k_*`, buffers in the order of its parameters (the first is
     written), random 16-bit words in every buffer; `rot` sets of them used in turn."""
@@ -1424,6 +1666,7 @@ def _source_kernel(
         "family": family,
         "set": group,
         "cache": "rotating" if rot > 1 else "warm",
+        **more,
     }
     (d / "launch.json").write_text(json.dumps(launch, indent=1) + "\n")
 

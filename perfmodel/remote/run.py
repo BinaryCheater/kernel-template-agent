@@ -79,6 +79,8 @@ METRICS_X = ",".join(
 METRICS_P = ",".join(
     [
         "lts__t_sectors_op_read.sum",
+        "lts__t_sectors_op_write.sum",
+        "l1tex__t_sectors_pipe_lsu_mem_global_op_st.sum",
         "lts__t_sectors_lookup_hit.sum",
         "lts__t_sectors_lookup_miss.sum",
         "lts__t_sector_hit_rate.pct",

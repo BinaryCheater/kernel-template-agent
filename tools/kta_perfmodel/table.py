@@ -1237,7 +1237,8 @@ def render(doc: dict[str, Any], top: int = 15) -> str:
 
 def _design(group: str) -> bool:
     """Groups of design variants: the breadth sets and the probe-like kernel sets are not."""
-    return not any(k in group for k in ("breadth", "wr_", "atomic_bins", "store_rewrite"))
+    skip = ("breadth", "wr_", "atomic_bins", "store_rewrite", "stack_path")
+    return not any(k in group for k in skip)
 
 
 def goal_totals(doc: dict[str, Any]) -> dict[str, Any]:
