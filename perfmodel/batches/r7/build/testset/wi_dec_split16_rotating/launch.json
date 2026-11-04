@@ -1,0 +1,36 @@
+{
+ "entry": "part_kernel",
+ "grid": [
+  1,
+  8,
+  16
+ ],
+ "threads": 128,
+ "block": [
+  128
+ ],
+ "smem": 81920,
+ "rot": 4,
+ "footprint_bytes": 16917504,
+ "write_bytes": 132096,
+ "family": "decode_gqa",
+ "shape": {
+  "B": 1,
+  "H": 32,
+  "G": 8,
+  "S": 4096,
+  "D": 128
+ },
+ "pick": {
+  "BN": 64,
+  "BH": 64,
+  "split": 16,
+  "stages": 2
+ },
+ "cache": "rotating",
+ "set": "whatif decode rotating",
+ "whatif": {
+  "base": "wi_dec_b_rotating",
+  "axis": "blocks"
+ }
+}

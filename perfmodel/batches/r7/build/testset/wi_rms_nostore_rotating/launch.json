@@ -1,0 +1,28 @@
+{
+ "entry": "rms_kernel",
+ "grid": [
+  512
+ ],
+ "threads": 128,
+ "block": [
+  128
+ ],
+ "smem": 8192,
+ "rot": 8,
+ "footprint_bytes": 8396800,
+ "write_bytes": 4194304,
+ "family": "rmsnorm",
+ "shape": {
+  "M": 512,
+  "N": 4096
+ },
+ "pick": {
+  "threads": 128
+ },
+ "cache": "rotating",
+ "set": "whatif rmsnorm rotating",
+ "whatif": {
+  "base": "wi_rms_b_rotating",
+  "axis": "stores removed"
+ }
+}

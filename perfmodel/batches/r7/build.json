@@ -1,0 +1,11 @@
+{
+ "batch": "r7",
+ "commit": "43b88574de093bdd6971f08164ceeaf23faf0f49",
+ "host": "spark",
+ "remote_build": "kta-work/data/perfmodel/batches/r7/build",
+ "only": "probe-l2mix|probe-dram_burst|^wi_|hgemm_m3072|fa_s1536",
+ "date": "2026-11-03T23:57:29Z",
+ "nvcc_host": "Cuda compilation tools, release 13.0, V13.0.88\nBuild cuda_13.0.r13.0/compiler.36424714_0",
+ "nvcc_image": "Cuda compilation tools, release 13.2, V13.2.51\nBuild cuda_13.2.r13.2/compiler.37434383_0",
+ "tilelang": "0.1.15"
+}

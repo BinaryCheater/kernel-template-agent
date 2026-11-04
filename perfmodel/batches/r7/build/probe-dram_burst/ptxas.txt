@@ -1,0 +1,51 @@
+ptxas info    : 0 bytes gmem
+ptxas info    : Compiling entry function '_Z6streamILi1024ELi85EEvPK4int4Pi' for 'sm_121a'
+ptxas info    : Function properties for _Z6streamILi1024ELi85EEvPK4int4Pi
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 10 registers, used 0 barriers
+ptxas info    : Compile time = 1.663 ms
+ptxas info    : Compiling entry function '_Z6streamILi1024ELi42EEvPK4int4Pi' for 'sm_121a'
+ptxas info    : Function properties for _Z6streamILi1024ELi42EEvPK4int4Pi
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 10 registers, used 0 barriers
+ptxas info    : Compile time = 0.851 ms
+ptxas info    : Compiling entry function '_Z6streamILi1024ELi21EEvPK4int4Pi' for 'sm_121a'
+ptxas info    : Function properties for _Z6streamILi1024ELi21EEvPK4int4Pi
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 10 registers, used 0 barriers
+ptxas info    : Compile time = 0.760 ms
+ptxas info    : Compiling entry function '_Z6streamILi1024ELi10EEvPK4int4Pi' for 'sm_121a'
+ptxas info    : Function properties for _Z6streamILi1024ELi10EEvPK4int4Pi
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 10 registers, used 0 barriers
+ptxas info    : Compile time = 0.656 ms
+ptxas info    : Compiling entry function '_Z6streamILi1024ELi5EEvPK4int4Pi' for 'sm_121a'
+ptxas info    : Function properties for _Z6streamILi1024ELi5EEvPK4int4Pi
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 10 registers, used 0 barriers
+ptxas info    : Compile time = 0.649 ms
+ptxas info    : Compiling entry function '_Z6streamILi256ELi85EEvPK4int4Pi' for 'sm_121a'
+ptxas info    : Function properties for _Z6streamILi256ELi85EEvPK4int4Pi
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 10 registers, used 0 barriers
+ptxas info    : Compile time = 0.666 ms
+ptxas info    : Compiling entry function '_Z6streamILi256ELi42EEvPK4int4Pi' for 'sm_121a'
+ptxas info    : Function properties for _Z6streamILi256ELi42EEvPK4int4Pi
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 10 registers, used 0 barriers
+ptxas info    : Compile time = 0.639 ms
+ptxas info    : Compiling entry function '_Z6streamILi256ELi21EEvPK4int4Pi' for 'sm_121a'
+ptxas info    : Function properties for _Z6streamILi256ELi21EEvPK4int4Pi
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 10 registers, used 0 barriers
+ptxas info    : Compile time = 0.639 ms
+ptxas info    : Compiling entry function '_Z6streamILi256ELi10EEvPK4int4Pi' for 'sm_121a'
+ptxas info    : Function properties for _Z6streamILi256ELi10EEvPK4int4Pi
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 10 registers, used 0 barriers
+ptxas info    : Compile time = 0.766 ms
+ptxas info    : Compiling entry function '_Z6streamILi256ELi5EEvPK4int4Pi' for 'sm_121a'
+ptxas info    : Function properties for _Z6streamILi256ELi5EEvPK4int4Pi
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 10 registers, used 0 barriers
+ptxas info    : Compile time = 0.620 ms

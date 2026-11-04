@@ -203,6 +203,8 @@ WI_DECODE = {
     "S2048": ({"S": 2048}, "shape"),
     "S8192": ({"S": 8192}, "shape"),
 }
+# rotation depth: input sets used in turn, times the base depth (the replay takes every read cold)
+WI_ROT = (2, 4)
 WI_W4 = {
     "b": ({}, "base"),
     "nocompute": ({"compute": False}, "compute removed"),
@@ -243,6 +245,7 @@ def hgemm(
             B_shared = T.alloc_shared((BK, BN), "float16")
             C_local = T.alloc_fragment((BM, BN), "float32")
             O_shared = T.alloc_shared((BM, BN), "float16") if store == "shared" else None
+            t = T.alloc_local((1,), "float")
             if panel:
                 T.use_swizzle(panel_size=panel)
             T.clear(C_local)
@@ -253,7 +256,10 @@ def hgemm(
                 if compute:
                     T.gemm(A_shared, B_shared, C_local)
                 else:  # the copies stay live: one element of each tile
-                    C_local[0, 0] = T.Cast("float", A_shared[0, 0]) + T.Cast("float", B_shared[0, 0])
+                    t[0] = T.Cast("float", A_shared[0, 0]) + T.Cast("float", B_shared[0, 0])
+            if not compute:  # the C tile keeps its stores, spread over the threads as with the mma
+                for i, j in T.Parallel(BM, BN):
+                    C_local[i, j] = t[0]
             if store == "shared":
                 T.copy(C_local, O_shared)
             else:
@@ -344,6 +350,7 @@ def w4gemm(
             Sc_shared = T.alloc_shared((BN, SC), "float16")
             B_shared = T.alloc_shared((BN, BK), "float16")
             C_local = T.alloc_fragment((BM, BN), "float32")
+            t = T.alloc_local((1,), "float")
             T.clear(C_local)
             for ko in T.Pipelined(T.ceildiv(K, BK), num_stages=S):
                 T.copy(A[by * BM, ko * BK], A_shared)
@@ -363,7 +370,10 @@ def w4gemm(
                 if compute:
                     T.gemm(A_shared, B_shared, C_local, transpose_B=True)
                 else:
-                    C_local[0, 0] = T.Cast("float", A_shared[0, 0]) + T.Cast("float", B_shared[0, 0])
+                    t[0] = T.Cast("float", A_shared[0, 0]) + T.Cast("float", B_shared[0, 0])
+            if not compute:
+                for i, j in T.Parallel(BM, BN):
+                    C_local[i, j] = t[0]
             T.copy(C_local, C[by * BM, bx * BN])
 
     return gemm
@@ -1287,6 +1297,50 @@ def _whatif(out: Path) -> None:
                 rot=1 if cache == "warm" else _rot(sum(sizes) * 2),
                 writes=(3, 4),
             )
+    c = DECODE
+    B, H, G, S, D, sp = c["B"], c["H"], c["G"], c["S"], c["D"], c["split"]
+    kv = B * S * G * D
+    sizes = [B * H * D, kv, kv, B * H * sp, B * H * sp * D]
+    r = ROWS["M"], ROWS["N"]
+    for x in WI_ROT:
+        info = {
+            "family": "decode_gqa",
+            "shape": {k: c[k] for k in ("B", "H", "G", "S", "D")},
+            "pick": {k: c[k] for k in ("BN", "BH", "split", "stages")},
+            "cache": "rotating",
+            "set": "whatif decode rotating",
+            **_wi("", "wi_dec_b_rotating", "rotation depth"),
+        }
+        write(
+            out,
+            f"wi_dec_rot{x}_rotating",
+            decode_partial(**c),
+            sizes,
+            [B, H // min(c["BH"], H // G), sp],
+            128,
+            info,
+            rot=x * _rot(sum(sizes) * 2),
+            writes=(3, 4),
+        )
+        info = {
+            "family": "rmsnorm",
+            "shape": ROWS,
+            "pick": {"threads": 128},
+            "cache": "rotating",
+            "set": "whatif rmsnorm rotating",
+            **_wi("", "wi_rms_b_rotating", "rotation depth"),
+        }
+        write(
+            out,
+            f"wi_rms_rot{x}_rotating",
+            rmsnorm(*r),
+            [r[0] * r[1], r[1], r[0] * r[1]],
+            [r[0]],
+            128,
+            info,
+            elem_bytes=[2, 2, 2],
+            rot=x * _rot((2 * r[0] * r[1] + r[1]) * 2),
+        )
     MM, NN, KK = SHAPE["M"], SHAPE["N"], SHAPE["K"]
     bm, bn, bk, s, th = W4GEMM["c128x128x32_s3_t128"]
     for v, (kw, axis) in WI_W4.items():
