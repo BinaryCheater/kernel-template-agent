@@ -696,6 +696,73 @@ T_FIRST = 128
 FIRST_SHARE_BLOCK = 8 * 128 * 16 * 16  # copies, threads, bytes, steps
 
 
+LOAD_Z = (0, 16, 64, 256, 1024)
+LOAD_G = (1, 12, 24, 48, 96, 144)
+LOAD_STEPS = 32
+
+
+def load_curve_cases(b: Batch) -> list[Case]:
+    """Round 10: a lone copy's cycles at Z passes of spacing between the other warps' copies, on G
+    blocks (probe load_curve), warp 0 of the busiest SM's first block."""
+
+    def per_step(sm, r):
+        return sum(q - p for p, q in zip(sm.marks[0::2], sm.marks[1::2], strict=False)) / LOAD_STEPS
+
+    def case(g, z):
+        cid = f"load_curve g{g}_z{z}"
+        probe, ins = _unit_ins(b, cid, f"_Z1kILi{z}EEvPyPKcPf")
+
+        def build(**kw):
+            m = kw.get("machine") or default_machine()
+            per = math.ceil(g / m.sms)
+            return ClockMarked(
+                ins,
+                128,
+                per,
+                LOAD_STEPS,
+                active_sms=min(g, m.sms * per) / per,
+                resident=per,
+                grid_blocks=g,
+                grid_dim=(g, 1, 1),
+                copy_lines=[4],
+                **kw,
+            )
+
+        return _case(b, cid, probe, 4, "cycles", build, per_step)
+
+    return [case(g, z) for g in LOAD_G for z in LOAD_Z]
+
+
+def copy_depth_cases(b: Batch) -> list[Case]:
+    """Round 10: K copies issued with no wait (probe copy_depth): warp 0's cycles to issue them,
+    and to the last landing."""
+
+    def case(rot, t, k, landed):
+        cid = f"copy_depth {'rot' if rot else 'warm'}_t{t}_k{k}" + ("_landed" if landed else "")
+        probe, ins = _unit_ins(b, cid, f"_Z1kILi{k}ELi{t}EEvPyPKc")
+        pcs = {i: 1.0 if rot else 0.0 for i, x in enumerate(ins) if x.base == "LDGSTS"}
+
+        def build(**kw):
+            m = kw.get("machine") or default_machine()
+            clk = dram_clk(512, dram_mix_secs(512, 0, m), 1, m)
+            return ClockMarked(
+                ins, t, 1, 1, copy_lines=[4], miss_by_pc=pcs, dram_clk_per_512B=clk, **kw
+            )
+
+        def read(sm, r):
+            return sm.marks[2 if landed else 1] - sm.marks[0]
+
+        return _case(b, cid, probe, 4, "cycles", build, read)
+
+    return [
+        case(r, t, k, x)
+        for r in (0, 1)
+        for k in (4, 8, 16, 32, 64, 128, 256)
+        for t in (32, 128)
+        for x in (False, True)
+    ]
+
+
 def first_share_cases(b: Batch) -> list[Case]:
     """Round 9: shared tiles at the chip's scale (probe first_share): the wave of 48 blocks of
     `share`, the waves of `seq` on one block per SM, the steps of `pieces` on one block."""
@@ -1325,6 +1392,8 @@ def all_cases(batch_dir: Path) -> list[Case]:
         ("probe-arith_beside", arith_beside_cases),
         ("probe-first_reader", first_reader_cases),
         ("probe-first_share", first_share_cases),
+        ("probe-load_curve", load_curve_cases),
+        ("probe-copy_depth", copy_depth_cases),
         ("probe-mma_ldsm", mma_ldsm_cases),
         ("probe-spill_rw", spill_rw_cases),
         ("probe-l2mix", l2mix_cases),

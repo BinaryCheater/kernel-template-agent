@@ -32,6 +32,7 @@ table scores predicted delta against measured delta) and larger blind groups (`_
 import json
 import math
 import os
+import random
 import re
 import sys
 import traceback
@@ -1134,6 +1135,9 @@ def _w4(out: Path, name: str, tile: tuple, cache: str, kw=None, **more) -> None:
 
 
 def main(out: Path) -> None:
+    _hand(out)
+    _stress(out)
+    _wq(out)
     for name, tile in HGEMM.items():
         # round 4: each variant also rotating (cold operands; the replay's DRAM rule without the
         # warm L2 question)
@@ -1243,6 +1247,172 @@ def _blind(out: Path) -> None:
 
 def _wi(name: str, base: str, axis: str) -> dict:
     return {} if axis == "base" else {"whatif": {"base": base, "axis": axis}}
+
+
+# round 10: kernels from outside TileLang, first-scored blind, a separate breadth set
+# name: (grid, block, smem, [buffer bytes, read or written last]). Sources in testset/hand/
+MB = 1 << 20
+HAND = {
+    "triad": ((1024, 1, 1), (256,), [64 * MB, 64 * MB, 64 * MB]),
+    "stencil": ((128, 128, 1), (16, 16), [16 * MB, 16 * MB]),
+    "nbody": ((64, 1, 1), (256,), [1 * MB, 1 * MB]),
+    "hist": ((1024, 1, 1), (256,), [4096, 16 * MB]),
+    "oddeven": ((1024, 1, 1), (128,), [4 * MB, 4 * MB]),
+    "mandel": ((32, 32, 1), (16, 16), [1 * MB]),
+    "dotd": ((512, 1, 1), (256,), [2 * MB, 64 * MB, 64 * MB]),
+    "hashmix": ((512, 1, 1), (256,), [1 * MB, 32 * MB]),
+    "sobel": ((127, 127, 1), (16, 16), [16 * MB, 4 * MB]),
+    "bcast": ((512, 1, 1), (256,), [1 * MB, 32 * MB]),
+}
+
+
+def _source_kernel(out: Path, name: str, src: str, grid, block, sizes, family: str, group: str):
+    """A kernel with its own source: `k_*`, buffers in the order of its parameters (the first is
+    written), random 16-bit words in every buffer."""
+    if not _wanted(name):
+        return
+    entry = re.search(r"void(?: __launch_bounds__\([^)]*\))? (k_\w+)\(", src)[1]
+    sig = re.search(rf"{entry}\(([^)]*)\)", src)[1]
+    types = [p.rsplit(" ", 1)[0] for p in sig.split(",")]
+    args = ", ".join(f"({t})b[{i}]" for i, t in enumerate(types))
+    d = out / name
+    d.mkdir(parents=True, exist_ok=True)
+    (d / "kernel.cu").write_text(src)
+    g, b = (", ".join(str(x) for x in v) for v in (grid, block))
+    (d / "harness.cu").write_text(
+        HARNESS
+        % {
+            "includes": '#include <tl_templates/cuda/common.h>\n#include "kernel.cu"',
+            "sizes": ", ".join(str(s) for s in sizes),
+            "nbuf": len(sizes),
+            "rot": 1,
+            "setup": f"  const int smem = 0;\n  dim3 grid({g}), block({b});",
+            "launches": f"    {entry}<<<grid, block, smem, st>>>({args});",
+            "name": name,
+        }
+    )
+    launch = {
+        "entry": entry,
+        "grid": list(grid),
+        "threads": math.prod(block),
+        "block": list(block),
+        "smem": 0,
+        "rot": 1,
+        "footprint_bytes": sum(sizes),
+        "write_bytes": sizes[0],
+        "family": family,
+        "set": group,
+        "cache": "warm",
+    }
+    (d / "launch.json").write_text(json.dumps(launch, indent=1) + "\n")
+
+
+def _hand(out: Path) -> None:
+    src = Path(__file__).parent / "hand"
+    for name, (grid, block, sizes) in HAND.items():
+        text = (src / f"{name}.cu").read_text()
+        _source_kernel(out, f"hand_{name}", text, grid, block, sizes, "hand", "breadth hand")
+
+
+def _stress(out: Path) -> None:
+    """Round 10: random instruction mixes and access patterns, seeded (the set's own worst rows
+    say where the model is worst)."""
+    rng = random.Random(1010)
+    stmts = {
+        "fadd": "f{a} = f{b} + f{c};",
+        "fmul": "f{a} = f{b} * 0.999f + f{c};",
+        "fdiv": "f{a} = f{b} / (f{c} + 1.5f);",
+        "fsqrt": "f{a} = sqrtf(fabsf(f{b}) + 1.f);",
+        "fexp": "f{a} = expf(f{b} * 0.001f);",
+        "imul": "u{a} = u{b} * 2654435761u + u{c};",
+        "ixor": "u{a} = (u{b} ^ (u{c} >> 7)) + (u{a} << 3);",
+        "i2f": "f{a} = (float)u{b} * 1e-9f;",
+        "f2i": "u{a} = (unsigned)fabsf(f{b}) + u{c};",
+        "sel": "f{a} = (u{b} & 1) ? f{b} : f{c};",
+        "ld1": "u{a} ^= in[(base + (size_t)k * {s1}) & MASK];",
+        "ld2": "f{a} += (float)in[(base * {s2} + (size_t)k * 4099) & MASK];",
+        "ldx": "u{a} = in[(base ^ u{b}) & MASK];",
+        "lds": "f{a} += s[(t + k) & 63];",
+        "sts": "s[t & 63] = f{a};",
+        "stg": "out[(base + (size_t)k * {s1}) & OMASK] = u{a};",
+    }
+    for i in range(16):
+        keys = rng.choices(sorted(stmts), k=rng.randint(4, 16))
+        body = []
+        for key in keys:
+            body.append(
+                "    "
+                + stmts[key].format(
+                    a=rng.randrange(4),
+                    b=rng.randrange(4),
+                    c=rng.randrange(4),
+                    s1=rng.choice((1, 8, 64, 256, 1024)),
+                    s2=rng.choice((3, 17, 97)),
+                )
+            )
+        nbody = "\n".join(body)
+        threads = rng.choice((64, 128, 256))
+        trips = rng.choice((8, 16, 32))
+        src = f"""// generated, seed 1010, kernel {i}
+#define MASK ((1u << 22) - 1)
+#define OMASK ((1u << 18) - 1)
+__global__ void __launch_bounds__({threads}) k_stress{i}(unsigned* out, const unsigned* in) {{
+  __shared__ float s[64];
+  const int t = threadIdx.x;
+  const size_t base = (size_t)blockIdx.x * {threads} + t;
+  float f0 = t, f1 = 1.f, f2 = 2.f, f3 = 3.f;
+  unsigned u0 = t, u1 = 1, u2 = 2, u3 = 3;
+  for (int k = 0; k < {trips}; ++k) {{
+{nbody}
+  }}
+  s[t & 63] = f0 + f1 + f2 + f3;
+  out[base & OMASK] = u0 ^ u1 ^ u2 ^ u3 ^ (unsigned)s[0];
+}}
+"""
+        grid = (rng.choice((48, 192, 768)), 1, 1)
+        _source_kernel(
+            out,
+            f"stress_{i:02d}",
+            src,
+            grid,
+            (threads,),
+            [1 << 20, 1 << 24],
+            "stress",
+            "breadth stress",
+        )
+
+
+# round 10, question 36: K 32 against K 64 at t256, each with one part removed; question 32: s2
+# against s3 at 3072 x 1536 x 2048 with the same parts removed
+WQ = {
+    "k32_s3_t256": (128, 256, 32, 3, 256),
+    "k64_s2_t256": (128, 256, 64, 2, 256),
+    "k32_s2_t256": (128, 256, 32, 2, 256),
+    "k64_s3_t256": (128, 256, 64, 3, 256),
+}
+WQ_PARTS = {
+    "nocompute": ({"compute": False}, "compute removed"),
+    "nostore": ({"store": "shared"}, "stores removed"),
+}
+
+
+def _wq(out: Path) -> None:
+    for tag, tile in WQ.items():
+        base = f"wq_{tag}"
+        _hgemm(out, base, (*tile, 0), SHAPE, "warm", {}, set="whatif hgemm warm")
+        for v, (opt, axis) in WQ_PARTS.items():
+            more = {"whatif": {"base": base, "axis": axis}}
+            _hgemm(
+                out, f"{base}_{v}", (*tile, 0), SHAPE, "warm", opt, set="whatif hgemm warm", **more
+            )
+    sh = {"M": 3072, "N": 1536, "K": 2048}
+    for st in (2, 3):
+        base = f"wq_m3072_s{st}"
+        tile = (128, 128, 32, st, 128, 0)
+        _hgemm(out, base, tile, sh, "warm", {}, set="whatif hgemm warm")
+        for v, (opt, axis) in WQ_PARTS.items():
+            more = {"whatif": {"base": base, "axis": axis}}
+            _hgemm(out, f"{base}_{v}", tile, sh, "warm", opt, set="whatif hgemm warm", **more)
 
 
 def _whatif(out: Path) -> None:

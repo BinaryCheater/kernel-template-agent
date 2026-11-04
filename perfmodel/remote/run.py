@@ -99,6 +99,56 @@ METRICS_Q = ",".join(
 )
 
 
+# round 10: per-unit stall and activity counters, in their own pass (5u-ncu-<unit>); names from the
+# profiler's catalog, none used before on this GPU
+METRICS_U = ",".join(
+    [
+        *(
+            f"smsp__warps_issue_stalled_{s}.sum"
+            for s in (
+                "long_scoreboard",
+                "short_scoreboard",
+                "mio_throttle",
+                "lg_throttle",
+                "math_pipe_throttle",
+                "wait",
+                "barrier",
+                "not_selected",
+                "selected",
+                "no_instruction",
+                "drain",
+                "dispatch_stall",
+                "branch_resolving",
+                "membar",
+                "misc",
+            )
+        ),
+        "smsp__warps_active.sum",
+        "smsp__warps_eligible.sum",
+        "smsp__issue_active.sum",
+        "sm__pipe_fmaheavy_cycles_active.sum",
+        "sm__pipe_fmalite_cycles_active.sum",
+        "sm__cycles_active.sum",
+    ]
+)
+METRICS_V = ",".join(
+    [
+        "l1tex__m_l1tex2xbar_req_cycles_active.sum",
+        "l1tex__m_l1tex2xbar_req_cycles_stalled.sum",
+        "l1tex__m_xbar2l1tex_read_bytes_pipe_lsu.sum",
+        "l1tex__lsu_writeback_active.sum",
+        "l1tex__data_bank_conflicts_pipe_lsu_mem_shared.sum",
+        "sm__mio2rf_writeback_active.sum",
+        "sm__mio_pq_read_cycles_active.sum",
+        "sm__mio_pq_write_cycles_active.sum",
+        "sm__inst_pending_pipe_lsu_mem_lg_cmd_read.sum",
+        "sm__inst_pending_pipe_lsu_mem_shared_cmd_read.sum",
+        "lts__xbar2lts_cycles_active.sum",
+        "lts__lts2xbar_cycles_active.sum",
+    ]
+)
+
+
 def sh(cmd: list[str], cwd: Path | None = None, timeout: int = 1800) -> tuple[int, str]:
     p = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=timeout, check=False)
     return p.returncode, p.stdout + (("\n# stderr\n" + p.stderr) if p.stderr.strip() else "")
@@ -180,6 +230,9 @@ def main(build: Path, out: Path) -> int:
         ncu("5-ncu", d, METRICS)
     for d in single:
         ncu("5x-ncu", d, METRICS_X)
+    for d in single:
+        ncu("5u-ncu", d, METRICS_U)
+        ncu("5v-ncu", d, METRICS_V)
     for d in sorted(build.glob("probe-*")):
         spec = Path("perfmodel/probes") / d.name.removeprefix("probe-") / "ncu.json"
         if not spec.exists():
@@ -217,6 +270,8 @@ def main(build: Path, out: Path) -> int:
         "steps": steps,
         "metrics": METRICS,
         "metrics_x": METRICS_X,
+        "metrics_u": METRICS_U,
+        "metrics_v": METRICS_V,
         "metrics_p": METRICS_P,
         "metrics_q": METRICS_Q,
         "not_owned_by_user": owned,

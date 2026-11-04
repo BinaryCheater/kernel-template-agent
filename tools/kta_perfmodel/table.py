@@ -696,7 +696,9 @@ def dynamic_weights(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Opcodes by share of the instructions issued, per kernel row, over the `kernel` rows of the
     test set: the mean and the largest share; `default`: a default rule times the opcode."""
     per: dict[str, dict[str, Any]] = {}
-    kernels = [r for r in rows if r["id"].endswith(" kernel") and (r.get("counts") or {}).get("ops")]
+    kernels = [
+        r for r in rows if r["id"].endswith(" kernel") and (r.get("counts") or {}).get("ops")
+    ]
     for r in kernels:
         ops = r["counts"]["ops"]
         total = sum(d[0] for d in ops.values()) or 1
