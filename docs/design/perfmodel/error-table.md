@@ -1,6 +1,6 @@
 # Error table
 
-Produced by `scripts/perfmodel-table` from KTA commit `a66e5aa7c6e60dc6b79db61fa6cf51dd16e4a3da` on 2026-11-04T06:36:05Z; upstream inputs `/Users/dingyi/Projects/ai-infra-codesign-ventus` at `a628c9d963cf9c029fa596b872d6e8920ca883e8`. CPU only: replay time 3601 s summed over rows (slowest row 90 s); this run 285 s with 16 processes, 0 rows from the cache. Error = predicted / measured − 1 (positive: the model is slow). Machine-readable copy: `error-table.json`. Mechanisms only (LOOP §4.4): every fitted parameter replaced by its probe value or removed: {'launch_stream_us': 2.05, 'tma_r_GBs_alone': 80.7, 'tma_l2_aggregate_GBs': 2250, 'block_setup_us': 0.0}.
+Produced by `scripts/perfmodel-table` from KTA commit `be18480275fc190e9480ff82ab7c9a9ed2aed026` on 2026-11-04T06:56:14Z; upstream inputs `/Users/dingyi/Projects/ai-infra-codesign-ventus` at `a628c9d963cf9c029fa596b872d6e8920ca883e8`. CPU only: replay time 3829 s summed over rows (slowest row 91 s); this run 287 s with 16 processes, 0 rows from the cache. Error = predicted / measured − 1 (positive: the model is slow). Machine-readable copy: `error-table.json`. Mechanisms only (LOOP §4.4): every fitted parameter replaced by its probe value or removed: {'launch_stream_us': 2.05, 'tma_r_GBs_alone': 80.7, 'tma_l2_aggregate_GBs': 2250, 'block_setup_us': 0.0}.
 
 ## Summary
 

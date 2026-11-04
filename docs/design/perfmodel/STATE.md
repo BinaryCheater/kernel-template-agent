@@ -1,19 +1,21 @@
 # Performance model: state
 
-The single state file of the GB10 programme (28 §7, LOOP.md product 7). Updated 2026-11-04 at the end of round 8. Table: [error-table.md](error-table.md). Inventory: [29](../29-mechanism-inventory.md). Batches: `perfmodel/batches/<batch>/` (entry blocks, SASS, predictions, batch record, measured values); raw outputs `data/perfmodel/batches/<batch>/` (not in git).
+The single state file of the GB10 programme (28 §7, LOOP.md product 7). Updated 2026-11-04 at the end of round 9. Table: [error-table.md](error-table.md). Inventory: [29](../29-mechanism-inventory.md). Batches: `perfmodel/batches/<batch>/` (entry blocks, SASS, predictions, batch record, measured values); raw outputs `data/perfmodel/batches/<batch>/` (not in git).
 
 ## Where things stand
 
 | Item | State |
 | --- | --- |
-| GPU batches | r1 … r6b as before, all valid; round 7: r7 (160 kernels: one-change variants, larger blind groups; probes l2mix, dram_burst), r7b (probes rot_depth, spill, store_lines), valid: r7 clock 2.483 GHz, drift −0.65 %, canaries within 0.25 %; r7b drift +0.1 %, canaries within 0.5 %; round 8: r8 (66 kernels, 6 probes), valid: clock 2.483 GHz, drift −0.58 %, canaries within 0.65 % |
-| Test set | As round 6 plus: blind groups `hgemm 3072x1536x2048` (14 variants, warm and rotating), `fa 1536x12x96` (8 ran), and the what-if set `wi_*` (98 changes from 8 kinds of base kernel, launch.json `whatif`); round 8: NVFP4 GEMM (`nvfp4gemm2048_*`, 6 rows, R1 0 of 6, so not valid yet; the block-scaled mma stays `unsupported: mma block_scale, ptxas sm_121a`), row parts `rmsb_*`, `smb_*` (10 changes). The 28 §5 table is now covered |
-| Position against 28 §1 (user's targets; "accepted" is the user's word) | **Ranking** τ ≥ 0.8: not met. HGEMM 2048³ warm 0.56, rotating 0.64; 3072×1536×2048 0.75 / 0.78; FA blind 0.86, gemm1024 0.73, tma 0.87. The warm group's own `kernel` rows reach 0.78 against its graph rows and 0.87 against r4: that target sits at the measurement's ceiling there. Best variant: 11 of 13 groups (missed: 2048³ rotating +3.3 %, 3072×1536×2048 warm +8.4 %). **What-if** direction every time: not met, 85 of 108 on `kernel` rows, 87 reading short kernels from graph rows (D804, user's call); on the first 98: 79 (77 before, partly re-measured). Magnitude: median 30 %, 30 of 67 within 25 %. Bottleneck: 6 of 14 bases. **Time** median ≤ 10 %: met, 4.6 % on 91 valid `kernel` rows; none above 25 %: met on valid rows, first time (worst −20.0 %, 1 above 20 %); NVFP4 −36 % is not valid (R1 0 of 6). **Probe ladder**: no per-level budget set; new probes medians 2.7–4.7 %, `store_spread` 20.9 %, `store_lines` 22.8 % |
-| Scorecard, `kernel` rows (latest batch per row) | HGEMM warm: median 2.5 %, worst −7.7 %, Spearman 0.73, τ 0.56, 4 inversions, R1 10/10, bottleneck 9/10; rotating 6.8 %, −8.8 %, 0.81, τ 0.64, 3. FP8 −9.4 / −10.3 %. FA −3.8 %. MoE +7.7 %. w4gemm 11.4 %, −13.3 %. RMSNorm −17 %, graph −22.6 %; softmax −14.2 %, graph −21.9 %; GEMV 9.8 %, −12.1 %; decode −4.1 %. gemm1024 full 3.2 %, tma full 6.6 %. R1 passes on every row with counters except NVFP4. No fitted parameter on a KTA batch row |
+| GPU batches | r1 … r6b as before, all valid; round 7: r7 (160 kernels: one-change variants, larger blind groups; probes l2mix, dram_burst), r7b (probes rot_depth, spill, store_lines), valid: r7 clock 2.483 GHz, drift −0.65 %, canaries within 0.25 %; r7b drift +0.1 %, canaries within 0.5 %; round 8: r8 (66 kernels, 6 probes), valid: clock 2.483 GHz, drift −0.58 %, canaries within 0.65 %; round 9: r9 (test rows, repeats, blind group), r9b, r9c (probes first_reader, first_share; two harness faults, D813), all valid: drift −0.61, 0.0, −0.18 %, canaries within 0.8 % |
+| Test set | As round 6 plus: blind groups `hgemm 3072x1536x2048` (14 variants, warm and rotating), `fa 1536x12x96` (8 ran), and the what-if set `wi_*` (98 changes from 8 kinds of base kernel, launch.json `whatif`); round 8: NVFP4 GEMM (`nvfp4gemm2048_*`, 6 rows, R1 0 of 6, so not valid yet; the block-scaled mma stays `unsupported: mma block_scale, ptxas sm_121a`), row parts `rmsb_*`, `smb_*` (10 changes). The 28 §5 table is now covered; round 9: blind group `hgemm 1536x3072x2048` (13 variants, warm and rotating); NVFP4 valid, R1 6 of 6 |
+| Position against 28 §1 (user's targets; "accepted" is the user's word) | **Ranking** τ ≥ 0.8: not met on six groups. HGEMM 2048³ warm 0.60 (repeat ceiling 0.91), rotating 0.78 (0.91); 3072×1536×2048 0.71 / 0.85 (0.97, 0.96); 1536×3072×2048 0.67 / 0.85 (0.97, 1.00); FA 0.86, NVFP4 0.87, gemm1024 0.73, tma 0.87. The warm groups are not at the measurement's ceiling. Best variant: 12 of 16 groups (missed: 2048³ rotating +2.5 %, 3072×1536×2048 warm +8.0, rotating +2.2, 1536×3072×2048 warm +8.6). **What-if** direction every time: not met, 88 of 108 on `kernel` rows, 90 reading short kernels from graph rows (D804, user's call); stage rows 4 wrong → 0. Magnitude: median 27 %, 31 of 66 within 25 %. Bottleneck: 6 of 14 bases. **Time** median ≤ 10 %: met, 4.6 % on 123 valid `kernel` rows; none above 25 %: met (worst −21.9 %, 2 above 20 %, both 256×256×32 t256). NVFP4 now valid, −9.3 %, worst −11.4 %. **Probe ladder**: no per-level budget set; first_reader 3.1 %, worst +7.3 %; first_share 8.9 %, +26.2 %; copy_dram 4.2 %, +22.4 %: warm 48-block rows (question 32) |
+| Scorecard, `kernel` rows (latest batch per row) | HGEMM warm: median 2.8 %, worst −6.3 %, Spearman 0.78, τ 0.60, 4 inversions, R1 10/10; rotating 6.1 %, −8.1 %, 0.93, τ 0.78, 4. FP8 −6.0 / −8.5 %. FA −3.8 %. MoE +7.7 %. w4gemm 11.5 %, −13.3 %. RMSNorm −12.7 %, graph −12.8 %; softmax −14.2 %, graph −21.9 %; GEMV 9.7 %, −11.9 %; decode −4.1 %. gemm1024 full 3.2 %, tma full 6.6 %. R1 passes on every row with counters. No fitted parameter on a KTA batch row |
+| τ split (2048³, one replay per engine and measurement) | Warm: 0.60 on r1, r2, r3, r4, r9, 0.56 on r8, under the round 7, 8 and 9 engines alike: the drop was r8's measurement, engine 0. Rotating: round 7 engine 0.73 on r4, r8, r9; round 8 engine 0.73, 0.64, 0.64: an engine loss of 0.09 on two of three measurements; round 9 engine 0.78 on all three |
+| Blind (r9, first score, predictions before the run) | hgemm 1536×3072×2048 warm 3.3 %, −11.1 %, τ 0.69, Spearman 0.82, 6 inversions, best no (+8.6 %); rotating 7.2 %, −11.8 %, τ 0.69, 0.87, 9, best yes. Now 3.0 %, τ 0.67 / 5.2 %, τ 0.85 |
 | Blind (r7, first score, engine of round 6) | hgemm 3072×1536×2048 warm 5.6 %, −60.4 %, τ 0.71, Spearman 0.85, 7 inversions, best yes; rotating 7.6 %, −58.4 %, τ 0.78, 0.93, 5, best no (+6.0 %); FA 6.8 %, −11.3 %, τ 0.86, 0.95, 0, best yes. r6 as before: median 9.4 %, worst −30.1 % |
-| Probe set | 32 KTA probes: round 7's 26 plus `warp_map`, `copy_dram`, `store_spread`, `arith_beside`, `mma_ldsm`, `spill_rw` |
-| Engine | Round 6: branch redirect (D780), instruction buffer (D781), instructions beside the tensor pipe (D782), mma stream by operand sets (D783), LDS/STS by lane extent (D784), chip L2 read share under stores (D785), launch steps (D786), sequence program form (D779), lane address before the step (D788). Round 7: stores by sectors behind a buffer (D790), reads and stores with an overlap (D791), stack path (D792), rotating miss by window (D793), loop passes from the counter (D794), what-if scorecard (D789). Round 8: warps across blocks (D797), DRAM by demand (D798), copy latency (D799), stack path (D800), partial sectors (D801), dirty limit (D802), L2 miss per buffer (D803) |
-| Rule depth (rows changed in rounds 5–7) | 16 marked in the inventory: 9 structural, 7 empirical (branch floor, beside mma ×2, operand curve, L2 curve, launch steps, DRAM rate by run) |
+| Probe set | 34 KTA probes: round 8's 32 plus `first_reader`, `first_share` |
+| Engine | Round 6: branch redirect (D780), instruction buffer (D781), instructions beside the tensor pipe (D782), mma stream by operand sets (D783), LDS/STS by lane extent (D784), chip L2 read share under stores (D785), launch steps (D786), sequence program form (D779), lane address before the step (D788). Round 7: stores by sectors behind a buffer (D790), reads and stores with an overlap (D791), stack path (D792), rotating miss by window (D793), loop passes from the counter (D794), what-if scorecard (D789). Round 8: warps across blocks (D797), DRAM by demand (D798), copy latency (D799), stack path (D800), partial sectors (D801), dirty limit (D802), L2 miss per buffer (D803). Round 9: repeat ceiling (D806), misses by slice and wave (D807), followers wait on the fill (D808), miss-status entries (D809), copy latency plus burst (D810), lanes split at branches (D811) |
+| Rule depth (rows changed in rounds 5–9) | 26 marked in the inventory: 15 structural, 11 empirical. Round 8 added 3 empirical on design variables, each a candidate for a structural rule: stack rates (400, 133 B/clk), 1.6 cycles per contiguous store, 244 B/clk for partly filled sectors. Round 9 added 5, all structural, no empirical; one leans on a frozen parameter (D810). Earlier: branch floor, beside mma ×2, operand curve, L2 curve, launch steps, DRAM rate by run |
 
 ## Error table: top valid rows
 
@@ -21,14 +23,16 @@ Valid = counts check passed and cache state declared.
 
 | Row | Error | Attribution (top) |
 | --- | ---: | --- |
-| rmsnorm graph, softmax graph | −22.6 / −21.9 % | loads and arithmetic together (question 27) |
-| hgemm 3072×1536×2048 256×256×32 s2 t256, warm / rotating | −20.0 / −16.0 % | stack path |
-| rmsnorm 2048×1024 warm | −17.0 % | launch 39 %, stores, chip L2 |
+| hgemm 3072×1536×2048 256×256×32 s2 t256, warm / rotating | −21.9 / −20.1 % | stack path 70 % |
+| softmax graph | −21.9 % | launch, drain (question 27) |
+| softmax 512×4096 warm | −14.2 % | launch 34 %, drain |
 | w4gemm c128 warm | −13.3 % | tensor, shared array |
 
-Largest what-if misses (direction wrong now): rotation depth (+5 to +13, 0 %), HGEMM s1 rotating (+1, +12 %), t256 (0, −9 %), BK 16 (+2 to +7, −5 %), decode split 16 warm (−0.6, −12 %), RMSNorm compute removed (−17, +5 %), t64 (−5, +9 %), `rmsb_m48_nostore` (0, −45 %, the launch floor of a 1.8 µs kernel, graph −0.3, −16 %).
+Reversed pairs above the measured spread: warm 2048³ 4, 3072×1536×2048 7, 1536×3072×2048 7; rotating 0, 2, 3. They share two families at all three shapes: `c128x256x32_s3_t256` measures 3–6 % above the K 64 rows, replay level or below (the path differs by `queue (mma)` against stall counts, 40–55 µs each way); `c128x128x32_s2` against `s3` at 3 resident blocks (measured −8 %, replay 0 to +5 %, `queue (chip L2 share)` −16 µs: question 32). No round 8 change moved a warm pair: warm predictions keep τ 0.60 under all three engines.
 
-Worse than round 7: HGEMM warm τ 0.60 → 0.56, rotating 0.73 → 0.64 on re-measured rows, 4 → 3 inversions rotating; FP8 −8.5 → −10.3 %; rotating group misses best variant by 3.3 %. By LOOP §5 not a clean round; all changes stay by probe.
+Wrong what-ifs (20, `kernel` rows): rotation depth 4 (question 26, at its limit); short rows the event step hides, graph rows right, 3 (rmsb m192); threads t256 and RMSNorm t256 rotating 3 (question 29); bk16 2; panels rotating 2 (measured −2.5 %, replay +1 %); GEMV mk16, r16 rotating 2; dec bn32, dec split16, FA noexp, rmsb m48 nostore 1 each. What they share: nothing beyond the groups named; the stage rows, which shared the miss spreading, are all right now.
+
+Worse than round 8, by ablation: `dram_burst_past_l2` 3072×1536×2048 warm τ 0.76 → 0.71, `miss_by_wave` 0.74 → 0.71; `fill_wait` 2048³ rotating best variant yes → +2.5 %, what-if 89 → 88; `l1_pending_fill` NVFP4 τ 1.00 → 0.87 (all within spread). All stay by probe (LOOP §5).
 
 ## Open questions (experiment counts per mechanism, LOOP §3)
 
@@ -39,7 +43,7 @@ Worse than round 7: HGEMM warm τ 0.60 → 0.56, rotating 0.73 → 0.64 on re-me
 5. **Launch hidden behind short kernels** — closed at 2 of 2 (D773): not hidden; back-to-back span + 2.74 µs, graph span + 0.60 µs at spans 0.7–151 µs. Below 0.5 µs span the back-to-back gap shrinks to the submission rate (empty chain 1.90 µs, combine 1.91 µs): new question 14.
 6. **Softmax and FA after the FCHK fix** — compensating mechanism missing (unchanged): FA −7.5 %; softmax now under question 15.
 7. **DRAM writes in rotating rows** — closed at 1 of 2 (D771): reads / 237 + writes / 197 GB/s (dram_rw r4). RMSNorm rotating −41.5 → +16.0 % (now slow: the replay's DRAM queue for a 512-block, one-row-per-block stream; question 15).
-8. **Hits on pending misses** — 0 of 2; a candidate behind question 27 (several resident blocks read W together).
+8. **Hits on pending misses** — closed at 1 of 2 (D809): an L1 hit on a line on its way waits for the first reader's fill: first_reader, a hinge within 5 %.
 9. **Issue limit exceeded** — 1 of 2 (unchanged). Excluded (D758).
 10. **DRAM latency: copy 1560 vs streaming LDG 1100** — closed at 1 of 2 (D799): 1420 for streaming copies.
 11. BAR.SYNC at 32 warps +19 %; L1 chase −4.3 %; dram_rotate at 128 threads −13 %; tiny-kernel store path at large grids; graph of 4096 empty blocks 2.52 µs (replay 0.67): below 3 % of any valid row's path.
@@ -59,13 +63,16 @@ Worse than round 7: HGEMM warm τ 0.60 → 0.56, rotating 0.73 → 0.64 on re-me
 
 25. **Stores by lanes' spread** — closed (D801): by whether lanes share a sector they do not fill, at any distance; the 4 KiB threshold is gone. HGEMM rotating Spearman 0.85 → 0.81 with all round 8 changes: not restored.
 26. **Retention under rotation** — new, 0 of 2: `LDG.E.EF` in rot_depth follows the plain curve, r3's `.cs` curve is cold from 12 MiB; decode keeps 18 % at 67 MB, RMSNorm without stores 55 % at 32 MiB, above the curve. Row depth rows 0/4 in direction.
-27. **Arithmetic beside chip-bound streams** — 1 of 2: arithmetic does hide under the chip's limits (arith_beside), the replay was right. The t64 and t256 rows' −8 to −10 % were mostly the 0.96 µs step (graph rows −1, −5 %, D804). What stays: graph rows, compute removed −20 %, replay +6 %; at 1 block per SM each part alone is right, loads with arithmetic 1.85 / 1.42 µs. Next: what W's load does beside the arithmetic (question 8).
+27. **Arithmetic beside chip-bound streams** — closed for RMSNorm at 2 of 2 (D809): W's lines were instant L1 hits; graph −22.6 → −12.8 %. Softmax graph −21.9 % unchanged: its loads are not several readers of one line; new question 34.
 28. **DRAM share by demand** — closed (D798): the rate limits what has been read so far. HGEMM s1 rotating still +12 %, measured +1 %: 1100 gives +0.3 %, the probe gives 1420: new question 30.
 29. **Threads on HGEMM and on GEMV** — GEMV closed (D797). HGEMM t256, 1 of 2: mma_ldsm rejects the pipe (overlap real, replay within 5 %), −9 %, measured 0: not found. warp_map T 96 n 2 runs faster than four sub-partitions allow: no row.
-30. **Misses inside a copy step** — new, 0 of 2: misses spread evenly over copies, so every step of HGEMM s1 waits for DRAM; really a first reader takes them and the others hit, or wait on its fill.
-31. **Intra-warp divergence** — new, 0 of 2: NVFP4 GEMM −33 to −37 %, R1 0 of 6: per-lane branches, lane 0 stands for the warp. Absent in the engine; needs lane masks (LOOP §7: ask if that is a schema change).
-32. **Chip L2 under arithmetic for copies** — new, 0 of 2: copy_dram warm at 48 blocks 17.3 k, replay 21.2 k; the cumulative rule fails arith_beside and l2mix.
+30. **Misses inside a copy step** — closed (D807, D808): misses by slice and wave, followers wait; stage what-ifs 4 wrong → 0, s1 rotating right. A miss brings its 32-byte sector (`pieces`).
+31. **Intra-warp divergence** — closed at 0 experiments (D811): both arms from lane values, R1 6/6, −33 → −9 %. Memory in an arm at 32 lanes: no row shows it.
+32. **Chip L2 under arithmetic for copies** — 1 of 2: lean one-stage warm copies at 48 blocks run about 1070 B/clk, replay 21.2 k, measured 17.5 k; sharing a tile does not help (D 1–48 flat). 1070 in the table: τ 0.60 → 0.38, rejected (D812); the tile rate and the lean loop's rate differ.
 33. **Event timing resolution** — D804, user's call. Rotation depth rows (question 26) stay wrong: decode and RMSNorm reuse nothing inside a launch (checked: reads = footprint), so promotion in the L2 is not what keeps their 5–18 %.
+34. **Softmax graph −22 %** — new, 0 of 2: launch and drain on the path; 1 of 2 on question 27's mechanism ruled it out.
+35. **Rotating replays below warm** — new, 0 of 2: 128×128×32 s3 and 3072 s2: replay rotating 7 % below warm, measured above. DRAM delays skew the two blocks on an SM and the skew frees the tensor pipe and stores; no measurement shows that gain.
+36. **`c128x256x32` t256 above the K 64 rows** — new, 0 of 2: 3–6 % at three shapes, repeatable, the largest family of reversed pairs.
 
 ## Frozen parameters
 
@@ -77,6 +84,7 @@ Worse than round 7: HGEMM warm τ 0.60 → 0.56, rotating 0.73 → 0.64 on re-me
 | `sim.mma_operand_clk_per_set` | 0.05 cycles per A set | `unidentified` | 2 experiments (r6, r6b); cause not shown, cross term rejected on mma_pair (D783) |
 | `sim.stg_read_overlap_clk` | 2200 | measured on l2mix, empirical | replaces the share 0.45 (D791); within 10 % over L:S 4:1 to 1:4, grid 512 only |
 | `sim.stg_chip_wide_B_per_clk` | 244 | measured, store_spread 237–286, empirical | D801 |
+| `sim.l2_aggregate_B_per_clk_cpasync` in the burst term | 817.7 B/clk | frozen, read by D810 | slope fits 1–16 tiles |
 
 Values marked `fitted` that the table depends on: `launch_stream_us` (upstream ablation rows only since round 3), `tma_r_GBs_alone`, `tma_l2_aggregate_GBs`, `block_setup_us`. Still `assumed`: `sim.default_var_latency_clk` 20, `sim.rbar_release_clk` 8, `sim.fchk_fast_path`.
 
@@ -186,4 +194,16 @@ New mechanism: yes — warp placement P → M, DRAM by demand A → M, stack pat
 Fits: none in the §4 sense; largest fit share on a path unchanged (launch 12 %, upstream gemm1024 nocompute).
 Next: question 27 (loads with arithmetic), 30 (misses in a copy step), then t256; question 31 before NVFP4 counts.
 Position: time met on valid rows, first time none above 25 %; ranking and what-if not met; τ ≥ 0.8 warm is at the measurement's ceiling; NVFP4 not valid (table at the top).
+```
+
+```
+Round 9: batches r9 + r9b + r9c — HGEMM re-measured, blind group 1536×3072×2048, NVFP4; probes first_reader, first_share (a read of a line on its way; shared tiles at the chip's scale).
+Question: HGEMM τ fell two rounds (0.60 → 0.56 warm, 0.73 → 0.64 rotating); round 8 called warm "at the ceiling". Split: warm is r8's measurement alone (engine 0, 0.60 on five of six measurements); rotating is the round 8 engine, −0.09 on two of three measurements. Ceiling 0.91 warm, 0.91 rotating: the claim does not hold. Rotating over warm follows the waves: +17 to +22 µs at 6, +4 to +6 at 3.
+Hypotheses: H-pending (followers wait on the fill) / H-nowait or H-own (instant hit, own read) / H-first (only one reader pays) / H-even (spread over readers and waves) / H-line against H-sector.
+Result: H-pending: cold 1086 … 82 by delay, warm 360 … 82, replay within 5 %; later waves 17.0 k, warm 17.1 k, even 33–36 k; 48 blocks on a tile +742 per step, one reader paying +0; a miss brings its sector; copy DRAM latency 1075 unloaded, 1420 was 16 tiles of burst. Valid data needed three runs (harness faults, D813).
+Change: misses by slice and wave, fill waits, miss-status per line and sector, copy latency 1075 + burst / 817 B/clk, lanes split at branches (both arms, no schema change); table: repeat ceiling. D806–D813.
+Scorecard: 2048³ rotating τ 0.64 → 0.78, warm 0.56 → 0.60 (measurement); 3072 0.75 / 0.78 → 0.71 / 0.85; RMSNorm graph −22.6 → −12.8 %; NVFP4 −36 → −11 %, R1 0 → 6 of 6; what-if 85 → 88 of 108; median 4.6 %, worst −21.9 %, none above 25 %. First score blind 1536×3072×2048: τ 0.69 / 0.69, 3.3 / 7.2 %, best no / yes. Not met: τ on six groups, what-if, bottleneck 6 of 14. By LOOP §5 not a clean round: four rows worse by ablation, all stay by probe.
+New mechanism: yes — inventory: divergence X → P, miss-status M, cp.async spread X → P, DRAM queue by wave, DRAM latency unloaded + burst; 5 rules, all structural.
+Fits: none added; largest share unchanged. Rule depth: round 8's 3 empirical rules on design variables stay candidates, none replaced.
+Next: reversed pairs above the spread: `c128x256x32` t256 against the K 64 rows (question 36), with the s2 / s3 family (question 32's second experiment); then softmax graph (34).
 ```
