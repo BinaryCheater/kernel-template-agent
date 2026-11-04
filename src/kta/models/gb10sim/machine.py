@@ -42,11 +42,12 @@ class _Reads(dict):
     def get(self, key: str, default: Any = None) -> Any:
         if key in self.src:
             return self[key]
-        self.seen.add(self.prefix + key)  # an entry added later changes what this read gets
+        self.seen.add(self.prefix + key)
         return default
 
     def __contains__(self, key: object) -> bool:
-        self.seen.add(self.prefix + str(key))
+        if key not in self.src:  # an entry added later changes the answer
+            self.seen.add(self.prefix + str(key))
         return key in self.src
 
     def __iter__(self):

@@ -1,0 +1,2 @@
+{"date": "2026-11-04T20:16:48Z", "round": 11, "mode": "selection", "commit": "4b5f37b190a4", "dirty": true, "rows": 81, "replayed": 58, "cpu_s": 431.4, "wall_s": 121.7, "jobs": 6}
+{"date": "2026-11-04T20:17:06Z", "round": 11, "mode": "selection", "commit": "4b5f37b190a4", "dirty": true, "rows": 79, "replayed": 0, "cpu_s": 0.0, "wall_s": 2.8, "jobs": 6}

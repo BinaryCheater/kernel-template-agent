@@ -15,7 +15,7 @@ from kta.models.gb10sim.probes import Case
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tools"))
 
-from kta_perfmodel import table  # noqa: E402
+from kta_perfmodel import table
 
 R1 = Path(__file__).resolve().parents[2] / "perfmodel" / "batches" / "r1"
 POINTS = {  # id: tolerance
