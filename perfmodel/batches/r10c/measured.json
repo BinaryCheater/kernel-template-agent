@@ -1,0 +1,362 @@
+{
+ "batch": "r10c",
+ "valid": true,
+ "clock_GHz": 2.4942,
+ "results": {
+  "dram_spread g1_z0_p10": {
+   "median": 917.0,
+   "iqr": 0.0,
+   "unit": "cycles",
+   "n": 2048
+  },
+  "dram_spread g1_z0_p50": {
+   "median": 949.0,
+   "iqr": 0.0,
+   "unit": "cycles",
+   "n": 2048
+  },
+  "dram_spread g1_z0_p90": {
+   "median": 982.0,
+   "iqr": 0.0,
+   "unit": "cycles",
+   "n": 2048
+  },
+  "dram_spread g1_z0_p99": {
+   "median": 3055.0,
+   "iqr": 0.0,
+   "unit": "cycles",
+   "n": 2048
+  },
+  "dram_spread g1_z0_GBs": {
+   "median": 0.0,
+   "iqr": 0.0,
+   "unit": "GB/s",
+   "n": 1
+  },
+  "dram_spread g48_z0_p10": {
+   "median": 936.0,
+   "iqr": 0.0,
+   "unit": "cycles",
+   "n": 2048
+  },
+  "dram_spread g48_z0_p50": {
+   "median": 1205.0,
+   "iqr": 0.0,
+   "unit": "cycles",
+   "n": 2048
+  },
+  "dram_spread g48_z0_p90": {
+   "median": 2411.0,
+   "iqr": 0.0,
+   "unit": "cycles",
+   "n": 2048
+  },
+  "dram_spread g48_z0_p99": {
+   "median": 6391.0,
+   "iqr": 0.0,
+   "unit": "cycles",
+   "n": 2048
+  },
+  "dram_spread g48_z0_GBs": {
+   "median": 548.3214,
+   "iqr": 0.0,
+   "unit": "GB/s",
+   "n": 1
+  },
+  "dram_spread g48_z250_p10": {
+   "median": 895.0,
+   "iqr": 0.0,
+   "unit": "cycles",
+   "n": 2048
+  },
+  "dram_spread g48_z250_p50": {
+   "median": 951.0,
+   "iqr": 0.0,
+   "unit": "cycles",
+   "n": 2048
+  },
+  "dram_spread g48_z250_p90": {
+   "median": 1059.0,
+   "iqr": 0.0,
+   "unit": "cycles",
+   "n": 2048
+  },
+  "dram_spread g48_z250_p99": {
+   "median": 1520.0,
+   "iqr": 0.0,
+   "unit": "cycles",
+   "n": 2048
+  },
+  "dram_spread g48_z250_GBs": {
+   "median": 273.0222,
+   "iqr": 0.0,
+   "unit": "GB/s",
+   "n": 1
+  },
+  "dram_spread g48_z500_p10": {
+   "median": 896.0,
+   "iqr": 0.0,
+   "unit": "cycles",
+   "n": 2048
+  },
+  "dram_spread g48_z500_p50": {
+   "median": 940.0,
+   "iqr": 0.0,
+   "unit": "cycles",
+   "n": 2048
+  },
+  "dram_spread g48_z500_p90": {
+   "median": 1019.0,
+   "iqr": 0.0,
+   "unit": "cycles",
+   "n": 2048
+  },
+  "dram_spread g48_z500_p99": {
+   "median": 1522.0,
+   "iqr": 0.0,
+   "unit": "cycles",
+   "n": 2048
+  },
+  "dram_spread g48_z500_GBs": {
+   "median": 150.4183,
+   "iqr": 0.0,
+   "unit": "GB/s",
+   "n": 1
+  },
+  "dram_spread g48_z1000_p10": {
+   "median": 886.0,
+   "iqr": 0.0,
+   "unit": "cycles",
+   "n": 2048
+  },
+  "dram_spread g48_z1000_p50": {
+   "median": 937.0,
+   "iqr": 0.0,
+   "unit": "cycles",
+   "n": 2048
+  },
+  "dram_spread g48_z1000_p90": {
+   "median": 985.0,
+   "iqr": 0.0,
+   "unit": "cycles",
+   "n": 2048
+  },
+  "dram_spread g48_z1000_p99": {
+   "median": 1371.0,
+   "iqr": 0.0,
+   "unit": "cycles",
+   "n": 2048
+  },
+  "dram_spread g48_z1000_GBs": {
+   "median": 77.4396,
+   "iqr": 0.0,
+   "unit": "GB/s",
+   "n": 1
+  },
+  "dram_spread g48_z2000_p10": {
+   "median": 890.0,
+   "iqr": 0.0,
+   "unit": "cycles",
+   "n": 2048
+  },
+  "dram_spread g48_z2000_p50": {
+   "median": 937.0,
+   "iqr": 0.0,
+   "unit": "cycles",
+   "n": 2048
+  },
+  "dram_spread g48_z2000_p90": {
+   "median": 976.0,
+   "iqr": 0.0,
+   "unit": "cycles",
+   "n": 2048
+  },
+  "dram_spread g48_z2000_p99": {
+   "median": 1350.0,
+   "iqr": 0.0,
+   "unit": "cycles",
+   "n": 2048
+  },
+  "dram_spread g48_z2000_GBs": {
+   "median": 39.9003,
+   "iqr": 0.0,
+   "unit": "GB/s",
+   "n": 1
+  },
+  "dram_spread g48_z4000_p10": {
+   "median": 889.0,
+   "iqr": 0.0,
+   "unit": "cycles",
+   "n": 2048
+  },
+  "dram_spread g48_z4000_p50": {
+   "median": 938.0,
+   "iqr": 0.0,
+   "unit": "cycles",
+   "n": 2048
+  },
+  "dram_spread g48_z4000_p90": {
+   "median": 976.0,
+   "iqr": 0.0,
+   "unit": "cycles",
+   "n": 2048
+  },
+  "dram_spread g48_z4000_p99": {
+   "median": 1485.0,
+   "iqr": 0.0,
+   "unit": "cycles",
+   "n": 2048
+  },
+  "dram_spread g48_z4000_GBs": {
+   "median": 19.083,
+   "iqr": 0.0,
+   "unit": "GB/s",
+   "n": 1
+  },
+  "dram_spread g48_z8000_p10": {
+   "median": 882.0,
+   "iqr": 0.0,
+   "unit": "cycles",
+   "n": 2048
+  },
+  "dram_spread g48_z8000_p50": {
+   "median": 939.0,
+   "iqr": 0.0,
+   "unit": "cycles",
+   "n": 2048
+  },
+  "dram_spread g48_z8000_p90": {
+   "median": 973.0,
+   "iqr": 0.0,
+   "unit": "cycles",
+   "n": 2048
+  },
+  "dram_spread g48_z8000_p99": {
+   "median": 1158.0,
+   "iqr": 0.0,
+   "unit": "cycles",
+   "n": 2048
+  },
+  "dram_spread g48_z8000_GBs": {
+   "median": 10.3035,
+   "iqr": 0.0,
+   "unit": "GB/s",
+   "n": 1
+  },
+  "load_sat g12_z0": {
+   "median": 389.4375,
+   "iqr": 2.0625,
+   "unit": "cycles",
+   "n": 15,
+   "span_us": 41.5
+  },
+  "load_sat g12_z64": {
+   "median": 382.5625,
+   "iqr": 1.375,
+   "unit": "cycles",
+   "n": 15,
+   "span_us": 63.74
+  },
+  "load_sat g12_z256": {
+   "median": 379.6875,
+   "iqr": 0.1875,
+   "unit": "cycles",
+   "n": 15,
+   "span_us": 127.71
+  },
+  "load_sat g24_z0": {
+   "median": 390.5625,
+   "iqr": 1.625,
+   "unit": "cycles",
+   "n": 15,
+   "span_us": 40.7
+  },
+  "load_sat g24_z64": {
+   "median": 383.4375,
+   "iqr": 0.7188,
+   "unit": "cycles",
+   "n": 15,
+   "span_us": 52.58
+  },
+  "load_sat g24_z256": {
+   "median": 379.8438,
+   "iqr": 0.6562,
+   "unit": "cycles",
+   "n": 15,
+   "span_us": 127.81
+  },
+  "load_sat g48_z0": {
+   "median": 395.8125,
+   "iqr": 1.0312,
+   "unit": "cycles",
+   "n": 15,
+   "span_us": 28.77
+  },
+  "load_sat g48_z64": {
+   "median": 387.0,
+   "iqr": 1.9688,
+   "unit": "cycles",
+   "n": 15,
+   "span_us": 52.96
+  },
+  "load_sat g48_z256": {
+   "median": 380.625,
+   "iqr": 0.6562,
+   "unit": "cycles",
+   "n": 15,
+   "span_us": 127.84
+  },
+  "load_sat g96_z0": {
+   "median": 452.7188,
+   "iqr": 10.5,
+   "unit": "cycles",
+   "n": 15,
+   "span_us": 34.24
+  },
+  "load_sat g96_z64": {
+   "median": 415.125,
+   "iqr": 6.6562,
+   "unit": "cycles",
+   "n": 15,
+   "span_us": 57.12
+  },
+  "load_sat g96_z256": {
+   "median": 397.4062,
+   "iqr": 6.3438,
+   "unit": "cycles",
+   "n": 15,
+   "span_us": 143.55
+  },
+  "load_sat g144_z0": {
+   "median": 553.375,
+   "iqr": 15.9062,
+   "unit": "cycles",
+   "n": 15,
+   "span_us": 46.3
+  },
+  "load_sat g144_z64": {
+   "median": 461.4375,
+   "iqr": 7.9688,
+   "unit": "cycles",
+   "n": 15,
+   "span_us": 61.22
+  },
+  "load_sat g144_z256": {
+   "median": 411.75,
+   "iqr": 4.8438,
+   "unit": "cycles",
+   "n": 15,
+   "span_us": 148.86
+  },
+  "clock chain_GHz": {
+   "median": 2.4942,
+   "iqr": 0.0074,
+   "unit": "GHz",
+   "n": 15,
+   "chain_cycles": 19136544.0,
+   "cycles_per_ffma": 4.563
+  }
+ },
+ "invalid_results": {},
+ "counters": {}
+}
