@@ -223,7 +223,7 @@ class Lanes:
         if base in NO_DEST or not args or not _REG.match(args[0]):
             return None
         d = args[0]
-        lanes = self._lanes_of(guard) if guard else None
+        lanes = self.lanes_of(guard) if guard else None
         if lanes is not None:  # round 11: a guard known per lane: the old value on the others
             old, new = self.get(d, vals), self._eval(base, op, args, vals)
             self._set(d, _merge_lanes(lanes, new, old) if isinstance(new, tuple) else None, op)
@@ -253,7 +253,7 @@ class Lanes:
         self._set(d, out, op)
         return None
 
-    def _lanes_of(self, tok: str) -> tuple[bool, ...] | None:
+    def lanes_of(self, tok: str) -> tuple[bool, ...] | None:
         """The 32 lanes of a predicate token (`P1`, `!P1`, `@!P1`), when known."""
         t = tok.lstrip("@")
         v = self.p.get(t.lstrip("!"))
@@ -348,7 +348,7 @@ class Lanes:
     def _select(self, base: str, op: str, a: tuple[str, ...], g: list[Val | None]) -> Val | None:
         """Round 11 (hand_stencil): SEL by a lane predicate; min (PT), max (!PT) of exact lanes."""
         if base == "SEL":
-            lanes = self._lanes_of(a[3])
+            lanes = self.lanes_of(a[3])
             return _merge_lanes(lanes, g[0], g[1]) if lanes is not None else None
         x, y = g[0], g[1]
         if a[3] not in ("PT", "!PT") or not (self.exact(x) and self.exact(y)):

@@ -307,6 +307,7 @@ class SM:
         self.addr_log = addr_log
         self.addr_want = addr_want  # bases still to log; the run ends when none is left
         self.stg_bases: set = set()  # with addr_log: the bases stores land on
+        self.stg_lanes = 0  # the next store's lanes, when a guard splits them
         # round 12 (wf_*): the distinct bytes a launch writes, when the caller knows them
         self.write_footprint = write_footprint
         # block -> warps that have exited (they count as arrived at a block-wide barrier)
@@ -818,6 +819,13 @@ class SM:
             # round 6: read before the step, a load may overwrite its own address register
             if cls.handler in ("ldg", "smem_op", "cp_async", "stg", "red"):
                 addr0 = w.lanes.address(x.args, w.vals)
+            if x.pred and cls.handler == "stg":
+                # round 12 (question 41): a store guarded per lane writes those lanes only
+                on = w.lanes.lanes_of(x.pred)
+                if on is not None and any(on):
+                    self.stg_lanes = sum(on)
+                    if addr0 is not None:
+                        addr0 = (addr0[0], tuple(o for o, g in zip(addr0[1], on, strict=True) if g))
             # the guard as the lane tracking sees it: none, known false, known true or unknown
             runs = True if not x.pred else (False if not executes else pv)
             pend = w.lanes.step(x.base, x.op, x.argv, w.vals, runs, x.pred)
@@ -1447,6 +1455,9 @@ class SM:
                 if P["dram_writes_shared"] and not self.dram_writes_counted:
                     # round 11 (wr_*): reads and written-back bytes take turns on the DRAM
                     t["dram_queue"] += nbytes * self.active_sms / wr
+        if addr0 is None and self.stg_lanes:
+            nbytes = 32 * self.stg_lanes
+        self.stg_lanes = 0
         chip = nbytes / (rate / self.active_sms)
         start = max(now, t["store_port"])
         if P["l2_chip_read_share"] > 0 and chip >= pair:
