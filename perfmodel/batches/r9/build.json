@@ -1,0 +1,11 @@
+{
+ "batch": "r9",
+ "commit": "2714f1116fb8fe15f2bd503edecd1475b32ad73c",
+ "host": "spark",
+ "remote_build": "kta-work/data/perfmodel/batches/r9/build",
+ "only": "^probe-(first_reader|first_share)$|^hgemm|^nvfp4gemm|^fa_s1536|^wi_hg_",
+ "date": "2026-11-04T06:06:45Z",
+ "nvcc_host": "Cuda compilation tools, release 13.0, V13.0.88\nBuild cuda_13.0.r13.0/compiler.36424714_0",
+ "nvcc_image": "Cuda compilation tools, release 13.2, V13.2.51\nBuild cuda_13.2.r13.2/compiler.37434383_0",
+ "tilelang": "0.1.15"
+}
