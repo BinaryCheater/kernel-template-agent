@@ -1,0 +1,36 @@
+ptxas info    : 0 bytes gmem
+ptxas info    : Compiling entry function '_Z1mILi128EEvPyPf' for 'sm_121a'
+ptxas info    : Function properties for _Z1mILi128EEvPyPf
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 44 registers, used 1 barriers
+ptxas info    : Compile time = 2.842 ms
+ptxas info    : Compiling entry function '_Z1mILi64EEvPyPf' for 'sm_121a'
+ptxas info    : Function properties for _Z1mILi64EEvPyPf
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 44 registers, used 1 barriers
+ptxas info    : Compile time = 1.930 ms
+ptxas info    : Compiling entry function '_Z1mILi32EEvPyPf' for 'sm_121a'
+ptxas info    : Function properties for _Z1mILi32EEvPyPf
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 46 registers, used 1 barriers
+ptxas info    : Compile time = 1.689 ms
+ptxas info    : Compiling entry function '_Z1xILi128EEvPyPf' for 'sm_121a'
+ptxas info    : Function properties for _Z1xILi128EEvPyPf
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 16 registers, used 1 barriers
+ptxas info    : Compile time = 1.292 ms
+ptxas info    : Compiling entry function '_Z1xILi96EEvPyPf' for 'sm_121a'
+ptxas info    : Function properties for _Z1xILi96EEvPyPf
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 16 registers, used 1 barriers
+ptxas info    : Compile time = 1.216 ms
+ptxas info    : Compiling entry function '_Z1xILi64EEvPyPf' for 'sm_121a'
+ptxas info    : Function properties for _Z1xILi64EEvPyPf
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 16 registers, used 1 barriers
+ptxas info    : Compile time = 1.174 ms
+ptxas info    : Compiling entry function '_Z1xILi32EEvPyPf' for 'sm_121a'
+ptxas info    : Function properties for _Z1xILi32EEvPyPf
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 17 registers, used 1 barriers
+ptxas info    : Compile time = 1.169 ms

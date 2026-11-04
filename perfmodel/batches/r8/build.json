@@ -1,0 +1,11 @@
+{
+ "batch": "r8",
+ "commit": "15af8a06ace4bf5e67f2e90385c93770e2b6bedc",
+ "host": "spark",
+ "remote_build": "kta-work/data/perfmodel/batches/r8/build",
+ "only": "^probe-(warp_map|copy_dram|store_spread|arith_beside|mma_ldsm|spill_rw)$|^(rmsb|smb)_m|^nvfp4gemm|^hgemm2048_|^wi_(rms|softmax|gemv)_.*_warm$|^wi_hg_(b|t256|s1|s2)_(warm|rotating)$",
+ "date": "2026-11-04T04:47:27Z",
+ "nvcc_host": "Cuda compilation tools, release 13.0, V13.0.88\nBuild cuda_13.0.r13.0/compiler.36424714_0",
+ "nvcc_image": "Cuda compilation tools, release 13.2, V13.2.51\nBuild cuda_13.2.r13.2/compiler.37434383_0",
+ "tilelang": "0.1.15"
+}

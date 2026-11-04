@@ -1,0 +1,28 @@
+{
+ "entry": "smax_kernel",
+ "grid": [
+  48
+ ],
+ "threads": 128,
+ "block": [
+  128
+ ],
+ "smem": 8192,
+ "rot": 1,
+ "footprint_bytes": 786432,
+ "write_bytes": 393216,
+ "family": "softmax",
+ "shape": {
+  "M": 48,
+  "N": 4096
+ },
+ "pick": {
+  "threads": 128
+ },
+ "cache": "warm",
+ "set": "whatif softmax m48",
+ "whatif": {
+  "base": "smb_m48_b",
+  "axis": "stores removed"
+ }
+}
