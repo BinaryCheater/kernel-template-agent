@@ -765,7 +765,7 @@ class SM:
                 addr0 = w.lanes.address(x.args, w.vals)
             # the guard as the lane tracking sees it: none, known false, known true or unknown
             runs = True if not x.pred else (False if not executes else pv)
-            pend = w.lanes.step(x.base, x.op, x.args.split(","), w.vals, runs)
+            pend = w.lanes.step(x.base, x.op, x.args.split(","), w.vals, runs, x.pred)
         if w.lanes is not None and P["intra_warp_divergence"]:
             self._track_mixed(w, x)
         if executes:

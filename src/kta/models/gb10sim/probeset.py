@@ -769,6 +769,54 @@ def copy_depth_cases(b: Batch) -> list[Case]:
     ]
 
 
+L2_CAP_POINTS = (
+    ("ld", 4, 1, 128, 4),  # kind, lane stride: lines, bytes of one warp instruction
+    ("ld", 32, 8, 128, 32),
+    ("ld", 128, 32, 128, 128),
+    ("cp", 16, 4, 512, 16),
+    ("cp", 64, 16, 512, 64),
+    ("cp", 128, 32, 512, 128),
+)
+L2_CAP_G = (12, 48, 144, 480)
+L2_CAP_SMEM = 8192
+L2_CAP_T = 256
+
+
+def l2_cap_cases(b: Batch) -> list[Case]:
+    """Round 11: a warm 8 MiB read without a pause (probe l2_cap): the launch's span, every access
+    an L2 hit past the L1 (the driver's lines stand for the masked addresses)."""
+
+    def case(kind, s, lines, nbytes, g):
+        cid = f"l2_cap {kind}{s}_g{g}"
+        name = {"ld": f"_Z2ldILi{s}EEvPKcPj", "cp": f"_Z2cpILi{s}EEvPKcPj"}[kind]
+        probe, ins = _unit_ins(b, cid, name)
+
+        def build(**kw):
+            m = kw.get("machine") or default_machine()
+            per_sm = math.ceil(g / m.sms)
+            smem = L2_CAP_SMEM if kind == "cp" else 0
+            rmax = occupancy({"threads": L2_CAP_T}, 8, smem, m)
+            extra = {"copy_lines": [lines]} if kind == "cp" else {}
+            if kind == "ld":
+                extra = {"ldg_lines": [(lines, nbytes, False)]}
+            return SM(
+                ins,
+                L2_CAP_T,
+                per_sm,
+                1,
+                active_sms=min(g, m.sms * rmax) / min(rmax, per_sm),
+                resident=rmax,
+                grid_blocks=g,
+                grid_dim=(g, 1, 1),
+                **extra,
+                **kw,
+            )
+
+        return _case(b, cid, probe, 4, "us", build, _time(b, "event"))
+
+    return [case(k, s, n, nb, g) for k, s, n, nb, _ in L2_CAP_POINTS for g in L2_CAP_G]
+
+
 def first_share_cases(b: Batch) -> list[Case]:
     """Round 9: shared tiles at the chip's scale (probe first_share): the wave of 48 blocks of
     `share`, the waves of `seq` on one block per SM, the steps of `pieces` on one block."""
@@ -1399,6 +1447,7 @@ BUILDERS = (
     ("probe-load_curve", load_curve_cases),
     ("probe-load_sat", load_sat_cases),
     ("probe-copy_depth", copy_depth_cases),
+    ("probe-l2_cap", l2_cap_cases),
     ("probe-mma_ldsm", mma_ldsm_cases),
     ("probe-spill_rw", spill_rw_cases),
     ("probe-l2mix", l2mix_cases),

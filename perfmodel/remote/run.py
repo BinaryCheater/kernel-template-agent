@@ -84,6 +84,7 @@ METRICS_P = ",".join(
         "lts__t_sector_hit_rate.pct",
         "l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum",
         "gpu__time_duration.sum",
+        "lts__lts2xbar_cycles_active.sum",
     ]
 )
 METRICS_Q = ",".join(

@@ -118,6 +118,7 @@ class Lanes:
         self.tid0 = tid0
         self.bd = block_dim
         self.fresh = 0
+        self.p: dict[str, tuple[bool, ...]] = {}  # round 11: predicates that split the lanes
 
     # --- operands ---------------------------------------------------------------------------
     def get(self, tok: str, vals: dict[str, Any]) -> Val | None:
@@ -155,12 +156,27 @@ class Lanes:
         return not x[0]
 
     # --- instructions -------------------------------------------------------------------------
-    def step(self, base: str, op: str, args: list[str], vals: dict[str, Any], runs: bool | None):
+    def step(
+        self,
+        base: str,
+        op: str,
+        args: list[str],
+        vals: dict[str, Any],
+        runs: bool | None,
+        guard: str | None = None,
+    ):
         """Update the destination of one executed instruction. `runs`: the guard predicate
-        (True, False, or None when the replay does not know it)."""
+        (True, False, or None when the replay does not know it); `guard`: its token."""
+        if base == "ISETP" and runs is not False:
+            self._set_pred(op, [a.strip() for a in args], vals)
         if base in NO_DEST or not args or not _REG.match(args[0].strip()):
             return None
         d = args[0].strip()
+        lanes = self._lanes_of(guard) if guard else None
+        if lanes is not None:  # round 11: a guard known per lane: the old value on the others
+            old, new = self.get(d, vals), self._eval(base, op, args, vals)
+            self._set(d, _merge_lanes(lanes, new, old) if isinstance(new, tuple) else None, op)
+            return None
         if runs is False:
             return None
         if runs is None:  # a guarded write the replay cannot decide: unknown afterwards
@@ -185,6 +201,26 @@ class Lanes:
             return done
         self._set(d, out, op)
         return None
+
+    def _lanes_of(self, tok: str) -> tuple[bool, ...] | None:
+        """The 32 lanes of a predicate token (`P1`, `!P1`, `@!P1`), when known."""
+        t = tok.lstrip("@")
+        v = self.p.get(t.lstrip("!"))
+        return v if v is None or not t.startswith("!") else tuple(not x for x in v)
+
+    def _set_pred(self, op: str, a: list[str], vals: dict[str, Any]) -> None:
+        """Round 11 (hand_stencil): a compare of exact lane values, ANDed with PT, is known per
+        lane; anything else forgets the predicate."""
+        self.p.pop(a[0], None)
+        self.p.pop(a[1], None)
+        g = [self.get(t, vals) for t in a[2:4]]
+        if len(a) < 5 or a[4] != "PT" or ".AND" not in op or any(x is None for x in g):
+            return
+        if not all(self.exact(x) for x in g):
+            return
+        out = _compare(op, g[0], g[1])
+        if out is not None and re.match(r"^P\d$", a[0]):
+            self.p[a[0]] = out
 
     def _set(self, d: str, val: Val | str | None, op: str) -> None:
         hi = None
@@ -238,6 +274,10 @@ class Lanes:
             return None
         src = [t for t in a[1:] if not re.match(r"^!?U?P(T|\d)$", t)]
         g = [self.get(t, vals) for t in src]
+        if base in ("SEL", "VIMNMX", "IMNMX") and len(a) >= 4 and None not in g[:2]:
+            r = self._select(base, op, a, g)
+            if r is not None:
+                return r
         try:
             r = self._linear(base, op, a, src, g, vals)
         except (IndexError, ValueError, TypeError):
@@ -250,6 +290,18 @@ class Lanes:
             self.fresh += 1
             return (((("u", d, self.fresh), 1),), ZERO)
         return None
+
+    def _select(self, base: str, op: str, a: list[str], g: list[Val | None]) -> Val | None:
+        """Round 11 (hand_stencil): SEL by a lane predicate; min (PT), max (!PT) of exact lanes."""
+        if base == "SEL":
+            lanes = self._lanes_of(a[3])
+            return _merge_lanes(lanes, g[0], g[1]) if lanes is not None else None
+        x, y = g[0], g[1]
+        if a[3] not in ("PT", "!PT") or not (self.exact(x) and self.exact(y)):
+            return None
+        pick = min if a[3] == "PT" else max
+        sign = (lambda v: v) if ".U32" in op else _signed
+        return ((), tuple(pick(p, q, key=sign) for p, q in zip(x[1], y[1], strict=True)))
 
     def _linear(self, base, op, a, src, g, vals) -> Val | None:
         def add(*xs: Val) -> Val:
@@ -354,21 +406,10 @@ class Lanes:
             k = lut[1][0]
             out = {lut3(*(x[1][i] for x in g), k) != 0 for i in LANES}
         else:
-            m = re.match(r"ISETP\.(\w+)(\.U32)?", op)
-            if not m:
+            r = _compare(op, g[0], g[1])
+            if r is None:
                 return None
-            cmp = {
-                "GT": lambda a, b: a > b,
-                "GE": lambda a, b: a >= b,
-                "LT": lambda a, b: a < b,
-                "LE": lambda a, b: a <= b,
-                "NE": lambda a, b: a != b,
-                "EQ": lambda a, b: a == b,
-            }.get(m[1])
-            if cmp is None:
-                return None
-            sign = (lambda v: v) if m[2] else (lambda v: v - (1 << 32) if v >= 1 << 31 else v)
-            out = {cmp(sign(g[0][1][i]), sign(g[1][1][i])) for i in LANES}
+            out = set(r)
         return len(out) > 1
 
     # --- addresses ----------------------------------------------------------------------------
@@ -388,6 +429,37 @@ class Lanes:
                 tuple((o + y) & M32 for o, y in zip(out[1], v[1], strict=True)),
             )
         return out
+
+
+def _signed(v: int) -> int:
+    return v - (1 << 32) if v >= 1 << 31 else v
+
+
+def _merge_lanes(lanes: tuple[bool, ...], a: Val | None, b: Val | None) -> Val | None:
+    """`a` on the lanes set, `b` on the others; one value when only one side is ever taken."""
+    if all(lanes):
+        return a
+    if not any(lanes):
+        return b
+    if a is None or b is None or a[0] != b[0]:
+        return None
+    return (a[0], tuple(x if p else y for p, x, y in zip(lanes, a[1], b[1], strict=True)))
+
+
+def _compare(op: str, a: Val, b: Val) -> tuple[bool, ...] | None:
+    m = re.match(r"ISETP\.(\w+)(\.U32)?", op)
+    cmp = {
+        "GT": lambda x, y: x > y,
+        "GE": lambda x, y: x >= y,
+        "LT": lambda x, y: x < y,
+        "LE": lambda x, y: x <= y,
+        "NE": lambda x, y: x != y,
+        "EQ": lambda x, y: x == y,
+    }.get(m[1] if m else "")
+    if cmp is None:
+        return None
+    sign = (lambda v: v) if m[2] else _signed
+    return tuple(cmp(sign(p), sign(q)) for p, q in zip(a[1], b[1], strict=True))
 
 
 def lut3(a: int, b: int, c: int, lut: int) -> int:

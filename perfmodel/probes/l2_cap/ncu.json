@@ -1,0 +1,14 @@
+[
+ {
+  "tag": "ld4_g480",
+  "args": [],
+  "kernel": "^_Z2ldILi4EEvPKcPj$",
+  "skip": 32
+ },
+ {
+  "tag": "cp16_g480",
+  "args": [],
+  "kernel": "^_Z2cpILi16EEvPKcPj$",
+  "skip": 32
+ }
+]

@@ -1134,8 +1134,110 @@ def _w4(out: Path, name: str, tile: tuple, cache: str, kw=None, **more) -> None:
     )
 
 
+# round 11. Reads and stores past the L2: r reads and w stores per thread pass over E MiB of
+# elements (LOOP §3, hand_triad, hand_stencil): how the DRAM's read and write time combine, and
+# whether written bytes churn a warm read.
+WR_POINTS = (
+    (1, 0, 8),
+    (1, 0, 16),
+    (1, 0, 32),
+    (1, 0, 64),
+    (1, 1, 4),
+    (1, 1, 8),
+    (1, 1, 16),
+    (1, 1, 32),
+    (1, 1, 64),
+    (2, 1, 8),
+    (2, 1, 16),
+    (2, 1, 32),
+    (1, 2, 8),
+    (1, 2, 16),
+    (1, 2, 32),
+    (1, 4, 4),
+    (1, 4, 8),
+    (1, 4, 16),
+)
+# question 26: what a rotation of `rot` sets keeps, plain loads alone and with stores
+WR_ROTATING = ((1, 0, 8, 2), (1, 0, 8, 4), (1, 0, 8, 8), (1, 0, 16, 2), (1, 1, 8, 2), (1, 1, 8, 4))
+ATOM_BINS = (1, 16, 256, 1024, 4096, 65536, 1048576)
+# bins, bytes apart: same bins at a line and at a page's spacing
+ATOM_SPREAD = ((16, 128), (256, 128), (16, 4096), (256, 4096))
+# stores 1 element apart per thread: the elements between one pass's store and the next (32 lanes:
+# 32 lines apart), with the first lane off a line (S 8: stress_09's pattern) or on it
+REWRITE = ((32, 0), (16, 0), (8, 0), (4, 0), (1, 0), (32, 3), (8, 3))
+# blind rows for the mechanisms above: predictions committed, no parameter taken from them
+HAND11 = {
+    "gups": ((1024, 1, 1), (256,), [4 * MB, 16 * MB]),
+    "copy": ((512, 1, 1), (256,), [32 * MB, 32 * MB]),
+    "scale": ((1024, 1, 1), (256,), [64 * MB, 64 * MB]),
+    "stencil512": ((32, 32, 1), (16, 16), [1 * MB, 1 * MB]),
+    "smear": ((192, 1, 1), (256,), [1 * MB, 1 * MB]),
+}
+
+
+def _round11(out: Path) -> None:
+    for r, w, e, rot in (*((*p, 1) for p in WR_POINTS), *WR_ROTATING):
+        reads = "\n".join(f"    s += b[i * {r} + {j}];" for j in range(r))
+        writes = "\n".join(f"    a[i * {w} + {j}] = s;" for j in range(w))
+        tail = "" if w else "  if (s == 1.2345f) a[0] = s;\n"
+        src = f"""// round 11: {r} reads and {w} stores per pass over {e} MiB of elements
+__global__ void __launch_bounds__(256) k_wr(float* a, const float* b) {{
+  const size_t base = (size_t)blockIdx.x * 256 * 64 + threadIdx.x;
+  float s = 0.f;
+  for (int k = 0; k < 64; ++k) {{
+    size_t i = base + (size_t)k * 256;
+{reads}
+{writes}
+  }}
+{tail}}}
+"""
+        grid = (e * 16, 1, 1)
+        sizes = [max(4096, w * e * MB), r * e * MB]
+        tag = f"_rot{rot}" if rot > 1 else ""
+        name = f"wr_r{r}w{w}_{e}m{tag}"
+        group = "wr_rotating" if rot > 1 else "wr_past_l2"
+        _source_kernel(out, name, src, grid, (256,), sizes, "hand", group, rot)
+    for bins in ATOM_BINS:
+        src = f"""// round 11: 16 atomics per thread on {bins} bins
+__global__ void __launch_bounds__(256) k_atom(unsigned* h) {{
+  const unsigned t = blockIdx.x * 256 + threadIdx.x;
+  for (int k = 0; k < 16; ++k)
+    atomicAdd(&h[((t + k * 1048576u) * 2654435761u >> 11) & {bins - 1}u], 1u);
+}}
+"""
+        name = f"atom_b{bins}"
+        _source_kernel(out, name, src, (1024, 1, 1), (256,), [bins * 4], "hand", "atomic_bins")
+    for bins, gap in ATOM_SPREAD:
+        src = f"""// round 11: 16 atomics per thread on {bins} bins {gap} bytes apart
+__global__ void __launch_bounds__(256) k_atom(unsigned* h) {{
+  const unsigned t = blockIdx.x * 256 + threadIdx.x;
+  for (int k = 0; k < 16; ++k)
+    atomicAdd(&h[(((t + k * 1048576u) * 2654435761u >> 11) & {bins - 1}u) * {gap // 4}u], 1u);
+}}
+"""
+        name = f"atom_b{bins}_gap{gap}"
+        _source_kernel(out, name, src, (1024, 1, 1), (256,), [bins * gap], "hand", "atomic_bins")
+    for g in (48, 768):
+        for sp, off in REWRITE:
+            src = f"""// round 11: stores {sp} elements apart per thread pass, first lane {off} off a line
+__global__ void __launch_bounds__(256) k_rw(unsigned* out) {{
+  const size_t base = (size_t)blockIdx.x * 4096 + threadIdx.x + {off};
+  for (int k = 0; k < 16; ++k)
+    out[base + (size_t)k * {sp}] = k;
+}}
+"""
+            sizes = [g * 16384 + 4096]
+            name = f"rw_s{sp}_o{off}_g{g}"
+            _source_kernel(out, name, src, (g, 1, 1), (256,), sizes, "hand", "store_rewrite")
+    src_dir = Path(__file__).parent / "hand"
+    for name, (grid, block, sizes) in HAND11.items():
+        text = (src_dir / f"{name}.cu").read_text()
+        _source_kernel(out, f"hand_{name}", text, grid, block, sizes, "hand", "breadth hand")
+
+
 def main(out: Path) -> None:
     _hand(out)
+    _round11(out)
     _stress(out)
     _wq(out)
     for name, tile in HGEMM.items():
@@ -1266,9 +1368,11 @@ HAND = {
 }
 
 
-def _source_kernel(out: Path, name: str, src: str, grid, block, sizes, family: str, group: str):
+def _source_kernel(
+    out: Path, name: str, src: str, grid, block, sizes, family: str, group: str, rot: int = 1
+):
     """A kernel with its own source: `k_*`, buffers in the order of its parameters (the first is
-    written), random 16-bit words in every buffer."""
+    written), random 16-bit words in every buffer; `rot` sets of them used in turn."""
     if not _wanted(name):
         return
     entry = re.search(r"void(?: __launch_bounds__\([^)]*\))? (k_\w+)\(", src)[1]
@@ -1285,7 +1389,7 @@ def _source_kernel(out: Path, name: str, src: str, grid, block, sizes, family: s
             "includes": '#include <tl_templates/cuda/common.h>\n#include "kernel.cu"',
             "sizes": ", ".join(str(s) for s in sizes),
             "nbuf": len(sizes),
-            "rot": 1,
+            "rot": rot,
             "setup": f"  const int smem = 0;\n  dim3 grid({g}), block({b});",
             "launches": f"    {entry}<<<grid, block, smem, st>>>({args});",
             "name": name,
@@ -1297,12 +1401,12 @@ def _source_kernel(out: Path, name: str, src: str, grid, block, sizes, family: s
         "threads": math.prod(block),
         "block": list(block),
         "smem": 0,
-        "rot": 1,
+        "rot": rot,
         "footprint_bytes": sum(sizes),
         "write_bytes": sizes[0],
         "family": family,
         "set": group,
-        "cache": "warm",
+        "cache": "rotating" if rot > 1 else "warm",
     }
     (d / "launch.json").write_text(json.dumps(launch, indent=1) + "\n")
 
