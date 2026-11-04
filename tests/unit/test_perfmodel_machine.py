@@ -100,3 +100,13 @@ def test_trace_keeps_the_result_and_the_path_covers_every_cycle() -> None:
     # the second block starts when the first exits: the path crosses the block replacement
     assert any(d["resource"] == "cta_dispatch" for d in a["path"])
     assert a["ledger"]["assumed_or_fitted_on_path"]["launch_stream_us"]["status"] == "fitted"
+
+
+def test_tracked_machine_records_what_a_replay_reads():
+    m = default_machine().tracked()
+    assert m.P["st_queue_instr"] == default_machine().P["st_queue_instr"]
+    assert m.param("clock_GHz") == default_machine().param("clock_GHz")
+    assert "stg_burst_bytes" in m.P  # asking whether a key exists is not reading its value
+    assert m.__dict__["reads"] == {"sim.st_queue_instr", "clock_GHz"}
+    list(m.P.items())
+    assert "*" in m.__dict__["reads"]

@@ -1481,7 +1481,15 @@ def all_cases(batch_dir: Path) -> list[Case]:
 
 
 def run_case(case: Case, **kw: Any) -> tuple[float, Any, dict]:
+    (value,), target, r = run_cases([case], **kw)
+    return value, target, r
+
+
+def run_cases(cases: list[Case], **kw: Any) -> tuple[list[float], Any, dict]:
+    """One replay read by several cases that share it: the kernel, b2b and graph rows of one test
+    kernel differ only in the launch arithmetic of `read`."""
+    case = cases[0]
     sm = case.build(**kw)
     r = sm.run(limit=case.limit) if case.limit else sm.run()
     target = sm.sm if isinstance(sm, _KernelRun) else sm
-    return case.read(sm, r), target, r
+    return [c.read(sm, r) for c in cases], target, r

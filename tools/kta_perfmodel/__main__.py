@@ -1,7 +1,11 @@
 """``scripts/perfmodel-table``: replay the validation kernels and probes on CPU and write the error
 table (JSON + Markdown) to docs/design/perfmodel/.
 
-    scripts/perfmodel-table [--sets gemm tma probes] [--out DIR] [--no-write]
+    scripts/perfmodel-table [--sets gemm tma probes batches] [--out DIR] [--no-write]
+
+While iterating: `--sets batches --fast --top`. Ablation: `--sets batches --top --override '{...}'`
+(no attribution; a row replays only if it read an overridden parameter). The full table, with no
+options, at the end of a round.
 """
 
 from __future__ import annotations
@@ -37,10 +41,16 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="JSON {param: value} applied to every row (an ablation: printed, not written)",
     )
+    ap.add_argument(
+        "--fast", action="store_true", help="no attribution: replays about twice as fast"
+    )
     a = ap.parse_args(argv)
     over = json.loads(a.override) if a.override else None
     if over:
+        a.no_write = a.fast = True
+    if a.fast:
         a.no_write = True
+    trace = not a.fast
     cal, sha = upstream.calibration_dir(a.upstream, a.rev)
     head, dirty = upstream.kta_commit()
     t0 = time.perf_counter()
@@ -51,7 +61,22 @@ def main(argv: list[str] | None = None) -> int:
         if prev.exists()
         else {}
     )
-    for r in table.run(cal, sha, rows, a.jobs, not a.no_cache, hint, a.all, a.cached_only, over):
+    if over:  # the plain rows first: they say which rows read the overridden parameters
+        for _ in table.run(
+            cal,
+            sha,
+            [dict(r) for r in rows],
+            a.jobs,
+            not a.no_cache,
+            hint,
+            a.all,
+            a.cached_only,
+            trace=False,
+        ):
+            pass
+    for r in table.run(
+        cal, sha, rows, a.jobs, not a.no_cache, hint, a.all, a.cached_only, over, trace=trace
+    ):
         err = "" if r["error"] is None else f"{100 * r['error']:+7.1f} %"
         if a.top:
             continue
@@ -73,6 +98,8 @@ def main(argv: list[str] | None = None) -> int:
             a.all,
             a.cached_only,
             {**table.MECH_ONLY, **(over or {})},
+            over,
+            trace=False,
         )
     }
     for r in rows:

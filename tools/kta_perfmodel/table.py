@@ -4,7 +4,10 @@ measured against predicted, one row each.
 A row is a spec (identity, measured value) plus a job (what to replay). Jobs run in a process
 pool, and each result is cached under a key made of the engine's source and parameter files, the
 upstream input commit and the job, so a rerun after a change only replays what the change can
-affect (any engine file change replays everything)."""
+affect (any engine file change replays everything). A result also records which parameters the
+replay read: an override (an ablation, the mechanisms-only column) of parameters a row never read
+takes that row's result without a replay. The kernel, b2b and graph rows of a test kernel share
+one replay."""
 
 from __future__ import annotations
 
@@ -14,6 +17,7 @@ import math
 import os
 import re
 import statistics
+import threading
 import time
 from collections.abc import Iterator
 from concurrent.futures import ProcessPoolExecutor, as_completed
@@ -26,6 +30,7 @@ from kta.models.gb10sim.model import C
 from kta.models.regression import spearman
 
 SETS = ("gemm", "tma", "probes", "batches")
+_UNSET = object()
 BATCHES = Path(__file__).resolve().parents[2] / "perfmodel" / "batches"
 # rows left out of the table: `tma 8192 full` (replay 150-300 s, far above the 28 §4 budget;
 # deleted at the user's request, round 1)
@@ -217,11 +222,17 @@ def _regs(cal: Path) -> dict[str, str]:
 
 
 def run_job(
-    cal: Path, job: list[Any], machine: Machine | None = None, program: dict | None = None
+    cal: Path,
+    job: list[Any],
+    machine: Machine | None = None,
+    program: dict | None = None,
+    trace: bool = True,
+    also: tuple[str, ...] = (),
 ) -> dict[str, Any]:
-    """Replay one job with tracing: `predicted`, the critical-path attribution and the ledger.
+    """Replay one job: `predicted`, and with `trace` the critical-path attribution and the ledger.
     `program` overrides the kernel's model inputs (`h.<key>` in its tile config, `regs`); the SASS
-    stays the compiled one."""
+    stays the compiled one. `also` names batch cases that share this replay; their results come
+    back under "also"."""
     m = machine or default_machine()
     program = program or {}
 
@@ -232,7 +243,6 @@ def run_job(
 
     got: list[Any] = []
     kind = job[0]
-    launch = m.param(m.desc["launch_us"])
     extra: dict[str, tuple[float, str | None]] = {}
     if kind in ("gemm", "gemm_block"):
         f = m.param(m.desc["clock"]["block_level_GHz"]) * 1e3
@@ -241,12 +251,12 @@ def run_job(
             regs = int(program.get("regs", _regs(cal)[job[1]]))
             rmax = validate._rmax(pick(r), regs, m)
             predicted = validate.kernel_us(
-                cal, job[1], job[2], pick(r), r["blocks"], rmax, m, got.append, True
+                cal, job[1], job[2], pick(r), r["blocks"], rmax, m, got.append, trace
             )
-            extra["launch"] = (launch * f, m.desc["launch_us"])
+            extra["launch"] = (m.param(m.desc["launch_us"]) * f, m.desc["launch_us"])
         else:
             res = validate.simulate(
-                cal, job[1], job[2], 1, 1, machine=m, sm_hook=got.append, trace=True
+                cal, job[1], job[2], 1, 1, machine=m, sm_hook=got.append, trace=trace
             )
             predicted = res["us"]
     elif kind in ("tma", "tma_block"):
@@ -254,9 +264,9 @@ def run_job(
         r = json.loads((cal / "ablation" / "mechanisms.json").read_text())[job[1]]
         if kind == "tma":
             predicted = ws_validate.kernel_us(
-                cal, job[1], pick(r), r["shape"], machine=m, sm_hook=got.append, trace=True
+                cal, job[1], pick(r), r["shape"], machine=m, sm_hook=got.append, trace=trace
             )
-            extra["launch"] = (launch * f, m.desc["launch_us"])
+            extra["launch"] = (m.param(m.desc["launch_us"]) * f, m.desc["launch_us"])
         else:
             res = ws_validate.ws_sim(
                 cal,
@@ -266,27 +276,39 @@ def run_job(
                 r["shape"],
                 machine=m,
                 sm_hook=got.append,
-                trace=True,
+                trace=trace,
             )
             predicted = res["us"]
     elif kind == "probe":
         if not _cases:
             _cases.update((c.id, c) for c in probes.all_cases(cal))
-        predicted, sm, _ = probes.run_case(_cases[job[1]], machine=m, trace=True)
+        predicted, sm, _ = probes.run_case(_cases[job[1]], machine=m, trace=trace)
         got.append(sm)
     elif kind == "batch":
         if (job[1], job[2]) not in _batch_cases:
             d = BATCHES / job[1]
             _batch_cases.update(((job[1], c.id), c) for c in probeset.all_cases(d))
-        predicted, sm, _ = probeset.run_case(_batch_cases[(job[1], job[2])], machine=m, trace=True)
-        if job[2].endswith(" kernel"):
-            ref = m.desc.get("launch_event_us", m.desc["launch_us"])
-            extra["launch"] = (m.param(ref) * m.param(m.desc["clock"]["kernel_GHz"]) * 1e3, ref)
-        got.append(sm)
+        ids = (job[2], *also)
+        cases = [_batch_cases[(job[1], i)] for i in ids]
+        values, sm, _ = probeset.run_cases(cases, machine=m, trace=trace)
+        out = {}
+        for i, predicted in zip(ids, values, strict=True):
+            extra = {}
+            if i.endswith(" kernel"):
+                ref = m.desc.get("launch_event_us", m.desc["launch_us"])
+                k = m.param(m.desc["clock"]["kernel_GHz"])
+                extra["launch"] = (m.param(ref) * k * 1e3, ref)
+            out[i] = _result(predicted, sm, extra, trace)
+        return {**out[job[2]], "also": {i: out[i] for i in also}}
     else:
         raise ValueError(f"unknown job {job}")
-    sm = got[-1]
-    a = attribution.analyse(sm, sm.cycles, extra)
+    return _result(predicted, got[-1], extra, trace)
+
+
+def _result(
+    predicted: float, sm: Any, extra: dict[str, tuple[float, str | None]], trace: bool
+) -> dict[str, Any]:
+    a = attribution.analyse(sm, sm.cycles, extra) if trace else None
     return {
         "predicted": predicted,
         "counts": {
@@ -303,10 +325,12 @@ def run_job(
             {k: d[k] for k in ("resource", "mechanism", "share", "param")}
             for d in a["path"]
             if d["share"] >= 0.005
-        ],
-        "coverage": a["covered_cycles"] / a["cycles"] if a["cycles"] else 1.0,
-        "defaults": attribution.default_counts(a["ledger"]),
-        "ledger": a["ledger"],
+        ]
+        if a
+        else [],
+        "coverage": (a["covered_cycles"] / a["cycles"] if a["cycles"] else 1.0) if a else None,
+        "defaults": attribution.default_counts(a["ledger"]) if a else {},
+        "ledger": a["ledger"] if a else [],
     }
 
 
@@ -320,11 +344,41 @@ def engine_hash() -> str:
     return h.hexdigest()
 
 
-def _timed(cal: Path, job: list[Any], overrides: dict[str, Any] | None = None) -> dict[str, Any]:
+def _timed(
+    cal: Path,
+    job: list[Any],
+    overrides: dict[str, Any] | None = None,
+    trace: bool = True,
+    also: tuple[str, ...] = (),
+) -> dict[str, Any]:
     t = time.perf_counter()
-    out = run_job(cal, job, default_machine().with_overrides(overrides) if overrides else None)
-    out["wall_s"] = round(time.perf_counter() - t, 2)
+    m = (default_machine().with_overrides(overrides) if overrides else default_machine()).tracked()
+    out = run_job(cal, job, m, trace=trace, also=also)
+    reads = sorted(m.__dict__["reads"])
+    wall = round((time.perf_counter() - t) / (1 + len(also)), 2)
+    for o in (out, *out.get("also", {}).values()):
+        o.update(reads=reads, wall_s=wall)
     return out
+
+
+def _watch_parent() -> None:
+    """Pool worker initializer: exit when the table process is gone (killed or stopped), so that no
+    idle worker outlives it."""
+    parent = os.getppid()
+
+    def watch() -> None:
+        while os.getppid() == parent:
+            time.sleep(5)
+        os._exit(1)
+
+    threading.Thread(target=watch, daemon=True).start()
+
+
+def _replay_group(r: dict[str, Any]) -> tuple[Any, ...]:
+    """Rows that one replay serves: the launch modes of one test kernel."""
+    job = r["job"]
+    m = re.fullmatch(r"(.*) (kernel|b2b|graph)", job[2]) if job[0] == "batch" else None
+    return (job[1], m[1]) if m else (r["id"],)
 
 
 def run(
@@ -337,20 +391,45 @@ def run(
     run_slow: bool = False,
     cached_only: bool = False,
     overrides: dict[str, Any] | None = None,
+    base_overrides: dict[str, Any] | None = None,
+    trace: bool = True,
 ) -> Iterator[dict[str, Any]]:
     """Fill each spec with its result, cached ones first, the rest from a pool of `jobs`
-    processes (longest previous runs first); yields rows as they complete."""
+    processes (longest previous runs first); yields rows as they complete. A row whose cached
+    `base_overrides` run never read a parameter that `overrides` changes reuses that result.
+    `trace=False` skips the attribution: faster replays, for ablations."""
     eng = engine_hash()
     CACHE.mkdir(parents=True, exist_ok=True)
 
-    def key(r: dict[str, Any]) -> Path:
-        k = [eng, upstream_rev, r["job"]] + ([overrides] if overrides else [])
+    def key(r: dict[str, Any], over: dict[str, Any] | None, traced: bool) -> Path:
+        k = [eng, upstream_rev, r["job"]] + ([over] if over else []) + ([] if traced else ["fast"])
         k = hashlib.sha256(json.dumps(k).encode()).hexdigest()
         return CACHE / f"{k}.json"
 
+    changed = {
+        k
+        for k in {*(overrides or {}), *(base_overrides or {})}
+        if (overrides or {}).get(k, _UNSET) != (base_overrides or {}).get(k, _UNSET)
+    }
+
+    def reusable(r: dict[str, Any]) -> dict[str, Any] | None:
+        """The base run's result when this override cannot have changed it."""
+        if not overrides:
+            return None
+        for traced in (True, False):
+            p = key(r, base_overrides, traced)
+            if p.exists():
+                res = json.loads(p.read_text())
+                reads = res.get("reads")
+                if reads is not None and "*" not in reads and not changed & set(reads):
+                    return res
+        return None
+
     todo = []
     for r in rows:
-        p = key(r)
+        p = key(r, overrides, trace)
+        if not trace and not p.exists() and key(r, overrides, True).exists():
+            p = key(r, overrides, True)
         if r["id"] in SLOW and not run_slow and not (use_cache and p.exists()):
             r.update(predicted=None, excluded=SLOW[r["id"]], cached=False, wall_s=0.0)
             yield _finish(r)
@@ -358,19 +437,36 @@ def run(
         if use_cache and p.exists():
             r.update(json.loads(p.read_text()), cached=True)
             yield _finish(r)
+        elif use_cache and (res := reusable(r)):
+            p.write_text(json.dumps(res))
+            r.update(res, cached=True)
+            yield _finish(r)
         else:
             todo.append(r)
     if cached_only and todo:
         raise SystemExit(f"{len(todo)} rows not in the cache, e.g. {todo[0]['id']!r}")
     todo.sort(key=lambda r: -(hint or {}).get(r["id"], 0.0))
-    with ProcessPoolExecutor(max_workers=max(1, jobs)) as pool:
-        futs = {pool.submit(_timed, cal, r["job"], overrides): r for r in todo}
+    groups: dict[tuple[Any, ...], list[dict[str, Any]]] = {}
+    for r in todo:
+        groups.setdefault(_replay_group(r), []).append(r)
+    if not groups:
+        return
+    with ProcessPoolExecutor(max_workers=max(1, jobs), initializer=_watch_parent) as pool:
+        futs = {
+            pool.submit(
+                _timed, cal, g[0]["job"], overrides, trace, tuple(r["job"][2] for r in g[1:])
+            ): g
+            for g in groups.values()
+        }
         for f in as_completed(futs):
-            r = futs[f]
-            res = f.result()
-            key(r).write_text(json.dumps(res))
-            r.update(res, cached=False)
-            yield _finish(r)
+            g = futs[f]
+            lead = f.result()
+            also = lead.pop("also", {})
+            for r in g:
+                res = also.get(r["job"][2], lead) if r is not g[0] else lead
+                key(r, overrides, trace).write_text(json.dumps(res))
+                r.update(res, cached=False)
+                yield _finish(r)
 
 
 def _finish(r: dict[str, Any]) -> dict[str, Any]:
@@ -683,6 +779,8 @@ def bottlenecks(rows: list[dict[str, Any]], pairs: list[dict[str, Any]]) -> list
         gains = {
             ABLATIONS[p["axis"]]: p for p in pairs if p["base"] == base and p["axis"] in ABLATIONS
         }
+        if not share:  # a run without attribution (--fast)
+            continue
         top = max(share, key=lambda k: share[k])
         best = min(gains, key=lambda k: gains[k]["measured"])
         out.append(

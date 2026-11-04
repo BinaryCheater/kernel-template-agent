@@ -24,6 +24,44 @@ DESCRIPTION = HERE / "machine.yaml"
 PARAMETERS = HERE / "gb10.json"
 
 
+class _Reads(dict):
+    """A parameter dict that notes which keys were read: empty at first, each key is fetched once
+    through `__missing__`, so later reads are plain dict lookups and the replay does not slow down.
+    Iterating counts as reading everything ("*")."""
+
+    def __init__(self, src: dict[str, Any], seen: set[str], prefix: str):
+        super().__init__()
+        self.src, self.seen, self.prefix = src, seen, prefix
+
+    def __missing__(self, key: str) -> Any:
+        value = self.src[key]
+        self.seen.add("*" if key == "sim" else self.prefix + key)
+        self[key] = value
+        return value
+
+    def get(self, key: str, default: Any = None) -> Any:
+        return self[key] if key in self.src else default
+
+    def __contains__(self, key: object) -> bool:
+        return key in self.src
+
+    def __iter__(self):
+        self.seen.add("*")
+        return iter(self.src)
+
+    def keys(self):
+        self.seen.add("*")
+        return self.src.keys()
+
+    def items(self):
+        self.seen.add("*")
+        return self.src.items()
+
+    def values(self):
+        self.seen.add("*")
+        return self.src.values()
+
+
 @dataclass(frozen=True)
 class OpClass:
     name: str
@@ -55,6 +93,15 @@ class Machine:
     @functools.cached_property
     def P(self) -> dict[str, Any]:
         return self.raw["sim"]["value"]
+
+    def tracked(self) -> Machine:
+        """The same machine with `reads`: the parameters a replay on it reads (`sim.<key>` or
+        `<key>`, as `with_overrides` names them). A replay is deterministic, so an override of a
+        parameter it never read cannot change its result."""
+        m = Machine(self.desc, self.raw, self.classes, self.default, self.overrides, self._cache)
+        seen: set[str] = set()
+        m.__dict__.update(P=_Reads(self.P, seen, "sim."), C=_Reads(self.C, seen, ""), reads=seen)
+        return m
 
     def param(self, ref: str) -> Any:
         if ref.startswith("sim."):
