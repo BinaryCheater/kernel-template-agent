@@ -934,7 +934,10 @@ def _hgemm_case(
         7,
         "us",
         build,
-        lambda sm, r: r["us"] - _launch_diff(b, sm) - C["launch_stream_us"] + _launch_event(sm.m),
+        lambda sm, r: r["us"]
+        - _launch_diff(b, sm)
+        - sm.m.C["launch_stream_us"]
+        + _launch_event(sm.m),
         limit=0,
     )
 
