@@ -38,7 +38,7 @@ __global__ void __launch_bounds__(T) k(u64* out, float* sink) {
   for (int p = 0; p < PASSES; p++) {
 #pragma unroll
     for (int c = 0; c < M; c++) {  // each ldmatrix feeds the mma after it
-      if ((c + 1) * L / M > c * L / M) ldsm(a[c % 8], sm + (threadIdx.x & 31) * 16 + (c % 8) * 512);
+      if ((c + 1) * L / M > c * L / M) ldsm(a[c % 8], sm + (threadIdx.x & 31) * 16 + (c % 64) * 32);
       mma(f[c % 8], a[c % 8], b);
     }
     __syncthreads();

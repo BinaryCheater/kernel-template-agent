@@ -687,6 +687,9 @@ def blind_summary(rows: list[dict[str, Any]], batch: str) -> list[dict[str, Any]
 
 # what-if scoring (28 §1, round 7): a change is scored against the base row of its own batch
 TIE, MAG_MIN = 0.02, 0.05
+# round 8: one event timing of a short kernel steps by about 0.96 us (the same RMSNorm 8.6 or 9.6 us
+# across batches); the graph row averages 50 launches and is scored beside it
+SHORT_US = 30.0
 ABLATIONS = {
     "compute removed": "compute",
     "loads removed": "loads",
@@ -721,7 +724,13 @@ def whatif_pairs(rows: list[dict[str, Any]], root: Path = BATCHES) -> list[dict[
             meas = b["measured"] / a["measured"] - 1
             first = (b.get("blind_predicted") or 0) / (a.get("blind_predicted") or 1) - 1
             now = b["predicted"] / a["predicted"] - 1
+            ga, gb = by_id.get(f"{w['base']} graph"), by_id.get(f"{lj.parent.name} graph")
+            graph = None
+            if ga and gb and a["measured"] < SHORT_US:
+                gm, gn = gb["measured"] / ga["measured"] - 1, gb["predicted"] / ga["predicted"] - 1
+                graph = {"measured": gm, "now": gn, "ok": _direction(gn, gm)}
             out[lj.parent.name] = {
+                "graph": graph,
                 "id": lj.parent.name,
                 "base": w["base"],
                 "axis": w["axis"],
@@ -916,6 +925,16 @@ def _whatif_lines(doc: dict[str, Any]) -> list[str]:
             f"{s['first_mag_within']}/{s['first_mag_n']} | {s['now_ok']}/{s['n']} | {med('now')} | "
             f"{s['now_mag_within']}/{s['now_mag_n']} |"
         )
+    ps = doc["whatif"]
+    short = [p for p in ps if p.get("graph")]
+    if short:
+        ok = sum(p["graph"]["ok"] for p in short) + sum(p["now_ok"] for p in ps if not p["graph"])
+        lines += [
+            "",
+            f"Kernels under {SHORT_US:.0f} µs read from their graph rows (50 launches): "
+            f"{sum(p['graph']['ok'] for p in short)}/{len(short)} of those changes right, "
+            f"{ok}/{len(ps)} over all; the counts above stay the `kernel` rows.",
+        ]
     lines += [
         "",
         "| Change | Base | Axis | measured Δ | first Δ | now Δ | first direction | now direction |",
@@ -926,6 +945,12 @@ def _whatif_lines(doc: dict[str, Any]) -> list[str]:
             f"| {p['id']} | {p['base']} | {p['axis']} | {_pct(p['measured'])} | {_pct(p['first'])} "
             f"| {_pct(p['now'])} | {'right' if p['first_ok'] else 'WRONG'} | "
             f"{'right' if p['now_ok'] else 'WRONG'} |"
+            + (
+                f" graph: {_pct(p['graph']['measured'])}, {_pct(p['graph']['now'])}, "
+                f"{'right' if p['graph']['ok'] else 'WRONG'} |"
+                if p.get("graph")
+                else ""
+            )
         )
     if doc.get("bottlenecks"):
         lines += [

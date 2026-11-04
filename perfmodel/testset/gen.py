@@ -823,7 +823,7 @@ def _params(src: str, entry: str) -> list[tuple[str, str]]:
     m = re.search(rf"__global__ void(?: __launch_bounds__\([^)]*\))? {entry}\(([^)]*)\)", src)
     assert m, f"no parameter list for {entry}"
     out = []
-    for p in m.group(1).split(","):
+    for p in filter(str.strip, m.group(1).split(",")):  # the arithmetic alone takes no buffer
         words = p.replace("__restrict__", "").split()
         out.append((" ".join(words[:-1]), words[-1]))
     return out
@@ -1370,10 +1370,10 @@ def _rows8(out: Path) -> None:
         sh = {"M": m, "N": ROWS["N"]}
         for v, (kw, axis) in WI_RMSB.items():
             more = _wi(v, f"rmsb_m{m}_b", axis)
-            _rms(out, f"rmsb_m{m}_{v}", sh, "warm", kw, set=f"rmsnorm m{m}", **more)
+            _rms(out, f"rmsb_m{m}_{v}", sh, "warm", kw, set=f"whatif rmsnorm m{m}", **more)
         for v, (kw, axis) in (("b", ({}, "base")), ("nostore", WI_RMSB["nostore"])):
             more = _wi(v, f"smb_m{m}_b", axis)
-            _softmax(out, f"smb_m{m}_{v}", sh, kw, set=f"softmax m{m}", **more)
+            _softmax(out, f"smb_m{m}_{v}", sh, kw, set=f"whatif softmax m{m}", **more)
 
 
 def _nv(out: Path, name: str, tile: tuple, cache: str) -> None:
