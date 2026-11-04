@@ -18,12 +18,19 @@ Additions to the cp.async simulator, each a mechanism in the machine code:
             never taken.
   registers USETMAXREG.TRY_ALLOC waits until the producer group's warps have executed
   USETMAXREG.DEALLOC.
-The tile bytes per k-tile are split evenly over the UTMALDG instructions of one k-tile."""
+The tile bytes per k-tile are split evenly over the UTMALDG instructions of one k-tile. `ws_sim` and
+`kernel_us`: one block alone and the whole kernel at its grid (the step 2c ablation's TMA picks)."""
 
 from __future__ import annotations
 
+import math
+from pathlib import Path
+
+from .kernel import dram_clk, wave_dram
+from .machine import Machine, default_machine
+from .model import dram_split_kslice
 from .sass import main_loop
-from .sm import SM
+from .sm import SM, kernel_sass
 
 
 class WSSM(SM):
@@ -312,3 +319,118 @@ class WSSM(SM):
                         self._bj[pc] = j
                     break
         return self._bj[pc]
+
+
+def ws_sim(
+    cal: Path,
+    name: str,
+    variant: str,
+    h: dict,
+    shape: dict,
+    blocks_eq: float = 1.0,
+    miss: float = 0.0,
+    dclk: float | None = None,
+    nblocks: int = 1,
+    grid: int | None = None,
+    machine: Machine | None = None,
+    sm_hook=None,
+    trace: bool = False,
+) -> dict:
+    m = machine or default_machine()
+    ins = kernel_sass(cal / "sass" / f"tma_{name}__{variant}.sass")
+    kt = math.ceil(shape["K"] / h["block_K"])
+    lp = main_loop(ins)
+    warps = h["threads"] // 32
+    if lp:
+        body = ins[lp[0] : lp[1] + 1]
+        n_mma = sum(x.base in ("HMMA", "IMMA", "QMMA", "OMMA") for x in body)
+        per_kt = h["block_M"] * h["block_N"] * h["block_K"] / (16 * 8 * 16) / warps
+        u = max(1, round(n_mma / per_kt)) if n_mma else 1
+        trips = max(1, kt // u)
+    else:
+        trips = 1
+    waits = [
+        i for i, x in enumerate(ins) if x.op.startswith("SYNCS.PHASECHK") and "TRYWAIT" in x.op
+    ]
+    tmas = [i for i, x in enumerate(ins) if x.base == "UTMALDG"]
+    if tmas and len(waits) >= 2:
+        w0 = max(i for i in waits if i < tmas[0])
+        w1 = min((i for i in waits if i > tmas[0]), default=len(ins))
+        tma_per_kt = max(1, sum(1 for i in tmas if w0 < i < w1))
+    else:
+        tma_per_kt = 1
+    # out-of-range rows and columns of a box are zero-filled by the TMA unit without moving data
+    tile = (min(h["block_M"], shape["M"]) + min(h["block_N"], shape["N"])) * h["block_K"] * 2
+    sm = WSSM(
+        ins,
+        h["threads"] + 128,
+        nblocks,
+        trips,
+        h["threads"],
+        h["num_stages"],
+        tile,
+        tma_per_kt,
+        kt=kt,
+        active_sms=blocks_eq,
+        miss_frac=miss,
+        dram_clk_per_512B=dclk if dclk is not None else dram_clk(0.0, 0.0, blocks_eq, m),
+        ctile_bytes=min(h["block_M"], shape["M"]) * min(h["block_N"], shape["N"]) * 2,
+        resident=1,
+        grid_blocks=grid,
+        machine=m,
+        trace=trace,
+    )
+    r = sm.run(limit=3_000_000 * nblocks)
+    r["us"] = r["cycles"] / (m.param(m.desc["clock"]["kernel_GHz"]) * 1e3)
+    if sm_hook is not None:
+        sm_hook(sm)
+    return r
+
+
+def kernel_us(
+    cal: Path,
+    name,
+    h,
+    shape,
+    machine: Machine | None = None,
+    sm_hook=None,
+    trace: bool = False,
+):
+    m = machine or default_machine()
+    C, SMS = m.C, m.sms
+    tiles = math.ceil(shape["M"] / h["block_M"]) * math.ceil(shape["N"] / h["block_N"])
+    kt = math.ceil(shape["K"] / h["block_K"])
+    sp = dram_split_kslice(h, shape, SMS, C["l2_effective_bytes"])
+    rb = secs = 0.0
+    for wv in sp["waves"]:
+        r_, s_ = wave_dram(h, shape, wv, True, m)
+        rb += r_
+        secs += s_
+    # TMA moves only rows and columns inside the matrix (out-of-range rows of a box are
+    # zero-filled, no traffic)
+    cb = (
+        tiles
+        * kt
+        * (min(h["block_M"], shape["M"]) + min(h["block_N"], shape["N"]))
+        * h["block_K"]
+        * 2
+    )
+    eq = min(float(SMS), float(tiles))
+    return (
+        C["launch_stream_us"]
+        + ws_sim(
+            cal,
+            name,
+            "full",
+            h,
+            shape,
+            eq,
+            min(1.0, rb / cb) if cb else 0.0,
+            dram_clk(rb, secs, eq, m),
+            nblocks=math.ceil(tiles / SMS),
+            grid=tiles,
+            machine=m,
+            sm_hook=sm_hook,
+            trace=trace,
+        )["us"]
+    )

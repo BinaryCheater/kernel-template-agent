@@ -3,8 +3,8 @@
 `sm.SM` runs a kernel's real SASS warp by warp under the compiler's control bits; `ws.WSSM` adds
 TileLang's
 warp-specialized TMA lowering; `kernel` maps a whole grid onto the busiest SM with its L2/DRAM
-share; `model` is
-upstream's analytic model, kept for the L2/DRAM traffic functions the simulator uses. Parameters:
+share; `model` keeps
+upstream's L2/DRAM traffic functions the simulator uses. Parameters:
 `gb10.json`, a copy
 of upstream calibration/spark-6951/gb10.json. Provenance: README.md in this directory.
 """

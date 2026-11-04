@@ -11,8 +11,8 @@ The GB10 simulator copied from AI-Infra-Co-Design (`agentic/gb10`, commit `0eef4
 | `ws.py` | `agentic/gb10/sim/ws.py` | `53d0cb68bb815efb…` |
 | `kernel.py` | `agentic/gb10/sim/kernel.py` | `655d7dc63716da9e…` |
 | `model.py` | `agentic/gb10/model.py` | `aca7cbb792ad158c…` |
-| `validate.py` | `agentic/gb10/sim/validate.py` | `557d2fe33dd439de…` |
-| `ws_validate.py` | `agentic/gb10/sim/ws_validate.py` | `29440ecf511c280c…` |
+| retired (`kernel.py` serves its rows) | `agentic/gb10/sim/validate.py` | `557d2fe33dd439de…` |
+| merged into `ws.py` | `agentic/gb10/sim/ws_validate.py` | `29440ecf511c280c…` |
 | `gb10.json` | `calibration/spark-6951/gb10.json` | `8daea49d75734ac6…` (unchanged) |
 
 Not copied: `gemv.py`, `epilogue.py`, `decode_sweep.py`, `layout.py`, `shapes.py`, `schedtest.py`, `audit_values.py`, `agentic/gb10/{evaluate,fidelity,l2policy_fit}.py`, and the microbenchmark sources (`agentic/tilelang/microbench/`).

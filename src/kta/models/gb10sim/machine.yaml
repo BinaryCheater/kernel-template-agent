@@ -113,8 +113,8 @@ default_class: {name: other, handler: other, latency: sim.default_var_latency_cl
 
 # conversion of cycles to time, per driver (two clocks are in use upstream; open question)
 clock:
-  block_level_GHz: clock_GHz               # validate.py (block and kernel level of the 22 GEMMs)
-  kernel_GHz: clock_under_load_GHz          # kernel.py, ws.py, ws_validate.py
+  block_level_GHz: clock_GHz               # the table's upstream gemm rows (block and kernel level of the 22 GEMMs)
+  kernel_GHz: clock_under_load_GHz          # kernel.py, ws.py
 launch_us: launch_stream_us
 # KTA batch rows (one launch between two events and a synchronize, probe launch, round 3)
 launch_event_us: launch_event_us

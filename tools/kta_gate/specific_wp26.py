@@ -27,7 +27,7 @@ SPEC_MARKS = (
     ("docs/design/25-hardware-model-sources.md", "## 4. Direction after user review"),
     ("src/kta/models/gb10sim/README.md", "0eef4979390559f7cca72eac2b06e9cfc249ea30"),
 )
-COPIED = ("sass.py", "sm.py", "ws.py", "kernel.py", "model.py", "validate.py", "ws_validate.py")
+COPIED = ("sass.py", "sm.py", "ws.py", "kernel.py", "model.py")
 STATUSES = {"measured", "fitted", "structural", "assumed", "withdrawn"}
 
 

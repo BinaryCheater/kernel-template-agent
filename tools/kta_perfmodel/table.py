@@ -24,7 +24,8 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any
 
-from kta.models.gb10sim import attribution, probes, probeset, validate, ws_validate
+from kta.models.gb10sim import attribution, probes, probeset, ws
+from kta.models.gb10sim.kernel import simulate_kernel
 from kta.models.gb10sim.machine import Machine, default_machine
 from kta.models.gb10sim.model import C
 from kta.models.regression import spearman
@@ -36,7 +37,7 @@ BATCHES = Path(__file__).resolve().parents[2] / "perfmodel" / "batches"
 # deleted at the user's request, round 1)
 DROPPED = {"tma 8192 full"}
 SLOW: dict[str, str] = {}
-ENGINE = Path(validate.__file__).parent
+ENGINE = Path(probeset.__file__).parent
 CACHE = Path(__file__).resolve().parents[2] / "data" / "perfmodel" / "cache"
 # LOOP §4.4 "mechanisms only": every fitted parameter the replays read, replaced by the probe value
 # of the same component (gb10.json) or by nothing when no probe measures it (D-number in
@@ -64,8 +65,8 @@ def _spec(rid, group, level, unit, measured, job, excluded=None, note=None) -> d
 
 
 def gemm_specs(cal: Path) -> Iterator[dict[str, Any]]:
-    """The 22 cp.async GEMMs at 1024^3 (upstream validate.kernel_level), warm: the whole kernel,
-    its loads-only variant at the grid, and its mma-only variant on one block (block_level)."""
+    """The 22 cp.async GEMMs at 1024^3, warm: the whole kernel, its loads-only variant at the grid,
+    and its mma-only variant on one block, all through kernel.simulate_kernel."""
     m = json.loads((cal / "ablation_cpasync" / "mechanisms.json").read_text())
     abl = [
         json.loads(line)
@@ -105,7 +106,7 @@ def gemm_specs(cal: Path) -> Iterator[dict[str, Any]]:
 
 
 def tma_specs(cal: Path) -> Iterator[dict[str, Any]]:
-    """The 7 warp-specialised TMA picks (upstream ws_validate): whole kernel at its grid (warm),
+    """The 7 warp-specialised TMA picks (ws.py): whole kernel at its grid (warm),
     and the mma-only variant on one block."""
     m = json.loads((cal / "ablation" / "mechanisms.json").read_text())
     for name, r in m.items():
@@ -247,28 +248,27 @@ def run_job(
     if kind in ("gemm", "gemm_block"):
         f = m.param(m.desc["clock"]["block_level_GHz"]) * 1e3
         r = json.loads((cal / "ablation_cpasync" / "mechanisms.json").read_text())[job[1]]
+        h = pick(r)
+        one = {"M": h["block_M"], "N": h["block_N"]} if kind == "gemm_block" else {}
+        regs = int(program.get("regs", _regs(cal)[job[1]]))
+        sass = cal / "sass" / f"{job[1]}__{job[2]}.sass"
+        simulate_kernel(
+            sass, h, {**r["shape"], **one}, regs, machine=m, sm_hook=got.append, trace=trace
+        )
+        predicted = got[-1].cycles / f
         if kind == "gemm":
-            regs = int(program.get("regs", _regs(cal)[job[1]]))
-            rmax = validate._rmax(pick(r), regs, m)
-            predicted = validate.kernel_us(
-                cal, job[1], job[2], r["blocks"], rmax, m, got.append, trace
-            )
+            predicted += m.C["launch_stream_us"]
             extra["launch"] = (m.param(m.desc["launch_us"]) * f, m.desc["launch_us"])
-        else:
-            res = validate.simulate(
-                cal, job[1], job[2], 1, 1, machine=m, sm_hook=got.append, trace=trace
-            )
-            predicted = res["us"]
     elif kind in ("tma", "tma_block"):
         f = m.param(m.desc["clock"]["kernel_GHz"]) * 1e3
         r = json.loads((cal / "ablation" / "mechanisms.json").read_text())[job[1]]
         if kind == "tma":
-            predicted = ws_validate.kernel_us(
+            predicted = ws.kernel_us(
                 cal, job[1], pick(r), r["shape"], machine=m, sm_hook=got.append, trace=trace
             )
             extra["launch"] = (m.param(m.desc["launch_us"]) * f, m.desc["launch_us"])
         else:
-            res = ws_validate.ws_sim(
+            res = ws.ws_sim(
                 cal,
                 job[1],
                 "noload",
