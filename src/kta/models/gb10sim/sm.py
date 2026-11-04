@@ -31,7 +31,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from .lanes import Lanes, footprint, width_of
+from .lanes import Lanes, footprint, shared_part_sector, width_of
 from .machine import Machine, OpClass, default_machine
 from .sass import Ins, main_loop, parse
 
@@ -70,6 +70,7 @@ class Warp:
     sbsrc: dict[int, list[Any]] = field(default_factory=dict)
     bar_src: list[Any] = field(default_factory=list)
     lanes: Any = None
+    stack_seq: dict = field(default_factory=dict)
 
 
 class SM:
@@ -150,6 +151,8 @@ class SM:
         self.resident = resident or blocks
         # round 7: stack bytes per thread, from the spill offsets unless the caller knows them
         self.stack_bytes = stack_bytes if stack_bytes is not None else _stack_bytes(ins)
+        self.stack_lru: OrderedDict = OrderedDict()
+        self.st_bytes = 0.0  # bytes this SM has stored, for the chip's dirty limit
         self.next_block = self.resident
         self.live = {}
         self.finished = 0
@@ -259,7 +262,7 @@ class SM:
         self.lane_track = addr_log is not None or (
             P["ldg_lane_addresses"]
             and self.ldg_default
-            and any(x.base in ("LDG", "LDS", "STS") for x in ins)
+            and any(x.base in ("LDG", "LDS", "STS", "STG") for x in ins)
         )
         bd = tuple([*(block_dim or (threads,)), 1, 1][:3])
         self.l1: OrderedDict = OrderedDict()
@@ -319,6 +322,13 @@ class SM:
         return self.P["l2_chip_read_share"] > 0 and (
             self.ret_clk > self.P["l2_return_clk_per_512B"]
         )
+
+    def _dram_after(self, start: float) -> float:
+        """Round 8 (probe copy_dram): the chip's DRAM rate limits what has been read so far, not
+        each burst: what this SM left unused while it computed went to the others, and it catches
+        up later (a step takes the larger of the rate and its own path, no sum). Without the rule
+        the SM's share restarts at each burst."""
+        return self.t["dram_queue"] if self.P["dram_by_demand"] else start
 
     def _l2_miss(self, pc: int) -> bool:
         """This load misses the L2: misses spread evenly over the load's executions."""
@@ -922,7 +932,7 @@ class SM:
         if self._l2_miss(w.pc):
             t_l = lsu_done + P["ldgsts_dram_latency_clk"]
             t_d = max(t_l, t["dram_queue"])
-            t["dram_queue"] = t_d + self.dram_clk
+            t["dram_queue"] = self._dram_after(t_d) + self.dram_clk
             self.busy["dram"] = self.busy.get("dram", 0) + self.dram_clk
             arrive = t_d
             lat = (
@@ -989,7 +999,7 @@ class SM:
                 # KTA (PERFMODEL round 1, probe dram_rotate.cu, batch r1): a streaming LDG miss
                 # waits ldg_dram_latency_clk, not the copy path's chase latency
                 t_d = max(lsu_done + P["ldg_dram_latency_clk"], t["dram_queue"])
-                t["dram_queue"] = t_d + self.dram_clk * nbytes / 512
+                t["dram_queue"] = self._dram_after(t_d) + self.dram_clk * nbytes / 512
                 self.busy["dram"] = self.busy.get("dram", 0) + self.dram_clk * nbytes / 512
                 arrive = t_d
             else:
@@ -1012,17 +1022,54 @@ class SM:
                     ]
         return lat_done, lsu_done, trw, trr
 
+    def _stack_hit(self, w: Warp, x: Ins) -> bool:
+        """Round 8 (probe spill_rw): the stack lines this SM holds, in LRU order over
+        `local_capacity_bytes`, one entry per word and warp. An address with a register index goes
+        through the stack in turn."""
+        m = re.search(r"\+0x([0-9a-f]+)\]", x.args)
+        if m:
+            off = int(m.group(1), 16)
+        else:
+            off = w.stack_seq[w.pc] = (w.stack_seq.get(w.pc, -4) + 4) % max(4, self.stack_bytes)
+        key = (w.wid % (self.wpb * self.resident), off)
+        lru = self.stack_lru
+        full = len(lru) >= self.m.C["local_capacity_bytes"] // 128
+        hit = key in lru
+        lru[key] = True
+        lru.move_to_end(key)
+        if full and not hit:
+            lru.popitem(last=False)
+        return hit or not full
+
     def _op_local(self, w, x, cls, now, addr0):
         # local memory (register spills, one slot per warp): 4 cycles per line through L1, then the
         # L1 latency
+        # Round 8 (probe spill_rw): at the chip's scale a stack store leaves at the rate of plain
+        # stores while the L2 keeps the stack, at the DRAM write rate once the chip's stack passes
+        # the L2; a load beside it takes the L1 path only, a load of a line the SM lost its fill
         P, t = self.P, self.t
-        m_l1 = self.m.C["l1_unified_bytes"]
-        # round 7 (probe spill): at the chip's scale the stack path takes local_chip_B_per_clk,
-        # beyond the L1's capacity per SM local_chip_over_B_per_clk
-        over = self.stack_bytes * self.wpb * 32 * self.resident > m_l1
-        rate = P["local_chip_over_B_per_clk" if over else "local_chip_B_per_clk"]
-        t1 = max(now, t["l1"])
-        t["l1"] = t1 + max(P["local_clk_per_line"], 128 / (rate / self.active_sms))
+        hit = self._stack_hit(w, x)
+        nb = 32 * width_of(x.op)
+        lines = nb / 128
+        own = min(self.resident, self.blocks)
+        chip_stack = self.stack_bytes * self.wpb * 32 * own * self.active_sms
+        cold = chip_stack > self.m.C["l2_effective_bytes"]
+        if x.base == "STL":
+            rate = P["local_chip_B_per_clk"]
+            if not hit:
+                wr = self.m.C["dram_write_GBs"] / self.m.C["clock_under_load_GHz"]
+                rate = wr if cold else P["local_chip_over_B_per_clk"]
+            t1 = max(now, t["l1"], t["local_chip"])
+            t["l1"] = t1 + lines * P["local_clk_per_line"]
+            t["local_chip"] = t1 + nb / (rate / self.active_sms)
+        else:
+            cost = lines * P["local_clk_per_line"]
+            if not hit:
+                cost = lines * P["local_miss_clk_per_line"]
+                if cold:
+                    cost = max(cost, nb / (P["local_load_cold_B_per_clk"] / self.active_sms))
+            t1 = max(now, t["l1"])
+            t["l1"] = t1 + cost
         lat_done = t["l1"] + P["l1_hit_latency_clk"]
         lsu_done = t["l1"]
         trw = trr = None
@@ -1115,9 +1162,16 @@ class SM:
         if addr0 is not None and by_sector:
             rate = P["stg_chip_B_per_clk"]
             nbytes = footprint(addr0, width_of(x.op))[1] * 32
-            # lanes spread over rows (TileLang's tile store): the rate of probe store_tail
-            if max(addr0[1]) - min(addr0[1]) > P["stg_wide_extent_B"]:
+            # round 8 (probe store_spread): sectors several lanes fill in part (TileLang's tile
+            # store), wherever the rows lie, take their own rate
+            if shared_part_sector(addr0, width_of(x.op)):
                 rate = P["stg_chip_wide_B_per_clk"]
+            elif w_ == "4B" and nbytes == 128:  # 32 lanes contiguous: a 128-byte line
+                pair = P["stg_tpc_clk_per_instr_line"] * self.stg_share
+            # above what the L2 holds dirty the chip writes at the DRAM's rate (store_lines, r7b)
+            self.st_bytes += 32 * width_of(x.op)  # one lane per sector or not: bytes written
+            if self.st_bytes * self.active_sms > P["stg_dirty_bytes"]:
+                rate = min(rate, self.m.C["dram_write_GBs"] / self.m.C["clock_under_load_GHz"])
         chip = nbytes / (rate / self.active_sms)
         start = max(now, t["store_port"])
         if P["l2_chip_read_share"] > 0 and chip >= pair:

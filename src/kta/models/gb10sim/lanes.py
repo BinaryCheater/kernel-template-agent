@@ -300,6 +300,10 @@ class Lanes:
                     return ((), tuple(o >> k for o in lo[1]))
             return None
         if base in ("LOP3", "ULOP3") and len(g) >= 4:
+            # round 8: a | (b & c) over a base: the fields of an address, the base's bits apart
+            keep: tuple = ()
+            if g[3] == ((), (0xF8,) * 32) and g[0][0] and self.exact(g[1]) and self.exact(g[2]):
+                keep, g = g[0][0], [((), g[0][1]), *g[1:]]
             if not all(self.exact(x) for x in g[:4]) or not self.uniform(g[3]):
                 return None
             lut = g[3][1][0]
@@ -310,7 +314,7 @@ class Lanes:
                     i = (((x >> bit) & 1) << 2) | (((y >> bit) & 1) << 1) | ((z >> bit) & 1)
                     v |= ((lut >> i) & 1) << bit
                 out.append(v)
-            return ((), tuple(out))
+            return (keep, tuple(out))
         return None
 
     # --- addresses ----------------------------------------------------------------------------
@@ -343,6 +347,14 @@ def footprint(addr: Val, width: int) -> tuple[dict[tuple, int], int]:
             k = (addr[0], s // 4)
             lines[k] = lines.get(k, 0) | 1 << (s % 4)
     return lines, len(sectors)
+
+
+def shared_part_sector(addr: Val, width: int) -> bool:
+    """Round 8: some 32-byte sector holds more than one lane and is not full."""
+    lanes: dict[int, int] = {}
+    for o in addr[1]:
+        lanes[o >> 5] = lanes.get(o >> 5, 0) + 1
+    return any(1 < n and n * width < 32 for n in lanes.values())
 
 
 def width_of(op: str) -> int:

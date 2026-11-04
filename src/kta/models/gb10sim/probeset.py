@@ -421,7 +421,9 @@ def _first(sm: BlockMarked, r: dict) -> float:
     return min(v[-1] for v in m) - min(v[0] for v in m) if m else float(r["cycles"])
 
 
-def _span_case(b, cid, kernel, threads, grid, smem=0, stack=None, smem_in_l1=True) -> Case:
+def _span_case(
+    b, cid, kernel, threads, grid, smem=0, stack=None, smem_in_l1=True, excluded=None
+) -> Case:
     """The busiest SM of a grid, block replacement at the kernel's occupancy; the blocks' span.
     Shared memory takes its bytes from the L1 unless `smem_in_l1` is off."""
     probe, ins = _unit_ins(b, cid, kernel)
@@ -445,7 +447,7 @@ def _span_case(b, cid, kernel, threads, grid, smem=0, stack=None, smem_in_l1=Tru
             **kw,
         )
 
-    return _case(b, cid, probe, 4, "cycles", build, _span)
+    return _case(b, cid, probe, 4, "cycles", build, _span, excluded=excluded)
 
 
 def mma_pair_cases(b: Batch) -> list[Case]:
@@ -728,6 +730,9 @@ def spill_rw_cases(b: Batch) -> list[Case]:
             g,
             0,
             n * 4,
+            excluded="hot set by a register index: the replay walks the stack in turn"
+            if h
+            else None,
         )
         for n, ld, st, h in SPILL_RW_POINTS
         for g in (1, 48)

@@ -235,7 +235,12 @@
  },
  "sim": {
   "value": {
-   "warp_smsp_across_blocks": false,
+      "stg_tpc_clk_per_instr_line": 1.6,
+      "stg_dirty_bytes": 8388608,
+      "local_load_cold_B_per_clk": 46.5,
+      "local_miss_clk_per_line": 43,
+      "dram_by_demand": true,
+   "warp_smsp_across_blocks": true,
    "hmma_16816_pipe_clk": 16,
    "hmma_latency_clk": 29,
    "ldsm_latency_clk": 34,
@@ -243,7 +248,7 @@
    "bar_base_clk": 4,
    "bar_per_warp_clk": 2,
    "ldgsts_l2_latency_clk": 350,
-   "ldgsts_dram_latency_clk": 1560,
+   "ldgsts_dram_latency_clk": 1420,
    "default_var_latency_clk": 20,
    "rbar_release_clk": 8,
    "mio_ldsm_clk": 11.7,
@@ -306,17 +311,21 @@
    "stg_chip_B_per_clk": 420.0,
    "stg_burst_bytes": 470000,
    "stg_read_overlap_clk": 2200,
-   "local_chip_B_per_clk": 830.0,
-   "local_chip_over_B_per_clk": 270.0,
+   "local_chip_B_per_clk": 400.0,
+   "local_chip_over_B_per_clk": 133.0,
    "stg_by_sectors": true,
    "rotating_by_window": true,
-   "stg_chip_wide_B_per_clk": 244.0,
-   "stg_wide_extent_B": 4096
+   "stg_chip_wide_B_per_clk": 244.0
   },
   "source": "probe: instlat.cu (ldmatrix latency 38.4 cycles per dependent hop incl. the add; ldmatrix 4.0 cycles per x4 per SM with 8+ warps, 11.7 per warp alone; bar.sync 14.6 + ~2 cycles per warp; cp.async 16 B round trip from L2 350 cycles; cp.async 16.0 B per clock per SM within a block = one warp instruction per 32 cycles), mma_rate.cu (HMMA.16816 one per 16 cycles per sub-partition; 29-cycle dependent latency), mlp_stream (DRAM ~0.62 us = 1560 cycles). default_var_latency and rbar_release are assumptions, not measured; cpq.cu: one warp issues a 16 B x 32-lane cp.async every 6 cycles; 4 warps one every 4 cycles per SM (the shared-memory array, 128 B per clock, also used by ldmatrix); 4 warps x 64 copies land at ~64 B per clock per SM (the L2 return path); instlat's earlier 16 B/clk cp.async figure was the probe's own bank conflicts (lanes 128 B apart) and is withdrawn; the chip's L2 serves cp.async tile traffic at 2.25 TB/s with all SMs loading (tileload.cu, 96-192 blocks) = 893 B per clock, shared by the active SMs; loopsteps.cu (Oct 20): TileLang's loop shape (copy, commit, wait, two barriers) with compile-time addressing moves 78 GB/s per SM (30.7 B per clock: the port) up to ~24 SMs; the chip's L2 saturates at 2.07-2.10 TB/s; commit, wait and barriers cost nothing measurable. TileLang's own loads-only kernels confirm 76-80 GB/s with one block. tileload.cu's 37.8 GB/s single-block figure (and the 0.22 us per k-tile fixed cost derived from it) came from run-time integer division in that probe's address code and is withdrawn; the load unit's address stage looks up one 128-byte line per cycle per SM (design assumption, checked: cpq.cu contiguous 512 B = 4 lines -> 4 cycles per copy with 4 warps; predicts the single-block loss of 3 ablated kernels within 20 %); a copy releases its read barrier when that stage has processed it (ncu: the whole kernel gains long_scoreboard 0.80 and mio/lg throttle stalls over its mma-only version); storepat.cu: the two SMs of a pair (TPC) share one store path: every store pattern doubles from 1 to 2 busy SMs and stays flat to 8; TileLang's C store (4 B per lane, 8 rows x 16 B per instruction, half-sectors) takes 15 cycles per instruction (8.7 B per clock), 16 B per lane coalesced 14 cycles per 512 B instruction (37 B per clock); storepat.cu at 24/48/96 blocks: chip-wide store limit ~0.31-0.38 TB/s for TileLang's half-sector 4 B stores and ~1.4-1.5 TB/s for 16 B coalesced stores (the per-pair limit holds to 24 blocks); l2share.cu: the chip's L2 delivers 2.08-2.14 TB/s to the lean copy loop with 1, 2, 3 or 4 blocks resident per SM and 8-16 KB tiles: the share follows blocks in flight, not SMs; sfu.cu: MUFU (ex2, rsqrt, lg2, tanh; sin 22-cycle) 18-cycle latency and 16 lane results per clock per SM = one warp instruction per 8 cycles per sub-partition (one warp alone reaches 4 per clock); FFMA 124 per clock per SM, latency ~4.7. The rcp row was folded away by the compiler (unchecked); tmastore.cu (Oct 20): stmatrix x4 one warp every 10.77 cycles, 4.0 cycles per x4 per SM with 4+ warps (the shared array's 128 B/clk); TMA store of a 64 KB tile: one block 0.96 us, two blocks on a pair 1.74 us each, 48 blocks 2.75 us: 33.1 B/clk per pair (the slope), 457 cycles fixed, 482 B/clk chip; wait_group.read (TileLang's default) costs the same as the full wait; ldg_atomic.cu (Oct 20): dependent LDG 50.8 cycles per hop in a 16 KB ring (L1; about 45 after the loop's own instructions) and 342.5 in a 4 MB ring (L2); LDG.128 L1 hits 7.4-8.5 cycles per 512 B per SM (2 per line); ld.global.cg from L2 15.7 cycles per 512 B on one SM (the copy port) and 2.2 TB/s for the chip (the copy path's L2 limit); spills with one slot per warp 11.9 cycles per two loads and a store (4 per line); RED.F32 one warp instruction per 5 cycles per SM, RED.F32x2 per 10 (25.6 B/clk), chip 323-340 B/clk; every lane on one address about 3.3 cycles per add for the whole chip; ldg_atomic.cu redfrag (Oct 20): RED.F32x2 in the mma accumulator layout (8 rows x 32 B per warp instruction): one block 16 cycles per instruction, two blocks on a pair 32 each (2 cycles per line on the pair's store port), 48 and 96 blocks 225 B/clk for the chip; blocks adding into the same tile at once are not slower (redtile); stq.cu (Oct 20): with 4 warps about 16 store or atomic warp instructions per SM issue at once, then issue follows the drain (16 cycles per instruction per SM for accumulator-layout RED.F32x2 and for STG.128); one warp alone issues accumulator-layout RED.F32x2 every 21.25 cycles (2.65 per line); alu.cu, alumix.cu (Oct 20), warp instructions per clock per SM, 32 warps: FFMA 3.86, FADD 3.94; IMAD, LOP3, SHF, PRMT, HFMA2 2.0; HADD2.F32 with F2FP 2.0 together; F2I 0.5 (the SFU rate). Mixes: PRMT+IMAD 3.92 (two units), PRMT+LOP3 2.0 and HFMA2+IMAD 2.0 (one unit each), IMAD+FFMA 1.32+1.32 (FP32 1 cycle and IMAD 2 cycles on one FMA unit), HFMA2+LOP3 1.27+1.91; LOP3+FFMA 1.53+1.02 is about 23 % below the two-unit picture (unexplained); mbar.cu (Oct 20): one warp arrives on an mbarrier while another waits on the same SM: the waiter gets through 134 cycles later with try_wait (TileLang's form; 157 with a test_wait spin; an arrive with an earlier global store waits for it, 217); arrives from one lane cost 6.6 cycles each in a row; dramlat.cu (Oct 20): one TMA box loaded alone, issue to mbarrier complete: from DRAM 512/608/704/896 ns for 4/8/16/32 KB idle (about 460 ns, 1170 cycles, plus the TMA engine's transfer); from L2 224 ns for 4 KB (about 440 cycles plus transfer); under background load the box waits behind everyone's queued bytes (4 KB: 2.4 us at 208 GB/s, 3.6 us saturated), as base latency plus chip bytes in flight over the DRAM rate. Pointer chase: 421 ns idle, 554 at 121 GB/s, 1159 at 208, 1929 saturated",
   "status": "measured",
   "value_status": {
-   "warp_smsp_across_blocks": "assumed",
+      "stg_tpc_clk_per_instr_line": "measured",
+      "stg_dirty_bytes": "measured",
+      "local_load_cold_B_per_clk": "measured",
+      "local_miss_clk_per_line": "measured",
+      "dram_by_demand": "measured",
+   "warp_smsp_across_blocks": "measured",
    "hmma_16816_pipe_clk": "measured",
    "hmma_latency_clk": "measured",
    "ldsm_latency_clk": "measured",
@@ -391,11 +400,15 @@
    "local_chip_over_B_per_clk": "measured",
    "stg_by_sectors": "measured",
    "rotating_by_window": "measured",
-   "stg_chip_wide_B_per_clk": "measured",
-   "stg_wide_extent_B": "measured"
+   "stg_chip_wide_B_per_clk": "probe store_spread (batch r8): 4 B lanes filling a sector in part: 237-286 B/clk at every row distance 128-8192 B, lanes 8 or more to a sector 440, one lane per sector (store_lines) 433; before: measured"
   },
   "value_source": {
-   "warp_smsp_across_blocks": "KTA round 8: placeholder, replaced by probe warp_map",
+      "stg_tpc_clk_per_instr_line": "probes store_lines, l2mix (r7, r7b): 32 contiguous 4-byte lanes, one 128-byte line per instruction: 155 cycles for 48 instructions at 3 blocks per SM, 274 for 96: 1.5 per instruction on an SM; the 15 of probe store_tail is 8 rows per instruction",
+      "stg_dirty_bytes": "probe store_lines (batch r7b): 512 sectors per block at grid 512 23204 cycles, 768 83406, 1024 148841: each MiB above about 8 costs 1 / 79 B/clk, the DRAM write rate",
+      "local_load_cold_B_per_clk": "probe spill_rw (batch r8): loads alone, 1 MB of stack per SM at 48 blocks, 132 cycles per load: 128 B x 48 / 132",
+      "local_miss_clk_per_line": "probe spill_rw (batch r8): a stack load of a line the SM lost (cyclic walk, 256 KB and 1 MB of stack, one block): 43-45 cycles per load; 32 lanes, 32 lines",
+      "dram_by_demand": "probe copy_dram (batch r8): 48 blocks cold: span 127 k at Z 0, 129 k, 144 k, 417 k at Z 64, 256, 1024 against warm 17 k, 39 k, 110 k, 392 k: max(rate, own path), no sum; false restores the fixed share per burst (ablation)",
+   "warp_smsp_across_blocks": "probe warp_map (batch r8): ex2 stream 9465 cycles at T 32 n 1, 9483 n 2, 9519 n 4, 17411 n 8; T 64 9465, 9484, 17371; mma alike: warps continue round the sub-partitions across the blocks of an SM; false restores warp i of every block on sub-partition i mod 4 (ablation)",
    "mio_smem_op_clk": "probe smem_ldsts.cu STS.32 one warp 5.07 cycles per instruction, shfl.cu one warp 5.0 (batch r1)",
    "smem_op_min_clk": "probe smem_ldsts.cu, shfl.cu: LDS.32, LDS.64, STS.32 and SHFL 2.0 cycles per instruction per SM at 8-32 warps, LDS.128 and STS.128 4.0 (batch r1)",
    "shfl_latency_clk": "probe shfl.cu: dependent SHFL.BFLY chain 28.0 cycles per hop (batch r1)",
@@ -430,13 +443,12 @@
    "stg_chip_B_per_clk": "probe store_lines (batch r7b): 512 blocks of 128 threads, span against sectors touched: 3884, 8873, 13802 cycles at 128, 256, 384 sectors per block, 32 B per lane; 16 B and 4 B contiguous alike (3873, 8902; 4054); 4 B at 32 B apart as 32 B (8614 at 256 sectors). One rate for every width, by the sectors the lanes touch; replaces stg_chip_B_per_clk_4B (r1's 122 B/clk was TileLang's strided 4-byte lanes), _16B and _32B",
    "stg_burst_bytes": "probe store_lines (batch r7b): the rate's line crosses zero at 28 sectors per block x 512 blocks; st256 and row_reduce (questions 18, 19) leave faster than the rate below it: a store buffer, a leaky bucket draining at stg_chip_B_per_clk",
    "stg_read_overlap_clk": "probe l2mix (batch r7, grid 512): both = loads alone + stores alone - about 2200 cycles at L:S 1:1 to 1:4 and 4:1 (4697, 6560, 11335, 11950, 9747 against 4492, 7208, 12151, 11823, 9696); capped by the stores' own time (4 B: 5197 = loads alone); interleaved or phased alike (H-phase rejected). Empirical: a constant over this grid",
-   "local_chip_B_per_clk": "probe spill (batch r7b): 256 threads, 48 blocks 7.4 cycles per stack instruction per SM (one block alone 1.8, 64 threads no limit at 48 blocks): the chip's L2 rate, 128 B / (830 / 48)",
-   "local_chip_over_B_per_clk": "probe spill (batch r7b): stack above the L1 (192 KB per SM) at 48 blocks 23-25 cycles per stack instruction per SM (t256 n256, t64 n1024); one block alone keeps its rate at 1 MB. 4 blocks at 256 KB per SM alike",
+   "local_chip_B_per_clk": "probe spill_rw (batch r8): 256 threads, 48 blocks, 64 words: 15.5 cycles per stack store, with or without loads beside it (r7b spill n16: 13.3; that probe's loads were folded, its 7.4 was per two instructions assumed): the plain store rate, 128 B x 48 / 15.5",
+   "local_chip_over_B_per_clk": "probe spill_rw (batch r8): 256 words (12 MB of stack on the chip, above local_capacity_bytes per SM, inside the L2): 48 cycles per store on a cyclic walk; 1024 words (49 MB): 77 cycles, the DRAM write rate; a hot set inside the capacity keeps 17-19 cycles (H 32, 128)",
    "stg_chip_B_per_clk_16B": "; replaced in round 7 by stg_chip_B_per_clk by sectors, kept for the ablation `stg_by_sectors` false",
    "stg_by_sectors": "probe store_lines (batch r7b); false restores the width rates of rounds 1-6 (ablation)",
    "rotating_by_window": "probe rot_depth (batch r7b): the miss fraction of a rotating read is a function of the window, the warm curve; false: every read misses, the rule of rounds 4-6 (ablation)",
-   "stg_chip_wide_B_per_clk": "probe store_tail tl pattern (r1, the replay's regression points b32, b48): 122 B/clk of 4-byte lanes, 8 sectors per instruction across 8 rows: 244 B/clk of sectors. Empirical: two grids, one pattern",
-   "stg_wide_extent_B": "store_lines holds 420 B/clk up to lanes 128 B apart (extent 4 KiB, r7b); store_tail's lanes span 8 rows of a tile, above that (r1). The threshold lies between them, not measured"
+   "stg_chip_wide_B_per_clk": "probe store_tail tl pattern (r1, the replay's regression points b32, b48): 122 B/clk of 4-byte lanes, 8 sectors per instruction across 8 rows: 244 B/clk of sectors. Empirical: two grids, one pattern"
   }
  },
  "l2_hit_vs_reuse_distance": {
@@ -728,6 +740,11 @@
   "source": "KTA (WP26): written as 10.0 in upstream sim/kernel.py: a lower guard on the DRAM rate left after CPU contention, not a measurement"
  },
  "_kta": "KTA copy (WP26, D680-D682). Every entry has a status: measured (a probe isolating one unit), fitted (from a real kernel with one mechanism removed, or a residual: a calibration parameter that a later benchmark should turn into a mechanism), structural (the chip's design or the driver, or a guard), assumed (not measured), withdrawn (kept because code still reads it). sim.value_status gives the status per sim value. Entries whose source starts with 'KTA (WP26)' were constants in upstream code.",
+ "local_capacity_bytes": {
+  "value": 196608,
+  "status": "measured",
+  "source": "probe spill_rw (batch r8): a stack of 128 KB per SM in hot use keeps the fast rate, 256 KB on a cyclic walk does not; spill (r7b) above 192 KB per SM alike; bracketed, 192 KB taken"
+ },
  "l1_unified_bytes": {
   "value": 131072,
   "status": "structural",

@@ -1,0 +1,6 @@
+{
+ "copy_dram rot_z0_g1": "harness: at one block the start walks only 28 MB and restarts at each point, so the reads hit the L2 the previous point left: not a cold launch",
+ "copy_dram rot_z64_g1": "harness: at one block the start walks only 28 MB and restarts at each point, so the reads hit the L2 the previous point left: not a cold launch",
+ "copy_dram rot_z256_g1": "harness: at one block the start walks only 28 MB and restarts at each point, so the reads hit the L2 the previous point left: not a cold launch",
+ "copy_dram rot_z1024_g1": "harness: at one block the start walks only 28 MB and restarts at each point, so the reads hit the L2 the previous point left: not a cold launch"
+}

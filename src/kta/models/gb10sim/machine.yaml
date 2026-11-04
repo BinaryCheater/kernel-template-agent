@@ -38,6 +38,7 @@ resources:
     users: [ldsm, stsm, lds, sts, shfl, cp.async data, tma box write, tma store read]
   lsu: {scope: sm, kind: port, busy: lsu, doc: address stage, one 128-byte line per sim.lsu_clk_per_line}
   l1: {scope: sm, kind: port, doc: L1 data path for hits and local memory}
+  local_chip: {scope: sm, kind: port, doc: this SM's share of the chip's rate for stack stores}
   l2_return:
     scope: sm
     kind: port
