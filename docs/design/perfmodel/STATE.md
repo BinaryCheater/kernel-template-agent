@@ -71,7 +71,7 @@ Worse than round 8, by ablation: `dram_burst_past_l2` 3072×1536×2048 warm τ 0
 32. **Chip L2 under arithmetic for copies** — 1 of 2: lean one-stage warm copies at 48 blocks run about 1070 B/clk, replay 21.2 k, measured 17.5 k; sharing a tile does not help (D 1–48 flat). 1070 in the table: τ 0.60 → 0.38, rejected (D812); the tile rate and the lean loop's rate differ.
 33. **Event timing resolution** — D804, user's call. Rotation depth rows (question 26) stay wrong: decode and RMSNorm reuse nothing inside a launch (checked: reads = footprint), so promotion in the L2 is not what keeps their 5–18 %.
 34. **Softmax graph −22 %** — new, 0 of 2: launch and drain on the path; 1 of 2 on question 27's mechanism ruled it out.
-35. **Rotating replays below warm** — new, 0 of 2: 128×128×32 s3 and 3072 s2: replay rotating 7 % below warm, measured above. DRAM delays skew the two blocks on an SM and the skew frees the tensor pipe and stores; no measurement shows that gain.
+35. **Rotating replays below warm** — new, 0 of 2: 128×128×32 s3 and 3072 s2: replay rotating 7 % below warm, measured above. The trace shows tensor busy 3.02 → 3.23 of 4 and the store queue 19 → 10 µs; probably DRAM delays skew the two blocks on an SM (not tested). No measurement shows that gain.
 36. **`c128x256x32` t256 above the K 64 rows** — new, 0 of 2: 3–6 % at three shapes, repeatable, the largest family of reversed pairs.
 
 ## Frozen parameters
