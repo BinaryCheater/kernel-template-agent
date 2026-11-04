@@ -26,6 +26,7 @@ import shlex
 import statistics
 import subprocess
 import sys
+import time
 from datetime import UTC, datetime
 from typing import Any
 
@@ -116,22 +117,38 @@ def predict(batch: str) -> int:
 
     from kta.models.gb10sim import probeset
 
-    from . import table
+    from . import full, table
 
     d = BATCHES / batch
     if (d / "measured.json").exists():
         raise SystemExit("refused: the batch is measured; a prediction must come before the run")
-    ids = [c.id for c in probeset.all_cases(d)]
+    # a row an earlier batch measured is a repeat: its first score stands, nothing to predict
+    known = table.first_scores()
+    ids = [c.id for c in probeset.all_cases(d) if c.id not in known]
     # the launch modes of one kernel share a replay (probeset.run_cases)
     groups: dict[str, list[str]] = {}
     for i in ids:
         groups.setdefault(re.sub(r" (kernel|b2b|graph)$", "", i), []).append(i)
     out = {}
+    t0, c0 = time.perf_counter(), full.cpu_s()
     with ProcessPoolExecutor(table.default_jobs()) as ex:
         for done in ex.map(_predict_one, [(batch, g) for g in groups.values()]):
             for cid, v, unit in done:
                 out[cid] = round(v, 4)
                 print(f"{cid:52s} {v:12.4f} {unit}", flush=True)
+    head, dirty = upstream.kta_commit()
+    full.log(
+        {
+            "mode": "predict",
+            "commit": head[:12],
+            "dirty": dirty,
+            "rows": len(ids),
+            "replayed": len(groups),
+            "cpu_s": round(full.cpu_s() - c0, 1),
+            "wall_s": round(time.perf_counter() - t0, 1),
+            "jobs": table.default_jobs(),
+        }
+    )
     out = {i: out[i] for i in ids}
     doc = {
         "engine": table.engine_hash(),
@@ -228,9 +245,13 @@ def import_(batch: str) -> int:
     valid = all(c["ok"] for c in checks.values())
     results: dict[str, Any] = {}
     counters: dict[str, Any] = {}
+    repeats: dict[str, list[float]] = {}
     for name, text in sorted(texts.items()):
         if name.startswith("4-"):
             results.update(_results(text))
+        elif name.startswith(("4r1-", "4r2-")):  # round 13: the same kernel, a later process
+            for k, v in _results(text).items():
+                repeats.setdefault(k, []).append(v["median"])
         elif name.startswith("5-ncu-"):
             counters.setdefault(name[len("5-ncu-") :], {}).update(_ncu(text, run_doc["metrics"]))
         elif name.startswith("5x-ncu-"):  # round 2: the extra metrics' own pass
@@ -287,6 +308,7 @@ def import_(batch: str) -> int:
     meas = {"batch": batch, "valid": valid, "clock_GHz": clock, "results": results}
     meas["invalid_results"] = dropped
     meas["counters"] = counters
+    meas["repeats"] = repeats
     (d / "measured.json").write_text(json.dumps(meas, indent=1) + "\n")
     print(f"{batch}: {'valid' if valid else 'INVALID'}; {len(results)} results; checks {checks}")
     if failed:

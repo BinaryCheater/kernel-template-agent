@@ -6,7 +6,11 @@ from __future__ import annotations
 
 import json
 import re
+import resource
 import subprocess
+import time
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -33,6 +37,32 @@ def log(record: dict) -> None:
     }
     with LOG.open("a") as f:
         f.write(json.dumps(rec) + "\n")
+
+
+def cpu_s() -> float:
+    """CPU seconds of this process and its finished children."""
+    me, kids = (resource.getrusage(w) for w in (resource.RUSAGE_SELF, resource.RUSAGE_CHILDREN))
+    return me.ru_utime + me.ru_stime + kids.ru_utime + kids.ru_stime
+
+
+@contextmanager
+def scratch(what: str, rows: int = 0) -> Iterator[None]:
+    """A replay outside the table (a question's study): it counts in the round's testing cost."""
+    t0, c0 = time.perf_counter(), cpu_s()
+    yield
+    head, dirty = upstream.kta_commit()
+    log(
+        {
+            "mode": f"scratch {what}",
+            "commit": head[:12],
+            "dirty": dirty,
+            "rows": rows,
+            "replayed": rows,
+            "cpu_s": round(cpu_s() - c0, 1),
+            "wall_s": round(time.perf_counter() - t0, 1),
+            "jobs": 1,
+        }
+    )
 
 
 def runs(round_no: int) -> list[dict]:

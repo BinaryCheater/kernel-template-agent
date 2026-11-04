@@ -26,6 +26,8 @@ split-KV decode as one sequence of two kernels (`_decode_seq`: launch.json famil
 
 Round 7: one-change variants (`_whatif`: launch.json `whatif` names the base unit and the axis; the
 table scores predicted delta against measured delta) and larger blind groups (`_blind7`).
+Round 13: design groups of GEMV, FA, decode, RMSNorm and softmax (blind, warm and rotating), own
+kernels in `hand13/`.
 `ONLY` limits generation to the matching names; `SHARD=i/n` generates one share of them.
 """
 
@@ -1559,6 +1561,252 @@ __global__ void __launch_bounds__({t}) k_stk(unsigned* sink) {{
         _fa(out, f"wi12_fa_{v}_warm", f, "warm", False, writes, set="whatif fa warm", **more)
 
 
+# round 13: a blind set off the HGEMM shapes: design groups of the other kernels, warm and rotating,
+# one more HGEMM shape, ordinary code in the store, rewrite, atomic and hashed classes
+GEMV13 = {"N": 3072, "K": 6144, "group": 64, "n_part": 4, "reduce": 32}
+GEMV13_V = {
+    "b": ({}, "base"),
+    "np2": ({"n_part": 2}, "threads"),
+    "np8": ({"n_part": 8}, "threads"),
+    "r16": ({"reduce": 16}, "threads"),
+    "r64": ({"reduce": 64}, "threads"),
+    "mk4": ({"mk": 4}, "bytes per lane"),
+    "mk16": ({"mk": 16}, "bytes per lane"),
+    "np2_r64": ({"n_part": 2, "reduce": 64}, "design"),
+    "np8_r16": ({"n_part": 8, "reduce": 16}, "design"),
+}
+FA13 = {**FA, "S": 1792, "H": 10, "D": 80}
+FA13_AXIS = {
+    "c64x64_s1_t128": "stages",
+    "c64x64_s3_t128": "stages",
+    "c64x32_s3_t128": "design",
+    "c64x128_s2_t128": "tile",
+    "c128x64_s2_t128": "tile",
+    "c128x64_s2_t256": "design",
+    "c128x128_s2_t256": "design",
+}
+DECODE13 = {**DECODE, "H": 24, "G": 6, "S": 3072, "D": 96}
+DECODE13_V = {
+    "b": ({}, "base"),
+    "s1": ({"stages": 1}, "stages"),
+    "s3": ({"stages": 3}, "stages"),
+    "split4": ({"split": 4}, "blocks"),
+    "split16": ({"split": 16}, "blocks"),
+    "bn32": ({"BN": 32}, "tile"),
+    "bn128": ({"BN": 128}, "tile"),
+    "split4_bn32": ({"split": 4, "BN": 32}, "design"),
+}
+ROWS13 = {"M": 768, "N": 3072}
+THREADS13 = (32, 64, 96, 128, 192, 256, 384, 512)
+HGEMM_BLIND13_SHAPE = {"M": 1792, "N": 2560, "K": 2304}
+HG13_AXIS = {"s2": "stages", "s4": "stages", "sw8": "raster"}
+HG13_WI = {  # name: tile, options, axis, also rotating
+    "s1": ((128, 128, 32, 1, 128, 0), None, "stages", True),
+    "direct": ((128, 128, 32, 0, 128, 0), None, "cp.async vs direct", False),
+    "bk16": ((128, 128, 16, 3, 128, 0), None, "tile", False),
+    "t64": ((128, 128, 32, 3, 64, 0), None, "threads", True),
+    "t256": ((128, 128, 32, 3, 256, 0), None, "threads", True),
+    "nocompute": ((128, 128, 32, 3, 128, 0), {"compute": False}, "compute removed", False),
+    "nostore": ((128, 128, 32, 3, 128, 0), {"store": "shared"}, "stores removed", False),
+    "noload": ((128, 128, 32, 0, 128, 0), {"load": False}, "loads removed", False),
+}
+HAND13 = {
+    "transpose": ((512, 1, 1), (256,), [4 * MB, 4 * MB], None),
+    "interleave": ((512, 1, 1), (256,), [16 * MB, 8 * MB, 8 * MB], None),
+    "tilefill": ((32, 32, 1), (16, 16), [16 * MB], None),
+    "recordfill": ((1024, 1, 1), (256,), [16 * MB], None),
+    "smooth": ((512, 1, 1), (256,), [4 * MB], None),
+    "swaprows": ((512, 1, 1), (256,), [8 * MB], None),
+    "blockcount": ((1024, 1, 1), (256,), [4 * MB, 4 * MB], None),
+    "decay": ((768, 1, 1), (256,), [12 * MB], None),
+    "wordcount": ((1024, 1, 1), (256,), [4096, 4 * MB], None),
+    "blockmin": ((1024, 1, 1), (256,), [512, 4 * MB], None),
+    "bitset": ((1024, 1, 1), (256,), [128 << 10], None),
+    "ticket": ((1024, 1, 1), (256,), [4 * MB, 64], None),
+    "casmax": ((1024, 1, 1), (256,), [256 << 10], None),
+    "floatadd": ((1024, 1, 1), (256,), [16 << 10, 4 * MB], None),
+    "probe": ((512, 1, 1), (256,), [4 * MB, 4 * MB, 16 * MB], None),
+    "cuckoo": ((1024, 1, 1), (256,), [1 * MB, 32 * MB], None),
+    "permute": ((512, 1, 1), (256,), [16 * MB, 8 * MB, 8 * MB], None),
+    "bloomadd": ((1024, 1, 1), (256,), [16 * MB], None),
+    "bucket": ((1024, 1, 1), (256,), [16 * MB, 4 * MB], None),
+    "insort": ((512, 1, 1), (128,), [256 << 10, 4 * MB], None),
+    "window": ((512, 1, 1), (256,), [512 << 10, 4 * MB], None),
+}
+T64 = (("128", "64"),)
+LOADED13 = "(t + k) * 2654435761u"  # the same stream of values without the load
+WI_HAND13 = (
+    ("transpose", "t128", "threads", (1024, 1, 1), None, None, T128),
+    ("interleave", "t128", "threads", (1024, 1, 1), None, None, T128),
+    ("tilefill", "p2", "shape", None, None, None, (("i < 4", "i < 2"), ("j < 4", "j < 2"))),
+    ("recordfill", "w4", "stores removed", None, None, None, (("k < 16", "k < 4"),)),
+    ("smooth", "p1", "stores removed", None, None, None, (("p < 4", "p < 1"),)),
+    ("swaprows", "l1", "loads removed", None, None, None, (("a[j];", "lo + 1u;"),)),
+    (
+        "blockcount",
+        "nl",
+        "loads removed",
+        None,
+        None,
+        None,
+        (("key[(t * 8 + k) & 1048575u]", LOADED13),),
+    ),
+    ("decay", "m4", "shape", (192, 1, 1), [3 * MB], None, ()),
+    ("wordcount", "b64", "shape", None, [256, 4 * MB], None, (("1023u", "63u"),)),
+    (
+        "blockmin",
+        "nl",
+        "loads removed",
+        None,
+        None,
+        None,
+        (("a[(t * 8 + k) & 1048575u]", LOADED13),),
+    ),
+    ("bitset", "w8", "shape", None, [1 * MB], None, (("32767u", "262143u"),)),
+    ("ticket", "noret", "stores removed", None, None, None, (("o[n & 1048575u] = t;", "//"),)),
+    ("casmax", "b64", "shape", None, [256], None, (("65535u", "63u"),)),
+    ("floatadd", "nl", "loads removed", None, None, None, (("x[i & 1048575u]", "(float)i"),)),
+    ("probe", "m4", "shape", None, [4 * MB, 4 * MB, 1 * MB], None, (("4194303u", "262143u"),)),
+    (
+        "cuckoo",
+        "one",
+        "loads removed",
+        None,
+        None,
+        None,
+        (("unsigned b = table", "//"), ("a < b ? a : b", "a")),
+    ),
+    ("permute", "m4", "shape", None, [1 * MB, 8 * MB, 8 * MB], None, (("4194303u", "262143u"),)),
+    ("bloomadd", "m1", "shape", None, [1 * MB], None, (("16777215u", "1048575u"),)),
+    ("bucket", "nl", "loads removed", None, None, None, (("a[(t * 8 + k) & 1048575u]", LOADED13),)),
+    ("insort", "t64", "threads", (1024, 1, 1), None, None, T64),
+    (
+        "insort",
+        "w8",
+        "shape",
+        None,
+        None,
+        None,
+        (("< 16", "< 8"), ("w[8];", "w[4];"), ("w[16]", "w[8]"), ("t * 16", "t * 8")),
+    ),
+    ("window", "t128", "threads", (1024, 1, 1), None, None, T128),
+)
+
+
+def _hand13(out: Path) -> None:
+    src_dir = Path(__file__).parent / "hand13"
+    for name, (grid, block, sizes, written) in HAND13.items():
+        text = (src_dir / f"{name}.cu").read_text()
+        _source_kernel(
+            out, f"bl13_{name}", text, grid, block, sizes, "hand", "breadth blind", written=written
+        )
+    for name, tag, axis, grid, sizes, written, subs in WI_HAND13:
+        g0, block, s0, w0 = HAND13[name]
+        text = (src_dir / f"{name}.cu").read_text()
+        for old, new in subs:
+            if new == "//":  # a statement dropped
+                text = re.sub(rf"\n[^\n]*{re.escape(old)}[^\n]*", "", text)
+            else:
+                text = text.replace(old, new)
+        if subs in (T128, T64):
+            block = (int(subs[0][1]),)
+        _source_kernel(
+            out,
+            f"bl13_{name}_{tag}",
+            text,
+            grid or g0,
+            block,
+            sizes or s0,
+            "hand",
+            "breadth blind",
+            written=written if written is not None else w0,
+            whatif={"base": f"bl13_{name}", "axis": axis},
+        )
+
+
+def _round13(out: Path) -> None:
+    _hand13(out)
+    sh = HGEMM_BLIND13_SHAPE
+    M, N, K = sh["M"], sh["N"], sh["K"]
+    pre = f"hgemm_m{M}n{N}k{K}"
+    for name, tile in HGEMM_BLIND12.items():
+        one = name.removeprefix("c128x128x32_").replace("t128_", "").removesuffix("_t128")
+        for cache, tail in (("warm", ""), ("rotating", " rotating")):
+            suffix = "" if cache == "warm" else "_rotating"
+            base = f"{pre}_c128x128x32_s3_t128{suffix}"
+            more = (
+                {}
+                if f"{pre}_{name}{suffix}" == base
+                else {"whatif": {"base": base, "axis": HG13_AXIS.get(one, "design")}}
+            )
+            _hgemm(
+                out,
+                f"{pre}_{name}{suffix}",
+                tile,
+                sh,
+                cache,
+                set=f"hgemm {M}x{N}x{K}{tail}",
+                **more,
+            )
+    for v, (tile, opt, axis, both) in HG13_WI.items():
+        for cache in ("warm", "rotating") if both else ("warm",):
+            suffix = "" if cache == "warm" else "_rotating"
+            more = {"whatif": {"base": f"{pre}_c128x128x32_s3_t128{suffix}", "axis": axis}}
+            _hgemm(
+                out, f"{pre}_{v}{suffix}", tile, sh, cache, opt, set=f"whatif hgemm {cache}", **more
+            )
+    tag = f"{GEMV13['N']}x{GEMV13['K']}"
+    for cache, tail in (("warm", ""), ("rotating", " rotating")):
+        for v, (kw, axis) in GEMV13_V.items():
+            more = _wi(v, f"gemv13_b_{cache}", axis)
+            group = f"gemv {tag}{tail}"
+            _gemv_row(out, f"gemv13_{v}_{cache}", {**GEMV13, **kw}, cache, set=group, **more)
+        more = _wi("", f"gemv13_b_{cache}", "compute removed")
+        group = f"whatif gemv {cache}"
+        _gemv_row(
+            out, f"gemv13_nocompute_{cache}", {**GEMV13, "compute": False}, cache, set=group, **more
+        )
+    f13 = FA13
+    tag = f"{f13['S']}x{f13['H']}x{f13['D']}"
+    for cache, tail in (("warm", ""), ("rotating", " rotating")):
+        for name, (bm, bn, s, th) in FA_BLIND7_V.items():
+            f = {**f13, "BM": bm, "BN": bn, "stages": s, "threads": th}
+            axis = FA13_AXIS.get(name, "base")
+            more = _wi(name, f"fa13_c64x64_s2_t128_{cache}", axis)
+            _fa(out, f"fa13_{name}_{cache}", f, cache, set=f"fa {tag}{tail}", **more)
+        for v in ("nostore", "nov", "noexp"):
+            kw, axis = dict(WI_FA[v][0]), WI_FA[v][1]
+            writes = () if kw.get("store") else (-1,)
+            more = _wi(v, f"fa13_c64x64_s2_t128_{cache}", axis)
+            group = f"whatif fa {cache}"
+            _fa(out, f"fa13_{v}_{cache}", {**f13, **kw}, cache, False, writes, set=group, **more)
+    tag = f"{DECODE13['H']}x{DECODE13['S']}x{DECODE13['D']}"
+    for cache, tail in (("warm", ""), ("rotating", " rotating")):
+        for v, (kw, axis) in DECODE13_V.items():
+            more = _wi(v, f"dec13_b_{cache}", axis)
+            group = f"decode {tag}{tail}"
+            _decode_part(out, f"dec13_{v}_{cache}", {**DECODE13, **kw}, cache, set=group, **more)
+    tag = f"{ROWS13['M']}x{ROWS13['N']}"
+    for th in THREADS13:
+        axis = "base" if th == 128 else "threads"
+        kw = {"threads": th}
+        for cache, tail in (("warm", ""), ("rotating", " rotating")):
+            more = _wi("", f"rms13_t128_{cache}", axis)
+            _rms(out, f"rms13_t{th}_{cache}", ROWS13, cache, kw, set=f"rmsnorm {tag}{tail}", **more)
+        more = _wi("", "sm13_t128_warm", axis)
+        _softmax(out, f"sm13_t{th}_warm", ROWS13, kw, set=f"softmax {tag}", **more)
+    for v in ("nocompute", "nostore", "fp32"):
+        kw, axis = WI_RMS[v]
+        for cache in ("warm", "rotating"):
+            more = _wi("", f"rms13_t128_{cache}", axis)
+            _rms(
+                out, f"rms13_{v}_{cache}", ROWS13, cache, kw, set=f"whatif rmsnorm {cache}", **more
+            )
+    kw, axis = WI_SOFTMAX["nostore"]
+    more = _wi("", "sm13_t128_warm", axis)
+    _softmax(out, "sm13_nostore_warm", ROWS13, kw, set="whatif softmax warm", **more)
+
+
 def main(out: Path) -> None:
     _hand(out)
     _round11(out)
@@ -1586,6 +1834,7 @@ def main(out: Path) -> None:
         ("blind9", _blind9),
         ("round12", _round12),
         ("round12b", _round12b),
+        ("round13", _round13),
     ):
         try:  # a kernel that fails to generate is reported; the others stand
             gen(out)

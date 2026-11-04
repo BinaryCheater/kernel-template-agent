@@ -199,6 +199,10 @@ def main(build: Path, out: Path) -> int:
     kernels = sorted(p for p in (build / "testset").iterdir() if (p / "bin").exists())
     for d in kernels:
         step(f"4-{d.name}", [str(d / "bin"), "30"], cwd=d)
+    # round 13: each kernel timed again in its own process, in reverse order here and after the
+    # profiler passes: what one process's memory placement and neighbours move
+    for d in reversed(kernels):
+        step(f"4r1-{d.name}", [str(d / "bin"), "30"], cwd=d)
 
     def ncu(tag: str, d: Path, metrics: str) -> None:
         entry = json.loads((d / "launch.json").read_text())["entry"]
@@ -266,6 +270,8 @@ def main(build: Path, out: Path) -> int:
                     ],
                     cwd=d,
                 )
+    for d in kernels:
+        step(f"4r2-{d.name}", [str(d / "bin"), "30"], cwd=d)
     protocol("6")
     env("after")
     owned = sh(["find", str(out), "-not", "-user", str(os.getuid())])[1].strip()

@@ -15,6 +15,7 @@ from typing import Any
 from .table import BATCHES, GOAL_DIR, GOAL_MAG, SHORT_US, batch_order, first_scores, goal
 
 MODE = re.compile(r"(.*) (kernel|b2b|graph)$")
+DESIGN = ("hgemm", "fa ", "gemv ", "decode ", "rmsnorm ", "softmax ")
 
 
 def rows(round_no: int, root: Path = BATCHES) -> list[dict[str, Any]]:
@@ -81,6 +82,65 @@ def _whatif(ps: list[dict[str, Any]], m: str, p: str) -> dict[str, Any]:
     }
 
 
+def passes(round_no: int, root: Path = BATCHES) -> dict[str, list[float]]:
+    """Every timing of a row in the round's batches, each in its own process, in order."""
+    out: dict[str, list[float]] = {}
+    for d in sorted(root.iterdir(), key=lambda p: batch_order(p.name)):
+        if batch_order(d.name)[0] != round_no or not (d / "measured.json").exists():
+            continue
+        doc = json.loads((d / "measured.json").read_text())
+        for k, v in doc["results"].items():
+            out.setdefault(k, []).append(v["median"])
+        for k, v in doc.get("repeats", {}).items():
+            out.setdefault(k, []).extend(v)
+    return out
+
+
+def split(p: dict[str, Any], times: dict[str, list[float]], mode: str = "kernel") -> dict[str, Any]:
+    """One what-if pair over its repeats. Base and change pair up pass by pass (the same batch).
+    `noise`: the measured change does not keep its sign or its size: the spread of the passes
+    reaches its median. A wrong prediction on such a pair is not evidence against the model."""
+    a, b = times.get(f"{p['base']} {mode}", []), times.get(f"{p['id']} {mode}", [])
+    ds = [y / x - 1 for x, y in zip(a, b, strict=False)]
+    if len(ds) < 2:
+        return {"deltas": ds, "noise": None, "median": ds[0] if ds else None}
+    mid = statistics.median(ds)
+    return {"deltas": ds, "median": mid, "noise": max(ds) - min(ds) >= abs(mid)}
+
+
+def by_axis(ps: list[dict[str, Any]], times: dict[str, list[float]]) -> list[str]:
+    """Direction by axis, `kernel` rows and graph rows side by side (D804 is the user's): the first
+    pass as scored, then the median of the passes, and how many wrong pairs are noise."""
+    axes: dict[str, dict[str, int]] = {}
+
+    def tally(ax: str, tag: str, m: float, q: float, noise: bool | None) -> None:
+        for key in (ax, "all"):
+            c = axes.setdefault(key, {})
+            if abs(m) < GOAL_DIR:
+                continue
+            c[f"{tag}_of"] = c.get(f"{tag}_of", 0) + 1
+            right = m * q > 0
+            c[f"{tag}_right"] = c.get(f"{tag}_right", 0) + right
+            c[f"{tag}_noise"] = c.get(f"{tag}_noise", 0) + (not right and bool(noise))
+
+    for p in ps:
+        k, g = split(p, times), split(p, times, "graph")
+        if k["median"] is not None:
+            tally(p["axis"], "k", k["median"], p["first"], k["noise"])
+        if g["median"] is not None:
+            tally(p["axis"], "g", g["median"], p["graph_first"], g["noise"])
+    lines = [
+        "| Axis | `kernel` right / of | wrong, noise | graph right / of | wrong, noise |",
+        "| --- | ---: | ---: | ---: | ---: |",
+    ]
+    for ax, c in sorted(axes.items(), key=lambda kv: (kv[0] == "all", kv[0])):
+        lines.append(
+            f"| {ax} | {c.get('k_right', 0)}/{c.get('k_of', 0)} | {c.get('k_noise', 0)} | "
+            f"{c.get('g_right', 0)}/{c.get('g_of', 0)} | {c.get('g_noise', 0)} |"
+        )
+    return lines
+
+
 def report(round_no: int) -> str:
     rs = rows(round_no)
     pred, meas = {}, {}
@@ -109,7 +169,7 @@ def report(round_no: int) -> str:
     lines += ["| --- | ---: | --- | ---: |"]
     tp = tn = 0
     for name, g in groups.items():
-        if not name.startswith(("hgemm", "fa ")) or len(g) < 3:
+        if not name.startswith(DESIGN) or len(g) < 3:
             continue
         s = goal([{**r, "predicted": r["predicted"]} for r in g])
         tp, tn = tp + s["pairs_right"], tn + s["pairs"]
@@ -133,6 +193,10 @@ def report(round_no: int) -> str:
             f"What-if, {tag}: direction ≥ 3 % {w['right']}/{w['of']}, "
             f"magnitude ≥ 10 % median {mag} over {w['mag_n']}."
         )
+    times = passes(round_no)
+    if any(len(v) > 1 for v in times.values()):
+        lines += ["", "What-if over the repeats, median of the passes against the first score:", ""]
+        lines += by_axis(ps, times)
     lines += ["", "Wrong directions (`kernel` rows):", ""]
     lines += ["| Change | Axis | Measured | First |", "| --- | --- | ---: | ---: |"]
     lines += [
