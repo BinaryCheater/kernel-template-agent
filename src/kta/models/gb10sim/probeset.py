@@ -639,6 +639,7 @@ def copy_dram_cases(b: Batch) -> list[Case]:
                 copy_lines=[4],
                 miss_frac=1.0 if rot else 0.0,
                 dram_clk_per_512B=dram_clk(rb, dram_mix_secs(rb, 0, m), g, m),
+                burst_bytes=g * COPY_DRAM_BYTES / 16 if rot else 0.0,
                 **kw,
             )
 
@@ -701,11 +702,10 @@ def first_share_cases(b: Batch) -> list[Case]:
     `share`, the waves of `seq` on one block per SM, the steps of `pieces` on one block."""
 
     def wave(rot, d, m):
-        """A wave reading 48 / d tiles: every slice misses when rotating, d blocks read it (`seq`:
-        twice the blocks in flight, as a wave's rate)."""
+        """A wave reading 48 / d tiles: every slice misses when rotating, d blocks read it."""
         rb = 48 / d * FIRST_SHARE_BLOCK
         clk = dram_clk(rb, dram_mix_secs(rb, 0, m), 48, m)
-        return (1.0 if rot else 0.0, 0.0, d, 1, clk)
+        return (1.0 if rot else 0.0, 0.0, d, 1, clk, rb / 16 if rot else 0.0)
 
     def share(rot, d, z):
         cid = f"first_share {'rot' if rot else 'warm'}_share_d{d}_z{z}"
@@ -737,6 +737,8 @@ def first_share_cases(b: Batch) -> list[Case]:
         def build(**kw):
             m = kw.get("machine") or default_machine()
             first = wave(rot, d, m)
+            # 98304 B of shared memory: one block per SM, waves of 48; tile by block modulo 96:
+            # the first two waves read new tiles, the others what those left in the L2
             later = (0.0, *first[1:])
             f = 1.0 / (d * w) if rot else 0.0
             return BlockMarked(
@@ -747,17 +749,17 @@ def first_share_cases(b: Batch) -> list[Case]:
                 active_sms=48,
                 copy_lines=[4],
                 copies_a=8,
-                resident=2,
+                resident=1,
                 grid_blocks=96 * w,
                 grid_dim=(96 * w, 1, 1),
-                wave_miss=[first, *[later] * (w - 1)] if m.P["miss_by_wave"] else None,
+                wave_miss=[first, first, *[later] * (2 * w - 2)] if m.P["miss_by_wave"] else None,
                 miss_frac=f,
                 dram_clk_per_512B=first[4],
                 **kw,
             )
 
         def read(sm, r):
-            k = 0 if part == "first" else 2 * w - 2
+            k = 0 if part == "first" else 2 * w - 1
             v = sm.bmarks.get(k, [])
             return v[-1] - v[0] if len(v) > 1 else float("nan")
 
@@ -778,16 +780,21 @@ def first_share_cases(b: Batch) -> list[Case]:
                 copy_lines=[1],
                 miss_frac=1.0 if rot else 0.0,
                 dram_clk_per_512B=dram_clk(rb, dram_mix_secs(rb, 0, m), 1, m),
+                burst_bytes=128 * 16 if rot else 0.0,
                 **kw,
             )
 
         return _case(b, cid, probe, 4, "cycles", build, lambda sm, r: _span(sm, r) / 64)
 
+    # r9 stopped before `seq`, r9c added the 2-block point
+    text = _sass(b, "probe-first_share")
+    seqs = "_Z5shareILi0ELi4ELi96EEvPyPKcPf" in text
+    d2 = "_Z5shareILi0ELi2ELi96EEvPyPKcPf" in text
     return [
         *(share(r, d, 0) for r in (0, 1) for d in (1, 2, 4, 8, 16, 48)),
         *(share(r, d, 256) for r in (0, 1) for d in (1, 4, 16, 48)),
-        *(seq(r, w, p) for r in (0, 1) for w in (2, 4) for p in ("first", "last")),
-        *(seq(r, 2, p, 2) for r in (0, 1) for p in ("first", "last")),
+        *(seq(r, w, p) for r in (0, 1) for w in (2, 4) for p in ("first", "last") if seqs),
+        *(seq(r, 2, p, 2) for r in (0, 1) for p in ("first", "last") if d2),
         *(pieces(r, s) for r in (0, 1) for s in (16, 32, 64, 128)),
     ]
 
@@ -1315,6 +1322,7 @@ def _generic_sm(d: Path, L: dict[str, Any], regs: int, carried: tuple[str, ...],
         kept = sum(miss_pc.values()) / max(1e-9, sum(r.miss_by_pc.values()))
         rb, miss = r.reads * kept, 1.0 if kept > 0 else 0.0
         kw["miss_by_pc"] = miss_pc
+        kw["burst_bytes"] = rb / max(1, len(r.waves)) / max(1, src_trips)
     elif rotating:
         rb, miss = fb - wb, 1.0
     else:  # warm (round 3, probe l2reuse): the re-read misses by the footprint

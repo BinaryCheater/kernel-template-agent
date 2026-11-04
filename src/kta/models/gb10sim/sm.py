@@ -106,6 +106,7 @@ class SM:
         stack_bytes: int | None = None,
         wave_miss: list[tuple] | None = None,
         copies_a: int = 0,
+        burst_bytes: float = 0.0,
     ):
         self.ins = ins
         # KTA (PERFMODEL): with `trace`, every issue and the binding reason of every wait is kept
@@ -224,6 +225,9 @@ class SM:
         # `copies_a` of a step's copies read the A slice
         self.wave_miss = wave_miss
         self.copies_a = copies_a
+        # round 9 (probes first_reader, first_share, copy_dram): the bytes a step sends to DRAM over
+        # the chip; a copy's miss lands after the unloaded latency and that burst past the L2
+        self.burst_bytes = burst_bytes
         self.slice_acc = [0.0, 0.0]
         self.first_acc = [0.0, 0.0]
         self.slice_now: dict[tuple[int, int], tuple[int, bool, bool]] = {}
@@ -360,6 +364,7 @@ class SM:
         wave = self.wave_miss[min(w.block // self.resident, len(self.wave_miss) - 1)]
         self.dram_clk0 = wave[4]
         self.dram_clk = wave[4] * self.active_sms / self.eq0
+        self.burst_bytes = wave[5]
         now = self.slice_now.get((w.block, part))
         if now is None or now[0] != step:
             self.slice_acc[part] += wave[part]
@@ -1014,9 +1019,14 @@ class SM:
         state = self._slice_state(w, w.ncopy) if self.wave_miss else None
         keys: tuple = ()
         if state is None and addr0 is not None and P["l1_pending_fill"]:
-            # round 9 (probe first_reader): a miss-status entry per line: a line this SM has sent
-            # for is not sent for again, its next reader waits for the fill
-            keys = tuple(footprint(addr0, width_of(x.op))[0])
+            # round 9 (probes first_reader, first_share): a miss-status entry per sector: a sector
+            # this SM has sent for is not sent for again, its next reader waits for the fill
+            keys = tuple(
+                (k, b)
+                for k, mask in footprint(addr0, width_of(x.op))[0].items()
+                for b in range(4)
+                if mask >> b & 1
+            )
             if all(k in self.line_fill for k in keys):
                 state = "wait"
         w.ncopy += 1
@@ -1026,8 +1036,11 @@ class SM:
         t["lsu"] = t_lsu + lines * P["lsu_clk_per_line"]
         self.busy["lsu"] = self.busy.get("lsu", 0) + lines
         lsu_done = t["lsu"]
+        dram_lat = (
+            P["ldgsts_dram_latency_clk"] + self.burst_bytes / P["l2_aggregate_B_per_clk_cpasync"]
+        )
         if state == "miss" if state else self._l2_miss(w.pc):
-            t_l = lsu_done + P["ldgsts_dram_latency_clk"]
+            t_l = lsu_done + dram_lat
             t_d = max(t_l, t["dram_queue"])
             t["dram_queue"] = self._dram_after(t_d) + self.dram_clk
             self.busy["dram"] = self.busy.get("dram", 0) + self.dram_clk
@@ -1040,7 +1053,7 @@ class SM:
             arrive = max(lsu_done + P["ldgsts_l2_latency_clk"], *(self.line_fill[k] for k in keys))
             lat = ((lsu_done, arrive, "l2", "wait on a fill", "sim.ldgsts_l2_latency_clk"),)
         elif state == "wait":
-            t_l = lsu_done + P["ldgsts_dram_latency_clk"]
+            t_l = lsu_done + dram_lat
             arrive = max(t_l, t["dram_queue"])
             lat = (
                 (lsu_done, t_l, "dram", "wait on a fill", "sim.ldgsts_dram_latency_clk"),

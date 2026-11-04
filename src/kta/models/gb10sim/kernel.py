@@ -129,8 +129,8 @@ def wave_dram(
 
 def wave_slices(h: dict, KT: int, wave: dict, reads: float, cold: float, clk: float) -> tuple:
     """Round 9 (probe first_reader): what one wave's blocks meet, per tile (A, B): the fraction of
-    the distinct slices that miss, the blocks that read each slice together, the DRAM clock. A
-    warm launch scales the cold misses by `reads / cold`."""
+    the distinct slices that miss, the blocks that read each slice together; the DRAM clock, the
+    bytes a step sends to DRAM. A warm launch scales the cold misses by `reads / cold`."""
     bm, bn, bk = h["block_M"], h["block_N"], h["block_K"]
     f = reads / cold if cold else 0.0
     return (
@@ -139,6 +139,7 @@ def wave_slices(h: dict, KT: int, wave: dict, reads: float, cold: float, clk: fl
         wave["blocks"] / wave["rows"],
         wave["blocks"] / wave["cols"],
         clk,
+        reads / KT,
     )
 
 
