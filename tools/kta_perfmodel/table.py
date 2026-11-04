@@ -25,9 +25,10 @@ from pathlib import Path
 from typing import Any
 
 from kta.models.gb10sim import attribution, probes, probeset, ws
-from kta.models.gb10sim.kernel import simulate_kernel
+from kta.models.gb10sim.kernel import generic_kernel, machine_trips, sass_trips, tile_launch
 from kta.models.gb10sim.machine import Machine, default_machine
 from kta.models.gb10sim.model import C
+from kta.models.gb10sim.sass import parse
 from kta.models.regression import spearman
 
 SETS = ("gemm", "tma", "probes", "batches")
@@ -66,7 +67,7 @@ def _spec(rid, group, level, unit, measured, job, excluded=None, note=None) -> d
 
 def gemm_specs(cal: Path) -> Iterator[dict[str, Any]]:
     """The 22 cp.async GEMMs at 1024^3, warm: the whole kernel, its loads-only variant at the grid,
-    and its mma-only variant on one block, all through kernel.simulate_kernel."""
+    and its mma-only variant on one block, all through kernel.generic_kernel."""
     m = json.loads((cal / "ablation_cpasync" / "mechanisms.json").read_text())
     abl = [
         json.loads(line)
@@ -251,10 +252,13 @@ def run_job(
         h = pick(r)
         one = {"M": h["block_M"], "N": h["block_N"]} if kind == "gemm_block" else {}
         regs = int(program.get("regs", _regs(cal)[job[1]]))
-        sass = cal / "sass" / f"{job[1]}__{job[2]}.sass"
-        simulate_kernel(
-            sass, h, {**r["shape"], **one}, regs, machine=m, sm_hook=got.append, trace=trace
-        )
+        shape = {**r["shape"], **one}
+        ins = parse((cal / "sass" / f"{job[1]}__{job[2]}.sass").read_text(), kernel="matmul_kernel")
+        L = tile_launch(h, shape, regs, None, True, "matmul_kernel")
+        kt = math.ceil(shape["K"] / h["block_K"])
+        trips = machine_trips(ins) or sass_trips(ins, h, kt - (max(1, h["num_stages"]) - 1))
+        got.append(generic_kernel(ins, L, regs, trips, machine=m, trace=trace))
+        got[-1].run()
         predicted = got[-1].cycles / f
         if kind == "gemm":
             predicted += m.C["launch_stream_us"]

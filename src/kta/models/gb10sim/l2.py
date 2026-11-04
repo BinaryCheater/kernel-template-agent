@@ -27,7 +27,7 @@ from .machine import Machine, default_machine
 from .sass import Ins, main_loop
 from .sm import SM
 
-LINE_BITS = 7
+LINE_BITS = 5  # round 10: the 32-byte sector a miss brings (probe first_share `pieces`)
 LINE = 1 << LINE_BITS
 
 
@@ -93,6 +93,7 @@ class Access:
     grid: tuple[int, int, int]
     loads: list[Load]
     unknown: int = 0
+    by_block: dict[tuple, dict] | None = None  # per block, per base its shift (raster panels)
 
 
 def _entries(log: list, lp: tuple[int, int] | None) -> list[Load]:
@@ -140,6 +141,7 @@ def walk(
     grid: tuple,
     block_dim: tuple | None = None,
     machine: Machine | None = None,
+    const_bank: dict | None = None,
 ) -> Access:
     """The kernel's global loads over the whole grid, from its own SASS (module docstring)."""
     lp = main_loop(ins)
@@ -147,7 +149,7 @@ def walk(
 
     stride_seen = [False]
 
-    def one(b: int) -> list[Load]:
+    def run_one(b: int, limit: int = 50_000_000) -> list:
         log: list = []
         SM(
             ins,
@@ -159,7 +161,12 @@ def walk(
             block_ids=[b],
             addr_log=log,
             machine=machine,
-        ).run()
+            const_bank=const_bank,
+        ).run(limit=limit)
+        return log
+
+    def one(b: int) -> list[Load]:
+        log = run_one(b)
         stride_seen[0] |= any(e[1] > 0 and lp and lp[0] <= e[2] <= lp[1] for e in log)
         return _entries(log, lp)
 
@@ -196,7 +203,62 @@ def walk(
         for i, e in enumerate(loads):
             e.shift.append({v: t[i] for v, t in table.items()})
     grid3 = (g[0], g[1], g[2])
-    return Access(trips if extended else 1, grid3, loads, sum(e.offs is None for e in loads))
+    acc = Access(trips if extended else 1, grid3, loads, sum(e.offs is None for e in loads))
+    if _separable(acc, run_one):
+        return acc
+    acc.by_block = _block_shifts(acc, run_one)
+    return acc
+
+
+def _base_shift(log: list, ref: dict) -> dict:
+    """Per base the byte shift of `log`'s first load of it against block 0's, `ref`."""
+    out: dict = {}
+    for _, _, _, _, addr in log:
+        if addr is not None and addr[0] in ref and addr[0] not in out:
+            d = {(q - p) & 0xFFFFFFFF for p, q in zip(ref[addr[0]], addr[1], strict=True)}
+            out[addr[0]] = d.pop() if len(d) == 1 else None
+    return out
+
+
+def _first_by_base(log: list) -> dict:
+    out: dict = {}
+    for _, _, _, _, addr in log:
+        if addr is not None:
+            out.setdefault(addr[0], addr[1])
+    return out
+
+
+def _separable(acc: Access, run_one: Any) -> bool:
+    """TileLang's raster panels make a block's index a function of both grid axes: then a block's
+    shift is not the sum of one per axis. Checked on the far corner and the middle of the grid."""
+    gx, gy, _ = acc.grid
+    if gx == 1 or gy == 1:
+        return True
+    ref = _first_by_base(run_one(0))
+    for bx, by in ((gx - 1, gy - 1), (gx // 2 + 1, gy // 2), (gx // 2, gy - 1)):
+        got = _base_shift(run_one(min(bx, gx - 1) + min(by, gy - 1) * gx), ref)
+        for e in acc.loads:
+            if e.base in got and e.offs is not None:
+                sx, sy = e.shift[0].get(min(bx, gx - 1)), e.shift[1].get(min(by, gy - 1))
+                if sx is None or sy is None or (sx + sy) & 0xFFFFFFFF != got[e.base]:
+                    return False
+    return True
+
+
+def _block_shifts(acc: Access, run_one: Any) -> dict[tuple, dict]:
+    """Per grid block (z, y, x) the shift of each base, from the first loads of a short replay of
+    that block (only the block's prologue runs: its index maps it, the loop's strides do not)."""
+    gx, gy, gz = acc.grid
+    want = _first_by_base(run_one(0))
+    limit = 2000
+    while set(_first_by_base(run_one(0, limit))) != set(want):
+        limit *= 2
+    return {
+        (z, y, x): _base_shift(run_one(x + y * gx + z * gx * gy, limit), want)
+        for z in range(gz)
+        for y in range(gy)
+        for x in range(gx)
+    }
 
 
 @dataclass
@@ -207,12 +269,18 @@ class Replay:
     miss_by_pc: dict[int, float]  # per load instruction, the fraction of its L1 misses that miss
     waves: list[float]
     base_by_pc: dict[int, Any] = field(default_factory=dict)  # per load, its address's base
+    # round 10: per wave, per base what kernel.replay_waves gives the SM: bytes that miss, distinct
+    # bytes the wave reads, bytes its blocks load; and the contiguous runs the misses come as
+    parts: list[dict[Any, list[float]]] = field(default_factory=list)
+    runs: list[dict[int, float]] = field(default_factory=list)
 
 
 class _Group:
     """The loads of one part of the block (before, inside, after the main loop) as arrays."""
 
-    def __init__(self, loads: list[Load], bases: dict) -> None:
+    def __init__(self, loads: list[Load], bases: dict, by_block: dict | None = None) -> None:
+        self.by_block = by_block
+        self.base = [e.base for e in loads if e.offs is not None]
         self.unknown = [e for e in loads if e.offs is None]
         self.known = known = [e for e in loads if e.offs is not None]
         self.pc = np.array([e.pc for e in known], dtype=np.int64)
@@ -237,10 +305,16 @@ class _Group:
         bz, by, bx = block
         d = trip * self.stride
         bad = (self.flat if trip else np.zeros(len(self.known), dtype=bool)).copy()
-        for ax, v in ((0, bx), (1, by), (2, bz)):
-            s, b = self.shift[ax][v]
-            d = d + s
-            bad |= b
+        if self.by_block is not None:
+            sh = self.by_block[block]
+            got = [sh.get(b) for b in self.base]
+            d = d + np.array([x or 0 for x in got], dtype=np.int64)
+            bad |= np.array([x is None for x in got], dtype=bool)
+        else:
+            for ax, v in ((0, bx), (1, by), (2, bz)):
+                s, b = self.shift[ax][v]
+                d = d + s
+                bad |= b
         lo = (self.offs + d.reshape(-1, 1)) & 0xFFFFFFFF
         hi = lo + self.width - 1
         k = np.concatenate((lo >> LINE_BITS, hi >> LINE_BITS), axis=1) + self.tag
@@ -253,13 +327,18 @@ def replay_walk(acc: Access, in_flight: int, cap: float) -> Replay:
     cache = Cache(cap)
     blocks = list(itertools.product(range(gz), range(gy), range(gx)))
     bases: dict = {}
-    groups = [_Group([e for e in acc.loads if e.step == s], bases) for s in (-1, 0, -2)]
+    groups = [
+        _Group([e for e in acc.loads if e.step == s], bases, acc.by_block) for s in (-1, 0, -2)
+    ]
     seen: set = set()
     reads = loaded = 0.0
     r_pc: dict[int, float] = {}
     l_pc: dict[int, float] = {}
     waves: list[float] = []
     held: dict[tuple, Any] = {}  # per block in flight, the lines its L1 holds
+    parts: list[dict[int, list[float]]] = []
+    runs: list[dict[int, float]] = []
+    in_wave: set = set()
 
     def touch(g: _Group, wave: list[tuple], trip: int) -> None:
         nonlocal reads, loaded
@@ -290,20 +369,38 @@ def replay_walk(acc: Access, in_flight: int, cap: float) -> Replay:
             pcs, n = np.unique(own[new], return_counts=True)
             for pc, c in zip(pcs.tolist(), n.tolist(), strict=True):
                 l_pc[pc] = l_pc.get(pc, 0.0) + c * LINE
+            tags, n = np.unique(u[new] >> 36, return_counts=True)
+            for tag, c in zip(tags.tolist(), n.tolist(), strict=True):
+                parts[-1].setdefault(tag, [0.0, 0.0, 0.0])[2] += c * LINE
             loaded += len(u) * LINE
             lists.append(u)
             owners.append(own)
         u, first = np.unique(np.concatenate(lists), return_index=True)
         own = np.concatenate(owners)[first]
+        missed = []
         for key, pc in zip(u.tolist(), own.tolist(), strict=True):
             seen.add(key)
+            tag = key >> 36
+            p = parts[-1].setdefault(tag, [0.0, 0.0, 0.0])
+            if key not in in_wave:
+                in_wave.add(key)
+                p[1] += LINE
             if cache.touch(key, LINE):
                 reads += LINE
                 r_pc[pc] = r_pc.get(pc, 0.0) + LINE
+                p[0] += LINE
+                missed.append(key)
+        if missed:  # `u` is sorted: a run ends where the next key does not follow
+            n_runs = 1 + sum(b != a + 1 for a, b in itertools.pairwise(missed))
+            run = len(missed) * LINE // n_runs
+            runs[-1][run] = runs[-1].get(run, 0.0) + len(missed) * LINE
 
     for w in range(0, len(blocks), in_flight):
         before = reads
         wave = blocks[w : w + in_flight]
+        parts.append({})
+        runs.append({})
+        in_wave.clear()
         touch(groups[0], wave, 0)
         for t in range(acc.trips):
             touch(groups[1], wave, t)
@@ -320,7 +417,9 @@ def replay_walk(acc: Access, in_flight: int, cap: float) -> Replay:
     for pc, v in r_pc.items():
         r_b[base[pc]] = r_b.get(base[pc], 0.0) + v
     miss = {pc: min(1.0, r_b.get(b, 0.0) / l_b[b]) for pc, b in base.items() if l_b.get(b)}
-    return Replay(reads, len(seen) * LINE, loaded, miss, waves, base)
+    by_tag = {tag: b for b, tag in bases.items()}
+    named = [{by_tag[t]: v for t, v in p.items()} for p in parts]
+    return Replay(reads, len(seen) * LINE, loaded, miss, waves, base, named, runs)
 
 
 def rotating_miss(window_bytes: float, kind: str, m: Machine) -> float:

@@ -26,7 +26,7 @@ def test_reuse_shows_per_load_instruction() -> None:
     offs = tuple(i * 128 for i in range(32))
     acc = Access(1, (8, 1, 1), [_load(1, offs, 8, 1 << 20), _load(2, offs, 8, 0)])
     r = replay_walk(acc, 8, 1e9)
-    assert r.reads == (8 + 1) * 32 * 128  # the vector is read once
+    assert r.reads == (8 + 1) * 32 * 32  # the vector is read once, a miss brings a sector
     assert r.miss_by_pc == {1: 1.0, 2: 1 / 8}
     assert r.footprint == r.reads
 

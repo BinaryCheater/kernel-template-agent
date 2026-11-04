@@ -4,14 +4,15 @@ Input: the Build's `sass` blob (cuobjdump -sass text), its entry name, the TileL
 sizes, stages, threads), the problem shape, the registers and shared memory ptxas reported, and
 the timing condition (warm L2, or flushed as KTA's protocol does). Output: the simulated kernel
 time with the simulator's own breakdown. Only TileLang's cp.async GEMM lowering is mapped; other
-kernels raise NotSupported (the warp-specialized TMA path and non-GEMM kernels need their own
-mapping, as upstream has them in ws_validate.py and gemv.py).
+kernels raise NotSupported (the warp-specialized TMA path and non-GEMM kernels need a launch
+mapping of their own).
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
+import math
 import sys
 from collections.abc import Mapping
 from pathlib import Path
@@ -19,7 +20,8 @@ from typing import Any
 
 from kta.core.errors import NotSupported
 
-from .kernel import simulate_kernel
+from .kernel import generic_kernel, machine_trips, sass_trips, tile_launch
+from .machine import default_machine
 from .model import PARAMS
 from .sass import main_loop, parse
 
@@ -50,10 +52,15 @@ def simulate_build(
     if not any(x.base == "LDGSTS" for x in body):
         raise NotSupported("L3 GB10 engine: only TileLang's cp.async GEMM lowering is mapped")
     h = {k: int(holes[k]) for k in HOLES}
-    r = simulate_kernel(sass_path, h, dict(shape), regs, smem, warm=warm, kernel=kernel)
+    L = tile_launch(h, dict(shape), regs, smem, warm, kernel)
+    KT = math.ceil(shape["K"] / h["block_K"])
+    trips = machine_trips(ins) or sass_trips(ins, h, KT - (max(1, h["num_stages"]) - 1))
+    sm = generic_kernel(ins, L, regs, trips)
+    r = sm.run()
+    C = default_machine().C
     return {
-        "total_us": r["us"],
-        "detail": r,
+        "total_us": C["launch_stream_us"] + r["cycles"] / (C["clock_under_load_GHz"] * 1e3),
+        "detail": {"cycles": r["cycles"], "busy": r["busy"], "blocks_per_sm": sm.resident},
         "params_sha256": _sha(PARAMS),
         "warm": warm,
         "holes": h,

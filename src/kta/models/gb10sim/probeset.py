@@ -22,19 +22,18 @@ from .kernel import (
     copy_lines,
     dram_clk,
     dram_mix_secs,
+    generic_kernel,
+    machine_trips,
     occupancy,
     sass_trips,
-    simulate_kernel,
 )
-from .l2 import replay_walk, walk
 from .l2 import rotating_miss as l2_rotating_miss
 from .l2 import warm_miss as l2_warm_miss
 from .machine import Machine, default_machine
 from .probes import Case, ClockMarked, marked_cycles
-from .sass import Ins, main_loop, parse
+from .sass import Ins, parse
 from .sm import SM
 
-P0_SLOT = 0x380  # constant-bank offset of a kernel's first argument (sm_121, seen in every SASS)
 ITERS = 256  # smem_ldsts, shfl, ex2_ffma, l1hit tput
 BAR_ITERS = 128  # namedbar
 HOPS = 2048  # l1hit chase
@@ -705,7 +704,7 @@ def first_share_cases(b: Batch) -> list[Case]:
         """A wave reading 48 / d tiles: every slice misses when rotating, d blocks read it."""
         rb = 48 / d * FIRST_SHARE_BLOCK
         clk = dram_clk(rb, dram_mix_secs(rb, 0, m), 48, m)
-        return (1.0 if rot else 0.0, 0.0, d, 1, clk, rb / 16 if rot else 0.0)
+        return ({None: (1.0 if rot else 0.0, d)}, clk, rb / 16 if rot else 0.0)
 
     def share(rot, d, z):
         cid = f"first_share {'rot' if rot else 'warm'}_share_d{d}_z{z}"
@@ -720,10 +719,9 @@ def first_share_cases(b: Batch) -> list[Case]:
                 16,
                 active_sms=48,
                 copy_lines=[4],
-                copies_a=8,
                 wave_miss=[wave(rot, d, m)] if m.P["miss_by_wave"] else None,
                 miss_frac=(1.0 / d if rot else 0.0),
-                dram_clk_per_512B=wave(rot, d, m)[4],
+                dram_clk_per_512B=wave(rot, d, m)[1],
                 **kw,
             )
 
@@ -739,7 +737,7 @@ def first_share_cases(b: Batch) -> list[Case]:
             first = wave(rot, d, m)
             # 98304 B of shared memory: one block per SM, waves of 48; tile by block modulo 96:
             # the first two waves read new tiles, the others what those left in the L2
-            later = (0.0, *first[1:])
+            later = ({None: (0.0, d)}, *first[1:])
             f = 1.0 / (d * w) if rot else 0.0
             return BlockMarked(
                 ins,
@@ -748,13 +746,12 @@ def first_share_cases(b: Batch) -> list[Case]:
                 16,
                 active_sms=48,
                 copy_lines=[4],
-                copies_a=8,
                 resident=1,
                 grid_blocks=96 * w,
                 grid_dim=(96 * w, 1, 1),
                 wave_miss=[first, first, *[later] * (2 * w - 2)] if m.P["miss_by_wave"] else None,
                 miss_frac=f,
-                dram_clk_per_512B=first[4],
+                dram_clk_per_512B=first[1],
                 **kw,
             )
 
@@ -1174,21 +1171,12 @@ def kernel_cases(b: Batch) -> list[Case]:
     for d in sorted(p for p in root.iterdir() if (p / "k.sass").exists()):
         L = _launch(b, d.name)
         regs = regs_of(b, f"testset/{d.name}", L["entry"])
-        if L["family"] == "hgemm":
+        if L["family"] in ("hgemm", "fp8gemm"):
             # round 4: the rotating variants are their own variant group
             rot = " rotating" if L.get("cache") == "rotating" else ""
             group = "testset " + L["set"] if "set" in L else "testset hgemm2048" + rot
-            out.append(_hgemm_case(b, d, L, regs, group))
-        elif L["family"] == "fp8gemm":
-            # kta:fixture byte-equivalent mapping: the HGEMM front end counts 2-byte elements, so
-            # an e4m3 tile of block_K bytes is replayed as a fp16 tile of block_K / 2 (same bytes,
-            # lines, DRAM traffic and mma count per k-tile); B's K-major layout is not modelled
-            eq = {
-                **L,
-                "pick": {**L["pick"], "block_K": L["pick"]["block_K"] // 2},
-                "shape": {**L["shape"], "K": L["shape"]["K"] // 2},
-            }
-            out.append(_hgemm_case(b, d, eq, regs, "testset fp8gemm2048"))
+            group = "testset fp8gemm2048" if L["family"] == "fp8gemm" else group
+            out.append(_generic_case(b, d, L, regs, "kernel", group))
         elif L["family"] == "sequence":
             out += [_sequence_case(b, d, L, mode) for mode in ("kernel", "b2b", "graph")]
         else:
@@ -1197,165 +1185,29 @@ def kernel_cases(b: Batch) -> list[Case]:
     return out
 
 
-def _hgemm_case(
-    b: Batch, d: Path, L: dict[str, Any], regs: int, probe: str = "testset hgemm2048"
-) -> Case:
-    def build(**kw):
-        return _KernelRun(
-            lambda sm_hook, machine, trace: simulate_kernel(
-                d / "k.sass",
-                L["pick"],
-                L["shape"],
-                regs,
-                L["smem"],
-                warm=L["cache"] == "warm",
-                kernel=L["entry"],
-                machine=machine,
-                sm_hook=sm_hook,
-                trace=trace,
-            ),
-            **kw,
-        )
-
-    return _case(
-        b,
-        f"{d.name} kernel",
-        probe,
-        7,
-        "us",
-        build,
-        lambda sm, r: (
-            r["us"] - _launch_diff(b, sm) - sm.m.C["launch_stream_us"] + _launch_event(sm.m)
-        ),
-        limit=0,
-    )
-
-
-def _launch_diff(b: Batch, sm: Any) -> float:
-    """simulate_kernel converts with the description's kernel clock; reconvert the SM part with
-    the batch's clock."""
-    if not b.clock_GHz:
-        return 0.0
-    m = sm.m
-    f0 = m.param(m.desc["clock"]["kernel_GHz"])
-    sim_us = sm.cycles / (f0 * 1e3)
-    return sim_us - sm.cycles / (b.clock_GHz * 1e3)
-
-
-_l2_cache: dict[tuple, Any] = {}
-
-
-def _l2_replay(ins: list[Ins], L: dict[str, Any], trips: int, in_flight: int, m: Machine) -> Any:
-    cap = m.C["l2_effective_bytes"]
-    key = (L["entry"], json.dumps(L, sort_keys=True), len(ins), trips, in_flight, cap)
-    if key not in _l2_cache:
-        block = tuple(L.get("block", [L["threads"]]))
-        acc = walk(ins, L["threads"], trips, tuple(L["grid"]), block, m)
-        _l2_cache[key] = replay_walk(acc, in_flight, cap)
-    return _l2_cache[key]
-
-
-def _machine_trips(ins: list[Ins]) -> int | None:
-    """The main loop's passes from its counter when the compiler left one (`ISETP R, limit` with
-    `IADD R, R, step`, round 7: a partly unrolled source loop), else None."""
-    lp = main_loop(ins)
-    if not lp:
-        return None
-    body = ins[lp[0] : lp[1] + 1]
-    for x in reversed(body):
-        m = re.search(r"(R\d+), (0x[0-9a-f]+), PT", x.args) if x.base == "ISETP" else None
-        if m:
-            for y in body:
-                st = re.fullmatch(rf"{m[1]}, {m[1]}, (0x[0-9a-f]+)", y.args)
-                if y.base == "IADD" and st:
-                    return math.ceil(int(m[2], 16) / int(st[1], 16))
-    return None
-
-
 def _generic_sm(d: Path, L: dict[str, Any], regs: int, carried: tuple[str, ...], **kw: Any) -> SM:
-    """A kernel without a family front end (FA forward, decode attention, GEMV, RMSNorm, softmax):
-    the busiest SM of the grid with block replacement, the chip's shares by blocks in flight, the
-    main loop's trip count from TileLang's source loop. The L2 (round 5, l2.py): the loads' own
-    addresses over the grid through one cache in launch order; rotating launches read that traffic
-    at the DRAM rate shared by the blocks in flight (as the dram_rotate probe), warm launches the
-    part the measured curve of the read footprint loses (plain loads; evict-first loads their own).
-    LDG lines, sectors and L1 hits from the lanes' addresses (sm.SM lane tracking, round 3).
-    `carried`: buffers an earlier kernel of a sequence left in the L2 (round 6): loads from them
-    hit."""
+    """A test-set kernel on the one front end (kernel.generic_kernel); the main loop's trip count
+    from TileLang's source loop `k`; a GEMM's k-loop may be called `ko` (MoE, HGEMM)."""
     ins = _k((d / "k.sass").read_text(), L["entry"])
     src = (d / L.get("source", "kernel.cu")).read_text()
-    # the source loop of the kernel's main loop: `k`; a GEMM's k-loop may be called `ko` (MoE)
     name = "ko?"
     loops = [
         int(x) for x in re.findall(rf"for \(int {name} = 0; {name} < (\d+); \+\+{name}\)", src)
     ]
-    src_trips = _machine_trips(ins) or (max(loops) if loops else 1)
-    tiles = math.prod(L["grid"])
-    m = kw.get("machine") or default_machine()
-    h = {"threads": L["threads"]}
-    rmax = occupancy(h, regs, L["smem"], m)
-    per_sm = math.ceil(tiles / m.sms)
-    eq = min(tiles, m.sms * rmax) / min(rmax, per_sm)
-    fb = L["footprint_bytes"]
-    rotating = L.get("cache") == "rotating"
-    kind = "cs" if all(".EF" in x.op for x in ins if x.base == "LDG") else "ca"
-    # round 4: the written buffers (gen.py `write_bytes`) are DRAM traffic beside the reads
-    wb = L.get("write_bytes", 0) if rotating else 0
-    if m.P["l2_replay"]:
-        r = _l2_replay(ins, L, src_trips, m.sms * rmax, m)
-        # round 7 (rot_depth): a rotation of `rot` sets is a re-read of everything it touches
-        window = L.get("rot", 1) * (r.footprint + L.get("write_bytes", 0))
-        scale = (
-            l2_rotating_miss(window, kind, m) if rotating else l2_warm_miss(r.footprint, kind, m)
-        )
-        # the kernel's arguments, 8 bytes each from the first parameter slot, by name
-        slots = {P0_SLOT + 8 * i: n for i, n in enumerate(L.get("params", ()))}
-        byname = {
-            pc: slots.get(sym[2])
-            for pc, base in r.base_by_pc.items()
-            for sym, _ in base or ()
-            if sym[0] == "c"
-        }
-        miss_pc = {
-            pc: 0.0 if byname.get(pc) in carried else v * scale for pc, v in r.miss_by_pc.items()
-        }
-        kept = sum(miss_pc.values()) / max(1e-9, sum(r.miss_by_pc.values()))
-        rb, miss = r.reads * kept, 1.0 if kept > 0 else 0.0
-        kw["miss_by_pc"] = miss_pc
-        kw["burst_bytes"] = rb / max(1, len(r.waves)) / max(1, src_trips)
-    elif rotating:
-        rb, miss = fb - wb, 1.0
-    else:  # warm (round 3, probe l2reuse): the re-read misses by the footprint
-        rb, miss = fb, l2_warm_miss(fb, kind, m)
-    if miss > 0:
-        kw = {
-            **kw,
-            "miss_frac": miss,
-            "dram_clk_per_512B": dram_clk(rb, dram_mix_secs(rb, wb, m), eq, m),
-        }
-    return SM(
-        ins,
-        L["threads"],
-        per_sm,
-        src_trips if main_loop(ins) else 1,
-        active_sms=eq,
-        resident=rmax,
-        grid_blocks=tiles,
-        grid_dim=tuple(L["grid"]),
-        block_dim=tuple(L.get("block", [L["threads"]])),
-        l1_bytes=m.C["l1_unified_bytes"] - rmax * L["smem"],
-        **kw,
-    )
+    trips = machine_trips(ins) or (max(loops) if loops else 1)
+    return generic_kernel(ins, L, regs, trips, carried, **kw)
 
 
-def _generic_case(b: Batch, d: Path, L: dict[str, Any], regs: int, mode: str = "kernel") -> Case:
+def _generic_case(
+    b: Batch, d: Path, L: dict[str, Any], regs: int, mode: str = "kernel", group: str | None = None
+) -> Case:
     def build(**kw):
         return _generic_sm(d, L, regs, (), **kw)
 
     return _case(
         b,
         f"{d.name} {mode}",
-        f"testset {L.get('set', L['family'])}" + ("" if mode == "kernel" else f" {mode}"),
+        group or f"testset {L.get('set', L['family'])}" + ("" if mode == "kernel" else f" {mode}"),
         7,
         "us",
         build,
@@ -1418,20 +1270,15 @@ def _sequence_case(b: Batch, d: Path, L: dict[str, Any], mode: str) -> Case:
     )
 
 
-class _KernelRun:
-    """A Case build result for whole-kernel front ends: run() calls the front end and keeps the
-    SM it simulated (for attribution) as `sm`; `cycles` and `m` are the SM's."""
+class _SeqRun:
+    """A Case build result for a sequence of kernels: `spans` the cycles of each, the SM kept for
+    attribution the longest."""
 
-    def __init__(self, fn, machine=None, trace: bool = False):
-        self.fn = fn
+    def __init__(self, makers, machine=None, trace: bool = False):
         self.machine, self.trace = machine or default_machine(), trace
+        self.makers = makers
+        self.spans: list[float] = []
         self.sm: SM | None = None
-
-    def run(self, limit: int = 0) -> dict[str, Any]:
-        def hook(sm: SM) -> None:
-            self.sm = sm
-
-        return self.fn(hook, self.machine, self.trace)
 
     @property
     def m(self) -> Machine:
@@ -1441,16 +1288,6 @@ class _KernelRun:
     def cycles(self) -> float:
         assert self.sm is not None
         return self.sm.cycles
-
-
-class _SeqRun(_KernelRun):
-    """A Case build result for a sequence of kernels: `spans` the cycles of each, the SM kept for
-    attribution the longest."""
-
-    def __init__(self, makers, machine=None, trace: bool = False):
-        super().__init__(None, machine, trace)
-        self.makers = makers
-        self.spans: list[float] = []
 
     def run(self, limit: int = 0) -> dict[str, Any]:
         best = None
@@ -1522,5 +1359,5 @@ def run_cases(cases: list[Case], **kw: Any) -> tuple[list[float], Any, dict]:
     case = cases[0]
     sm = case.build(**kw)
     r = sm.run(limit=case.limit) if case.limit else sm.run()
-    target = sm.sm if isinstance(sm, _KernelRun) else sm
+    target = sm.sm if isinstance(sm, _SeqRun) else sm
     return [c.read(sm, r) for c in cases], target, r

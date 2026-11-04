@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import heapq
 import re
+import struct
 from collections import OrderedDict
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -105,7 +106,6 @@ class SM:
         miss_by_pc: dict[int, float] | None = None,
         stack_bytes: int | None = None,
         wave_miss: list[tuple] | None = None,
-        copies_a: int = 0,
         burst_bytes: float = 0.0,
     ):
         self.ins = ins
@@ -221,16 +221,14 @@ class SM:
         # copies
         self.miss_frac = miss_frac
         self.miss_acc = 0.0
-        # round 9: per wave of blocks (a resident's worth on this SM) what kernel.wave_slices gives;
-        # `copies_a` of a step's copies read the A slice
+        # round 9: per wave of blocks (a resident's worth on this SM) what kernel.replay_waves gives
         self.wave_miss = wave_miss
-        self.copies_a = copies_a
         # round 9 (probes first_reader, first_share, copy_dram): the bytes a step sends to DRAM over
         # the chip; a copy's miss lands after the unloaded latency and that burst past the L2
         self.burst_bytes = burst_bytes if self.P["dram_burst_past_l2"] else 0.0
-        self.slice_acc = [0.0, 0.0]
-        self.first_acc = [0.0, 0.0]
-        self.slice_now: dict[tuple[int, int], tuple[int, bool, bool]] = {}
+        self.slice_acc: dict[Any, float] = {}
+        self.miss_share = 1.0
+        self.slice_now: dict[tuple[Any, Any], tuple[int, bool]] = {}
         # KTA (PERFMODEL round 5, l2.py): misses per load instruction, from the kernel's addresses
         self.miss_by_pc = miss_by_pc
         self.miss_acc_pc: dict[int, float] = {}
@@ -355,30 +353,30 @@ class SM:
         the SM's share restarts at each burst."""
         return self.t["dram_queue"] if self.P["dram_by_demand"] else start
 
-    def _slice_state(self, w: Warp, copy: int) -> str:
+    def _slice_state(self, w: Warp, base: Any) -> str:
         """Round 9 (probe first_reader, questions 8, 30): misses come by slice, not by copy. A
-        slice the wave's blocks read together is in the L2 or it is not; when it is not, one block
-        in `readers` sends the reads to DRAM, the others wait on the same fills."""
-        nc = len(self.copy_lines)
-        step, part = copy // nc, 0 if copy % nc < self.copies_a else 1
-        wave = self.wave_miss[min(w.block // self.resident, len(self.wave_miss) - 1)]
-        self.dram_clk0 = wave[4]
-        self.dram_clk = wave[4] * self.active_sms / self.eq0
-        self.burst_bytes = wave[5] if self.P["dram_burst_past_l2"] else 0.0
-        now = self.slice_now.get((w.block, part))
-        if now is None or now[0] != step:
-            self.slice_acc[part] += wave[part]
-            out = self.slice_acc[part] >= 1.0
-            self.slice_acc[part] -= 1.0 if out else 0.0
-            first = False
-            if out:
-                self.first_acc[part] += 1.0 / wave[2 + part]
-                first = self.first_acc[part] >= 1.0
-                self.first_acc[part] -= 1.0 if first else 0.0
-            now = self.slice_now[(w.block, part)] = (step, out, first)
+        slice the wave's blocks read together is in the L2 or it is not. Round 10: per base of the
+        L2 replay, a step is a copy group; every reader waits for the fill (probe first_share) and
+        the chip's stream serves it once, so a reader carries its share of the DRAM time."""
+        assert self.wave_miss is not None
+        parts, clk, burst = self.wave_miss[min(w.block // self.resident, len(self.wave_miss) - 1)]
+        self.dram_clk0 = clk
+        self.dram_clk = clk * self.active_sms / self.eq0
+        self.burst_bytes = burst if self.P["dram_burst_past_l2"] else 0.0
+        got = parts.get(base, parts.get(None))
+        if got is None:
+            return "hit"
+        f, readers = got
+        now = self.slice_now.get((w.block, base))
+        if now is None or now[0] < w.gid:
+            acc = self.slice_acc.get(base, 0.5) + f
+            out = acc >= 1.0
+            self.slice_acc[base] = acc - 1.0 if out else acc
+            now = self.slice_now[(w.block, base)] = (w.gid, out)
         if not now[1]:
             return "hit"
-        return "miss" if now[2] else ("wait" if self.P["fill_wait"] else "hit")
+        self.miss_share = 1.0 / readers
+        return "miss"
 
     def _l2_miss(self, pc: int) -> bool:
         """This load misses the L2: misses spread evenly over the load's executions."""
@@ -522,9 +520,19 @@ class SM:
                 vs = [self._val(w, a) for a in terms]
                 if terms and None not in vs:
                     v = sum(vs) & 0xFFFFFFFF
-            elif x.base in ("VIADD", "UIADD"):
+            elif x.base in ("VIADD", "UIADD") or x.op == "IADD":
                 a, b = self._val(w, args[1]), self._val(w, args[2])
                 v = None if None in (a, b) else (a + b)
+            elif op == "IMAD.HI.U32":
+                # the compiler's division by a run-time count (TileLang's raster panels): a x b
+                # plus the 64-bit pair at c, high half
+                a, b, c = (self._val(w, t) for t in args[1:4])
+                hi = 0 if args[3] == "RZ" else w.vals.get(_pair_high(args[3]))
+                if None not in (a, b, c, hi):
+                    v = (a * b + (hi << 32 | c)) >> 32
+            elif x.base in ("I2F", "MUFU", "F2I"):
+                a = self._val(w, args[-1])
+                v = None if a is None else _float_value(op, a)
             elif x.base in ("IMAD", "UIMAD") and ".WIDE" not in op and ".HI" not in op:
                 a, b, c = (self._val(w, t) for t in args[1:4])
                 if None not in (a, b, c):
@@ -642,7 +650,11 @@ class SM:
                 a, b, c, lut = w.tid0, self._imm(args[3]), 0, self._imm(args[5])
                 w.preds[args[0]] = lut3(a, b, c, lut) != 0
             else:
-                w.preds.pop(args[0], None)
+                a, b, c, lut = (self._val(w, t) for t in args[2:6])
+                if None in (a, b, c, lut):
+                    w.preds.pop(args[0], None)
+                else:
+                    w.preds[args[0]] = lut3(a, b, c, lut) != 0
         elif x.base == "PLOP3":
             # PLOP3.LUT Pd, Pq, Pa, Pb, Pc, lut, lut2: Pd = lut(Pa, Pb, Pc)
             if len(args) >= 6:
@@ -754,7 +766,8 @@ class SM:
             pend = w.lanes.step(x.base, x.op, x.args.split(","), w.vals, runs)
         if w.lanes is not None and P["intra_warp_divergence"]:
             self._track_mixed(w, x)
-        self._eval_pred_ops(w, x)
+        if executes:
+            self._eval_pred_ops(w, x)
         if pend is not None:
             pend(w.vals)
         if executes:
@@ -1016,7 +1029,11 @@ class SM:
         # the load unit's address stage: one 128-byte line per cycle; the copy reads its address
         # registers there
         lines = self.copy_lines[w.ncopy % len(self.copy_lines)]
-        state = self._slice_state(w, w.ncopy) if self.wave_miss else None
+        if self.copy_default and addr0 is not None:
+            lines = len(footprint(addr0, width_of(x.op))[0])
+        state = None
+        if self.wave_miss:
+            state = self._slice_state(w, addr0[0] if addr0 is not None else None)
         keys: tuple = ()
         if state is None and addr0 is not None and P["l1_pending_fill"]:
             # round 9 (probes first_reader, first_share): a miss-status entry per sector: a sector
@@ -1030,7 +1047,7 @@ class SM:
             if all(k in self.line_fill for k in keys):
                 state = "wait"
         w.ncopy += 1
-        if self.copy_default:
+        if self.copy_default and addr0 is None:
             self._dflt("front_end", "copy_lines (4 lines per copy)")
         t_lsu = max(now, t["lsu"])
         t["lsu"] = t_lsu + lines * P["lsu_clk_per_line"]
@@ -1042,8 +1059,8 @@ class SM:
         if state == "miss" if state else self._l2_miss(w.pc):
             t_l = lsu_done + dram_lat
             t_d = max(t_l, t["dram_queue"])
-            t["dram_queue"] = self._dram_after(t_d) + self.dram_clk
-            self.busy["dram"] = self.busy.get("dram", 0) + self.dram_clk
+            t["dram_queue"] = self._dram_after(t_d) + self.dram_clk * self.miss_share
+            self.busy["dram"] = self.busy.get("dram", 0) + self.dram_clk * self.miss_share
             arrive = t_d
             lat = (
                 (lsu_done, t_l, "dram", "DRAM latency", "sim.ldgsts_dram_latency_clk"),
@@ -1473,6 +1490,25 @@ class SM:
             "assumed_latency": self.assumed_latency,
             "defaults": self.defaults,
         }
+
+
+def _pair_high(reg: str) -> str:
+    """The high register of the 64-bit pair at `reg`."""
+    r = reg.replace(".reuse", "").strip()
+    return f"{r.rstrip('0123456789')}{int(re.sub(r'[^0-9]', '', r)) + 1}"
+
+
+def _float_value(op: str, a: int) -> int | None:
+    """Bits of the integer-to-float, reciprocal and float-to-integer steps of a division; the
+    compiled sequence corrects its own rounding, so the exact rounding mode does not matter."""
+    if op.startswith("I2F.U32"):
+        return struct.unpack("<I", struct.pack("<f", float(a)))[0]
+    f = struct.unpack("<f", struct.pack("<I", a & 0xFFFFFFFF))[0]
+    if op.startswith("MUFU.RCP") and f:
+        return struct.unpack("<I", struct.pack("<f", 1.0 / f))[0]
+    if op.startswith("F2I") and ".U32" in op and f == f:
+        return max(0, min(0xFFFFFFFF, int(f)))
+    return None
 
 
 def _stack_bytes(ins: list[Ins]) -> int:

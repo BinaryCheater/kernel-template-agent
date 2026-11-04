@@ -47,7 +47,6 @@ WRITES_UNKNOWN = {
     "POPC",
     "FLO",
     "BREV",
-    "PRMT",
     "I2FP",
     "F2FP",
     "FSEL",
@@ -231,6 +230,10 @@ class Lanes:
             return "uniform"
         if base == "HFMA2" and a[1:] == ["-RZ", "RZ", "0", "0"]:  # the compiler's zero
             return ((), ZERO)
+        if base in ("I2F", "F2I", "MUFU"):
+            # the steps of a division by a run-time count: a value for uniform operands
+            g0 = self.get(a[-1], vals)
+            return "uniform" if g0 is not None and self.uniform(g0) and self.exact(g0) else None
         if base in WRITES_UNKNOWN:
             return None
         src = [t for t in a[1:] if not re.match(r"^!?U?P(T|\d)$", t)]
@@ -301,6 +304,19 @@ class Lanes:
                 if ".HI" not in op and self.exact(lo) and src[2] in ("RZ", "URZ"):
                     return ((), tuple(o >> k for o in lo[1]))
             return None
+        if base == "PRMT" and len(g) >= 3 and all(self.exact(x) for x in g[:3]):
+            # round 10: bytes of a and c by the selector's nibbles (TileLang's 16-bit products)
+            sel = g[1][1][0]
+            if not self.uniform(g[1]) or sel & 0x8888:
+                return None
+            out = []
+            for x, y in zip(g[0][1], g[2][1], strict=True):
+                v = 0
+                for i in range(4):
+                    n = (sel >> (4 * i)) & 7
+                    v |= (((y if n > 3 else x) >> (8 * (n & 3))) & 255) << (8 * i)
+                out.append(v)
+            return ((), tuple(out))
         if base in ("LOP3", "ULOP3") and len(g) >= 4:
             # round 8: a | (b & c) over a base: the fields of an address, the base's bits apart
             keep: tuple = ()

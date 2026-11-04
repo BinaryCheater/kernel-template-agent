@@ -1,20 +1,24 @@
-"""Simulate a whole TileLang cp.async GEMM kernel on the GB10: occupancy from the driver's limits,
-the busiest SM on
-the SM simulator with block replacement, its share of the chip's L2 and store limits (blocks in
-flight), and its DRAM misses from the launch-order L2 simulation (model.dram_split_kslice, checked
-against ncu). Plus the launch. Timing condition: warm back-to-back runs (operands that fit the L2
-stay there)."""
+"""The one whole-kernel front end (round 10): any kernel from its SASS, its launch and its register
+count. The busiest SM of the grid on the SM simulator with block replacement, the chip's shares by
+blocks in flight, what each wave of blocks misses from the L2 replay of the kernel's own addresses
+(l2.py). The launch-order helpers `wave_dram`, `dram_split_kslice` stay for the warp-specialised TMA
+kernels (ws.py), the only rows that do not come here."""
 
 from __future__ import annotations
 
 import itertools
+import json
 import math
+import re
+from typing import Any
 
+from .l2 import replay_walk, walk
+from .l2 import rotating_miss as l2_rotating_miss
 from .l2 import warm_miss as l2_warm_miss
 from .machine import Machine, default_machine
-from .model import bank_conflict_ways, dram_split_kslice
-from .sass import main_loop
-from .sm import SM, kernel_sass
+from .model import bank_conflict_ways
+from .sass import Ins, main_loop
+from .sm import SM
 
 
 def copy_lines(h: dict) -> list:
@@ -127,20 +131,28 @@ def wave_dram(
     return wave["A"] + wave["B"], secs
 
 
-def wave_slices(h: dict, KT: int, wave: dict, reads: float, cold: float, clk: float) -> tuple:
-    """Round 9 (probe first_reader): what one wave's blocks meet, per tile (A, B): the fraction of
-    the distinct slices that miss, the blocks that read each slice together; the DRAM clock, the
-    bytes a step sends to DRAM. A warm launch scales the cold misses by `reads / cold`."""
-    bm, bn, bk = h["block_M"], h["block_N"], h["block_K"]
-    f = reads / cold if cold else 0.0
-    return (
-        min(1.0, f * wave["A"] / (wave["rows"] * KT * bm * bk * 2)),
-        min(1.0, f * wave["B"] / (wave["cols"] * KT * bk * bn * 2)),
-        wave["blocks"] / wave["rows"],
-        wave["blocks"] / wave["cols"],
-        clk,
-        reads / KT,
-    )
+def replay_waves(
+    r: Any, scale: dict, write_bytes: float, trips: int, eq: float, m: Machine
+) -> list:
+    """Round 10: what one wave's blocks meet, per base, from the L2 replay `r`: the fraction of the
+    distinct bytes that miss and the blocks that read each byte; the DRAM clock over the wave's
+    misses (each contiguous run at its rate, the launch's writes in proportion); the bytes a step
+    sends to DRAM. `scale`: per base the part of the cold misses this launch's cache state keeps."""
+    total = sum(p[0] * scale.get(b, 1.0) for w in r.parts for b, p in w.items())
+    out = []
+    for parts, runs in zip(r.parts, r.runs, strict=True):
+        got = sum(p[0] * scale.get(b, 1.0) for b, p in parts.items())
+        cold = sum(p[0] for p in parts.values())
+        keep = got / cold if cold else 0.0
+        secs = sum(v * keep / dram_peak(run, m) for run, v in runs.items()) / 1e9
+        if total:
+            wr = write_bytes * got / total if m.P["dram_writes_paced"] else 0.0
+            secs += wr / (m.C["dram_write_GBs"] * 1e9)
+        slices = {
+            b: (p[0] * scale.get(b, 1.0) / p[1], p[2] / p[1]) for b, p in parts.items() if p[1]
+        }
+        out.append((slices, dram_clk(got, secs, eq, m), got / max(1, trips)))
+    return out
 
 
 def dram_mix_secs(read_bytes: float, write_bytes: float, m: Machine) -> float:
@@ -173,79 +185,145 @@ def ldsm_ways(h: dict) -> tuple:
     return (bank_conflict_ways(h["block_K"] * 2), bank_conflict_ways(h["block_N"] * 2))
 
 
-def simulate_kernel(
-    sass_path,
-    h: dict,
-    shape: dict,
-    regs: int,
-    smem: int | None = None,
-    warm: bool = True,
-    kernel: str = "matmul_kernel",
-    machine: Machine | None = None,
-    sm_hook=None,
-    trace: bool = False,
-) -> dict:
-    m = machine or default_machine()
-    MC, SMS = m.C, m.sms
-    F = MC["clock_under_load_GHz"] * 1e3  # cycles per us under load (clock probes 2.52-2.54 GHz)
-    ins = kernel_sass(sass_path, kernel=kernel)
+P0_SLOT = 0x380  # the kernel's first parameter in constant bank 0
+
+
+def machine_trips(ins: list[Ins]) -> int | None:
+    """The main loop's passes from its counter when the compiler left one (`ISETP R, limit` with
+    `IADD R, R, step`, round 7: a partly unrolled source loop), else None."""
+    lp = main_loop(ins)
+    if not lp:
+        return None
+    body = ins[lp[0] : lp[1] + 1]
+    for x in reversed(body):
+        m = re.search(r"(R\d+), (0x[0-9a-f]+), PT", x.args) if x.base == "ISETP" else None
+        if m:
+            for y in body:
+                st = re.fullmatch(rf"{m[1]}, {m[1]}, (0x[0-9a-f]+)", y.args)
+                if y.base == "IADD" and st:
+                    return math.ceil(int(m[2], 16) / int(st[1], 16))
+    return None
+
+
+def grid_bank(L: dict[str, Any]) -> dict[tuple[int, int], int]:
+    """gridDim as the kernel reads it (constant bank 0, TileLang's raster panels divide by it)."""
+    return {(0, 0x370 + 4 * i): int(v) for i, v in enumerate((*L["grid"], 1, 1)[:3])}
+
+
+_l2_cache: dict[tuple, Any] = {}
+
+
+def _l2_replay(ins: list[Ins], L: dict[str, Any], trips: int, in_flight: int, m: Machine) -> Any:
+    cap = m.C["l2_effective_bytes"]
+    key = (L["entry"], json.dumps(L, sort_keys=True), len(ins), trips, in_flight, cap)
+    if key not in _l2_cache:
+        block = tuple(L.get("block", [L["threads"]]))
+        acc = walk(ins, L["threads"], trips, tuple(L["grid"]), block, m, grid_bank(L))
+        _l2_cache[key] = replay_walk(acc, in_flight, cap)
+    return _l2_cache[key]
+
+
+def tile_launch(h: dict, shape: dict, regs: int, smem: int | None, warm: bool, entry: str) -> dict:
+    """R5: the launch of a TileLang GEMM from its template parameters."""
     M, N, K = shape["M"], shape["N"], shape["K"]
-    KT = math.ceil(K / h["block_K"])
-    smem = (
-        smem
-        if smem is not None
-        else h["num_stages"] * (h["block_M"] + h["block_N"]) * h["block_K"] * 2
-    )
-    tiles = math.ceil(M / h["block_M"]) * math.ceil(N / h["block_N"])
-    Rmax = occupancy(h, regs, smem, m)
-    trips = sass_trips(ins, h, KT - (max(1, h["num_stages"]) - 1))
-    sp = dram_split_kslice(h, shape, SMS * Rmax, MC["l2_effective_bytes"])
-    # block replacement on the busiest SM: a new block starts when one exits
-    rb = secs = 0.0
-    per_wave = []
-    for wv in sp["waves"]:
-        r_, s_ = wave_dram(h, shape, wv, warm, m)
-        rb += r_
-        secs += s_
-        per_wave.append((wv, r_, s_))
-    copy_bytes = tiles * KT * (h["block_M"] + h["block_N"]) * h["block_K"] * 2
-    miss = min(1.0, rb / copy_bytes) if copy_bytes else 0.0
-    eq = min(tiles, SMS * Rmax) / min(Rmax, math.ceil(tiles / SMS))
-    # round 9 (probe first_reader): the wave that first reads a slice takes its misses
-    wave_miss = [
-        wave_slices(h, KT, wv, r_, wv["A"] + wv["B"], dram_clk(r_, s_, eq, m))
-        for wv, r_, s_ in per_wave
-    ]
-    sm = SM(
-        ins,
-        h["threads"],
-        math.ceil(tiles / SMS),
-        trips,
-        active_sms=eq,
-        copy_lines=copy_lines(h),
-        miss_frac=miss,
-        dram_clk_per_512B=dram_clk(rb, secs, eq, m),
-        wave_miss=wave_miss if m.P["miss_by_wave"] else None,
-        copies_a=max(1, h["block_M"] * h["block_K"] * 2 // 16 // h["threads"]),
-        ctile_bytes=min(h["block_M"], M) * min(h["block_N"], N) * 2,
-        ldsm_ways=ldsm_ways(h),
-        resident=Rmax,
-        grid_blocks=tiles,
-        grid_dim=(math.ceil(N / h["block_N"]), math.ceil(M / h["block_M"]), 1),
-        machine=m,
-        trace=trace,
-    )
-    r = sm.run()
-    if sm_hook is not None:  # KTA (PERFMODEL): the simulator for attribution
-        sm_hook(sm)
-    us = r["cycles"] / F
+    bm, bn, bk = h["block_M"], h["block_N"], h["block_K"]
     return {
-        "us": MC["launch_stream_us"] + us,
-        "tiles": tiles,
-        "blocks_per_sm": Rmax,
-        "waves": math.ceil(tiles / (SMS * Rmax)),
-        "dram_MB": rb / 1e6,
-        "miss_frac": round(miss, 3),
-        "dram_GBs": round(rb / secs / 1e9, 1) if secs else None,
-        "busy": {k: round(v / max(1, r["cycles"]), 2) for k, v in r["busy"].items()},
+        "entry": entry,
+        "grid": [math.ceil(N / bn), math.ceil(M / bm), 1],
+        "threads": h["threads"],
+        "block": [h["threads"]],
+        "smem": smem if smem is not None else h["num_stages"] * (bm + bn) * bk * 2,
+        "footprint_bytes": (M * K + K * N) * 2,
+        "write_bytes": M * N * 2,
+        "pick": dict(h),
+        "cache": "warm" if warm else "cold",
     }
+
+
+def generic_kernel(
+    ins: list[Ins],
+    L: dict[str, Any],
+    regs: int,
+    trips: int,
+    carried: tuple[str, ...] = (),
+    **kw: Any,
+) -> SM:
+    """The busiest SM of the grid with block replacement, the chip's shares by blocks in flight.
+    `trips`: the main loop's passes when its counter is not a value the replay knows. The L2 (round
+    5, l2.py): the loads' own addresses over the grid through one cache in launch order; rotating
+    launches read that traffic at the DRAM rate shared by the blocks in flight (as the dram_rotate
+    probe), warm launches the part the measured curve of the read footprint loses (plain loads;
+    evict-first loads their own). Copies meet that per wave and base (`replay_waves`, round 10).
+    LDG lines, sectors and L1 hits from the lanes' addresses (sm.SM lane tracking, round 3).
+    `carried`: buffers an earlier kernel of a sequence left in the L2 (round 6): loads from them
+    hit."""
+    tiles = math.prod(L["grid"])
+    m = kw.get("machine") or default_machine()
+    h = {"threads": L["threads"]}
+    rmax = occupancy(h, regs, L["smem"], m)
+    per_sm = math.ceil(tiles / m.sms)
+    eq = min(tiles, m.sms * rmax) / min(rmax, per_sm)
+    fb = L["footprint_bytes"]
+    cache = L.get("cache")
+    rotating = cache in ("rotating", "cold")
+    ldg = [x for x in ins if x.base == "LDG"]
+    kind = "cs" if ldg and all(".EF" in x.op for x in ldg) else "ca"
+    # round 4: the written buffers (gen.py `write_bytes`) are DRAM traffic beside the reads
+    wb = L.get("write_bytes", 0) if cache == "rotating" else 0
+    if m.P["l2_replay"]:
+        r = _l2_replay(ins, L, trips, m.sms * rmax, m)
+        # round 7 (rot_depth): a rotation of `rot` sets is a re-read of everything it touches
+        window = L.get("rot", 1) * (r.footprint + L.get("write_bytes", 0))
+        if cache == "cold":
+            scale = 1.0
+        elif rotating:
+            scale = l2_rotating_miss(window, kind, m)
+        else:
+            scale = l2_warm_miss(r.footprint, kind, m)
+        # the kernel's arguments, 8 bytes each from the first parameter slot, by name
+        slots = {P0_SLOT + 8 * i: n for i, n in enumerate(L.get("params", ()))}
+        byname = {
+            pc: slots.get(sym[2])
+            for pc, base in r.base_by_pc.items()
+            for sym, _ in base or ()
+            if sym[0] == "c"
+        }
+        miss_pc = {
+            pc: 0.0 if byname.get(pc) in carried else v * scale for pc, v in r.miss_by_pc.items()
+        }
+        kept = sum(miss_pc.values()) / max(1e-9, sum(r.miss_by_pc.values()))
+        rb, miss = r.reads * kept, 1.0 if kept > 0 else 0.0
+        kw["miss_by_pc"] = miss_pc
+        kw["burst_bytes"] = rb / max(1, len(r.waves)) / max(1, trips)
+        if m.P["miss_by_wave"] and any(x.base == "LDGSTS" for x in ins):
+            bases = {b for w in r.parts for b in w}
+            names = {
+                b: next((slots.get(s[2]) for s, _ in b or () if s[0] == "c"), None) for b in bases
+            }
+            sc = {b: 0.0 if names[b] in carried else scale for b in bases}
+            kw["wave_miss"] = replay_waves(r, sc, wb, trips, eq, m)
+    elif rotating:
+        rb, miss = fb - wb, 1.0
+    else:  # warm (round 3, probe l2reuse): the re-read misses by the footprint
+        rb, miss = fb, l2_warm_miss(fb, kind, m)
+    if miss > 0:
+        kw = {
+            **kw,
+            "miss_frac": miss,
+            "dram_clk_per_512B": dram_clk(rb, dram_mix_secs(rb, wb, m), eq, m),
+        }
+    return SM(
+        ins,
+        L["threads"],
+        per_sm,
+        trips if main_loop(ins) else 1,
+        active_sms=eq,
+        resident=rmax,
+        grid_blocks=tiles,
+        grid_dim=tuple(L["grid"]),
+        block_dim=tuple(L.get("block", [L["threads"]])),
+        l1_bytes=m.C["l1_unified_bytes"] - rmax * L["smem"],
+        const_bank=grid_bank(L),
+        ldsm_ways=ldsm_ways(L["pick"]) if "smem_layout" in L.get("pick", {}) else (1, 1),
+        **kw,
+    )
