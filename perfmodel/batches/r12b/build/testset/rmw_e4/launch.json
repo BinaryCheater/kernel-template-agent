@@ -1,0 +1,19 @@
+{
+ "entry": "k_rmw",
+ "grid": [
+  128,
+  1,
+  1
+ ],
+ "threads": 256,
+ "block": [
+  256
+ ],
+ "smem": 0,
+ "rot": 1,
+ "footprint_bytes": 8388608,
+ "write_bytes": 4194304,
+ "family": "hand",
+ "set": "wr_rmw",
+ "cache": "warm"
+}

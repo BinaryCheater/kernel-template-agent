@@ -1,0 +1,19 @@
+{
+ "entry": "k_wf",
+ "grid": [
+  1024,
+  1,
+  1
+ ],
+ "threads": 256,
+ "block": [
+  256
+ ],
+ "smem": 0,
+ "rot": 1,
+ "footprint_bytes": 1048576,
+ "write_bytes": 1048576,
+ "family": "hand",
+ "set": "wr_footprint",
+ "cache": "warm"
+}

@@ -1,0 +1,11 @@
+{
+ "batch": "r12b",
+ "commit": "2510e7f0b74ec97363583f8f088bc007e605a927",
+ "host": "spark",
+ "remote_build": "kta-work/data/perfmodel/batches/r12b/build",
+ "only": "^(probe-store_merge|bl_memset|bl_tally2d|wi12b_dec_|wf_m|rmw_e|wr_e|atw_|atr_|stu_)",
+ "date": "2026-11-04T22:27:14Z",
+ "nvcc_host": "Cuda compilation tools, release 13.0, V13.0.88\nBuild cuda_13.0.r13.0/compiler.36424714_0",
+ "nvcc_image": "Cuda compilation tools, release 13.2, V13.2.51\nBuild cuda_13.2.r13.2/compiler.37434383_0",
+ "tilelang": "0.1.15"
+}
