@@ -1,0 +1,80 @@
+# rows of a default table run; python -m kta_perfmodel.sentinels rewrites this file
+gemm1024 c128x128x64_st3_th128 full  # gemm1024 full: moved 2 of 11
+gemm1024 c128x256x64_st2_th256 nocompute  # gemm1024 nocompute: moved 2 of 11
+tma 2048 full  # tma full: moved 3 of 11
+store_tail v16_b32  # probe store_tail: moved 3 of 11
+hgemm2048_c128x128x32_s3_t128_sw8 kernel  # hgemm2048 warm group
+decode_gqa_part_s4096_rotating kernel  # testset decode_gqa: moved 2 of 11
+decode_gqa_part_s4096_rotating b2b  # testset decode_gqa b2b: moved 2 of 11
+decode_gqa_part_s4096_rotating graph  # testset decode_gqa graph: moved 2 of 11
+gemv_w4a16_n4096_k4096_rotating kernel  # testset gemv_w4a16: moved 2 of 11
+gemv_w4a16_n4096_k4096_rotating b2b  # testset gemv_w4a16 b2b: moved 2 of 11
+gemv_w4a16_n4096_k4096_rotating graph  # testset gemv_w4a16 graph: moved 2 of 11
+rmsnorm_m512_n4096_warm kernel  # testset rmsnorm: moved 2 of 11
+rmsnorm_m512_n4096_warm b2b  # testset rmsnorm b2b: moved 2 of 11
+rmsnorm_m512_n4096_warm graph  # testset rmsnorm graph: moved 2 of 11
+l2reuse n2_cg_cold  # probe l2reuse: moved 3 of 11
+launch graph_work_i0  # probe launch: moved 3 of 11
+fp8gemm2048_c128x128x64_s3_t128 kernel  # testset fp8gemm2048: moved 4 of 11
+dram_rw r0_w2  # probe dram_rw: moved 2 of 11
+hgemm2048_c128x128x64_s2_t128_rotating kernel  # testset hgemm2048 rotating: moved 4 of 11
+moe_e8_t2048_n1024_k2048_c64x128x32_s4_t128 kernel  # testset moe_gemm: moved 3 of 11
+moe_e8_t2048_n1024_k2048_c64x128x32_s4_t128 b2b  # testset moe_gemm b2b: moved 3 of 11
+moe_e8_t2048_n1024_k2048_c64x128x32_s4_t128 graph  # testset moe_gemm graph: moved 3 of 11
+row_reduce st_g512_span  # probe row_reduce: moved 3 of 11
+w4gemm2048_c64x128x32_s4_t128_rotating kernel  # testset w4gemm: moved 4 of 11
+w4gemm2048_c64x128x32_s4_t128_rotating b2b  # testset w4gemm b2b: moved 4 of 11
+w4gemm2048_c64x128x32_s4_t128_rotating graph  # testset w4gemm graph: moved 4 of 11
+st256 st_g96  # probe st256: moved 3 of 11
+launch_short graph_work_i0  # probe launch_short: moved 3 of 11
+decode_seq_s4096_rotating kernel  # testset decode_gqa_seq: moved 2 of 11
+decode_seq_s4096_rotating b2b  # testset decode_gqa_seq b2b: moved 2 of 11
+decode_seq_s4096_rotating graph  # testset decode_gqa_seq graph: moved 2 of 11
+hgemm_m1024n1024k1024_c128x128x32_s4_t128 kernel  # testset hgemm 1024x1024x1024: moved 2 of 11
+hgemm_m1024n1024k1024_c128x128x32_s4_t128_rotating kernel  # testset hgemm 1024x1024x1024 rotating: moved 2 of 11
+hgemm_m4096n1024k2048_c128x128x32_s3_t128 kernel  # testset hgemm 4096x1024x2048: moved 3 of 11
+hgemm_m4096n1024k2048_c128x128x32_s3_t128_rotating kernel  # testset hgemm 4096x1024x2048 rotating: moved 3 of 11
+l2mix L0_S4_W32_D32_P0_g96  # probe l2mix: moved 2 of 11
+hgemm_m3072n1536k2048_c128x128x32_s3_t128_sw8 kernel  # testset hgemm 3072x1536x2048: moved 3 of 11
+hgemm_m3072n1536k2048_c128x128x64_s2_t128_rotating kernel  # testset hgemm 3072x1536x2048 rotating: moved 3 of 11
+wi_dec_bn32_rotating kernel  # testset whatif decode rotating: moved 2 of 11
+wi_dec_bn32_rotating b2b  # testset whatif decode rotating b2b: moved 2 of 11
+wi_dec_bn32_rotating graph  # testset whatif decode rotating graph: moved 2 of 11
+wi_dec_s1_warm kernel  # testset whatif decode warm: moved 2 of 11
+wi_dec_s1_warm b2b  # testset whatif decode warm b2b: moved 2 of 11
+wi_dec_s1_warm graph  # testset whatif decode warm graph: moved 2 of 11
+wi_fa_nostore_rotating kernel  # testset whatif fa rotating: moved 2 of 11
+wi_fa_nostore_rotating b2b  # testset whatif fa rotating b2b: moved 2 of 11
+wi_fa_nostore_rotating graph  # testset whatif fa rotating graph: moved 2 of 11
+wi_gemv_np2_warm kernel  # testset whatif gemv warm: moved 2 of 11
+wi_gemv_np2_warm b2b  # testset whatif gemv warm b2b: moved 2 of 11
+wi_gemv_np2_warm graph  # testset whatif gemv warm graph: moved 2 of 11
+wi_hg_L_s1_rotating kernel  # testset whatif hgemm rotating: moved 3 of 11
+wi_hg_S_s2_warm kernel  # testset whatif hgemm warm: moved 3 of 11
+wi_rms_nostore_rotating kernel  # testset whatif rmsnorm rotating: moved 3 of 11
+wi_rms_nostore_rotating b2b  # testset whatif rmsnorm rotating b2b: moved 3 of 11
+wi_rms_nostore_rotating graph  # testset whatif rmsnorm rotating graph: moved 3 of 11
+wi_rms_t64_warm kernel  # testset whatif rmsnorm warm: moved 2 of 11
+wi_rms_t64_warm b2b  # testset whatif rmsnorm warm b2b: moved 2 of 11
+wi_rms_t64_warm graph  # testset whatif rmsnorm warm graph: moved 2 of 11
+rot_depth n10_D24  # probe rot_depth: moved 2 of 11
+store_lines S1_W32_D32_g256  # probe store_lines: moved 2 of 11
+hgemm2048_c128x128x32_s3_t128 kernel  # hgemm2048 warm group
+hgemm2048_c128x128x32_s4_t128 kernel  # hgemm2048 warm group
+hgemm2048_c128x128x64_s2_t128 kernel  # hgemm2048 warm group
+hgemm2048_c128x128x64_s3_t256 kernel  # hgemm2048 warm group
+hgemm2048_c128x256x32_s3_t256 kernel  # hgemm2048 warm group
+hgemm2048_c128x256x32_s3_t256_sw4 kernel  # hgemm2048 warm group
+hgemm2048_c128x256x64_s2_t256 kernel  # hgemm2048 warm group
+hgemm2048_c256x128x32_s3_t256 kernel  # hgemm2048 warm group
+hgemm2048_c64x128x32_s4_t128 kernel  # hgemm2048 warm group
+hand_hist kernel  # worst first score of hand_*
+hand_mandel kernel  # worst first score of hand_*
+hand_stencil kernel  # worst first score of hand_*
+hand_triad kernel  # worst first score of hand_*
+hand_oddeven kernel  # worst first score of hand_*
+stress_09 kernel  # worst first score of stress_*
+stress_11 kernel  # worst first score of stress_*
+stress_07 kernel  # worst first score of stress_*
+stress_05 kernel  # worst first score of stress_*
+stress_03 kernel  # worst first score of stress_*

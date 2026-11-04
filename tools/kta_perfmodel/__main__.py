@@ -1,34 +1,57 @@
-"""``scripts/perfmodel-table``: replay the validation kernels and probes on CPU and write the error
-table (JSON + Markdown) to docs/design/perfmodel/.
+"""``scripts/perfmodel-table``: replay validation kernels and probes on CPU.
 
-    scripts/perfmodel-table [--sets gemm tma probes batches] [--out DIR] [--no-write]
+    scripts/perfmodel-table [--focus REGEX] [--top]    # the sentinels plus the rows REGEX matches
+    scripts/perfmodel-table --focus REGEX --no-sentinels
+    scripts/perfmodel-table --override '{"sim.x": 1}'  # an ablation, on the same selection
+    scripts/perfmodel-table --full                     # once per round, on spark; writes the table
 
-While iterating: `--sets batches --fast --top`. Ablation: `--sets batches --top --override '{...}'`
-(no attribution; a row replays only if it read an overridden parameter). The full table, with no
-options, at the end of a round.
+Sentinels show that something moved; only the full table scores the round. Every run appends rows,
+replays, CPU seconds and wall time to perfmodel/table-runs.jsonl. Local replays run at nice 19 on
+at most table.LOCAL_JOBS processes.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 import time
 from datetime import UTC, datetime
 from pathlib import Path
 
-from . import table, upstream
+from . import full, sentinels, table, upstream
 
 OUT = upstream.ROOT / "docs" / "design" / "perfmodel"
+LAST = upstream.ROOT / "data" / "perfmodel" / "last-selection.json"
+
+
+def select(rows: list[dict], focus: str | None, plain: bool) -> list[dict]:
+    keep = set() if plain else sentinels.read()
+    return [r for r in rows if r["id"] in keep or (focus and re.search(focus, r["id"]))]
+
+
+def moved(rows: list[dict]) -> None:
+    """Rows whose prediction differs from the last selection run's."""
+    old = json.loads(LAST.read_text()) if LAST.exists() else {}
+    new = {r["id"]: r["predicted"] for r in rows}
+    diff = [(new[i] / old[i] - 1, i) for i in new if new[i] and old.get(i) and new[i] != old[i]]
+    print(f"{len(diff)} of {len(new)} rows moved from the last run")
+    for d, i in sorted(diff, key=lambda x: -abs(x[0]))[:40]:
+        print(f"  {i:52s} {100 * d:+7.2f} %")
+    LAST.write_text(json.dumps({**old, **new}))
 
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="scripts/perfmodel-table")
     ap.add_argument("--sets", nargs="+", choices=table.SETS, default=list(table.SETS))
+    ap.add_argument("--focus", default=None, help="regex over row ids, added to the sentinels")
+    ap.add_argument("--no-sentinels", action="store_true", help="only the --focus rows")
+    ap.add_argument("--full", action="store_true", help="every row, once per round, on spark")
+    ap.add_argument("--full-here", action="store_true", help="what --full runs on the worker")
     ap.add_argument("--upstream", type=Path, default=upstream.UPSTREAM)
     ap.add_argument("--rev", default=upstream.UPSTREAM_REV)
     ap.add_argument("--out", type=Path, default=OUT)
-    ap.add_argument("--no-write", action="store_true", help="print only")
     ap.add_argument("--jobs", type=int, default=table.default_jobs(), help="worker processes")
     ap.add_argument("--no-cache", action="store_true", help="replay every row")
     ap.add_argument("--all", action="store_true", help="also the slow rows (table.SLOW)")
@@ -37,54 +60,39 @@ def main(argv: list[str] | None = None) -> int:
         "--cached-only", action="store_true", help="fail instead of replaying an uncached row"
     )
     ap.add_argument(
-        "--override",
-        default=None,
-        help="JSON {param: value} applied to every row (an ablation: printed, not written)",
+        "--override", default=None, help="JSON {param: value} applied to every row (an ablation)"
     )
-    ap.add_argument(
-        "--fast", action="store_true", help="no attribution: replays about twice as fast"
-    )
+    ap.add_argument("--fast", action="store_true", help="no attribution: replays twice as fast")
     a = ap.parse_args(argv)
+    if a.full:
+        full.on_spark(a.out)
+        return 0
+    if a.full_here:
+        full.refuse_second()
     over = json.loads(a.override) if a.override else None
-    if over:
-        a.no_write = a.fast = True
-    if a.fast:
-        a.no_write = True
-    trace = not a.fast
+    trace = a.full_here or not (over or a.fast)
     cal, sha = upstream.calibration_dir(a.upstream, a.rev)
     head, dirty = upstream.kta_commit()
     t0 = time.perf_counter()
     rows = table.specs(cal, tuple(a.sets))
+    if not a.full_here:
+        rows = select(rows, a.focus, a.no_sentinels)
     prev = a.out / "error-table.json"
     hint = (
         {r["id"]: r.get("wall_s", 0.0) for r in json.loads(prev.read_text())["rows"]}
         if prev.exists()
         else {}
     )
-    if over:  # the plain rows first: they say which rows read the overridden parameters
-        for _ in table.run(
-            cal,
-            sha,
-            [dict(r) for r in rows],
-            a.jobs,
-            not a.no_cache,
-            hint,
-            a.all,
-            a.cached_only,
-            trace=False,
-        ):
-            pass
     for r in table.run(
         cal, sha, rows, a.jobs, not a.no_cache, hint, a.all, a.cached_only, over, trace=trace
     ):
-        err = "" if r["error"] is None else f"{100 * r['error']:+7.1f} %"
-        if a.top:
-            continue
-        print(
-            f"{r['id']:48s} {r['measured']:12.2f} {table._fmt(r['predicted']):>12s} {err:>9s} "
-            f"{r['wall_s']:6.1f} s {r['excluded'] or ''}",
-            flush=True,
-        )
+        if a.full_here:
+            err = "" if r["error"] is None else f"{100 * r['error']:+7.1f} %"
+            print(
+                f"{r['id']:48s} {r['measured']:12.2f} {table._fmt(r['predicted']):>12s} "
+                f"{err:>9s} {r['wall_s']:6.1f} s {r['excluded'] or ''}",
+                flush=True,
+            )
     # the "mechanisms only" column (LOOP §4.4): the same rows with every fitted parameter replaced
     mech = {
         r["id"]: r
@@ -98,7 +106,6 @@ def main(argv: list[str] | None = None) -> int:
             a.all,
             a.cached_only,
             {**table.MECH_ONLY, **(over or {})},
-            over,
             trace=False,
         )
     }
@@ -133,16 +140,37 @@ def main(argv: list[str] | None = None) -> int:
         "cached_rows": sum(r["cached"] for r in rows),
         "rows": [{k: v for k, v in r.items() if k not in ("job", "cached")} for r in rows],
     }
-    if a.top:
-        print(table.render(doc, top=10).split("## All rows")[0])
-    else:
-        for s in doc["summary"]:
-            print(json.dumps(s))
-    if not a.no_write and not a.top:
+    mode = "full" if a.full_here else "override" if over else "selection"
+    full.log(
+        {
+            "mode": mode,
+            "commit": head[:12],
+            "dirty": dirty,
+            "rows": len(rows),
+            "replayed": table.STATS["replayed"],
+            "cpu_s": round(table.STATS["cpu_s"], 1),
+            "wall_s": doc["wall_s"],
+            "jobs": a.jobs,
+        }
+    )
+    if a.full_here:
         a.out.mkdir(parents=True, exist_ok=True)
         (a.out / "error-table.json").write_text(json.dumps(doc, indent=1) + "\n")
         (a.out / "error-table.md").write_text(table.render(doc))
         print(f"wrote {a.out / 'error-table.json'} and error-table.md")
+        return 0
+    if not over:
+        moved(rows)
+    if a.top:
+        print(table.render(doc, top=10).split("## All rows")[0])
+    else:
+        for s in doc["summary"]:
+            if s["n"] >= 3:
+                print(table.summary_line(s))
+    print(
+        f"{doc['wall_s']:.0f} s, {table.STATS['replayed']} replays, "
+        f"{table.STATS['cpu_s']:.0f} CPU s, {doc['cached_rows']} of {len(rows)} rows cached"
+    )
     return 0
 
 

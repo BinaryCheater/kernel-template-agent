@@ -2,20 +2,22 @@
 measured against predicted, one row each.
 
 A row is a spec (identity, measured value) plus a job (what to replay). Jobs run in a process
-pool, and each result is cached under a key made of the engine's source and parameter files, the
-upstream input commit and the job, so a rerun after a change only replays what the change can
-affect (any engine file change replays everything). A result also records which parameters the
-replay read: an override (an ablation, the mechanisms-only column) of parameters a row never read
-takes that row's result without a replay. The kernel, b2b and graph rows of a test kernel share
-one replay."""
+pool, and each result is cached under a key made of the replay code (`engine_hash`), the upstream
+input commit and the job. A result also records the values of the parameters the replay read, and
+a cached result counts only when those values still hold, with any override applied: a changed or
+ablated `sim.value` entry replays exactly the rows that read it. Parameters outside `sim` are in
+`engine_hash`, because `model.C` reads them behind the tracked machine. The kernel, b2b and graph
+rows of a test kernel share one replay."""
 
 from __future__ import annotations
 
 import hashlib
+import inspect
 import json
 import math
 import os
 import re
+import signal
 import statistics
 import threading
 import time
@@ -32,7 +34,6 @@ from kta.models.gb10sim.sass import parse
 from kta.models.regression import spearman
 
 SETS = ("gemm", "tma", "probes", "batches")
-_UNSET = object()
 BATCHES = Path(__file__).resolve().parents[2] / "perfmodel" / "batches"
 # rows left out of the table: `tma 8192 full` (replay 150-300 s, far above the 28 §4 budget;
 # deleted at the user's request, round 1)
@@ -40,6 +41,8 @@ DROPPED = {"tma 8192 full"}
 SLOW: dict[str, str] = {}
 ENGINE = Path(probeset.__file__).parent
 CACHE = Path(__file__).resolve().parents[2] / "data" / "perfmodel" / "cache"
+BUDGET_S = 600.0  # CPU seconds of one replay; the slowest row takes about 90
+LOCAL_JOBS = 6
 # LOOP §4.4 "mechanisms only": every fitted parameter the replays read, replaced by the probe value
 # of the same component (gb10.json) or by nothing when no probe measures it (D-number in
 # docs/decisions.md)
@@ -174,21 +177,25 @@ def batch_specs(root: Path = BATCHES) -> Iterator[dict[str, Any]]:
         valid = mdoc.get("valid", False)
         counters = mdoc.get("counters", {})
         key = _batch_key(d)
-        for case in probeset.all_cases(d):
-            spec = _spec(
-                case.id,
-                case.probe if case.probe.startswith("testset") else f"probe {case.probe}",
-                case.level,
-                case.unit,
-                case.measured if valid else float("nan"),
-                ["batch", d.name, case.id, key],
-                excluded=case.excluded if valid else ("batch not valid" if meas.exists() else None),
-                note=f"batch {b.name}",
-            )
-            unit = case.id.removesuffix(" kernel")
-            if unit in counters:
-                spec["counters"] = counters[unit]
-            yield spec
+        for builder, cases in probeset.cases_by_builder(d):
+            code = probeset.code_key(builder)
+            for case in cases:
+                spec = _spec(
+                    case.id,
+                    case.probe if case.probe.startswith("testset") else f"probe {case.probe}",
+                    case.level,
+                    case.unit,
+                    case.measured if valid else float("nan"),
+                    ["batch", d.name, case.id, key, code],
+                    excluded=case.excluded
+                    if valid
+                    else ("batch not valid" if meas.exists() else None),
+                    note=f"batch {b.name}",
+                )
+                unit = case.id.removesuffix(" kernel")
+                if unit in counters:
+                    spec["counters"] = counters[unit]
+                yield spec
 
 
 def latest(rows: Iterator[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -352,13 +359,46 @@ def _result(
 
 
 def engine_hash() -> str:
-    """sha256 over the engine's code, description and parameter files and this table code."""
+    """sha256 over what every replay shares: the engine's code except probeset.py (`job` carries
+    the code of a row's own case builder, probeset.code_key), the description, the parameter file
+    without the `sim` values (a row compares those it read, `_read_values`) and the replay functions
+    of this file; a change to the report or the scorecard replays nothing."""
     h = hashlib.sha256()
-    files = sorted(p for p in ENGINE.iterdir() if p.suffix in (".py", ".json", ".yaml"))
-    for p in [*files, Path(__file__)]:
+    files = sorted(
+        p for p in ENGINE.iterdir() if p.suffix in (".py", ".yaml") and p.name != "probeset.py"
+    )
+    for p in files:
         h.update(p.name.encode())
         h.update(p.read_bytes())
+    raw = json.loads((ENGINE / "gb10.json").read_text())
+    raw["sim"] = {k: v for k, v in raw["sim"].items() if not k.startswith("value")}
+    h.update(json.dumps(raw, sort_keys=True).encode())
+    for f in (run_job, _regs, _result, _dynamic_ops, _timed, _read_values):
+        h.update(inspect.getsource(f).encode())
     return h.hexdigest()
+
+
+def _read_values(m: Machine, reads: list[str]) -> dict[str, Any]:
+    """What the parameters in `reads` hold on `m`: a `sim` entry with its status, which attribution
+    reports. An absent entry reads None. "*" (the whole table was read) is a digest of it."""
+    sim = m.raw["sim"]
+    out: dict[str, Any] = {}
+    for k in reads:
+        if k == "*":
+            out[k] = hashlib.sha256(json.dumps(sim["value"], sort_keys=True).encode()).hexdigest()
+        elif k.startswith("sim."):
+            out[k] = [sim["value"].get(k[4:]), sim["value_status"].get(k[4:])]
+        else:
+            out[k] = m.raw.get(k, {}).get("value")
+    return json.loads(json.dumps(out))
+
+
+class _OverBudget(BaseException):  # not an Exception: no handler in the engine takes it for its own
+    pass
+
+
+def _over_budget(*_: Any) -> None:
+    raise _OverBudget
 
 
 def _timed(
@@ -367,25 +407,41 @@ def _timed(
     overrides: dict[str, Any] | None = None,
     trace: bool = True,
     also: tuple[str, ...] = (),
+    budget_s: float = BUDGET_S,
 ) -> dict[str, Any]:
-    t = time.perf_counter()
+    t, cpu = time.perf_counter(), time.process_time()
     m = (default_machine().with_overrides(overrides) if overrides else default_machine()).tracked()
-    out = run_job(cal, job, m, trace=trace, also=also)
+    signal.signal(signal.SIGVTALRM, _over_budget)
+    signal.setitimer(signal.ITIMER_VIRTUAL, budget_s)
+    try:
+        out = run_job(cal, job, m, trace=trace, also=also)
+    except _OverBudget:
+        out = {"predicted": None, "excluded": f"over budget: replay above {budget_s:.0f} CPU s"}
+        out["budget_s"] = budget_s
+    finally:
+        signal.setitimer(signal.ITIMER_VIRTUAL, 0)
     reads = sorted(m.__dict__["reads"])
     wall = round((time.perf_counter() - t) / (1 + len(also)), 2)
+    extra = {
+        "reads": reads,
+        "values": _read_values(m, reads),
+        "wall_s": wall,
+        "cpu_s": round((time.process_time() - cpu) / (1 + len(also)), 2),
+    }
     for o in (out, *out.get("also", {}).values()):
-        o.update(reads=reads, wall_s=wall)
+        o.update(extra)
     return out
 
 
-def _watch_parent() -> None:
-    """Pool worker initializer: exit when the table process is gone (killed or stopped), so that no
-    idle worker outlives it."""
+def _worker_init() -> None:
+    """Pool worker: lowest priority, and exit when the table process is gone (killed or stopped),
+    so that no worker outlives it."""
+    os.nice(19)
     parent = os.getppid()
 
     def watch() -> None:
         while os.getppid() == parent:
-            time.sleep(5)
+            time.sleep(2)
         os._exit(1)
 
     threading.Thread(target=watch, daemon=True).start()
@@ -398,6 +454,10 @@ def _replay_group(r: dict[str, Any]) -> tuple[Any, ...]:
     return (job[1], m[1]) if m else (r["id"],)
 
 
+# replays and CPU of this process's `run` calls, for the run log
+STATS = {"replayed": 0, "cpu_s": 0.0}
+
+
 def run(
     cal: Path,
     upstream_rev: str,
@@ -408,55 +468,46 @@ def run(
     run_slow: bool = False,
     cached_only: bool = False,
     overrides: dict[str, Any] | None = None,
-    base_overrides: dict[str, Any] | None = None,
     trace: bool = True,
+    budget_s: float = BUDGET_S,
 ) -> Iterator[dict[str, Any]]:
-    """Fill each spec with its result, cached ones first, the rest from a pool of `jobs`
-    processes (longest previous runs first); yields rows as they complete. A row whose cached
-    `base_overrides` run never read a parameter that `overrides` changes reuses that result.
-    `trace=False` skips the attribution: faster replays, for ablations."""
+    """Fill each spec with its result, cached ones first, the rest from a pool of `jobs` processes
+    (longest previous runs first); yields rows as they complete. `trace=False` skips the
+    attribution: faster replays, for ablations. A replay past `budget_s` CPU seconds comes back
+    excluded, predicted None."""
     eng = engine_hash()
     CACHE.mkdir(parents=True, exist_ok=True)
+    machine = default_machine().with_overrides(overrides) if overrides else default_machine()
 
-    def key(r: dict[str, Any], over: dict[str, Any] | None, traced: bool) -> Path:
-        k = [eng, upstream_rev, r["job"]] + ([over] if over else []) + ([] if traced else ["fast"])
-        k = hashlib.sha256(json.dumps(k).encode()).hexdigest()
-        return CACHE / f"{k}.json"
+    def key(r: dict[str, Any], traced: bool) -> Path:
+        k = [eng, upstream_rev, r["job"]] + ([] if traced else ["fast"])
+        return CACHE / hashlib.sha256(json.dumps(k).encode()).hexdigest()
 
-    changed = {
-        k
-        for k in {*(overrides or {}), *(base_overrides or {})}
-        if (overrides or {}).get(k, _UNSET) != (base_overrides or {}).get(k, _UNSET)
-    }
-
-    def reusable(r: dict[str, Any]) -> dict[str, Any] | None:
-        """The base run's result when this override cannot have changed it."""
-        if not overrides:
-            return None
-        for traced in (True, False):
-            p = key(r, base_overrides, traced)
-            if p.exists():
+    def lookup(r: dict[str, Any]) -> dict[str, Any] | None:
+        for traced in (True,) if trace else (False, True):
+            d = key(r, traced)
+            for p in sorted(d.iterdir()) if d.is_dir() else ():
                 res = json.loads(p.read_text())
-                reads = res.get("reads")
-                if reads is not None and "*" not in reads and not changed & set(reads):
+                if res.get("budget_s", budget_s) < budget_s:
+                    continue
+                if _read_values(machine, res["reads"]) == res["values"]:
                     return res
         return None
 
+    def store(r: dict[str, Any], res: dict[str, Any]) -> None:
+        d = key(r, trace)
+        d.mkdir(exist_ok=True)
+        name = hashlib.sha256(json.dumps(res["values"], sort_keys=True).encode()).hexdigest()[:16]
+        (d / f"{name}.json").write_text(json.dumps(res))
+
     todo = []
     for r in rows:
-        p = key(r, overrides, trace)
-        if not trace and not p.exists() and key(r, overrides, True).exists():
-            p = key(r, overrides, True)
-        if r["id"] in SLOW and not run_slow and not (use_cache and p.exists()):
-            r.update(predicted=None, excluded=SLOW[r["id"]], cached=False, wall_s=0.0)
-            yield _finish(r)
-            continue
-        if use_cache and p.exists():
-            r.update(json.loads(p.read_text()), cached=True)
-            yield _finish(r)
-        elif use_cache and (res := reusable(r)):
-            p.write_text(json.dumps(res))
+        res = lookup(r) if use_cache else None
+        if res is not None:
             r.update(res, cached=True)
+            yield _finish(r)
+        elif r["id"] in SLOW and not run_slow:
+            r.update(predicted=None, excluded=SLOW[r["id"]], cached=False, wall_s=0.0)
             yield _finish(r)
         else:
             todo.append(r)
@@ -468,10 +519,16 @@ def run(
         groups.setdefault(_replay_group(r), []).append(r)
     if not groups:
         return
-    with ProcessPoolExecutor(max_workers=max(1, jobs), initializer=_watch_parent) as pool:
+    with ProcessPoolExecutor(max_workers=max(1, jobs), initializer=_worker_init) as pool:
         futs = {
             pool.submit(
-                _timed, cal, g[0]["job"], overrides, trace, tuple(r["job"][2] for r in g[1:])
+                _timed,
+                cal,
+                g[0]["job"],
+                overrides,
+                trace,
+                tuple(r["job"][2] for r in g[1:]),
+                budget_s,
             ): g
             for g in groups.values()
         }
@@ -479,9 +536,11 @@ def run(
             g = futs[f]
             lead = f.result()
             also = lead.pop("also", {})
+            STATS["replayed"] += 1
+            STATS["cpu_s"] += lead["cpu_s"] * len(g)
             for r in g:
                 res = also.get(r["job"][2], lead) if r is not g[0] else lead
-                key(r, overrides, trace).write_text(json.dumps(res))
+                store(r, res)
                 r.update(res, cached=False)
                 yield _finish(r)
 
@@ -560,6 +619,30 @@ def best_variant(rs: list[dict[str, Any]], noise: float = 0.02) -> dict[str, Any
     return {"ok": gap < noise, "gap": gap, "pick": pick["id"], "best": true["id"]}
 
 
+# the good-enough targets of 28 §1 (D828): pairs at least this far apart must be ordered right
+PAIR_GAP = 0.03
+TOP_N = 3
+
+
+def goal(rs: list[dict[str, Any]]) -> dict[str, Any]:
+    """28 §1 on one group: pairs measured `PAIR_GAP` or more apart that the model orders right, the
+    true best inside the model's first `TOP_N`, and what picking the model's first loses."""
+    right = total = 0
+    for i, a in enumerate(rs):
+        for b in rs[i + 1 :]:
+            if abs(a["measured"] / b["measured"] - 1) >= PAIR_GAP:
+                total += 1
+                right += (a["measured"] - b["measured"]) * (a["predicted"] - b["predicted"]) > 0
+    order = sorted(rs, key=lambda r: r["predicted"])
+    true = min(rs, key=lambda r: r["measured"])
+    return {
+        "pairs_right": right,
+        "pairs": total,
+        "best_in_top": true in order[:TOP_N],
+        "first_loss": order[0]["measured"] / true["measured"] - 1,
+    }
+
+
 def _ranks(rs: list[dict[str, Any]]) -> dict[str, Any]:
     p, m = [r["predicted"] for r in rs], [r["measured"] for r in rs]
     return {
@@ -567,6 +650,7 @@ def _ranks(rs: list[dict[str, Any]]) -> dict[str, Any]:
         "kendall": kendall(p, m),
         "inversions": inversions(rs),
         "best": best_variant(rs),
+        "goal": goal(rs),
     }
 
 
@@ -823,7 +907,7 @@ def convergence(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def default_jobs() -> int:
-    return max(1, (os.cpu_count() or 2) - 2)
+    return min(LOCAL_JOBS, max(1, (os.cpu_count() or 2) - 2))
 
 
 def summary(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -854,6 +938,7 @@ def summary(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 inversions=ranks["inversions"],
                 kendall=ranks["kendall"],
                 best=ranks["best"],
+                goal=ranks["goal"],
                 repeat=repeatability(rs, meas),
             )
             if len(em) == len(rs):
@@ -915,6 +1000,7 @@ def blind_summary(rows: list[dict[str, Any]], batch: str) -> list[dict[str, Any]
 
 # what-if scoring (28 §1, round 7): a change is scored against the base row of its own batch
 TIE, MAG_MIN = 0.02, 0.05
+GOAL_DIR, GOAL_MAG = 0.03, 0.10  # 28 §1: direction on changes of 3 %, magnitude on changes of 10 %
 # round 8: one event timing of a short kernel steps by about 0.96 us (the same RMSNorm 8.6 or 9.6 us
 # across batches); the graph row averages 50 launches and is scored beside it
 SHORT_US = 30.0
@@ -989,6 +1075,10 @@ def whatif_summary(pairs: list[dict[str, Any]]) -> list[dict[str, Any]]:
         ps = [p for p in pairs if axis in ("all", p["axis"])]
         item: dict[str, Any] = {"axis": axis, "n": len(ps)}
         for key in ("first", "now"):
+            big = [p for p in ps if abs(p["measured"]) >= GOAL_DIR]
+            mag = [abs(p[key] / p["measured"] - 1) for p in ps if abs(p["measured"]) >= GOAL_MAG]
+            item[f"{key}_goal_dir"] = (sum(p[key] * p["measured"] > 0 for p in big), len(big))
+            item[f"{key}_goal_mag"] = (statistics.median(mag) if mag else None, len(mag))
             mags = [m for p in ps if (m := _magnitude(p, key)) is not None]
             item[f"{key}_ok"] = sum(p[f"{key}_ok"] for p in ps)
             item[f"{key}_mag_n"] = len(mags)
@@ -1123,6 +1213,7 @@ def render(doc: dict[str, Any], top: int = 15) -> str:
                 f"{f} | {_best(s.get('best'))} | {100 * s['now_median']:.1f} % | "
                 f"{_pct(s['now_worst'])} | {n} | {_best(s.get('now_best'))} |"
             )
+    lines += _goal_lines(doc)
     lines += _whatif_lines(doc)
     lines += _dynamic_lines(doc)
     lines += _unit_lines(doc)
@@ -1133,6 +1224,57 @@ def render(doc: dict[str, Any], top: int = 15) -> str:
     lines += ["", "## All rows", ""]
     lines += _table(rows)
     return "\n".join(lines) + "\n"
+
+
+def goal_totals(doc: dict[str, Any]) -> dict[str, Any]:
+    """28 §1 over the design groups of the test set, and the what-if numbers."""
+    gs = [(s["set"], s["goal"]) for s in doc["summary"] if "goal" in s]
+    wi = next((s for s in doc.get("whatif_summary", []) if s["axis"] == "all"), None)
+    return {
+        "groups": len(gs),
+        "pairs_right": sum(g["pairs_right"] for _, g in gs),
+        "pairs": sum(g["pairs"] for _, g in gs),
+        "top_missed": [n for n, g in gs if not g["best_in_top"]],
+        "loss_above": [(n, g["first_loss"]) for n, g in gs if g["first_loss"] > PAIR_GAP],
+        "worst_loss": max((g["first_loss"] for _, g in gs), default=0.0),
+        "whatif_dir": wi and wi["now_goal_dir"],
+        "whatif_mag": wi and wi["now_goal_mag"],
+    }
+
+
+def _goal_lines(doc: dict[str, Any]) -> list[str]:
+    t = goal_totals(doc)
+    if not t["groups"]:
+        return []
+
+    def pct(a: int, b: int) -> str:
+        return f"{100 * a / max(1, b):.1f} %"
+
+    lines = [
+        "",
+        "## Against 28 §1 (targets are the user's; a seen group meeting them is not enough)",
+        "",
+        f"| Metric | Target | Now ({t['groups']} design groups) |",
+        "| --- | ---: | --- |",
+        f"| Pairs measured ≥ 3 % apart, ordered right | ≥ 95 % | {t['pairs_right']}/{t['pairs']} "
+        f"({pct(t['pairs_right'], t['pairs'])}) |",
+        f"| True best in the model's top {TOP_N} | every group | "
+        f"{t['groups'] - len(t['top_missed'])}/{t['groups']} |",
+        f"| First pick's loss | ≤ 3 % | worst {100 * t['worst_loss']:.1f} %, "
+        f"{len(t['loss_above'])} groups above |",
+    ]
+    if t["whatif_dir"]:
+        (r, n), (m, k) = t["whatif_dir"], t["whatif_mag"]
+        mag = "—" if m is None else f"{100 * m:.0f} %"
+        lines += [
+            f"| What-if direction, changes ≥ 3 % | ≥ 95 % | {r}/{n} ({pct(r, n)}) |",
+            f"| What-if magnitude, changes ≥ 10 % | median ≤ 20–25 % | {mag} over {k} |",
+        ]
+    miss = [f"{n}: +{100 * g:.1f} %" for n, g in t["loss_above"]]
+    if miss or t["top_missed"]:
+        lines += ["", f"Loss above 3 %: {', '.join(miss) or 'none'}."]
+        lines += [f"Best outside the top {TOP_N}: {', '.join(t['top_missed']) or 'none'}."]
+    return lines
 
 
 def _convergence_lines(doc: dict[str, Any]) -> list[str]:

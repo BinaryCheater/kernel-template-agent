@@ -20,6 +20,8 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def resolve(repo: Path, rev: str) -> str:
+    if not repo.exists():  # a worker holds the extracted data of the pinned commit, not the repo
+        return rev
     out = subprocess.run(
         ["git", "-C", str(repo), "rev-parse", "--verify", f"{rev}^{{commit}}"],
         check=True,
@@ -48,6 +50,9 @@ def calibration_dir(repo: Path = UPSTREAM, rev: str = UPSTREAM_REV) -> tuple[Pat
 
 def kta_commit() -> tuple[str, bool]:
     """HEAD of this checkout and whether tracked files differ from it."""
+    deployed = ROOT / ".kta-commit"  # scripts/remote-run sync: an archive of a commit, no git
+    if deployed.exists():
+        return deployed.read_text().strip(), False
     head = subprocess.run(
         ["git", "-C", str(ROOT), "rev-parse", "HEAD"], check=True, capture_output=True, text=True
     ).stdout.strip()

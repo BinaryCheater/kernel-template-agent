@@ -40,9 +40,13 @@ class _Reads(dict):
         return value
 
     def get(self, key: str, default: Any = None) -> Any:
-        return self[key] if key in self.src else default
+        if key in self.src:
+            return self[key]
+        self.seen.add(self.prefix + key)  # an entry added later changes what this read gets
+        return default
 
     def __contains__(self, key: object) -> bool:
+        self.seen.add(self.prefix + str(key))
         return key in self.src
 
     def __iter__(self):

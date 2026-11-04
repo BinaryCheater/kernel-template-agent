@@ -3,6 +3,8 @@ own SASS stays within tolerance of what batch r1 measured on the GB10."""
 
 from __future__ import annotations
 
+import ast
+import sys
 from pathlib import Path
 
 import pytest
@@ -10,6 +12,10 @@ import pytest
 from kta.models.gb10sim import probeset
 from kta.models.gb10sim.machine import default_machine
 from kta.models.gb10sim.probes import Case
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tools"))
+
+from kta_perfmodel import table  # noqa: E402
 
 R1 = Path(__file__).resolve().parents[2] / "perfmodel" / "batches" / "r1"
 POINTS = {  # id: tolerance
@@ -106,3 +112,36 @@ def test_a_follower_waits_for_the_fill_and_no_longer() -> None:
     v = [probeset.run_case(cases[f"first_reader rot_ldg_z{z}_lead"])[0] for z in (0, 16, 64)]
     assert v[0] > v[1] > v[2]
     assert v[2] < 0.1 * v[0]
+
+
+def test_code_key_reaches_only_a_builders_own_definitions():
+    """Adding a probe to probeset.py must leave the other rows' cached results valid."""
+    defs = probeset._top_level()
+    assert "smem_cases" in defs and "SMEM_WARPS" in defs
+    assert probeset.code_key("smem_cases") != probeset.code_key("shfl_cases")
+    assert probeset.code_key("load_sat_cases") != probeset.code_key("load_curve_cases")
+    assert "BUILDERS" not in _reached("smem_cases", defs)
+    assert "SMEM_WARPS" in _reached("smem_cases", defs)
+
+
+def _reached(name, defs):
+    seen, todo = set(), [name]
+    while todo:
+        n = todo.pop()
+        if n not in seen:
+            seen.add(n)
+            todo += [x.id for x in ast.walk(defs[n]) if isinstance(x, ast.Name) and x.id in defs]
+    return seen
+
+
+def test_goal_counts_pairs_at_a_three_percent_gap():
+    rows = [
+        {"id": "a", "measured": 100.0, "predicted": 12.0},
+        {"id": "b", "measured": 101.0, "predicted": 11.0},  # 1 % apart: not a pair
+        {"id": "c", "measured": 110.0, "predicted": 10.0},  # reversed against both
+        {"id": "d", "measured": 120.0, "predicted": 20.0},
+    ]
+    g = table.goal(rows)
+    assert (g["pairs_right"], g["pairs"]) == (3, 5)
+    assert g["best_in_top"] is True  # a is third in the model's order
+    assert abs(g["first_loss"] - 0.10) < 1e-9

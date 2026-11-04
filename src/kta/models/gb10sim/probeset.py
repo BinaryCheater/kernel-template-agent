@@ -10,6 +10,8 @@ batch measured (`clock.chain_GHz`) when there is one, else with the description'
 
 from __future__ import annotations
 
+import ast
+import hashlib
 import json
 import math
 import re
@@ -1373,53 +1375,84 @@ class _SeqRun:
         return best[1]
 
 
-def all_cases(batch_dir: Path) -> list[Case]:
+# unit of a batch's build directory -> its cases; a batch built with `--only` has a subset of units
+BUILDERS = (
+    ("probe-smem_ldsts", smem_cases),
+    ("probe-shfl", shfl_cases),
+    ("probe-ex2_ffma", ex2_cases),
+    ("probe-namedbar", bar_cases),
+    ("probe-l1hit", l1_cases),
+    ("probe-store_tail", store_cases),
+    ("probe-l2share_copy", l2share_cases),
+    ("probe-dram_rotate", dram_cases),
+    ("probe-dram_rw", dram_rw_cases),
+    ("probe-dram_burst", dram_burst_cases),
+    ("probe-rot_depth", rot_depth_cases),
+    ("probe-spill", spill_cases),
+    ("probe-store_lines", store_lines_cases),
+    ("probe-warp_map", warp_map_cases),
+    ("probe-copy_dram", copy_dram_cases),
+    ("probe-store_spread", store_spread_cases),
+    ("probe-arith_beside", arith_beside_cases),
+    ("probe-first_reader", first_reader_cases),
+    ("probe-first_share", first_share_cases),
+    ("probe-load_curve", load_curve_cases),
+    ("probe-load_sat", load_sat_cases),
+    ("probe-copy_depth", copy_depth_cases),
+    ("probe-mma_ldsm", mma_ldsm_cases),
+    ("probe-spill_rw", spill_rw_cases),
+    ("probe-l2mix", l2mix_cases),
+    ("probe-mma_pair", mma_pair_cases),
+    ("probe-mma_types", mma_types_cases),
+    ("probe-row_reduce", row_reduce_cases),
+    ("probe-st256", st256_cases),
+    ("probe-branch", branch_cases),
+    ("probe-mma_issue", mma_issue_cases),
+    ("probe-lds_narrow", lds_narrow_cases),
+    ("probe-launch_short", launch_short_cases),
+    ("probe-mma_pipe", mma_pipe_cases),
+    ("probe-l2share_stages", l2stages_cases),
+    ("probe-l2reuse", l2reuse_cases),
+    ("probe-launch", launch_cases),
+    ("testset", kernel_cases),
+)
+
+
+def cases_by_builder(batch_dir: Path) -> list[tuple[str, list[Case]]]:
     b = load(batch_dir)
-    out: list[Case] = []
-    builders = [
-        ("probe-smem_ldsts", smem_cases),
-        ("probe-shfl", shfl_cases),
-        ("probe-ex2_ffma", ex2_cases),
-        ("probe-namedbar", bar_cases),
-        ("probe-l1hit", l1_cases),
-        ("probe-store_tail", store_cases),
-        ("probe-l2share_copy", l2share_cases),
-        ("probe-dram_rotate", dram_cases),
-        ("probe-dram_rw", dram_rw_cases),
-        ("probe-dram_burst", dram_burst_cases),
-        ("probe-rot_depth", rot_depth_cases),
-        ("probe-spill", spill_cases),
-        ("probe-store_lines", store_lines_cases),
-        ("probe-warp_map", warp_map_cases),
-        ("probe-copy_dram", copy_dram_cases),
-        ("probe-store_spread", store_spread_cases),
-        ("probe-arith_beside", arith_beside_cases),
-        ("probe-first_reader", first_reader_cases),
-        ("probe-first_share", first_share_cases),
-        ("probe-load_curve", load_curve_cases),
-        ("probe-load_sat", load_sat_cases),
-        ("probe-copy_depth", copy_depth_cases),
-        ("probe-mma_ldsm", mma_ldsm_cases),
-        ("probe-spill_rw", spill_rw_cases),
-        ("probe-l2mix", l2mix_cases),
-        ("probe-mma_pair", mma_pair_cases),
-        ("probe-mma_types", mma_types_cases),
-        ("probe-row_reduce", row_reduce_cases),
-        ("probe-st256", st256_cases),
-        ("probe-branch", branch_cases),
-        ("probe-mma_issue", mma_issue_cases),
-        ("probe-lds_narrow", lds_narrow_cases),
-        ("probe-launch_short", launch_short_cases),
-        ("probe-mma_pipe", mma_pipe_cases),
-        ("probe-l2share_stages", l2stages_cases),
-        ("probe-l2reuse", l2reuse_cases),
-        ("probe-launch", launch_cases),
-        ("testset", kernel_cases),
-    ]
-    for unit, f in builders:  # a batch built with `--only` has a subset of the units
-        if (b.build / unit).is_dir():
-            out += f(b)
+    return [(f.__name__, f(b)) for unit, f in BUILDERS if (b.build / unit).is_dir()]
+
+
+def all_cases(batch_dir: Path) -> list[Case]:
+    return [c for _, cases in cases_by_builder(batch_dir) for c in cases]
+
+
+@cache
+def _top_level() -> dict[str, ast.stmt]:
+    out: dict[str, ast.stmt] = {}
+    for n in ast.parse(Path(__file__).read_text()).body:
+        if isinstance(n, ast.FunctionDef | ast.ClassDef):
+            out[n.name] = n
+        elif isinstance(n, ast.Assign):
+            out.update((t.id, n) for t in n.targets if isinstance(t, ast.Name))
     return out
+
+
+@cache
+def code_key(builder: str) -> str:
+    """Digest of the definitions of this file a builder's rows reach: the builder and every
+    top-level name it reaches. Adding a probe here leaves the other rows' results valid."""
+    defs = _top_level()
+    seen: set[str] = set()
+    todo = [builder, "run_cases"]
+    while todo:
+        name = todo.pop()
+        if name in seen:
+            continue
+        seen.add(name)
+        todo += [n.id for n in ast.walk(defs[name]) if isinstance(n, ast.Name) and n.id in defs]
+    text = "\n".join(ast.unparse(defs[n]) for n in sorted(seen))
+    return hashlib.sha256(text.encode()).hexdigest()[:16]
 
 
 def run_case(case: Case, **kw: Any) -> tuple[float, Any, dict]:

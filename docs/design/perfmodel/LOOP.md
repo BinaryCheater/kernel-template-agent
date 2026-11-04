@@ -22,11 +22,11 @@ A probe answers one question; a round carries **as many probes as are ready**, i
 
 | Step | Who | What |
 | --- | --- | --- |
-| 1 | script | `scripts/perfmodel-table --top` prints the scorecard summary, the top rows with attribution and budget flags, and the fit-ledger line |
+| 1 | script | `scripts/perfmodel-table --top` prints, for the sentinels, the scorecard summary, the top rows with attribution and budget flags, and the fit-ledger line |
 | 2 | agent | pick the mechanisms by the selection rule (§3) — all that qualify, not one; for each, write the probe (copy the upstream pattern) and its entry block (mechanism, why now, two or more hypotheses with the numbers each predicts over the sweep, the engine's replay prediction) |
 | 3 | script | `scripts/perfmodel-measure <batch>` runs the batch on spark under the protocol (clock calibration, canaries, declared cache state, timing without the profiler, counters only from the profiler), validates it, and imports it; a batch without the entry block and the prediction is refused; an invalid batch is kept but never imported |
 | 4 | agent | compare measured with each hypothesis; change the parameter table, the description or the engine accordingly |
-| 5 | script | `scripts/perfmodel-table` reruns every probe and every kernel; the changed rows must improve and no other row may worsen beyond tolerance |
+| 5 | script | sentinels and `--focus` while iterating, `scripts/perfmodel-table --full` once at the end of the round: it reruns every probe and every kernel; the changed rows must improve and no other row may worsen beyond tolerance |
 | 6 | agent | append the round report (§6) to `STATE.md`, update the inventory row, commit |
 
 Rounds do not overlap. A round that cannot finish its step writes the report with "stopped at step N: <reason>" and ends. Time is spent on the GPU batch and on interpreting it, not on infrastructure: a script that does not exist yet is a thin wrapper over `scripts/remote-run` plus the checklist, written once, not a project.
@@ -69,8 +69,8 @@ Residual fits are allowed because the model is never finished. The rules:
 | Metric | Answers | Computed from |
 | --- | --- | --- |
 | absolute error: median and worst, with fits and mechanisms only | is the time right | every valid row |
-| rank correlation (Kendall τ, Spearman), **inversion count** and best variant among design variants of one shape | can it choose designs | the variant groups of the test set |
-| **what-if**: predicted vs measured change, direction count and magnitude error, by axis; a wrong direction goes to the top of the next selection | can it say what a change gains | one compiled change from a base in the same batch (launch.json `whatif`), first score and now |
+| **pairs ≥ 3 % apart ordered right, true best in the model's top 3, first pick's loss** (the targets, 28 §1); rank correlation (Kendall τ, Spearman), inversion count and best variant as records | can it choose designs | the variant groups of the test set |
+| **what-if**: predicted vs measured change, direction on changes ≥ 3 % and magnitude on changes ≥ 10 % (the targets), counts by axis; a wrong direction goes to the top of the next selection | can it say what a change gains | one compiled change from a base in the same batch (launch.json `whatif`), first score and now |
 | bottleneck agreement: the model's top critical-path unit vs the busiest counter pipe | is the bottleneck right | rows with counters |
 | counts check pass rate (R1) | is the execution path right | every kernel row |
 | **blind error**: the error of a row at its first scoring, kept forever | does the model generalise | every kernel or variant at the batch that first measures it, with the prediction committed before the run |
@@ -103,7 +103,11 @@ Only these: an administrative action on spark (clock setting, driver, packages);
 
 ## 8. Economy
 
-Read `STATE.md` top, the scorecard top, the inventory row. Do not re-read the design documents each round. Do not re-derive the engine's structure: ask the what-if script. Do not write documents other than the report. One GPU batch per round; put every queued measurement (new test kernels, re-measurements) into that same batch. Keep the round's commits small and named `PERFMODEL: round N — <batch>`. Predictions and table rows are independent replays: run them in parallel (the table's process pool), never one by one. While iterating use `scripts/perfmodel-table --sets batches --fast --top`; an ablation is `--sets batches --top --override '{...}'` and replays only the rows that read the parameter; the full table (no options) runs once, at the end of the round.
+Read `STATE.md` top, the scorecard top, the inventory row. Do not re-read the design documents each round. Do not re-derive the engine's structure: ask the what-if script. Do not write documents other than the report. One GPU batch per round; put every queued measurement (new test kernels, re-measurements) into that same batch. Keep the round's commits small and named `PERFMODEL: round N — <batch>`. Predictions and table rows are independent replays: run them in parallel (the table's process pool), never one by one.
+
+**Testing cost is a hard limit of a round** (user, 2026-11-05; round 10 spent 71 of 168 minutes in table runs). While iterating use `scripts/perfmodel-table [--focus REGEX] [--top]`: the sentinels of `perfmodel/sentinels.txt` (about 80 rows, about 5 % of replay CPU) plus the rows you name, at nice 19 on at most 6 processes. Sentinels show that something moved; they do not score anything. The full table is `scripts/perfmodel-table --full`: at most once per round, refused a second time, run on spark between GPU work, and only it writes `error-table.*`. The cache replays a row only if the replay code changed or a parameter that row read did, so `--focus`, reports and new probes cost nothing for the other rows. An ablation (`--override '{...}'`) is run only for a fit or a rule without a probe behind it (§5): a probe-backed change stays anyway. Every run appends rows, replays, CPU seconds and wall time to `perfmodel/table-runs.jsonl`, and the round report gives the round's total. A replay above 600 CPU seconds comes back `excluded`, never a hang.
+
+The scorecard's targets are 28 §1's (D828): pairs ≥ 3 % apart right, true best in the model's top 3, first pick's loss, what-if direction on changes ≥ 3 %, magnitude on changes ≥ 10 %. τ stays as a record.
 
 **The test set grows every round.** A mechanism no test kernel exercises is never selected, so a narrow test set hides whole classes of mechanisms. Every batch adds at least one kernel from the 28 §5 table that is not on the scorecard yet (low-precision kernels included), until the table is covered; kernels the engine cannot express go on the scorecard as `unsupported: <missing primitive>`.
 
