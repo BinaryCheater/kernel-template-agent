@@ -74,3 +74,33 @@ Beside it, the rows' own parts: `rmsb_m48/192_*`, `smb_*`: RMSNorm and softmax a
 ## Re-measurements
 
 `hgemm2048_*` warm and rotating (20 rows): how much of τ 0.60 is the batch's noise (five warm variants lie within 2 %); `wi_hg_{b,t256,s1,s2}`.
+
+## After the run (round 8, step 4–5)
+
+r8 valid: clock 2.491 → 2.476 GHz (−0.58 %), canaries +0.62 / +0.25 %. Invalid cases (`invalid_cases.json`): `copy_dram rot_*_g1`: at one block the start walks 28 MB and restarts per point, the reads hit what the previous point left.
+
+**warp_map**: H-across. ex2 at T 32: 9465, 9483, 9519, 17411 at n 1, 2, 4, 8; T 64: 9465, 9484, 17371; mma alike. H-local rejected. T 96 n 2 10233, below the 12.3 k four sub-partitions would need at 8 cycles: open, no row.
+
+**copy_dram**: 48 blocks cold 127 k, 129 k, 144 k, 417 k at Z 0, 64, 256, 1024, warm 17 k, 39 k, 110 k, 392 k: H-demand: max(rate, own path), not the sum (replay +23 to +78 %, now within 6 %). Latency, 16 blocks, large Z: cold − warm 1067 per step: 1420 from the L2's 350: neither 1560 nor 1100. Warm at 48 blocks also runs under the sum (21.2 k replayed, 17.3 k measured at Z 0).
+
+**arith_beside**: H-hide. Grid 512: L2 S0 5036, 5030, 5022 at A 0, 32, 128, 6260 at A 512; L2 S2 11.3 k flat; grid 96 grows with A. The replay had it right (median 3.4 %). A cumulative chip L2 rule like the DRAM one was tried for warm copy_dram and withdrawn: it put arith_beside −30 % and l2mix 22 %, against the same engine without it.
+
+**Rows' parts** (graph rows, µs, measured / replay): m48 base 1.85 / 1.69, no store 1.85 / 1.42, no compute 1.10 / 1.15, no load 1.23 / 1.30, arithmetic alone 0.82 / 0.95; m192 3.28 / 2.87, 2.38 / 1.90, 2.39 / 2.26, 2.67 / 2.57, 1.32 / 1.38. Each part alone is right; the gap needs loads and arithmetic together.
+
+**mma_ldsm**: H-overlap: T 128 L 32 1618, T 256 L 16 1128, replay 1529, 1115; streams alone within 5 %. So HGEMM t256 is not the pipe: open.
+
+**spill_rw**: stack stores cost alike with or without loads: 31.7 k / 31.9 k, 395 k / 396 k, 2.518 M / 2.522 M: H-store; 15.5, 48, 77 cycles per store at 64, 256, 1024 words: 396, 133, 79 B/clk, the last the DRAM write rate. H 32, H 128 at 1024 words 17–19: H-capacity survives (LRU). The compiler merged repeated loads and stores in a pass: `L4`, `S4` points equal `L1 S1`. Loads alone after a cyclic fill: 43 per load at one block, 132 at 48 blocks and 1 MB.
+
+**store_spread**: flat in ROW 128–8192 (13.0–14.1 k): H-extent rejected; H-partial: sectors several lanes fill in part 237–286 B/clk (L 4, L 2), 8 or more lanes to a sector 440; `store_lines` one lane per sector 433.
+
+**NVFP4 GEMM**, first score −33 to −37 %, R1 0 of 6: TileLang lowers the selects to per-lane branches (`BSSY`, `BSYNC`): intra-warp divergence, absent in the engine; lane 0 stands for the warp. The rows stay on the scorecard, not valid until R1 passes.
+
+**Re-measurement**: event `kernel` rows move up to 3 % at 230 µs (s1 rotating 226.5 → 233.8) and 10 % at 9 µs; graph rows within 1 %. Kendall τ of the measurement against itself: `kernel` against `graph` rows 0.78 warm, 1.0 rotating; r8 against r4 0.87, 0.82: τ ≥ 0.8 on 2048³ warm sits at that ceiling (12 % spread, five variants within 2 %).
+
+**Ablation, one change off, `--sets batches`** (final engine: HGEMM warm 2.5 % / −7.7 %, 0.73, 4; rotating 6.8 % / −8.8 %, 0.81, 3; 85 of 108). The three runs below were taken with the withdrawn L2 rule still on (then 83 of 108; HGEMM warm 3.8 % / −9.8 %, rotating 7.8 % / −11.1 %):
+
+| Off | Moves |
+| --- | --- |
+| DRAM by demand (D798) | copy_dram 4 → 10 %; decode −5.1 → +5.8 %, MoE +7.7 → +10.4 %; directions 83 |
+| copy latency 1560 (D799) | HGEMM warm worst −9.8 → −12.5 %; directions 83 → 82 |
+| warps across blocks (D797) | GEMV n_part 2, reduce 16 back to +67 to +73 % (r7 ablation); directions 83 → 84: rows where the old map cancelled another error |

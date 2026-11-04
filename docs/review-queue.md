@@ -1028,3 +1028,10 @@ Decisions made without the user that need review. Newest last. Each entry: quest
 - **Rationale:** the user asked to run the system through first and not chase small numerical bugs; the model-off verdict rested on six tied pairs.
 - **Cost of changing later:** one controls version turns the deferral off; the tolerance numbers live in the seed contracts (a new Contract and Case for a fresh store). Kernels without a library baseline still need a decision on the reference.
 
+## What-if reference for short kernels (D804, PERFMODEL round 8)
+
+- **Question:** which row is the measured change for kernels under 30 µs: the single-launch `kernel` row, or the graph row (50 launches)?
+- **Choice:** the scorecard's count stays on `kernel` rows; the graph reading is printed beside it (85 of 108 and 87 of 108 now).
+- **Rationale:** one event timing steps by about 0.96 µs: the same RMSNorm measured 8.6 and 9.6 µs across batches, so a −10 % change on a 9 µs kernel can be that step alone. Graph rows repeat within 1 %. But changing the reference changes a scorecard definition (LOOP §7).
+- **Cost of changing later:** one line in `table.whatif_pairs`; no re-measurement, the rows exist. The same question applies to τ: the warm 2048³ group's `kernel` rows reach τ 0.78 against its own graph rows, so ≥ 0.8 sits at the measurement's ceiling there.
+
