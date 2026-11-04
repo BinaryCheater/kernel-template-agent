@@ -1,0 +1,50 @@
+{
+ "family": "sequence",
+ "set": "breadth library",
+ "cache": "warm",
+ "rot": 1,
+ "buffers": {},
+ "kernels": [
+  {
+   "entry": "_Z10dot_kernelIdLi128ELi0E15cublasDotParamsI16cublasGemvTensorIKdE30cublasGemvTensorStridedBatchedIdEEEvT2_",
+   "grid": [
+    576,
+    1,
+    1
+   ],
+   "threads": 128,
+   "block": [
+    128,
+    1,
+    1
+   ],
+   "smem": 0,
+   "footprint_bytes": 1048576,
+   "write_bytes": 0,
+   "const_bank": {},
+   "reads": [],
+   "writes": []
+  },
+  {
+   "entry": "_Z20reduce_1Block_kernelIdLi128ELi7E30cublasGemvTensorStridedBatchedIdE16cublasGemvTensorIdES3_EvPKT_S4_T2_iS6_S4_T3_T4_19cublasPointerMode_t18cublasLtEpilogue_tS0_IKN8biasTypeINS9_10value_typeES4_E4typeEE",
+   "grid": [
+    1,
+    1,
+    1
+   ],
+   "threads": 128,
+   "block": [
+    128,
+    1,
+    1
+   ],
+   "smem": 0,
+   "footprint_bytes": 1048576,
+   "write_bytes": 0,
+   "const_bank": {},
+   "reads": [],
+   "writes": []
+  }
+ ],
+ "entry": "_Z10dot_kernelIdLi128ELi0E15cublasDotParamsI16cublasGemvTensorIKdE30cublasGemvTensorStridedBatchedIdEEEvT2_"
+}

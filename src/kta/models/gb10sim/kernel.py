@@ -206,8 +206,10 @@ def machine_trips(ins: list[Ins]) -> int | None:
 
 
 def grid_bank(L: dict[str, Any]) -> dict[tuple[int, int], int]:
-    """gridDim as the kernel reads it (constant bank 0, TileLang's raster panels divide by it)."""
-    return {(0, 0x370 + 4 * i): int(v) for i, v in enumerate((*L["grid"], 1, 1)[:3])}
+    """gridDim as the kernel reads it (constant bank 0, TileLang's raster panels divide by it),
+    and the launch's arguments where they were captured (`const_bank`: offset -> word)."""
+    bank = {(0, int(k)): int(v) for k, v in L.get("const_bank", {}).items()}
+    return {**bank, **{(0, 0x370 + 4 * i): int(v) for i, v in enumerate((*L["grid"], 1, 1)[:3])}}
 
 
 _l2_cache: dict[tuple, Any] = {}

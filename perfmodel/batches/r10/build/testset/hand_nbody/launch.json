@@ -1,0 +1,19 @@
+{
+ "entry": "k_nbody",
+ "grid": [
+  64,
+  1,
+  1
+ ],
+ "threads": 256,
+ "block": [
+  256
+ ],
+ "smem": 0,
+ "rot": 1,
+ "footprint_bytes": 2097152,
+ "write_bytes": 1048576,
+ "family": "hand",
+ "set": "breadth hand",
+ "cache": "warm"
+}

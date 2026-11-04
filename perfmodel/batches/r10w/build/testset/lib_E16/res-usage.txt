@@ -1,0 +1,2 @@
+Function _Z11asum_kernelIiffEv16cublasAsumParamsIT0_T1_E: REG:16
+Function _Z11asum_kernelIiffEv16cublasAsumParamsIT0_T1_E: REG:16

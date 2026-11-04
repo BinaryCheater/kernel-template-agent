@@ -1,0 +1,19 @@
+{
+ "entry": "k_stress0",
+ "grid": [
+  48,
+  1,
+  1
+ ],
+ "threads": 64,
+ "block": [
+  64
+ ],
+ "smem": 0,
+ "rot": 1,
+ "footprint_bytes": 17825792,
+ "write_bytes": 1048576,
+ "family": "stress",
+ "set": "breadth stress",
+ "cache": "warm"
+}

@@ -1,0 +1,79 @@
+{
+ "family": "sequence",
+ "set": "breadth library",
+ "cache": "warm",
+ "rot": 1,
+ "buffers": {},
+ "kernels": [
+  {
+   "entry": "_ZN3cub18CUB_300001_SM_12106detail6reduce18DeviceReduceKernelINS2_10policy_hubIljN4cuda3std3__44plusIvEEE10Policy1000EN6thrust24THRUST_300001_SM_1210_NS18transform_iteratorI13ReadStrided64NSD_17counting_iteratorIiNSD_11use_defaultESH_SH_EESH_SH_EEjS9_lNS7_10__identityEEEvT0_PT3_T1_NS0_13GridEvenShareISO_EET2_T4_",
+   "grid": [
+    480,
+    1,
+    1
+   ],
+   "threads": 512,
+   "block": [
+    512,
+    1,
+    1
+   ],
+   "smem": 0,
+   "footprint_bytes": 1048576,
+   "write_bytes": 0,
+   "const_bank": {
+    "896": 0,
+    "900": 0,
+    "904": 786432000,
+    "908": 3,
+    "912": 4,
+    "916": 64868,
+    "920": 1054867968,
+    "924": 3,
+    "928": 16777216,
+    "932": 4682,
+    "936": 362,
+    "940": 35840,
+    "944": 32256,
+    "948": 1297408,
+    "952": 16777216,
+    "956": 480,
+    "960": 16777216,
+    "964": 16777216,
+    "968": 0
+   },
+   "reads": [],
+   "writes": []
+  },
+  {
+   "entry": "_ZN3cub18CUB_300001_SM_12106detail6reduce28DeviceReduceSingleTileKernelINS2_10policy_hubIljN4cuda3std3__44plusIvEEE10Policy1000EPlSC_iS9_llNS7_10__identityEEEvT0_T1_T2_T3_T4_T6_",
+   "grid": [
+    1,
+    1,
+    1
+   ],
+   "threads": 512,
+   "block": [
+    512,
+    1,
+    1
+   ],
+   "smem": 0,
+   "footprint_bytes": 1048576,
+   "write_bytes": 0,
+   "const_bank": {
+    "896": 1054867968,
+    "900": 3,
+    "904": 1054867456,
+    "908": 3,
+    "912": 480,
+    "916": 0,
+    "920": 0,
+    "924": 0
+   },
+   "reads": [],
+   "writes": []
+  }
+ ],
+ "entry": "_ZN3cub18CUB_300001_SM_12106detail6reduce18DeviceReduceKernelINS2_10policy_hubIljN4cuda3std3__44plusIvEEE10Policy1000EN6thrust24THRUST_300001_SM_1210_NS18transform_iteratorI13ReadStrided64NSD_17counting_iteratorIiNSD_11use_defaultESH_SH_EESH_SH_EEjS9_lNS7_10__identityEEEvT0_PT3_T1_NS0_13GridEvenShareISO_EET2_T4_"
+}

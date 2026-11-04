@@ -1,0 +1,20 @@
+{
+ "entry": "k_sobel",
+ "grid": [
+  127,
+  127,
+  1
+ ],
+ "threads": 256,
+ "block": [
+  16,
+  16
+ ],
+ "smem": 0,
+ "rot": 1,
+ "footprint_bytes": 20971520,
+ "write_bytes": 16777216,
+ "family": "hand",
+ "set": "breadth hand",
+ "cache": "warm"
+}
