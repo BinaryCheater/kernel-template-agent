@@ -1044,12 +1044,14 @@ class SM:
                 # round 7 (probes l2mix, store_lines): the chip's limit counts the 32-byte sectors
                 # the lanes touch, one rate for every width, behind a store buffer
                 by_sector = P["stg_by_sectors"]
+                rate = P[f"stg_chip_B_per_clk_{w_}"]  # the lanes unknown: by width, as measured
                 if addr0 is not None and by_sector:
+                    rate = P["stg_chip_B_per_clk"]
                     nbytes = footprint(addr0, width_of(x.op))[1] * 32
-                chip = nbytes / (
-                    P["stg_chip_B_per_clk" if by_sector else f"stg_chip_B_per_clk_{w_}"]
-                    / self.active_sms
-                )
+                    # lanes spread over rows (TileLang's tile store): the rate of probe store_tail
+                    if max(addr0[1]) - min(addr0[1]) > P["stg_wide_extent_B"]:
+                        rate = P["stg_chip_wide_B_per_clk"]
+                chip = nbytes / (rate / self.active_sms)
                 start = max(now, t["store_port"])
                 if P["l2_chip_read_share"] > 0 and chip >= pair:
                     # at the chip's limit reads and stores share one L2 path, the stores behind
@@ -1058,7 +1060,7 @@ class SM:
                 per = max(pair, chip)
                 if by_sector:
                     done = max(t["stg_chip"], start) + chip
-                    start = max(start, done - P["stg_burst_bytes"] / P["stg_chip_B_per_clk"])
+                    start = max(start, done - P["stg_burst_bytes"] / rate)
                     t["stg_chip"] = done
                     per = pair
                 t["store_port"] = start + per
