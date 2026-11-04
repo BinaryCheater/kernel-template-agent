@@ -701,7 +701,8 @@ def first_share_cases(b: Batch) -> list[Case]:
     `share`, the waves of `seq` on one block per SM, the steps of `pieces` on one block."""
 
     def wave(rot, d, m):
-        """A wave reading 48 / d tiles: every slice misses when rotating, d blocks read it."""
+        """A wave reading 48 / d tiles: every slice misses when rotating, d blocks read it (`seq`:
+        twice the blocks in flight, as a wave's rate)."""
         rb = 48 / d * FIRST_SHARE_BLOCK
         clk = dram_clk(rb, dram_mix_secs(rb, 0, m), 48, m)
         return (1.0 if rot else 0.0, 0.0, d, 1, clk)
@@ -730,24 +731,24 @@ def first_share_cases(b: Batch) -> list[Case]:
 
     def seq(rot, w, part):
         cid = f"first_share {'rot' if rot else 'warm'}_seq_w{w}_{part}"
-        probe, ins = _unit_ins(b, cid, "_Z5shareILi0ELi1ELi48EEvPyPKcPf")
+        probe, ins = _unit_ins(b, cid, "_Z5shareILi0ELi4ELi96EEvPyPKcPf")
 
         def build(**kw):
             m = kw.get("machine") or default_machine()
-            first = wave(rot, 1, m)
+            first = wave(rot, 4, m)
             later = (0.0, *first[1:])
-            f = 1.0 / w if rot else 0.0
+            f = 1.0 / (4 * w) if rot else 0.0
             return BlockMarked(
                 ins,
                 128,
-                w,
+                2 * w,
                 16,
                 active_sms=48,
                 copy_lines=[4],
                 copies_a=8,
-                resident=1,
-                grid_blocks=48 * w,
-                grid_dim=(48 * w, 1, 1),
+                resident=2,
+                grid_blocks=96 * w,
+                grid_dim=(96 * w, 1, 1),
                 wave_miss=[first, *[later] * (w - 1)] if m.P["miss_by_wave"] else None,
                 miss_frac=f,
                 dram_clk_per_512B=first[4],
@@ -755,7 +756,7 @@ def first_share_cases(b: Batch) -> list[Case]:
             )
 
         def read(sm, r):
-            k = 0 if part == "first" else w - 1
+            k = 0 if part == "first" else 2 * w - 2
             v = sm.bmarks.get(k, [])
             return v[-1] - v[0] if len(v) > 1 else float("nan")
 

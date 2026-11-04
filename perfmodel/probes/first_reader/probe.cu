@@ -2,8 +2,9 @@
 // latency, no miss-status entry yet). One block of 4 warps. Per step, after a block barrier, warp 1
 // (the lead) reads 4 lines, warp 0 (the follower) waits Z FFMA passes and reads the same 4 lines,
 // timed by its own clock around the load. LEAD 0: the follower alone, the control at every Z.
-// KIND 0 plain LDG (through the L1), KIND 1 cp.async (past the L1). rot: lines no launch has read
-// since the L2 last held them; warm: the same lines every launch.
+// KIND 0 plain LDG (through the L1; `volatile` loads go past it, r9), KIND 1 cp.async (past the L1).
+// rot: a 32 MiB read between launches puts the lines out of the L2 (r9's walk wrapped and re-read
+// them); warm: the same lines every launch.
 // Reported: the follower's cycles per step.
 #include "../common.cuh"
 typedef unsigned long long u64;
@@ -14,6 +15,22 @@ __device__ __forceinline__ void cp16(unsigned dst, const void* src) {
 __device__ __forceinline__ void cpwait() {
   asm volatile("cp.async.commit_group;" ::: "memory");
   asm volatile("cp.async.wait_group 0;" ::: "memory");
+}
+// a read of every line of 32 MiB between timed launches: what a rotating launch reads is out of the L2
+__global__ void __launch_bounds__(1024, 1) flush(const char* p, unsigned* sink) {
+  const size_t i = (size_t)(blockIdx.x * 1024 + threadIdx.x) * 384;
+  unsigned s = 0;
+  for (int k = 0; k < 3; k++) {
+    unsigned v;
+    asm volatile("ld.global.u32 %0, [%1];" : "=r"(v) : "l"(p + i + k * 128) : "memory");
+    s += v;
+  }
+  if (s == 0x12345) sink[0] = s;
+}
+__device__ __forceinline__ float ld(const char* p) {
+  float v;
+  asm volatile("ld.global.f32 %0, [%1];" : "=f"(v) : "l"(p) : "memory");
+  return v;
 }
 template <int Z, int KIND, int LEAD>
 __global__ void __launch_bounds__(T, 1) k(u64* out, const char* src, float* sink) {
@@ -31,7 +48,7 @@ __global__ void __launch_bounds__(T, 1) k(u64* out, const char* src, float* sink
         cp16(sm + 512 + lane * 16, p);
         cpwait();
       } else {
-        f += *(const volatile float*)p;
+        f += ld(p);
       }
     }
     if (w == 0) {
@@ -42,7 +59,7 @@ __global__ void __launch_bounds__(T, 1) k(u64* out, const char* src, float* sink
         cp16(sm + lane * 16, p);
         cpwait();
       } else {
-        float v = *(const volatile float*)p;
+        float v = ld(p);
         if (v == 1.2345f) sink[0] = v;
       }
       acc += clock64() - c0;
@@ -51,22 +68,23 @@ __global__ void __launch_bounds__(T, 1) k(u64* out, const char* src, float* sink
   if (t == 0) out[0] = acc;
   if (f == 1.2345f) sink[0] = f;
 }
-static size_t off = 0;
 int main() {
   u64* o;
   char* src;
+  char* other;
   float* sink;
-  const size_t W = 224ull << 20;
+  const size_t W = 1 << 20, F = 32 << 20;
   CK(cudaMalloc(&o, 8));
-  CK(cudaMalloc(&src, W + (1 << 20)));
+  CK(cudaMalloc(&src, W));
+  CK(cudaMalloc(&other, F));
   CK(cudaMalloc(&sink, 4));
-  CK(cudaMemset(src, 1, W + (1 << 20)));
+  CK(cudaMemset(src, 1, W));
+  CK(cudaMemset(other, 1, F));
   auto point = [&](auto kern, const char* kind, int z, int lead, bool rot) {
-    size_t base = 0;
     Stat s = repeat([&] {
-      kern<<<1, T, 1024>>>(o, src + (rot ? off : base), sink);
+      if (rot) flush<<<112, 1024>>>(other, (unsigned*)sink);
+      kern<<<1, T, 1024>>>(o, src, sink);
       CK(cudaDeviceSynchronize());
-      if (rot) off = (off + (2 << 20)) % W;
       u64 h;
       CK(cudaMemcpy(&h, o, 8, cudaMemcpyDeviceToHost));
       return (double)h / STEPS;

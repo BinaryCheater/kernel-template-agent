@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from kta.models.gb10sim import probeset
+from kta.models.gb10sim.machine import default_machine
 from kta.models.gb10sim.probes import Case
 
 R1 = Path(__file__).resolve().parents[2] / "perfmodel" / "batches" / "r1"
@@ -81,3 +82,27 @@ def test_ldg_sectors_from_lane_addresses_match_the_profiler(cases_r3, unit: str)
     inst = c["smsp__inst_executed.sum"] / grid
     assert sm.count["ldg_sectors"] / sm.blocks == pytest.approx(sect, rel=0.02)
     assert sm.count["issued"] / sm.blocks == pytest.approx(inst, rel=0.02)
+
+
+R8 = R1.parent / "r8"
+R9 = R1.parent / "r9"
+
+
+def test_a_branch_on_loaded_data_runs_both_arms() -> None:
+    """Round 9 (question 31): NVFP4's sign branches split the lanes; the replay's instructions are
+    the counter's only with both arms."""
+    cid = "nvfp4gemm2048_c128x128x32_s3_t128_warm kernel"
+    case = next(c for c in probeset.all_cases(R8) if c.id == cid)
+    _, sm, _ = probeset.run_case(case)
+    assert sm.count["issued"] / sm.blocks == pytest.approx(312596, rel=0.01)
+    off = default_machine().with_overrides({"sim.intra_warp_divergence": False})
+    _, plain, _ = probeset.run_case(case, machine=off)
+    assert plain.count["issued"] / plain.blocks < 0.8 * sm.count["issued"] / sm.blocks
+
+
+def test_a_follower_waits_for_the_fill_and_no_longer() -> None:
+    """Round 9 (questions 8, 27): the second reader of a line on its way, by its delay."""
+    cases = {c.id: c for c in probeset.first_reader_cases(probeset.load(R9))}
+    v = [probeset.run_case(cases[f"first_reader rot_ldg_z{z}_lead"])[0] for z in (0, 16, 64)]
+    assert v[0] > v[1] > v[2]
+    assert v[2] < 0.1 * v[0]
