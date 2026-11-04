@@ -709,7 +709,7 @@ def whatif_pairs(rows: list[dict[str, Any]], root: Path = BATCHES) -> list[dict[
     """One record per variant marked `whatif` in its launch.json: predicted against measured delta
     from the `kernel` rows, at first score and now."""
     by_id = {r["id"]: r for r in rows}
-    out = []
+    out: dict[str, dict[str, Any]] = {}  # a variant measured again keeps one record, the latest
     for d in sorted(root.iterdir(), key=lambda p: batch_order(p.name)):
         for lj in sorted((d / "build" / "testset").glob("*/launch.json")):
             w = json.loads(lj.read_text()).get("whatif")
@@ -721,19 +721,17 @@ def whatif_pairs(rows: list[dict[str, Any]], root: Path = BATCHES) -> list[dict[
             meas = b["measured"] / a["measured"] - 1
             first = (b.get("blind_predicted") or 0) / (a.get("blind_predicted") or 1) - 1
             now = b["predicted"] / a["predicted"] - 1
-            out.append(
-                {
-                    "id": lj.parent.name,
-                    "base": w["base"],
-                    "axis": w["axis"],
-                    "measured": meas,
-                    "first": first,
-                    "now": now,
-                    "first_ok": _direction(first, meas),
-                    "now_ok": _direction(now, meas),
-                }
-            )
-    return out
+            out[lj.parent.name] = {
+                "id": lj.parent.name,
+                "base": w["base"],
+                "axis": w["axis"],
+                "measured": meas,
+                "first": first,
+                "now": now,
+                "first_ok": _direction(first, meas),
+                "now_ok": _direction(now, meas),
+            }
+    return list(out.values())
 
 
 def _direction(pred: float, meas: float) -> bool:

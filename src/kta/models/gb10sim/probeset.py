@@ -30,7 +30,6 @@ from .l2 import replay_walk, walk
 from .l2 import rotating_miss as l2_rotating_miss
 from .l2 import warm_miss as l2_warm_miss
 from .machine import Machine, default_machine
-from .model import C
 from .probes import Case, ClockMarked, marked_cycles
 from .sass import Ins, main_loop, parse
 from .sm import SM
@@ -601,6 +600,140 @@ def spill_cases(b: Batch) -> list[Case]:
     ]
 
 
+def warp_map_cases(b: Batch) -> list[Case]:
+    """Round 8: which sub-partition a block's warps go to (probe warp_map)."""
+    out = []
+    for name, kern, pts in (
+        ("ex2", "x", ((32, 1), (32, 2), (32, 4), (32, 8), (64, 1), (64, 2), (64, 4), (96, 1))),
+        ("ex2", "x", ((96, 2), (128, 1), (128, 2))),
+        ("mma", "m", ((32, 1), (32, 2), (32, 4), (64, 1), (64, 2), (64, 4), (128, 1), (128, 2))),
+    ):
+        for t, n in pts:
+            cid = f"warp_map {name}_t{t}_n{n}"
+            out.append(_span_case(b, cid, f"_Z1{kern}ILi{t}EEvPyPf", t, 48 * n))
+    return out
+
+
+COPY_DRAM_BYTES = 8 * 128 * 16 * 16  # per block: copies, threads, bytes, steps
+
+
+def copy_dram_cases(b: Batch) -> list[Case]:
+    """Round 8: one-stage cp.async from DRAM with arithmetic between the steps (probe copy_dram):
+    every read of a `rot` launch misses, every read of a `warm` launch hits."""
+
+    def case(rot, z, g):
+        cid = f"copy_dram {'rot' if rot else 'warm'}_z{z}_g{g}"
+        probe, ins = _unit_ins(b, cid, f"_Z1kILi{z}EEvPyPKcPf")
+
+        def build(**kw):
+            m = kw.get("machine") or default_machine()
+            rb = g * COPY_DRAM_BYTES
+            return BlockMarked(
+                ins,
+                128,
+                1,
+                16,
+                active_sms=g,
+                copy_lines=[4],
+                miss_frac=1.0 if rot else 0.0,
+                dram_clk_per_512B=dram_clk(rb, dram_mix_secs(rb, 0, m), g, m),
+                **kw,
+            )
+
+        return _case(b, cid, probe, 4, "cycles", build, _span)
+
+    return [case(r, z, g) for r in (0, 1) for g in (1, 16, 48) for z in (0, 64, 256, 1024)]
+
+
+STORE_SPREAD_POINTS = (
+    *((4, r, 16) for r in (128, 256, 512, 1024, 2048, 4096, 8192)),
+    (4, 4096, 32),
+    (4, 4096, 8),
+    (2, 4096, 8),
+    (8, 4096, 32),
+    (16, 4096, 64),
+    (32, 4096, 128),
+    (8, 512, 32),
+    (16, 512, 64),
+    (32, 512, 128),
+)
+
+
+def store_spread_cases(b: Batch) -> list[Case]:
+    """Round 8: 4-byte stores, lanes in rows (probe store_spread)."""
+    return [
+        _span_case(
+            b, f"store_spread L{ln}_R{r}_S{st}_g{g}", f"_Z1kILi{ln}ELi{r}ELi{st}EEvPyPjS1_", 128, g
+        )
+        for ln, r, st in STORE_SPREAD_POINTS
+        for g in (256, 512)
+    ]
+
+
+ARITH_POINTS = (
+    *((2, 0, a) for a in (0, 32, 128, 512)),
+    *((2, 2, a) for a in (0, 32, 128, 512)),
+    *((0, 2, a) for a in (32, 128, 512)),
+)
+
+
+def arith_beside_cases(b: Batch) -> list[Case]:
+    """Round 8: FFMA between loads and stores of a row kernel's shape (probe arith_beside)."""
+    return [
+        _span_case(
+            b,
+            f"arith_beside L{ld}_S{st}_A{a}_g{g}",
+            f"_Z1kILi{ld}ELi{st}ELi{a}EEvPyPKyS0_Pj",
+            128,
+            g,
+        )
+        for ld, st, a in ARITH_POINTS
+        for g in (96, 512)
+    ]
+
+
+def mma_ldsm_cases(b: Batch) -> list[Case]:
+    """Round 8: one tile's ldmatrix and mma per pass over 64-512 threads (probe mma_ldsm)."""
+    pts = ((64, 128), (128, 64), (256, 32), (512, 16))
+    return [
+        _marked(
+            b,
+            f"mma_ldsm t{t}_L{ld}_M{mm}",
+            f"_Z1kILi{t}ELi{ld}ELi{mm}EEvPyPf",
+            t,
+            32,
+            "cycles/pass",
+        )
+        for k in (0, 8, 32)
+        for t, mm in pts
+        for ld in (mm * k // 64,)
+    ]
+
+
+SPILL_RW_POINTS = (
+    *((n, ld, st, 0) for n in (64, 256) for ld, st in ((1, 0), (0, 1), (1, 1), (4, 1), (1, 4))),
+    *((1024, ld, st, 0) for ld, st in ((1, 0), (0, 1), (1, 1), (4, 1))),
+    *((1024, ld, 1, h) for ld in (1, 4) for h in (32, 128)),
+)
+
+
+def spill_rw_cases(b: Batch) -> list[Case]:
+    """Round 8: stack loads and stores apart (probe spill_rw)."""
+    return [
+        _span_case(
+            b,
+            f"spill_rw n{n}_L{ld}_S{st}_H{h}_g{g}",
+            f"_Z1kILi256ELi{n}ELi{ld}ELi{st}ELi{h}EEvPyPjjj",
+            256,
+            g,
+            0,
+            n * 4,
+        )
+        for n, ld, st, h in SPILL_RW_POINTS
+        for g in (1, 48)
+    ]
+
+
 STORE_LINE_POINTS = (
     *((x, 32, 32) for x in (1, 2, 3, 4, 6, 8)),
     *((x, 16, 16) for x in (2, 4, 8)),
@@ -934,10 +1067,9 @@ def _hgemm_case(
         7,
         "us",
         build,
-        lambda sm, r: r["us"]
-        - _launch_diff(b, sm)
-        - sm.m.C["launch_stream_us"]
-        + _launch_event(sm.m),
+        lambda sm, r: (
+            r["us"] - _launch_diff(b, sm) - sm.m.C["launch_stream_us"] + _launch_event(sm.m)
+        ),
         limit=0,
     )
 
@@ -1192,6 +1324,12 @@ def all_cases(batch_dir: Path) -> list[Case]:
         ("probe-rot_depth", rot_depth_cases),
         ("probe-spill", spill_cases),
         ("probe-store_lines", store_lines_cases),
+        ("probe-warp_map", warp_map_cases),
+        ("probe-copy_dram", copy_dram_cases),
+        ("probe-store_spread", store_spread_cases),
+        ("probe-arith_beside", arith_beside_cases),
+        ("probe-mma_ldsm", mma_ldsm_cases),
+        ("probe-spill_rw", spill_rw_cases),
         ("probe-l2mix", l2mix_cases),
         ("probe-mma_pair", mma_pair_cases),
         ("probe-mma_types", mma_types_cases),

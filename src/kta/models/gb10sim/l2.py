@@ -204,7 +204,7 @@ class Replay:
     reads: float  # bytes one launch reads from DRAM with none of its data in the L2
     footprint: float  # distinct bytes read
     loaded: float  # bytes the blocks load (each block's lines per step)
-    miss_by_pc: dict[int, float]  # per load instruction, the fraction of its lines that miss
+    miss_by_pc: dict[int, float]  # per load instruction, the fraction of its L1 misses that miss
     waves: list[float]
     base_by_pc: dict[int, Any] = field(default_factory=dict)  # per load, its address's base
 
@@ -259,6 +259,7 @@ def replay_walk(acc: Access, in_flight: int, cap: float) -> Replay:
     r_pc: dict[int, float] = {}
     l_pc: dict[int, float] = {}
     waves: list[float] = []
+    held: dict[tuple, Any] = {}  # per block in flight, the lines its L1 holds
 
     def touch(g: _Group, wave: list[tuple], trip: int) -> None:
         nonlocal reads, loaded
@@ -284,7 +285,9 @@ def replay_walk(acc: Access, in_flight: int, cap: float) -> Replay:
                 loaded += n / len(wave)
             u, first = np.unique(flat, return_index=True)  # the block's distinct lines
             own = g.pc[idx[first]]
-            pcs, n = np.unique(own, return_counts=True)
+            new = ~np.isin(u, held[block]) if block in held else np.ones(len(u), dtype=bool)
+            held[block] = np.union1d(held[block], u) if block in held else u
+            pcs, n = np.unique(own[new], return_counts=True)
             for pc, c in zip(pcs.tolist(), n.tolist(), strict=True):
                 l_pc[pc] = l_pc.get(pc, 0.0) + c * LINE
             loaded += len(u) * LINE
@@ -306,8 +309,17 @@ def replay_walk(acc: Access, in_flight: int, cap: float) -> Replay:
             touch(groups[1], wave, t)
         touch(groups[2], wave, 0)
         waves.append(reads - before)
-    miss = {pc: min(1.0, r_pc.get(pc, 0.0) / v) for pc, v in l_pc.items() if v}
+        held.clear()
     base = {e.pc: e.base for e in acc.loads}
+    # round 8: a line goes to the first load that touches it, and several loads share lines: the
+    # fraction is the buffer's, every load of it pays it on what passes its L1
+    r_b: dict[Any, float] = {}
+    l_b: dict[Any, float] = {}
+    for pc, v in l_pc.items():
+        l_b[base[pc]] = l_b.get(base[pc], 0.0) + v
+    for pc, v in r_pc.items():
+        r_b[base[pc]] = r_b.get(base[pc], 0.0) + v
+    miss = {pc: min(1.0, r_b.get(b, 0.0) / l_b[b]) for pc, b in base.items() if l_b.get(b)}
     return Replay(reads, len(seen) * LINE, loaded, miss, waves, base)
 
 

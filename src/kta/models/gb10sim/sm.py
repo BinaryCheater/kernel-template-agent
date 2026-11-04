@@ -136,7 +136,13 @@ class SM:
         wpb = threads // 32
         for b in range(blocks):
             for w in range(wpb):
-                self.warps.append(Warp(wid=len(self.warps), block=b, smsp=w % n))
+                self.warps.append(
+                    Warp(
+                        wid=len(self.warps),
+                        block=b,
+                        smsp=(len(self.warps) if P["warp_smsp_across_blocks"] else w) % n,
+                    )
+                )
         self.wpb = wpb
         self.blocks = blocks
         # block replacement: `blocks` run on this SM, at most `resident` at a time; when one exits

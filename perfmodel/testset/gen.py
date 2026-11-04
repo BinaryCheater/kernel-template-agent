@@ -70,6 +70,23 @@ W4GEMM = {
     "c64x128x32_s4_t128": (64, 128, 32, 4, 128),
 }
 W4GEMM_GROUP = 32
+# round 8: NVFP4 GEMM (28 §5), dequantised in the main loop, 16 elements per scale
+NVFP4_BLOCK = 16
+NVFP4 = {
+    "c128x128x32_s3_t128": (128, 128, 32, 3, 128),
+    "c128x128x32_s2_t128": (128, 128, 32, 2, 128),
+    "c64x128x32_s4_t128": (64, 128, 32, 4, 128),
+}
+# round 8: what a row kernel's parts cost away from the chip's limits: one (48) and four (192)
+# blocks per SM, one change at a time from the row at that size (question 27)
+WI_ROWS_M = (48, 192)
+WI_RMSB = {
+    "b": ({}, "base"),
+    "nostore": ({"store": "shared"}, "stores removed"),
+    "nocompute": ({"compute": False}, "compute removed"),
+    "noload": ({"load": False}, "loads removed"),
+    "arith": ({"load": False, "store": "shared"}, "loads and stores removed"),
+}
 MOE = {"E": 8, "T": 2048, "N": 1024, "K": 2048}
 MOE_TILES = {
     "c128x128x32_s3_t128": (128, 128, 32, 3, 128),
@@ -618,6 +635,7 @@ def rmsnorm(
     compute: bool = True,
     store: str = "global",
     dtype: str = "float16",
+    load: bool = True,
 ):
     """RMSNorm with weight (TileLang's examples/norm/rms_norm.py, fp16 in and out): one row per
     block of 128 threads, the row in registers, an fp32 sum of squares."""
@@ -633,7 +651,11 @@ def rmsnorm(
             sq = T.alloc_fragment((1, N), "float")
             ss = T.alloc_fragment((1,), "float")
             o_shared = T.alloc_shared((1, N), dtype) if store == "shared" else None
-            T.copy(X[bx : bx + 1, :], x)
+            if load:
+                T.copy(X[bx : bx + 1, :], x)
+            else:  # round 8: the arithmetic alone
+                for i, j in T.Parallel(1, N):
+                    x[i, j] = T.Cast(dtype, j)
             if compute:
                 for i, j in T.Parallel(1, N):
                     sq[i, j] = T.Cast("float", x[i, j]) * T.Cast("float", x[i, j])
@@ -641,15 +663,51 @@ def rmsnorm(
                 for i in T.Parallel(1):
                     ss[i] = T.rsqrt(ss[i] / N + 1e-6)
                 for i, j in T.Parallel(1, N):
-                    x[i, j] = T.Cast(
-                        dtype, T.Cast("float", x[i, j]) * ss[i] * T.Cast("float", W[j])
-                    )
+                    wj = T.Cast("float", W[j]) if load else T.Cast("float", x[i, j])
+                    x[i, j] = T.Cast(dtype, T.Cast("float", x[i, j]) * ss[i] * wj)
             if store == "shared":
                 T.copy(x, o_shared)
             else:
                 T.copy(x, Y[bx : bx + 1, :])
 
     return rms
+
+
+def nvfp4gemm(BM: int, BN: int, BK: int, S: int, threads: int, compute: bool = True):
+    """GEMM with an NVFP4 B dequantised in the main loop (round 8): e2m1 elements, two per byte, one
+    scale per 16 elements along K; sm_121a's ptxas refuses the block-scaled mma, so the elements and
+    their scale are expanded to fp16 by the block's threads, then an fp16 mma (the w4gemm shape)."""
+    M, N, K = SHAPE["M"], SHAPE["N"], SHAPE["K"]
+    SC = BK // NVFP4_BLOCK
+
+    @T.prim_func
+    def gemm(
+        A: T.Tensor((M, K), "float16"),
+        Bq: T.Tensor((N, K // 2), "int8"),
+        Sc: T.Tensor((N, K // NVFP4_BLOCK), "float16"),
+        C: T.Tensor((M, N), "float16"),
+    ):
+        with T.Kernel(T.ceildiv(N, BN), T.ceildiv(M, BM), threads=threads) as (bx, by):
+            A_shared = T.alloc_shared((BM, BK), "float16")
+            Bq_shared = T.alloc_shared((BN, BK // 2), "int8")
+            Sc_shared = T.alloc_shared((BN, SC), "float16")
+            B_shared = T.alloc_shared((BN, BK), "float16")
+            C_local = T.alloc_fragment((BM, BN), "float32")
+            T.clear(C_local)
+            for ko in T.Pipelined(T.ceildiv(K, BK), num_stages=S):
+                T.copy(A[by * BM, ko * BK], A_shared)
+                T.copy(Bq[bx * BN, ko * (BK // 2)], Bq_shared)
+                T.copy(Sc[bx * BN, ko * BK // NVFP4_BLOCK], Sc_shared)
+                for i, j in T.Parallel(BN, BK):
+                    x = (T.Cast("int32", Bq_shared[i, j // 2]) >> ((j % 2) * 4)) & 15
+                    e, m = (x >> 1) & 3, x & 1
+                    mag = T.if_then_else(e > 0, (2 + m) << (e - 1), m)
+                    v = T.Cast("float16", mag) * T.float16(0.5)
+                    B_shared[i, j] = T.if_then_else(x >= 8, -v, v) * Sc_shared[i, j // NVFP4_BLOCK]
+                T.gemm(A_shared, B_shared, C_local, transpose_B=True)
+            T.copy(C_local, C[by * BM, bx * BN])
+
+    return gemm
 
 
 def softmax(M: int, N: int, threads: int = 128, store: str = "global"):
@@ -1090,6 +1148,8 @@ def main(out: Path) -> None:
         ("blind", _blind),
         ("whatif", _whatif),
         ("blind7", _blind7),
+        ("rows8", _rows8),
+        ("nvfp4", _nvfp4),
     ):
         try:  # a kernel that fails to generate is reported; the others stand
             gen(out)
@@ -1303,6 +1363,45 @@ def _w4gemm(out: Path) -> None:
     for name, tile in W4GEMM.items():
         for cache in ("warm", "rotating"):
             _w4(out, f"w4gemm2048_{name}_{cache}", tile, cache)
+
+
+def _rows8(out: Path) -> None:
+    for m in WI_ROWS_M:
+        sh = {"M": m, "N": ROWS["N"]}
+        for v, (kw, axis) in WI_RMSB.items():
+            more = _wi(v, f"rmsb_m{m}_b", axis)
+            _rms(out, f"rmsb_m{m}_{v}", sh, "warm", kw, set=f"rmsnorm m{m}", **more)
+        for v, (kw, axis) in (("b", ({}, "base")), ("nostore", WI_RMSB["nostore"])):
+            more = _wi(v, f"smb_m{m}_b", axis)
+            _softmax(out, f"smb_m{m}_{v}", sh, kw, set=f"softmax m{m}", **more)
+
+
+def _nv(out: Path, name: str, tile: tuple, cache: str) -> None:
+    bm, bn, bk, s, th = tile
+    M, N, K = SHAPE["M"], SHAPE["N"], SHAPE["K"]
+    sizes, eb = [M * K, N * K // 2, N * K // NVFP4_BLOCK, M * N], [2, 1, 2, 2]
+    write(
+        out,
+        name,
+        nvfp4gemm(bm, bn, bk, s, th),
+        sizes,
+        _tiles(M, N, bm, bn),
+        th,
+        {
+            "family": "nvfp4gemm",
+            "shape": SHAPE,
+            "pick": _pick(bm, bn, bk, s, th),
+            "cache": cache,
+        },
+        elem_bytes=eb,
+        rot=_rots(cache, sum(x * b for x, b in zip(sizes, eb, strict=True))),
+    )
+
+
+def _nvfp4(out: Path) -> None:
+    for name, tile in NVFP4.items():
+        for cache in ("warm", "rotating"):
+            _nv(out, f"nvfp4gemm2048_{name}_{cache}", tile, cache)
 
 
 if __name__ == "__main__":
