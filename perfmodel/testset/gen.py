@@ -1277,7 +1277,7 @@ def _source_kernel(out: Path, name: str, src: str, grid, block, sizes, family: s
     args = ", ".join(f"({t})b[{i}]" for i, t in enumerate(types))
     d = out / name
     d.mkdir(parents=True, exist_ok=True)
-    (d / "kernel.cu").write_text(src)
+    (d / "kernel.cu").write_text(src.replace("__global__", 'extern "C" __global__', 1))
     g, b = (", ".join(str(x) for x in v) for v in (grid, block))
     (d / "harness.cu").write_text(
         HARNESS
