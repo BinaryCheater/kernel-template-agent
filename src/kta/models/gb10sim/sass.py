@@ -86,7 +86,7 @@ def parse(text: str, kernel: str | None = None) -> list[Ins]:
                 for lab in pending:
                     labels[lab] = addr
                 pending = []
-                if op.startswith("BRA"):
+                if op.startswith(("BRA", "BSSY")):
                     t = re.search(r"\(([.A-Za-z0-9_]+)\)", args)
                     tgt = t.group(1) if t else None
                     if tgt is None:

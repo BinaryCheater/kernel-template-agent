@@ -647,6 +647,148 @@ def copy_dram_cases(b: Batch) -> list[Case]:
     return [case(r, z, g) for r in (0, 1) for g in (1, 16, 48) for z in (0, 64, 256, 1024)]
 
 
+FIRST_READER_Z = (0, 16, 32, 64, 128, 256)
+FIRST_STEPS = 64
+
+
+def first_reader_cases(b: Batch) -> list[Case]:
+    """Round 9: a follower warp reads the lines a lead warp read Z passes earlier (probe
+    first_reader): cycles per step of warp 0 between its clock reads."""
+
+    def per_step(sm, r):
+        return (
+            sum(q - p for p, q in zip(sm.marks[0::2], sm.marks[1::2], strict=False)) / FIRST_STEPS
+        )
+
+    def case(rot, kind, z, lead):
+        cid = f"first_reader {'rot' if rot else 'warm'}_{kind}_z{z}_{'lead' if lead else 'alone'}"
+        k = 0 if kind == "ldg" else 1
+        name = f"_Z1kILi{z}ELi{k}ELi{1 if lead else 0}EEvPyPKcPf"
+        probe, ins = _unit_ins(b, cid, name)
+        miss = {i: 1.0 if rot else 0.0 for i, x in enumerate(ins) if x.base in ("LDG", "LDGSTS")}
+        pcs = dict(miss)
+
+        def build(**kw):
+            m = kw.get("machine") or default_machine()
+            return ClockMarked(
+                ins,
+                T_FIRST,
+                1,
+                FIRST_STEPS,
+                copy_lines=[4],
+                miss_by_pc=pcs,
+                dram_clk_per_512B=dram_clk(FIRST_STEPS * 512, dram_mix_secs(512, 0, m), 1, m),
+                **kw,
+            )
+
+        return _case(b, cid, probe, 4, "cycles", build, per_step)
+
+    return [
+        case(r, kind, z, lead)
+        for r in (0, 1)
+        for z in FIRST_READER_Z
+        for kind in ("ldg", "cp")
+        for lead in (1, 0)
+    ]
+
+
+T_FIRST = 128
+FIRST_SHARE_BLOCK = 8 * 128 * 16 * 16  # copies, threads, bytes, steps
+
+
+def first_share_cases(b: Batch) -> list[Case]:
+    """Round 9: shared tiles at the chip's scale (probe first_share): the wave of 48 blocks of
+    `share`, the waves of `seq` on one block per SM, the steps of `pieces` on one block."""
+
+    def wave(rot, d, m):
+        """A wave reading 48 / d tiles: every slice misses when rotating, d blocks read it."""
+        rb = 48 / d * FIRST_SHARE_BLOCK
+        clk = dram_clk(rb, dram_mix_secs(rb, 0, m), 48, m)
+        return (1.0 if rot else 0.0, 0.0, d, 1, clk)
+
+    def share(rot, d, z):
+        cid = f"first_share {'rot' if rot else 'warm'}_share_d{d}_z{z}"
+        probe, ins = _unit_ins(b, cid, f"_Z5shareILi{z}ELi{d}ELi0EEvPyPKcPf")
+
+        def build(**kw):
+            m = kw.get("machine") or default_machine()
+            return BlockMarked(
+                ins,
+                128,
+                1,
+                16,
+                active_sms=48,
+                copy_lines=[4],
+                copies_a=8,
+                wave_miss=[wave(rot, d, m)] if m.P["miss_by_wave"] else None,
+                miss_frac=(1.0 / d if rot else 0.0),
+                dram_clk_per_512B=wave(rot, d, m)[4],
+                **kw,
+            )
+
+        return _case(b, cid, probe, 4, "cycles", build, _span)
+
+    def seq(rot, w, part):
+        cid = f"first_share {'rot' if rot else 'warm'}_seq_w{w}_{part}"
+        probe, ins = _unit_ins(b, cid, "_Z5shareILi0ELi1ELi48EEvPyPKcPf")
+
+        def build(**kw):
+            m = kw.get("machine") or default_machine()
+            first = wave(rot, 1, m)
+            later = (0.0, *first[1:])
+            f = 1.0 / w if rot else 0.0
+            return BlockMarked(
+                ins,
+                128,
+                w,
+                16,
+                active_sms=48,
+                copy_lines=[4],
+                copies_a=8,
+                resident=1,
+                grid_blocks=48 * w,
+                grid_dim=(48 * w, 1, 1),
+                wave_miss=[first, *[later] * (w - 1)] if m.P["miss_by_wave"] else None,
+                miss_frac=f,
+                dram_clk_per_512B=first[4],
+                **kw,
+            )
+
+        def read(sm, r):
+            k = 0 if part == "first" else w - 1
+            v = sm.bmarks.get(k, [])
+            return v[-1] - v[0] if len(v) > 1 else float("nan")
+
+        return _case(b, cid, probe, 4, "cycles", build, read)
+
+    def pieces(rot, s):
+        cid = f"first_share {'rot' if rot else 'warm'}_pieces_s{s}"
+        probe, ins = _unit_ins(b, cid, f"_Z6piecesILi{s}EEvPyPKcPf")
+
+        def build(**kw):
+            m = kw.get("machine") or default_machine()
+            rb = 128 * 64 * 16
+            return BlockMarked(
+                ins,
+                128,
+                1,
+                64,
+                copy_lines=[1],
+                miss_frac=1.0 if rot else 0.0,
+                dram_clk_per_512B=dram_clk(rb, dram_mix_secs(rb, 0, m), 1, m),
+                **kw,
+            )
+
+        return _case(b, cid, probe, 4, "cycles", build, lambda sm, r: _span(sm, r) / 64)
+
+    return [
+        *(share(r, d, 0) for r in (0, 1) for d in (1, 2, 4, 8, 16, 48)),
+        *(share(r, d, 256) for r in (0, 1) for d in (1, 4, 16, 48)),
+        *(seq(r, w, p) for r in (0, 1) for w in (2, 4) for p in ("first", "last")),
+        *(pieces(r, s) for r in (0, 1) for s in (16, 32, 64, 128)),
+    ]
+
+
 STORE_SPREAD_POINTS = (
     *((4, r, 16) for r in (128, 256, 512, 1024, 2048, 4096, 8192)),
     (4, 4096, 32),
@@ -1333,6 +1475,8 @@ def all_cases(batch_dir: Path) -> list[Case]:
         ("probe-copy_dram", copy_dram_cases),
         ("probe-store_spread", store_spread_cases),
         ("probe-arith_beside", arith_beside_cases),
+        ("probe-first_reader", first_reader_cases),
+        ("probe-first_share", first_share_cases),
         ("probe-mma_ldsm", mma_ldsm_cases),
         ("probe-spill_rw", spill_rw_cases),
         ("probe-l2mix", l2mix_cases),

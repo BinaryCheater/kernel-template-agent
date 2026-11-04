@@ -553,6 +553,77 @@ def _ranks(rs: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def measurements(root: Path = BATCHES) -> dict[str, list[dict[str, Any]]]:
+    """Per row, every valid batch's measurement of it, in batch order."""
+    out: dict[str, list[dict[str, Any]]] = {}
+    for d in sorted(root.iterdir(), key=lambda p: batch_order(p.name)):
+        mp = d / "measured.json"
+        if not mp.exists():
+            continue
+        doc = json.loads(mp.read_text())
+        if not doc.get("valid"):
+            continue
+        for cid, v in doc["results"].items():
+            if v.get("median", 0) > 0:
+                out.setdefault(cid, []).append({"batch": d.name, **v})
+    return out
+
+
+def _spread(ms: list[dict[str, Any]]) -> tuple[float, float]:
+    """A row's measured range: its batches' medians, each widened by half its IQR."""
+    return (
+        min(m["median"] - m.get("iqr", 0.0) / 2 for m in ms),
+        max(m["median"] + m.get("iqr", 0.0) / 2 for m in ms),
+    )
+
+
+def repeatability(
+    rs: list[dict[str, Any]], meas: dict[str, list[dict[str, Any]]]
+) -> dict[str, Any]:
+    """The measurement's own ranking limit (round 9), a record beside τ: τ between every two batches
+    that measured the whole group, or between odd and even samples when one batch did; and how many
+    of the pairs the model orders the other way lie inside the rows' measured spread. The raw τ and
+    the 0.8 target are not changed by it."""
+    ids = [r["id"] for r in rs]
+    per = {i: {m["batch"]: m for m in meas.get(i, [])} for i in ids}
+    common = [b for b in (per[ids[0]] if ids else {}) if all(b in per[i] for i in ids)]
+    taus = [
+        kendall([per[i][a]["median"] for i in ids], [per[i][b]["median"] for i in ids])
+        for x, a in enumerate(common)
+        for b in common[x + 1 :]
+    ]
+    how = "batches"
+    if not taus and common:
+        odd, even = [], []
+        for i in ids:
+            sm = per[i][common[-1]].get("samples") or []
+            odd.append(statistics.median(sm[0::2]) if len(sm) > 1 else float("nan"))
+            even.append(statistics.median(sm[1::2]) if len(sm) > 1 else float("nan"))
+        if all(x == x for x in odd + even):
+            taus, how = [kendall(odd, even)], "samples"
+    within = above = 0
+    for i, a in enumerate(rs):
+        for b in rs[i + 1 :]:
+            if (a["measured"] - b["measured"]) * (a["predicted"] - b["predicted"]) >= 0:
+                continue
+            la, ha = _spread(meas.get(a["id"]) or [{"median": a["measured"]}])
+            lb, hb = _spread(meas.get(b["id"]) or [{"median": b["measured"]}])
+            if la <= hb and lb <= ha:
+                within += 1
+            else:
+                above += 1
+    item: dict[str, Any] = {
+        "within_spread": within,
+        "above_spread": above,
+        "n_repeats": len(common),
+    }
+    if taus:
+        item.update(
+            tau_median=statistics.median(taus), tau_min=min(taus), tau_max=max(taus), how=how
+        )
+    return item
+
+
 def _design_group(group: str) -> bool:
     """Design variants of one shape (the what-if sets are one change each, ablations among them)."""
     return group.endswith("full") or (group.startswith("testset") and "whatif" not in group)
@@ -610,6 +681,7 @@ def default_jobs() -> int:
 
 def summary(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     out = []
+    meas = measurements()
     for group in dict.fromkeys(r["set"] for r in rows):
         rs = [r for r in rows if r["set"] == group and not r["excluded"]]
         if not rs:
@@ -635,6 +707,7 @@ def summary(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 inversions=ranks["inversions"],
                 kendall=ranks["kendall"],
                 best=ranks["best"],
+                repeat=repeatability(rs, meas),
             )
             if len(em) == len(rs):
                 rm = [{**r, "predicted": r["predicted_mech"]} for r in rs]
@@ -816,10 +889,16 @@ def summary_line(s: dict[str, Any]) -> str:
     bl = ""
     if "blind_median" in s:
         bl = f"{100 * s['blind_median']:.1f} % / {_pct(s['blind_worst'])}"
+    rp = s.get("repeat") or {}
+    ct = ""
+    if "tau_median" in rp:
+        ct = f"{rp['tau_median']:.2f} ({rp['tau_min']:.2f}–{rp['tau_max']:.2f}, {rp['n_repeats']}"
+        ct += " batches)" if rp["how"] == "batches" else " batch, samples)"
+    sprd = f"{rp['within_spread']} / {rp['above_spread']}" if rp else ""
     return (
         f"| {s['set']} | {s['n']} | {s['excluded']} | {100 * s['median_abs']:.1f} % | "
-        f"{_pct(s['worst'])} | {mm} | {mw} | {bl} | {s['within_10']} | {sp} | {kt} | {bv} | {inv} "
-        f"| {ms} | {r1} | {bn} |"
+        f"{_pct(s['worst'])} | {mm} | {mw} | {bl} | {s['within_10']} | {sp} | {kt} | {ct} | {bv} | "
+        f"{inv} | {sprd} | {ms} | {r1} | {bn} |"
     )
 
 
@@ -859,9 +938,10 @@ def render(doc: dict[str, Any], top: int = 15) -> str:
         "",
         "| Set | n | excluded | median abs error | worst | median, mechanisms only | "
         "worst, mechanisms only | blind median / worst | within 10 % | Spearman | Kendall τ | "
-        "best variant | inversions | Spearman / inversions, mechanisms only | counts check (R1) | "
-        "bottleneck agrees |",
-        "| --- " + "| ---: " * 15 + "|",
+        "τ between repeats (ceiling, a record) | best variant | inversions | "
+        "reversed pairs within / above the measured spread | "
+        "Spearman / inversions, mechanisms only | counts check (R1) | bottleneck agrees |",
+        "| --- " + "| ---: " * 17 + "|",
     ]
     for s in doc["summary"]:
         lines.append(summary_line(s))

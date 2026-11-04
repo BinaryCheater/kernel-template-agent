@@ -31,7 +31,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from .lanes import Lanes, footprint, shared_part_sector, width_of
+from .lanes import Lanes, footprint, lut3, shared_part_sector, width_of
 from .machine import Machine, OpClass, default_machine
 from .sass import Ins, main_loop, parse
 
@@ -71,6 +71,10 @@ class Warp:
     bar_src: list[Any] = field(default_factory=list)
     lanes: Any = None
     stack_seq: dict = field(default_factory=dict)
+    # round 9: predicates that split the lanes, and the open BSSY regions: [reconvergence index,
+    # the other arm's index or None]
+    mixed: set[str] = field(default_factory=set)
+    ssy: list[list[Any]] = field(default_factory=list)
 
 
 class SM:
@@ -100,6 +104,8 @@ class SM:
         addr_log: list | None = None,
         miss_by_pc: dict[int, float] | None = None,
         stack_bytes: int | None = None,
+        wave_miss: list[tuple] | None = None,
+        copies_a: int = 0,
     ):
         self.ins = ins
         # KTA (PERFMODEL): with `trace`, every issue and the binding reason of every wait is kept
@@ -214,6 +220,13 @@ class SM:
         # copies
         self.miss_frac = miss_frac
         self.miss_acc = 0.0
+        # round 9: per wave of blocks (a resident's worth on this SM) what kernel.wave_slices gives;
+        # `copies_a` of a step's copies read the A slice
+        self.wave_miss = wave_miss
+        self.copies_a = copies_a
+        self.slice_acc = [0.0, 0.0]
+        self.first_acc = [0.0, 0.0]
+        self.slice_now: dict[tuple[int, int], tuple[int, bool, bool]] = {}
         # KTA (PERFMODEL round 5, l2.py): misses per load instruction, from the kernel's addresses
         self.miss_by_pc = miss_by_pc
         self.miss_acc_pc: dict[int, float] = {}
@@ -266,6 +279,9 @@ class SM:
         )
         bd = tuple([*(block_dim or (threads,)), 1, 1][:3])
         self.l1: OrderedDict = OrderedDict()
+        self.l1_fill: dict[Any, float] = {}
+        self.line_fill: dict[Any, float] = {}
+        self.l1_wait, self.l1_new = 0.0, []
         self.l1_lines = (l1_bytes if l1_bytes is not None else m.C["l1_unified_bytes"]) // 128
         # global atomics: lines one warp instruction touches (8 for a C tile added from mma
         # accumulators: 8 rows x 32 B)
@@ -300,6 +316,7 @@ class SM:
             lines = len(keys)
         self.count["ldg_sectors"] += n_sect
         hits = 0
+        self.l1_wait, self.l1_new = 0.0, []
         if addr is not None and all(sym[0] == "c" for sym, _ in addr[0]):
             # round 5 (probe row_reduce): the L1 fills sectors; a line hits only for those it holds
             for k, mask in keys.items():
@@ -307,7 +324,11 @@ class SM:
                 if have and mask & ~have == 0:
                     hits += 1
                     self.l1.move_to_end(k)
+                    # round 9 (probe first_reader): a miss-status entry per line: a hit on a line
+                    # still on its way waits for the first reader's fill
+                    self.l1_wait = max(self.l1_wait, self.l1_fill.get(k, 0.0))
                 else:
+                    self.l1_new.append(k)
                     self.l1[k] = have | mask
                     self.l1.move_to_end(k)
                     if len(self.l1) > self.l1_lines:
@@ -329,6 +350,28 @@ class SM:
         up later (a step takes the larger of the rate and its own path, no sum). Without the rule
         the SM's share restarts at each burst."""
         return self.t["dram_queue"] if self.P["dram_by_demand"] else start
+
+    def _slice_state(self, w: Warp, copy: int) -> str:
+        """Round 9 (probe first_reader, questions 8, 30): misses come by slice, not by copy. A
+        slice the wave's blocks read together is in the L2 or it is not; when it is not, one block
+        in `readers` sends the reads to DRAM, the others wait on the same fills."""
+        nc = len(self.copy_lines)
+        step, part = copy // nc, 0 if copy % nc < self.copies_a else 1
+        wave = self.wave_miss[min(w.block // self.resident, len(self.wave_miss) - 1)]
+        self.dram_clk0 = wave[4]
+        self.dram_clk = wave[4] * self.active_sms / self.eq0
+        now = self.slice_now.get((w.block, part))
+        if now is None or now[0] != step:
+            self.slice_acc[part] += wave[part]
+            out = self.slice_acc[part] >= 1.0
+            self.slice_acc[part] -= 1.0 if out else 0.0
+            first = False
+            if out:
+                self.first_acc[part] += 1.0 / wave[2 + part]
+                first = self.first_acc[part] >= 1.0
+                self.first_acc[part] -= 1.0 if first else 0.0
+            now = self.slice_now[(w.block, part)] = (step, out, first)
+        return ("miss" if now[2] else "wait") if now[1] else "hit"
 
     def _l2_miss(self, pc: int) -> bool:
         """This load misses the L2: misses spread evenly over the load's executions."""
@@ -503,7 +546,7 @@ class SM:
                     self._val(w, args[4]),
                 )
                 if None not in (a, b, c, lut):
-                    v = _lut3(a, b, c, lut)
+                    v = lut3(a, b, c, lut)
             elif x.base in ("SEL", "USEL") and len(args) >= 4:
                 pv = self._pred(w, args[3])
                 a, b = self._val(w, args[1]), self._val(w, args[2])
@@ -579,7 +622,7 @@ class SM:
                 if None in (a, b, c, lut):
                     w.preds.pop(args[0], None)
                 else:
-                    w.preds[args[0]] = _lut3(a, b, c, lut) != 0
+                    w.preds[args[0]] = lut3(a, b, c, lut) != 0
         elif x.base == "LOP3" and args and args[0].startswith("P"):
             # LOP3.LUT Pd, Rd, Ra, Rb, Rc, lut, Pq: Pd = (lut(Ra, Rb, Rc) != 0)
             if (
@@ -590,7 +633,7 @@ class SM:
                 and self._imm(args[5]) is not None
             ):
                 a, b, c, lut = w.tid0, self._imm(args[3]), 0, self._imm(args[5])
-                w.preds[args[0]] = _lut3(a, b, c, lut) != 0
+                w.preds[args[0]] = lut3(a, b, c, lut) != 0
             else:
                 w.preds.pop(args[0], None)
         elif x.base == "PLOP3":
@@ -702,6 +745,8 @@ class SM:
             # the guard as the lane tracking sees it: none, known false, known true or unknown
             runs = True if not x.pred else (False if not executes else pv)
             pend = w.lanes.step(x.base, x.op, x.args.split(","), w.vals, runs)
+        if w.lanes is not None and P["intra_warp_divergence"]:
+            self._track_mixed(w, x)
         self._eval_pred_ops(w, x)
         if pend is not None:
             pend(w.vals)
@@ -768,10 +813,52 @@ class SM:
             if tr:
                 self._rel(w, x.rbar, rel, now, stages)
 
+    def _track_mixed(self, w: Warp, x: Ins) -> None:
+        """Round 9 (NVFP4 GEMM, question 31): which predicates split the warp's lanes, from the
+        tracked lane values; a value from a load counts as splitting (a visible default)."""
+        args = [a.strip() for a in x.args.split(",")]
+        if x.base not in ("ISETP", "LOP3", "PLOP3") or not re.match(r"^P\d$", args[0]):
+            if args and args[0] in w.mixed and x.base not in ("BRA", "BSSY"):
+                w.mixed.discard(args[0])
+            return
+        if x.base == "PLOP3":
+            hit = any(a.lstrip("!") in w.mixed for a in args[2:5])
+        else:
+            hit = bool(w.lanes.pred_mixed(x.base, x.op, args, w.vals))
+        (w.mixed.add if hit else w.mixed.discard)(args[0])
+
+    def _diverges(self, w: Warp, x: Ins) -> bool:
+        """A forward conditional branch in a BSSY region whose predicate splits the lanes."""
+        return bool(
+            w.ssy
+            and x.pred
+            and x.pred.lstrip("@!") in w.mixed
+            and x.target is not None
+            and x.target > x.addr
+            and w.ssy[-1][1] is None
+        )
+
     def _next_pc(self, w: Warp, x: Ins) -> None:
         """The k-loop back edge is taken trips-1 times; other branches fall through unless
         unconditional. BRA.DIV is taken only if the warp's lanes have diverged: warps here stay
-        converged."""
+        converged. Round 9 (question 31): a branch that splits the lanes runs both arms, one after
+        the other, inside its BSSY region; memory instructions in an arm stay at all 32 lanes."""
+        if self.P["intra_warp_divergence"] and w.lanes is not None:
+            if x.base == "BSSY" and x.target is not None:
+                w.ssy.append([self.at[x.target], None])
+            elif x.base == "BSYNC" and w.ssy:
+                frame = w.ssy[-1]
+                if frame[1] is not None:
+                    w.pc, frame[1] = frame[1], None
+                    return
+                w.ssy.pop()
+                w.pc = frame[0]
+                return
+            elif x.base == "BRA" and self._diverges(w, x):
+                self._dflt("branch_fallback", "lanes split: both arms")
+                w.ssy[-1][1] = self.at[x.target]
+                w.pc += 1
+                return
         if x.base != "BRA" or x.op.startswith("BRA.DIV"):
             w.pc += 1
             return
@@ -922,6 +1009,14 @@ class SM:
         # the load unit's address stage: one 128-byte line per cycle; the copy reads its address
         # registers there
         lines = self.copy_lines[w.ncopy % len(self.copy_lines)]
+        state = self._slice_state(w, w.ncopy) if self.wave_miss else None
+        keys: tuple = ()
+        if state is None and addr0 is not None and P["l1_pending_fill"]:
+            # round 9 (probe first_reader): a miss-status entry per line: a line this SM has sent
+            # for is not sent for again, its next reader waits for the fill
+            keys = tuple(footprint(addr0, width_of(x.op))[0])
+            if all(k in self.line_fill for k in keys):
+                state = "wait"
         w.ncopy += 1
         if self.copy_default:
             self._dflt("front_end", "copy_lines (4 lines per copy)")
@@ -929,7 +1024,7 @@ class SM:
         t["lsu"] = t_lsu + lines * P["lsu_clk_per_line"]
         self.busy["lsu"] = self.busy.get("lsu", 0) + lines
         lsu_done = t["lsu"]
-        if self._l2_miss(w.pc):
+        if state == "miss" if state else self._l2_miss(w.pc):
             t_l = lsu_done + P["ldgsts_dram_latency_clk"]
             t_d = max(t_l, t["dram_queue"])
             t["dram_queue"] = self._dram_after(t_d) + self.dram_clk
@@ -939,11 +1034,24 @@ class SM:
                 (lsu_done, t_l, "dram", "DRAM latency", "sim.ldgsts_dram_latency_clk"),
                 (t_l, t_d, "dram_queue", "queue (DRAM share)", None),
             )
+        elif state == "wait" and keys:
+            arrive = max(lsu_done + P["ldgsts_l2_latency_clk"], *(self.line_fill[k] for k in keys))
+            lat = ((lsu_done, arrive, "l2", "wait on a fill", "sim.ldgsts_l2_latency_clk"),)
+        elif state == "wait":
+            t_l = lsu_done + P["ldgsts_dram_latency_clk"]
+            arrive = max(t_l, t["dram_queue"])
+            lat = (
+                (lsu_done, t_l, "dram", "wait on a fill", "sim.ldgsts_dram_latency_clk"),
+                (t_l, arrive, "dram_queue", "queue (DRAM share)", None),
+            )
         else:
             arrive = lsu_done + P["ldgsts_l2_latency_clk"]
             lat = ((lsu_done, arrive, "l2", "L2 latency", "sim.ldgsts_l2_latency_clk"),)
         ret = max(arrive, t["l2_return"])
         t["l2_return"] = ret + self.ret_clk
+        if state is None:
+            for k in keys:
+                self.line_fill[k] = arrive
         if self._chip_bound():
             t["l2_chip"] = max(t["l2_chip"], now) + P["l2_chip_read_share"] * self.ret_clk
         self.busy["fill"] += self.ret_clk
@@ -986,6 +1094,8 @@ class SM:
             t1 = max(lsu_done, t["l1"])
             t["l1"] = t1 + hit_lines * P["l1_clk_per_line"]
             lat_done = t["l1"] + P["l1_hit_latency_clk"]
+            if P["l1_pending_fill"] and self.l1_wait > lat_done:
+                lat_done = self.l1_wait
             if trr is not None:
                 trw = [
                     *trr,
@@ -1020,6 +1130,8 @@ class SM:
                         self._return_stage(arrive, ret),
                         (ret, lat_done, "l2_return", "transfer", "sim.l2_return_clk_per_512B"),
                     ]
+            for k in self.l1_new:
+                self.l1_fill[k] = t["l2_return"]
         return lat_done, lsu_done, trw, trr
 
     def _stack_hit(self, w: Warp, x: Ins) -> bool:
@@ -1346,15 +1458,6 @@ class SM:
             "assumed_latency": self.assumed_latency,
             "defaults": self.defaults,
         }
-
-
-def _lut3(a: int, b: int, c: int, lut: int) -> int:
-    """The bitwise three-input function `lut` of the LOP3 family."""
-    v = 0
-    for bit in range(32):
-        i = (((a >> bit) & 1) << 2) | (((b >> bit) & 1) << 1) | ((c >> bit) & 1)
-        v |= ((lut >> i) & 1) << bit
-    return v
 
 
 def _stack_bytes(ins: list[Ins]) -> int:

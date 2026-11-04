@@ -123,6 +123,9 @@ HGEMM_BLIND7 = {
     "c128x128x32_s3_t128_sw8": (128, 128, 32, 3, 128, 8),
     "c128x256x32_s3_t256_sw4": (128, 256, 32, 3, 256, 4),
 }
+# round 9: a shape not on the scorecard, N twice M, the blocks' aspect the other way round
+HGEMM_BLIND9_SHAPE = {"M": 1536, "N": 3072, "K": 2048}
+HGEMM_BLIND9 = {k: v for k, v in HGEMM_BLIND7.items() if k != "c256x256x32_s2_t256"}
 FA_BLIND7 = {"B": 1, "S": 1536, "H": 12, "D": 96}
 # BM, BN, stages, threads
 FA_BLIND7_V = {
@@ -1150,6 +1153,7 @@ def main(out: Path) -> None:
         ("blind7", _blind7),
         ("rows8", _rows8),
         ("nvfp4", _nvfp4),
+        ("blind9", _blind9),
     ):
         try:  # a kernel that fails to generate is reported; the others stand
             gen(out)
@@ -1305,6 +1309,12 @@ def _blind7(out: Path) -> None:
             _fa(out, cid, f, set=f"fa {b['S']}x{b['H']}x{b['D']}")
         except Exception:  # noqa: BLE001 - a tile TileLang refuses leaves the group
             print(f"FAILED fa {name}")
+
+
+def _blind9(out: Path) -> None:
+    """Round 9: a new shape for the blind score; predictions committed before the run."""
+    for name, tile in HGEMM_BLIND9.items():
+        _hgemm_group(out, HGEMM_BLIND9_SHAPE, name, tile)
 
 
 def _gemv(out: Path) -> None:

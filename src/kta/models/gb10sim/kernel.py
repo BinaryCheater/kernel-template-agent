@@ -127,6 +127,21 @@ def wave_dram(
     return wave["A"] + wave["B"], secs
 
 
+def wave_slices(h: dict, KT: int, wave: dict, reads: float, cold: float, clk: float) -> tuple:
+    """Round 9 (probe first_reader): what one wave's blocks meet, per tile (A, B): the fraction of
+    the distinct slices that miss, the blocks that read each slice together, the DRAM clock. A
+    warm launch scales the cold misses by `reads / cold`."""
+    bm, bn, bk = h["block_M"], h["block_N"], h["block_K"]
+    f = reads / cold if cold else 0.0
+    return (
+        min(1.0, f * wave["A"] / (wave["rows"] * KT * bm * bk * 2)),
+        min(1.0, f * wave["B"] / (wave["cols"] * KT * bk * bn * 2)),
+        wave["blocks"] / wave["rows"],
+        wave["blocks"] / wave["cols"],
+        clk,
+    )
+
+
 def dram_mix_secs(read_bytes: float, write_bytes: float, m: Machine) -> float:
     """Seconds of DRAM time for a rotating stream of reads and writes (round 4, probe dram_rw):
     the reads at dram_read_GBs, the writes at dram_write_GBs when `sim.dram_writes_paced`, else
@@ -186,13 +201,20 @@ def simulate_kernel(
     sp = dram_split_kslice(h, shape, SMS * Rmax, MC["l2_effective_bytes"])
     # block replacement on the busiest SM: a new block starts when one exits
     rb = secs = 0.0
+    per_wave = []
     for wv in sp["waves"]:
         r_, s_ = wave_dram(h, shape, wv, warm, m)
         rb += r_
         secs += s_
+        per_wave.append((wv, r_, s_))
     copy_bytes = tiles * KT * (h["block_M"] + h["block_N"]) * h["block_K"] * 2
     miss = min(1.0, rb / copy_bytes) if copy_bytes else 0.0
     eq = min(tiles, SMS * Rmax) / min(Rmax, math.ceil(tiles / SMS))
+    # round 9 (probe first_reader): the wave that first reads a slice takes its misses
+    wave_miss = [
+        wave_slices(h, KT, wv, r_, wv["A"] + wv["B"], dram_clk(r_, s_, eq, m))
+        for wv, r_, s_ in per_wave
+    ]
     sm = SM(
         ins,
         h["threads"],
@@ -202,6 +224,8 @@ def simulate_kernel(
         copy_lines=copy_lines(h),
         miss_frac=miss,
         dram_clk_per_512B=dram_clk(rb, secs, eq, m),
+        wave_miss=wave_miss if m.P["miss_by_wave"] else None,
+        copies_a=max(1, h["block_M"] * h["block_K"] * 2 // 16 // h["threads"]),
         ctile_bytes=min(h["block_M"], M) * min(h["block_N"], N) * 2,
         ldsm_ways=ldsm_ways(h),
         resident=Rmax,

@@ -317,6 +317,42 @@ class Lanes:
             return (keep, tuple(out))
         return None
 
+    def pred_mixed(self, base: str, op: str, args: list[str], vals: dict[str, Any]) -> bool | None:
+        """Round 9: does a predicate write split the warp's lanes? True: the lanes' values give
+        both outcomes, or the value is data the replay does not know (a load's); False: all lanes
+        agree; None: not a compare of lane values."""
+        if base == "ISETP":
+            src, lut = args[2:4], None
+        elif base == "LOP3":
+            src, lut = args[2:5], self.get(args[5], vals)
+        else:
+            return None
+        g = [self.get(t, vals) for t in src]
+        if any(x is None for x in g):
+            return True
+        if any(not self.exact(x) for x in g):
+            return False if all(self.uniform(x) for x in g) else True
+        if lut is not None:
+            k = lut[1][0]
+            out = {lut3(*(x[1][i] for x in g), k) != 0 for i in LANES}
+        else:
+            m = re.match(r"ISETP\.(\w+)(\.U32)?", op)
+            if not m:
+                return None
+            cmp = {
+                "GT": lambda a, b: a > b,
+                "GE": lambda a, b: a >= b,
+                "LT": lambda a, b: a < b,
+                "LE": lambda a, b: a <= b,
+                "NE": lambda a, b: a != b,
+                "EQ": lambda a, b: a == b,
+            }.get(m[1])
+            if cmp is None:
+                return None
+            sign = (lambda v: v) if m[2] else (lambda v: v - (1 << 32) if v >= 1 << 31 else v)
+            out = {cmp(sign(g[0][1][i]), sign(g[1][1][i])) for i in LANES}
+        return len(out) > 1
+
     # --- addresses ----------------------------------------------------------------------------
     def address(self, args: str, vals: dict[str, Any]) -> Val | None:
         """The 32 lanes' address of a memory operand `[R2.64+0x10]` / `desc[UR4][R2.64+UR6]`."""
@@ -334,6 +370,15 @@ class Lanes:
                 tuple((o + y) & M32 for o, y in zip(out[1], v[1], strict=True)),
             )
         return out
+
+
+def lut3(a: int, b: int, c: int, lut: int) -> int:
+    """The bitwise three-input function `lut` of the LOP3 family."""
+    v = 0
+    for bit in range(32):
+        i = (((a >> bit) & 1) << 2) | (((b >> bit) & 1) << 1) | ((c >> bit) & 1)
+        v |= ((lut >> i) & 1) << bit
+    return v
 
 
 def footprint(addr: Val, width: int) -> tuple[dict[tuple, int], int]:
