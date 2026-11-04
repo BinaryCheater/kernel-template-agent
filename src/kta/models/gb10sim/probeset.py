@@ -803,7 +803,7 @@ def l2_cap_cases(b: Batch) -> list[Case]:
                 ins,
                 L2_CAP_T,
                 per_sm,
-                1,
+                32 if kind == "cp" else 128,
                 active_sms=min(g, m.sms * rmax) / min(rmax, per_sm),
                 resident=rmax,
                 grid_blocks=g,
