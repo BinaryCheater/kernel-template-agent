@@ -12,10 +12,13 @@ Status: plan set in discussion with the user on 2026-11-03/04. The model it buil
 
 | Metric | Target |
 | --- | --- |
-| Ranking on the test set | Kendall τ ≥ 0.8 among design variants of one shape; the best variant identified |
-| Bottleneck correctness | for real-GPU ablations and parameter changes, predicted direction right every time; magnitude within 20–25 % |
+| Ranking on the test set (user, 2026-11-05: replaces τ ≥ 0.8, wording may still be adjusted) | among design variants of one shape: pairs whose measured gap is ≥ 3 %, at least 95 % ordered right; the true best in the model's top 3 in every group; picking the model's first loses ≤ 3 %. τ is recorded, not a target: below a 3 % gap the order is close to measurement noise |
+| What-if (same) | changes of ≥ 3 %: direction right on at least 95 %; changes of ≥ 10 %: median magnitude error ≤ 20–25 % |
+| Bottleneck correctness (same) | repair the agreement metric first (it is partly noise), then set its number |
 | Time | median error ≤ 10 % on the test set; no case above 20–25 % |
 | Probe ladder | every level within its own budget |
+
+These numbers count only on kernels the model has not seen (blind rows); a seen group meeting them is not enough.
 
 **Looks like success but is not.** Error pushed down by a kernel-level residual fit · a case decided by a bandwidth floor counted as mechanism validation · agreement with a profiler's utilisation percentage · many probes with no improvement on the validation set · per-case hand-written adapters · tuning parameters on the test set.
 

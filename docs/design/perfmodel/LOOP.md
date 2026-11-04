@@ -41,7 +41,7 @@ The inventory lists every mechanism in advance with its status (measured / assum
    - status `assumed` or `absent`, share ≥ 3 % → **probe it** (this round);
    - status `measured`, share ≥ 3 % → the rule is wrong, not the number: write a probe that discriminates the current rule from an alternative;
    - share < 3 % → not allowed; go to the next mechanism on that row, then the next row.
-4. If every valid row is within budget (median ≤ 10 %, none > 25 %, no inversion among design variants of one shape): take the inventory row that is `assumed` or `absent`, affects a test-set kernel, and is a search-space or hardware design variable; cheapest probe first.
+4. If every valid row is within budget (median ≤ 10 %, none > 25 %, the ranking and what-if targets of 28 §1 met): take the inventory row that is `assumed` or `absent`, affects a test-set kernel, and is a search-space or hardware design variable; cheapest probe first.
 5. If nothing qualifies: the loop is done for the current test set — write the final report and stop.
 
 **Absent mechanisms have no attribution.** A mechanism the engine does not model shows 0 % on every critical path, so the 3 % test cannot be read from attribution. Estimate its share as (occurrences in the row's replay) × (measured or probed cost) ÷ (row time), or add it behind a switch and read the what-if. A systematic sign (a family of rows all fast or all slow) is evidence of an absent mechanism even when each row is within budget.
