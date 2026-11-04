@@ -400,9 +400,10 @@
    "local_chip_over_B_per_clk": "measured",
    "stg_by_sectors": "measured",
    "rotating_by_window": "measured",
-   "stg_chip_wide_B_per_clk": "probe store_spread (batch r8): 4 B lanes filling a sector in part: 237-286 B/clk at every row distance 128-8192 B, lanes 8 or more to a sector 440, one lane per sector (store_lines) 433; before: measured"
+   "stg_chip_wide_B_per_clk": "measured"
   },
   "value_source": {
+   "ldgsts_dram_latency_clk": "probe copy_dram (batch r8): 16 blocks, one stage, arithmetic between the steps: cold minus warm 1067 cycles per step at Z 256, 1024, over 350 from the L2; was 1560, the dependent chase of upstream dramlat.cu",
       "stg_tpc_clk_per_instr_line": "probes store_lines, l2mix (r7, r7b): 32 contiguous 4-byte lanes, one 128-byte line per instruction: 155 cycles for 48 instructions at 3 blocks per SM, 274 for 96: 1.5 per instruction on an SM; the 15 of probe store_tail is 8 rows per instruction",
       "stg_dirty_bytes": "probe store_lines (batch r7b): 512 sectors per block at grid 512 23204 cycles, 768 83406, 1024 148841: each MiB above about 8 costs 1 / 79 B/clk, the DRAM write rate",
       "local_load_cold_B_per_clk": "probe spill_rw (batch r8): loads alone, 1 MB of stack per SM at 48 blocks, 132 cycles per load: 128 B x 48 / 132",
@@ -448,7 +449,7 @@
    "stg_chip_B_per_clk_16B": "; replaced in round 7 by stg_chip_B_per_clk by sectors, kept for the ablation `stg_by_sectors` false",
    "stg_by_sectors": "probe store_lines (batch r7b); false restores the width rates of rounds 1-6 (ablation)",
    "rotating_by_window": "probe rot_depth (batch r7b): the miss fraction of a rotating read is a function of the window, the warm curve; false: every read misses, the rule of rounds 4-6 (ablation)",
-   "stg_chip_wide_B_per_clk": "probe store_tail tl pattern (r1, the replay's regression points b32, b48): 122 B/clk of 4-byte lanes, 8 sectors per instruction across 8 rows: 244 B/clk of sectors. Empirical: two grids, one pattern"
+   "stg_chip_wide_B_per_clk": "probe store_spread (batch r8): 4 B lanes filling a sector in part: 237-286 B/clk at every row distance 128-8192 B, lanes 8 or more to a sector 440, one lane per sector (store_lines) 433; before: probe store_tail tl pattern (r1, the replay's regression points b32, b48): 122 B/clk of 4-byte lanes, 8 sectors per instruction across 8 rows: 244 B/clk of sectors. Empirical: two grids, one pattern"
   }
  },
  "l2_hit_vs_reuse_distance": {
