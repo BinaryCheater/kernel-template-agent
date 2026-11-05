@@ -1,0 +1,19 @@
+{
+ "entry": "k_gathertwo",
+ "grid": [
+  1024,
+  1,
+  1
+ ],
+ "threads": 128,
+ "block": [
+  128
+ ],
+ "smem": 0,
+ "rot": 1,
+ "footprint_bytes": 5242880,
+ "write_bytes": 1048576,
+ "family": "hand",
+ "set": "breadth blind",
+ "cache": "warm"
+}

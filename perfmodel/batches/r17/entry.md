@@ -4,7 +4,7 @@ Written before the run. Engine: round 16's (no change to `src/` since 7aedb11c);
 
 ## Blind, the fixed recipe (D874)
 
-Families, variant kinds and what-if axes as round 16. New shapes by a rule chosen before any result: off HGEMM a factor 9 in every size, HGEMM a factor 27 in every size: HGEMM 3456×1296×1728, GEMV 7200×2592 group 72, FA 2016×9×108, decode 27×2160×108 G 9, rows 720×4608 (N must be a multiple of 512 at T 512, as round 16 found, so N is 9 × 512). 13 own kernels and 4 what-ifs in `perfmodel/testset/hand17/`, same classes as `hand16/`. T 512 runs. Predictions committed before the run.
+Families, variant kinds and what-if axes as round 16. New shapes by a rule chosen before any result: off HGEMM a factor 9 in every size, HGEMM a factor 27 in every size: HGEMM 3456×1296×1728, GEMV 7200×2592 group 72, FA 2016×9×72, decode 27×2160×72 G 9, rows 720×4608 (N must be a multiple of 512 at T 512, as round 16 found, so N is 9 × 512; D 108 was refused by TileLang at build, not divisible by 8, before any result, so D is 9 × 8). 13 own kernels and 4 what-ifs in `perfmodel/testset/hand17/`, same classes as `hand16/`. T 512 runs. Predictions committed before the run.
 
 ## tw_* — read × DRAM: when and by whom the twin sector is asked (question 52, experiment 1 of 2)
 
