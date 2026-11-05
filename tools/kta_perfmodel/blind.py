@@ -204,6 +204,12 @@ def report(round_no: int) -> str:
         "fa_stride",
         "turnover",
         "write_limit",
+        "twin",
+        "gemv_rows",
+        "part_sector",
+        "rows_warm",
+        "turnover",
+        "fa_stage",
     )
     blind = [
         r

@@ -32,6 +32,8 @@ Round 15: blind at other divisors, `hand15/`, the DRAM limit (`dl_*`, `gd_*`, `r
 `ct_*`.
 Round 16: the fixed blind recipe (D874) at a factor 7 in every size, HGEMM a factor 25, `hand16/`;
 the memory-hierarchy sweep of the coverage matrix (`_mem`).
+Round 17: the same recipe at a factor 9 in every size, HGEMM a factor 27, `hand17/`; sweeps for
+rules: `tw_*`, `gr_*`, `pw_*`, `px_*`, `rr_*`, `tv_*`, `fs_*`.
 `ONLY` limits generation to the matching names; `SHARD=i/n` generates one share of them.
 """
 
@@ -2761,6 +2763,263 @@ def _round16(out: Path) -> None:
         _tried(_softmax, out, f"sm16_t{th}_warm", ROWS16, kw, set=f"softmax {tag}", **more)
 
 
+# round 17: the blind recipe (D874). Rule, chosen before any result: off HGEMM a factor 9 in every
+# size, HGEMM a factor 27 in every size; tiles and divisors as TileLang accepts them.
+GEMV17 = {"N": 7200, "K": 2592, "group": 72, "n_part": 4, "reduce": 32}
+FA17 = {**FA, "S": 2016, "H": 9, "D": 108}
+DECODE17 = {**DECODE, "H": 27, "G": 9, "S": 2160, "D": 108}
+ROWS17 = {"M": 720, "N": 4608}
+HGEMM_BLIND17_SHAPE = {"M": 3456, "N": 1296, "K": 1728}
+HAND17 = {
+    "atomrange": ((1024, 1, 1), (128,), [4 * MB], None),
+    "blockmax": ((1024, 1, 1), (256,), [1 * MB, 4 * MB], None),
+    "recordfive": ((512, 1, 1), (128,), [9 * MB], None),
+    "unpackrows": ((2048, 1, 1), (128,), [9 * MB, 2 * MB], None),
+    "strideloop": ((1024, 1, 1), (256,), [1 * MB, 16 * MB], None),
+    "revcols": ((1024, 1, 1), (128,), [1 * MB, 4 * MB], None),
+    "primefold": ((1024, 1, 1), (128,), [3 * MB, 1 * MB], None),
+    "stackrun": ((1024, 1, 1), (128,), [1 * MB, 1 * MB], None),
+    "stackmed": ((512, 1, 1), (256,), [1 * MB, 1 * MB], None),
+    "threelevel": ((1024, 1, 1), (128,), [1 * MB, 1 * MB, 1 * MB, 4 * MB], None),
+    "gathertwo": ((1024, 1, 1), (128,), [1 * MB, 1 * MB, 3 * MB], None),
+    "fivepoint": ((2048, 1, 1), (128,), [4 * MB, 4 * MB], None),
+    "addput": ((1024, 1, 1), (128,), [4 * MB], None),
+}
+WI_HAND17 = (
+    ("strideloop", "t128", "threads", (2048, 1, 1), None, None, ()),
+    ("primefold", "k2", "stores removed", None, None, None, (("k < 3", "k < 2"),)),
+    ("addput", "k2", "stores removed", None, None, None, (("k < 3", "k < 2"),)),
+    ("gathertwo", "one", "loads removed", None, None, None, (("b[i] + b[i + 1] + b[j] + b[j + 256]", "b[i] + b[j]"),)),
+)
+TWIN = """// round 17: {what}
+__global__ void __launch_bounds__({t}) k_mem(unsigned* o, const uint2* a) {{
+  const unsigned t = blockIdx.x * {t} + threadIdx.x;
+  const uint2 x = a[{first}];
+  unsigned s = t;
+  {gap}
+  const uint2 y = a[{second}];
+  o[blockIdx.x & 65535u] = x.x ^ y.y ^ s;
+}}
+"""
+BUSY = 'for (unsigned d = 0; d < {g}; ++d) {{ s += d; asm volatile("" : "+r"(s)); }}'
+TWO_BLOCKS = """// round 17: {what}
+__global__ void __launch_bounds__(128) k_mem(unsigned* o, const uint2* a) {{
+  const unsigned p = {pair}, side = {side};
+  unsigned s = 0;
+  for (unsigned k = 0; k < 16; ++k) {{
+    const uint2 x = a[(p * 128 + threadIdx.x) * 128 + k * 8 + side];
+    s ^= x.x ^ x.y;
+  }}
+  o[blockIdx.x & 65535u] = s;
+}}
+"""
+GEMV_ROWS = """// round 17: GEMV's load: each warp a row, {w} bytes per lane, pitch {p}
+__global__ void __launch_bounds__({t}) k_mem(unsigned* o, const char* a{more}) {{
+  const unsigned row = blockIdx.x * {np} + threadIdx.y, kr = threadIdx.x;
+  unsigned s = 0;
+  for (unsigned ko = 0; ko < {n}; ++ko) {{
+    const size_t at = (size_t)row * {p} + (ko * {r} + kr) * {w};
+    s ^= *(const {ty}*)(a + at);{beside}
+  }}
+  if (kr == 0) o[row & 65535u] = s;
+}}
+"""
+TURNOVER = """// round 17: block turnover: compute for about {us} us, {what}
+__global__ void __launch_bounds__({t}) k_mem(unsigned* o) {{
+{shared}  unsigned s = threadIdx.x;
+  for (unsigned k = 0; k < {n}; ++k) {{ s = s * 3u + k; asm volatile("" : "+r"(s)); }}
+  if (s == 0x7fff1234u) o[0] = s;
+}}
+"""
+
+
+def _twins(out: Path) -> None:
+    """Question 52: read × DRAM: when and by whom a burst's second sector is asked."""
+    g = "twin"
+    F = 8 * MB
+    for gap in (0, 1, 8, 32, 128, 512):
+        busy = BUSY.format(g=gap) if gap else ""
+        src = TWIN.format(what=f"twin sectors, {gap} passes apart", t=128, first="t * 8", gap=busy, second="t * 8 + 4")
+        _source_kernel(out, f"tw_g{gap}", src, (F // (128 * 64), 1, 1), (128,), [1 * MB, F], "hand", g, rot=_rot(F), written=1024)
+    src = TWIN.format(what="the twin after the first sector's data", t=128, first="t * 8", gap="if (x.x == 0x7fff1234u) s = 1;", second="t * 8 + 4")
+    _source_kernel(out, "tw_dep", src, (F // (128 * 64), 1, 1), (128,), [1 * MB, F], "hand", g, rot=_rot(F), written=1024)
+    src = TWIN.format(what="two sectors of bursts far apart", t=128, first="t * 8", gap="", second="(t ^ 65536u) * 8 + 4")
+    _source_kernel(out, "tw_far", src, (F // (128 * 64), 1, 1), (128,), [1 * MB, F], "hand", g, rot=_rot(F), written=1024)
+    src = TWIN.format(what="two sectors of a line, not of a burst", t=128, first="t * 16", gap="", second="t * 16 + 8")
+    _source_kernel(out, "tw_l", src, (F // (128 * 128), 1, 1), (128,), [1 * MB, F], "hand", g, rot=_rot(F), written=1024)
+    for t in (32, 512):
+        for gap in (0, 32):
+            busy = BUSY.format(g=gap) if gap else ""
+            src = TWIN.format(what=f"twin sectors at T {t}, {gap} passes apart", t=t, first="t * 8", gap=busy, second="t * 8 + 4")
+            _source_kernel(out, f"tw_t{t}_g{gap}", src, (F // (t * 64), 1, 1), (t,), [1 * MB, F], "hand", g, rot=_rot(F), written=1024)
+    src = f"""// round 17: twin sectors by neighbouring warps of a block
+__global__ void __launch_bounds__(128) k_mem(unsigned* o, const uint2* a) {{
+  const unsigned l = threadIdx.x & 31u, w = threadIdx.x >> 5;
+  const uint2 x = a[(blockIdx.x * 64 + (w >> 1) * 32 + l) * 8 + (w & 1u) * 4];
+  o[blockIdx.x & 65535u] = x.x ^ x.y;
+}}
+"""
+    _source_kernel(out, "tw_sw", src, (F // (64 * 64), 1, 1), (128,), [1 * MB, F], "hand", g, rot=_rot(F), written=1024)
+    pairs = (
+        ("tw_ss", "twin sectors by two blocks on an SM", "blockIdx.x % 48u", "(blockIdx.x / 48u) * 4"),
+        ("tw_sc", "twin sectors by blocks on two SMs", "blockIdx.x / 2u", "(blockIdx.x & 1u) * 4"),
+        ("tw_s0", "first sectors alone, as many bursts as blocks ask", "blockIdx.x", "0"),
+    )
+    for name, what, pair, side in pairs:
+        src = TWO_BLOCKS.format(what=what, pair=pair, side=side)
+        _source_kernel(out, name, src, (96, 1, 1), (128,), [1 * MB, 16 * MB], "hand", g, rot=_rot(16 * MB), written=1024)
+
+
+def _gemv_rows(out: Path) -> None:
+    """Question 52: GEMV's rotating read without its arithmetic: width × pitch, warps × lanes."""
+    g = "gemv_rows"
+    tys = {2: "unsigned short", 4: "unsigned", 8: "unsigned long long"}
+
+    def row(name, w, p, r=32, np=4, more="", beside="", sizes=()):
+        n = -(-p // (r * w))
+        src = GEMV_ROWS.format(w=w, p=p, t=r * np, more=more, np=np, n=n, r=r, ty=tys[w], beside=beside)
+        grid = 8 * MB // (np * p)
+        _source_kernel(out, name, src, (grid, 1, 1), (r, np), [1 * MB, 9 * MB, *sizes], "hand", g, rot=_rot(9 * MB), written=1024)
+
+    for w in (2, 4, 8):
+        for p in (1280, 1344, 1360):
+            row(f"gr_w{w}_p{p}", w, p)
+    for r, np in ((16, 4), (64, 4), (32, 2), (32, 8)):
+        row(f"gr_r{r}_np{np}", 4, 1344, r, np)
+    sc = "\n    s ^= c[row * 48 + (ko * 256 + kr * 8) / 56];"
+    row("gr_sc", 4, 1344, more=", const unsigned short* c", beside=sc, sizes=(1 * MB,))
+
+
+def _part_sectors(out: Path) -> None:
+    """Question 53: write and read-modify-write × L2: lanes against sectors and lines."""
+    g = "part_sector"
+    for f in (4, 12):
+        F = f * MB
+        for s in (8, 16, 32, 64, 128):
+            n = s // 8
+            idx = f"t * {n} + k"
+            src = MEM_WRITE.format(what=f"8-byte lanes {s} bytes apart, sectors filled", t=128, n=n, more="", body=f"((uint2*)o)[{idx}] = make_uint2(t, k);")
+            _source_kernel(out, f"pw_f{f}_s{s}", src, (F // (128 * s), 1, 1), (128,), [F], "hand", g)
+            if s > 8:
+                src = MEM_WRITE.format(what=f"8-byte lanes {s} bytes apart, one store", t=128, n=1, more="", body=f"((uint2*)o)[t * {n}] = make_uint2(t, k);")
+                _source_kernel(out, f"pw_f{f}_s{s}_one", src, (F // (128 * s), 1, 1), (128,), [F], "hand", g)
+    for s in (16, 32, 128):
+        src = MEM_WRITE.format(what=f"4-byte lanes {s} bytes apart, one store", t=128, n=1, more="", body=f"o[t * {s // 4}] = t;")
+        _source_kernel(out, f"pw4_f4_s{s}_one", src, (4 * MB // (128 * s), 1, 1), (128,), [4 * MB], "hand", g)
+    for s in (16, 32, 64, 128):
+        n = s // 8
+        src = MEM_WRITE.format(what=f"8-byte lanes {s} bytes apart read and written in place", t=128, n=n, more="", body=f"((uint2*)o)[t * {n} + k].x += 1u;")
+        _source_kernel(out, f"px_f4_s{s}", src, (4 * MB // (128 * s), 1, 1), (128,), [4 * MB], "hand", g)
+
+
+def _rows_warm(out: Path) -> None:
+    """Rows warm, flat in threads at 12.7 µs: each part of the kernel, then by rows; RMSNorm's own
+    shape of round 16, a seen shape."""
+    g = "rows_warm"
+    for t in (32, 128, 512):
+        for tag, kw in (("nostore", {"store": "shared"}), ("noload", {"load": False}), ("nocompute", {"compute": False})):
+            _tried(_rms, out, f"rr_{tag}_t{t}_warm", ROWS16, "warm", {"threads": t, **kw}, set=g)
+    for m in (224, 448, 1792):
+        _tried(_rms, out, f"rr_m{m}_t128_warm", {"M": m, "N": ROWS16["N"]}, "warm", {"threads": 128}, set=g)
+
+
+def _turnover(out: Path) -> None:
+    """Warm rows sit 2 to 5 µs under by waves of blocks: blocks that follow blocks on an SM."""
+    g = "turnover"
+    big = "  __shared__ unsigned buf[20000];\n  if (threadIdx.x == 0) buf[0] = blockIdx.x;\n"
+    for t in (32, 128):
+        for grid in (48, 96, 192, 384):
+            for tag, sh in (("one", big), ("many", "")):
+                src = TURNOVER.format(us=2, what=f"{grid} blocks of {t}, {tag} on an SM", t=t, shared=sh, n=400)
+                _source_kernel(out, f"tv_{tag}_t{t}_g{grid}", src, (grid, 1, 1), (t,), [1 * MB], "hand", g, written=1024)
+
+
+def _fa_stage(out: Path) -> None:
+    """One stage against two at FA's seen shape: which part keeps the stage's row 20 % under."""
+    g = "fa_stage"
+    for s in (1, 2):
+        base = {**FA16, "BM": 64, "BN": 64, "stages": s, "threads": 128}
+        for tag, kw in (("nov", {"second": False}), ("noexp", {"exp": False}), ("shared", {"store": "shared"})):
+            more = {"writes": ()} if tag == "shared" else {}
+            _tried(_fa, out, f"fs_{tag}_s{s}_warm", {**base, **kw}, "warm", set=g, **more)
+
+
+def _hand17(out: Path) -> None:
+    src_dir = Path(__file__).parent / "hand17"
+    for name, (grid, block, sizes, written) in HAND17.items():
+        text = (src_dir / f"{name}.cu").read_text()
+        _source_kernel(
+            out, f"bl17_{name}", text, grid, block, sizes, "hand", "breadth blind", written=written
+        )
+    for name, tag, axis, grid, sizes, written, subs in WI_HAND17:
+        g0, block, s0, w0 = HAND17[name]
+        text = (src_dir / f"{name}.cu").read_text()
+        for old, new in subs:
+            text = text.replace(old, new)
+        if tag == "t128":
+            text = text.replace("(256)", "(128)").replace("* 256", "* 128")
+            block = (128,)
+        _source_kernel(
+            out,
+            f"bl17_{name}_{tag}",
+            text,
+            grid or g0,
+            block,
+            sizes or s0,
+            "hand",
+            "breadth blind",
+            written=written if written is not None else w0,
+            whatif={"base": f"bl17_{name}", "axis": axis},
+        )
+
+
+def _round17(out: Path) -> None:
+    _hand17(out)
+    _twins(out)
+    _gemv_rows(out)
+    _part_sectors(out)
+    _rows_warm(out)
+    _turnover(out)
+    _fa_stage(out)
+    sh = HGEMM_BLIND17_SHAPE
+    M, N, K = sh["M"], sh["N"], sh["K"]
+    pre = f"hgemm_m{M}n{N}k{K}"
+    for name, tile in HGEMM_BLIND14.items():
+        for cache, tail in (("warm", ""), ("rotating", " rotating")):
+            suffix = "" if cache == "warm" else "_rotating"
+            base = f"{pre}_c128x128x32_s3_t128{suffix}"
+            more = _wi(name, base, "base" if f"{pre}_{name}{suffix}" == base else "design")
+            group = f"hgemm {M}x{N}x{K}{tail}"
+            _tried(_hgemm, out, f"{pre}_{name}{suffix}", tile, sh, cache, set=group, **more)
+    tag = f"{GEMV17['N']}x{GEMV17['K']}"
+    for cache, tail in (("warm", ""), ("rotating", " rotating")):
+        for v, (kw, axis) in GEMV13_V.items():
+            more = _wi(v, f"gemv17_b_{cache}", axis)
+            c = {**GEMV17, **kw}
+            _tried(_gemv_row, out, f"gemv17_{v}_{cache}", c, cache, set=f"gemv {tag}{tail}", **more)
+    tag = f"{FA17['S']}x{FA17['H']}x{FA17['D']}"
+    for cache, tail in (("warm", ""), ("rotating", " rotating")):
+        for name, (bm, bn, s, th) in FA_BLIND7_V.items():
+            f = {**FA17, "BM": bm, "BN": bn, "stages": s, "threads": th}
+            more = _wi(name, f"fa17_c64x64_s2_t128_{cache}", FA13_AXIS.get(name, "base"))
+            _tried(_fa, out, f"fa17_{name}_{cache}", f, cache, set=f"fa {tag}{tail}", **more)
+    tag = f"{DECODE17['H']}x{DECODE17['S']}x{DECODE17['D']}"
+    for cache, tail in (("warm", ""), ("rotating", " rotating")):
+        for v, (kw, axis) in DECODE13_V.items():
+            more = _wi(v, f"dec17_b_{cache}", axis)
+            c = {**DECODE17, **kw}
+            _tried(_decode_part, out, f"dec17_{v}_{cache}", c, cache, set=f"decode {tag}{tail}", **more)
+    tag = f"{ROWS17['M']}x{ROWS17['N']}"
+    for th in THREADS13:
+        axis = "base" if th == 128 else "threads"
+        kw = {"threads": th}
+        for cache, tail in (("warm", ""), ("rotating", " rotating")):
+            more = _wi("", f"rms17_t128_{cache}", axis)
+            _tried(_rms, out, f"rms17_t{th}_{cache}", ROWS17, cache, kw, set=f"rmsnorm {tag}{tail}", **more)
+        more = _wi("", "sm17_t128_warm", axis)
+        _tried(_softmax, out, f"sm17_t{th}_warm", ROWS17, kw, set=f"softmax {tag}", **more)
+
+
 def main(out: Path) -> None:
     _hand(out)
     _round11(out)
@@ -2794,6 +3053,7 @@ def main(out: Path) -> None:
         ("round15", _round15),
         ("round15b", _round15b),
         ("round16", _round16),
+        ("round17", _round17),
     ):
         try:  # a kernel that fails to generate is reported; the others stand
             gen(out)
