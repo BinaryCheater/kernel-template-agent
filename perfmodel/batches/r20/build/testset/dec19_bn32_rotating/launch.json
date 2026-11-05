@@ -1,0 +1,36 @@
+{
+ "entry": "part_kernel",
+ "grid": [
+  1,
+  13,
+  8
+ ],
+ "threads": 128,
+ "block": [
+  128
+ ],
+ "smem": 43008,
+ "rot": 5,
+ "footprint_bytes": 15221648,
+ "write_bytes": 70512,
+ "family": "decode_gqa",
+ "shape": {
+  "B": 1,
+  "H": 39,
+  "G": 13,
+  "S": 2600,
+  "D": 112
+ },
+ "pick": {
+  "BN": 32,
+  "BH": 64,
+  "split": 8,
+  "stages": 2
+ },
+ "cache": "rotating",
+ "set": "decode 39x2600x112 rotating",
+ "whatif": {
+  "base": "dec19_b_rotating",
+  "axis": "tile"
+ }
+}

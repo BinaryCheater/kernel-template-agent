@@ -1,13 +1,13 @@
 {
  "batch": "r20",
- "commit": "fd0b7e0f70642ee96d11394598ac042cdaa57f39",
- "host": "spark",
- "remote_build": "kta-work/data/perfmodel/batches/r20/build",
- "only": "^(bl20_|rw_m|rw_nl|rw_ns|sw_|wb_|cb_|fas_|dw_|gb_|hgemm_m3584|gemv20_|fa20_|dec20_|rms20_|sm20_)",
- "date": "2026-11-05T16:53:54Z",
+ "commit": "b39982f810799590a5349183c2a7964f812ffe77",
+ "host": "spark-6951",
+ "remote_build": "kta-perfmodel/data/perfmodel/batches/r20/build",
+ "only": "^(bl20_|rw_m|rw_nl|rw_ns|sw_|wb_|cb_|fas_|dw_|gb_|hgemm_m3584|gemv20_|fa20_|dec20_|rms20_|sm20_|(hgemm_m3968n1488k1984_c128x128x32_s3_t128(_rotating)?|gemv19_b_warm|gemv19_b_rotating|gemv19_r64_rotating|fa19_c64x64_s2_t128_warm|fa19_c64x64_s2_t128_rotating|fa19_c64x64_s1_t128_warm|dec19_b_warm|dec19_b_rotating|dec19_bn32_rotating|rms19_t128_warm|rms19_t128_rotating|rms19_t512_warm|sm19_t128_warm|sm19_t512_warm|bl19_pairsum|bl19_ringload|bl19_stridestore|rs_m176_t128_warm|rs_nostore_t128_warm|gs_b_onlysc_rotating)$)",
+ "date": "2026-11-05T17:22:42Z",
  "nvcc_host": "Cuda compilation tools, release 13.0, V13.0.88\nBuild cuda_13.0.r13.0/compiler.36424714_0",
  "nvcc_image": "Cuda compilation tools, release 13.2, V13.2.51\nBuild cuda_13.2.r13.2/compiler.37434383_0",
  "tilelang": "0.1.15",
  "counter_sets": "main",
- "no_counters": "^(sw_|wb_|cb_|fas_|dw_|gb_)"
+ "no_counters": "."
 }

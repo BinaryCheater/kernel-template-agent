@@ -104,17 +104,28 @@ def cmd_sync(host: Host) -> int:
     if _git("status", "--porcelain"):
         sys.exit("remote-run: working tree is dirty; commit first (dirty runs are not evidence)")
     commit = _git("rev-parse", "HEAD")
+    dest = f"src/{commit}"
+    last = subprocess.run(
+        ["ssh", "-o", "BatchMode=yes", host.ssh, f"{_prelude(host)} && readlink current || true"],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+    done = f"echo {commit} > {dest}/.kta-commit && ln -sfn {dest} current"
+    report = f"echo synced {commit[:12]} to {host.name}:{host.root}/{dest}"
+    if last:  # the tree is 1 GB: what the last deploy holds is linked, not sent again
+        base = host.root.removeprefix("~/")
+        tracked = _git("ls-files", "-z").encode() + b"\0"
+        argv = ["rsync", "-rlzc", "-0", "--files-from=-", f"--link-dest=../{Path(last).name}"]
+        argv += [f"{ROOT}/", f"{host.ssh}:{base}/{dest}/"]
+        subprocess.run(argv, input=tracked, check=True)
+        return ssh(host, f"{_prelude(host)} && {done} && {report}")
     archive = subprocess.run(
         ["git", "-C", str(ROOT), "archive", "--format=tar", commit],
         capture_output=True,
         check=True,
     ).stdout
-    dest = f"src/{commit}"
-    script = (
-        f"{_prelude(host)} && mkdir -p {dest} && tar -x -C {dest} && "
-        f"echo {commit} > {dest}/.kta-commit && ln -sfn {dest} current && "
-        f"echo synced {commit[:12]} to {host.name}:{host.root}/{dest}"
-    )
+    script = f"{_prelude(host)} && mkdir -p {dest} && tar -x -C {dest} && {done} && {report}"
     return ssh(host, script, stdin=archive)
 
 
