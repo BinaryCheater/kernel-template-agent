@@ -139,6 +139,12 @@ ROUND16: tuple[Mark, ...] = (
     Mark("copy", "L2", "row", "b", "m", "ms_c_*: short rows, flat by D"),
 )
 
+ROUND17: tuple[Mark, ...] = (
+    Mark("write", "L2", "row", "c", "M", "pw_*, mt_w_* (D887): 0.063 clk a sector, 0.105 a line"),
+    Mark("rmw", "L2", "order", "c", "M", "px_*, mx_* (D887): the same rate; `mx_*` +30 % left"),
+    Mark("read", "DRAM", "order", "c", "M", "tw_*, gr_* (D886): no window; edges of a run 0.6"),
+)
+
 DECIDES = {
     ("read", "shared"): "layout, split of loads and arithmetic",
     ("read", "stack"): "tile size at the register limit",
@@ -240,6 +246,30 @@ MISSES16: dict[str, tuple[str, str, str, str, str, int]] = {
 }
 
 
+# Round 17's blind rows above 10 %, placed the same way
+MISSES17: dict[str, tuple[str, str, str, str, str, int]] = {
+    "addput": ("write", "L2", "hashed", "c", "k", 2),
+    "atomrange": ("atomic", "L2", "row", "c", "k", 1),
+    "blockmax": ("atomic", "L2", "hashed", "c", "k", 1),
+    "primefold": ("write", "L2", "stride", "c", "k", 2),
+    "recordfive": ("write", "L2", "stride", "c", "k", 1),
+    "stackmed": ("rmw", "stack", "hashed", "c", "n", 1),
+    "stackrun": ("rmw", "stack", "cap", "c", "k", 1),
+    "threelevel": ("read", "L2", "hashed", "c", "k", 1),
+    "unpackrows": ("write", "L2", "row", "c", "k", 1),
+    "decode warm": ("read", "L2", "row", "c", "k", 5),
+    "decode rotating": ("read", "DRAM", "row", "c", "n", 4),
+    "fa warm": ("copy", "L2", "row", "c", "k", 4),
+    "fa rotating": ("copy", "DRAM", "row", "c", "n", 4),
+    "gemv warm": ("read", "L2", "row", "c", "k", 6),
+    "gemv rotating": ("read", "DRAM", "order", "c", "n", 5),
+    "hgemm warm": ("copy", "L2", "order", "s", "k", 1),
+    "hgemm rotating": ("copy", "DRAM", "order", "c", "k", 2),
+    "rmsnorm warm": ("read", "L2", "row", "c", "n", 6),
+    "softmax warm": ("write", "L2", "row", "c", "k", 6),
+}
+
+
 def cells(marks: tuple[Mark, ...]) -> dict[tuple[str, str, str, str], Mark | None]:
     out: dict[tuple[str, str, str, str], Mark | None] = {}
     for key in itertools.product(OPS, TARGETS, PATTERNS, SHARING):
@@ -273,19 +303,32 @@ def render(marks: tuple[Mark, ...]) -> str:
     placed: Counter = Counter(v[:4] for v in MISSES.values())
     n = count(table)
     b = count(before)
+    r16 = count(cells(CELLS + ROUND16))
     lines = [
         f"Cells that can occur: {len(table)} of "
         f"{len(OPS) * len(TARGETS) * len(PATTERNS) * len(SHARING)}, the rest dropped "
         "(`tools/kta_perfmodel/matrix.py`, `dropped`, says why for each).",
         "",
-        "| State | Before round 16 | Now |",
-        "| --- | ---: | ---: |",
-        f"| M measured with a rule | {b['M']} | {n['M']} |",
-        f"| m measured without a rule | {b['m']} | {n['m']} |",
-        f"| · empty | {b['.']} | {n['.']} |",
+        "| State | Before round 16 | Before round 17 | Now |",
+        "| --- | ---: | ---: | ---: |",
+        f"| M measured with a rule | {b['M']} | {r16['M']} | {n['M']} |",
+        f"| m measured without a rule | {b['m']} | {r16['m']} | {n['m']} |",
+        f"| · empty | {b['.']} | {r16['.']} | {n['.']} |",
         "",
     ]
     bm, nm = misses(before), misses(table)
+    c17: Counter = Counter()
+    k17: Counter = Counter()
+    for v in MISSES17.values():
+        m = table[v[:4]]
+        c17[m.state if m else "."] += v[5]
+        k17[v[4]] += v[5]
+    lines += [
+        f"Round 17's {sum(c17.values())} blind rows above 10 %, placed after the rules: in M cells "
+        f"{c17['M']}, in m cells {c17['m']}, in empty cells {c17['.']}. By class at first score: "
+        f"defect {k17['d']}, known rule {k17['k']}, no rule {k17['n']}.",
+        "",
+    ]
     c16: Counter = Counter()
     for v in MISSES16.values():
         m = table[v[:4]]
@@ -344,9 +387,10 @@ BEGIN, END = "<!-- matrix: generated -->", "<!-- matrix end -->"
 
 def main() -> None:
     assert sum(v[5] for v in MISSES16.values()) == 56
+    assert sum(v[5] for v in MISSES17.values()) == 54
     ap = argparse.ArgumentParser(prog="python -m kta_perfmodel.matrix")
     ap.parse_args()
-    marks = CELLS + ROUND16
+    marks = CELLS + ROUND16 + ROUND17
     body = render(marks)
     text = DOC.read_text()
     section = f"{BEGIN}\n{body}\n{END}"

@@ -148,13 +148,15 @@ Status: written 2026-11-04 for phase P0 of [28](28-gb10-programme.md) §5. It li
 <!-- matrix: generated -->
 Cells that can occur: 406 of 800, the rest dropped (`tools/kta_perfmodel/matrix.py`, `dropped`, says why for each).
 
-| State | Before round 16 | Now |
-| --- | ---: | ---: |
-| M measured with a rule | 60 | 73 |
-| m measured without a rule | 18 | 20 |
-| · empty | 328 | 313 |
+| State | Before round 16 | Before round 17 | Now |
+| --- | ---: | ---: | ---: |
+| M measured with a rule | 60 | 73 | 75 |
+| m measured without a rule | 18 | 20 | 18 |
+| · empty | 328 | 313 | 313 |
 
-Round 16's 56 blind rows above 10 %, placed after the sweep: in M cells 21, in m cells 34, in empty cells 1. By class at first score: defect 0, known rule 35, no rule 21.
+Round 17's 54 blind rows above 10 %, placed after the rules: in M cells 25, in m cells 28, in empty cells 1. By class at first score: defect 0, known rule 34, no rule 20.
+
+Round 16's 56 blind rows above 10 %, placed after the sweep: in M cells 27, in m cells 28, in empty cells 1. By class at first score: defect 0, known rule 35, no rule 21.
 
 Round 15's 51 blind rows above 10 %: in M cells 9, in m cells 33, in empty cells 9 before round 16; 20, 29, 2 now. By class: defect 6, known rule 25, no rule 20.
 
@@ -203,7 +205,7 @@ Patterns: order (contiguous lanes walking on), stride (lanes or warps a constant
 
 | Pattern | w | b | s | c | Probes |
 | --- | --- | --- | --- | --- | --- |
-| order | M | M | M | M (3) | dram_spread (latency); mr_g* (D877); mr_* (D877): 64-byte bursts |
+| order | M | M | M | M (3) | dram_spread (latency); mr_g* (D877); tw_*, gr_* (D886): no window; edges of a run 0.6 |
 | stride | · | · | · | M | mr_* (D877): 64-byte bursts |
 | row | · | · | · | M (5) | mr_* (D877): 64-byte bursts |
 | hashed | M | · | · | M | dram_spread (chase); mr_* (D877): 64-byte bursts |
@@ -234,7 +236,7 @@ Patterns: order (contiguous lanes walking on), stride (lanes or warps a constant
 | --- | --- | --- | --- | --- | --- |
 | order | · | M | M | M (2) | store_tail (partner rule); store_lines, store_spread, st256 (D838) |
 | stride | · | · | · | M (1) | store_lines, store_spread, st256 (D838) |
-| row | · | · | · | m | mt_w_*: lanes in part of a sector −22 to +44 % |
+| row | · | · | · | M | pw_*, mt_w_* (D887): 0.063 clk a sector, 0.105 a line |
 | hashed | · | · | · | m (1) | mw_h_f16 −73 %: inside the L2, not pursued |
 | cap | · | · | · | m (6) | wr_*, wl_* (D802, D873): 6.5 to 7.6 MiB no step |
 
@@ -271,7 +273,7 @@ Patterns: order (contiguous lanes walking on), stride (lanes or warps a constant
 
 | Pattern | w | b | s | c | Probes |
 | --- | --- | --- | --- | --- | --- |
-| order | · | · | · | m | mx_*: +73 to +104 % at first score, no rule |
+| order | · | · | · | M | px_*, mx_* (D887): the same rate; `mx_*` +30 % left |
 | stride | · | · | · | · |  |
 | row | · | · | · | m | rmw_*, question 42 |
 | hashed | · | · | · | m | bl_mixrwa |
