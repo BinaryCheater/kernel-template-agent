@@ -1,0 +1,7209 @@
+{
+ "batch": "r20",
+ "commit": "cc169641851d57991f5f18162809ee0ed9bd3357",
+ "build_commit": "b39982f810799590a5349183c2a7964f812ffe77",
+ "host": "spark-6951",
+ "entry": "entry.md",
+ "prediction": "predicted.json",
+ "clock_GHz": 2.50145,
+ "checks": {
+  "clock chain_GHz": {
+   "before": 2.5014,
+   "after": 2.5015,
+   "drift": 3.997761253704546e-05,
+   "ok": true
+  },
+  "canary fma_us": {
+   "before": 487.808,
+   "after": 487.84,
+   "drift": 6.559958016261191e-05,
+   "ok": true
+  },
+  "canary mem_us": {
+   "before": 2404.4161,
+   "after": 2409.6961,
+   "drift": 0.002195959343310072,
+   "ok": true
+  }
+ },
+ "failed_steps": [],
+ "preflight_dropped": {
+  "dec20_bn128_rotating": "# stderr\ncuda error 1 (invalid argument) at line 30",
+  "dec20_bn128_warm": "# stderr\ncuda error 1 (invalid argument) at line 30",
+  "fa20_c128x128_s2_t256_rotating": "# stderr\ncuda error 1 (invalid argument) at line 30",
+  "fa20_c128x128_s2_t256_warm": "# stderr\ncuda error 1 (invalid argument) at line 30",
+  "fa20_c64x128_s2_t128_rotating": "# stderr\ncuda error 1 (invalid argument) at line 30",
+  "fa20_c64x128_s2_t128_warm": "# stderr\ncuda error 1 (invalid argument) at line 30"
+ },
+ "valid": true,
+ "cache_state": {
+  "bl19_pairsum kernel": "warm",
+  "bl19_pairsum b2b": "warm",
+  "bl19_pairsum graph": "warm",
+  "bl19_ringload kernel": "warm",
+  "bl19_ringload b2b": "warm",
+  "bl19_ringload graph": "warm",
+  "bl19_stridestore kernel": "warm",
+  "bl19_stridestore b2b": "warm",
+  "bl19_stridestore graph": "warm",
+  "bl20_clampstore kernel": "warm",
+  "bl20_clampstore b2b": "warm",
+  "bl20_clampstore graph": "warm",
+  "bl20_doubleword kernel": "warm",
+  "bl20_doubleword b2b": "warm",
+  "bl20_doubleword graph": "warm",
+  "bl20_evenodd kernel": "warm",
+  "bl20_evenodd b2b": "warm",
+  "bl20_evenodd graph": "warm",
+  "bl20_evenodd_one kernel": "warm",
+  "bl20_evenodd_one b2b": "warm",
+  "bl20_evenodd_one graph": "warm",
+  "bl20_everysixteen kernel": "warm",
+  "bl20_everysixteen b2b": "warm",
+  "bl20_everysixteen graph": "warm",
+  "bl20_lanehash kernel": "warm",
+  "bl20_lanehash b2b": "warm",
+  "bl20_lanehash graph": "warm",
+  "bl20_reverseread kernel": "warm",
+  "bl20_reverseread b2b": "warm",
+  "bl20_reverseread graph": "warm",
+  "bl20_rowthree kernel": "warm",
+  "bl20_rowthree b2b": "warm",
+  "bl20_rowthree graph": "warm",
+  "bl20_shortload kernel": "warm",
+  "bl20_shortload b2b": "warm",
+  "bl20_shortload graph": "warm",
+  "bl20_stackfive kernel": "warm",
+  "bl20_stackfive b2b": "warm",
+  "bl20_stackfive graph": "warm",
+  "bl20_stackfive_four kernel": "warm",
+  "bl20_stackfive_four b2b": "warm",
+  "bl20_stackfive_four graph": "warm",
+  "bl20_storepair kernel": "warm",
+  "bl20_storepair b2b": "warm",
+  "bl20_storepair graph": "warm",
+  "bl20_storepair_one kernel": "warm",
+  "bl20_storepair_one b2b": "warm",
+  "bl20_storepair_one graph": "warm",
+  "bl20_storeskip kernel": "warm",
+  "bl20_storeskip b2b": "warm",
+  "bl20_storeskip graph": "warm",
+  "bl20_sumfour kernel": "warm",
+  "bl20_sumfour b2b": "warm",
+  "bl20_sumfour graph": "warm",
+  "bl20_sumfour_two kernel": "warm",
+  "bl20_sumfour_two b2b": "warm",
+  "bl20_sumfour_two graph": "warm",
+  "bl20_tallybyte kernel": "warm",
+  "bl20_tallybyte b2b": "warm",
+  "bl20_tallybyte graph": "warm",
+  "cb_q16 kernel": "warm",
+  "cb_q16 b2b": "warm",
+  "cb_q16 graph": "warm",
+  "cb_q16_ld kernel": "warm",
+  "cb_q16_ld b2b": "warm",
+  "cb_q16_ld graph": "warm",
+  "cb_q32 kernel": "warm",
+  "cb_q32 b2b": "warm",
+  "cb_q32 graph": "warm",
+  "cb_q32_ld kernel": "warm",
+  "cb_q32_ld b2b": "warm",
+  "cb_q32_ld graph": "warm",
+  "cb_q4 kernel": "warm",
+  "cb_q4 b2b": "warm",
+  "cb_q4 graph": "warm",
+  "cb_q4_ld kernel": "warm",
+  "cb_q4_ld b2b": "warm",
+  "cb_q4_ld graph": "warm",
+  "cb_q4_rotating kernel": "rotating",
+  "cb_q4_rotating b2b": "rotating",
+  "cb_q4_rotating graph": "rotating",
+  "cb_q8 kernel": "warm",
+  "cb_q8 b2b": "warm",
+  "cb_q8 graph": "warm",
+  "cb_q8_ld kernel": "warm",
+  "cb_q8_ld b2b": "warm",
+  "cb_q8_ld graph": "warm",
+  "cb_rows_q4 kernel": "warm",
+  "cb_rows_q4 b2b": "warm",
+  "cb_rows_q4 graph": "warm",
+  "cb_rows_tl7 kernel": "warm",
+  "cb_rows_tl7 b2b": "warm",
+  "cb_rows_tl7 graph": "warm",
+  "cb_tl5 kernel": "warm",
+  "cb_tl5 b2b": "warm",
+  "cb_tl5 graph": "warm",
+  "cb_tl5_ld kernel": "warm",
+  "cb_tl5_ld b2b": "warm",
+  "cb_tl5_ld graph": "warm",
+  "cb_tl7 kernel": "warm",
+  "cb_tl7 b2b": "warm",
+  "cb_tl7 graph": "warm",
+  "cb_tl7_ld kernel": "warm",
+  "cb_tl7_ld b2b": "warm",
+  "cb_tl7_ld graph": "warm",
+  "cb_tl7_rotating kernel": "rotating",
+  "cb_tl7_rotating b2b": "rotating",
+  "cb_tl7_rotating graph": "rotating",
+  "cb_tl9 kernel": "warm",
+  "cb_tl9 b2b": "warm",
+  "cb_tl9 graph": "warm",
+  "cb_tl9_ld kernel": "warm",
+  "cb_tl9_ld b2b": "warm",
+  "cb_tl9_ld graph": "warm",
+  "cb_tl9_rotating kernel": "rotating",
+  "cb_tl9_rotating b2b": "rotating",
+  "cb_tl9_rotating graph": "rotating",
+  "dec19_b_rotating kernel": "rotating",
+  "dec19_b_rotating b2b": "rotating",
+  "dec19_b_rotating graph": "rotating",
+  "dec19_b_warm kernel": "warm",
+  "dec19_b_warm b2b": "warm",
+  "dec19_b_warm graph": "warm",
+  "dec19_bn32_rotating kernel": "rotating",
+  "dec19_bn32_rotating b2b": "rotating",
+  "dec19_bn32_rotating graph": "rotating",
+  "dec20_b_rotating kernel": "rotating",
+  "dec20_b_rotating b2b": "rotating",
+  "dec20_b_rotating graph": "rotating",
+  "dec20_b_warm kernel": "warm",
+  "dec20_b_warm b2b": "warm",
+  "dec20_b_warm graph": "warm",
+  "dec20_bn32_rotating kernel": "rotating",
+  "dec20_bn32_rotating b2b": "rotating",
+  "dec20_bn32_rotating graph": "rotating",
+  "dec20_bn32_warm kernel": "warm",
+  "dec20_bn32_warm b2b": "warm",
+  "dec20_bn32_warm graph": "warm",
+  "dec20_s1_rotating kernel": "rotating",
+  "dec20_s1_rotating b2b": "rotating",
+  "dec20_s1_rotating graph": "rotating",
+  "dec20_s1_warm kernel": "warm",
+  "dec20_s1_warm b2b": "warm",
+  "dec20_s1_warm graph": "warm",
+  "dec20_s3_rotating kernel": "rotating",
+  "dec20_s3_rotating b2b": "rotating",
+  "dec20_s3_rotating graph": "rotating",
+  "dec20_s3_warm kernel": "warm",
+  "dec20_s3_warm b2b": "warm",
+  "dec20_s3_warm graph": "warm",
+  "dec20_split16_rotating kernel": "rotating",
+  "dec20_split16_rotating b2b": "rotating",
+  "dec20_split16_rotating graph": "rotating",
+  "dec20_split16_warm kernel": "warm",
+  "dec20_split16_warm b2b": "warm",
+  "dec20_split16_warm graph": "warm",
+  "dec20_split4_bn32_rotating kernel": "rotating",
+  "dec20_split4_bn32_rotating b2b": "rotating",
+  "dec20_split4_bn32_rotating graph": "rotating",
+  "dec20_split4_bn32_warm kernel": "warm",
+  "dec20_split4_bn32_warm b2b": "warm",
+  "dec20_split4_bn32_warm graph": "warm",
+  "dec20_split4_rotating kernel": "rotating",
+  "dec20_split4_rotating b2b": "rotating",
+  "dec20_split4_rotating graph": "rotating",
+  "dec20_split4_warm kernel": "warm",
+  "dec20_split4_warm b2b": "warm",
+  "dec20_split4_warm graph": "warm",
+  "dw_d112_bn32_warm kernel": "warm",
+  "dw_d112_bn32_warm b2b": "warm",
+  "dw_d112_bn32_warm graph": "warm",
+  "dw_d112_bn64_warm kernel": "warm",
+  "dw_d112_bn64_warm b2b": "warm",
+  "dw_d112_bn64_warm graph": "warm",
+  "dw_d128_bn32_warm kernel": "warm",
+  "dw_d128_bn32_warm b2b": "warm",
+  "dw_d128_bn32_warm graph": "warm",
+  "dw_d128_bn64_warm kernel": "warm",
+  "dw_d128_bn64_warm b2b": "warm",
+  "dw_d128_bn64_warm graph": "warm",
+  "dw_d144_bn32_warm kernel": "warm",
+  "dw_d144_bn32_warm b2b": "warm",
+  "dw_d144_bn32_warm graph": "warm",
+  "dw_d144_bn64_warm kernel": "warm",
+  "dw_d144_bn64_warm b2b": "warm",
+  "dw_d144_bn64_warm graph": "warm",
+  "dw_d96_bn32_warm kernel": "warm",
+  "dw_d96_bn32_warm b2b": "warm",
+  "dw_d96_bn32_warm graph": "warm",
+  "dw_d96_bn64_warm kernel": "warm",
+  "dw_d96_bn64_warm b2b": "warm",
+  "dw_d96_bn64_warm graph": "warm",
+  "fa19_c64x64_s1_t128_warm kernel": "warm",
+  "fa19_c64x64_s1_t128_warm b2b": "warm",
+  "fa19_c64x64_s1_t128_warm graph": "warm",
+  "fa19_c64x64_s2_t128_rotating kernel": "rotating",
+  "fa19_c64x64_s2_t128_rotating b2b": "rotating",
+  "fa19_c64x64_s2_t128_rotating graph": "rotating",
+  "fa19_c64x64_s2_t128_warm kernel": "warm",
+  "fa19_c64x64_s2_t128_warm b2b": "warm",
+  "fa19_c64x64_s2_t128_warm graph": "warm",
+  "fa20_c128x64_s2_t128_rotating kernel": "rotating",
+  "fa20_c128x64_s2_t128_rotating b2b": "rotating",
+  "fa20_c128x64_s2_t128_rotating graph": "rotating",
+  "fa20_c128x64_s2_t128_warm kernel": "warm",
+  "fa20_c128x64_s2_t128_warm b2b": "warm",
+  "fa20_c128x64_s2_t128_warm graph": "warm",
+  "fa20_c128x64_s2_t256_rotating kernel": "rotating",
+  "fa20_c128x64_s2_t256_rotating b2b": "rotating",
+  "fa20_c128x64_s2_t256_rotating graph": "rotating",
+  "fa20_c128x64_s2_t256_warm kernel": "warm",
+  "fa20_c128x64_s2_t256_warm b2b": "warm",
+  "fa20_c128x64_s2_t256_warm graph": "warm",
+  "fa20_c32x64_s2_t64_rotating kernel": "rotating",
+  "fa20_c32x64_s2_t64_rotating b2b": "rotating",
+  "fa20_c32x64_s2_t64_rotating graph": "rotating",
+  "fa20_c32x64_s2_t64_warm kernel": "warm",
+  "fa20_c32x64_s2_t64_warm b2b": "warm",
+  "fa20_c32x64_s2_t64_warm graph": "warm",
+  "fa20_c64x32_s3_t128_rotating kernel": "rotating",
+  "fa20_c64x32_s3_t128_rotating b2b": "rotating",
+  "fa20_c64x32_s3_t128_rotating graph": "rotating",
+  "fa20_c64x32_s3_t128_warm kernel": "warm",
+  "fa20_c64x32_s3_t128_warm b2b": "warm",
+  "fa20_c64x32_s3_t128_warm graph": "warm",
+  "fa20_c64x64_s1_t128_rotating kernel": "rotating",
+  "fa20_c64x64_s1_t128_rotating b2b": "rotating",
+  "fa20_c64x64_s1_t128_rotating graph": "rotating",
+  "fa20_c64x64_s1_t128_warm kernel": "warm",
+  "fa20_c64x64_s1_t128_warm b2b": "warm",
+  "fa20_c64x64_s1_t128_warm graph": "warm",
+  "fa20_c64x64_s2_t128_rotating kernel": "rotating",
+  "fa20_c64x64_s2_t128_rotating b2b": "rotating",
+  "fa20_c64x64_s2_t128_rotating graph": "rotating",
+  "fa20_c64x64_s2_t128_warm kernel": "warm",
+  "fa20_c64x64_s2_t128_warm b2b": "warm",
+  "fa20_c64x64_s2_t128_warm graph": "warm",
+  "fa20_c64x64_s2_t64_rotating kernel": "rotating",
+  "fa20_c64x64_s2_t64_rotating b2b": "rotating",
+  "fa20_c64x64_s2_t64_rotating graph": "rotating",
+  "fa20_c64x64_s2_t64_warm kernel": "warm",
+  "fa20_c64x64_s2_t64_warm b2b": "warm",
+  "fa20_c64x64_s2_t64_warm graph": "warm",
+  "fa20_c64x64_s3_t128_rotating kernel": "rotating",
+  "fa20_c64x64_s3_t128_rotating b2b": "rotating",
+  "fa20_c64x64_s3_t128_rotating graph": "rotating",
+  "fa20_c64x64_s3_t128_warm kernel": "warm",
+  "fa20_c64x64_s3_t128_warm b2b": "warm",
+  "fa20_c64x64_s3_t128_warm graph": "warm",
+  "fas_d112_t128 kernel": "warm",
+  "fas_d112_t128 b2b": "warm",
+  "fas_d112_t128 graph": "warm",
+  "fas_d128_t128 kernel": "warm",
+  "fas_d128_t128 b2b": "warm",
+  "fas_d128_t128 graph": "warm",
+  "fas_d144_t128 kernel": "warm",
+  "fas_d144_t128 b2b": "warm",
+  "fas_d144_t128 graph": "warm",
+  "fas_d160_t128 kernel": "warm",
+  "fas_d160_t128 b2b": "warm",
+  "fas_d160_t128 graph": "warm",
+  "fas_d176_t128 kernel": "warm",
+  "fas_d176_t128 b2b": "warm",
+  "fas_d176_t128 graph": "warm",
+  "fas_d64_t128 kernel": "warm",
+  "fas_d64_t128 b2b": "warm",
+  "fas_d64_t128 graph": "warm",
+  "fas_d80_t128 kernel": "warm",
+  "fas_d80_t128 b2b": "warm",
+  "fas_d80_t128 graph": "warm",
+  "fas_d96_t128 kernel": "warm",
+  "fas_d96_t128 b2b": "warm",
+  "fas_d96_t128 graph": "warm",
+  "gb_i1_e1_alone kernel": "rotating",
+  "gb_i1_e1_alone b2b": "rotating",
+  "gb_i1_e1_alone graph": "rotating",
+  "gb_i1_e1_beside kernel": "rotating",
+  "gb_i1_e1_beside b2b": "rotating",
+  "gb_i1_e1_beside graph": "rotating",
+  "gb_i1_e4_alone kernel": "rotating",
+  "gb_i1_e4_alone b2b": "rotating",
+  "gb_i1_e4_alone graph": "rotating",
+  "gb_i1_e4_beside kernel": "rotating",
+  "gb_i1_e4_beside b2b": "rotating",
+  "gb_i1_e4_beside graph": "rotating",
+  "gb_i5_e1_alone kernel": "rotating",
+  "gb_i5_e1_alone b2b": "rotating",
+  "gb_i5_e1_alone graph": "rotating",
+  "gb_i5_e1_beside kernel": "rotating",
+  "gb_i5_e1_beside b2b": "rotating",
+  "gb_i5_e1_beside graph": "rotating",
+  "gb_i5_e4_alone kernel": "rotating",
+  "gb_i5_e4_alone b2b": "rotating",
+  "gb_i5_e4_alone graph": "rotating",
+  "gb_i5_e4_beside kernel": "rotating",
+  "gb_i5_e4_beside b2b": "rotating",
+  "gb_i5_e4_beside graph": "rotating",
+  "gemv19_b_rotating kernel": "rotating",
+  "gemv19_b_rotating b2b": "rotating",
+  "gemv19_b_rotating graph": "rotating",
+  "gemv19_b_warm kernel": "warm",
+  "gemv19_b_warm b2b": "warm",
+  "gemv19_b_warm graph": "warm",
+  "gemv19_r64_rotating kernel": "rotating",
+  "gemv19_r64_rotating b2b": "rotating",
+  "gemv19_r64_rotating graph": "rotating",
+  "gemv20_b_rotating kernel": "rotating",
+  "gemv20_b_rotating b2b": "rotating",
+  "gemv20_b_rotating graph": "rotating",
+  "gemv20_b_warm kernel": "warm",
+  "gemv20_b_warm b2b": "warm",
+  "gemv20_b_warm graph": "warm",
+  "gemv20_mk16_rotating kernel": "rotating",
+  "gemv20_mk16_rotating b2b": "rotating",
+  "gemv20_mk16_rotating graph": "rotating",
+  "gemv20_mk16_warm kernel": "warm",
+  "gemv20_mk16_warm b2b": "warm",
+  "gemv20_mk16_warm graph": "warm",
+  "gemv20_mk4_rotating kernel": "rotating",
+  "gemv20_mk4_rotating b2b": "rotating",
+  "gemv20_mk4_rotating graph": "rotating",
+  "gemv20_mk4_warm kernel": "warm",
+  "gemv20_mk4_warm b2b": "warm",
+  "gemv20_mk4_warm graph": "warm",
+  "gemv20_np2_r64_rotating kernel": "rotating",
+  "gemv20_np2_r64_rotating b2b": "rotating",
+  "gemv20_np2_r64_rotating graph": "rotating",
+  "gemv20_np2_r64_warm kernel": "warm",
+  "gemv20_np2_r64_warm b2b": "warm",
+  "gemv20_np2_r64_warm graph": "warm",
+  "gemv20_np2_rotating kernel": "rotating",
+  "gemv20_np2_rotating b2b": "rotating",
+  "gemv20_np2_rotating graph": "rotating",
+  "gemv20_np2_warm kernel": "warm",
+  "gemv20_np2_warm b2b": "warm",
+  "gemv20_np2_warm graph": "warm",
+  "gemv20_np8_r16_rotating kernel": "rotating",
+  "gemv20_np8_r16_rotating b2b": "rotating",
+  "gemv20_np8_r16_rotating graph": "rotating",
+  "gemv20_np8_r16_warm kernel": "warm",
+  "gemv20_np8_r16_warm b2b": "warm",
+  "gemv20_np8_r16_warm graph": "warm",
+  "gemv20_np8_rotating kernel": "rotating",
+  "gemv20_np8_rotating b2b": "rotating",
+  "gemv20_np8_rotating graph": "rotating",
+  "gemv20_np8_warm kernel": "warm",
+  "gemv20_np8_warm b2b": "warm",
+  "gemv20_np8_warm graph": "warm",
+  "gemv20_r16_rotating kernel": "rotating",
+  "gemv20_r16_rotating b2b": "rotating",
+  "gemv20_r16_rotating graph": "rotating",
+  "gemv20_r16_warm kernel": "warm",
+  "gemv20_r16_warm b2b": "warm",
+  "gemv20_r16_warm graph": "warm",
+  "gemv20_r64_rotating kernel": "rotating",
+  "gemv20_r64_rotating b2b": "rotating",
+  "gemv20_r64_rotating graph": "rotating",
+  "gemv20_r64_warm kernel": "warm",
+  "gemv20_r64_warm b2b": "warm",
+  "gemv20_r64_warm graph": "warm",
+  "gs_b_onlysc_rotating kernel": "rotating",
+  "gs_b_onlysc_rotating b2b": "rotating",
+  "gs_b_onlysc_rotating graph": "rotating",
+  "hgemm_m3584n1344k1792_c128x128x32_s2_t128 kernel": "warm",
+  "hgemm_m3584n1344k1792_c128x128x32_s2_t128 b2b": "warm",
+  "hgemm_m3584n1344k1792_c128x128x32_s2_t128 graph": "warm",
+  "hgemm_m3584n1344k1792_c128x128x32_s2_t128_rotating kernel": "rotating",
+  "hgemm_m3584n1344k1792_c128x128x32_s2_t128_rotating b2b": "rotating",
+  "hgemm_m3584n1344k1792_c128x128x32_s2_t128_rotating graph": "rotating",
+  "hgemm_m3584n1344k1792_c128x128x32_s3_t128 kernel": "warm",
+  "hgemm_m3584n1344k1792_c128x128x32_s3_t128 b2b": "warm",
+  "hgemm_m3584n1344k1792_c128x128x32_s3_t128 graph": "warm",
+  "hgemm_m3584n1344k1792_c128x128x32_s3_t128_rotating kernel": "rotating",
+  "hgemm_m3584n1344k1792_c128x128x32_s3_t128_rotating b2b": "rotating",
+  "hgemm_m3584n1344k1792_c128x128x32_s3_t128_rotating graph": "rotating",
+  "hgemm_m3584n1344k1792_c128x128x32_s3_t128_sw8 kernel": "warm",
+  "hgemm_m3584n1344k1792_c128x128x32_s3_t128_sw8 b2b": "warm",
+  "hgemm_m3584n1344k1792_c128x128x32_s3_t128_sw8 graph": "warm",
+  "hgemm_m3584n1344k1792_c128x128x32_s3_t128_sw8_rotating kernel": "rotating",
+  "hgemm_m3584n1344k1792_c128x128x32_s3_t128_sw8_rotating b2b": "rotating",
+  "hgemm_m3584n1344k1792_c128x128x32_s3_t128_sw8_rotating graph": "rotating",
+  "hgemm_m3584n1344k1792_c128x128x32_s4_t128 kernel": "warm",
+  "hgemm_m3584n1344k1792_c128x128x32_s4_t128 b2b": "warm",
+  "hgemm_m3584n1344k1792_c128x128x32_s4_t128 graph": "warm",
+  "hgemm_m3584n1344k1792_c128x128x32_s4_t128_rotating kernel": "rotating",
+  "hgemm_m3584n1344k1792_c128x128x32_s4_t128_rotating b2b": "rotating",
+  "hgemm_m3584n1344k1792_c128x128x32_s4_t128_rotating graph": "rotating",
+  "hgemm_m3584n1344k1792_c128x128x64_s2_t128 kernel": "warm",
+  "hgemm_m3584n1344k1792_c128x128x64_s2_t128 b2b": "warm",
+  "hgemm_m3584n1344k1792_c128x128x64_s2_t128 graph": "warm",
+  "hgemm_m3584n1344k1792_c128x128x64_s2_t128_rotating kernel": "rotating",
+  "hgemm_m3584n1344k1792_c128x128x64_s2_t128_rotating b2b": "rotating",
+  "hgemm_m3584n1344k1792_c128x128x64_s2_t128_rotating graph": "rotating",
+  "hgemm_m3584n1344k1792_c128x256x32_s3_t256 kernel": "warm",
+  "hgemm_m3584n1344k1792_c128x256x32_s3_t256 b2b": "warm",
+  "hgemm_m3584n1344k1792_c128x256x32_s3_t256 graph": "warm",
+  "hgemm_m3584n1344k1792_c128x256x32_s3_t256_rotating kernel": "rotating",
+  "hgemm_m3584n1344k1792_c128x256x32_s3_t256_rotating b2b": "rotating",
+  "hgemm_m3584n1344k1792_c128x256x32_s3_t256_rotating graph": "rotating",
+  "hgemm_m3584n1344k1792_c128x256x64_s2_t256 kernel": "warm",
+  "hgemm_m3584n1344k1792_c128x256x64_s2_t256 b2b": "warm",
+  "hgemm_m3584n1344k1792_c128x256x64_s2_t256 graph": "warm",
+  "hgemm_m3584n1344k1792_c128x256x64_s2_t256_rotating kernel": "rotating",
+  "hgemm_m3584n1344k1792_c128x256x64_s2_t256_rotating b2b": "rotating",
+  "hgemm_m3584n1344k1792_c128x256x64_s2_t256_rotating graph": "rotating",
+  "hgemm_m3584n1344k1792_c256x128x32_s3_t256 kernel": "warm",
+  "hgemm_m3584n1344k1792_c256x128x32_s3_t256 b2b": "warm",
+  "hgemm_m3584n1344k1792_c256x128x32_s3_t256 graph": "warm",
+  "hgemm_m3584n1344k1792_c256x128x32_s3_t256_rotating kernel": "rotating",
+  "hgemm_m3584n1344k1792_c256x128x32_s3_t256_rotating b2b": "rotating",
+  "hgemm_m3584n1344k1792_c256x128x32_s3_t256_rotating graph": "rotating",
+  "hgemm_m3584n1344k1792_c64x128x32_s4_t128 kernel": "warm",
+  "hgemm_m3584n1344k1792_c64x128x32_s4_t128 b2b": "warm",
+  "hgemm_m3584n1344k1792_c64x128x32_s4_t128 graph": "warm",
+  "hgemm_m3584n1344k1792_c64x128x32_s4_t128_rotating kernel": "rotating",
+  "hgemm_m3584n1344k1792_c64x128x32_s4_t128_rotating b2b": "rotating",
+  "hgemm_m3584n1344k1792_c64x128x32_s4_t128_rotating graph": "rotating",
+  "hgemm_m3584n1344k1792_c64x64x32_s4_t64 kernel": "warm",
+  "hgemm_m3584n1344k1792_c64x64x32_s4_t64 b2b": "warm",
+  "hgemm_m3584n1344k1792_c64x64x32_s4_t64 graph": "warm",
+  "hgemm_m3584n1344k1792_c64x64x32_s4_t64_rotating kernel": "rotating",
+  "hgemm_m3584n1344k1792_c64x64x32_s4_t64_rotating b2b": "rotating",
+  "hgemm_m3584n1344k1792_c64x64x32_s4_t64_rotating graph": "rotating",
+  "hgemm_m3968n1488k1984_c128x128x32_s3_t128 kernel": "warm",
+  "hgemm_m3968n1488k1984_c128x128x32_s3_t128 b2b": "warm",
+  "hgemm_m3968n1488k1984_c128x128x32_s3_t128 graph": "warm",
+  "hgemm_m3968n1488k1984_c128x128x32_s3_t128_rotating kernel": "rotating",
+  "hgemm_m3968n1488k1984_c128x128x32_s3_t128_rotating b2b": "rotating",
+  "hgemm_m3968n1488k1984_c128x128x32_s3_t128_rotating graph": "rotating",
+  "rms19_t128_rotating kernel": "rotating",
+  "rms19_t128_rotating b2b": "rotating",
+  "rms19_t128_rotating graph": "rotating",
+  "rms19_t128_warm kernel": "warm",
+  "rms19_t128_warm b2b": "warm",
+  "rms19_t128_warm graph": "warm",
+  "rms19_t512_warm kernel": "warm",
+  "rms19_t512_warm b2b": "warm",
+  "rms19_t512_warm graph": "warm",
+  "rms20_t128_rotating kernel": "rotating",
+  "rms20_t128_rotating b2b": "rotating",
+  "rms20_t128_rotating graph": "rotating",
+  "rms20_t128_warm kernel": "warm",
+  "rms20_t128_warm b2b": "warm",
+  "rms20_t128_warm graph": "warm",
+  "rms20_t16_rotating kernel": "rotating",
+  "rms20_t16_rotating b2b": "rotating",
+  "rms20_t16_rotating graph": "rotating",
+  "rms20_t16_warm kernel": "warm",
+  "rms20_t16_warm b2b": "warm",
+  "rms20_t16_warm graph": "warm",
+  "rms20_t256_rotating kernel": "rotating",
+  "rms20_t256_rotating b2b": "rotating",
+  "rms20_t256_rotating graph": "rotating",
+  "rms20_t256_warm kernel": "warm",
+  "rms20_t256_warm b2b": "warm",
+  "rms20_t256_warm graph": "warm",
+  "rms20_t32_rotating kernel": "rotating",
+  "rms20_t32_rotating b2b": "rotating",
+  "rms20_t32_rotating graph": "rotating",
+  "rms20_t32_warm kernel": "warm",
+  "rms20_t32_warm b2b": "warm",
+  "rms20_t32_warm graph": "warm",
+  "rms20_t512_rotating kernel": "rotating",
+  "rms20_t512_rotating b2b": "rotating",
+  "rms20_t512_rotating graph": "rotating",
+  "rms20_t512_warm kernel": "warm",
+  "rms20_t512_warm b2b": "warm",
+  "rms20_t512_warm graph": "warm",
+  "rms20_t64_rotating kernel": "rotating",
+  "rms20_t64_rotating b2b": "rotating",
+  "rms20_t64_rotating graph": "rotating",
+  "rms20_t64_warm kernel": "warm",
+  "rms20_t64_warm b2b": "warm",
+  "rms20_t64_warm graph": "warm",
+  "rs_m176_t128_warm kernel": "warm",
+  "rs_m176_t128_warm b2b": "warm",
+  "rs_m176_t128_warm graph": "warm",
+  "rs_nostore_t128_warm kernel": "warm",
+  "rs_nostore_t128_warm b2b": "warm",
+  "rs_nostore_t128_warm graph": "warm",
+  "rw_m1760n2816_t128_warm kernel": "warm",
+  "rw_m1760n2816_t128_warm b2b": "warm",
+  "rw_m1760n2816_t128_warm graph": "warm",
+  "rw_m440_t128_warm kernel": "warm",
+  "rw_m440_t128_warm b2b": "warm",
+  "rw_m440_t128_warm graph": "warm",
+  "rw_m528_t128_warm kernel": "warm",
+  "rw_m528_t128_warm b2b": "warm",
+  "rw_m528_t128_warm graph": "warm",
+  "rw_m604n8192_t128_warm kernel": "warm",
+  "rw_m604n8192_t128_warm b2b": "warm",
+  "rw_m604n8192_t128_warm graph": "warm",
+  "rw_m616_t128_warm kernel": "warm",
+  "rw_m616_t128_warm b2b": "warm",
+  "rw_m616_t128_warm graph": "warm",
+  "rw_m660_t128_warm kernel": "warm",
+  "rw_m660_t128_warm b2b": "warm",
+  "rw_m660_t128_warm graph": "warm",
+  "rw_m748_t128_warm kernel": "warm",
+  "rw_m748_t128_warm b2b": "warm",
+  "rw_m748_t128_warm graph": "warm",
+  "rw_m792_t128_warm kernel": "warm",
+  "rw_m792_t128_warm b2b": "warm",
+  "rw_m792_t128_warm graph": "warm",
+  "rw_m880_t128_warm kernel": "warm",
+  "rw_m880_t128_warm b2b": "warm",
+  "rw_m880_t128_warm graph": "warm",
+  "rw_m880_t32_warm kernel": "warm",
+  "rw_m880_t32_warm b2b": "warm",
+  "rw_m880_t32_warm graph": "warm",
+  "rw_m880_t512_warm kernel": "warm",
+  "rw_m880_t512_warm b2b": "warm",
+  "rw_m880_t512_warm graph": "warm",
+  "rw_m968_t128_warm kernel": "warm",
+  "rw_m968_t128_warm b2b": "warm",
+  "rw_m968_t128_warm graph": "warm",
+  "rw_m968_t32_warm kernel": "warm",
+  "rw_m968_t32_warm b2b": "warm",
+  "rw_m968_t32_warm graph": "warm",
+  "rw_m968_t512_warm kernel": "warm",
+  "rw_m968_t512_warm b2b": "warm",
+  "rw_m968_t512_warm graph": "warm",
+  "rw_nl_m528_t128_warm kernel": "warm",
+  "rw_nl_m528_t128_warm b2b": "warm",
+  "rw_nl_m528_t128_warm graph": "warm",
+  "rw_nl_m880_t128_warm kernel": "warm",
+  "rw_nl_m880_t128_warm b2b": "warm",
+  "rw_nl_m880_t128_warm graph": "warm",
+  "rw_nl_m968_t128_warm kernel": "warm",
+  "rw_nl_m968_t128_warm b2b": "warm",
+  "rw_nl_m968_t128_warm graph": "warm",
+  "rw_ns_m880_t128_warm kernel": "warm",
+  "rw_ns_m880_t128_warm b2b": "warm",
+  "rw_ns_m880_t128_warm graph": "warm",
+  "rw_ns_m968_t128_warm kernel": "warm",
+  "rw_ns_m968_t128_warm b2b": "warm",
+  "rw_ns_m968_t128_warm graph": "warm",
+  "sm19_t128_warm kernel": "warm",
+  "sm19_t128_warm b2b": "warm",
+  "sm19_t128_warm graph": "warm",
+  "sm19_t512_warm kernel": "warm",
+  "sm19_t512_warm b2b": "warm",
+  "sm19_t512_warm graph": "warm",
+  "sm20_t128_warm kernel": "warm",
+  "sm20_t128_warm b2b": "warm",
+  "sm20_t128_warm graph": "warm",
+  "sm20_t16_warm kernel": "warm",
+  "sm20_t16_warm b2b": "warm",
+  "sm20_t16_warm graph": "warm",
+  "sm20_t256_warm kernel": "warm",
+  "sm20_t256_warm b2b": "warm",
+  "sm20_t256_warm graph": "warm",
+  "sm20_t32_warm kernel": "warm",
+  "sm20_t32_warm b2b": "warm",
+  "sm20_t32_warm graph": "warm",
+  "sm20_t512_warm kernel": "warm",
+  "sm20_t512_warm b2b": "warm",
+  "sm20_t512_warm graph": "warm",
+  "sm20_t64_warm kernel": "warm",
+  "sm20_t64_warm b2b": "warm",
+  "sm20_t64_warm graph": "warm",
+  "sw_m616_t128_warm kernel": "warm",
+  "sw_m616_t128_warm b2b": "warm",
+  "sw_m616_t128_warm graph": "warm",
+  "sw_m792_t128_warm kernel": "warm",
+  "sw_m792_t128_warm b2b": "warm",
+  "sw_m792_t128_warm graph": "warm",
+  "sw_m880_t128_warm kernel": "warm",
+  "sw_m880_t128_warm b2b": "warm",
+  "sw_m880_t128_warm graph": "warm",
+  "sw_m968_t128_warm kernel": "warm",
+  "sw_m968_t128_warm b2b": "warm",
+  "sw_m968_t128_warm graph": "warm",
+  "wb_w12_r0 kernel": "warm",
+  "wb_w12_r0 b2b": "warm",
+  "wb_w12_r0 graph": "warm",
+  "wb_w12_r12 kernel": "warm",
+  "wb_w12_r12 b2b": "warm",
+  "wb_w12_r12 graph": "warm",
+  "wb_w12_r4 kernel": "warm",
+  "wb_w12_r4 b2b": "warm",
+  "wb_w12_r4 graph": "warm",
+  "wb_w6_r0 kernel": "warm",
+  "wb_w6_r0 b2b": "warm",
+  "wb_w6_r0 graph": "warm",
+  "wb_w6_r12 kernel": "warm",
+  "wb_w6_r12 b2b": "warm",
+  "wb_w6_r12 graph": "warm",
+  "wb_w6_r16 kernel": "warm",
+  "wb_w6_r16 b2b": "warm",
+  "wb_w6_r16 graph": "warm",
+  "wb_w6_r2 kernel": "warm",
+  "wb_w6_r2 b2b": "warm",
+  "wb_w6_r2 graph": "warm",
+  "wb_w6_r4 kernel": "warm",
+  "wb_w6_r4 b2b": "warm",
+  "wb_w6_r4 graph": "warm",
+  "wb_w6_r8 kernel": "warm",
+  "wb_w6_r8 b2b": "warm",
+  "wb_w6_r8 graph": "warm",
+  "wb_w9_r0 kernel": "warm",
+  "wb_w9_r0 b2b": "warm",
+  "wb_w9_r0 graph": "warm",
+  "wb_w9_r12 kernel": "warm",
+  "wb_w9_r12 b2b": "warm",
+  "wb_w9_r12 graph": "warm",
+  "wb_w9_r3 kernel": "warm",
+  "wb_w9_r3 b2b": "warm",
+  "wb_w9_r3 graph": "warm",
+  "wb_w9_r6 kernel": "warm",
+  "wb_w9_r6 b2b": "warm",
+  "wb_w9_r6 graph": "warm",
+  "wb_w9_r9 kernel": "warm",
+  "wb_w9_r9 b2b": "warm",
+  "wb_w9_r9 graph": "warm",
+  "wb_w9_r9_k16 kernel": "warm",
+  "wb_w9_r9_k16 b2b": "warm",
+  "wb_w9_r9_k16 graph": "warm",
+  "wb_w9_r9_k4 kernel": "warm",
+  "wb_w9_r9_k4 b2b": "warm",
+  "wb_w9_r9_k4 graph": "warm",
+  "clock chain_GHz": "warm"
+ },
+ "environment": {
+  "1-env-before-apps": "",
+  "1-env-after-apps": "",
+  "1-env-after-uptime": " 01:41:41 up 22 days, 30 min,  9 users,  load average: 1.04, 0.80, 0.96\n",
+  "1-env-before-uptime": " 01:30:40 up 22 days, 19 min,  9 users,  load average: 1.12, 1.44, 1.31\n",
+  "1-env-versions": "NVIDIA-SMI version  : 580.159.03\nNVML version        : 580.159\nDRIVER version      : 580.159.03\nCUDA Version        : 13.0\nCuda compilation tools, release 13.0, V13.0.88\nBuild cuda_13.0.r13.0/compiler.36424714_0\n"
+ },
+ "smi_before": "\n==============NVSMI LOG==============\n\nTimestamp                                              : Fri Nov  6 01:30:40 2026\nDriver Version                                         : 580.159.03\nCUDA Version                                           : 13.0\n\nAttached GPUs                                          : 1\nGPU 0000000F:01:00.0\n    Performance State                                  : P0\n    Clocks Event Reasons\n        Idle                                           : Not Active\n        Applications Clocks Setting                    : Not Active\n        SW Power Cap                                   : Not Active\n        HW Slowdown                                    : Not Active\n            HW Thermal Slowdown                        : Not Active\n            HW Power Brake Slowdown                    : Not Active\n        Sync Boost                                     : Not Active\n        SW Thermal Slowdown                            : Not Active\n        Display Clock Setting                          : Not Active\n    Clocks Event Reasons Counters\n        SW Power Capping                               : 11788812314 us\n        Sync Boost                                     : 0 us\n        SW Thermal Slowdown                            : 0 us\n        HW Thermal Slowdown                            : 0 us\n        HW Power Braking                               : 0 us\n    Sparse Operation Mode                              : N/A\n    Temperature\n        GPU Current Temp                               : 54 C\n        GPU T.Limit Temp                               : 41 C\n        GPU Shutdown T.Limit Temp                      : -5 C\n        GPU Slowdown T.Limit Temp                      : -2 C\n        GPU Max Operating T.Limit Temp                 : 0 C\n        GPU Target Temperature                         : N/A\n        Memory Current Temp                            : N/A\n        Memory Max Operating T.Limit Temp              : N/A\n    GPU Power Readings\n        Average Power Draw                             : 19.09 W\n        Instantaneous Power Draw                       : 14.54 W\n        Current Power Limit                            : N/A\n        Requested Power Limit                          : N/A\n        Default Power Limit                            : N/A\n        Min Power Limit                                : N/A\n        Max Power Limit                                : N/A\n    Power Samples\n        Duration                                       : Not Found\n        Number of Samples                              : Not Found\n        Max                                            : Not Found\n        Min                                            : Not Found\n        Avg                                            : Not Found\n    GPU Memory Power Readings \n        Average Power Draw                             : N/A\n        Instantaneous Power Draw                       : N/A\n    Module Power Readings\n        Average Power Draw                             : N/A\n        Instantaneous Power Draw                       : N/A\n        Current Power Limit                            : N/A\n        Requested Power Limit                          : N/A\n        Default Power Limit                            : N/A\n        Min Power Limit                                : N/A\n        Max Power Limit                                : N/A\n    Clocks\n        Graphics                                       : 2431 MHz\n        SM                                             : 2431 MHz\n        Memory                                         : N/A\n        Video                                          : 2112 MHz\n    Applications Clocks\n        Graphics                                       : 2418 MHz\n        Memory                                         : N/A\n    Default Applications Clocks\n        Graphics                                       : 2418 MHz\n        Memory                                         : N/A\n    Deferred Clocks\n        Memory                                         : N/A\n    Max Clocks\n        Graphics                                       : 3003 MHz\n        SM                                             : 3003 MHz\n        Memory                                         : N/A\n        Video                                          : 3003 MHz\n    Max Customer Boost Clocks\n        Graphics                                       : N/A\n    SM Clock Samples\n        Duration                                       : N/A\n        Number of Samples                              : N/A\n        Max                                            : N/A\n        Min                                            : N/A\n        Avg                                            : N/A\n    Memory Clock Samples\n        Duration                                       : N/A\n        Number of Samples                              : N/A\n        Max                                            : N/A\n        Min                                            : N/A\n        Avg                                            : N/A\n    Clock Policy\n        Auto Boost                                     : N/A\n        Auto Boost Default                             : N/A\n\n",
+ "smi_after": "\n==============NVSMI LOG==============\n\nTimestamp                                              : Fri Nov  6 01:41:41 2026\nDriver Version                                         : 580.159.03\nCUDA Version                                           : 13.0\n\nAttached GPUs                                          : 1\nGPU 0000000F:01:00.0\n    Performance State                                  : P0\n    Clocks Event Reasons\n        Idle                                           : Not Active\n        Applications Clocks Setting                    : Not Active\n        SW Power Cap                                   : Not Active\n        HW Slowdown                                    : Not Active\n            HW Thermal Slowdown                        : Not Active\n            HW Power Brake Slowdown                    : Not Active\n        Sync Boost                                     : Not Active\n        SW Thermal Slowdown                            : Not Active\n        Display Clock Setting                          : Not Active\n    Clocks Event Reasons Counters\n        SW Power Capping                               : 11788853611 us\n        Sync Boost                                     : 0 us\n        SW Thermal Slowdown                            : 0 us\n        HW Thermal Slowdown                            : 0 us\n        HW Power Braking                               : 0 us\n    Sparse Operation Mode                              : N/A\n    Temperature\n        GPU Current Temp                               : 58 C\n        GPU T.Limit Temp                               : 38 C\n        GPU Shutdown T.Limit Temp                      : -5 C\n        GPU Slowdown T.Limit Temp                      : -2 C\n        GPU Max Operating T.Limit Temp                 : 0 C\n        GPU Target Temperature                         : N/A\n        Memory Current Temp                            : N/A\n        Memory Max Operating T.Limit Temp              : N/A\n    GPU Power Readings\n        Average Power Draw                             : 17.88 W\n        Instantaneous Power Draw                       : 14.59 W\n        Current Power Limit                            : N/A\n        Requested Power Limit                          : N/A\n        Default Power Limit                            : N/A\n        Min Power Limit                                : N/A\n        Max Power Limit                                : N/A\n    Power Samples\n        Duration                                       : Not Found\n        Number of Samples                              : Not Found\n        Max                                            : Not Found\n        Min                                            : Not Found\n        Avg                                            : Not Found\n    GPU Memory Power Readings \n        Average Power Draw                             : N/A\n        Instantaneous Power Draw                       : N/A\n    Module Power Readings\n        Average Power Draw                             : N/A\n        Instantaneous Power Draw                       : N/A\n        Current Power Limit                            : N/A\n        Requested Power Limit                          : N/A\n        Default Power Limit                            : N/A\n        Min Power Limit                                : N/A\n        Max Power Limit                                : N/A\n    Clocks\n        Graphics                                       : 2411 MHz\n        SM                                             : 2411 MHz\n        Memory                                         : N/A\n        Video                                          : 2080 MHz\n    Applications Clocks\n        Graphics                                       : 2418 MHz\n        Memory                                         : N/A\n    Default Applications Clocks\n        Graphics                                       : 2418 MHz\n        Memory                                         : N/A\n    Deferred Clocks\n        Memory                                         : N/A\n    Max Clocks\n        Graphics                                       : 3003 MHz\n        SM                                             : 3003 MHz\n        Memory                                         : N/A\n        Video                                          : 3003 MHz\n    Max Customer Boost Clocks\n        Graphics                                       : N/A\n    SM Clock Samples\n        Duration                                       : N/A\n        Number of Samples                              : N/A\n        Max                                            : N/A\n        Min                                            : N/A\n        Avg                                            : N/A\n    Memory Clock Samples\n        Duration                                       : N/A\n        Number of Samples                              : N/A\n        Max                                            : N/A\n        Min                                            : N/A\n        Avg                                            : N/A\n    Clock Policy\n        Auto Boost                                     : N/A\n        Auto Boost Default                             : N/A\n\n",
+ "steps": [
+  {
+   "step": "1-env-before-smi",
+   "cmd": [
+    "nvidia-smi",
+    "-q",
+    "-d",
+    "CLOCK,TEMPERATURE,POWER,PERFORMANCE"
+   ],
+   "rc": 0,
+   "t0": 1793899840.1159706,
+   "s": 0.1
+  },
+  {
+   "step": "1-env-before-apps",
+   "cmd": [
+    "nvidia-smi",
+    "--query-compute-apps=pid,process_name",
+    "--format=csv,noheader"
+   ],
+   "rc": 0,
+   "t0": 1793899840.180088,
+   "s": 0.0
+  },
+  {
+   "step": "1-env-before-uptime",
+   "cmd": [
+    "uptime"
+   ],
+   "rc": 0,
+   "t0": 1793899840.1989348,
+   "s": 0.0
+  },
+  {
+   "step": "1-env-versions",
+   "cmd": [
+    "sh",
+    "-c",
+    "nvidia-smi --version; nvcc --version | tail -2"
+   ],
+   "rc": 0,
+   "t0": 1793899840.2097716,
+   "s": 0.0
+  },
+  {
+   "step": "2-protocol-clock",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/protocol/bin",
+    "clock"
+   ],
+   "rc": 0,
+   "t0": 1793899840.22822,
+   "s": 0.6
+  },
+  {
+   "step": "2-protocol-fma",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/protocol/bin",
+    "fma"
+   ],
+   "rc": 0,
+   "t0": 1793899840.8467174,
+   "s": 0.4
+  },
+  {
+   "step": "2-protocol-mem",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/protocol/bin",
+    "mem"
+   ],
+   "rc": 0,
+   "t0": 1793899841.277076,
+   "s": 0.5
+  },
+  {
+   "step": "4-bl19_pairsum",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/bl19_pairsum/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899841.7717085,
+   "s": 0.4
+  },
+  {
+   "step": "4-bl19_ringload",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/bl19_ringload/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899842.1940892,
+   "s": 0.4
+  },
+  {
+   "step": "4-bl19_stridestore",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/bl19_stridestore/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899842.6203096,
+   "s": 0.4
+  },
+  {
+   "step": "4-bl20_clampstore",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/bl20_clampstore/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899843.0443833,
+   "s": 0.4
+  },
+  {
+   "step": "4-bl20_doubleword",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/bl20_doubleword/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899843.470285,
+   "s": 0.4
+  },
+  {
+   "step": "4-bl20_evenodd",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/bl20_evenodd/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899843.8954632,
+   "s": 0.4
+  },
+  {
+   "step": "4-bl20_evenodd_one",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/bl20_evenodd_one/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899844.3153148,
+   "s": 0.4
+  },
+  {
+   "step": "4-bl20_everysixteen",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/bl20_everysixteen/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899844.7302177,
+   "s": 0.4
+  },
+  {
+   "step": "4-bl20_lanehash",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/bl20_lanehash/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899845.1492963,
+   "s": 0.4
+  },
+  {
+   "step": "4-bl20_reverseread",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/bl20_reverseread/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899845.5827417,
+   "s": 0.4
+  },
+  {
+   "step": "4-bl20_rowthree",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/bl20_rowthree/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899846.0087183,
+   "s": 0.4
+  },
+  {
+   "step": "4-bl20_shortload",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/bl20_shortload/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899846.4356723,
+   "s": 0.4
+  },
+  {
+   "step": "4-bl20_stackfive",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/bl20_stackfive/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899846.8598864,
+   "s": 0.4
+  },
+  {
+   "step": "4-bl20_stackfive_four",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/bl20_stackfive_four/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899847.2824776,
+   "s": 0.4
+  },
+  {
+   "step": "4-bl20_storepair",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/bl20_storepair/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899847.701018,
+   "s": 0.4
+  },
+  {
+   "step": "4-bl20_storepair_one",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/bl20_storepair_one/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899848.12863,
+   "s": 0.4
+  },
+  {
+   "step": "4-bl20_storeskip",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/bl20_storeskip/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899848.5582972,
+   "s": 0.4
+  },
+  {
+   "step": "4-bl20_sumfour",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/bl20_sumfour/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899848.9890053,
+   "s": 0.4
+  },
+  {
+   "step": "4-bl20_sumfour_two",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/bl20_sumfour_two/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899849.4170568,
+   "s": 0.4
+  },
+  {
+   "step": "4-bl20_tallybyte",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/bl20_tallybyte/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899849.8378358,
+   "s": 0.5
+  },
+  {
+   "step": "4-cb_q16",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/cb_q16/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899850.3126285,
+   "s": 0.5
+  },
+  {
+   "step": "4-cb_q16_ld",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/cb_q16_ld/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899850.7791982,
+   "s": 0.5
+  },
+  {
+   "step": "4-cb_q32",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/cb_q32/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899851.2483635,
+   "s": 0.5
+  },
+  {
+   "step": "4-cb_q32_ld",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/cb_q32_ld/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899851.7595272,
+   "s": 0.5
+  },
+  {
+   "step": "4-cb_q4",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/cb_q4/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899852.275927,
+   "s": 0.5
+  },
+  {
+   "step": "4-cb_q4_ld",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/cb_q4_ld/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899852.7334383,
+   "s": 0.4
+  },
+  {
+   "step": "4-cb_q4_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/cb_q4_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899853.1821733,
+   "s": 0.5
+  },
+  {
+   "step": "4-cb_q8",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/cb_q8/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899853.6539578,
+   "s": 0.4
+  },
+  {
+   "step": "4-cb_q8_ld",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/cb_q8_ld/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899854.1029515,
+   "s": 0.4
+  },
+  {
+   "step": "4-cb_rows_q4",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/cb_rows_q4/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899854.55069,
+   "s": 0.5
+  },
+  {
+   "step": "4-cb_rows_tl7",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/cb_rows_tl7/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899855.0029361,
+   "s": 0.5
+  },
+  {
+   "step": "4-cb_tl5",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/cb_tl5/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899855.4617045,
+   "s": 0.5
+  },
+  {
+   "step": "4-cb_tl5_ld",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/cb_tl5_ld/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899855.9275017,
+   "s": 0.5
+  },
+  {
+   "step": "4-cb_tl7",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/cb_tl7/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899856.3990529,
+   "s": 0.5
+  },
+  {
+   "step": "4-cb_tl7_ld",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/cb_tl7_ld/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899856.8608997,
+   "s": 0.5
+  },
+  {
+   "step": "4-cb_tl7_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/cb_tl7_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899857.3228068,
+   "s": 0.5
+  },
+  {
+   "step": "4-cb_tl9",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/cb_tl9/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899857.8020415,
+   "s": 0.5
+  },
+  {
+   "step": "4-cb_tl9_ld",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/cb_tl9_ld/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899858.259027,
+   "s": 0.5
+  },
+  {
+   "step": "4-cb_tl9_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/cb_tl9_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899858.7243187,
+   "s": 0.5
+  },
+  {
+   "step": "4-dec19_b_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dec19_b_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899859.199597,
+   "s": 0.6
+  },
+  {
+   "step": "4-dec19_b_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dec19_b_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899859.7848175,
+   "s": 0.5
+  },
+  {
+   "step": "4-dec19_bn32_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dec19_bn32_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899860.260705,
+   "s": 0.6
+  },
+  {
+   "step": "4-dec20_b_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dec20_b_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899860.8220963,
+   "s": 0.5
+  },
+  {
+   "step": "4-dec20_b_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dec20_b_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899861.3423977,
+   "s": 0.5
+  },
+  {
+   "step": "4-dec20_bn32_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dec20_bn32_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899861.7974167,
+   "s": 0.5
+  },
+  {
+   "step": "4-dec20_bn32_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dec20_bn32_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899862.3069289,
+   "s": 0.5
+  },
+  {
+   "step": "4-dec20_s1_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dec20_s1_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899862.757358,
+   "s": 0.5
+  },
+  {
+   "step": "4-dec20_s1_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dec20_s1_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899863.2776263,
+   "s": 0.4
+  },
+  {
+   "step": "4-dec20_s3_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dec20_s3_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899863.7236667,
+   "s": 0.5
+  },
+  {
+   "step": "4-dec20_s3_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dec20_s3_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899864.2468157,
+   "s": 0.5
+  },
+  {
+   "step": "4-dec20_split16_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dec20_split16_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899864.7109814,
+   "s": 0.5
+  },
+  {
+   "step": "4-dec20_split16_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dec20_split16_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899865.2240498,
+   "s": 0.5
+  },
+  {
+   "step": "4-dec20_split4_bn32_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dec20_split4_bn32_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899865.6923645,
+   "s": 0.5
+  },
+  {
+   "step": "4-dec20_split4_bn32_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dec20_split4_bn32_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899866.1962695,
+   "s": 0.4
+  },
+  {
+   "step": "4-dec20_split4_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dec20_split4_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899866.641618,
+   "s": 0.5
+  },
+  {
+   "step": "4-dec20_split4_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dec20_split4_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899867.1584694,
+   "s": 0.4
+  },
+  {
+   "step": "4-dw_d112_bn32_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dw_d112_bn32_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899867.6073222,
+   "s": 0.4
+  },
+  {
+   "step": "4-dw_d112_bn64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dw_d112_bn64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899868.0573583,
+   "s": 0.5
+  },
+  {
+   "step": "4-dw_d128_bn32_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dw_d128_bn32_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899868.5159512,
+   "s": 0.4
+  },
+  {
+   "step": "4-dw_d128_bn64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dw_d128_bn64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899868.9618707,
+   "s": 0.5
+  },
+  {
+   "step": "4-dw_d144_bn32_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dw_d144_bn32_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899869.4174943,
+   "s": 0.5
+  },
+  {
+   "step": "4-dw_d144_bn64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dw_d144_bn64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899869.88346,
+   "s": 0.5
+  },
+  {
+   "step": "4-dw_d96_bn32_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dw_d96_bn32_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899870.3425188,
+   "s": 0.4
+  },
+  {
+   "step": "4-dw_d96_bn64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dw_d96_bn64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899870.7804718,
+   "s": 0.4
+  },
+  {
+   "step": "4-fa19_c64x64_s1_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fa19_c64x64_s1_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899871.2219222,
+   "s": 1.7
+  },
+  {
+   "step": "4-fa19_c64x64_s2_t128_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fa19_c64x64_s2_t128_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899872.9370148,
+   "s": 1.8
+  },
+  {
+   "step": "4-fa19_c64x64_s2_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fa19_c64x64_s2_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899874.7827008,
+   "s": 1.8
+  },
+  {
+   "step": "4-fa20_c128x64_s2_t128_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fa20_c128x64_s2_t128_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899876.6227407,
+   "s": 1.1
+  },
+  {
+   "step": "4-fa20_c128x64_s2_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fa20_c128x64_s2_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899877.7184026,
+   "s": 1.1
+  },
+  {
+   "step": "4-fa20_c128x64_s2_t256_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fa20_c128x64_s2_t256_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899878.7756302,
+   "s": 1.0
+  },
+  {
+   "step": "4-fa20_c128x64_s2_t256_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fa20_c128x64_s2_t256_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899879.7996657,
+   "s": 1.0
+  },
+  {
+   "step": "4-fa20_c32x64_s2_t64_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fa20_c32x64_s2_t64_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899880.7906697,
+   "s": 1.6
+  },
+  {
+   "step": "4-fa20_c32x64_s2_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fa20_c32x64_s2_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899882.377066,
+   "s": 1.5
+  },
+  {
+   "step": "4-fa20_c64x32_s3_t128_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fa20_c64x32_s3_t128_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899883.9255288,
+   "s": 1.1
+  },
+  {
+   "step": "4-fa20_c64x32_s3_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fa20_c64x32_s3_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899885.053129,
+   "s": 1.1
+  },
+  {
+   "step": "4-fa20_c64x64_s1_t128_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fa20_c64x64_s1_t128_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899886.1319938,
+   "s": 1.0
+  },
+  {
+   "step": "4-fa20_c64x64_s1_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fa20_c64x64_s1_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899887.177251,
+   "s": 1.0
+  },
+  {
+   "step": "4-fa20_c64x64_s2_t128_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fa20_c64x64_s2_t128_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899888.184225,
+   "s": 1.1
+  },
+  {
+   "step": "4-fa20_c64x64_s2_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fa20_c64x64_s2_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899889.2596605,
+   "s": 1.0
+  },
+  {
+   "step": "4-fa20_c64x64_s2_t64_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fa20_c64x64_s2_t64_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899890.2914011,
+   "s": 1.6
+  },
+  {
+   "step": "4-fa20_c64x64_s2_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fa20_c64x64_s2_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899891.8969836,
+   "s": 1.6
+  },
+  {
+   "step": "4-fa20_c64x64_s3_t128_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fa20_c64x64_s3_t128_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899893.4588182,
+   "s": 1.1
+  },
+  {
+   "step": "4-fa20_c64x64_s3_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fa20_c64x64_s3_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899894.5523822,
+   "s": 1.1
+  },
+  {
+   "step": "4-fas_d112_t128",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fas_d112_t128/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899895.603631,
+   "s": 0.5
+  },
+  {
+   "step": "4-fas_d128_t128",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fas_d128_t128/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899896.0811963,
+   "s": 0.5
+  },
+  {
+   "step": "4-fas_d144_t128",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fas_d144_t128/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899896.5414846,
+   "s": 0.5
+  },
+  {
+   "step": "4-fas_d160_t128",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fas_d160_t128/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899897.0216444,
+   "s": 0.5
+  },
+  {
+   "step": "4-fas_d176_t128",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fas_d176_t128/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899897.4919076,
+   "s": 0.5
+  },
+  {
+   "step": "4-fas_d64_t128",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fas_d64_t128/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899897.980741,
+   "s": 0.4
+  },
+  {
+   "step": "4-fas_d80_t128",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fas_d80_t128/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899898.4197001,
+   "s": 0.4
+  },
+  {
+   "step": "4-fas_d96_t128",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fas_d96_t128/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899898.8677049,
+   "s": 0.5
+  },
+  {
+   "step": "4-gb_i1_e1_alone",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gb_i1_e1_alone/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899899.3329306,
+   "s": 0.5
+  },
+  {
+   "step": "4-gb_i1_e1_beside",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gb_i1_e1_beside/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899899.80171,
+   "s": 0.5
+  },
+  {
+   "step": "4-gb_i1_e4_alone",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gb_i1_e4_alone/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899900.2896876,
+   "s": 0.5
+  },
+  {
+   "step": "4-gb_i1_e4_beside",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gb_i1_e4_beside/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899900.7605574,
+   "s": 0.5
+  },
+  {
+   "step": "4-gb_i5_e1_alone",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gb_i5_e1_alone/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899901.2509882,
+   "s": 0.5
+  },
+  {
+   "step": "4-gb_i5_e1_beside",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gb_i5_e1_beside/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899901.729165,
+   "s": 0.5
+  },
+  {
+   "step": "4-gb_i5_e4_alone",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gb_i5_e4_alone/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899902.2166283,
+   "s": 0.5
+  },
+  {
+   "step": "4-gb_i5_e4_beside",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gb_i5_e4_beside/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899902.7129972,
+   "s": 0.5
+  },
+  {
+   "step": "4-gemv19_b_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gemv19_b_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899903.1990337,
+   "s": 0.6
+  },
+  {
+   "step": "4-gemv19_b_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gemv19_b_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899903.796986,
+   "s": 0.5
+  },
+  {
+   "step": "4-gemv19_r64_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gemv19_r64_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899904.3196657,
+   "s": 0.6
+  },
+  {
+   "step": "4-gemv20_b_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gemv20_b_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899904.903263,
+   "s": 0.5
+  },
+  {
+   "step": "4-gemv20_b_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gemv20_b_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899905.4295802,
+   "s": 0.5
+  },
+  {
+   "step": "4-gemv20_mk16_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gemv20_mk16_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899905.9037893,
+   "s": 0.5
+  },
+  {
+   "step": "4-gemv20_mk16_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gemv20_mk16_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899906.432428,
+   "s": 0.5
+  },
+  {
+   "step": "4-gemv20_mk4_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gemv20_mk4_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899906.9105356,
+   "s": 0.5
+  },
+  {
+   "step": "4-gemv20_mk4_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gemv20_mk4_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899907.4594202,
+   "s": 0.5
+  },
+  {
+   "step": "4-gemv20_np2_r64_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gemv20_np2_r64_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899907.9414177,
+   "s": 0.5
+  },
+  {
+   "step": "4-gemv20_np2_r64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gemv20_np2_r64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899908.4745374,
+   "s": 0.5
+  },
+  {
+   "step": "4-gemv20_np2_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gemv20_np2_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899908.9516137,
+   "s": 0.5
+  },
+  {
+   "step": "4-gemv20_np2_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gemv20_np2_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899909.4925485,
+   "s": 0.5
+  },
+  {
+   "step": "4-gemv20_np8_r16_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gemv20_np8_r16_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899909.9678988,
+   "s": 0.5
+  },
+  {
+   "step": "4-gemv20_np8_r16_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gemv20_np8_r16_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899910.515579,
+   "s": 0.5
+  },
+  {
+   "step": "4-gemv20_np8_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gemv20_np8_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899910.9958458,
+   "s": 0.5
+  },
+  {
+   "step": "4-gemv20_np8_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gemv20_np8_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899911.5239954,
+   "s": 0.5
+  },
+  {
+   "step": "4-gemv20_r16_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gemv20_r16_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899912.0010653,
+   "s": 0.6
+  },
+  {
+   "step": "4-gemv20_r16_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gemv20_r16_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899912.5530648,
+   "s": 0.5
+  },
+  {
+   "step": "4-gemv20_r64_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gemv20_r64_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899913.0309458,
+   "s": 0.5
+  },
+  {
+   "step": "4-gemv20_r64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gemv20_r64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899913.5612922,
+   "s": 0.5
+  },
+  {
+   "step": "4-gs_b_onlysc_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gs_b_onlysc_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899914.0325925,
+   "s": 0.4
+  },
+  {
+   "step": "4-hgemm_m3584n1344k1792_c128x128x32_s2_t128",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/hgemm_m3584n1344k1792_c128x128x32_s2_t128/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899914.4778917,
+   "s": 0.8
+  },
+  {
+   "step": "4-hgemm_m3584n1344k1792_c128x128x32_s2_t128_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/hgemm_m3584n1344k1792_c128x128x32_s2_t128_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899915.3160367,
+   "s": 0.9
+  },
+  {
+   "step": "4-hgemm_m3584n1344k1792_c128x128x32_s3_t128",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/hgemm_m3584n1344k1792_c128x128x32_s3_t128/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899916.1740735,
+   "s": 0.9
+  },
+  {
+   "step": "4-hgemm_m3584n1344k1792_c128x128x32_s3_t128_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/hgemm_m3584n1344k1792_c128x128x32_s3_t128_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899917.028591,
+   "s": 0.9
+  },
+  {
+   "step": "4-hgemm_m3584n1344k1792_c128x128x32_s3_t128_sw8",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/hgemm_m3584n1344k1792_c128x128x32_s3_t128_sw8/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899917.9006863,
+   "s": 0.9
+  },
+  {
+   "step": "4-hgemm_m3584n1344k1792_c128x128x32_s3_t128_sw8_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/hgemm_m3584n1344k1792_c128x128x32_s3_t128_sw8_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899918.7618759,
+   "s": 0.9
+  },
+  {
+   "step": "4-hgemm_m3584n1344k1792_c128x128x32_s4_t128",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/hgemm_m3584n1344k1792_c128x128x32_s4_t128/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899919.6468756,
+   "s": 0.9
+  },
+  {
+   "step": "4-hgemm_m3584n1344k1792_c128x128x32_s4_t128_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/hgemm_m3584n1344k1792_c128x128x32_s4_t128_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899920.538966,
+   "s": 0.9
+  },
+  {
+   "step": "4-hgemm_m3584n1344k1792_c128x128x64_s2_t128",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/hgemm_m3584n1344k1792_c128x128x64_s2_t128/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899921.4518878,
+   "s": 0.9
+  },
+  {
+   "step": "4-hgemm_m3584n1344k1792_c128x128x64_s2_t128_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/hgemm_m3584n1344k1792_c128x128x64_s2_t128_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899922.3199847,
+   "s": 0.9
+  },
+  {
+   "step": "4-hgemm_m3584n1344k1792_c128x256x32_s3_t256",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/hgemm_m3584n1344k1792_c128x256x32_s3_t256/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899923.2111154,
+   "s": 0.9
+  },
+  {
+   "step": "4-hgemm_m3584n1344k1792_c128x256x32_s3_t256_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/hgemm_m3584n1344k1792_c128x256x32_s3_t256_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899924.136899,
+   "s": 0.9
+  },
+  {
+   "step": "4-hgemm_m3584n1344k1792_c128x256x64_s2_t256",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/hgemm_m3584n1344k1792_c128x256x64_s2_t256/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899925.0646784,
+   "s": 0.9
+  },
+  {
+   "step": "4-hgemm_m3584n1344k1792_c128x256x64_s2_t256_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/hgemm_m3584n1344k1792_c128x256x64_s2_t256_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899925.961838,
+   "s": 0.9
+  },
+  {
+   "step": "4-hgemm_m3584n1344k1792_c256x128x32_s3_t256",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/hgemm_m3584n1344k1792_c256x128x32_s3_t256/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899926.8637595,
+   "s": 0.9
+  },
+  {
+   "step": "4-hgemm_m3584n1344k1792_c256x128x32_s3_t256_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/hgemm_m3584n1344k1792_c256x128x32_s3_t256_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899927.7967162,
+   "s": 0.9
+  },
+  {
+   "step": "4-hgemm_m3584n1344k1792_c64x128x32_s4_t128",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/hgemm_m3584n1344k1792_c64x128x32_s4_t128/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899928.732457,
+   "s": 0.9
+  },
+  {
+   "step": "4-hgemm_m3584n1344k1792_c64x128x32_s4_t128_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/hgemm_m3584n1344k1792_c64x128x32_s4_t128_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899929.6145155,
+   "s": 0.9
+  },
+  {
+   "step": "4-hgemm_m3584n1344k1792_c64x64x32_s4_t64",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/hgemm_m3584n1344k1792_c64x64x32_s4_t64/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899930.5186834,
+   "s": 0.9
+  },
+  {
+   "step": "4-hgemm_m3584n1344k1792_c64x64x32_s4_t64_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/hgemm_m3584n1344k1792_c64x64x32_s4_t64_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899931.4609253,
+   "s": 1.0
+  },
+  {
+   "step": "4-hgemm_m3968n1488k1984_c128x128x32_s3_t128",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/hgemm_m3968n1488k1984_c128x128x32_s3_t128/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899932.420379,
+   "s": 1.0
+  },
+  {
+   "step": "4-hgemm_m3968n1488k1984_c128x128x32_s3_t128_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/hgemm_m3968n1488k1984_c128x128x32_s3_t128_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899933.4110966,
+   "s": 1.0
+  },
+  {
+   "step": "4-rms19_t128_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rms19_t128_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899934.4164035,
+   "s": 0.6
+  },
+  {
+   "step": "4-rms19_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rms19_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899935.0171196,
+   "s": 0.5
+  },
+  {
+   "step": "4-rms19_t512_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rms19_t512_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899935.5395265,
+   "s": 0.5
+  },
+  {
+   "step": "4-rms20_t128_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rms20_t128_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899936.0498931,
+   "s": 0.5
+  },
+  {
+   "step": "4-rms20_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rms20_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899936.583161,
+   "s": 0.5
+  },
+  {
+   "step": "4-rms20_t16_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rms20_t16_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899937.0365546,
+   "s": 0.6
+  },
+  {
+   "step": "4-rms20_t16_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rms20_t16_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899937.6180468,
+   "s": 0.5
+  },
+  {
+   "step": "4-rms20_t256_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rms20_t256_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899938.1534543,
+   "s": 0.5
+  },
+  {
+   "step": "4-rms20_t256_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rms20_t256_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899938.685511,
+   "s": 0.4
+  },
+  {
+   "step": "4-rms20_t32_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rms20_t32_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899939.122627,
+   "s": 0.5
+  },
+  {
+   "step": "4-rms20_t32_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rms20_t32_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899939.64474,
+   "s": 0.5
+  },
+  {
+   "step": "4-rms20_t512_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rms20_t512_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899940.0976474,
+   "s": 0.5
+  },
+  {
+   "step": "4-rms20_t512_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rms20_t512_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899940.6298213,
+   "s": 0.4
+  },
+  {
+   "step": "4-rms20_t64_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rms20_t64_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899941.0768838,
+   "s": 0.5
+  },
+  {
+   "step": "4-rms20_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rms20_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899941.6124365,
+   "s": 0.4
+  },
+  {
+   "step": "4-rs_m176_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rs_m176_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899942.0506794,
+   "s": 0.4
+  },
+  {
+   "step": "4-rs_nostore_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rs_nostore_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899942.4876366,
+   "s": 0.4
+  },
+  {
+   "step": "4-rw_m1760n2816_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rw_m1760n2816_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899942.9203973,
+   "s": 0.5
+  },
+  {
+   "step": "4-rw_m440_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rw_m440_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899943.4070528,
+   "s": 0.4
+  },
+  {
+   "step": "4-rw_m528_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rw_m528_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899943.851695,
+   "s": 0.4
+  },
+  {
+   "step": "4-rw_m604n8192_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rw_m604n8192_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899944.2980506,
+   "s": 0.5
+  },
+  {
+   "step": "4-rw_m616_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rw_m616_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899944.7807207,
+   "s": 0.5
+  },
+  {
+   "step": "4-rw_m660_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rw_m660_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899945.2351587,
+   "s": 0.4
+  },
+  {
+   "step": "4-rw_m748_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rw_m748_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899945.6817508,
+   "s": 0.4
+  },
+  {
+   "step": "4-rw_m792_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rw_m792_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899946.1301966,
+   "s": 0.5
+  },
+  {
+   "step": "4-rw_m880_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rw_m880_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899946.5896077,
+   "s": 0.5
+  },
+  {
+   "step": "4-rw_m880_t32_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rw_m880_t32_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899947.098684,
+   "s": 0.5
+  },
+  {
+   "step": "4-rw_m880_t512_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rw_m880_t512_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899947.5847104,
+   "s": 0.5
+  },
+  {
+   "step": "4-rw_m968_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rw_m968_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899948.0905457,
+   "s": 0.5
+  },
+  {
+   "step": "4-rw_m968_t32_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rw_m968_t32_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899948.5890312,
+   "s": 0.5
+  },
+  {
+   "step": "4-rw_m968_t512_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rw_m968_t512_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899949.097635,
+   "s": 0.5
+  },
+  {
+   "step": "4-rw_nl_m528_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rw_nl_m528_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899949.631638,
+   "s": 0.4
+  },
+  {
+   "step": "4-rw_nl_m880_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rw_nl_m880_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899950.0637596,
+   "s": 0.5
+  },
+  {
+   "step": "4-rw_nl_m968_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rw_nl_m968_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899950.5288825,
+   "s": 0.5
+  },
+  {
+   "step": "4-rw_ns_m880_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rw_ns_m880_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899950.9911628,
+   "s": 0.4
+  },
+  {
+   "step": "4-rw_ns_m968_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rw_ns_m968_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899951.4348934,
+   "s": 0.4
+  },
+  {
+   "step": "4-sm19_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/sm19_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899951.8817008,
+   "s": 0.5
+  },
+  {
+   "step": "4-sm19_t512_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/sm19_t512_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899952.4071023,
+   "s": 0.5
+  },
+  {
+   "step": "4-sm20_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/sm20_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899952.9172907,
+   "s": 0.4
+  },
+  {
+   "step": "4-sm20_t16_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/sm20_t16_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899953.3634114,
+   "s": 0.6
+  },
+  {
+   "step": "4-sm20_t256_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/sm20_t256_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899953.9641733,
+   "s": 0.4
+  },
+  {
+   "step": "4-sm20_t32_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/sm20_t32_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899954.4028292,
+   "s": 0.5
+  },
+  {
+   "step": "4-sm20_t512_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/sm20_t512_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899954.856286,
+   "s": 0.4
+  },
+  {
+   "step": "4-sm20_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/sm20_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899955.3040545,
+   "s": 0.5
+  },
+  {
+   "step": "4-sw_m616_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/sw_m616_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899955.7619653,
+   "s": 0.4
+  },
+  {
+   "step": "4-sw_m792_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/sw_m792_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899956.1990435,
+   "s": 0.5
+  },
+  {
+   "step": "4-sw_m880_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/sw_m880_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899956.6724641,
+   "s": 0.5
+  },
+  {
+   "step": "4-sw_m968_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/sw_m968_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899957.1589742,
+   "s": 0.5
+  },
+  {
+   "step": "4-wb_w12_r0",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/wb_w12_r0/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899957.6597579,
+   "s": 0.5
+  },
+  {
+   "step": "4-wb_w12_r12",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/wb_w12_r12/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899958.1442873,
+   "s": 0.6
+  },
+  {
+   "step": "4-wb_w12_r4",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/wb_w12_r4/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899958.697303,
+   "s": 0.5
+  },
+  {
+   "step": "4-wb_w6_r0",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/wb_w6_r0/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899959.2145612,
+   "s": 0.4
+  },
+  {
+   "step": "4-wb_w6_r12",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/wb_w6_r12/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899959.6425056,
+   "s": 0.5
+  },
+  {
+   "step": "4-wb_w6_r16",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/wb_w6_r16/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899960.0969684,
+   "s": 0.5
+  },
+  {
+   "step": "4-wb_w6_r2",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/wb_w6_r2/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899960.57608,
+   "s": 0.5
+  },
+  {
+   "step": "4-wb_w6_r4",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/wb_w6_r4/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899961.028801,
+   "s": 0.5
+  },
+  {
+   "step": "4-wb_w6_r8",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/wb_w6_r8/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899961.4819825,
+   "s": 0.5
+  },
+  {
+   "step": "4-wb_w9_r0",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/wb_w9_r0/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899961.9349253,
+   "s": 0.5
+  },
+  {
+   "step": "4-wb_w9_r12",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/wb_w9_r12/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899962.3945916,
+   "s": 0.5
+  },
+  {
+   "step": "4-wb_w9_r3",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/wb_w9_r3/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899962.9078665,
+   "s": 0.5
+  },
+  {
+   "step": "4-wb_w9_r6",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/wb_w9_r6/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899963.3700318,
+   "s": 0.5
+  },
+  {
+   "step": "4-wb_w9_r9",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/wb_w9_r9/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899963.8528407,
+   "s": 0.5
+  },
+  {
+   "step": "4-wb_w9_r9_k16",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/wb_w9_r9_k16/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899964.3091922,
+   "s": 0.5
+  },
+  {
+   "step": "4-wb_w9_r9_k4",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/wb_w9_r9_k4/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793899964.7699897,
+   "s": 0.5
+  },
+  {
+   "step": "6-protocol-clock",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/protocol/bin",
+    "clock"
+   ],
+   "rc": 0,
+   "t0": 1793899965.2606046,
+   "s": 0.6
+  },
+  {
+   "step": "6-protocol-fma",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/protocol/bin",
+    "fma"
+   ],
+   "rc": 0,
+   "t0": 1793899965.882131,
+   "s": 0.4
+  },
+  {
+   "step": "6-protocol-mem",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/protocol/bin",
+    "mem"
+   ],
+   "rc": 0,
+   "t0": 1793899966.3158097,
+   "s": 0.5
+  },
+  {
+   "step": "3r1-protocol-clock",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/protocol/bin",
+    "clock"
+   ],
+   "rc": 0,
+   "t0": 1793900117.1602228,
+   "s": 0.7
+  },
+  {
+   "step": "3r1-protocol-fma",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/protocol/bin",
+    "fma"
+   ],
+   "rc": 0,
+   "t0": 1793900117.8206391,
+   "s": 0.4
+  },
+  {
+   "step": "3r1-protocol-mem",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/protocol/bin",
+    "mem"
+   ],
+   "rc": 0,
+   "t0": 1793900118.2530694,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-wb_w9_r9_k4",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/wb_w9_r9_k4/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900118.7360857,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-wb_w9_r9_k16",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/wb_w9_r9_k16/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900119.2237518,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-wb_w9_r9",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/wb_w9_r9/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900119.683656,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-wb_w9_r6",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/wb_w9_r6/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900120.1508486,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-wb_w9_r3",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/wb_w9_r3/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900120.6173353,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-wb_w9_r12",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/wb_w9_r12/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900121.0810754,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-wb_w9_r0",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/wb_w9_r0/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900121.5923722,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-wb_w6_r8",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/wb_w6_r8/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900122.0618672,
+   "s": 0.4
+  },
+  {
+   "step": "4r1-wb_w6_r4",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/wb_w6_r4/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900122.5008116,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-wb_w6_r2",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/wb_w6_r2/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900122.951575,
+   "s": 0.4
+  },
+  {
+   "step": "4r1-wb_w6_r16",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/wb_w6_r16/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900123.4005494,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-wb_w6_r12",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/wb_w6_r12/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900123.9058633,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-wb_w6_r0",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/wb_w6_r0/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900124.3813381,
+   "s": 0.4
+  },
+  {
+   "step": "4r1-wb_w12_r4",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/wb_w12_r4/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900124.8193374,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-wb_w12_r12",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/wb_w12_r12/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900125.3383164,
+   "s": 0.6
+  },
+  {
+   "step": "4r1-wb_w12_r0",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/wb_w12_r0/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900125.900557,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-sw_m968_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/sw_m968_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900126.3848193,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-sw_m880_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/sw_m880_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900126.8995333,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-sw_m792_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/sw_m792_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900127.3776784,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-sw_m616_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/sw_m616_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900127.8399854,
+   "s": 0.4
+  },
+  {
+   "step": "4r1-sm20_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/sm20_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900128.2807655,
+   "s": 0.4
+  },
+  {
+   "step": "4r1-sm20_t512_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/sm20_t512_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900128.7285142,
+   "s": 0.4
+  },
+  {
+   "step": "4r1-sm20_t32_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/sm20_t32_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900129.1746542,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-sm20_t256_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/sm20_t256_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900129.635195,
+   "s": 0.4
+  },
+  {
+   "step": "4r1-sm20_t16_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/sm20_t16_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900130.073438,
+   "s": 0.6
+  },
+  {
+   "step": "4r1-sm20_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/sm20_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900130.6601815,
+   "s": 0.4
+  },
+  {
+   "step": "4r1-sm19_t512_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/sm19_t512_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900131.0997086,
+   "s": 0.6
+  },
+  {
+   "step": "4r1-sm19_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/sm19_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900131.6514263,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-rw_ns_m968_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rw_ns_m968_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900132.175145,
+   "s": 0.4
+  },
+  {
+   "step": "4r1-rw_ns_m880_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rw_ns_m880_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900132.616247,
+   "s": 0.4
+  },
+  {
+   "step": "4r1-rw_nl_m968_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rw_nl_m968_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900133.058648,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-rw_nl_m880_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rw_nl_m880_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900133.5293114,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-rw_nl_m528_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rw_nl_m528_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900133.994476,
+   "s": 0.4
+  },
+  {
+   "step": "4r1-rw_m968_t512_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rw_m968_t512_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900134.4280033,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-rw_m968_t32_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rw_m968_t32_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900134.9385283,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-rw_m968_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rw_m968_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900135.4374244,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-rw_m880_t512_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rw_m880_t512_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900135.9553978,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-rw_m880_t32_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rw_m880_t32_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900136.452274,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-rw_m880_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rw_m880_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900136.9407928,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-rw_m792_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rw_m792_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900137.4386375,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-rw_m748_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rw_m748_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900137.902109,
+   "s": 0.4
+  },
+  {
+   "step": "4r1-rw_m660_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rw_m660_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900138.3433938,
+   "s": 0.4
+  },
+  {
+   "step": "4r1-rw_m616_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rw_m616_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900138.7809026,
+   "s": 0.4
+  },
+  {
+   "step": "4r1-rw_m604n8192_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rw_m604n8192_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900139.2202854,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-rw_m528_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rw_m528_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900139.6926928,
+   "s": 0.4
+  },
+  {
+   "step": "4r1-rw_m440_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rw_m440_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900140.1288555,
+   "s": 0.4
+  },
+  {
+   "step": "4r1-rw_m1760n2816_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rw_m1760n2816_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900140.5640461,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-rs_nostore_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rs_nostore_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900141.0455284,
+   "s": 0.4
+  },
+  {
+   "step": "4r1-rs_m176_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rs_m176_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900141.480838,
+   "s": 0.4
+  },
+  {
+   "step": "4r1-rms20_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rms20_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900141.9106343,
+   "s": 0.4
+  },
+  {
+   "step": "4r1-rms20_t64_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rms20_t64_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900142.3481405,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-rms20_t512_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rms20_t512_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900142.872343,
+   "s": 0.4
+  },
+  {
+   "step": "4r1-rms20_t512_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rms20_t512_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900143.3207412,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-rms20_t32_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rms20_t32_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900143.8475459,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-rms20_t32_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rms20_t32_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900144.297936,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-rms20_t256_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rms20_t256_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900144.8239396,
+   "s": 0.4
+  },
+  {
+   "step": "4r1-rms20_t256_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rms20_t256_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900145.2697716,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-rms20_t16_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rms20_t16_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900145.7929778,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-rms20_t16_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rms20_t16_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900146.3238134,
+   "s": 0.6
+  },
+  {
+   "step": "4r1-rms20_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rms20_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900146.9152987,
+   "s": 0.4
+  },
+  {
+   "step": "4r1-rms20_t128_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rms20_t128_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900147.358456,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-rms19_t512_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rms19_t512_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900147.8872037,
+   "s": 0.6
+  },
+  {
+   "step": "4r1-rms19_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rms19_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900148.4399357,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-rms19_t128_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rms19_t128_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900148.9374387,
+   "s": 0.6
+  },
+  {
+   "step": "4r1-hgemm_m3968n1488k1984_c128x128x32_s3_t128_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/hgemm_m3968n1488k1984_c128x128x32_s3_t128_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900149.5331407,
+   "s": 1.0
+  },
+  {
+   "step": "4r1-hgemm_m3968n1488k1984_c128x128x32_s3_t128",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/hgemm_m3968n1488k1984_c128x128x32_s3_t128/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900150.5127838,
+   "s": 1.0
+  },
+  {
+   "step": "4r1-hgemm_m3584n1344k1792_c64x64x32_s4_t64_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/hgemm_m3584n1344k1792_c64x64x32_s4_t64_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900151.491951,
+   "s": 1.0
+  },
+  {
+   "step": "4r1-hgemm_m3584n1344k1792_c64x64x32_s4_t64",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/hgemm_m3584n1344k1792_c64x64x32_s4_t64/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900152.452858,
+   "s": 1.0
+  },
+  {
+   "step": "4r1-hgemm_m3584n1344k1792_c64x128x32_s4_t128_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/hgemm_m3584n1344k1792_c64x128x32_s4_t128_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900153.4451427,
+   "s": 0.9
+  },
+  {
+   "step": "4r1-hgemm_m3584n1344k1792_c64x128x32_s4_t128",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/hgemm_m3584n1344k1792_c64x128x32_s4_t128/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900154.346928,
+   "s": 0.9
+  },
+  {
+   "step": "4r1-hgemm_m3584n1344k1792_c256x128x32_s3_t256_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/hgemm_m3584n1344k1792_c256x128x32_s3_t256_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900155.2190967,
+   "s": 0.9
+  },
+  {
+   "step": "4r1-hgemm_m3584n1344k1792_c256x128x32_s3_t256",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/hgemm_m3584n1344k1792_c256x128x32_s3_t256/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900156.1489506,
+   "s": 0.9
+  },
+  {
+   "step": "4r1-hgemm_m3584n1344k1792_c128x256x64_s2_t256_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/hgemm_m3584n1344k1792_c128x256x64_s2_t256_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900157.0804555,
+   "s": 0.9
+  },
+  {
+   "step": "4r1-hgemm_m3584n1344k1792_c128x256x64_s2_t256",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/hgemm_m3584n1344k1792_c128x256x64_s2_t256/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900157.9791954,
+   "s": 0.9
+  },
+  {
+   "step": "4r1-hgemm_m3584n1344k1792_c128x256x32_s3_t256_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/hgemm_m3584n1344k1792_c128x256x32_s3_t256_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900158.8749197,
+   "s": 0.9
+  },
+  {
+   "step": "4r1-hgemm_m3584n1344k1792_c128x256x32_s3_t256",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/hgemm_m3584n1344k1792_c128x256x32_s3_t256/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900159.801617,
+   "s": 0.9
+  },
+  {
+   "step": "4r1-hgemm_m3584n1344k1792_c128x128x64_s2_t128_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/hgemm_m3584n1344k1792_c128x128x64_s2_t128_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900160.7161953,
+   "s": 0.9
+  },
+  {
+   "step": "4r1-hgemm_m3584n1344k1792_c128x128x64_s2_t128",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/hgemm_m3584n1344k1792_c128x128x64_s2_t128/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900161.6104143,
+   "s": 0.9
+  },
+  {
+   "step": "4r1-hgemm_m3584n1344k1792_c128x128x32_s4_t128_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/hgemm_m3584n1344k1792_c128x128x32_s4_t128_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900162.4817867,
+   "s": 0.9
+  },
+  {
+   "step": "4r1-hgemm_m3584n1344k1792_c128x128x32_s4_t128",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/hgemm_m3584n1344k1792_c128x128x32_s4_t128/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900163.398119,
+   "s": 0.9
+  },
+  {
+   "step": "4r1-hgemm_m3584n1344k1792_c128x128x32_s3_t128_sw8_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/hgemm_m3584n1344k1792_c128x128x32_s3_t128_sw8_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900164.2850819,
+   "s": 0.9
+  },
+  {
+   "step": "4r1-hgemm_m3584n1344k1792_c128x128x32_s3_t128_sw8",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/hgemm_m3584n1344k1792_c128x128x32_s3_t128_sw8/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900165.1615238,
+   "s": 0.9
+  },
+  {
+   "step": "4r1-hgemm_m3584n1344k1792_c128x128x32_s3_t128_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/hgemm_m3584n1344k1792_c128x128x32_s3_t128_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900166.0263438,
+   "s": 0.9
+  },
+  {
+   "step": "4r1-hgemm_m3584n1344k1792_c128x128x32_s3_t128",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/hgemm_m3584n1344k1792_c128x128x32_s3_t128/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900166.9015913,
+   "s": 0.9
+  },
+  {
+   "step": "4r1-hgemm_m3584n1344k1792_c128x128x32_s2_t128_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/hgemm_m3584n1344k1792_c128x128x32_s2_t128_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900167.759516,
+   "s": 0.9
+  },
+  {
+   "step": "4r1-hgemm_m3584n1344k1792_c128x128x32_s2_t128",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/hgemm_m3584n1344k1792_c128x128x32_s2_t128/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900168.626115,
+   "s": 0.9
+  },
+  {
+   "step": "4r1-gs_b_onlysc_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gs_b_onlysc_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900169.4773762,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-gemv20_r64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gemv20_r64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900169.9321873,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-gemv20_r64_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gemv20_r64_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900170.4069963,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-gemv20_r16_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gemv20_r16_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900170.942531,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-gemv20_r16_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gemv20_r16_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900171.425324,
+   "s": 0.6
+  },
+  {
+   "step": "4r1-gemv20_np8_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gemv20_np8_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900171.9854634,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-gemv20_np8_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gemv20_np8_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900172.4575124,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-gemv20_np8_r16_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gemv20_np8_r16_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900172.9835734,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-gemv20_np8_r16_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gemv20_np8_r16_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900173.4721842,
+   "s": 0.6
+  },
+  {
+   "step": "4r1-gemv20_np2_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gemv20_np2_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900174.029412,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-gemv20_np2_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gemv20_np2_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900174.5087585,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-gemv20_np2_r64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gemv20_np2_r64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900175.0433664,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-gemv20_np2_r64_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gemv20_np2_r64_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900175.5291023,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-gemv20_mk4_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gemv20_mk4_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900176.0555267,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-gemv20_mk4_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gemv20_mk4_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900176.559179,
+   "s": 0.6
+  },
+  {
+   "step": "4r1-gemv20_mk16_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gemv20_mk16_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900177.1098237,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-gemv20_mk16_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gemv20_mk16_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900177.5829213,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-gemv20_b_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gemv20_b_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900178.1165555,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-gemv20_b_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gemv20_b_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900178.593132,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-gemv19_r64_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gemv19_r64_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900179.1315632,
+   "s": 0.6
+  },
+  {
+   "step": "4r1-gemv19_b_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gemv19_b_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900179.7229412,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-gemv19_b_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gemv19_b_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900180.2287111,
+   "s": 0.6
+  },
+  {
+   "step": "4r1-gb_i5_e4_beside",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gb_i5_e4_beside/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900180.833979,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-gb_i5_e4_alone",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gb_i5_e4_alone/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900181.3364766,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-gb_i5_e1_beside",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gb_i5_e1_beside/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900181.8386128,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-gb_i5_e1_alone",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gb_i5_e1_alone/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900182.3279777,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-gb_i1_e4_beside",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gb_i1_e4_beside/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900182.8071911,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-gb_i1_e4_alone",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gb_i1_e4_alone/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900183.300029,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-gb_i1_e1_beside",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gb_i1_e1_beside/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900183.8321936,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-gb_i1_e1_alone",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gb_i1_e1_alone/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900184.3305712,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-fas_d96_t128",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fas_d96_t128/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900184.8043401,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-fas_d80_t128",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fas_d80_t128/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900185.255836,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-fas_d64_t128",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fas_d64_t128/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900185.7168787,
+   "s": 0.4
+  },
+  {
+   "step": "4r1-fas_d176_t128",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fas_d176_t128/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900186.161909,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-fas_d160_t128",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fas_d160_t128/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900186.641091,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-fas_d144_t128",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fas_d144_t128/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900187.1097698,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-fas_d128_t128",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fas_d128_t128/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900187.5807257,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-fas_d112_t128",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fas_d112_t128/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900188.041389,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-fa20_c64x64_s3_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fa20_c64x64_s3_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900188.507124,
+   "s": 1.0
+  },
+  {
+   "step": "4r1-fa20_c64x64_s3_t128_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fa20_c64x64_s3_t128_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900189.5510285,
+   "s": 1.1
+  },
+  {
+   "step": "4r1-fa20_c64x64_s2_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fa20_c64x64_s2_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900190.6343954,
+   "s": 1.6
+  },
+  {
+   "step": "4r1-fa20_c64x64_s2_t64_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fa20_c64x64_s2_t64_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900192.1971693,
+   "s": 1.6
+  },
+  {
+   "step": "4r1-fa20_c64x64_s2_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fa20_c64x64_s2_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900193.7980683,
+   "s": 1.0
+  },
+  {
+   "step": "4r1-fa20_c64x64_s2_t128_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fa20_c64x64_s2_t128_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900194.8301277,
+   "s": 1.1
+  },
+  {
+   "step": "4r1-fa20_c64x64_s1_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fa20_c64x64_s1_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900195.8990738,
+   "s": 1.0
+  },
+  {
+   "step": "4r1-fa20_c64x64_s1_t128_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fa20_c64x64_s1_t128_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900196.9064398,
+   "s": 1.0
+  },
+  {
+   "step": "4r1-fa20_c64x32_s3_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fa20_c64x32_s3_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900197.9378538,
+   "s": 1.1
+  },
+  {
+   "step": "4r1-fa20_c64x32_s3_t128_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fa20_c64x32_s3_t128_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900199.025628,
+   "s": 1.1
+  },
+  {
+   "step": "4r1-fa20_c32x64_s2_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fa20_c32x64_s2_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900200.1452415,
+   "s": 1.6
+  },
+  {
+   "step": "4r1-fa20_c32x64_s2_t64_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fa20_c32x64_s2_t64_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900201.698432,
+   "s": 1.6
+  },
+  {
+   "step": "4r1-fa20_c128x64_s2_t256_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fa20_c128x64_s2_t256_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900203.2905695,
+   "s": 1.0
+  },
+  {
+   "step": "4r1-fa20_c128x64_s2_t256_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fa20_c128x64_s2_t256_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900204.2867723,
+   "s": 1.0
+  },
+  {
+   "step": "4r1-fa20_c128x64_s2_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fa20_c128x64_s2_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900205.3277776,
+   "s": 1.1
+  },
+  {
+   "step": "4r1-fa20_c128x64_s2_t128_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fa20_c128x64_s2_t128_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900206.380614,
+   "s": 1.1
+  },
+  {
+   "step": "4r1-fa19_c64x64_s2_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fa19_c64x64_s2_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900207.4816628,
+   "s": 1.9
+  },
+  {
+   "step": "4r1-fa19_c64x64_s2_t128_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fa19_c64x64_s2_t128_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900209.3404324,
+   "s": 1.9
+  },
+  {
+   "step": "4r1-fa19_c64x64_s1_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fa19_c64x64_s1_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900211.1977186,
+   "s": 1.7
+  },
+  {
+   "step": "4r1-dw_d96_bn64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dw_d96_bn64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900212.9441223,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-dw_d96_bn32_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dw_d96_bn32_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900213.4423351,
+   "s": 0.4
+  },
+  {
+   "step": "4r1-dw_d144_bn64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dw_d144_bn64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900213.8826873,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-dw_d144_bn32_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dw_d144_bn32_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900214.3471801,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-dw_d128_bn64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dw_d128_bn64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900214.8165576,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-dw_d128_bn32_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dw_d128_bn32_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900215.2815378,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-dw_d112_bn64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dw_d112_bn64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900215.735208,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-dw_d112_bn32_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dw_d112_bn32_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900216.1931903,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-dec20_split4_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dec20_split4_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900216.651361,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-dec20_split4_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dec20_split4_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900217.1088037,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-dec20_split4_bn32_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dec20_split4_bn32_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900217.6311882,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-dec20_split4_bn32_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dec20_split4_bn32_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900218.0818987,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-dec20_split16_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dec20_split16_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900218.5946608,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-dec20_split16_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dec20_split16_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900219.0545824,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-dec20_s3_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dec20_s3_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900219.577342,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-dec20_s3_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dec20_s3_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900220.0378191,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-dec20_s1_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dec20_s1_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900220.5644197,
+   "s": 0.4
+  },
+  {
+   "step": "4r1-dec20_s1_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dec20_s1_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900221.0137038,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-dec20_bn32_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dec20_bn32_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900221.5392523,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-dec20_bn32_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dec20_bn32_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900221.9903302,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-dec20_b_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dec20_b_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900222.4999511,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-dec20_b_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dec20_b_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900222.9532738,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-dec19_bn32_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dec19_bn32_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900223.477457,
+   "s": 0.6
+  },
+  {
+   "step": "4r1-dec19_b_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dec19_b_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900224.0381694,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-dec19_b_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dec19_b_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900224.5216217,
+   "s": 0.6
+  },
+  {
+   "step": "4r1-cb_tl9_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/cb_tl9_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900225.107812,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-cb_tl9_ld",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/cb_tl9_ld/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900225.5954666,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-cb_tl9",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/cb_tl9/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900226.0580025,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-cb_tl7_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/cb_tl7_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900226.522002,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-cb_tl7_ld",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/cb_tl7_ld/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900227.0016358,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-cb_tl7",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/cb_tl7/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900227.4715867,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-cb_tl5_ld",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/cb_tl5_ld/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900227.9325547,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-cb_tl5",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/cb_tl5/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900228.39794,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-cb_rows_tl7",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/cb_rows_tl7/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900228.8593404,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-cb_rows_q4",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/cb_rows_q4/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900229.3294334,
+   "s": 0.4
+  },
+  {
+   "step": "4r1-cb_q8_ld",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/cb_q8_ld/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900229.7787955,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-cb_q8",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/cb_q8/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900230.2351475,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-cb_q4_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/cb_q4_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900230.6913874,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-cb_q4_ld",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/cb_q4_ld/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900231.1707659,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-cb_q4",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/cb_q4/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900231.6243436,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-cb_q32_ld",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/cb_q32_ld/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900232.0819333,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-cb_q32",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/cb_q32/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900232.5810728,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-cb_q16_ld",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/cb_q16_ld/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900233.081818,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-cb_q16",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/cb_q16/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900233.5503392,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-bl20_tallybyte",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/bl20_tallybyte/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900234.020561,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-bl20_sumfour_two",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/bl20_sumfour_two/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900234.4931908,
+   "s": 0.4
+  },
+  {
+   "step": "4r1-bl20_sumfour",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/bl20_sumfour/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900234.9099777,
+   "s": 0.4
+  },
+  {
+   "step": "4r1-bl20_storeskip",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/bl20_storeskip/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900235.3375926,
+   "s": 0.4
+  },
+  {
+   "step": "4r1-bl20_storepair_one",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/bl20_storepair_one/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900235.7626047,
+   "s": 0.4
+  },
+  {
+   "step": "4r1-bl20_storepair",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/bl20_storepair/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900236.1846104,
+   "s": 0.4
+  },
+  {
+   "step": "4r1-bl20_stackfive_four",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/bl20_stackfive_four/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900236.6182258,
+   "s": 0.4
+  },
+  {
+   "step": "4r1-bl20_stackfive",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/bl20_stackfive/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900237.0412714,
+   "s": 0.4
+  },
+  {
+   "step": "4r1-bl20_shortload",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/bl20_shortload/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900237.4715354,
+   "s": 0.4
+  },
+  {
+   "step": "4r1-bl20_rowthree",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/bl20_rowthree/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900237.8906407,
+   "s": 0.4
+  },
+  {
+   "step": "4r1-bl20_reverseread",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/bl20_reverseread/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900238.3155906,
+   "s": 0.4
+  },
+  {
+   "step": "4r1-bl20_lanehash",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/bl20_lanehash/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900238.7376919,
+   "s": 0.4
+  },
+  {
+   "step": "4r1-bl20_everysixteen",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/bl20_everysixteen/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900239.170049,
+   "s": 0.4
+  },
+  {
+   "step": "4r1-bl20_evenodd_one",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/bl20_evenodd_one/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900239.591347,
+   "s": 0.4
+  },
+  {
+   "step": "4r1-bl20_evenodd",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/bl20_evenodd/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900240.0130713,
+   "s": 0.4
+  },
+  {
+   "step": "4r1-bl20_doubleword",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/bl20_doubleword/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900240.4418478,
+   "s": 0.4
+  },
+  {
+   "step": "4r1-bl20_clampstore",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/bl20_clampstore/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900240.862761,
+   "s": 0.4
+  },
+  {
+   "step": "4r1-bl19_stridestore",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/bl19_stridestore/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900241.2950144,
+   "s": 0.4
+  },
+  {
+   "step": "4r1-bl19_ringload",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/bl19_ringload/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900241.7218761,
+   "s": 0.4
+  },
+  {
+   "step": "4r1-bl19_pairsum",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/bl19_pairsum/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900242.1591704,
+   "s": 0.4
+  },
+  {
+   "step": "6r1-protocol-clock",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/protocol/bin",
+    "clock"
+   ],
+   "rc": 0,
+   "t0": 1793900242.5836697,
+   "s": 0.6
+  },
+  {
+   "step": "6r1-protocol-fma",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/protocol/bin",
+    "fma"
+   ],
+   "rc": 0,
+   "t0": 1793900243.199145,
+   "s": 0.4
+  },
+  {
+   "step": "6r1-protocol-mem",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/protocol/bin",
+    "mem"
+   ],
+   "rc": 0,
+   "t0": 1793900243.6324677,
+   "s": 0.5
+  },
+  {
+   "step": "3r2-protocol-clock",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/protocol/bin",
+    "clock"
+   ],
+   "rc": 0,
+   "t0": 1793900374.426402,
+   "s": 0.7
+  },
+  {
+   "step": "3r2-protocol-fma",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/protocol/bin",
+    "fma"
+   ],
+   "rc": 0,
+   "t0": 1793900375.090713,
+   "s": 0.4
+  },
+  {
+   "step": "3r2-protocol-mem",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/protocol/bin",
+    "mem"
+   ],
+   "rc": 0,
+   "t0": 1793900375.5157583,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-bl19_pairsum",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/bl19_pairsum/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900375.9942245,
+   "s": 0.4
+  },
+  {
+   "step": "4r2-bl19_ringload",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/bl19_ringload/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900376.418733,
+   "s": 0.4
+  },
+  {
+   "step": "4r2-bl19_stridestore",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/bl19_stridestore/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900376.8475134,
+   "s": 0.4
+  },
+  {
+   "step": "4r2-bl20_clampstore",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/bl20_clampstore/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900377.2744725,
+   "s": 0.4
+  },
+  {
+   "step": "4r2-bl20_doubleword",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/bl20_doubleword/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900377.701486,
+   "s": 0.4
+  },
+  {
+   "step": "4r2-bl20_evenodd",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/bl20_evenodd/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900378.1193328,
+   "s": 0.4
+  },
+  {
+   "step": "4r2-bl20_evenodd_one",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/bl20_evenodd_one/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900378.5349567,
+   "s": 0.4
+  },
+  {
+   "step": "4r2-bl20_everysixteen",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/bl20_everysixteen/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900378.9543254,
+   "s": 0.4
+  },
+  {
+   "step": "4r2-bl20_lanehash",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/bl20_lanehash/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900379.3764455,
+   "s": 0.4
+  },
+  {
+   "step": "4r2-bl20_reverseread",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/bl20_reverseread/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900379.7986155,
+   "s": 0.4
+  },
+  {
+   "step": "4r2-bl20_rowthree",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/bl20_rowthree/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900380.215706,
+   "s": 0.4
+  },
+  {
+   "step": "4r2-bl20_shortload",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/bl20_shortload/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900380.6376538,
+   "s": 0.4
+  },
+  {
+   "step": "4r2-bl20_stackfive",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/bl20_stackfive/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900381.0573378,
+   "s": 0.4
+  },
+  {
+   "step": "4r2-bl20_stackfive_four",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/bl20_stackfive_four/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900381.482532,
+   "s": 0.4
+  },
+  {
+   "step": "4r2-bl20_storepair",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/bl20_storepair/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900381.907905,
+   "s": 0.4
+  },
+  {
+   "step": "4r2-bl20_storepair_one",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/bl20_storepair_one/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900382.3363185,
+   "s": 0.4
+  },
+  {
+   "step": "4r2-bl20_storeskip",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/bl20_storeskip/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900382.7600346,
+   "s": 0.4
+  },
+  {
+   "step": "4r2-bl20_sumfour",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/bl20_sumfour/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900383.183595,
+   "s": 0.4
+  },
+  {
+   "step": "4r2-bl20_sumfour_two",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/bl20_sumfour_two/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900383.6125407,
+   "s": 0.4
+  },
+  {
+   "step": "4r2-bl20_tallybyte",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/bl20_tallybyte/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900384.0337417,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-cb_q16",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/cb_q16/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900384.5090237,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-cb_q16_ld",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/cb_q16_ld/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900384.9758308,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-cb_q32",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/cb_q32/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900385.4387555,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-cb_q32_ld",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/cb_q32_ld/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900385.9412787,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-cb_q4",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/cb_q4/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900386.4426472,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-cb_q4_ld",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/cb_q4_ld/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900386.901842,
+   "s": 0.4
+  },
+  {
+   "step": "4r2-cb_q4_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/cb_q4_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900387.3511884,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-cb_q8",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/cb_q8/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900387.8221467,
+   "s": 0.4
+  },
+  {
+   "step": "4r2-cb_q8_ld",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/cb_q8_ld/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900388.2692788,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-cb_rows_q4",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/cb_rows_q4/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900388.723736,
+   "s": 0.4
+  },
+  {
+   "step": "4r2-cb_rows_tl7",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/cb_rows_tl7/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900389.1660607,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-cb_tl5",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/cb_tl5/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900389.631052,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-cb_tl5_ld",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/cb_tl5_ld/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900390.0904136,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-cb_tl7",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/cb_tl7/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900390.5556295,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-cb_tl7_ld",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/cb_tl7_ld/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900391.021358,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-cb_tl7_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/cb_tl7_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900391.4796348,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-cb_tl9",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/cb_tl9/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900391.9600458,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-cb_tl9_ld",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/cb_tl9_ld/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900392.4217823,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-cb_tl9_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/cb_tl9_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900392.8827405,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-dec19_b_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dec19_b_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900393.3618999,
+   "s": 0.6
+  },
+  {
+   "step": "4r2-dec19_b_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dec19_b_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900393.9428072,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-dec19_bn32_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dec19_bn32_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900394.4266837,
+   "s": 0.6
+  },
+  {
+   "step": "4r2-dec20_b_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dec20_b_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900394.9942744,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-dec20_b_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dec20_b_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900395.52329,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-dec20_bn32_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dec20_bn32_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900395.9794896,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-dec20_bn32_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dec20_bn32_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900396.4954395,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-dec20_s1_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dec20_s1_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900396.9499102,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-dec20_s1_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dec20_s1_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900397.4800425,
+   "s": 0.4
+  },
+  {
+   "step": "4r2-dec20_s3_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dec20_s3_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900397.929439,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-dec20_s3_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dec20_s3_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900398.4598348,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-dec20_split16_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dec20_split16_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900398.920008,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-dec20_split16_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dec20_split16_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900399.4415503,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-dec20_split4_bn32_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dec20_split4_bn32_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900399.9164422,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-dec20_split4_bn32_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dec20_split4_bn32_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900400.4288652,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-dec20_split4_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dec20_split4_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900400.8816,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-dec20_split4_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dec20_split4_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900401.3989816,
+   "s": 0.4
+  },
+  {
+   "step": "4r2-dw_d112_bn32_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dw_d112_bn32_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900401.8427157,
+   "s": 0.4
+  },
+  {
+   "step": "4r2-dw_d112_bn64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dw_d112_bn64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900402.2923646,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-dw_d128_bn32_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dw_d128_bn32_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900402.7580323,
+   "s": 0.4
+  },
+  {
+   "step": "4r2-dw_d128_bn64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dw_d128_bn64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900403.2038114,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-dw_d144_bn32_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dw_d144_bn32_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900403.6580067,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-dw_d144_bn64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dw_d144_bn64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900404.1307085,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-dw_d96_bn32_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dw_d96_bn32_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900404.6024432,
+   "s": 0.4
+  },
+  {
+   "step": "4r2-dw_d96_bn64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/dw_d96_bn64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900405.0497663,
+   "s": 0.4
+  },
+  {
+   "step": "4r2-fa19_c64x64_s1_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fa19_c64x64_s1_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900405.4976392,
+   "s": 1.7
+  },
+  {
+   "step": "4r2-fa19_c64x64_s2_t128_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fa19_c64x64_s2_t128_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900407.2003596,
+   "s": 1.8
+  },
+  {
+   "step": "4r2-fa19_c64x64_s2_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fa19_c64x64_s2_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900409.047572,
+   "s": 1.9
+  },
+  {
+   "step": "4r2-fa20_c128x64_s2_t128_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fa20_c128x64_s2_t128_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900410.9298172,
+   "s": 1.1
+  },
+  {
+   "step": "4r2-fa20_c128x64_s2_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fa20_c128x64_s2_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900412.0132225,
+   "s": 1.1
+  },
+  {
+   "step": "4r2-fa20_c128x64_s2_t256_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fa20_c128x64_s2_t256_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900413.0653908,
+   "s": 1.0
+  },
+  {
+   "step": "4r2-fa20_c128x64_s2_t256_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fa20_c128x64_s2_t256_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900414.0948467,
+   "s": 1.0
+  },
+  {
+   "step": "4r2-fa20_c32x64_s2_t64_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fa20_c32x64_s2_t64_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900415.0995328,
+   "s": 1.6
+  },
+  {
+   "step": "4r2-fa20_c32x64_s2_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fa20_c32x64_s2_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900416.673125,
+   "s": 1.5
+  },
+  {
+   "step": "4r2-fa20_c64x32_s3_t128_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fa20_c64x32_s3_t128_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900418.2223532,
+   "s": 1.1
+  },
+  {
+   "step": "4r2-fa20_c64x32_s3_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fa20_c64x32_s3_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900419.340266,
+   "s": 1.1
+  },
+  {
+   "step": "4r2-fa20_c64x64_s1_t128_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fa20_c64x64_s1_t128_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900420.4275563,
+   "s": 1.0
+  },
+  {
+   "step": "4r2-fa20_c64x64_s1_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fa20_c64x64_s1_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900421.460696,
+   "s": 1.0
+  },
+  {
+   "step": "4r2-fa20_c64x64_s2_t128_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fa20_c64x64_s2_t128_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900422.4563558,
+   "s": 1.1
+  },
+  {
+   "step": "4r2-fa20_c64x64_s2_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fa20_c64x64_s2_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900423.5211608,
+   "s": 1.0
+  },
+  {
+   "step": "4r2-fa20_c64x64_s2_t64_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fa20_c64x64_s2_t64_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900424.5588834,
+   "s": 1.6
+  },
+  {
+   "step": "4r2-fa20_c64x64_s2_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fa20_c64x64_s2_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900426.1603491,
+   "s": 1.6
+  },
+  {
+   "step": "4r2-fa20_c64x64_s3_t128_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fa20_c64x64_s3_t128_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900427.7157953,
+   "s": 1.1
+  },
+  {
+   "step": "4r2-fa20_c64x64_s3_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fa20_c64x64_s3_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900428.7943685,
+   "s": 1.0
+  },
+  {
+   "step": "4r2-fas_d112_t128",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fas_d112_t128/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900429.8427308,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-fas_d128_t128",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fas_d128_t128/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900430.3020568,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-fas_d144_t128",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fas_d144_t128/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900430.7699378,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-fas_d160_t128",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fas_d160_t128/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900431.242857,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-fas_d176_t128",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fas_d176_t128/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900431.7232175,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-fas_d64_t128",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fas_d64_t128/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900432.2010746,
+   "s": 0.4
+  },
+  {
+   "step": "4r2-fas_d80_t128",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fas_d80_t128/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900432.642641,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-fas_d96_t128",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/fas_d96_t128/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900433.0930557,
+   "s": 0.4
+  },
+  {
+   "step": "4r2-gb_i1_e1_alone",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gb_i1_e1_alone/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900433.539915,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-gb_i1_e1_beside",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gb_i1_e1_beside/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900434.0108738,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-gb_i1_e4_alone",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gb_i1_e4_alone/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900434.504934,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-gb_i1_e4_beside",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gb_i1_e4_beside/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900434.9761255,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-gb_i5_e1_alone",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gb_i5_e1_alone/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900435.4738102,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-gb_i5_e1_beside",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gb_i5_e1_beside/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900435.958158,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-gb_i5_e4_alone",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gb_i5_e4_alone/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900436.443537,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-gb_i5_e4_beside",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gb_i5_e4_beside/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900436.9400194,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-gemv19_b_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gemv19_b_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900437.4290178,
+   "s": 0.6
+  },
+  {
+   "step": "4r2-gemv19_b_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gemv19_b_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900438.0219998,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-gemv19_r64_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gemv19_r64_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900438.5276651,
+   "s": 0.6
+  },
+  {
+   "step": "4r2-gemv20_b_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gemv20_b_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900439.118203,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-gemv20_b_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gemv20_b_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900439.6487653,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-gemv20_mk16_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gemv20_mk16_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900440.1209733,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-gemv20_mk16_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gemv20_mk16_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900440.654924,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-gemv20_mk4_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gemv20_mk4_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900441.1323862,
+   "s": 0.6
+  },
+  {
+   "step": "4r2-gemv20_mk4_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gemv20_mk4_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900441.7464492,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-gemv20_np2_r64_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gemv20_np2_r64_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900442.233968,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-gemv20_np2_r64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gemv20_np2_r64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900442.7680047,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-gemv20_np2_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gemv20_np2_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900443.2517753,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-gemv20_np2_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gemv20_np2_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900443.7848465,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-gemv20_np8_r16_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gemv20_np8_r16_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900444.2624204,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-gemv20_np8_r16_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gemv20_np8_r16_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900444.81012,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-gemv20_np8_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gemv20_np8_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900445.283004,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-gemv20_np8_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gemv20_np8_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900445.807701,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-gemv20_r16_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gemv20_r16_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900446.2805886,
+   "s": 0.6
+  },
+  {
+   "step": "4r2-gemv20_r16_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gemv20_r16_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900446.8371406,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-gemv20_r64_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gemv20_r64_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900447.313747,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-gemv20_r64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gemv20_r64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900447.8373103,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-gs_b_onlysc_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/gs_b_onlysc_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900448.3106842,
+   "s": 0.4
+  },
+  {
+   "step": "4r2-hgemm_m3584n1344k1792_c128x128x32_s2_t128",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/hgemm_m3584n1344k1792_c128x128x32_s2_t128/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900448.7590995,
+   "s": 0.8
+  },
+  {
+   "step": "4r2-hgemm_m3584n1344k1792_c128x128x32_s2_t128_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/hgemm_m3584n1344k1792_c128x128x32_s2_t128_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900449.596522,
+   "s": 0.9
+  },
+  {
+   "step": "4r2-hgemm_m3584n1344k1792_c128x128x32_s3_t128",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/hgemm_m3584n1344k1792_c128x128x32_s3_t128/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900450.4524808,
+   "s": 0.9
+  },
+  {
+   "step": "4r2-hgemm_m3584n1344k1792_c128x128x32_s3_t128_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/hgemm_m3584n1344k1792_c128x128x32_s3_t128_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900451.3071008,
+   "s": 0.9
+  },
+  {
+   "step": "4r2-hgemm_m3584n1344k1792_c128x128x32_s3_t128_sw8",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/hgemm_m3584n1344k1792_c128x128x32_s3_t128_sw8/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900452.177749,
+   "s": 0.9
+  },
+  {
+   "step": "4r2-hgemm_m3584n1344k1792_c128x128x32_s3_t128_sw8_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/hgemm_m3584n1344k1792_c128x128x32_s3_t128_sw8_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900453.0304828,
+   "s": 0.9
+  },
+  {
+   "step": "4r2-hgemm_m3584n1344k1792_c128x128x32_s4_t128",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/hgemm_m3584n1344k1792_c128x128x32_s4_t128/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900453.910291,
+   "s": 0.9
+  },
+  {
+   "step": "4r2-hgemm_m3584n1344k1792_c128x128x32_s4_t128_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/hgemm_m3584n1344k1792_c128x128x32_s4_t128_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900454.8154986,
+   "s": 0.9
+  },
+  {
+   "step": "4r2-hgemm_m3584n1344k1792_c128x128x64_s2_t128",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/hgemm_m3584n1344k1792_c128x128x64_s2_t128/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900455.7306747,
+   "s": 0.9
+  },
+  {
+   "step": "4r2-hgemm_m3584n1344k1792_c128x128x64_s2_t128_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/hgemm_m3584n1344k1792_c128x128x64_s2_t128_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900456.6025622,
+   "s": 0.9
+  },
+  {
+   "step": "4r2-hgemm_m3584n1344k1792_c128x256x32_s3_t256",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/hgemm_m3584n1344k1792_c128x256x32_s3_t256/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900457.4972517,
+   "s": 0.9
+  },
+  {
+   "step": "4r2-hgemm_m3584n1344k1792_c128x256x32_s3_t256_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/hgemm_m3584n1344k1792_c128x256x32_s3_t256_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900458.4249458,
+   "s": 0.9
+  },
+  {
+   "step": "4r2-hgemm_m3584n1344k1792_c128x256x64_s2_t256",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/hgemm_m3584n1344k1792_c128x256x64_s2_t256/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900459.3508925,
+   "s": 0.9
+  },
+  {
+   "step": "4r2-hgemm_m3584n1344k1792_c128x256x64_s2_t256_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/hgemm_m3584n1344k1792_c128x256x64_s2_t256_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900460.2521813,
+   "s": 0.9
+  },
+  {
+   "step": "4r2-hgemm_m3584n1344k1792_c256x128x32_s3_t256",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/hgemm_m3584n1344k1792_c256x128x32_s3_t256/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900461.157567,
+   "s": 0.9
+  },
+  {
+   "step": "4r2-hgemm_m3584n1344k1792_c256x128x32_s3_t256_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/hgemm_m3584n1344k1792_c256x128x32_s3_t256_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900462.079404,
+   "s": 0.9
+  },
+  {
+   "step": "4r2-hgemm_m3584n1344k1792_c64x128x32_s4_t128",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/hgemm_m3584n1344k1792_c64x128x32_s4_t128/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900463.0128667,
+   "s": 0.9
+  },
+  {
+   "step": "4r2-hgemm_m3584n1344k1792_c64x128x32_s4_t128_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/hgemm_m3584n1344k1792_c64x128x32_s4_t128_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900463.8965948,
+   "s": 0.9
+  },
+  {
+   "step": "4r2-hgemm_m3584n1344k1792_c64x64x32_s4_t64",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/hgemm_m3584n1344k1792_c64x64x32_s4_t64/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900464.80306,
+   "s": 0.9
+  },
+  {
+   "step": "4r2-hgemm_m3584n1344k1792_c64x64x32_s4_t64_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/hgemm_m3584n1344k1792_c64x64x32_s4_t64_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900465.7433581,
+   "s": 1.0
+  },
+  {
+   "step": "4r2-hgemm_m3968n1488k1984_c128x128x32_s3_t128",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/hgemm_m3968n1488k1984_c128x128x32_s3_t128/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900466.700044,
+   "s": 1.0
+  },
+  {
+   "step": "4r2-hgemm_m3968n1488k1984_c128x128x32_s3_t128_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/hgemm_m3968n1488k1984_c128x128x32_s3_t128_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900467.6842985,
+   "s": 1.0
+  },
+  {
+   "step": "4r2-rms19_t128_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rms19_t128_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900468.6771314,
+   "s": 0.6
+  },
+  {
+   "step": "4r2-rms19_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rms19_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900469.281819,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-rms19_t512_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rms19_t512_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900469.8012116,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-rms20_t128_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rms20_t128_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900470.3356857,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-rms20_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rms20_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900470.867458,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-rms20_t16_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rms20_t16_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900471.3231878,
+   "s": 0.6
+  },
+  {
+   "step": "4r2-rms20_t16_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rms20_t16_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900471.9035392,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-rms20_t256_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rms20_t256_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900472.4437425,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-rms20_t256_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rms20_t256_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900472.9773748,
+   "s": 0.4
+  },
+  {
+   "step": "4r2-rms20_t32_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rms20_t32_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900473.4201443,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-rms20_t32_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rms20_t32_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900473.9502633,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-rms20_t512_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rms20_t512_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900474.4019282,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-rms20_t512_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rms20_t512_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900474.9380383,
+   "s": 0.4
+  },
+  {
+   "step": "4r2-rms20_t64_rotating",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rms20_t64_rotating/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900475.3817859,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-rms20_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rms20_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900475.9028015,
+   "s": 0.4
+  },
+  {
+   "step": "4r2-rs_m176_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rs_m176_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900476.349138,
+   "s": 0.4
+  },
+  {
+   "step": "4r2-rs_nostore_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rs_nostore_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900476.7729962,
+   "s": 0.4
+  },
+  {
+   "step": "4r2-rw_m1760n2816_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rw_m1760n2816_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900477.208716,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-rw_m440_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rw_m440_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900477.6921296,
+   "s": 0.4
+  },
+  {
+   "step": "4r2-rw_m528_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rw_m528_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900478.132989,
+   "s": 0.4
+  },
+  {
+   "step": "4r2-rw_m604n8192_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rw_m604n8192_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900478.5799372,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-rw_m616_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rw_m616_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900479.0613222,
+   "s": 0.4
+  },
+  {
+   "step": "4r2-rw_m660_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rw_m660_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900479.5020823,
+   "s": 0.4
+  },
+  {
+   "step": "4r2-rw_m748_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rw_m748_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900479.94134,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-rw_m792_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rw_m792_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900480.3916996,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-rw_m880_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rw_m880_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900480.8474483,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-rw_m880_t32_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rw_m880_t32_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900481.3397117,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-rw_m880_t512_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rw_m880_t512_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900481.8239198,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-rw_m968_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rw_m968_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900482.3188553,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-rw_m968_t32_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rw_m968_t32_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900482.8198326,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-rw_m968_t512_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rw_m968_t512_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900483.3317664,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-rw_nl_m528_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rw_nl_m528_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900483.8506215,
+   "s": 0.4
+  },
+  {
+   "step": "4r2-rw_nl_m880_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rw_nl_m880_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900484.2999945,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-rw_nl_m968_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rw_nl_m968_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900484.753655,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-rw_ns_m880_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rw_ns_m880_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900485.2164423,
+   "s": 0.4
+  },
+  {
+   "step": "4r2-rw_ns_m968_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/rw_ns_m968_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900485.6619704,
+   "s": 0.4
+  },
+  {
+   "step": "4r2-sm19_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/sm19_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900486.1007524,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-sm19_t512_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/sm19_t512_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900486.6181715,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-sm20_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/sm20_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900487.1418028,
+   "s": 0.4
+  },
+  {
+   "step": "4r2-sm20_t16_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/sm20_t16_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900487.5888379,
+   "s": 0.6
+  },
+  {
+   "step": "4r2-sm20_t256_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/sm20_t256_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900488.1748922,
+   "s": 0.4
+  },
+  {
+   "step": "4r2-sm20_t32_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/sm20_t32_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900488.615749,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-sm20_t512_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/sm20_t512_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900489.0815885,
+   "s": 0.4
+  },
+  {
+   "step": "4r2-sm20_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/sm20_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900489.5215592,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-sw_m616_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/sw_m616_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900489.9752903,
+   "s": 0.4
+  },
+  {
+   "step": "4r2-sw_m792_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/sw_m792_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900490.4245498,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-sw_m880_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/sw_m880_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900490.8808537,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-sw_m968_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/sw_m968_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900491.3767323,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-wb_w12_r0",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/wb_w12_r0/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900491.8936093,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-wb_w12_r12",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/wb_w12_r12/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900492.3891318,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-wb_w12_r4",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/wb_w12_r4/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900492.9388583,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-wb_w6_r0",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/wb_w6_r0/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900493.4441552,
+   "s": 0.4
+  },
+  {
+   "step": "4r2-wb_w6_r12",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/wb_w6_r12/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900493.8843317,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-wb_w6_r16",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/wb_w6_r16/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900494.3745062,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-wb_w6_r2",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/wb_w6_r2/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900494.862424,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-wb_w6_r4",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/wb_w6_r4/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900495.3141909,
+   "s": 0.4
+  },
+  {
+   "step": "4r2-wb_w6_r8",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/wb_w6_r8/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900495.7625017,
+   "s": 0.4
+  },
+  {
+   "step": "4r2-wb_w9_r0",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/wb_w9_r0/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900496.204057,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-wb_w9_r12",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/wb_w9_r12/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900496.6554606,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-wb_w9_r3",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/wb_w9_r3/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900497.1163733,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-wb_w9_r6",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/wb_w9_r6/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900497.599508,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-wb_w9_r9",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/wb_w9_r9/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900498.0860162,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-wb_w9_r9_k16",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/wb_w9_r9_k16/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900498.5887287,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-wb_w9_r9_k4",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/testset/wb_w9_r9_k4/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793900499.1161916,
+   "s": 0.5
+  },
+  {
+   "step": "6r2-protocol-clock",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/protocol/bin",
+    "clock"
+   ],
+   "rc": 0,
+   "t0": 1793900499.5685608,
+   "s": 0.6
+  },
+  {
+   "step": "6r2-protocol-fma",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/protocol/bin",
+    "fma"
+   ],
+   "rc": 0,
+   "t0": 1793900500.1793332,
+   "s": 0.4
+  },
+  {
+   "step": "6r2-protocol-mem",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/r20/build/protocol/bin",
+    "mem"
+   ],
+   "rc": 0,
+   "t0": 1793900500.614871,
+   "s": 0.5
+  },
+  {
+   "step": "1-env-after-smi",
+   "cmd": [
+    "nvidia-smi",
+    "-q",
+    "-d",
+    "CLOCK,TEMPERATURE,POWER,PERFORMANCE"
+   ],
+   "rc": 0,
+   "t0": 1793900501.09531,
+   "s": 0.1
+  },
+  {
+   "step": "1-env-after-apps",
+   "cmd": [
+    "nvidia-smi",
+    "--query-compute-apps=pid,process_name",
+    "--format=csv,noheader"
+   ],
+   "rc": 0,
+   "t0": 1793900501.155862,
+   "s": 0.0
+  },
+  {
+   "step": "1-env-after-uptime",
+   "cmd": [
+    "uptime"
+   ],
+   "rc": 0,
+   "t0": 1793900501.1760533,
+   "s": 0.0
+  }
+ ],
+ "not_owned_by_user": "",
+ "raw": "data/perfmodel/batches/r20",
+ "invalid_cases": {
+  "bl19_pairsum kernel": "machine comparison, spark-6951 (D909): a repeat of r19c, kept out so no spark row is replaced",
+  "bl19_pairsum b2b": "machine comparison, spark-6951 (D909): a repeat of r19c, kept out so no spark row is replaced",
+  "bl19_pairsum graph": "machine comparison, spark-6951 (D909): a repeat of r19c, kept out so no spark row is replaced",
+  "bl19_ringload kernel": "machine comparison, spark-6951 (D909): a repeat of r19c, kept out so no spark row is replaced",
+  "bl19_ringload b2b": "machine comparison, spark-6951 (D909): a repeat of r19c, kept out so no spark row is replaced",
+  "bl19_ringload graph": "machine comparison, spark-6951 (D909): a repeat of r19c, kept out so no spark row is replaced",
+  "bl19_stridestore kernel": "machine comparison, spark-6951 (D909): a repeat of r19c, kept out so no spark row is replaced",
+  "bl19_stridestore b2b": "machine comparison, spark-6951 (D909): a repeat of r19c, kept out so no spark row is replaced",
+  "bl19_stridestore graph": "machine comparison, spark-6951 (D909): a repeat of r19c, kept out so no spark row is replaced",
+  "dec19_b_rotating kernel": "machine comparison, spark-6951 (D909): a repeat of r19c, kept out so no spark row is replaced",
+  "dec19_b_rotating b2b": "machine comparison, spark-6951 (D909): a repeat of r19c, kept out so no spark row is replaced",
+  "dec19_b_rotating graph": "machine comparison, spark-6951 (D909): a repeat of r19c, kept out so no spark row is replaced",
+  "dec19_b_warm kernel": "machine comparison, spark-6951 (D909): a repeat of r19c, kept out so no spark row is replaced",
+  "dec19_b_warm b2b": "machine comparison, spark-6951 (D909): a repeat of r19c, kept out so no spark row is replaced",
+  "dec19_b_warm graph": "machine comparison, spark-6951 (D909): a repeat of r19c, kept out so no spark row is replaced",
+  "dec19_bn32_rotating kernel": "machine comparison, spark-6951 (D909): a repeat of r19c, kept out so no spark row is replaced",
+  "dec19_bn32_rotating b2b": "machine comparison, spark-6951 (D909): a repeat of r19c, kept out so no spark row is replaced",
+  "dec19_bn32_rotating graph": "machine comparison, spark-6951 (D909): a repeat of r19c, kept out so no spark row is replaced",
+  "fa19_c64x64_s1_t128_warm kernel": "machine comparison, spark-6951 (D909): a repeat of r19c, kept out so no spark row is replaced",
+  "fa19_c64x64_s1_t128_warm b2b": "machine comparison, spark-6951 (D909): a repeat of r19c, kept out so no spark row is replaced",
+  "fa19_c64x64_s1_t128_warm graph": "machine comparison, spark-6951 (D909): a repeat of r19c, kept out so no spark row is replaced",
+  "fa19_c64x64_s2_t128_rotating kernel": "machine comparison, spark-6951 (D909): a repeat of r19c, kept out so no spark row is replaced",
+  "fa19_c64x64_s2_t128_rotating b2b": "machine comparison, spark-6951 (D909): a repeat of r19c, kept out so no spark row is replaced",
+  "fa19_c64x64_s2_t128_rotating graph": "machine comparison, spark-6951 (D909): a repeat of r19c, kept out so no spark row is replaced",
+  "fa19_c64x64_s2_t128_warm kernel": "machine comparison, spark-6951 (D909): a repeat of r19c, kept out so no spark row is replaced",
+  "fa19_c64x64_s2_t128_warm b2b": "machine comparison, spark-6951 (D909): a repeat of r19c, kept out so no spark row is replaced",
+  "fa19_c64x64_s2_t128_warm graph": "machine comparison, spark-6951 (D909): a repeat of r19c, kept out so no spark row is replaced",
+  "gemv19_b_rotating kernel": "machine comparison, spark-6951 (D909): a repeat of r19c, kept out so no spark row is replaced",
+  "gemv19_b_rotating b2b": "machine comparison, spark-6951 (D909): a repeat of r19c, kept out so no spark row is replaced",
+  "gemv19_b_rotating graph": "machine comparison, spark-6951 (D909): a repeat of r19c, kept out so no spark row is replaced",
+  "gemv19_b_warm kernel": "machine comparison, spark-6951 (D909): a repeat of r19c, kept out so no spark row is replaced",
+  "gemv19_b_warm b2b": "machine comparison, spark-6951 (D909): a repeat of r19c, kept out so no spark row is replaced",
+  "gemv19_b_warm graph": "machine comparison, spark-6951 (D909): a repeat of r19c, kept out so no spark row is replaced",
+  "gemv19_r64_rotating kernel": "machine comparison, spark-6951 (D909): a repeat of r19c, kept out so no spark row is replaced",
+  "gemv19_r64_rotating b2b": "machine comparison, spark-6951 (D909): a repeat of r19c, kept out so no spark row is replaced",
+  "gemv19_r64_rotating graph": "machine comparison, spark-6951 (D909): a repeat of r19c, kept out so no spark row is replaced",
+  "gs_b_onlysc_rotating kernel": "machine comparison, spark-6951 (D909): a repeat of r19c, kept out so no spark row is replaced",
+  "gs_b_onlysc_rotating b2b": "machine comparison, spark-6951 (D909): a repeat of r19c, kept out so no spark row is replaced",
+  "gs_b_onlysc_rotating graph": "machine comparison, spark-6951 (D909): a repeat of r19c, kept out so no spark row is replaced",
+  "hgemm_m3968n1488k1984_c128x128x32_s3_t128 kernel": "machine comparison, spark-6951 (D909): a repeat of r19c, kept out so no spark row is replaced",
+  "hgemm_m3968n1488k1984_c128x128x32_s3_t128 b2b": "machine comparison, spark-6951 (D909): a repeat of r19c, kept out so no spark row is replaced",
+  "hgemm_m3968n1488k1984_c128x128x32_s3_t128 graph": "machine comparison, spark-6951 (D909): a repeat of r19c, kept out so no spark row is replaced",
+  "hgemm_m3968n1488k1984_c128x128x32_s3_t128_rotating kernel": "machine comparison, spark-6951 (D909): a repeat of r19c, kept out so no spark row is replaced",
+  "hgemm_m3968n1488k1984_c128x128x32_s3_t128_rotating b2b": "machine comparison, spark-6951 (D909): a repeat of r19c, kept out so no spark row is replaced",
+  "hgemm_m3968n1488k1984_c128x128x32_s3_t128_rotating graph": "machine comparison, spark-6951 (D909): a repeat of r19c, kept out so no spark row is replaced",
+  "rms19_t128_rotating kernel": "machine comparison, spark-6951 (D909): a repeat of r19c, kept out so no spark row is replaced",
+  "rms19_t128_rotating b2b": "machine comparison, spark-6951 (D909): a repeat of r19c, kept out so no spark row is replaced",
+  "rms19_t128_rotating graph": "machine comparison, spark-6951 (D909): a repeat of r19c, kept out so no spark row is replaced",
+  "rms19_t128_warm kernel": "machine comparison, spark-6951 (D909): a repeat of r19c, kept out so no spark row is replaced",
+  "rms19_t128_warm b2b": "machine comparison, spark-6951 (D909): a repeat of r19c, kept out so no spark row is replaced",
+  "rms19_t128_warm graph": "machine comparison, spark-6951 (D909): a repeat of r19c, kept out so no spark row is replaced",
+  "rms19_t512_warm kernel": "machine comparison, spark-6951 (D909): a repeat of r19c, kept out so no spark row is replaced",
+  "rms19_t512_warm b2b": "machine comparison, spark-6951 (D909): a repeat of r19c, kept out so no spark row is replaced",
+  "rms19_t512_warm graph": "machine comparison, spark-6951 (D909): a repeat of r19c, kept out so no spark row is replaced",
+  "rs_m176_t128_warm kernel": "machine comparison, spark-6951 (D909): a repeat of r19c, kept out so no spark row is replaced",
+  "rs_m176_t128_warm b2b": "machine comparison, spark-6951 (D909): a repeat of r19c, kept out so no spark row is replaced",
+  "rs_m176_t128_warm graph": "machine comparison, spark-6951 (D909): a repeat of r19c, kept out so no spark row is replaced",
+  "rs_nostore_t128_warm kernel": "machine comparison, spark-6951 (D909): a repeat of r19c, kept out so no spark row is replaced",
+  "rs_nostore_t128_warm b2b": "machine comparison, spark-6951 (D909): a repeat of r19c, kept out so no spark row is replaced",
+  "rs_nostore_t128_warm graph": "machine comparison, spark-6951 (D909): a repeat of r19c, kept out so no spark row is replaced",
+  "sm19_t128_warm kernel": "machine comparison, spark-6951 (D909): a repeat of r19c, kept out so no spark row is replaced",
+  "sm19_t128_warm b2b": "machine comparison, spark-6951 (D909): a repeat of r19c, kept out so no spark row is replaced",
+  "sm19_t128_warm graph": "machine comparison, spark-6951 (D909): a repeat of r19c, kept out so no spark row is replaced",
+  "sm19_t512_warm kernel": "machine comparison, spark-6951 (D909): a repeat of r19c, kept out so no spark row is replaced",
+  "sm19_t512_warm b2b": "machine comparison, spark-6951 (D909): a repeat of r19c, kept out so no spark row is replaced",
+  "sm19_t512_warm graph": "machine comparison, spark-6951 (D909): a repeat of r19c, kept out so no spark row is replaced"
+ }
+}
