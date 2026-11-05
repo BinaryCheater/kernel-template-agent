@@ -213,6 +213,8 @@ class SM:
         self.st_bytes = 0.0  # bytes this SM has stored, for the chip's dirty limit
         # round 11 (rw_*): sectors waiting at the SM's store port, until when: a later store merges
         self.st_pending: dict[Any, float] = {}
+        self.st_units: set = set()
+        self.st_dram = 0.0  # round 16: when the DRAM has taken the bursts stores opened
         self.dram_writes_counted = dram_writes_counted  # the DRAM clock already holds the writes
         # round 11 (wr_*): repeated launches writing past the dirty limit find it full at the start
         self.dirty_full = dirty_full
@@ -227,6 +229,7 @@ class SM:
         # left there) blocks in flight, and this SM's share of the L2, DRAM, store and TMA limits is
         # its own blocks in flight over that
         self.grid_blocks = grid_blocks
+        self.launch_threads = threads * (grid_blocks or 1)
         self.eq0 = active_sms
         self.dram_clk0 = dram_clk_per_512B
         INF = float("inf")
@@ -1483,6 +1486,7 @@ class SM:
         # bytes per warp instruction and rates by store width (round 5: 32 B per lane, probe st256;
         # 8 B per lane uses the 4-byte rates)
         P, t = self.P, self.t
+        dram_s = 0.0
         w_ = "32B" if ".256" in x.op else ("16B" if ".128" in x.op else "4B")
         nbytes = {"32B": 1024, "16B": 512}.get(w_, 256 if ".64" in x.op else 128)
         # the larger of the pair's shared store port and this SM's share of the chip's store limit
@@ -1539,10 +1543,19 @@ class SM:
             free = wide and (self.write_footprint or 0) <= P["stg_dirty_wide_bytes"]
             if not free and (self.dirty_full or written > P["stg_dirty_bytes"]):
                 wr = self.m.C["dram_write_GBs"] / self.m.C["clock_under_load_GHz"]
-                rate = min(rate, wr)
+                dram = nbytes
+                if P["dram_burst_bytes"]:
+                    # round 16 (mw_o_*, mw_h_*): a store costs the bursts it opens, in order at
+                    # most the stream's own rate, hashed one burst per lane
+                    units = {(base, o // P["dram_burst_bytes"]) for o in addr0[1]}
+                    dram = len(units - self.st_units) * P["dram_burst_bytes"]
+                    self.st_units = units
+                else:
+                    rate = min(rate, wr)
+                dram_s = dram * self.active_sms / wr
                 if P["dram_writes_shared"] and not self.dram_writes_counted:
                     # round 11 (wr_*): reads and written-back bytes take turns on the DRAM
-                    t["dram_queue"] += nbytes * self.active_sms / wr
+                    t["dram_queue"] += dram_s
         if addr0 is None and self.stg_lanes:
             nbytes = 32 * self.stg_lanes
         reg = re.search(r"\[(R\d+)", x.args) if addr0 is None and w_ == "4B" else None
@@ -1555,7 +1568,8 @@ class SM:
                 rate = min(rate, self.m.C["dram_write_GBs"] / self.m.C["clock_under_load_GHz"])
         self.stg_lanes = 0
         chip = nbytes / (rate / self.active_sms)
-        start = max(now, t["store_port"])
+        start = max(now, t["store_port"], self.st_dram)
+        self.st_dram = max(self.st_dram, start) + dram_s
         if P["l2_chip_read_share"] > 0 and chip >= pair:
             # at the chip's limit reads and stores share one L2 path, the stores behind the reads by
             # at most the overlap the buffer gives

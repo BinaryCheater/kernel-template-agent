@@ -200,8 +200,17 @@ def report(round_no: int) -> str:
         "stack_load",
         "stage_question",
         "occupancy",
+        "dram_limit",
+        "fa_stride",
+        "turnover",
+        "write_limit",
     )
-    blind = [r for r in kernels if r["launch"].get("set") not in sweeps]
+    blind = [
+        r
+        for r in kernels
+        if r["launch"].get("set") not in sweeps
+        and not r["launch"].get("set", "").startswith("mem_")
+    ]
     long_blind = [r for r in blind if r["measured"] >= SHORT_US]
     head = [("blind kernels", blind), ("those ≥ 30 µs", long_blind), ("with the sweeps", kernels)]
     for name, g in [*head, *groups.items()]:

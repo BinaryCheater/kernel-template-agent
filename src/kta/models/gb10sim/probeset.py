@@ -124,6 +124,13 @@ def _unit_ins(b: Batch, cid: str, kernel: str, src: str | None = None) -> tuple[
     return probe, _k(_sass(b, src or f"probe-{probe}"), kernel)
 
 
+def _launch_threads(sm) -> float:
+    """Round 16: past some threads a launch starts them more slowly (probe launch, `mt_r_*`)."""
+    p = sm.m.P
+    kilo = sm.launch_threads / 1000
+    return max(0.0, kilo - p["launch_thread_free_k"]) * p["launch_thread_us_per_k"]
+
+
 def per(div: float):
     return lambda sm, r: marked_cycles(sm, r) / div
 
@@ -133,7 +140,7 @@ def _time(b: Batch, launch: str | None = None):
     (`event`: `_launch_event`; `kernel`: `_launch_kernel`; `b2b`, `graph`: `_launch_seq`)."""
 
     def read(sm, r):
-        span = r["cycles"] / (_ghz(b, sm.m) * 1e3)
+        span = r["cycles"] / (_ghz(b, sm.m) * 1e3) + _launch_threads(sm)
         if launch == "event":
             return span + _launch_event(sm.m)
         if launch == "kernel":

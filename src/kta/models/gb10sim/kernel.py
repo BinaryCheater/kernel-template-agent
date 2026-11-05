@@ -12,7 +12,7 @@ import math
 import re
 from typing import Any
 
-from .l2 import replay_walk, walk
+from .l2 import LINE, replay_walk, walk
 from .l2 import rotating_miss as l2_rotating_miss
 from .l2 import warm_miss as l2_warm_miss
 from .machine import Machine, default_machine
@@ -140,11 +140,13 @@ def replay_waves(
     sends to DRAM. `scale`: per base the part of the cold misses this launch's cache state keeps."""
     total = sum(p[0] * scale.get(b, 1.0) for w in r.parts for b, p in w.items())
     out = []
-    for parts, runs in zip(r.parts, r.runs, strict=True):
+    for parts, runs, burst in zip(r.parts, r.runs, r.bursts, strict=True):
         got = sum(p[0] * scale.get(b, 1.0) for b, p in parts.items())
         cold = sum(p[0] for p in parts.values())
         keep = got / cold if cold else 0.0
         secs = sum(v * keep / dram_peak(run, m) for run, v in runs.items()) / 1e9
+        # round 16: sectors asked apart; a sector costs one burst at most
+        secs *= min(max(1.0, burst / cold), m.P["dram_burst_bytes"] / LINE or 1.0) if cold else 1.0
         if total:
             wr = write_bytes * got / total if m.P["dram_writes_paced"] else 0.0
             secs += wr / (m.C["dram_write_GBs"] * 1e9)
@@ -216,12 +218,12 @@ _l2_cache: dict[tuple, Any] = {}
 
 
 def _l2_replay(ins: list[Ins], L: dict[str, Any], trips: int, in_flight: int, m: Machine) -> Any:
-    cap = m.C["l2_effective_bytes"]
-    key = (L["entry"], json.dumps(L, sort_keys=True), len(ins), trips, in_flight, cap)
+    cap, burst = m.C["l2_effective_bytes"], m.P["dram_burst_bytes"]
+    key = (L["entry"], json.dumps(L, sort_keys=True), len(ins), trips, in_flight, cap, burst)
     if key not in _l2_cache:
         block = tuple(L.get("block", [L["threads"]]))
         acc = walk(ins, L["threads"], trips, tuple(L["grid"]), block, m, grid_bank(L))
-        _l2_cache[key] = replay_walk(acc, in_flight, cap)
+        _l2_cache[key] = replay_walk(acc, in_flight, cap, burst)
     return _l2_cache[key]
 
 
@@ -279,6 +281,12 @@ def generic_kernel(
         # round 12: unknown addresses read what the known ones leave of the buffers
         rest = max(0, fb - r.footprint - L.get("write_bytes", 0))
         seen = r.footprint + min(r.loose, rest)
+        if m.P["l2_line_bytes"]:  # round 16: the L2 keeps lines
+            # lanes at unknown addresses take lines at random, each at most once
+            far = r.loose * m.P["l2_line_bytes"] / LINE
+            seen = r.line_bytes + rest * (1 - math.exp(-far / rest)) if rest else r.line_bytes
+            # addresses wrapped in the buffers walk past them: no more lines than the buffers
+            seen = min(seen, max(r.footprint, fb - L.get("write_bytes", 0)))
         # round 12 (rmw_*): lines stores rewrite after reading them count once
         written = 0 if r.rewrites else L.get("write_bytes", 0)
         window = L.get("rot", 1) * (seen + written)
@@ -302,6 +310,10 @@ def generic_kernel(
         # round 14 (`bl_csr`, hl_*): unknown addresses are distinct only up to the buffers they
         # read: past those bytes they re-read lines a launch already brought in
         once_loose = min(1.0, rest / r.loose) if r.loose and m.P["loose_reads_bounded"] else 1.0
+        # round 16 (mr_h_*): a re-read finds its line only if the L2 still holds it
+        once_loose += (1.0 - once_loose) * max(
+            0.0, 1.0 - m.C["l2_effective_bytes"] / max(1.0, rest)
+        )
         miss_pc = {
             pc: 0.0
             if byname.get(pc) in carried
@@ -312,6 +324,8 @@ def generic_kernel(
         rb, miss = r.reads * kept, 1.0 if kept > 0 else 0.0
         kw["miss_by_pc"] = miss_pc
         kw["burst_bytes"] = rb / max(1, len(r.waves)) / max(1, trips)
+        bf = max(1.0, sum(r.bursts) / r.reads) if r.reads else 1.0
+        bf = min(bf, m.P["dram_burst_bytes"] / LINE or 1.0)
         if m.P["miss_by_wave"] and any(x.base == "LDGSTS" for x in ins):
             bases = {b for w in r.parts for b in w}
             names = {
@@ -320,9 +334,9 @@ def generic_kernel(
             sc = {b: 0.0 if names[b] in carried else scale for b in bases}
             kw["wave_miss"] = replay_waves(r, sc, wb, trips, eq, m)
     elif rotating:
-        rb, miss = fb - wb, 1.0
+        rb, miss, bf = fb - wb, 1.0, 1.0
     else:  # warm (round 3, probe l2reuse): the re-read misses by the footprint
-        rb, miss = fb, l2_warm_miss(fb, kind, m)
+        rb, miss, bf = fb, l2_warm_miss(fb, kind, m), 1.0
     kw["dram_writes_counted"] = wb > 0
     # round 11 (wr_*, r11b): repeated launches writing past the limit find it full from the start:
     # W 6 MiB pays nothing, 7 most of it, beside single-use reads; beside re-read lines (HGEMM's
@@ -337,7 +351,7 @@ def generic_kernel(
         kw = {
             **kw,
             "miss_frac": miss,
-            "dram_clk_per_512B": dram_clk(rb, dram_mix_secs(rb, wb, m), eq, m),
+            "dram_clk_per_512B": dram_clk(rb, dram_mix_secs(rb * bf, wb, m), eq, m),
         }
     return SM(
         ins,

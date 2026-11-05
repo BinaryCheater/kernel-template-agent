@@ -17,6 +17,7 @@ walked at every index. A load whose address the tracking does not know reuses no
 from __future__ import annotations
 
 import itertools
+import math
 from collections import OrderedDict
 from dataclasses import dataclass, field
 from typing import Any
@@ -29,6 +30,7 @@ from .sm import SM
 
 LINE_BITS = 5  # round 10: the 32-byte sector a miss brings (probe first_share `pieces`)
 LINE = 1 << LINE_BITS
+L2_LINE_BITS = 7  # round 16: what the L2 keeps, whatever part of the line was read
 
 
 class Cache:
@@ -292,6 +294,9 @@ class Replay:
     loose: float = 0.0
     loose_pcs: frozenset = frozenset()
     rewrites: bool = False  # round 12 (rmw_*): stores land on a buffer the kernel reads
+    # round 16: bytes of DRAM bursts the misses cost, per wave; distinct 128-byte lines read, bytes
+    bursts: list[float] = field(default_factory=list)
+    line_bytes: float = 0.0
 
 
 class _Group:
@@ -340,8 +345,10 @@ class _Group:
         return k, bad
 
 
-def replay_walk(acc: Access, in_flight: int, cap: float) -> Replay:
-    """`acc`'s blocks in launch order, `in_flight` at a time, through one `Cache`."""
+def replay_walk(acc: Access, in_flight: int, cap: float, burst: int = 0) -> Replay:
+    """`acc`'s blocks in launch order, `in_flight` at a time, through one `Cache`. `burst`: the
+    DRAM's burst in bytes (round 16): sectors of one burst asked by one instruction share it, a
+    sector asked alone costs all of it; 0: a miss costs its bytes."""
     gx, gy, gz = acc.grid
     cache = Cache(cap)
     blocks = list(itertools.product(range(gz), range(gy), range(gx)))
@@ -359,12 +366,15 @@ def replay_walk(acc: Access, in_flight: int, cap: float) -> Replay:
     parts: list[dict[int, list[float]]] = []
     runs: list[dict[int, float]] = []
     in_wave: set = set()
+    burst_bytes: list[float] = []
+    shift = int(math.log2(burst)) - LINE_BITS if burst else 0
 
     def touch(g: _Group, wave: list[tuple], trip: int) -> None:
         nonlocal reads, loaded, loose
         for e in g.unknown:  # unknown address: 32 lanes' lines, reused by nothing
             b = 32 * max(32, e.width) * len(wave)
             reads += b
+            burst_bytes[-1] += 32 * max(burst or 32, e.width) * len(wave)
             loaded += b
             loose += 32 * (LINE if e.width <= 4 else e.width) * len(wave)
             loose_pcs.add(e.pc)
@@ -383,6 +393,7 @@ def replay_walk(acc: Access, in_flight: int, cap: float) -> Replay:
                 keep = ~bad[idx]
                 flat, idx = flat[keep], idx[keep]
                 reads += n / len(wave)
+                burst_bytes[-1] += n / len(wave) * (burst or LINE) / LINE
                 loaded += n / len(wave)
                 # round 13 (hl_*): a hashed load's lanes follow no shift: as unknown addresses
                 loose += 32 * LINE * len(bb)
@@ -406,6 +417,7 @@ def replay_walk(acc: Access, in_flight: int, cap: float) -> Replay:
         u, first = np.unique(np.concatenate(lists), return_index=True)
         own = np.concatenate(owners)[first]
         missed = []
+        asked: set = set()
         for key, pc in zip(u.tolist(), own.tolist(), strict=True):
             seen.add(key)
             tag = key >> 36
@@ -418,6 +430,8 @@ def replay_walk(acc: Access, in_flight: int, cap: float) -> Replay:
                 r_pc[pc] = r_pc.get(pc, 0.0) + LINE
                 p[0] += LINE
                 missed.append(key)
+                asked.add((pc, key >> shift))
+        burst_bytes[-1] += len(asked) * (burst or LINE)
         if missed:  # `u` is sorted: a run ends where the next key does not follow
             n_runs = 1 + sum(b != a + 1 for a, b in itertools.pairwise(missed))
             run = len(missed) * LINE // n_runs
@@ -428,6 +442,7 @@ def replay_walk(acc: Access, in_flight: int, cap: float) -> Replay:
         wave = blocks[w : w + in_flight]
         parts.append({})
         runs.append({})
+        burst_bytes.append(0.0)
         in_wave.clear()
         touch(groups[0], wave, 0)
         for t in range(acc.trips):
@@ -460,6 +475,8 @@ def replay_walk(acc: Access, in_flight: int, cap: float) -> Replay:
         loose,
         rewrites=rewrites,
         loose_pcs=frozenset(loose_pcs),
+        bursts=burst_bytes,
+        line_bytes=len({k >> (L2_LINE_BITS - LINE_BITS) for k in seen}) * (1 << L2_LINE_BITS),
     )
 
 
