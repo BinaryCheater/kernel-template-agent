@@ -67,7 +67,15 @@ def main(argv: list[str] | None = None) -> int:
     )
     ap.add_argument("--rows", action="store_true", help="print the selection's rows")
     ap.add_argument("--trace", action="store_true", help="attribution: replays twice as slow")
+    ap.add_argument("--addresses", action="store_true", help="the address check, no timing")
     a = ap.parse_args(argv)
+    if a.addresses:
+        from . import addresses
+
+        got = addresses.main(a.focus, a.jobs)
+        addresses.save(got, LAST.parent / "addresses.json")
+        addresses.report(got)
+        return 0
     if a.full:
         full.on_spark(a.out)
         return 0
@@ -145,6 +153,7 @@ def main(argv: list[str] | None = None) -> int:
         "sets": a.sets,
         "wall_s": round(time.perf_counter() - t0, 1),
         "summary": table.summary(rows),
+        "addresses": table.address_coverage(rows),
         "blind_batch": latest_batch,
         "blind": table.blind_summary(rows, latest_batch) if latest_batch else [],
         "whatif": (wi := table.whatif_pairs(rows)),
@@ -178,6 +187,9 @@ def main(argv: list[str] | None = None) -> int:
     spent = sum(r["cpu_s"] for r in full.runs(n) if r["mode"] != "full")
     print(f"this run {table.STATS['cpu_s']:.0f} CPU s; round {n} so far {spent:.0f} below the full")
     if a.full_here:
+        from . import addresses
+
+        doc["sectors"] = addresses.sector_line(addresses.main(None, a.jobs))
         a.out.mkdir(parents=True, exist_ok=True)
         (a.out / "error-table.json").write_text(json.dumps(doc, indent=1) + "\n")
         (a.out / "error-table.md").write_text(table.render(doc))

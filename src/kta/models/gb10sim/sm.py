@@ -316,6 +316,9 @@ class SM:
         self.block_ids = block_ids
         self.addr_log = addr_log
         self.addr_want = addr_want  # bases still to log; the run ends when none is left
+        self.addr_gaps: dict[str, int] = {}  # round 15: unresolved addresses by cause
+        self.addr_check: dict[int, list] | None = None  # the check's detail, per pc
+        self.addr_sectors: dict[str, int] | None = None  # the check's sectors, ld and st
         self.stg_bases: set = set()  # with addr_log: the bases stores land on
         self.stg_lanes = 0  # the next store's lanes, when a guard splits them
         # round 12 (wf_*): the distinct bytes a launch writes, when the caller knows them
@@ -410,6 +413,27 @@ class SM:
         miss = (lines - hits) / lines
         self.count["ldg_miss_sectors"] += n_sect * miss
         return lines, n_sect * 32 * miss, hits
+
+    def _addr_note(self, w: Warp, x: Ins, addr: Any) -> None:
+        """Round 15: the coverage count of the scorecard, in the spirit of KTA's `other`: memory
+        instructions by whether the lanes resolve their address, and what broke the chain."""
+        c = self.count
+        kind = "chip" if x.base not in ("LDS", "STS", "LDL", "STL") else "local"
+        c[f"addr_{kind}"] = c.get(f"addr_{kind}", 0) + 1
+        gap = w.lanes.address_gap(x.args, addr)
+        if gap is not None:
+            key = f"{kind} {gap[0]} {gap[1]}"
+            self.addr_gaps[key] = self.addr_gaps.get(key, 0) + 1
+            if self.addr_check is not None:
+                d = self.addr_check.setdefault(w.pc, [x.base, 0, gap])
+                d[1] += 1
+        if self.addr_sectors is not None and addr is not None and kind == "chip":
+            n = footprint(addr, width_of(x.op))[1]
+            key = "st" if x.base in ("STG", "RED", "REDG", "ATOMG") else "ld"
+            self.addr_sectors[key] = self.addr_sectors.get(key, 0) + n
+        elif self.addr_sectors is not None and kind == "chip":
+            key = "st" if x.base in ("STG", "RED", "REDG", "ATOMG") else "ld"
+            self.addr_sectors[key] = self.addr_sectors.get(key, 0) + 32
 
     def _chip_bound(self) -> bool:
         """Round 6 (probes row_reduce, st256): this SM's reads run at its share of the chip's L2;
@@ -835,8 +859,10 @@ class SM:
         addr0 = None
         if w.lanes is not None:
             # round 6: read before the step, a load may overwrite its own address register
-            if cls.handler in ("ldg", "smem_op", "cp_async", "stg", "red"):
+            if cls.handler in ("ldg", "smem_op", "cp_async", "stg", "red", "local"):
                 addr0 = w.lanes.address(x.args, w.vals)
+                if executes and x.base != "SHFL":
+                    self._addr_note(w, x, addr0)
             if x.pred and cls.handler == "stg":
                 # round 12 (question 41): a store guarded per lane writes those lanes only
                 on = w.lanes.lanes_of(x.pred)

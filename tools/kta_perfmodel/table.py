@@ -341,6 +341,9 @@ def _result(
             "LDGSTS": sm.count.get("LDGSTS", 0),
             "ldg_sectors": sm.count.get("ldg_sectors", 0),
             "ldg_miss_sectors": sm.count.get("ldg_miss_sectors", 0),
+            "addr_chip": sm.count.get("addr_chip", 0),
+            "addr_local": sm.count.get("addr_local", 0),
+            "addr_gaps": dict(sm.addr_gaps),
             "lane_track": getattr(sm, "lane_track", False),
             "blocks": sm.blocks,
             "busy": {k: v / max(1.0, sm.cycles) for k, v in sm.busy.items()},
@@ -1185,6 +1188,63 @@ def _pct(x: float | None) -> str:
     return "—" if x is None or math.isnan(x) else f"{100 * x:+.1f} %"
 
 
+# an address from loaded data is a value, not a gap in the lanes
+VALUE_CAUSE = re.compile(r"^(high:)?(LDG|LD|LDL|LDS|LDSM|ATOM|ATOMG|SHFL)")
+
+
+def address_coverage(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """Round 15, in the spirit of KTA's `other`: of the kernels' memory operations, how many have
+    an address the lanes resolve, by kind; what broke the others; rows with most unresolved."""
+    tot = {"chip": 0, "local": 0, "gap chip": 0, "gap local": 0, "value": 0}
+    cause: dict[str, int] = {}
+    worst = []
+    for r in rows:
+        k = r.get("counts") or {}
+        if not r["id"].endswith(" kernel") or "addr_gaps" not in k:
+            continue
+        ops = k["addr_chip"] + k["addr_local"]
+        tot["chip"] += k["addr_chip"]
+        tot["local"] += k["addr_local"]
+        gap = 0
+        for key, n in k["addr_gaps"].items():
+            kind, _, why = key.split(" ", 2)
+            if VALUE_CAUSE.match(why):
+                tot["value"] += n
+                continue
+            tot[f"gap {kind}"] += n
+            gap += n
+            cause[f"{kind} {why}"] = cause.get(f"{kind} {why}", 0) + n
+        if gap:
+            worst.append((gap / max(1, ops), r["id"]))
+    return {
+        **tot,
+        "resolved_chip": 1 - tot["gap chip"] / max(1, tot["chip"]),
+        "resolved_local": 1 - tot["gap local"] / max(1, tot["local"]),
+        "causes": sorted(cause.items(), key=lambda x: -x[1])[:12],
+        "worst": sorted(worst, reverse=True)[:12],
+        "rows_with_gaps": len(worst),
+    }
+
+
+def render_addresses(a: dict[str, Any]) -> list[str]:
+    lines = [
+        "",
+        "## Address coverage",
+        "",
+        f"Memory operations of the kernel rows whose address the lanes resolve: global "
+        f"{100 * a['resolved_chip']:.2f} % of {a['chip']}, shared and stack "
+        f"{100 * a['resolved_local']:.2f} % of {a['local']}; {a['value']} more come from loaded "
+        f"data, a value and no gap; {a['rows_with_gaps']} rows have a gap.",
+        "",
+        "| Broke the chain | Operations |",
+        "| --- | ---: |",
+    ]
+    lines += [f"| {k} | {n} |" for k, n in a["causes"]]
+    lines += ["", "| Row | Unresolved share |", "| --- | ---: |"]
+    lines += [f"| {i} | {100 * sh:.1f} % |" for sh, i in a["worst"]]
+    return lines
+
+
 def render(doc: dict[str, Any], top: int = 15) -> str:
     rows = doc["rows"]
     replay = sum(r["wall_s"] for r in rows)
@@ -1241,6 +1301,10 @@ def render(doc: dict[str, Any], top: int = 15) -> str:
     lines += _unit_lines(doc)
     lines += _convergence_lines(doc)
     ranked = sorted((r for r in rows if not r["excluded"]), key=lambda r: -abs(r["error"]))
+    if doc.get("addresses"):
+        lines += render_addresses(doc["addresses"])
+    if doc.get("sectors"):
+        lines += ["", doc["sectors"]]
     lines += ["", f"## Top {top} rows by absolute error", ""]
     lines += _table(ranked[:top])
     lines += ["", "## All rows", ""]

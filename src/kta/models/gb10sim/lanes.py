@@ -10,11 +10,18 @@ every source is uniform (its lane-0 value from the warp's value tracking, else a
 unknown otherwise. Loads, shuffles and the like write unknown registers. Carries between the halves
 of 64-bit pairs are ignored (only the low half of an address pair is tracked); a base is assumed
 128-byte aligned (cudaMalloc aligns to 256 B).
+
+Round 15: integer instructions over exact lanes are evaluated as a class (`_alu`): every form in
+compiled CUDA's census of adds, products with their high halves, shifts, LEA, PRMT, bit counts and
+the float steps of a division. Bitwise functions over a base act on the bits the base leaves free
+(`_lop3`). `address_gap` names what is left unresolved; it goes on the scorecard.
 """
 
 from __future__ import annotations
 
+import math
 import re
+import struct
 from typing import Any
 
 Val = tuple[tuple, tuple]  # (base, offsets[32])
@@ -91,6 +98,8 @@ NO_DEST = {
     "SYNCS",
     "BPT",
 }
+CARRY_DEST = {"IADD3", "UIADD3", "LEA", "ULEA", "IMAD", "VOTE"}
+PRED_DEST = {"FSETP", "HSETP2", "DSETP", "PLOP3", "UPLOP3", "UISETP"}
 _REG = re.compile(r"^-?U?R(\d+|Z)(\.reuse)?$")
 
 
@@ -180,6 +189,9 @@ class Lanes:
         self.fresh = 0
         self.p: dict[str, tuple[bool, ...]] = {}  # round 11: predicates that split the lanes
         self.loaded: set[str] = set()  # round 14: registers computed from loaded data
+        self.wide: Val | None = None  # round 15: the high half `_eval` just computed, if any
+        self.why: dict[str, str] = {}  # round 15: unknown register -> the opcode that broke it
+        self.sym_op: dict[int, str] = {}  # round 15: fresh symbol -> the opcode that made it
 
     # --- operands ---------------------------------------------------------------------------
     def get(self, tok: str, vals: dict[str, Any]) -> Val | None:
@@ -221,17 +233,32 @@ class Lanes:
         token."""
         if base == "ISETP" and runs is not False:
             self._set_pred(op, args, vals)
+        elif base in PRED_DEST and runs is not False:  # a predicate the lanes do not follow
+            self.p.pop(args[0], None)
+            self.p.pop(args[1], None)
+        elif base == "LOP3" and args[0][0] == "P" and runs is not False:
+            self._lop_pred(args, vals)
+        elif base == "R2P":
+            self.p.clear()
+        elif base in CARRY_DEST and len(args) > 2 and args[1][0] == "P":  # a carry out
+            self.p.pop(args[1], None)
+            self.p.pop(args[2], None)
         if base in NO_DEST or not args or not _REG.match(args[0]):
             return None
         d = args[0]
         lanes = self.lanes_of(guard) if guard else None
         if lanes is not None:  # round 11: a guard known per lane: the old value on the others
             old, new = self.get(d, vals), self._eval(base, op, args, vals)
-            self._set(d, _merge_lanes(lanes, new, old) if isinstance(new, tuple) else None, op)
+            self.wide = None
+            mixed = _merge_lanes(lanes, new, old) if isinstance(new, tuple) else None
+            if mixed is None:
+                self.why[d] = self._cause(op, args)
+            self._set(d, mixed, op)
             return None
         if runs is False:
             return None
         if runs is None:  # a guarded write the replay cannot decide: unknown afterwards
+            self.why[d] = "guard"
             self._set(d, None, op)
             return None
         out = self._eval(base, op, args, vals)
@@ -248,14 +275,47 @@ class Lanes:
 
             def done(vals_after: dict[str, Any], d: str = d, op: str = op) -> None:
                 v = vals_after.get(d)
+                if v is None and base in ("S2R", "S2UR"):  # one register, one symbol
+                    self._set(d, (((("u", args[1]), 1),), ZERO), op)
+                    return
                 self._set(d, ((), (v & M32,) * 32) if v is not None else "uniform", op)
 
             return done
+        if out is None:
+            self.why[d] = self._cause(op, args)
         self._set(d, out, op)
+        if self.wide is not None:
+            r = re.match(r"^(U?R)(\d+)$", d)
+            if r:
+                self._set(f"{r.group(1)}{int(r.group(2)) + 1}", self.wide, "")
+            self.wide = None
         if out is None and (base in ("LDG", "BREV") or self.loaded.intersection(args[1:])):
             self.loaded.add(d)
         elif self.loaded:
             self.loaded.discard(d)
+        return None
+
+    def _cause(self, op: str, args: tuple[str, ...]) -> str:
+        """The opcode that broke a value: a source's own cause, else this instruction."""
+        for t in args[1:]:
+            c = self.why.get(_TOK.get(t, _tok(t))[1])
+            if c and _TOK[t][1] in self.unknown:
+                return c
+        return ".".join(op.split(".")[:3])
+
+    def address_gap(self, args: str, addr: Val | None) -> tuple[str, str] | None:
+        """Round 15, the coverage count: None for a resolved address; else ("unknown", cause), the
+        lanes are not known, or ("opaque", cause), the lanes are known but the base is a uniform
+        value the replay gave a fresh symbol, so nothing links it to its buffer."""
+        if addr is None:
+            for t in _ADDR.get(args) or ():
+                t = t.lstrip("-")
+                if t in self.unknown:
+                    return ("unknown", self.why.get(t, "?"))
+            return ("unknown", "no address")
+        for sym, _ in addr[0]:
+            if sym[0] == "u" and len(sym) == 3:
+                return ("opaque", self.sym_op.get(sym[2], "?"))
         return None
 
     def lanes_of(self, tok: str) -> tuple[bool, ...] | None:
@@ -264,19 +324,39 @@ class Lanes:
         v = self.p.get(t.lstrip("!"))
         return v if v is None or not t.startswith("!") else tuple(not x for x in v)
 
+    def _lop_pred(self, a: tuple[str, ...], vals: dict[str, Any]) -> None:
+        """A bitwise function as a compare with zero: `LOP3.LUT P0, RZ, a, b, c, lut, !PT`."""
+        self.p.pop(a[0], None)
+        g = [self.get(t, vals) for t in a[2:6]]
+        if a[-1] == "!PT" and len(a) == 7 and None not in g and all(self.exact(x) for x in g):
+            v = zip(g[0][1], g[1][1], g[2][1], strict=True)
+            self.p[a[0]] = tuple(lut3(x, y, z, g[3][1][0]) != 0 for x, y, z in v)
+
     def _set_pred(self, op: str, a: tuple[str, ...], vals: dict[str, Any]) -> None:
-        """Round 11 (hand_stencil): a compare of exact lane values, ANDed with PT, is known per
-        lane; anything else forgets the predicate."""
+        """Round 11 (hand_stencil), round 15 as a class: a compare of lane values is known per lane
+        when the values are exact or differ by exact lanes on one base; the two destinations are
+        the compare and its inverse, each combined with the input predicate; anything else forgets
+        them."""
         self.p.pop(a[0], None)
         self.p.pop(a[1], None)
         g = [self.get(t, vals) for t in a[2:4]]
-        if len(a) < 5 or a[4] != "PT" or ".AND" not in op or any(x is None for x in g):
-            return
-        if not all(self.exact(x) for x in g):
+        if len(a) < 5 or any(x is None for x in g) or g[0][0] != g[1][0]:
             return
         out = _compare(op, g[0], g[1])
-        if out is not None and re.match(r"^P\d$", a[0]):
-            self.p[a[0]] = out
+        tok = a[4]
+        pin = (True,) * 32 if tok == "PT" else self.lanes_of(tok)
+        if tok == "!PT":
+            pin = (False,) * 32
+        if out is None or pin is None:
+            return
+        comb = "AND" if ".AND" in op else "OR" if ".OR" in op else "XOR" if ".XOR" in op else None
+        if comb is None:
+            return
+        fn = {"AND": lambda c, q: c and q, "OR": lambda c, q: c or q, "XOR": lambda c, q: c != q}
+        if re.match(r"^P\d$", a[0]):
+            self.p[a[0]] = tuple(fn[comb](c, q) for c, q in zip(out, pin, strict=True))
+        if re.match(r"^P\d$", a[1]):
+            self.p[a[1]] = tuple(fn[comb](not c, q) for c, q in zip(out, pin, strict=True))
 
     def _set(self, d: str, val: Val | str | None, op: str) -> None:
         hi = None
@@ -285,6 +365,7 @@ class Lanes:
             hi = f"{m.group(1)}{int(m.group(2)) + 1}" if m else None
         if val == "uniform":
             self.fresh += 1
+            self.sym_op[self.fresh] = ".".join(op.split(".")[:3])
             val = (((("u", d, self.fresh), 1),), ZERO)
         if val is None:
             self.v.pop(d, None)
@@ -295,6 +376,7 @@ class Lanes:
         if hi:  # the high half of a pair: not tracked
             self.v.pop(hi, None)
             self.unknown.add(hi)
+            self.why[hi] = "high:" + ".".join(op.split(".")[:3])
 
     def _eval(
         self, base: str, op: str, a: tuple[str, ...], vals: dict[str, Any]
@@ -321,19 +403,29 @@ class Lanes:
                     return ((), (self.const_bank[c] & M32,) * 32)
                 return ((("c", *c), 1),), ZERO
             return "uniform"
-        if base == "HFMA2" and a[1:] == ("-RZ", "RZ", "0", "0"):  # the compiler's zero
+        if base == "CS2R" and a[-1] == "SRZ":  # the compiler's zero
             return ((), ZERO)
-        if base in ("I2F", "F2I", "MUFU"):
-            # the steps of a division by a run-time count: a value for uniform operands
-            g0 = self.get(a[-1], vals)
-            return "uniform" if g0 is not None and self.uniform(g0) and self.exact(g0) else None
+        if base == "CS2R":
+            return "uniform"
+        if base == "HFMA2" and a[1:3] == ("-RZ", "RZ") and len(a) == 5:
+            # the compiler's 32-bit constant: two half-precision immediates
+            try:
+                return ((), (_half(a[3]) << 16 | _half(a[4]),) * 32)
+            except (ValueError, OverflowError):
+                return None
+        if base in ("I2F", "I2FP", "F2I", "MUFU", "FMUL", "FADD", "FFMA", "POPC", "FLO", "BREV"):
+            # the steps of a division by a run-time count: lanes by their bits (round 15)
+            gs = [self.get(t, vals) for t in a[1:] if not _PRED.match(t)]
+            if gs and all(x is not None and self.exact(x) for x in gs):
+                return _bit_step(base, op, gs)
+            return None
         if base in WRITES_UNKNOWN:
             return None
         src = _SRC.get(a)
         if src is None:
             src = _SRC[a] = [t for t in a[1:] if not _PRED.match(t)]
         g = [self.get(t, vals) for t in src]
-        if base in ("SEL", "VIMNMX", "IMNMX") and len(a) >= 4 and None not in g[:2]:
+        if base in ("SEL", "USEL", "VIMNMX", "IMNMX") and len(a) >= 4 and None not in g[:2]:
             r = self._select(base, op, a, g)
             if r is not None:
                 return r
@@ -343,17 +435,31 @@ class Lanes:
             r = None
         if r is not None:
             return r
+        if base in ("LOP3", "ULOP3") and len(g) >= 4 and None not in g[:4]:
+            return self._lop3(g) or self._opaque(g, d, op)
         if all(x is not None and self.uniform(x) and self.exact(x) for x in g):
             return "uniform"
         if all(x is not None and self.uniform(x) for x in g):
             self.fresh += 1
+            self.sym_op[self.fresh] = ".".join(op.split(".")[:3])
+            return (((("u", d, self.fresh), 1),), ZERO)
+        return None
+
+    def _opaque(self, g: list[Val | None], d: str, op: str) -> Val | str | None:
+        if all(x is not None and self.uniform(x) and self.exact(x) for x in g):
+            return "uniform"
+        if all(x is not None and self.uniform(x) for x in g):
+            self.fresh += 1
+            self.sym_op[self.fresh] = ".".join(op.split(".")[:3])
             return (((("u", d, self.fresh), 1),), ZERO)
         return None
 
     def _select(self, base: str, op: str, a: tuple[str, ...], g: list[Val | None]) -> Val | None:
         """Round 11 (hand_stencil): SEL by a lane predicate; min (PT), max (!PT) of exact lanes."""
-        if base == "SEL":
+        if base in ("SEL", "USEL"):
             lanes = self.lanes_of(a[3])
+            if a[3] in ("PT", "UPT"):
+                lanes = (True,) * 32
             return _merge_lanes(lanes, g[0], g[1]) if lanes is not None else None
         x, y = g[0], g[1]
         if a[3] not in ("PT", "!PT") or not (self.exact(x) and self.exact(y)):
@@ -362,15 +468,19 @@ class Lanes:
         sign = (lambda v: v) if ".U32" in op else _signed
         return ((), tuple(pick(p, q, key=sign) for p, q in zip(x[1], y[1], strict=True)))
 
+    def _high(self, tok: str, vals: dict[str, Any]) -> Val | None:
+        """The high half of the pair `tok` starts; a constant's is zero."""
+        t = tok.replace(".reuse", "").lstrip("-")
+        if t in ("RZ", "URZ") or _NUM.match(t):
+            return ((), ZERO)
+        r = re.match(r"^(U?R)(\d+)$", t)
+        return self.get(f"{r.group(1)}{int(r.group(2)) + 1}", vals) if r else None
+
     def _linear(self, base, op, a, src, g, vals) -> Val | None:
         if base in ("MOV", "UMOV", "MOV32I", "R2UR") and g and g[0] is not None:
+            if ".64" in op:
+                self.wide = self._high(src[0], vals)
             return g[0]
-        if base in ("LOP3", "ULOP3") and len(g) >= 4 and None not in g[:4]:
-            # round 12: any function of exact lanes (a hash masked to a table)
-            if all(self.exact(x) for x in g[:4]) and self.uniform(g[3]):
-                lut = g[3][1][0]
-                vals3 = zip(g[0][1], g[1][1], g[2][1], strict=True)
-                return ((), tuple(lut3(p, q, r, lut) for p, q, r in vals3))
         if base == "LOP3" and len(g) >= 4 and g[3] == ((), (0xC0,) * 32):
             # a & b with one of them known to be zero: the other need not be known
             if any(x is not None and x == ((), ZERO) for x in g[:2]):
@@ -380,59 +490,110 @@ class Lanes:
         if None in g:
             return None
         if base in ("IADD3", "UIADD3", "IADD", "VIADD", "UIADD") or op.startswith("IADD.64"):
+            if ".64" in op and all(self.exact(x) for x in g):
+                self.wide = _add_64(g, [self._high(t, vals) for t in src])
             return _add(*g)
-        if base in ("IMAD", "UIMAD") and ".HI" not in op:
-            p = _mul(g[0], g[1])
-            return _add(p, g[2]) if p is not None and len(g) > 2 else p
-        if base in ("LEA", "ULEA") and ".HI" not in op:
-            p = _shl(g[0], g[2])
-            return _add(p, g[1]) if p is not None else None
-        if base == "LEA" and op.startswith("LEA.HI") and ".X" not in op and len(g) >= 4:
-            # round 14 (gemv14_*): (RZ:a >> 32 - s) + b, an index divided by a power of two
-            if src[2] in ("RZ", "URZ") and self.exact(g[0]) and self.exact(g[3]):
-                k = 32 - (g[3][1][0] & 31)
-                return _add(((), tuple(o >> k for o in g[0][1])), g[1])
-            return None
+        if base in ("IMAD", "UIMAD"):
+            return self._imad(op, src, g, vals)
+        if base in ("LEA", "ULEA"):
+            return self._lea(op, src, g)
         if base in ("SHF", "USHF"):
-            lo, s, hi = g[0], g[1], g[2]
-            if ".L." in op and ".HI" not in op:
-                return _shl(lo, s)
-            if ".R." in op and self.exact(s) and self.uniform(s):
-                k = s[1][0] & 31
-                if ".HI" in op and self.exact(hi):
-                    return ((), tuple(o >> k for o in hi[1]))
-                if ".HI" not in op and self.exact(lo) and src[2] in ("RZ", "URZ"):
-                    return ((), tuple(o >> k for o in lo[1]))
-            return None
+            return _shf(op, src, g)
         if base == "PRMT" and len(g) >= 3 and all(self.exact(x) for x in g[:3]):
             # round 10: bytes of a and c by the selector's nibbles (TileLang's 16-bit products)
-            if not self.uniform(g[1]):
+            return (
+                (),
+                tuple(prmt(*v) for v in zip(g[0][1], g[1][1], g[2][1], strict=True)),
+            )
+        if base == "IABS" and self.exact(g[0]):
+            return ((), tuple(abs(_signed(o)) & M32 for o in g[0][1]))
+        return None
+
+    def _imad(self, op: str, src: list[str], g: list[Val], vals: dict[str, Any]) -> Val | None:
+        if ".HI" not in op and ".WIDE" not in op:
+            p = _mul(g[0], g[1])
+            return _add(p, g[2]) if p is not None and len(g) > 2 else p
+        sign = (lambda v: v) if ".U32" in op else _signed
+        if ".HI" in op:  # the high half of a product plus the pair (c+1:c)
+            hi = self._high(src[2], vals)
+            if hi is None or not all(self.exact(x) for x in (g[0], g[1], g[2], hi)):
                 return None
-            sel = g[1][1][0]
-            return ((), tuple(prmt(x, sel, y) for x, y in zip(g[0][1], g[2][1], strict=True)))
-        if base in ("LOP3", "ULOP3") and len(g) >= 4:
-            # round 8: a | (b & c) over a base: the fields of an address, the base's bits apart
-            keep: tuple = ()
-            if g[3] == ((), (0xF8,) * 32) and g[0][0] and self.exact(g[1]) and self.exact(g[2]):
-                keep, g = g[0][0], [((), g[0][1]), *g[1:]]
-            # round 14 (gemv14_*): a | b, a a product of the block index, b below its low zero bits
-            if g[3] == ((), (0xFC,) * 32) and g[2] == ((), ZERO) and bool(g[0][0]) != bool(g[1][0]):
-                a, b = (g[0], g[1]) if g[0][0] else (g[1], g[0])
-                low = min(k & -k for _, k in a[0]) - 1
-                if self.exact(b) and all(o & low == 0 for o in a[1]):
-                    if all(o & ~low == 0 for o in b[1]):
-                        return _add(a, b)
-            if not all(self.exact(x) for x in g[:4]) or not self.uniform(g[3]):
-                return None
-            lut = g[3][1][0]
-            out = []
-            for x, y, z in zip(g[0][1], g[1][1], g[2][1], strict=True):
-                v = 0
-                for bit in range(32):
-                    i = (((x >> bit) & 1) << 2) | (((y >> bit) & 1) << 1) | ((z >> bit) & 1)
-                    v |= ((lut >> i) & 1) << bit
-                out.append(v)
-            return (keep, tuple(out))
+            v = zip(g[0][1], g[1][1], g[2][1], hi[1], strict=True)
+            return (
+                (),
+                tuple(((sign(x) * sign(y) + (h << 32 | z)) >> 32) & M32 for x, y, z, h in v),
+            )
+        p = _mul(g[0], g[1])  # .WIDE: the low half keeps a base; the high half only exact lanes
+        hi = self._high(src[2], vals)
+        if self.exact(g[0]) and self.exact(g[1]) and self.exact(g[2]) and hi is not None:
+            if self.exact(hi):
+                v = zip(g[0][1], g[1][1], g[2][1], hi[1], strict=True)
+                wide = [(sign(x) * sign(y) + (h << 32 | z)) for x, y, z, h in v]
+                self.wide = ((), tuple((w >> 32) & M32 for w in wide))
+        return _add(p, g[2]) if p is not None else None
+
+    def _lea(self, op: str, src: list[str], g: list[Val]) -> Val | None:
+        if ".HI" not in op:
+            p = _shl(g[0], g[2])
+            return _add(p, g[1]) if p is not None else None
+        # (hi:a >> 32 - s) + b; the carry of LEA.HI.X into the high half is not followed
+        s = g[-1] if ".SX32" in op else g[3]
+        if not (self.exact(s) and self.uniform(s)):
+            return None
+        k = 32 - (s[1][0] & 31)
+        if ".SX32" in op:
+            q = (
+                _shr(((), tuple(_signed(o) & M32 for o in g[0][1])), k)
+                if self.exact(g[0])
+                else None
+            )
+            return _add(q, g[1]) if q is not None else None
+        if src[2] in ("RZ", "URZ"):
+            q = _shr(g[0], k)
+            return _add(q, g[1]) if q is not None else None
+        if self.exact(g[0]) and self.exact(g[2]):
+            v = zip(g[0][1], g[2][1], strict=True)
+            return _add(((), tuple(((h << 32 | o) >> k) & M32 for o, h in v)), g[1])
+        return None
+
+    def _lop3(self, g: list[Val]) -> Val | None:
+        """Round 12 (a hash masked to a table), round 15 as a class: any bitwise function: exact
+        lanes by their bits; over one base, by the bits the base leaves free. Above those, a
+        function that ignores the base gives exact bits; one that passes it (a mask of all ones,
+        or a field or'ed in) keeps it: the compiler or's fields only over bits the base leaves
+        clear (round 8, round 14)."""
+        if not (self.exact(g[3]) and self.uniform(g[3])):
+            return None
+        lut = g[3][1][0]
+        based = [i for i in range(3) if g[i][0]]
+        if not based:
+            v = zip(g[0][1], g[1][1], g[2][1], strict=True)
+            return ((), tuple(lut3(x, y, z, lut) for x, y, z in v))
+        if len(based) > 1:
+            return None
+        i = based[0]
+        free = (1 << _free_bits(g[i][0])) - 1
+        keep = M32 & ~free
+        low, high = [], []
+        passes = same = True
+        for n in LANES:
+            ops = [g[0][1][n], g[1][1][n], g[2][1][n]]
+            low.append(lut3(*ops, lut) & free)
+            ops[i] = 0
+            f0 = lut3(*ops, lut) & keep
+            ops[i] = M32
+            f1 = lut3(*ops, lut) & keep
+            high.append(f0)
+            same = same and f0 == f1
+            passes = passes and f1 == keep
+        if same:
+            return ((), tuple(p | q for p, q in zip(low, high, strict=True)))
+        if passes:
+            offs = g[i][1]
+            return (
+                g[i][0],
+                tuple(o & keep | q | p for o, p, q in zip(offs, low, high, strict=True)),
+            )
         return None
 
     def pred_mixed(self, base: str, op: str, args: list[str], vals: dict[str, Any]) -> bool | None:
@@ -490,6 +651,124 @@ class Lanes:
         return out
 
 
+def _half(tok: str) -> int:
+    """The bits of a half-precision immediate as nvdisasm prints it."""
+    return struct.unpack("<H", struct.pack("<e", float(tok)))[0]
+
+
+def _free_bits(base: tuple) -> int:
+    """Low bits of a value the base leaves zero: a product's by its coefficient, a pointer's by its
+    alignment."""
+    bits = 32
+    for sym, k in base:
+        bits = min(bits, (k & -k).bit_length() - 1 + (7 if sym[0] == "c" or len(sym) == 2 else 0))
+    return min(bits, 31)
+
+
+def _shr(x: Val, k: int) -> Val | None:
+    """x >> k; a base only if its bits below k are zero."""
+    if any(c & ((1 << k) - 1) for _, c in x[0]):
+        return None
+    base = tuple((s, c >> k) for s, c in x[0])
+    return (base, tuple(o >> k for o in x[1]))
+
+
+def _shf(op: str, src: list[str], g: list[Val]) -> Val | None:
+    """SHF over a pair (hi:lo) in the forms compiled code uses; lanes' own shift counts allowed."""
+    lo, s, hi = g[0], g[1], g[2]
+    left = ".L." in op
+    if left and ".HI" not in op:
+        if s[0]:
+            return None
+        if Lanes.uniform(s):
+            return _shl(lo, s)
+        if not lo[0]:
+            return ((), tuple((o << (c & 31)) & M32 for o, c in zip(lo[1], s[1], strict=True)))
+        return None
+    if s[0]:
+        return None
+    if not left and Lanes.uniform(s) and src[2] in ("RZ", "URZ") and ".HI" not in op:
+        return _shr(lo, s[1][0] & 31)
+    if lo[0] or hi[0]:
+        if not left and Lanes.uniform(s) and src[0] in ("RZ", "URZ") and ".U32" in op:
+            return _shr(hi, s[1][0] & 31)
+        return None
+    out = []
+    for a, c, b in zip(lo[1], s[1], hi[1], strict=True):
+        k = c & (63 if "64" in op else 31)
+        if left:  # SHF.L.U64.HI
+            out.append(((b << 32 | a) << k >> 32) & M32)
+        elif ".S32" in op:
+            out.append((_signed(b) >> k) & M32)
+        elif ".HI" in op:
+            out.append((b >> k) & M32)
+        else:
+            out.append(((b << 32 | a) >> k) & M32)
+    return ((), tuple(out))
+
+
+def _add_64(g: list[Val], hi: list[Val | None]) -> Val | None:
+    """The high half of a 64-bit sum of exact lanes, when every high half is known."""
+    if any(h is None or h[0] for h in hi):
+        return None
+    out = []
+    for n in LANES:
+        t = 0
+        for x, h in zip(g, hi, strict=True):
+            t += x[1][n] | h[1][n] << 32
+        out.append((t >> 32) & M32)
+    return ((), tuple(out))
+
+
+def _f(v: int) -> float:
+    return struct.unpack("<f", struct.pack("<I", v & M32))[0]
+
+
+def _b(x: float, up: bool = False) -> int:
+    try:
+        r = struct.unpack("<I", struct.pack("<f", x))[0]
+    except OverflowError:
+        return 0x7F800000 if x > 0 else 0xFF800000
+    if up and _f(r) < x:
+        r += 1
+    return r
+
+
+def _bit_step(base: str, op: str, g: list[Val]) -> Val | None:
+    """Exact lanes through a bit count, a conversion or a float step: the division by a run-time
+    count the compiler writes, whose integer tail corrects a last-place difference."""
+
+    def one(*v: int) -> int | None:
+        x = v[0]
+        if base == "POPC":
+            return bin(x).count("1")
+        if base == "BREV":
+            return int(f"{x:032b}"[::-1], 2)
+        if base == "FLO":
+            return x.bit_length() - 1 & M32 if x else M32
+        if base in ("I2F", "I2FP"):
+            n = _signed(x) if ".S32" in op or (base == "I2F" and ".U32" not in op) else x
+            return _b(float(n), ".RP" in op)
+        if base == "F2I":
+            f = _f(x)
+            return 0 if not math.isfinite(f) else max(0, int(f)) & M32
+        if base == "MUFU" and ".RCP" in op and _f(x):
+            return _b(1.0 / _f(x))
+        if base == "FMUL":
+            return _b(_f(x) * _f(v[1]))
+        if base == "FADD":
+            return _b(_f(x) + _f(v[1]))
+        if base == "FFMA":
+            return _b(_f(x) * _f(v[1]) + _f(v[2]))
+        return None
+
+    if base in ("I2F", "F2I") and not any(p in op for p in ("U32", "S32", "F32")):
+        if op.split(".")[1:2] in (["U16"], ["S16"], ["F16"], ["U64"], ["S64"], ["F64"]):
+            return None
+    out = [one(*v) for v in zip(*(x[1] for x in g), strict=True)]
+    return None if None in out else ((), tuple(out))  # type: ignore[arg-type]
+
+
 def _signed(v: int) -> int:
     return v - (1 << 32) if v >= 1 << 31 else v
 
@@ -506,7 +785,7 @@ def _merge_lanes(lanes: tuple[bool, ...], a: Val | None, b: Val | None) -> Val |
 
 
 def _compare(op: str, a: Val, b: Val) -> tuple[bool, ...] | None:
-    m = re.match(r"ISETP\.(\w+)(\.U32)?", op)
+    m = re.match(r"ISETP\.(\w+)(\.U32|\.U64)?", op)
     cmp = {
         "GT": lambda x, y: x > y,
         "GE": lambda x, y: x >= y,
