@@ -154,3 +154,4 @@
 {"date": "2026-11-05T10:51:05Z", "round": 18, "mode": "scratch", "commit": "wip", "dirty": true, "rows": 8, "replayed": 8, "cpu_s": 12.0, "wall_s": 2.0, "jobs": 6, "note": "address walk of decode rows"}
 {"date": "2026-11-05T10:52:14Z", "round": 18, "mode": "scratch", "commit": "wip", "dirty": true, "rows": 2, "replayed": 2, "cpu_s": 6.0, "wall_s": 1.0, "jobs": 6, "note": "two replays with stack stats"}
 {"date": "2026-11-05T10:53:24Z", "round": 18, "mode": "selection", "commit": "f5aae9859269", "dirty": true, "rows": 13, "replayed": 13, "cpu_s": 36.9, "wall_s": 10.9, "jobs": 6}
+{"date": "2026-11-05T11:15:37Z", "round": 18, "mode": "full", "commit": "62361dcee35d", "dirty": false, "rows": 5601, "replayed": 3062, "cpu_s": 19055.8, "wall_s": 1131.3, "jobs": 18}

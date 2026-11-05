@@ -270,7 +270,29 @@ MISSES17: dict[str, tuple[str, str, str, str, str, int]] = {
 }
 
 
-ALL_MARKS = CELLS + ROUND16 + ROUND17
+ROUND18: tuple[Mark, ...] = (
+    Mark("write", "stack", "order", "c", "M", "sp_* (D897): frames count at the dirty limit"),
+    Mark("copy", "DRAM", "row", "c", "m", "dr_* (D899): rows off 64 bytes slow BN 64, no rule"),
+    Mark("read", "DRAM", "row", "c", "M", "gq_* (D898): warps per row +5 % a doubling, no rule"),
+)
+ALL_MARKS = CELLS + ROUND16 + ROUND17 + ROUND18
+
+
+# Round 18's blind rows above 10 %, placed the same way; class d: a defect found by this round
+MISSES18: dict[str, tuple[str, str, str, str, str, int]] = {
+    "decode rotating": ("read", "DRAM", "row", "c", "n", 7),
+    "gemv rotating": ("read", "DRAM", "order", "c", "d", 7),
+    "decode warm": ("read", "L2", "row", "c", "k", 6),
+    "rmsnorm warm": ("read", "L2", "row", "c", "n", 6),
+    "softmax warm": ("write", "L2", "row", "c", "k", 6),
+    "gemv warm": ("read", "L2", "row", "c", "k", 5),
+    "fa rotating": ("copy", "DRAM", "row", "c", "n", 3),
+    "fa warm": ("copy", "L2", "row", "c", "k", 3),
+    "stackfold": ("rmw", "stack", "cap", "c", "k", 2),
+    "rmsnorm rotating": ("read", "DRAM", "row", "c", "d", 2),
+    "histbytes": ("atomic", "L2", "hashed", "c", "k", 1),
+    "prefixstack": ("rmw", "stack", "hashed", "c", "k", 1),
+}
 
 
 def cells(marks: tuple[Mark, ...]) -> dict[tuple[str, str, str, str], Mark | None]:
@@ -326,7 +348,17 @@ def render(marks: tuple[Mark, ...]) -> str:
         m = table[v[:4]]
         c17[m.state if m else "."] += v[5]
         k17[v[4]] += v[5]
+    c18: Counter = Counter()
+    k18: Counter = Counter()
+    for v in MISSES18.values():
+        m = table[v[:4]]
+        c18[m.state if m else "."] += v[5]
+        k18[v[4]] += v[5]
     lines += [
+        f"Round 18's {sum(c18.values())} blind rows above 10 %, placed after the rules: in M cells "
+        f"{c18['M']}, in m cells {c18['m']}, in empty cells {c18['.']}. By class at first score: "
+        f"defect {k18['d']}, known rule {k18['k']}, no rule {k18['n']}.",
+        "",
         f"Round 17's {sum(c17.values())} blind rows above 10 %, placed after the rules: in M cells "
         f"{c17['M']}, in m cells {c17['m']}, in empty cells {c17['.']}. By class at first score: "
         f"defect {k17['d']}, known rule {k17['k']}, no rule {k17['n']}.",
@@ -391,6 +423,7 @@ BEGIN, END = "<!-- matrix: generated -->", "<!-- matrix end -->"
 def main() -> None:
     assert sum(v[5] for v in MISSES16.values()) == 56
     assert sum(v[5] for v in MISSES17.values()) == 54
+    assert sum(v[5] for v in MISSES18.values()) == 49
     ap = argparse.ArgumentParser(prog="python -m kta_perfmodel.matrix")
     ap.parse_args()
     marks = ALL_MARKS

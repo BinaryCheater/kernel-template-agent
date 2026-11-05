@@ -167,7 +167,8 @@ def report(round_no: int) -> str:
     cs: dict[str, str] = {}
     for f, n in fam.most_common():
         e = table.get(f)
-        cl[("known rule" if e[4] == "k" else "no rule") if e else "not placed"] += n
+        name = {"k": "known rule", "n": "no rule", "d": "defect"}
+        cl[name[e[4]] if e else "not placed"] += n
         cs[f] = f"{e[0]}×{e[1]}×{e[2]}×{e[3]} {e[4]}" if e else "?"
     out.append("  classes " + ", ".join(f"{k} {v}" for k, v in cl.most_common()))
     out.append("  " + "; ".join(f"{f} {n} [{cs[f]}]" for f, n in fam.most_common()))

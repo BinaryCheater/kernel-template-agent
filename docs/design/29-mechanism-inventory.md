@@ -95,7 +95,7 @@ Status: written 2026-11-04 for phase P0 of [28](28-gb10-programme.md) §5. It li
 | --- | --- | --- | --- | --- |
 | L1 hit path: 1 cycle per line (round 1; was 2), 45-cycle latency; LDG miss 342 cycles to L2 | gb10 §4.8 (`ldg_atomic.cu`); probe `l1hit` (round 1, batch r1) | Round 9 (probe first_reader, D809): M: a miss-status entry per line: a hit on a line on its way waits for the first reader's fill, a hinge within 5 %, RMSNorm graph −22.6 → −12.8 % **structural**; M; round 3 (D765): lines and sectors per LDG from its width and its 32 lanes' addresses, L1 hits from an LRU line cache over kernel-parameter bases (128 KB less the resident blocks' shared memory, structural); ncu global-load sectors per block matched exactly (GEMV 1360 vs 1344, RMSNorm 512, softmax 256, combine 96); round 5 (probe `row_reduce`, D777): hits by sector, a second load into a line of an unfilled sector misses **structural** | D, Q, N | H |
 | L1 capacity, replacement, sectors and coalescing from addresses | cov L1; gap#7; 26:02 | Round 16 (`ml_*`, D880): M: capacity 128 KiB per SM, LRU, H-rand rejected **structural**; hashed lanes not pursued. X (P2 front end computes sectors) | D, Q, N | H |
-| Local memory (spills) `LDL`/`STL`: 4 cycles per line | gb10 §4.8 | Round 14 (`stl_*`, D862): index per lane past the SM's stack P, empirical; uniform reads past the L2 open. Round 12 (`stu_*`, `stk_*`, question 44): wrong with loads at capacity, −84 %, open; frame from the compiler (D842). Round 8 (probe spill_rw, D800): M: stack stores at 400 B/clk, 133 past 192 KB per SM by LRU, the DRAM write rate past the L2; loads beside them L1 only; round 7's rates had the loads folded **empirical**; M Round 7 (probe `spill`, D792): M: the stack path takes 830 B/clk at the chip's scale, 270 B/clk above the L1's 192 KB per SM; one SM alone keeps 4 cycles per line; was 4 cycles per line at any scale; 256×256×32 t256 −60 → +31 %; rates `empirical`. **structural** | any spilling kernel | S (registers) |
+| Local memory (spills) `LDL`/`STL`: 4 cycles per line | gb10 §4.8 | Round 18 (`sp_*`, D897): frames count at the dirty limit, then the DRAM's write rate. Round 14 (`stl_*`, D862): index per lane past the SM's stack P, empirical; uniform reads past the L2 open. Round 12 (`stu_*`, `stk_*`, question 44): wrong with loads at capacity, −84 %, open; frame from the compiler (D842). Round 8 (probe spill_rw, D800): M: stack stores at 400 B/clk, 133 past 192 KB per SM by LRU, the DRAM write rate past the L2; loads beside them L1 only; round 7's rates had the loads folded **empirical**; M Round 7 (probe `spill`, D792): M: the stack path takes 830 B/clk at the chip's scale, 270 B/clk above the L1's 192 KB per SM; one SM alone keeps 4 cycles per line; was 4 cycles per line at any scale; 256×256×32 t256 −60 → +31 %; rates `empirical`. **structural** | any spilling kernel | S (registers) |
 | Constant loads `LDC` | — | X (default latency) | all (prologue) | — |
 | Per-SM L2 return port: 30.7 B/clk (16.7 cycles per 512 B) | gb10 §4.7 (`loopsteps.cu`) | M | G, E, D | H |
 | Chip L2 rate for copy traffic 817.7 B/clk, shared by blocks in flight | gb10 §4.7, §6.3 (`loopsteps.cu`, `l2share.cu`); probe `l2share_copy` = P-2 (round 1) | M, rule wrong, `unidentified` (frozen after 2 experiments): round 1 per-SM delivery drops already at 16 blocks (13.6 µs vs 10.5 replayed); round 2 (probe `l2share_stages`, stages 1–4 × 1/16/48 blocks) the round trip with 1 stage is unchanged at 16 blocks, 2–4 stages lose 16–25 % at 16 blocks with the chip at 0.98 TB/s; not latency, not the chip rate; candidate: a share below the chip (TPC pair or GPC) Round 11 (probes l2_cap, l2_local, D835): M for contiguous copies 1900 B/clk, spread lanes 25 sectors/clk, LDG 14 lines/clk; tile copies stay 817 `unidentified`. Empirical. | G, E, D, Q | H |
@@ -154,6 +154,8 @@ Cells that can occur: 406 of 800, the rest dropped (`tools/kta_perfmodel/matrix.
 | m measured without a rule | 18 | 20 | 18 |
 | · empty | 328 | 313 | 313 |
 
+Round 18's 49 blind rows above 10 %, placed after the rules: in M cells 23, in m cells 25, in empty cells 1. By class at first score: defect 9, known rule 24, no rule 16.
+
 Round 17's 54 blind rows above 10 %, placed after the rules: in M cells 25, in m cells 28, in empty cells 1. By class at first score: defect 0, known rule 34, no rule 20.
 
 Round 16's 56 blind rows above 10 %, placed after the sweep: in M cells 27, in m cells 28, in empty cells 1. By class at first score: defect 0, known rule 35, no rule 21.
@@ -207,7 +209,7 @@ Patterns: order (contiguous lanes walking on), stride (lanes or warps a constant
 | --- | --- | --- | --- | --- | --- |
 | order | M | M | M | M (3) | dram_spread (latency); mr_g* (D877); tw_*, gr_* (D886): no window; edges of a run 0.6 |
 | stride | · | · | · | M | mr_* (D877): 64-byte bursts |
-| row | · | · | · | M (5) | mr_* (D877): 64-byte bursts |
+| row | · | · | · | M (5) | gq_* (D898): warps per row +5 % a doubling, no rule |
 | hashed | M | · | · | M | dram_spread (chase); mr_* (D877): 64-byte bursts |
 | cap | · | · | · | M | mh_*, md_* (D879): no TLB cost to 1 GiB |
 
@@ -224,7 +226,7 @@ Patterns: order (contiguous lanes walking on), stride (lanes or warps a constant
 
 | Pattern | w | b | s | c | Probes |
 | --- | --- | --- | --- | --- | --- |
-| order | · | M | M | M | spill_rw (D800) |
+| order | · | M | M | M | spill_rw (D800); sp_* (D897): frames count at the dirty limit |
 | stride | · | · | · | · |  |
 | row | · | · | · | · |  |
 | hashed | · | · | · | M | stk_* (D852) |
@@ -334,7 +336,7 @@ Patterns: order (contiguous lanes walking on), stride (lanes or warps a constant
 | --- | --- | --- | --- | --- | --- |
 | order | · | M | M (1) | M | first_reader (D810); copy_cold (D882): 10 clk per copy, cold as warm |
 | stride | · | · | · | · |  |
-| row | · | · | · | m (4) | fa rotating under bursts, no sweep of its own |
+| row | · | · | · | m (4) | dr_* (D899): rows off 64 bytes slow BN 64, no rule |
 | hashed | · | · | · | · |  |
 | cap | · | · | · | · |  |
 
