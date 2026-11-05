@@ -91,6 +91,7 @@ class Warp:
     # KTA: attributes upstream attaches after construction (SM.__init__ and WSSM.__init__ set
     # every one of them on every warp before use), declared so they type-check
     tid0: int = 0
+    tx0: int = 0
     regs_tid: set[Any] = field(default_factory=set)
     preds: dict[str, Any] = field(default_factory=dict)
     st_done: float = 0.0
@@ -106,6 +107,7 @@ class Warp:
     sbsrc: dict[int, list[Any]] = field(default_factory=dict)
     bar_src: list[Any] = field(default_factory=list)
     lanes: Any = None
+    dead: tuple[bool, ...] | None = None  # round 19: lanes past a guarded exit
     stack_seq: dict = field(default_factory=dict)
     # round 9: predicates that split the lanes, and the open BSSY regions: [reconvergence index,
     # the other arm's index or None]
@@ -306,6 +308,8 @@ class SM:
         self.tma_st_bytes = ctile_bytes / n_st if n_st else 0.0
         for w in self.warps:
             w.tid0 = (w.wid % wpb) * 32
+            # round 19 (`gemv18_np8`, D903): threadIdx.x wraps at the block's first dimension
+            w.tx0 = w.tid0 % block_dim[0] if block_dim else w.tid0
             w.regs_tid = set()
             w.preds = {}
             w.st_done = 0.0
@@ -323,6 +327,7 @@ class SM:
         self.addr_log = addr_log
         self.addr_want = addr_want  # bases still to log; the run ends when none is left
         self.addr_gaps: dict[str, int] = {}  # round 15: unresolved addresses by cause
+        self.addr_pc: dict[int, list] = {}  # round 19: op, executions, unknown, left unknown
         self.addr_check: dict[int, list] | None = None  # the check's detail, per pc
         self.addr_sectors: dict[str, int] | None = None  # the check's sectors, ld and st
         self.stg_bases: set = set()  # with addr_log: the bases stores land on
@@ -375,6 +380,7 @@ class SM:
         self.last_issue: list[Warp | None] = [None] * n
         self.count: dict[str, Any] = {"issued": 0, "HMMA": 0, "LDSM": 0, "LDGSTS": 0, "BAR": 0}
         self.count.update(ldg_sectors=0, ldg_miss_sectors=0.0, stg_l2_sectors=0)
+        self.count.update(copy_sectors=0, stg_sectors=0)  # round 19: the work check, nothing else
         self.assumed_latency: dict[str, int] = {}
         self.pc_count = [0] * len(ins)  # dynamic weight per instruction (the opcode ranking)
         self.busy: dict[str, float] = {"tensor": 0, "smem": 0, "fill": 0}
@@ -399,6 +405,16 @@ class SM:
         self.ldg_last[k] = (*addr, d)
         return addr
 
+    @staticmethod
+    def _on_lanes(w: Warp, x: Ins) -> tuple[bool, ...] | None:
+        """The lanes an instruction runs on, when known: its guard, less the lanes that exited."""
+        on = w.lanes.lanes_of(x.pred) if x.pred and x.pred != "@!PT" else None
+        if w.dead is None:
+            return on
+        if on is None:
+            return tuple(not d for d in w.dead)
+        return tuple(a and not d for a, d in zip(on, w.dead, strict=True))
+
     def _ldg_lanes(self, w: Warp, x: Ins, addr: Any) -> tuple[int, float, int]:
         """KTA (PERFMODEL round 3): (lines, bytes that miss the L1, lines that hit) of one LDG from
         its width and its lanes' addresses; an address the lane tracking does not know comes from
@@ -407,6 +423,13 @@ class SM:
         width = width_of(x.op)
         if self.P["ldg_continues"]:
             addr = self._ldg_continued(w, addr)
+        if addr is not None and w.lanes is not None:
+            # round 19 (D903): a load guarded per lane reads those lanes only; the off lanes
+            # repeat an on lane's address, the walk takes 32
+            on = self._on_lanes(w, x)
+            if on is not None and any(on) and not all(on):
+                o0 = addr[1][on.index(True)]
+                addr = (addr[0], tuple(o if g else o0 for o, g in zip(addr[1], on, strict=True)))
         if self.addr_log is not None:
             self.addr_log.append((w.wid, w.loops, w.pc, width, addr))
             if self.addr_want and addr is not None:
@@ -414,6 +437,8 @@ class SM:
         if addr is None:
             self._dflt("front_end", "ldg address unknown (lanes apart)")
             n_sect = lines = 32
+            if w.pc in self.addr_pc:
+                self.addr_pc[w.pc][3] += 1
             keys: dict = {}
         else:
             keys, n_sect = footprint(addr, width)
@@ -448,6 +473,10 @@ class SM:
         kind = "chip" if x.base not in ("LDS", "STS", "LDL", "STL") else "local"
         c[f"addr_{kind}"] = c.get(f"addr_{kind}", 0) + 1
         gap = w.lanes.address_gap(x.args, addr)
+        if kind == "chip":  # round 19, the work check: a load known in part of its executions
+            d = self.addr_pc.setdefault(w.pc, [x.op, 0, 0, 0])
+            d[1] += 1
+            d[2] += gap is not None
         if gap is not None:
             key = f"{kind} {gap[0]} {gap[1]}"
             self.addr_gaps[key] = self.addr_gaps.get(key, 0) + 1
@@ -619,7 +648,7 @@ class SM:
         try:
             if x.base == "S2R" or x.base == "S2UR":
                 if "SR_TID.X" in x.args:
-                    v = w.tid0
+                    v = w.tx0
                 elif "SR_LANEID" in x.args:
                     v = 0
                 elif "SR_CTAID" in x.args and self.grid_dim:
@@ -730,7 +759,7 @@ class SM:
             dst = args[0]
             a, b = self._lane0(w, args[2]), self._lane0(w, args[3])
             if args[2] in w.regs_tid and a is None:
-                a = w.tid0
+                a = w.tx0
             if a is None or b is None:
                 w.preds.pop(dst, None)
                 return
@@ -772,7 +801,7 @@ class SM:
                 and args[4] == "RZ"
                 and self._imm(args[5]) is not None
             ):
-                a, b, c, lut = w.tid0, self._imm(args[3]), 0, self._imm(args[5])
+                a, b, c, lut = w.tx0, self._imm(args[3]), 0, self._imm(args[5])
                 w.preds[args[0]] = lut3(a, b, c, lut) != 0
             else:
                 a, b, c, lut = (self._val(w, t) for t in args[2:6])
@@ -893,6 +922,17 @@ class SM:
             # instruction runs)
             if pv is False:
                 executes = False
+                # round 19 (D903): lane 0 stood for the warp; other lanes may run
+                on = w.lanes.lanes_of(x.pred) if w.lanes is not None else None
+                if on is not None and any(on) and x.base != "EXIT":
+                    executes, pv = True, None
+            if x.base == "EXIT" and w.lanes is not None:
+                # round 19 (`gr_w8_*`): an exit guarded per lane ends those lanes only
+                on = w.lanes.lanes_of(x.pred)
+                if on is not None:
+                    d = w.dead or (False,) * 32
+                    w.dead = tuple(a or b for a, b in zip(d, on, strict=True))
+                    executes = all(w.dead)
         pend = None
         addr0 = None
         if w.lanes is not None:
@@ -901,9 +941,9 @@ class SM:
                 addr0 = w.lanes.address(x.args, w.vals)
                 if executes and x.base != "SHFL":
                     self._addr_note(w, x, addr0)
-            if x.pred and cls.handler == "stg":
+            if cls.handler == "stg":
                 # round 12 (question 41): a store guarded per lane writes those lanes only
-                on = w.lanes.lanes_of(x.pred)
+                on = self._on_lanes(w, x)
                 if on is not None and any(on):
                     self.stg_lanes = sum(on)
                     if addr0 is not None:
@@ -1181,6 +1221,9 @@ class SM:
         lines = self.copy_lines[w.ncopy % len(self.copy_lines)]
         if self.copy_default and addr0 is not None:
             lines = len(footprint(addr0, width_of(x.op))[0])
+        self.count["copy_sectors"] += (
+            footprint(addr0, width_of(x.op))[1] if addr0 is not None else width_of(x.op)
+        )
         state = None
         if self.wave_miss:
             state = self._slice_state(w, addr0[0] if addr0 is not None else None)
@@ -1535,6 +1578,7 @@ class SM:
             rate = P["stg_chip_B_per_clk"]
             lines, n_sect = footprint(addr0, width_of(x.op))
             nbytes = n_sect * 32
+            self.count["stg_sectors"] += n_sect
             if self.addr_log is not None:
                 self.stg_bases.add(addr0[0])
             run = w_ == "4B" and contiguous(addr0, 4)

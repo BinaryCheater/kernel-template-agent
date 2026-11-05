@@ -1,5 +1,7 @@
 """The lanes as a class of integer instructions (round 15): divisions, pairs, bitwise."""
 
+import json
+
 from kta.models.gb10sim.lanes import Lanes
 
 
@@ -113,3 +115,35 @@ def test_a_slot_indexed_by_another_register_is_not_a_spill() -> None:
     tid(ls)
     run(ls, ("STL", "STL", ("[R5+0x8]", "R0")), ("LDL", "LDL", ("R0", "[R5+0x8]")))
     assert ls.get("R0", {}) is None
+
+
+def _sectors_of(batch: str, case: str) -> tuple[float, float]:
+    """A kernel's global load sectors per block: one middle block replayed, the counter's value."""
+    from kta.models.gb10sim import kernel, probeset
+    from kta.models.gb10sim.machine import default_machine
+    from kta_perfmodel import addresses, table
+
+    d = table.BATCHES / batch
+    m = default_machine().with_overrides({"sim.l2_replay": False})
+    keep, kernel.SM = kernel.SM, addresses._one_block  # type: ignore[assignment,misc]
+    try:
+        cases = {c.id: c for c in probeset.all_cases(d)}
+        sm = cases[f"{case} kernel"].build(machine=m)
+        sm.run()
+    finally:
+        kernel.SM = keep
+    sm = getattr(sm, "sm", sm)
+    c = json.loads((d / "measured.json").read_text())["counters"][case]
+    return sm.count["ldg_sectors"], c[addresses.LD] / c["launch__grid_size"]
+
+
+def test_loads_follow_thread_x_guards_and_lane_exits() -> None:
+    """D903: threadIdx.x wraps at the block's first dimension, a guard per lane reads those lanes,
+    an exit per lane ends those lanes: the sectors are the counter's to the sector."""
+    for batch, case in (
+        ("r18", "gemv18_np8_warm"),  # 2976 sectors: 2252 with lane 0 of a warp at tid 224
+        ("r18", "gemv18_mk16_warm"),  # 1580: 1370
+        ("r17", "gr_w8_p1280"),  # 20: the compiler sinks the load under `kr == 0`
+    ):
+        model, counter = _sectors_of(batch, case)
+        assert model == counter, case

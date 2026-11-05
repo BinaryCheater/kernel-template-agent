@@ -341,11 +341,19 @@ def _result(
             "LDGSTS": sm.count.get("LDGSTS", 0),
             "ldg_sectors": sm.count.get("ldg_sectors", 0),
             "ldg_miss_sectors": sm.count.get("ldg_miss_sectors", 0),
+            "copy_sectors": sm.count.get("copy_sectors", 0),
+            "stg_sectors": sm.count.get("stg_sectors", 0),
+            "addr_mixed": [
+                d
+                for d in getattr(sm, "addr_pc", {}).values()
+                if 0 < d[2] < d[1] and d[0].startswith("LDG")
+            ],
             "addr_chip": sm.count.get("addr_chip", 0),
             "addr_local": sm.count.get("addr_local", 0),
             "addr_gaps": dict(sm.addr_gaps),
             "lane_track": getattr(sm, "lane_track", False),
             "blocks": sm.blocks,
+            "cycles": sm.cycles,
             "busy": {k: v / max(1.0, sm.cycles) for k, v in sm.busy.items()},
             "ops": _dynamic_ops(sm),
         },

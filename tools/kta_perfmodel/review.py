@@ -6,13 +6,14 @@ replaces hand-made tables in the report and the supervisor's review (D894).
 
 from __future__ import annotations
 
+import argparse
 import json
 import statistics
 import sys
 from collections import Counter
 from typing import Any
 
-from . import blind, full, matrix
+from . import blind, full, matrix, workcheck
 from .table import BATCHES, SHORT_US, batch_order, goal
 
 MISS_US = 0.10
@@ -190,6 +191,18 @@ def report(round_no: int) -> str:
     return "\n".join(out)
 
 
+def main(argv: list[str]) -> str:
+    if argv[0] != "work":
+        return report(int(argv[0]))
+    ap = argparse.ArgumentParser(prog="review work")
+    ap.add_argument("--raw", choices=workcheck.TITLE, help="the rows off the band of a metric")
+    ap.add_argument("--focus", help="regex over row ids")
+    ap.add_argument("--cached", help="these rows from the replay cache, not the table")
+    a = ap.parse_args(argv[1:])
+    doc = workcheck.cached(a.cached) if a.cached else workcheck.load_doc()
+    return workcheck.report(doc, a.focus, a.raw)
+
+
 if __name__ == "__main__":
-    print(report(int(sys.argv[1])))
+    print(main(sys.argv[1:]))
     sys.exit(0)
