@@ -3388,7 +3388,8 @@ __global__ void __launch_bounds__(128) k_mem(unsigned* o, const char* a) {{
   const unsigned sm = (unsigned)__cvta_generic_to_shared(buf);
   const unsigned t = threadIdx.x;
   unsigned s = 0;
-  for (unsigned r = 0; r < {rounds}; ++r) {{
+  for (unsigned q = 0; q < {rounds} * 8; ++q) {{
+    const unsigned r = q % {rounds};
     for (unsigned k = 0; k < {n}; ++k) {{
       const unsigned x = k * 64 + (t >> 1);
       const char* p = a + {src};
@@ -3469,6 +3470,7 @@ def _gemv_table(out: Path) -> None:
         for every in (1, 4):
             for keep in (True, False):
                 stream = "s ^= *(const unsigned*)(a + at);" if keep else ""
+                big = 1 if keep else 6  # alone: more rows, or the row is under the timer's steps
                 src = f"""// round 20: the scale table's load every {every} passes, {tag}, {"beside" if keep else "without"} the stream
 __global__ void __launch_bounds__({r * np}) k_mem(unsigned* o, const char* a, const unsigned short* c) {{
   const unsigned row = blockIdx.x * {np} + threadIdx.y, kr = threadIdx.x;
@@ -3481,9 +3483,10 @@ __global__ void __launch_bounds__({r * np}) k_mem(unsigned* o, const char* a, co
   if (kr == 0) o[row & 65535u] = s;
 }}
 """
-                grid = 8 * MB // (np * p)
+                grid = 8 * MB // (np * p) * big
                 name = f"gb_{tag}_e{every}_{'beside' if keep else 'alone'}"
-                _source_kernel(out, name, src, (grid, 1, 1), (r, np), [1 * MB, 9 * MB, 1 * MB], "hand", g, rot=_rot(9 * MB), written=1024)
+                sizes = [1 * MB, 9 * MB * big, 1 * MB * big]
+                _source_kernel(out, name, src, (grid, 1, 1), (r, np), sizes, "hand", g, rot=_rot(9 * MB), written=1024)
 
 
 def _round20(out: Path) -> None:
