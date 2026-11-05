@@ -206,6 +206,23 @@ def main(build: Path, out: Path, no_counters: str = "", sets: str = "all") -> in
             time.sleep(10)
         print(f"cooled {time.time() - t0:.0f} s", flush=True)
 
+    def settle(top_ghz: float = 2.485, wait_s: int = 240) -> None:
+        """Round 19 (r13, r13a, r19, r19b; D905): a batch opened under about 43 C starts in the
+        clock's top step, 2.494 GHz, two steps above where a pass ends, 2.456: −1.5 %, past the
+        band. Every valid batch since opened in the middle step: real work until the top step is
+        left, nothing recorded. The band does not change."""
+        t0, ran = time.time(), 0
+        while time.time() - t0 < wait_s:
+            got = re.search(
+                r"chain_GHz median=([\d.]+)", sh([str(build / "protocol" / "bin"), "clock"])[1]
+            )
+            if got and float(got[1]) < top_ghz:
+                break
+            d = kernels[ran % len(kernels)]
+            sh([str(d / "bin"), "30"], d)
+            ran += 1
+        print(f"settled {time.time() - t0:.0f} s, {ran} kernels", flush=True)
+
     # round 14: rounds 12 and 13 lost kernels and sweeps to harness faults found after the run
     kernels, dropped = [], {}
     for d in sorted(p for p in (build / "testset").iterdir() if (p / "bin").exists()):
@@ -218,6 +235,7 @@ def main(build: Path, out: Path, no_counters: str = "", sets: str = "all") -> in
     print(f"preflight: {len(kernels)} kernels go on, {len(dropped)} dropped", flush=True)
     (raw / "0-preflight.txt").write_text(json.dumps(dropped, indent=1) + "\n")
     cool()
+    settle()
     env("before")
     if any(s.get("busy") for s in steps):
         print("GPU busy: refusing the batch", flush=True)
