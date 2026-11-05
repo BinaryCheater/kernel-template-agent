@@ -94,31 +94,31 @@ Status: written 2026-11-04 for phase P0 of [28](28-gb10-programme.md) §5. It li
 | Mechanism | Sources | Status | Kernels | Var |
 | --- | --- | --- | --- | --- |
 | L1 hit path: 1 cycle per line (round 1; was 2), 45-cycle latency; LDG miss 342 cycles to L2 | gb10 §4.8 (`ldg_atomic.cu`); probe `l1hit` (round 1, batch r1) | Round 9 (probe first_reader, D809): M: a miss-status entry per line: a hit on a line on its way waits for the first reader's fill, a hinge within 5 %, RMSNorm graph −22.6 → −12.8 % **structural**; M; round 3 (D765): lines and sectors per LDG from its width and its 32 lanes' addresses, L1 hits from an LRU line cache over kernel-parameter bases (128 KB less the resident blocks' shared memory, structural); ncu global-load sectors per block matched exactly (GEMV 1360 vs 1344, RMSNorm 512, softmax 256, combine 96); round 5 (probe `row_reduce`, D777): hits by sector, a second load into a line of an unfilled sector misses **structural** | D, Q, N | H |
-| L1 capacity, replacement, sectors and coalescing from addresses | cov L1; gap#7; 26:02 | X (P2 front end computes sectors) | D, Q, N | H |
+| L1 capacity, replacement, sectors and coalescing from addresses | cov L1; gap#7; 26:02 | Round 16 (`ml_*`, D880): M: capacity 128 KiB per SM, LRU, H-rand rejected **structural**; hashed lanes not pursued. X (P2 front end computes sectors) | D, Q, N | H |
 | Local memory (spills) `LDL`/`STL`: 4 cycles per line | gb10 §4.8 | Round 14 (`stl_*`, D862): index per lane past the SM's stack P, empirical; uniform reads past the L2 open. Round 12 (`stu_*`, `stk_*`, question 44): wrong with loads at capacity, −84 %, open; frame from the compiler (D842). Round 8 (probe spill_rw, D800): M: stack stores at 400 B/clk, 133 past 192 KB per SM by LRU, the DRAM write rate past the L2; loads beside them L1 only; round 7's rates had the loads folded **empirical**; M Round 7 (probe `spill`, D792): M: the stack path takes 830 B/clk at the chip's scale, 270 B/clk above the L1's 192 KB per SM; one SM alone keeps 4 cycles per line; was 4 cycles per line at any scale; 256×256×32 t256 −60 → +31 %; rates `empirical`. **structural** | any spilling kernel | S (registers) |
 | Constant loads `LDC` | — | X (default latency) | all (prologue) | — |
 | Per-SM L2 return port: 30.7 B/clk (16.7 cycles per 512 B) | gb10 §4.7 (`loopsteps.cu`) | M | G, E, D | H |
 | Chip L2 rate for copy traffic 817.7 B/clk, shared by blocks in flight | gb10 §4.7, §6.3 (`loopsteps.cu`, `l2share.cu`); probe `l2share_copy` = P-2 (round 1) | M, rule wrong, `unidentified` (frozen after 2 experiments): round 1 per-SM delivery drops already at 16 blocks (13.6 µs vs 10.5 replayed); round 2 (probe `l2share_stages`, stages 1–4 × 1/16/48 blocks) the round trip with 1 stage is unchanged at 16 blocks, 2–4 stages lose 16–25 % at 16 blocks with the chip at 0.98 TB/s; not latency, not the chip rate; candidate: a share below the chip (TPC pair or GPC) Round 11 (probes l2_cap, l2_local, D835): M for contiguous copies 1900 B/clk, spread lanes 25 sectors/clk, LDG 14 lines/clk; tile copies stay 817 `unidentified`. Empirical. | G, E, D, Q | H |
-| L2 capacity (effective 16.78 MB) and policy: two-list LRU over k-slices of lockstep waves | gb10 §6.4, §8.2 (`l2policy.cu`) | A (capacity measured; policy chosen, over-counts panelled and multi-wave patterns by 20–35 %); round 2: for the HGEMM 2048³ raster twins the replay gives both the same DRAM traffic (16.8 MB) and ncu the same L2 hit rate (93.3 / 92.7 %, batch r1): the replay's raster gap does not come from this row (see the warp scheduler row). Round 3, probe `l2reuse` (batch r3), plain / .cg 16-byte re-reads back-to-back: miss fraction 0.02 up to 16.5 MiB, 0.08 at 18, 0.13 at 20.25, 0.62 at 24, 0.85 at 32.25 MiB (H-part; H-full 24 MiB LRU rejected); evict-first (.cs) lines are not kept beyond 1.5 MiB (H-stream for that kind); the generic front end now predicts warm misses from `l2_warm_miss_by_MiB` (D766). Under ncu every launch refills the L2 from sysmem (fill sectors = read sectors warm and cold): profiler hit rates are no evidence of the cache state (D767); depth: empirical (a curve over footprint); round 4 (batch r4, HGEMM warm vs rotating: +0 to +9.4 %): a warm HGEMM launch misses by the measured warm-miss curve on A + B (16 MiB: 0.02), not the launch-order simulation on A + B + C (D772); round 5: one engine rule (`l2.py`, D775): cold traffic from the addresses loaded, warm = that × the curve; MoE, RMSNorm rotating, GEMV, decode rows improve, HGEMM unchanged **empirical** Round 11 (wr_*, D832): single-use reads count written bytes in their window. | G, E, D | S (swizzle, raster), H |
+| L2 capacity (effective 16.78 MB) and policy: two-list LRU over k-slices of lockstep waves | gb10 §6.4, §8.2 (`l2policy.cu`) | Round 16 (D878): M: capacity counts 128-byte lines, read in part or whole **structural**. A (capacity measured; policy chosen, over-counts panelled and multi-wave patterns by 20–35 %); round 2: for the HGEMM 2048³ raster twins the replay gives both the same DRAM traffic (16.8 MB) and ncu the same L2 hit rate (93.3 / 92.7 %, batch r1): the replay's raster gap does not come from this row (see the warp scheduler row). Round 3, probe `l2reuse` (batch r3), plain / .cg 16-byte re-reads back-to-back: miss fraction 0.02 up to 16.5 MiB, 0.08 at 18, 0.13 at 20.25, 0.62 at 24, 0.85 at 32.25 MiB (H-part; H-full 24 MiB LRU rejected); evict-first (.cs) lines are not kept beyond 1.5 MiB (H-stream for that kind); the generic front end now predicts warm misses from `l2_warm_miss_by_MiB` (D766). Under ncu every launch refills the L2 from sysmem (fill sectors = read sectors warm and cold): profiler hit rates are no evidence of the cache state (D767); depth: empirical (a curve over footprint); round 4 (batch r4, HGEMM warm vs rotating: +0 to +9.4 %): a warm HGEMM launch misses by the measured warm-miss curve on A + B (16 MiB: 0.02), not the launch-order simulation on A + B + C (D772); round 5: one engine rule (`l2.py`, D775): cold traffic from the addresses loaded, warm = that × the curve; MoE, RMSNorm rotating, GEMV, decode rows improve, HGEMM unchanged **empirical** Round 11 (wr_*, D832): single-use reads count written bytes in their window. | G, E, D | S (swizzle, raster), H |
 | L2 hit-vs-reuse-distance curve | `gb10.json` `l2_hit_vs_reuse_distance` | X in the engine (analytical model only) | G, D | H |
 | Back-to-back L2 carry-over between runs (`stream_b2b.cu`) | gb10 §6.7, §8.5 | X (GEMV driver not copied) | D, Q | — |
-| L2 latency under load | — | X (fixed) | all | H |
+| L2 latency under load | — | Round 10 (`load_curve`, D816): no curve to the L2 rate; round 16 added no sweep. X (fixed) | all | H |
 | L2 persistence window, set aside 18 MB | upstream tier-4 (`l2persist.cu`) | X | D, Q | S |
 | L2 slices, set hash, NoC | gap list; 26:02 | X | — | H |
 | Dirty-L2 write-back paid by a flush (`dirty_l2_extra_us`) | `gb10.json` | X in the engine (analytical model only) | measurement protocol | — |
-| DRAM read rate by run length (204/233/237 GB/s), write 197, mix rule | gb10 §6.4 (`tileload.cu`, `mlp_stream.cu`, `dram.cu`) | M (wave-level); round 4 (probe `dram_rw`, batch r4): the mix rule re-measured in KTA (read:write 2:0 … 0:2 within 1 % at 2:1 and 1:1, +4.6 % at 1:2; write-only 197 GB/s); rotating rows of the generic front end now pace reads and writes by it (D771); no DRAM pacing for a kernel without reads (dram_rw 0:2 −85 %) Round 7 (`dram_burst`): no burst above the plateau: 3.9–67 MB per launch within −6 to +5 % of the replay. **empirical** | G, D, Q, E | H |
+| DRAM read rate by run length (204/233/237 GB/s), write 197, mix rule | gb10 §6.4 (`tileload.cu`, `mlp_stream.cu`, `dram.cu`) | Round 16 (`mr_*`, D877): M: 64-byte bursts at 237 GB/s; a sector asked alone pays the whole burst **structural**; T 32 runs 1.4 times, open. M (wave-level); round 4 (probe `dram_rw`, batch r4): the mix rule re-measured in KTA (read:write 2:0 … 0:2 within 1 % at 2:1 and 1:1, +4.6 % at 1:2; write-only 197 GB/s); rotating rows of the generic front end now pace reads and writes by it (D771); no DRAM pacing for a kernel without reads (dram_rw 0:2 −85 %) Round 7 (`dram_burst`): no burst above the plateau: 3.9–67 MB per launch within −6 to +5 % of the replay. **empirical** | G, D, Q, E | H |
 | DRAM queue per SM: wave DRAM time spread over read misses, fair share by SM-equivalents | gb10 §6.4 | Round 9 (probe first_share, D807): M: per wave of blocks: the first wave to read a slice takes its misses, even spreading rejected (later waves 17.0 k, warm 17.1 k, even 33–36 k) **structural**; Round 8 (probe copy_dram, D798): M: the rate limits what has been read so far, no sum with arithmetic **structural**; A (structural: even spreading, fair share) Round 11 (wr_*, D832): M: written-back bytes share the DRAM with reads when past the dirty limit. Structural; the 1.5 bound and 7 MiB step empirical. | G, D, Q, E | H |
 | DRAM latency: 1560 cycles (copy, dependent chase), 1100 (streaming LDG; round 1), 1170 (TMA) | gb10 §4.7, §5; probe `dram_rotate` (round 1, batch r1) | Round 9 (probes first_reader, first_share, D810): 1075 unloaded for copies (as LDG 1100), plus the step's burst past the chip L2, bytes / 817 B/clk: 1420 was 16 tiles of that **structural**; Round 8 (probe copy_dram, D799): 1420 for streaming copies; M | D, Q | H |
-| DRAM latency spread, channels, banks | gb10 §8.4; gap (B18) | X | D, Q | H |
+| DRAM latency spread, channels, banks | gb10 §8.4; gap (B18) | Round 16 (`md_*`, D879): not reached: strides past 256 B stayed in the L2. X | D, Q | H |
 | CPU contention for LPDDR5X | gb10 §6.4 (`cpuhog.c`: 237 → 214/171/138 GB/s) | F (an input, `CPU_DRAM_GBs` = 0) | D, Q | — |
-| TLB misses (random chase beyond 1 MB: ~400 ns) | `gb10.json` `lat_l2_ns` source | X | D (large KV), Q | H |
+| TLB misses (random chase beyond 1 MB: ~400 ns) | `gb10.json` `lat_l2_ns` source | Round 16 (`mh_*`, D879): no cost seen to 1 GiB. X | D (large KV), Q | H |
 
 ## 6. Stores and atomics
 
 | Mechanism | Sources | Status | Kernels | Var |
 | --- | --- | --- | --- | --- |
 | Store port shared by the two SMs of a TPC: 15 (4 B/lane), 11 (16 B/lane; round 1, was 14) or 8.4 (32 B/lane; round 5) cycles per instruction per pair | gb10 §4.9 (`storepat.cu`); probe `store_tail` = P-1 (round 1, batch r1); probe `st256` (round 5, batch r5b) | Round 12 (probe store_merge, D838): structural: more than 4 lines per instruction, apart or filled in part: 1.875 per line at the pair. Round 8 (D801): 1.6 cycles per instruction for 32 contiguous 4-byte lanes, the 15 is 8 rows per instruction **empirical**; M; partner-busy rule confirmed at 2–16 blocks; no per-block tail **structural** Round 11 (rw_*, D833): M: runs by lines, else 0.47 per sector; queued sectors merge. Structural; merge window 32 chosen. | all | S (store width), H |
-| Chip store limit 122 (round 1, was 137.8) / 570.9 / 468.7 (32 B/lane; round 5) B/clk | gb10 §4.9; probe `store_tail` (round 1); probe `st256` (round 5, batch r5b, D777) | Round 12 (D838, D839): 244 applies past 4 lines per instruction; stores merge at 4 lines or fewer, the dirty limit counts distinct bytes. Round 8 (probe store_spread, D801, D802): by sectors, 244 where lanes share a sector they do not fill, at any distance; 8 MiB dirty limit now in the engine **empirical**; Round 6 (probes `st256`, `row_reduce`, D785): stores at the limit wait for 0.45 of the reads' time (strided stores ≥ 1, not modelled); M at contiguous lanes; a burst up to 786 KB leaves faster (st256 g48, g96) and strided 16-byte stores slower (205 B/clk, row_reduce): both unmodelled Round 7 (probes `l2mix`, `store_lines`, D790): one limit of 420 B/clk over the 32-byte sectors the lanes touch, every width, behind a store buffer of 470 KB; the width rates stay as the ablation; a third slope above about 8 MiB written per launch (dirty L2 at the DRAM write rate) is not in the engine. Reads at the limit: share 1 less an overlap of 2200 cycles (D791), `empirical`, replacing 0.45. **structural** | all | H |
+| Chip store limit 122 (round 1, was 137.8) / 570.9 / 468.7 (32 B/lane; round 5) B/clk | gb10 §4.9; probe `store_tail` (round 1); probe `st256` (round 5, batch r5b, D777) | Round 16 (`mw_*`, D881): past the L2 stores queue on the bursts they open; in order no DRAM limit shows. Round 12 (D838, D839): 244 applies past 4 lines per instruction; stores merge at 4 lines or fewer, the dirty limit counts distinct bytes. Round 8 (probe store_spread, D801, D802): by sectors, 244 where lanes share a sector they do not fill, at any distance; 8 MiB dirty limit now in the engine **empirical**; Round 6 (probes `st256`, `row_reduce`, D785): stores at the limit wait for 0.45 of the reads' time (strided stores ≥ 1, not modelled); M at contiguous lanes; a burst up to 786 KB leaves faster (st256 g48, g96) and strided 16-byte stores slower (205 B/clk, row_reduce): both unmodelled Round 7 (probes `l2mix`, `store_lines`, D790): one limit of 420 B/clk over the 32-byte sectors the lanes touch, every width, behind a store buffer of 470 KB; the width rates stay as the ablation; a third slope above about 8 MiB written per launch (dirty L2 at the DRAM write rate) is not in the engine. Reads at the limit: share 1 less an overlap of 2200 cycles (D791), `empirical`, replacing 0.45. **structural** | all | H |
 | 8-byte-per-lane stores (`STG.64`) | engine code | A (256 B at the 4-byte rates) | N, Q | — |
 | Store queue: 16 STG/RED instructions before issue waits | gb10 §4.9 (`stq.cu`) | M | all | H |
 | Global reductions without return `RED`: SM 25.6 B/clk, pair 2 cycles per line, chip 330 / 225 B/clk | gb10 §4.9 (`ldg_atomic.cu`, `stq.cu`) | M Round 11 (atom_*, D834): M, X → M for lanes in their own sectors: 1.44 per clock per 4 KiB region, 12 chip-wide, merge gain by bytes. Region rule structural, gain empirical. | G (split-K), E | S (split), H |
@@ -138,7 +138,7 @@ Status: written 2026-11-04 for phase P0 of [28](28-gb10-programme.md) §5. It li
 | Dispatch: blocks go round the SMs in launch order; the busiest SM simulated; other SMs progress alike | gb10 §6.2, §6.3, §8.8 | A (structural) | E, F (causal), D | S (grid, raster), H |
 | Block replacement when a block exits (FLOW) | gb10 §6.2 | M (structural) | all | — |
 | Unequal per-CTA work, persistent / work-queue scheduling | 28 §5 (P4) | X | E, F (causal), D | S |
-| Launch overhead: 2.6 µs per stream launch; 0.43 µs per graph kernel | gb10 §6.6 (`launch.cu`); probe `launch` (round 3, batch r3) | M (round 6, probe `launch_short`, D786): spans below 0.56 µs hidden in the submission rate, floors 4.07 µs b2b and 4.6 µs event up to about 2 µs; M (stream); round 3: one launch between two events and a synchronize (the test-set harness's timing) costs 2.80 µs beyond the kernel's in-kernel span (median over 8 spans 0.1–151 µs, bimodal 2.1 / 3.2); an empty kernel 2.43 µs up to 131 k threads, then rising with threads (4.64 at 524 k, 6.69 at 1 M); `launch_event_us` replaces the fitted 2.6 for KTA batch rows (D769); depth: empirical; graph value unused by the table; round 4 (probe `launch` sequence points, batch r4): per launch in a sequence max(submit, span + gap), back-to-back gap 2.74 µs (submit 1.96), CUDA graph gap 0.60 µs (submit 0.43), not hidden behind longer kernels (D773); below a 0.5 µs span the back-to-back gap shrinks (b2b of an empty chain 1.90 µs: open) **empirical** | all | S (graphs) |
+| Launch overhead: 2.6 µs per stream launch; 0.43 µs per graph kernel | gb10 §6.6 (`launch.cu`); probe `launch` (round 3, batch r3) | Round 16 (D883): starting threads past 245 K costs 5.5 ns per 1000 **empirical**. M (round 6, probe `launch_short`, D786): spans below 0.56 µs hidden in the submission rate, floors 4.07 µs b2b and 4.6 µs event up to about 2 µs; M (stream); round 3: one launch between two events and a synchronize (the test-set harness's timing) costs 2.80 µs beyond the kernel's in-kernel span (median over 8 spans 0.1–151 µs, bimodal 2.1 / 3.2); an empty kernel 2.43 µs up to 131 k threads, then rising with threads (4.64 at 524 k, 6.69 at 1 M); `launch_event_us` replaces the fitted 2.6 for KTA batch rows (D769); depth: empirical; graph value unused by the table; round 4 (probe `launch` sequence points, batch r4): per launch in a sequence max(submit, span + gap), back-to-back gap 2.74 µs (submit 1.96), CUDA graph gap 0.60 µs (submit 0.43), not hidden behind longer kernels (D773); below a 0.5 µs span the back-to-back gap shrinks (b2b of an empty chain 1.90 µs: open) **empirical** | all | S (graphs) |
 | Multi-kernel sequences (gaps between kernels with work: 3.1 µs) | gb10 §6.6 | M (round 6, batch r6, D779): program form `sequence`, L2 carried by buffer, gaps by launch mode; decode split-KV scored; X (one kernel per run); round 4: M for repeated launches of one kernel (the gap, D773); different kernels in one sequence not measured **structural** | D (split + combine) | S |
 | Clock: cycles → time | gb10 §6.6, §12 (`clock.cu`, `sustain.cu`); protocol clock kernel (round 1) | M for KTA batches: 2.494 GHz (r1), 2.496 (r1fa), 2.485 (r2) from a dependent FFMA chain against event time; under full-chip tensor load 2.493 GHz in the kernel (`mma_pair` b48, clock64 against globaltimer), as alone (2.500); upstream rows keep 2.52 / 2.54 | all | — |
 | Power and thermal states | 26:09 | X | all | H |
@@ -150,11 +150,13 @@ Cells that can occur: 406 of 800, the rest dropped (`tools/kta_perfmodel/matrix.
 
 | State | Before round 16 | Now |
 | --- | ---: | ---: |
-| M measured with a rule | 60 | 60 |
-| m measured without a rule | 18 | 18 |
-| · empty | 328 | 328 |
+| M measured with a rule | 60 | 73 |
+| m measured without a rule | 18 | 20 |
+| · empty | 328 | 313 |
 
-Round 15's 51 blind rows above 10 %: in M cells 9, in m cells 33, in empty cells 9 before round 16; 9, 33, 9 now. By class: defect 6, known rule 25, no rule 20.
+Round 16's 56 blind rows above 10 %, placed after the sweep: in M cells 21, in m cells 34, in empty cells 1. By class at first score: defect 0, known rule 35, no rule 21.
+
+Round 15's 51 blind rows above 10 %: in M cells 9, in m cells 33, in empty cells 9 before round 16; 20, 29, 2 now. By class: defect 6, known rule 25, no rule 20.
 
 Patterns: order (contiguous lanes walking on), stride (lanes or warps a constant apart), row (rows a pitch apart), hashed (no order in the lanes), cap (footprint across the target's capacity; for DRAM, across the TLB's reach). Sharing: w one warp, b one block, s blocks on an SM, c every SM. A cell reads `state` and, in brackets, the blind misses of round 15 in it.
 
@@ -164,7 +166,7 @@ Patterns: order (contiguous lanes walking on), stride (lanes or warps a constant
 | --- | --- | --- | --- | --- | --- |
 | order | M | M | M |  | smem_ldsts, lds_narrow (D784); upstream smem_bw, shfl |
 | stride | M | M | · |  | smem_ldsts, lds_narrow (D784) |
-| row | · | M | · |  | lds_narrow (D784) |
+| row | · | M | m |  | lds_narrow (D784); ms_s_*: D 64, 96, 128 slower, short rows |
 | hashed | · | · | · |  |  |
 
 **read (LDG, LDS, LDL) × stack**: decides tile size at the register limit.
@@ -181,11 +183,11 @@ Patterns: order (contiguous lanes walking on), stride (lanes or warps a constant
 
 | Pattern | w | b | s | c | Probes |
 | --- | --- | --- | --- | --- | --- |
-| order | M | M | · | · | l1hit, first_reader (D809) |
+| order | M | M | M | · | l1hit, first_reader (D809); ml2_* |
 | stride | · | · | · | · (1) |  |
 | row | · | M | · | M | row_reduce (D777) |
-| hashed | · | · | · | · (1) |  |
-| cap | · | · | · | · |  |
+| hashed | · | m | · | · (1) | ml_h_*: +140 %, not pursued |
+| cap | · | M | M | · | ml_*, ml2_* (D880): LRU, 128 KiB per SM |
 
 **read (LDG, LDS, LDL) × L2**: decides threads, split, tile.
 
@@ -194,18 +196,18 @@ Patterns: order (contiguous lanes walking on), stride (lanes or warps a constant
 | order | M | M | · | M (2) | l1hit (342 clk miss); first_reader; l2_cap (D835) |
 | stride | · | · | · | M (2) | l2_cap (D835) |
 | row | · | · | · | m (14) | row_reduce, dl_*_warm; threads D870 |
-| hashed | · | · | · | · (2) |  |
-| cap | · | · | · | M | l2reuse (D766), rot_depth |
+| hashed | · | · | · | M (2) | mh_* (D878, D877) |
+| cap | · | · | · | M | mk_*, md_*, mr_s* (D878): 128-byte lines |
 
 **read (LDG, LDS, LDL) × DRAM**: decides threads, split, rotation; every rotating group.
 
 | Pattern | w | b | s | c | Probes |
 | --- | --- | --- | --- | --- | --- |
-| order | M | · | · | m (3) | dram_spread (latency); dram_rotate, dram_burst, dl_* (D870): half the rate |
-| stride | · | · | · | · |  |
-| row | · | · | · | m (5) | gd_*, rd_* (D870) |
-| hashed | M | · | · | · | dram_spread (chase) |
-| cap | · | · | · | · |  |
+| order | M | M | M | M (3) | dram_spread (latency); mr_g* (D877); mr_* (D877): 64-byte bursts |
+| stride | · | · | · | M | mr_* (D877): 64-byte bursts |
+| row | · | · | · | M (5) | mr_* (D877): 64-byte bursts |
+| hashed | M | · | · | M | dram_spread (chase); mr_* (D877): 64-byte bursts |
+| cap | · | · | · | M | mh_*, md_* (D879): no TLB cost to 1 GiB |
 
 **write (STG, STS, STL) × shared**: decides layout.
 
@@ -213,7 +215,7 @@ Patterns: order (contiguous lanes walking on), stride (lanes or warps a constant
 | --- | --- | --- | --- | --- | --- |
 | order | M | m | · |  | smem_ldsts, lds_narrow; smem_ldsts: 2-6 warps unidentified |
 | stride | M | m | · |  | smem_ldsts, lds_narrow; smem_ldsts: 2-6 warps unidentified |
-| row | · | · | · |  |  |
+| row | · | · | m |  | ms_s_*: D 64, 96, 128 slower, short rows |
 | hashed | · | · | · |  |  |
 
 **write (STG, STS, STL) × stack**: decides tile size at the register limit.
@@ -232,18 +234,18 @@ Patterns: order (contiguous lanes walking on), stride (lanes or warps a constant
 | --- | --- | --- | --- | --- | --- |
 | order | · | M | M | M (2) | store_tail (partner rule); store_lines, store_spread, st256 (D838) |
 | stride | · | · | · | M (1) | store_lines, store_spread, st256 (D838) |
-| row | · | · | · | M | store_lines, store_spread, st256 (D838) |
-| hashed | · | · | · | m (1) | hs_*, hb_* (D851): past 4 MiB not separated |
+| row | · | · | · | m | mt_w_*: lanes in part of a sector −22 to +44 % |
+| hashed | · | · | · | m (1) | mw_h_f16 −73 %: inside the L2, not pursued |
 | cap | · | · | · | m (6) | wr_*, wl_* (D802, D873): 6.5 to 7.6 MiB no step |
 
 **write (STG, STS, STL) × DRAM**: decides store path past the dirty limit.
 
 | Pattern | w | b | s | c | Probes |
 | --- | --- | --- | --- | --- | --- |
-| order | · | · | · | m | dram_rw 0:2 −85 %: no pacing without reads |
+| order | · | · | · | M | mw_o_* (D881): no limit past the store's own |
 | stride | · | · | · | · |  |
 | row | · | · | · | · |  |
-| hashed | · | · | · | m | hs_* (D851) |
+| hashed | · | · | · | M | mw_h_f64 (D881): a burst per lane |
 | cap | · | · | · | · |  |
 
 **read-modify-write of the same words × shared**: decides —.
@@ -269,7 +271,7 @@ Patterns: order (contiguous lanes walking on), stride (lanes or warps a constant
 
 | Pattern | w | b | s | c | Probes |
 | --- | --- | --- | --- | --- | --- |
-| order | · | · | · | M | rw_*, wr_rmw (D833) |
+| order | · | · | · | m | mx_*: +73 to +104 % at first score, no rule |
 | stride | · | · | · | · |  |
 | row | · | · | · | m | rmw_*, question 42 |
 | hashed | · | · | · | m | bl_mixrwa |
@@ -320,7 +322,7 @@ Patterns: order (contiguous lanes walking on), stride (lanes or warps a constant
 | --- | --- | --- | --- | --- | --- |
 | order | M | M | M (2) | M | copy_two, copy_depth (D869); l2_cap, loopsteps (D835) |
 | stride | · | · | · | M | l2_cap, loopsteps (D835) |
-| row | · | · | · | m (4) | fad_* (D871): loss by D mod 32 |
+| row | · | m | · | m (4) | ms_c_*: short rows, flat by D; fad_* (D871): loss by D mod 32 |
 | hashed | · | · | · | · |  |
 | cap | · | · | · | M | first_share (D807) |
 
@@ -328,9 +330,9 @@ Patterns: order (contiguous lanes walking on), stride (lanes or warps a constant
 
 | Pattern | w | b | s | c | Probes |
 | --- | --- | --- | --- | --- | --- |
-| order | · | M | · (1) | m | first_reader (D810); copy_dram, first_share; rate D869 rows +18 % |
+| order | · | M | M (1) | M | first_reader (D810); copy_cold (D882): 10 clk per copy, cold as warm |
 | stride | · | · | · | · |  |
-| row | · | · | · | · (4) |  |
+| row | · | · | · | m (4) | fa rotating under bursts, no sweep of its own |
 | hashed | · | · | · | · |  |
 | cap | · | · | · | · |  |
 

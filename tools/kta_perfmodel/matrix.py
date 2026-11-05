@@ -118,7 +118,26 @@ CELLS: tuple[Mark, ...] = (
     Mark("barrier", "shared", "order", "w b", "M", "namedbar"),
     Mark("barrier", "shared", "order", "s", "M", "mma_pair"),
 )
-ROUND16: tuple[Mark, ...] = ()
+ROUND16: tuple[Mark, ...] = (
+    Mark("read", "DRAM", "order stride row hashed", "c", "M", "mr_* (D877): 64-byte bursts"),
+    Mark("read", "DRAM", "order", "b s", "M", "mr_g* (D877)"),
+    Mark("read", "DRAM", "cap", "c", "M", "mh_*, md_* (D879): no TLB cost to 1 GiB"),
+    Mark("read", "L2", "cap", "c", "M", "mk_*, md_*, mr_s* (D878): 128-byte lines"),
+    Mark("read", "L2", "hashed", "c", "M", "mh_* (D878, D877)"),
+    Mark("read", "L1", "cap", "b s", "M", "ml_*, ml2_* (D880): LRU, 128 KiB per SM"),
+    Mark("read", "L1", "hashed", "b", "m", "ml_h_*: +140 %, not pursued"),
+    Mark("read", "L1", "order", "s", "M", "ml2_*"),
+    Mark("read", "shared", "row", "s", "m", "ms_s_*: D 64, 96, 128 slower, short rows"),
+    Mark("write", "shared", "row", "s", "m", "ms_s_*: D 64, 96, 128 slower, short rows"),
+    Mark("write", "DRAM", "order", "c", "M", "mw_o_* (D881): no limit past the store's own"),
+    Mark("write", "DRAM", "hashed", "c", "M", "mw_h_f64 (D881): a burst per lane"),
+    Mark("write", "L2", "hashed", "c", "m", "mw_h_f16 −73 %: inside the L2, not pursued"),
+    Mark("write", "L2", "row", "c", "m", "mt_w_*: lanes in part of a sector −22 to +44 %"),
+    Mark("rmw", "L2", "order", "c", "m", "mx_*: +73 to +104 % at first score, no rule"),
+    Mark("copy", "DRAM", "order", "s c", "M", "copy_cold (D882): 10 clk per copy, cold as warm"),
+    Mark("copy", "DRAM", "row", "c", "m", "fa rotating under bursts, no sweep of its own"),
+    Mark("copy", "L2", "row", "b", "m", "ms_c_*: short rows, flat by D"),
+)
 
 DECIDES = {
     ("read", "shared"): "layout, split of loads and arithmetic",
@@ -196,6 +215,31 @@ MISSES: dict[str, tuple[str, str, str, str, str]] = {
 }
 
 
+# Round 16's blind rows above 10 %, by family: pattern of id -> (cell, class). Read after the sweep.
+MISSES16: dict[str, tuple[str, str, str, str, str, int]] = {
+    "gatherfour": ("read", "L2", "hashed", "c", "k", 2),
+    "ninepoint": ("read", "L2", "row", "c", "k", 1),
+    "packrows": ("read", "L2", "row", "c", "k", 1),
+    "revrows": ("read", "L2", "row", "c", "k", 1),
+    "recordthree": ("write", "L2", "stride", "c", "k", 1),
+    "stackhist": ("rmw", "stack", "hashed", "c", "n", 1),
+    "stackwin": ("read", "stack", "hashed", "c", "k", 1),
+    "stridewalk": ("read", "L2", "stride", "c", "k", 2),
+    "twolevel": ("read", "L2", "hashed", "c", "k", 1),
+    "xorput": ("write", "L2", "hashed", "c", "k", 2),
+    "decode warm": ("read", "L2", "row", "c", "k", 6),
+    "decode rotating": ("read", "DRAM", "row", "c", "n", 7),
+    "fa warm": ("copy", "L2", "row", "c", "k", 2),
+    "fa rotating": ("copy", "DRAM", "row", "c", "n", 2),
+    "gemv warm": ("read", "L2", "row", "c", "k", 7),
+    "gemv rotating": ("read", "DRAM", "order", "c", "n", 5),
+    "hgemm warm": ("copy", "L2", "order", "s", "k", 1),
+    "hgemm rotating": ("copy", "DRAM", "order", "c", "k", 1),
+    "rmsnorm warm": ("read", "L2", "row", "c", "n", 6),
+    "softmax warm": ("write", "L2", "row", "c", "k", 6),
+}
+
+
 def cells(marks: tuple[Mark, ...]) -> dict[tuple[str, str, str, str], Mark | None]:
     out: dict[tuple[str, str, str, str], Mark | None] = {}
     for key in itertools.product(OPS, TARGETS, PATTERNS, SHARING):
@@ -242,6 +286,19 @@ def render(marks: tuple[Mark, ...]) -> str:
         "",
     ]
     bm, nm = misses(before), misses(table)
+    c16: Counter = Counter()
+    for v in MISSES16.values():
+        m = table[v[:4]]
+        c16[m.state if m else "."] += v[5]
+    k16 = Counter()
+    for v in MISSES16.values():
+        k16[v[4]] += v[5]
+    lines += [
+        f"Round 16's {sum(c16.values())} blind rows above 10 %, placed after the sweep: in M cells "
+        f"{c16['M']}, in m cells {c16['m']}, in empty cells {c16['.']}. By class at first score: "
+        f"defect {k16['d']}, known rule {k16['k']}, no rule {k16['n']}.",
+        "",
+    ]
     lines += [
         f"Round 15's {len(MISSES)} blind rows above 10 %: in M cells {bm['M']}, in m cells "
         f"{bm['m']}, in empty cells {bm['.']} before round 16; {nm['M']}, {nm['m']}, {nm['.']} "
@@ -286,6 +343,7 @@ BEGIN, END = "<!-- matrix: generated -->", "<!-- matrix end -->"
 
 
 def main() -> None:
+    assert sum(v[5] for v in MISSES16.values()) == 56
     ap = argparse.ArgumentParser(prog="python -m kta_perfmodel.matrix")
     ap.parse_args()
     marks = CELLS + ROUND16
