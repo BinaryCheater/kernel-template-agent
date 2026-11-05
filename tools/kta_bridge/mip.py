@@ -15,7 +15,6 @@ from dataclasses import dataclass
 
 import highspy
 import numpy as np
-
 from tools.kta_bridge import forms
 
 

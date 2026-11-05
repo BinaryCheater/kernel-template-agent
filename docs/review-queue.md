@@ -1079,3 +1079,11 @@ Decisions made without the user that need review. Newest last. Each entry: quest
 - **Choice:** not tried: the instruction was timing only if sudo is refused. Counters came from spark.
 - **Rationale:** the rule given was explicit.
 - **Cost of changing later:** one setting in `run.py`.
+
+## LEARNDEMO1: the search level (D938, D939, D940)
+
+- **Question:** is a closed decision-level form the right search level, in place of a precompile L2?
+- **Choice:** yes for the pilot, with hardware constants frozen and one refit round.
+- **Rationale:** it exports exactly to MIP, and on new shapes found kernels 5 to 24 % faster than anchors. The blind first round failed on MoE, and decode ranks poorly, so this is not settled.
+- **Cost of changing later:** one module; measurements stay usable.
+

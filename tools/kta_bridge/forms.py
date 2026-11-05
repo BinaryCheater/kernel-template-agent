@@ -7,7 +7,6 @@ is one constant, or one entry of a table indexed by a regime that is itself a fu
 decisions. That restriction is what lets `mip.py` export the form without approximation.
 """
 
-import dataclasses
 import math
 from dataclasses import dataclass
 

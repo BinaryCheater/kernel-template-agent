@@ -1,7 +1,29 @@
 # Template-driven modelling, MIP search and deterministic generation
 
-Status: design proposal; no new experiment has started. The nine-session
+Status: first pilot run; the decision-level form below supersedes the L2 proposal. The nine-session
 attention campaign remains evidence about agent-authored empirical tuning.
+
+## Current approach: decision-level form
+
+This section replaces the proposed L2 below as the route to a MIP. The text after it records the earlier proposal. Results: [decision-form pilot](results/decision-form-pilot.md). Code: `tools/kta_bridge/`.
+
+The boundary for a MIP is state: sums, maxima and finite tables export exactly, while an event order that depends on queues does not. So the searchable level holds no queue state. Each mechanism L3 established becomes one of three things:
+
+```text
+T(x) = launch + stores + stage + turnover + barrier + trip
+     + max(compute(x), l2_copies(x), dram(x), recurrence(x))
+```
+
+| Part | Source | How it is obtained |
+|---|---|---|
+| Amounts: tensor products, scalar work, bytes, blocks, trips | Decision variables and shape | Closed expression per family, from the generator |
+| Regimes: occupancy, warps per tensor pipe and scheduler, register spill by share | Walls and mechanisms found by L3 | Function of decisions, one table entry each |
+| Hardware rates | `gb10.json` | Copied, frozen, no kernel fit |
+| Software constants: scalar cost, stage, turnover, trip, spill | Few rows of the family | Deterministic fit, against GPU or L3 |
+
+Order of preference for a term: derive it, then calibrate it on a few rows, then leave it to an agent. Compilation supplies only register records, which replace an estimate before GPU runs. L3 remains the source of mechanisms and a possible reranker, and is no longer an input to the search.
+
+The funnel: MIP shortlist of distinct structures → compile → rerank on records → measure a few → refit → solve again with measured points cut out.
 
 ## Objective and sequence
 
