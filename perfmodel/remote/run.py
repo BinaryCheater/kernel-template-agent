@@ -1,6 +1,8 @@
 """One measurement batch on spark under the gb10-measure protocol (perfmodel-measure run).
 
-    python3 perfmodel/remote/run.py <build_dir> <out_dir> [no-counters regex] [counter sets]
+    python3 perfmodel/remote/run.py <build_dir> <out_dir> [no-counters regex] [counter sets] [counters]
+
+A last argument `counters` runs the profiler alone, on a batch timed elsewhere (D909).
 
 Standard library only (runs with the host's python3). Order, all in one exclusive job:
  1 environment record     2 clock calibration     3 compute and memory canaries
@@ -167,7 +169,9 @@ def sh(cmd: list[str], cwd: Path | None = None, timeout: int = 1800) -> tuple[in
     return p.returncode, p.stdout + (("\n# stderr\n" + p.stderr) if p.stderr.strip() else "")
 
 
-def main(build: Path, out: Path, no_counters: str = "", sets: str = "all") -> int:
+def main(
+    build: Path, out: Path, no_counters: str = "", sets: str = "all", only: str = "timing"
+) -> int:
     raw = out / "raw"
     raw.mkdir(parents=True, exist_ok=True)
     steps: list[dict] = []
@@ -223,6 +227,24 @@ def main(build: Path, out: Path, no_counters: str = "", sets: str = "all") -> in
             ran += 1
         print(f"settled {time.time() - t0:.0f} s, {ran} kernels", flush=True)
 
+    def passes(kernels: list[Path]) -> None:
+        protocol("2")
+        for d in sorted(build.glob("probe-*")):
+            step(f"4-{d.name}", [str(d / "bin")], cwd=d)
+        for d in kernels:
+            step(f"4-{d.name}", [str(d / "bin"), "30"], cwd=d)
+        # round 13: the clock falls with temperature, about 0.002 GHz per degree (r13, r13a: 2.494 at
+        # 40 C, 2.454 at 59 C), and three passes in a row leave the 1 % band. The batch's clock and
+        # canaries bracket the first pass; each repeat, in its own process, cools down first and has its
+        # own clock: 4r1 in reverse order, 4r2 in order
+        protocol("6")
+        for i, order in ((1, reversed(kernels)), (2, kernels)):
+            cool()
+            protocol(f"3r{i}")
+            for d in order:
+                step(f"4r{i}-{d.name}", [str(d / "bin"), "30"], cwd=d)
+            protocol(f"6r{i}")
+
     # round 14: rounds 12 and 13 lost kernels and sweeps to harness faults found after the run
     kernels, dropped = [], {}
     for d in sorted(p for p in (build / "testset").iterdir() if (p / "bin").exists()):
@@ -235,30 +257,16 @@ def main(build: Path, out: Path, no_counters: str = "", sets: str = "all") -> in
     print(f"preflight: {len(kernels)} kernels go on, {len(dropped)} dropped", flush=True)
     (raw / "0-preflight.txt").write_text(json.dumps(dropped, indent=1) + "\n")
     cool()
-    settle()
+    if only == "timing":
+        settle()
     env("before")
     if any(s.get("busy") for s in steps):
         print("GPU busy: refusing the batch", flush=True)
         (out / "run.json").write_text(json.dumps({"steps": steps, "refused": "gpu busy"}, indent=1))
         return 2
     step("1-env-versions", ["sh", "-c", "nvidia-smi --version; nvcc --version | tail -2"])
-    protocol("2")
-    for d in sorted(build.glob("probe-*")):
-        step(f"4-{d.name}", [str(d / "bin")], cwd=d)
-    for d in kernels:
-        step(f"4-{d.name}", [str(d / "bin"), "30"], cwd=d)
-    # round 13: the clock falls with temperature, about 0.002 GHz per degree (r13, r13a: 2.494 at
-    # 40 C, 2.454 at 59 C), and three passes in a row leave the 1 % band. The batch's clock and
-    # canaries bracket the first pass; each repeat, in its own process, cools down first and has its
-    # own clock: 4r1 in reverse order, 4r2 in order
-    protocol("6")
-    for i, order in ((1, reversed(kernels)), (2, kernels)):
-        cool()
-        protocol(f"3r{i}")
-        for d in order:
-            step(f"4r{i}-{d.name}", [str(d / "bin"), "30"], cwd=d)
-        protocol(f"6r{i}")
-
+    if only == "timing":
+        passes(kernels)
     def ncu(tag: str, d: Path, metrics: str) -> None:
         entry = json.loads((d / "launch.json").read_text())["entry"]
         step(
@@ -347,4 +355,4 @@ def main(build: Path, out: Path, no_counters: str = "", sets: str = "all") -> in
 
 
 if __name__ == "__main__":
-    sys.exit(main(Path(sys.argv[1]).resolve(), Path(sys.argv[2]).resolve(), *sys.argv[3:5]))
+    sys.exit(main(Path(sys.argv[1]).resolve(), Path(sys.argv[2]).resolve(), *sys.argv[3:6]))

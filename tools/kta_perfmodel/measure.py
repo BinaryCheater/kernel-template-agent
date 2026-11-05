@@ -5,6 +5,7 @@
     scripts/perfmodel-measure predict <batch>  # the engine's replay of every case, before the run
     scripts/perfmodel-measure run <batch>      # the batch itself, then `import`
     scripts/perfmodel-measure import <batch>   # parse the raw outputs, validity, measured.json
+    scripts/perfmodel-measure counters <batch> # a batch timed on another worker: the profiler alone
 
 A batch lives in ``perfmodel/batches/<batch>/``: ``entry.md`` (the entry block of every probe:
 mechanism, why now, hypotheses with numbers), ``build/`` (SASS with control bits, resource usage,
@@ -19,6 +20,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import io
 import json
 import os
@@ -197,6 +199,46 @@ def run(batch: str) -> int:
     return import_(batch)
 
 
+def counters(batch: str, skip: str) -> int:
+    """Round 20 (D909): main counters of a batch timed on a worker without the profiler: rebuilt
+    here from the same generator, SASS compared, nothing else read; timing stays the batch's."""
+    d = BATCHES / batch
+    built = json.loads((d / "build.json").read_text())
+    head = _sync()
+    rb, ro = f"{REMOTE_DATA}/{batch}/build-counters", f"{REMOTE_DATA}/{batch}/run-counters"
+    _remote(
+        f"mkdir -p ~/{REMOTE_DATA}/{batch} && cd src/{head} && "
+        f"PATH=/usr/local/cuda/bin:$PATH ONLY={shlex.quote(built['only'])} "
+        f"bash perfmodel/remote/build.sh ~/{rb} > ~/{rb}.log 2>&1"
+    )
+    sums = _remote(f"cd ~/{rb}/testset && md5sum */k.sass")
+    theirs = {ln.split()[1]: ln.split()[0] for ln in sums.splitlines() if ln.strip()}
+    ours = {
+        f"{p.parent.name}/k.sass": hashlib.md5(p.read_bytes()).hexdigest()
+        for p in (d / "build" / "testset").glob("*/k.sass")
+    }
+    same = sum(theirs.get(k) == v for k, v in ours.items())
+    print(f"SASS same as the batch's: {same} of {len(ours)}", flush=True)
+    _remote(
+        f"test ! -e ~/{ro} && cd src/{head} && python3 perfmodel/remote/run.py ~/{rb} ~/{ro} "
+        f"{shlex.quote(skip)} main counters > ~/{ro}.log 2>&1"
+    )
+    local = RAW / batch / "counters"
+    local.mkdir(parents=True, exist_ok=True)
+    _run(["rsync", "-a", f"{SSH}:{ro}/", f"{local}/"])
+    run_doc = json.loads((local / "run.json").read_text())
+    meas = json.loads((d / "measured.json").read_text())
+    got = 0
+    for p in (local / "raw").glob("5-ncu-*.txt"):
+        unit = p.stem[len("5-ncu-") :]
+        meas["counters"].setdefault(unit, {}).update(_ncu(p.read_text(), run_doc["metrics"]))
+        got += 1
+    meas["counters_from"] = {"host": HOST, "commit": head, "sass_same": [same, len(ours)]}
+    (d / "measured.json").write_text(json.dumps(meas, indent=1) + "\n")
+    print(f"{batch}: counters of {got} kernels from {HOST}")
+    return 0
+
+
 def _results(text: str) -> dict[str, dict[str, Any]]:
     out = {}
     for line in text.splitlines():
@@ -347,12 +389,15 @@ def import_(batch: str) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="scripts/perfmodel-measure")
-    ap.add_argument("command", choices=("build", "predict", "run", "import"))
+    ap.add_argument("command", choices=("build", "predict", "run", "import", "counters"))
     ap.add_argument("batch")
     ap.add_argument("--only", default=".", help="build: regex over probe and kernel names")
+    ap.add_argument("--skip", default="", help="counters: regex of kernels without counters")
     a = ap.parse_args(argv)
     if a.command == "build":
         return build(a.batch, a.only)
+    if a.command == "counters":
+        return counters(a.batch, a.skip)
     return {"predict": predict, "run": run, "import": import_}[a.command](a.batch)
 
 
