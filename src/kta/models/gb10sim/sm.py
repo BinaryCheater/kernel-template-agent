@@ -1285,8 +1285,7 @@ class SM:
             # in one line; lanes that change line pair by pair hold the return (D910)
             dest = w.lanes.address(x.args.split(",")[0], w.vals) if w.lanes is not None else None
             if dest is not None:
-                lanes = dest[1]
-                runs = 1 + sum(a // 128 != b // 128 for a, b in zip(lanes, lanes[1:], strict=False))
+                runs = 1 + sum(a // 128 != b // 128 for a, b in itertools.pairwise(dest[1]))
                 hold = P["smem_copy_clk"] + P["smem_copy_clk_per_run"] * runs
                 ret_clk = max(ret_clk, hold)
         t["l2_return"] = ret + ret_clk

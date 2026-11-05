@@ -1,6 +1,7 @@
 """One measurement batch on spark under the gb10-measure protocol (perfmodel-measure run).
 
-    python3 perfmodel/remote/run.py <build_dir> <out_dir> [no-counters regex] [counter sets] [counters]
+    python3 perfmodel/remote/run.py <build_dir> <out_dir> [no-counters regex] [counter sets]
+                                    [counters]
 
 A last argument `counters` runs the profiler alone, on a batch timed elsewhere (D909).
 
@@ -233,10 +234,10 @@ def main(
             step(f"4-{d.name}", [str(d / "bin")], cwd=d)
         for d in kernels:
             step(f"4-{d.name}", [str(d / "bin"), "30"], cwd=d)
-        # round 13: the clock falls with temperature, about 0.002 GHz per degree (r13, r13a: 2.494 at
-        # 40 C, 2.454 at 59 C), and three passes in a row leave the 1 % band. The batch's clock and
-        # canaries bracket the first pass; each repeat, in its own process, cools down first and has its
-        # own clock: 4r1 in reverse order, 4r2 in order
+        # round 13: the clock falls with temperature, about 0.002 GHz per degree (r13, r13a: 2.494
+        # at 40 C, 2.454 at 59 C), and three passes in a row leave the 1 % band. The batch's clock
+        # and canaries bracket the first pass; each repeat, in its own process, cools down first
+        # and has its own clock: 4r1 in reverse order, 4r2 in order
         protocol("6")
         for i, order in ((1, reversed(kernels)), (2, kernels)):
             cool()
