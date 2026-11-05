@@ -210,9 +210,8 @@ def wrong_pairs(regex: str) -> str:
         c = blind.real_pairs(g, times)
         err = [math.log(r["predicted"] / r["measured"]) for r in g]
         spread = statistics.pstdev(err)
-        out.append(
-            f"{name:44s} real {c['real_right']}/{c['real_of']}, within the group {100 * spread:.1f} %"
-        )
+        real = f"real {c['real_right']}/{c['real_of']}"
+        out.append(f"{name:44s} {real}, within the group {100 * spread:.1f} %")
         for i, a in enumerate(g):
             for b in g[i + 1 :]:
                 if abs(a["measured"] / b["measured"] - 1) < table.PAIR_GAP:

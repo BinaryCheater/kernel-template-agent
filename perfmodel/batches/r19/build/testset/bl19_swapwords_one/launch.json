@@ -1,0 +1,23 @@
+{
+ "entry": "k_swapwords",
+ "grid": [
+  1024,
+  1,
+  1
+ ],
+ "threads": 128,
+ "block": [
+  128
+ ],
+ "smem": 0,
+ "rot": 1,
+ "footprint_bytes": 4194304,
+ "write_bytes": 2097152,
+ "family": "hand",
+ "set": "breadth blind",
+ "cache": "warm",
+ "whatif": {
+  "base": "bl19_swapwords",
+  "axis": "stores removed"
+ }
+}

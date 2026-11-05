@@ -1,0 +1,30 @@
+{
+ "entry": "gemv_kernel",
+ "grid": [
+  2600,
+  1
+ ],
+ "threads": 128,
+ "block": [
+  32,
+  4
+ ],
+ "smem": 0,
+ "rot": 4,
+ "footprint_bytes": 20245888,
+ "write_bytes": 20800,
+ "family": "gemv_w4a16",
+ "shape": {
+  "N": 10400,
+  "K": 3744
+ },
+ "pick": {
+  "N": 10400,
+  "K": 3744,
+  "group": 104,
+  "n_part": 4,
+  "reduce": 32
+ },
+ "cache": "rotating",
+ "set": "gemv 10400x3744 rotating"
+}
