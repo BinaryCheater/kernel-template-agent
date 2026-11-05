@@ -1,0 +1,1192 @@
+{
+ "batch": "r15b",
+ "commit": "be008579177af1008e1077351168b2dceefef4b5",
+ "build_commit": "f1bff9b2f26a00a2deb0d0925344b10a460e31bd",
+ "entry": "entry.md",
+ "prediction": "predicted.json",
+ "clock_GHz": 2.48535,
+ "checks": {
+  "clock chain_GHz": {
+   "before": 2.4943,
+   "after": 2.4764,
+   "drift": -0.007176362105600798,
+   "ok": true
+  },
+  "canary fma_us": {
+   "before": 489.536,
+   "after": 491.968,
+   "drift": 0.004967969669237737,
+   "ok": true
+  },
+  "canary mem_us": {
+   "before": 2456.5439,
+   "after": 2453.7921,
+   "drift": -0.0011201916643948095,
+   "ok": true
+  }
+ },
+ "failed_steps": [],
+ "preflight_dropped": {},
+ "valid": true,
+ "cache_state": {
+  "copy_two b1_t128_k2": "warm",
+  "copy_two b1_t128_k2_landed": "warm",
+  "copy_two b1_t128_k4": "warm",
+  "copy_two b1_t128_k4_landed": "warm",
+  "copy_two b1_t128_k6": "warm",
+  "copy_two b1_t128_k6_landed": "warm",
+  "copy_two b1_t128_k8": "warm",
+  "copy_two b1_t128_k8_landed": "warm",
+  "copy_two b1_t128_k12": "warm",
+  "copy_two b1_t128_k12_landed": "warm",
+  "copy_two b1_t128_k16": "warm",
+  "copy_two b1_t128_k16_landed": "warm",
+  "copy_two b1_t128_k24": "warm",
+  "copy_two b1_t128_k24_landed": "warm",
+  "copy_two b1_t128_k32": "warm",
+  "copy_two b1_t128_k32_landed": "warm",
+  "copy_two b1_t128_k48": "warm",
+  "copy_two b1_t128_k48_landed": "warm",
+  "copy_two b1_t128_k64": "warm",
+  "copy_two b1_t128_k64_landed": "warm",
+  "copy_two b2_t128_k2": "warm",
+  "copy_two b2_t128_k2_landed": "warm",
+  "copy_two b2_t128_k4": "warm",
+  "copy_two b2_t128_k4_landed": "warm",
+  "copy_two b2_t128_k6": "warm",
+  "copy_two b2_t128_k6_landed": "warm",
+  "copy_two b2_t128_k8": "warm",
+  "copy_two b2_t128_k8_landed": "warm",
+  "copy_two b2_t128_k12": "warm",
+  "copy_two b2_t128_k12_landed": "warm",
+  "copy_two b2_t128_k16": "warm",
+  "copy_two b2_t128_k16_landed": "warm",
+  "copy_two b2_t128_k24": "warm",
+  "copy_two b2_t128_k24_landed": "warm",
+  "copy_two b2_t128_k32": "warm",
+  "copy_two b2_t128_k32_landed": "warm",
+  "copy_two b2_t128_k48": "warm",
+  "copy_two b2_t128_k48_landed": "warm",
+  "copy_two b2_t128_k64": "warm",
+  "copy_two b2_t128_k64_landed": "warm",
+  "copy_two b1_t160_k32": "warm",
+  "copy_two b1_t160_k32_landed": "warm",
+  "copy_two b1_t192_k32": "warm",
+  "copy_two b1_t192_k32_landed": "warm",
+  "copy_two b1_t224_k32": "warm",
+  "copy_two b1_t224_k32_landed": "warm",
+  "copy_two b1_t32_k4": "warm",
+  "copy_two b1_t32_k4_landed": "warm",
+  "copy_two b1_t32_k16": "warm",
+  "copy_two b1_t32_k16_landed": "warm",
+  "copy_two b1_t32_k64": "warm",
+  "copy_two b1_t32_k64_landed": "warm",
+  "copy_two b2_t32_k4": "warm",
+  "copy_two b2_t32_k4_landed": "warm",
+  "copy_two b2_t32_k16": "warm",
+  "copy_two b2_t32_k16_landed": "warm",
+  "copy_two b2_t32_k64": "warm",
+  "copy_two b2_t32_k64_landed": "warm",
+  "wl_m1920 kernel": "warm",
+  "wl_m1920 b2b": "warm",
+  "wl_m1920 graph": "warm",
+  "wl_m1960 kernel": "warm",
+  "wl_m1960 b2b": "warm",
+  "wl_m1960 graph": "warm",
+  "wl_m2000 kernel": "warm",
+  "wl_m2000 b2b": "warm",
+  "wl_m2000 graph": "warm",
+  "wl_m2040 kernel": "warm",
+  "wl_m2040 b2b": "warm",
+  "wl_m2040 graph": "warm",
+  "wl_m2080 kernel": "warm",
+  "wl_m2080 b2b": "warm",
+  "wl_m2080 graph": "warm",
+  "wl_m2240 kernel": "warm",
+  "wl_m2240 b2b": "warm",
+  "wl_m2240 graph": "warm",
+  "clock chain_GHz": "warm"
+ },
+ "environment": {
+  "1-env-before-apps": "",
+  "1-env-after-apps": "",
+  "1-env-after-uptime": " 07:03:26 up 89 days, 20:22,  3 users,  load average: 1.55, 0.93, 0.90\n",
+  "1-env-before-uptime": " 07:02:24 up 89 days, 20:21,  3 users,  load average: 1.70, 0.83, 0.87\n",
+  "1-env-versions": "NVIDIA-SMI version  : 580.95.05\nNVML version        : 580.95\nDRIVER version      : 580.95.05\nCUDA Version        : 13.0\nCuda compilation tools, release 13.0, V13.0.88\nBuild cuda_13.0.r13.0/compiler.36424714_0\n"
+ },
+ "smi_before": "\n==============NVSMI LOG==============\n\nTimestamp                                 : Thu Nov  5 07:02:24 2026\nDriver Version                            : 580.95.05\nCUDA Version                              : 13.0\n\nAttached GPUs                             : 1\nGPU 0000000F:01:00.0\n    Performance State                     : P0\n    Clocks Event Reasons\n        Idle                              : Not Active\n        Applications Clocks Setting       : Not Active\n        SW Power Cap                      : Not Active\n        HW Slowdown                       : Not Active\n            HW Thermal Slowdown           : Not Active\n            HW Power Brake Slowdown       : Not Active\n        Sync Boost                        : Not Active\n        SW Thermal Slowdown               : Not Active\n        Display Clock Setting             : Not Active\n    Clocks Event Reasons Counters\n        SW Power Capping                  : 534602433912 us\n        Sync Boost                        : 0 us\n        SW Thermal Slowdown               : 39163253 us\n        HW Thermal Slowdown               : 1474702 us\n        HW Power Braking                  : 0 us\n    Sparse Operation Mode                 : N/A\n    Temperature\n        GPU Current Temp                  : 44 C\n        GPU T.Limit Temp                  : 53 C\n        GPU Shutdown T.Limit Temp         : -5 C\n        GPU Slowdown T.Limit Temp         : -2 C\n        GPU Max Operating T.Limit Temp    : 0 C\n        GPU Target Temperature            : N/A\n        Memory Current Temp               : N/A\n        Memory Max Operating T.Limit Temp : N/A\n    GPU Power Readings\n        Average Power Draw                : 16.91 W\n        Instantaneous Power Draw          : 14.07 W\n        Current Power Limit               : N/A\n        Requested Power Limit             : N/A\n        Default Power Limit               : N/A\n        Min Power Limit                   : N/A\n        Max Power Limit                   : N/A\n    Power Samples\n        Duration                          : Not Found\n        Number of Samples                 : Not Found\n        Max                               : Not Found\n        Min                               : Not Found\n        Avg                               : Not Found\n    GPU Memory Power Readings \n        Average Power Draw                : N/A\n        Instantaneous Power Draw          : N/A\n    Module Power Readings\n        Average Power Draw                : N/A\n        Instantaneous Power Draw          : N/A\n        Current Power Limit               : N/A\n        Requested Power Limit             : N/A\n        Default Power Limit               : N/A\n        Min Power Limit                   : N/A\n        Max Power Limit                   : N/A\n    Clocks\n        Graphics                          : 2405 MHz\n        SM                                : 2405 MHz\n        Memory                            : N/A\n        Video                             : 2080 MHz\n    Applications Clocks\n        Graphics                          : 2418 MHz\n        Memory                            : N/A\n    Default Applications Clocks\n        Graphics                          : 2418 MHz\n        Memory                            : N/A\n    Deferred Clocks\n        Memory                            : N/A\n    Max Clocks\n        Graphics                          : 3003 MHz\n        SM                                : 3003 MHz\n        Memory                            : N/A\n        Video                             : 3003 MHz\n    Max Customer Boost Clocks\n        Graphics                          : N/A\n    SM Clock Samples\n        Duration                          : N/A\n        Number of Samples                 : N/A\n        Max                               : N/A\n        Min                               : N/A\n        Avg                               : N/A\n    Memory Clock Samples\n        Duration                          : N/A\n        Number of Samples                 : N/A\n        Max                               : N/A\n        Min                               : N/A\n        Avg                               : N/A\n    Clock Policy\n        Auto Boost                        : N/A\n        Auto Boost Default                : N/A\n\n",
+ "smi_after": "\n==============NVSMI LOG==============\n\nTimestamp                                 : Thu Nov  5 07:03:26 2026\nDriver Version                            : 580.95.05\nCUDA Version                              : 13.0\n\nAttached GPUs                             : 1\nGPU 0000000F:01:00.0\n    Performance State                     : P0\n    Clocks Event Reasons\n        Idle                              : Not Active\n        Applications Clocks Setting       : Not Active\n        SW Power Cap                      : Not Active\n        HW Slowdown                       : Not Active\n            HW Thermal Slowdown           : Not Active\n            HW Power Brake Slowdown       : Not Active\n        Sync Boost                        : Not Active\n        SW Thermal Slowdown               : Not Active\n        Display Clock Setting             : Not Active\n    Clocks Event Reasons Counters\n        SW Power Capping                  : 534602433912 us\n        Sync Boost                        : 0 us\n        SW Thermal Slowdown               : 39163253 us\n        HW Thermal Slowdown               : 1474702 us\n        HW Power Braking                  : 0 us\n    Sparse Operation Mode                 : N/A\n    Temperature\n        GPU Current Temp                  : 45 C\n        GPU T.Limit Temp                  : 51 C\n        GPU Shutdown T.Limit Temp         : -5 C\n        GPU Slowdown T.Limit Temp         : -2 C\n        GPU Max Operating T.Limit Temp    : 0 C\n        GPU Target Temperature            : N/A\n        Memory Current Temp               : N/A\n        Memory Max Operating T.Limit Temp : N/A\n    GPU Power Readings\n        Average Power Draw                : 20.35 W\n        Instantaneous Power Draw          : 15.41 W\n        Current Power Limit               : N/A\n        Requested Power Limit             : N/A\n        Default Power Limit               : N/A\n        Min Power Limit                   : N/A\n        Max Power Limit                   : N/A\n    Power Samples\n        Duration                          : Not Found\n        Number of Samples                 : Not Found\n        Max                               : Not Found\n        Min                               : Not Found\n        Avg                               : Not Found\n    GPU Memory Power Readings \n        Average Power Draw                : N/A\n        Instantaneous Power Draw          : N/A\n    Module Power Readings\n        Average Power Draw                : N/A\n        Instantaneous Power Draw          : N/A\n        Current Power Limit               : N/A\n        Requested Power Limit             : N/A\n        Default Power Limit               : N/A\n        Min Power Limit                   : N/A\n        Max Power Limit                   : N/A\n    Clocks\n        Graphics                          : 2216 MHz\n        SM                                : 2216 MHz\n        Memory                            : N/A\n        Video                             : 1891 MHz\n    Applications Clocks\n        Graphics                          : 2418 MHz\n        Memory                            : N/A\n    Default Applications Clocks\n        Graphics                          : 2418 MHz\n        Memory                            : N/A\n    Deferred Clocks\n        Memory                            : N/A\n    Max Clocks\n        Graphics                          : 3003 MHz\n        SM                                : 3003 MHz\n        Memory                            : N/A\n        Video                             : 3003 MHz\n    Max Customer Boost Clocks\n        Graphics                          : N/A\n    SM Clock Samples\n        Duration                          : N/A\n        Number of Samples                 : N/A\n        Max                               : N/A\n        Min                               : N/A\n        Avg                               : N/A\n    Memory Clock Samples\n        Duration                          : N/A\n        Number of Samples                 : N/A\n        Max                               : N/A\n        Min                               : N/A\n        Avg                               : N/A\n    Clock Policy\n        Auto Boost                        : N/A\n        Auto Boost Default                : N/A\n\n",
+ "steps": [
+  {
+   "step": "1-env-before-smi",
+   "cmd": [
+    "nvidia-smi",
+    "-q",
+    "-d",
+    "CLOCK,TEMPERATURE,POWER,PERFORMANCE"
+   ],
+   "rc": 0,
+   "t0": 1793862144.563414,
+   "s": 0.1
+  },
+  {
+   "step": "1-env-before-apps",
+   "cmd": [
+    "nvidia-smi",
+    "--query-compute-apps=pid,process_name",
+    "--format=csv,noheader"
+   ],
+   "rc": 0,
+   "t0": 1793862144.6228719,
+   "s": 0.0
+  },
+  {
+   "step": "1-env-before-uptime",
+   "cmd": [
+    "uptime"
+   ],
+   "rc": 0,
+   "t0": 1793862144.6435432,
+   "s": 0.0
+  },
+  {
+   "step": "1-env-versions",
+   "cmd": [
+    "sh",
+    "-c",
+    "nvidia-smi --version; nvcc --version | tail -2"
+   ],
+   "rc": 0,
+   "t0": 1793862144.64611,
+   "s": 0.0
+  },
+  {
+   "step": "2-protocol-clock",
+   "cmd": [
+    "/home/memx/kta-work/data/perfmodel/batches/r15b/build/protocol/bin",
+    "clock"
+   ],
+   "rc": 0,
+   "t0": 1793862144.6632292,
+   "s": 0.6
+  },
+  {
+   "step": "2-protocol-fma",
+   "cmd": [
+    "/home/memx/kta-work/data/perfmodel/batches/r15b/build/protocol/bin",
+    "fma"
+   ],
+   "rc": 0,
+   "t0": 1793862145.2317634,
+   "s": 0.4
+  },
+  {
+   "step": "2-protocol-mem",
+   "cmd": [
+    "/home/memx/kta-work/data/perfmodel/batches/r15b/build/protocol/bin",
+    "mem"
+   ],
+   "rc": 0,
+   "t0": 1793862145.6495829,
+   "s": 0.5
+  },
+  {
+   "step": "4-probe-copy_two",
+   "cmd": [
+    "/home/memx/kta-work/data/perfmodel/batches/r15b/build/probe-copy_two/bin"
+   ],
+   "rc": 0,
+   "t0": 1793862146.1140935,
+   "s": 0.5
+  },
+  {
+   "step": "4-wl_m1920",
+   "cmd": [
+    "/home/memx/kta-work/data/perfmodel/batches/r15b/build/testset/wl_m1920/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793862146.6178818,
+   "s": 0.4
+  },
+  {
+   "step": "4-wl_m1960",
+   "cmd": [
+    "/home/memx/kta-work/data/perfmodel/batches/r15b/build/testset/wl_m1960/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793862147.0497992,
+   "s": 0.4
+  },
+  {
+   "step": "4-wl_m2000",
+   "cmd": [
+    "/home/memx/kta-work/data/perfmodel/batches/r15b/build/testset/wl_m2000/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793862147.4853528,
+   "s": 0.4
+  },
+  {
+   "step": "4-wl_m2040",
+   "cmd": [
+    "/home/memx/kta-work/data/perfmodel/batches/r15b/build/testset/wl_m2040/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793862147.9176817,
+   "s": 0.4
+  },
+  {
+   "step": "4-wl_m2080",
+   "cmd": [
+    "/home/memx/kta-work/data/perfmodel/batches/r15b/build/testset/wl_m2080/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793862148.3558867,
+   "s": 0.4
+  },
+  {
+   "step": "4-wl_m2240",
+   "cmd": [
+    "/home/memx/kta-work/data/perfmodel/batches/r15b/build/testset/wl_m2240/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793862148.7867618,
+   "s": 0.4
+  },
+  {
+   "step": "6-protocol-clock",
+   "cmd": [
+    "/home/memx/kta-work/data/perfmodel/batches/r15b/build/protocol/bin",
+    "clock"
+   ],
+   "rc": 0,
+   "t0": 1793862149.224625,
+   "s": 0.6
+  },
+  {
+   "step": "6-protocol-fma",
+   "cmd": [
+    "/home/memx/kta-work/data/perfmodel/batches/r15b/build/protocol/bin",
+    "fma"
+   ],
+   "rc": 0,
+   "t0": 1793862149.8396904,
+   "s": 0.4
+  },
+  {
+   "step": "6-protocol-mem",
+   "cmd": [
+    "/home/memx/kta-work/data/perfmodel/batches/r15b/build/protocol/bin",
+    "mem"
+   ],
+   "rc": 0,
+   "t0": 1793862150.2046945,
+   "s": 0.5
+  },
+  {
+   "step": "3r1-protocol-clock",
+   "cmd": [
+    "/home/memx/kta-work/data/perfmodel/batches/r15b/build/protocol/bin",
+    "clock"
+   ],
+   "rc": 0,
+   "t0": 1793862150.6964602,
+   "s": 0.6
+  },
+  {
+   "step": "3r1-protocol-fma",
+   "cmd": [
+    "/home/memx/kta-work/data/perfmodel/batches/r15b/build/protocol/bin",
+    "fma"
+   ],
+   "rc": 0,
+   "t0": 1793862151.3211439,
+   "s": 0.4
+  },
+  {
+   "step": "3r1-protocol-mem",
+   "cmd": [
+    "/home/memx/kta-work/data/perfmodel/batches/r15b/build/protocol/bin",
+    "mem"
+   ],
+   "rc": 0,
+   "t0": 1793862151.7343807,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-wl_m2240",
+   "cmd": [
+    "/home/memx/kta-work/data/perfmodel/batches/r15b/build/testset/wl_m2240/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793862152.2173452,
+   "s": 0.4
+  },
+  {
+   "step": "4r1-wl_m2080",
+   "cmd": [
+    "/home/memx/kta-work/data/perfmodel/batches/r15b/build/testset/wl_m2080/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793862152.6592128,
+   "s": 0.4
+  },
+  {
+   "step": "4r1-wl_m2040",
+   "cmd": [
+    "/home/memx/kta-work/data/perfmodel/batches/r15b/build/testset/wl_m2040/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793862153.094458,
+   "s": 0.4
+  },
+  {
+   "step": "4r1-wl_m2000",
+   "cmd": [
+    "/home/memx/kta-work/data/perfmodel/batches/r15b/build/testset/wl_m2000/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793862153.5270202,
+   "s": 0.4
+  },
+  {
+   "step": "4r1-wl_m1960",
+   "cmd": [
+    "/home/memx/kta-work/data/perfmodel/batches/r15b/build/testset/wl_m1960/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793862153.9574523,
+   "s": 0.4
+  },
+  {
+   "step": "4r1-wl_m1920",
+   "cmd": [
+    "/home/memx/kta-work/data/perfmodel/batches/r15b/build/testset/wl_m1920/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793862154.38774,
+   "s": 0.4
+  },
+  {
+   "step": "6r1-protocol-clock",
+   "cmd": [
+    "/home/memx/kta-work/data/perfmodel/batches/r15b/build/protocol/bin",
+    "clock"
+   ],
+   "rc": 0,
+   "t0": 1793862154.8155904,
+   "s": 0.6
+  },
+  {
+   "step": "6r1-protocol-fma",
+   "cmd": [
+    "/home/memx/kta-work/data/perfmodel/batches/r15b/build/protocol/bin",
+    "fma"
+   ],
+   "rc": 0,
+   "t0": 1793862155.4424453,
+   "s": 0.4
+  },
+  {
+   "step": "6r1-protocol-mem",
+   "cmd": [
+    "/home/memx/kta-work/data/perfmodel/batches/r15b/build/protocol/bin",
+    "mem"
+   ],
+   "rc": 0,
+   "t0": 1793862155.8572512,
+   "s": 0.5
+  },
+  {
+   "step": "3r2-protocol-clock",
+   "cmd": [
+    "/home/memx/kta-work/data/perfmodel/batches/r15b/build/protocol/bin",
+    "clock"
+   ],
+   "rc": 0,
+   "t0": 1793862156.346293,
+   "s": 0.6
+  },
+  {
+   "step": "3r2-protocol-fma",
+   "cmd": [
+    "/home/memx/kta-work/data/perfmodel/batches/r15b/build/protocol/bin",
+    "fma"
+   ],
+   "rc": 0,
+   "t0": 1793862156.958642,
+   "s": 0.4
+  },
+  {
+   "step": "3r2-protocol-mem",
+   "cmd": [
+    "/home/memx/kta-work/data/perfmodel/batches/r15b/build/protocol/bin",
+    "mem"
+   ],
+   "rc": 0,
+   "t0": 1793862157.377486,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-wl_m1920",
+   "cmd": [
+    "/home/memx/kta-work/data/perfmodel/batches/r15b/build/testset/wl_m1920/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793862157.8457284,
+   "s": 0.4
+  },
+  {
+   "step": "4r2-wl_m1960",
+   "cmd": [
+    "/home/memx/kta-work/data/perfmodel/batches/r15b/build/testset/wl_m1960/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793862158.2730436,
+   "s": 0.4
+  },
+  {
+   "step": "4r2-wl_m2000",
+   "cmd": [
+    "/home/memx/kta-work/data/perfmodel/batches/r15b/build/testset/wl_m2000/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793862158.701906,
+   "s": 0.4
+  },
+  {
+   "step": "4r2-wl_m2040",
+   "cmd": [
+    "/home/memx/kta-work/data/perfmodel/batches/r15b/build/testset/wl_m2040/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793862159.136167,
+   "s": 0.4
+  },
+  {
+   "step": "4r2-wl_m2080",
+   "cmd": [
+    "/home/memx/kta-work/data/perfmodel/batches/r15b/build/testset/wl_m2080/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793862159.575391,
+   "s": 0.4
+  },
+  {
+   "step": "4r2-wl_m2240",
+   "cmd": [
+    "/home/memx/kta-work/data/perfmodel/batches/r15b/build/testset/wl_m2240/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793862160.0152323,
+   "s": 0.4
+  },
+  {
+   "step": "6r2-protocol-clock",
+   "cmd": [
+    "/home/memx/kta-work/data/perfmodel/batches/r15b/build/protocol/bin",
+    "clock"
+   ],
+   "rc": 0,
+   "t0": 1793862160.4531944,
+   "s": 0.6
+  },
+  {
+   "step": "6r2-protocol-fma",
+   "cmd": [
+    "/home/memx/kta-work/data/perfmodel/batches/r15b/build/protocol/bin",
+    "fma"
+   ],
+   "rc": 0,
+   "t0": 1793862161.0239093,
+   "s": 0.4
+  },
+  {
+   "step": "6r2-protocol-mem",
+   "cmd": [
+    "/home/memx/kta-work/data/perfmodel/batches/r15b/build/protocol/bin",
+    "mem"
+   ],
+   "rc": 0,
+   "t0": 1793862161.4350898,
+   "s": 0.5
+  },
+  {
+   "step": "5-ncu-wl_m1920",
+   "cmd": [
+    "sudo",
+    "-n",
+    "/usr/local/cuda/bin/ncu",
+    "--csv",
+    "--page",
+    "raw",
+    "--metrics",
+    "smsp__inst_executed.sum,smsp__inst_executed_pipe_alu.sum,smsp__inst_executed_pipe_fma.sum,smsp__inst_executed_pipe_fmaheavy.sum,smsp__inst_executed_pipe_fmalite.sum,smsp__inst_executed_pipe_lsu.sum,smsp__inst_executed_pipe_tensor.sum,smsp__inst_executed_pipe_xu.sum,smsp__inst_executed_pipe_uniform.sum,smsp__inst_executed_pipe_cbu.sum,smsp__inst_executed_pipe_adu.sum,sm__pipe_tensor_cycles_active.sum,sm__pipe_fma_cycles_active.sum,sm__pipe_alu_cycles_active.sum,sm__pipe_fp64_cycles_active.sum,sm__pipe_tensor_subpipe_hmma_cycles_active.sum,sm__cycles_elapsed.max,l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum,l1tex__t_sectors_pipe_lsu_mem_global_op_st.sum,l1tex__data_pipe_lsu_wavefronts_mem_shared_op_ld.sum,l1tex__data_pipe_lsu_wavefronts_mem_shared_op_st.sum,lts__t_sectors_op_read.sum,lts__t_sectors_op_write.sum,lts__t_sector_hit_rate.pct,launch__grid_size,launch__block_size,launch__registers_per_thread,launch__shared_mem_per_block_dynamic,launch__occupancy_limit_registers,launch__occupancy_limit_shared_mem,sm__warps_active.avg.pct_of_peak_sustained_active,gpu__time_duration.sum",
+    "--cache-control",
+    "none",
+    "-k",
+    "regex:^smax_kernel$",
+    "--launch-skip",
+    "10",
+    "--launch-count",
+    "1",
+    "/home/memx/kta-work/data/perfmodel/batches/r15b/build/testset/wl_m1920/bin",
+    "1"
+   ],
+   "rc": 0,
+   "t0": 1793862161.910603,
+   "s": 1.8
+  },
+  {
+   "step": "5-ncu-wl_m1960",
+   "cmd": [
+    "sudo",
+    "-n",
+    "/usr/local/cuda/bin/ncu",
+    "--csv",
+    "--page",
+    "raw",
+    "--metrics",
+    "smsp__inst_executed.sum,smsp__inst_executed_pipe_alu.sum,smsp__inst_executed_pipe_fma.sum,smsp__inst_executed_pipe_fmaheavy.sum,smsp__inst_executed_pipe_fmalite.sum,smsp__inst_executed_pipe_lsu.sum,smsp__inst_executed_pipe_tensor.sum,smsp__inst_executed_pipe_xu.sum,smsp__inst_executed_pipe_uniform.sum,smsp__inst_executed_pipe_cbu.sum,smsp__inst_executed_pipe_adu.sum,sm__pipe_tensor_cycles_active.sum,sm__pipe_fma_cycles_active.sum,sm__pipe_alu_cycles_active.sum,sm__pipe_fp64_cycles_active.sum,sm__pipe_tensor_subpipe_hmma_cycles_active.sum,sm__cycles_elapsed.max,l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum,l1tex__t_sectors_pipe_lsu_mem_global_op_st.sum,l1tex__data_pipe_lsu_wavefronts_mem_shared_op_ld.sum,l1tex__data_pipe_lsu_wavefronts_mem_shared_op_st.sum,lts__t_sectors_op_read.sum,lts__t_sectors_op_write.sum,lts__t_sector_hit_rate.pct,launch__grid_size,launch__block_size,launch__registers_per_thread,launch__shared_mem_per_block_dynamic,launch__occupancy_limit_registers,launch__occupancy_limit_shared_mem,sm__warps_active.avg.pct_of_peak_sustained_active,gpu__time_duration.sum",
+    "--cache-control",
+    "none",
+    "-k",
+    "regex:^smax_kernel$",
+    "--launch-skip",
+    "10",
+    "--launch-count",
+    "1",
+    "/home/memx/kta-work/data/perfmodel/batches/r15b/build/testset/wl_m1960/bin",
+    "1"
+   ],
+   "rc": 0,
+   "t0": 1793862163.730534,
+   "s": 1.9
+  },
+  {
+   "step": "5-ncu-wl_m2000",
+   "cmd": [
+    "sudo",
+    "-n",
+    "/usr/local/cuda/bin/ncu",
+    "--csv",
+    "--page",
+    "raw",
+    "--metrics",
+    "smsp__inst_executed.sum,smsp__inst_executed_pipe_alu.sum,smsp__inst_executed_pipe_fma.sum,smsp__inst_executed_pipe_fmaheavy.sum,smsp__inst_executed_pipe_fmalite.sum,smsp__inst_executed_pipe_lsu.sum,smsp__inst_executed_pipe_tensor.sum,smsp__inst_executed_pipe_xu.sum,smsp__inst_executed_pipe_uniform.sum,smsp__inst_executed_pipe_cbu.sum,smsp__inst_executed_pipe_adu.sum,sm__pipe_tensor_cycles_active.sum,sm__pipe_fma_cycles_active.sum,sm__pipe_alu_cycles_active.sum,sm__pipe_fp64_cycles_active.sum,sm__pipe_tensor_subpipe_hmma_cycles_active.sum,sm__cycles_elapsed.max,l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum,l1tex__t_sectors_pipe_lsu_mem_global_op_st.sum,l1tex__data_pipe_lsu_wavefronts_mem_shared_op_ld.sum,l1tex__data_pipe_lsu_wavefronts_mem_shared_op_st.sum,lts__t_sectors_op_read.sum,lts__t_sectors_op_write.sum,lts__t_sector_hit_rate.pct,launch__grid_size,launch__block_size,launch__registers_per_thread,launch__shared_mem_per_block_dynamic,launch__occupancy_limit_registers,launch__occupancy_limit_shared_mem,sm__warps_active.avg.pct_of_peak_sustained_active,gpu__time_duration.sum",
+    "--cache-control",
+    "none",
+    "-k",
+    "regex:^smax_kernel$",
+    "--launch-skip",
+    "10",
+    "--launch-count",
+    "1",
+    "/home/memx/kta-work/data/perfmodel/batches/r15b/build/testset/wl_m2000/bin",
+    "1"
+   ],
+   "rc": 0,
+   "t0": 1793862165.625556,
+   "s": 1.9
+  },
+  {
+   "step": "5-ncu-wl_m2040",
+   "cmd": [
+    "sudo",
+    "-n",
+    "/usr/local/cuda/bin/ncu",
+    "--csv",
+    "--page",
+    "raw",
+    "--metrics",
+    "smsp__inst_executed.sum,smsp__inst_executed_pipe_alu.sum,smsp__inst_executed_pipe_fma.sum,smsp__inst_executed_pipe_fmaheavy.sum,smsp__inst_executed_pipe_fmalite.sum,smsp__inst_executed_pipe_lsu.sum,smsp__inst_executed_pipe_tensor.sum,smsp__inst_executed_pipe_xu.sum,smsp__inst_executed_pipe_uniform.sum,smsp__inst_executed_pipe_cbu.sum,smsp__inst_executed_pipe_adu.sum,sm__pipe_tensor_cycles_active.sum,sm__pipe_fma_cycles_active.sum,sm__pipe_alu_cycles_active.sum,sm__pipe_fp64_cycles_active.sum,sm__pipe_tensor_subpipe_hmma_cycles_active.sum,sm__cycles_elapsed.max,l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum,l1tex__t_sectors_pipe_lsu_mem_global_op_st.sum,l1tex__data_pipe_lsu_wavefronts_mem_shared_op_ld.sum,l1tex__data_pipe_lsu_wavefronts_mem_shared_op_st.sum,lts__t_sectors_op_read.sum,lts__t_sectors_op_write.sum,lts__t_sector_hit_rate.pct,launch__grid_size,launch__block_size,launch__registers_per_thread,launch__shared_mem_per_block_dynamic,launch__occupancy_limit_registers,launch__occupancy_limit_shared_mem,sm__warps_active.avg.pct_of_peak_sustained_active,gpu__time_duration.sum",
+    "--cache-control",
+    "none",
+    "-k",
+    "regex:^smax_kernel$",
+    "--launch-skip",
+    "10",
+    "--launch-count",
+    "1",
+    "/home/memx/kta-work/data/perfmodel/batches/r15b/build/testset/wl_m2040/bin",
+    "1"
+   ],
+   "rc": 0,
+   "t0": 1793862167.499764,
+   "s": 1.9
+  },
+  {
+   "step": "5-ncu-wl_m2080",
+   "cmd": [
+    "sudo",
+    "-n",
+    "/usr/local/cuda/bin/ncu",
+    "--csv",
+    "--page",
+    "raw",
+    "--metrics",
+    "smsp__inst_executed.sum,smsp__inst_executed_pipe_alu.sum,smsp__inst_executed_pipe_fma.sum,smsp__inst_executed_pipe_fmaheavy.sum,smsp__inst_executed_pipe_fmalite.sum,smsp__inst_executed_pipe_lsu.sum,smsp__inst_executed_pipe_tensor.sum,smsp__inst_executed_pipe_xu.sum,smsp__inst_executed_pipe_uniform.sum,smsp__inst_executed_pipe_cbu.sum,smsp__inst_executed_pipe_adu.sum,sm__pipe_tensor_cycles_active.sum,sm__pipe_fma_cycles_active.sum,sm__pipe_alu_cycles_active.sum,sm__pipe_fp64_cycles_active.sum,sm__pipe_tensor_subpipe_hmma_cycles_active.sum,sm__cycles_elapsed.max,l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum,l1tex__t_sectors_pipe_lsu_mem_global_op_st.sum,l1tex__data_pipe_lsu_wavefronts_mem_shared_op_ld.sum,l1tex__data_pipe_lsu_wavefronts_mem_shared_op_st.sum,lts__t_sectors_op_read.sum,lts__t_sectors_op_write.sum,lts__t_sector_hit_rate.pct,launch__grid_size,launch__block_size,launch__registers_per_thread,launch__shared_mem_per_block_dynamic,launch__occupancy_limit_registers,launch__occupancy_limit_shared_mem,sm__warps_active.avg.pct_of_peak_sustained_active,gpu__time_duration.sum",
+    "--cache-control",
+    "none",
+    "-k",
+    "regex:^smax_kernel$",
+    "--launch-skip",
+    "10",
+    "--launch-count",
+    "1",
+    "/home/memx/kta-work/data/perfmodel/batches/r15b/build/testset/wl_m2080/bin",
+    "1"
+   ],
+   "rc": 0,
+   "t0": 1793862169.363662,
+   "s": 1.9
+  },
+  {
+   "step": "5-ncu-wl_m2240",
+   "cmd": [
+    "sudo",
+    "-n",
+    "/usr/local/cuda/bin/ncu",
+    "--csv",
+    "--page",
+    "raw",
+    "--metrics",
+    "smsp__inst_executed.sum,smsp__inst_executed_pipe_alu.sum,smsp__inst_executed_pipe_fma.sum,smsp__inst_executed_pipe_fmaheavy.sum,smsp__inst_executed_pipe_fmalite.sum,smsp__inst_executed_pipe_lsu.sum,smsp__inst_executed_pipe_tensor.sum,smsp__inst_executed_pipe_xu.sum,smsp__inst_executed_pipe_uniform.sum,smsp__inst_executed_pipe_cbu.sum,smsp__inst_executed_pipe_adu.sum,sm__pipe_tensor_cycles_active.sum,sm__pipe_fma_cycles_active.sum,sm__pipe_alu_cycles_active.sum,sm__pipe_fp64_cycles_active.sum,sm__pipe_tensor_subpipe_hmma_cycles_active.sum,sm__cycles_elapsed.max,l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum,l1tex__t_sectors_pipe_lsu_mem_global_op_st.sum,l1tex__data_pipe_lsu_wavefronts_mem_shared_op_ld.sum,l1tex__data_pipe_lsu_wavefronts_mem_shared_op_st.sum,lts__t_sectors_op_read.sum,lts__t_sectors_op_write.sum,lts__t_sector_hit_rate.pct,launch__grid_size,launch__block_size,launch__registers_per_thread,launch__shared_mem_per_block_dynamic,launch__occupancy_limit_registers,launch__occupancy_limit_shared_mem,sm__warps_active.avg.pct_of_peak_sustained_active,gpu__time_duration.sum",
+    "--cache-control",
+    "none",
+    "-k",
+    "regex:^smax_kernel$",
+    "--launch-skip",
+    "10",
+    "--launch-count",
+    "1",
+    "/home/memx/kta-work/data/perfmodel/batches/r15b/build/testset/wl_m2240/bin",
+    "1"
+   ],
+   "rc": 0,
+   "t0": 1793862171.288549,
+   "s": 1.8
+  },
+  {
+   "step": "5x-ncu-wl_m1920",
+   "cmd": [
+    "sudo",
+    "-n",
+    "/usr/local/cuda/bin/ncu",
+    "--csv",
+    "--page",
+    "raw",
+    "--metrics",
+    "dram__bytes_read.sum,dram__bytes_write.sum,lts__t_sectors_lookup_hit.sum,lts__t_sectors_lookup_miss.sum",
+    "--cache-control",
+    "none",
+    "-k",
+    "regex:^smax_kernel$",
+    "--launch-skip",
+    "10",
+    "--launch-count",
+    "1",
+    "/home/memx/kta-work/data/perfmodel/batches/r15b/build/testset/wl_m1920/bin",
+    "1"
+   ],
+   "rc": 0,
+   "t0": 1793862173.128705,
+   "s": 1.8
+  },
+  {
+   "step": "5x-ncu-wl_m1960",
+   "cmd": [
+    "sudo",
+    "-n",
+    "/usr/local/cuda/bin/ncu",
+    "--csv",
+    "--page",
+    "raw",
+    "--metrics",
+    "dram__bytes_read.sum,dram__bytes_write.sum,lts__t_sectors_lookup_hit.sum,lts__t_sectors_lookup_miss.sum",
+    "--cache-control",
+    "none",
+    "-k",
+    "regex:^smax_kernel$",
+    "--launch-skip",
+    "10",
+    "--launch-count",
+    "1",
+    "/home/memx/kta-work/data/perfmodel/batches/r15b/build/testset/wl_m1960/bin",
+    "1"
+   ],
+   "rc": 0,
+   "t0": 1793862174.965244,
+   "s": 1.8
+  },
+  {
+   "step": "5x-ncu-wl_m2000",
+   "cmd": [
+    "sudo",
+    "-n",
+    "/usr/local/cuda/bin/ncu",
+    "--csv",
+    "--page",
+    "raw",
+    "--metrics",
+    "dram__bytes_read.sum,dram__bytes_write.sum,lts__t_sectors_lookup_hit.sum,lts__t_sectors_lookup_miss.sum",
+    "--cache-control",
+    "none",
+    "-k",
+    "regex:^smax_kernel$",
+    "--launch-skip",
+    "10",
+    "--launch-count",
+    "1",
+    "/home/memx/kta-work/data/perfmodel/batches/r15b/build/testset/wl_m2000/bin",
+    "1"
+   ],
+   "rc": 0,
+   "t0": 1793862176.7282572,
+   "s": 1.8
+  },
+  {
+   "step": "5x-ncu-wl_m2040",
+   "cmd": [
+    "sudo",
+    "-n",
+    "/usr/local/cuda/bin/ncu",
+    "--csv",
+    "--page",
+    "raw",
+    "--metrics",
+    "dram__bytes_read.sum,dram__bytes_write.sum,lts__t_sectors_lookup_hit.sum,lts__t_sectors_lookup_miss.sum",
+    "--cache-control",
+    "none",
+    "-k",
+    "regex:^smax_kernel$",
+    "--launch-skip",
+    "10",
+    "--launch-count",
+    "1",
+    "/home/memx/kta-work/data/perfmodel/batches/r15b/build/testset/wl_m2040/bin",
+    "1"
+   ],
+   "rc": 0,
+   "t0": 1793862178.4937382,
+   "s": 1.9
+  },
+  {
+   "step": "5x-ncu-wl_m2080",
+   "cmd": [
+    "sudo",
+    "-n",
+    "/usr/local/cuda/bin/ncu",
+    "--csv",
+    "--page",
+    "raw",
+    "--metrics",
+    "dram__bytes_read.sum,dram__bytes_write.sum,lts__t_sectors_lookup_hit.sum,lts__t_sectors_lookup_miss.sum",
+    "--cache-control",
+    "none",
+    "-k",
+    "regex:^smax_kernel$",
+    "--launch-skip",
+    "10",
+    "--launch-count",
+    "1",
+    "/home/memx/kta-work/data/perfmodel/batches/r15b/build/testset/wl_m2080/bin",
+    "1"
+   ],
+   "rc": 0,
+   "t0": 1793862180.3454964,
+   "s": 1.8
+  },
+  {
+   "step": "5x-ncu-wl_m2240",
+   "cmd": [
+    "sudo",
+    "-n",
+    "/usr/local/cuda/bin/ncu",
+    "--csv",
+    "--page",
+    "raw",
+    "--metrics",
+    "dram__bytes_read.sum,dram__bytes_write.sum,lts__t_sectors_lookup_hit.sum,lts__t_sectors_lookup_miss.sum",
+    "--cache-control",
+    "none",
+    "-k",
+    "regex:^smax_kernel$",
+    "--launch-skip",
+    "10",
+    "--launch-count",
+    "1",
+    "/home/memx/kta-work/data/perfmodel/batches/r15b/build/testset/wl_m2240/bin",
+    "1"
+   ],
+   "rc": 0,
+   "t0": 1793862182.1775217,
+   "s": 1.8
+  },
+  {
+   "step": "5u-ncu-wl_m1920",
+   "cmd": [
+    "sudo",
+    "-n",
+    "/usr/local/cuda/bin/ncu",
+    "--csv",
+    "--page",
+    "raw",
+    "--metrics",
+    "smsp__warps_issue_stalled_long_scoreboard.sum,smsp__warps_issue_stalled_short_scoreboard.sum,smsp__warps_issue_stalled_mio_throttle.sum,smsp__warps_issue_stalled_lg_throttle.sum,smsp__warps_issue_stalled_math_pipe_throttle.sum,smsp__warps_issue_stalled_wait.sum,smsp__warps_issue_stalled_barrier.sum,smsp__warps_issue_stalled_not_selected.sum,smsp__warps_issue_stalled_selected.sum,smsp__warps_issue_stalled_no_instruction.sum,smsp__warps_issue_stalled_drain.sum,smsp__warps_issue_stalled_dispatch_stall.sum,smsp__warps_issue_stalled_branch_resolving.sum,smsp__warps_issue_stalled_membar.sum,smsp__warps_issue_stalled_misc.sum,smsp__warps_active.sum,smsp__warps_eligible.sum,smsp__issue_active.sum,sm__pipe_fmaheavy_cycles_active.sum,sm__pipe_fmalite_cycles_active.sum,sm__cycles_active.sum",
+    "--cache-control",
+    "none",
+    "-k",
+    "regex:^smax_kernel$",
+    "--launch-skip",
+    "10",
+    "--launch-count",
+    "1",
+    "/home/memx/kta-work/data/perfmodel/batches/r15b/build/testset/wl_m1920/bin",
+    "1"
+   ],
+   "rc": 0,
+   "t0": 1793862183.9714055,
+   "s": 1.8
+  },
+  {
+   "step": "5v-ncu-wl_m1920",
+   "cmd": [
+    "sudo",
+    "-n",
+    "/usr/local/cuda/bin/ncu",
+    "--csv",
+    "--page",
+    "raw",
+    "--metrics",
+    "l1tex__m_l1tex2xbar_req_cycles_active.sum,l1tex__m_l1tex2xbar_req_cycles_stalled.sum,l1tex__m_xbar2l1tex_read_bytes_pipe_lsu.sum,l1tex__lsu_writeback_active.sum,l1tex__data_bank_conflicts_pipe_lsu_mem_shared.sum,sm__mio2rf_writeback_active.sum,sm__mio_pq_read_cycles_active.sum,sm__mio_pq_write_cycles_active.sum,sm__inst_pending_pipe_lsu_mem_lg_cmd_read.sum,sm__inst_pending_pipe_lsu_mem_shared_cmd_read.sum,lts__xbar2lts_cycles_active.sum,lts__lts2xbar_cycles_active.sum",
+    "--cache-control",
+    "none",
+    "-k",
+    "regex:^smax_kernel$",
+    "--launch-skip",
+    "10",
+    "--launch-count",
+    "1",
+    "/home/memx/kta-work/data/perfmodel/batches/r15b/build/testset/wl_m1920/bin",
+    "1"
+   ],
+   "rc": 0,
+   "t0": 1793862185.8005493,
+   "s": 1.9
+  },
+  {
+   "step": "5u-ncu-wl_m1960",
+   "cmd": [
+    "sudo",
+    "-n",
+    "/usr/local/cuda/bin/ncu",
+    "--csv",
+    "--page",
+    "raw",
+    "--metrics",
+    "smsp__warps_issue_stalled_long_scoreboard.sum,smsp__warps_issue_stalled_short_scoreboard.sum,smsp__warps_issue_stalled_mio_throttle.sum,smsp__warps_issue_stalled_lg_throttle.sum,smsp__warps_issue_stalled_math_pipe_throttle.sum,smsp__warps_issue_stalled_wait.sum,smsp__warps_issue_stalled_barrier.sum,smsp__warps_issue_stalled_not_selected.sum,smsp__warps_issue_stalled_selected.sum,smsp__warps_issue_stalled_no_instruction.sum,smsp__warps_issue_stalled_drain.sum,smsp__warps_issue_stalled_dispatch_stall.sum,smsp__warps_issue_stalled_branch_resolving.sum,smsp__warps_issue_stalled_membar.sum,smsp__warps_issue_stalled_misc.sum,smsp__warps_active.sum,smsp__warps_eligible.sum,smsp__issue_active.sum,sm__pipe_fmaheavy_cycles_active.sum,sm__pipe_fmalite_cycles_active.sum,sm__cycles_active.sum",
+    "--cache-control",
+    "none",
+    "-k",
+    "regex:^smax_kernel$",
+    "--launch-skip",
+    "10",
+    "--launch-count",
+    "1",
+    "/home/memx/kta-work/data/perfmodel/batches/r15b/build/testset/wl_m1960/bin",
+    "1"
+   ],
+   "rc": 0,
+   "t0": 1793862187.6768727,
+   "s": 1.9
+  },
+  {
+   "step": "5v-ncu-wl_m1960",
+   "cmd": [
+    "sudo",
+    "-n",
+    "/usr/local/cuda/bin/ncu",
+    "--csv",
+    "--page",
+    "raw",
+    "--metrics",
+    "l1tex__m_l1tex2xbar_req_cycles_active.sum,l1tex__m_l1tex2xbar_req_cycles_stalled.sum,l1tex__m_xbar2l1tex_read_bytes_pipe_lsu.sum,l1tex__lsu_writeback_active.sum,l1tex__data_bank_conflicts_pipe_lsu_mem_shared.sum,sm__mio2rf_writeback_active.sum,sm__mio_pq_read_cycles_active.sum,sm__mio_pq_write_cycles_active.sum,sm__inst_pending_pipe_lsu_mem_lg_cmd_read.sum,sm__inst_pending_pipe_lsu_mem_shared_cmd_read.sum,lts__xbar2lts_cycles_active.sum,lts__lts2xbar_cycles_active.sum",
+    "--cache-control",
+    "none",
+    "-k",
+    "regex:^smax_kernel$",
+    "--launch-skip",
+    "10",
+    "--launch-count",
+    "1",
+    "/home/memx/kta-work/data/perfmodel/batches/r15b/build/testset/wl_m1960/bin",
+    "1"
+   ],
+   "rc": 0,
+   "t0": 1793862189.5447574,
+   "s": 1.9
+  },
+  {
+   "step": "5u-ncu-wl_m2000",
+   "cmd": [
+    "sudo",
+    "-n",
+    "/usr/local/cuda/bin/ncu",
+    "--csv",
+    "--page",
+    "raw",
+    "--metrics",
+    "smsp__warps_issue_stalled_long_scoreboard.sum,smsp__warps_issue_stalled_short_scoreboard.sum,smsp__warps_issue_stalled_mio_throttle.sum,smsp__warps_issue_stalled_lg_throttle.sum,smsp__warps_issue_stalled_math_pipe_throttle.sum,smsp__warps_issue_stalled_wait.sum,smsp__warps_issue_stalled_barrier.sum,smsp__warps_issue_stalled_not_selected.sum,smsp__warps_issue_stalled_selected.sum,smsp__warps_issue_stalled_no_instruction.sum,smsp__warps_issue_stalled_drain.sum,smsp__warps_issue_stalled_dispatch_stall.sum,smsp__warps_issue_stalled_branch_resolving.sum,smsp__warps_issue_stalled_membar.sum,smsp__warps_issue_stalled_misc.sum,smsp__warps_active.sum,smsp__warps_eligible.sum,smsp__issue_active.sum,sm__pipe_fmaheavy_cycles_active.sum,sm__pipe_fmalite_cycles_active.sum,sm__cycles_active.sum",
+    "--cache-control",
+    "none",
+    "-k",
+    "regex:^smax_kernel$",
+    "--launch-skip",
+    "10",
+    "--launch-count",
+    "1",
+    "/home/memx/kta-work/data/perfmodel/batches/r15b/build/testset/wl_m2000/bin",
+    "1"
+   ],
+   "rc": 0,
+   "t0": 1793862191.4086454,
+   "s": 1.9
+  },
+  {
+   "step": "5v-ncu-wl_m2000",
+   "cmd": [
+    "sudo",
+    "-n",
+    "/usr/local/cuda/bin/ncu",
+    "--csv",
+    "--page",
+    "raw",
+    "--metrics",
+    "l1tex__m_l1tex2xbar_req_cycles_active.sum,l1tex__m_l1tex2xbar_req_cycles_stalled.sum,l1tex__m_xbar2l1tex_read_bytes_pipe_lsu.sum,l1tex__lsu_writeback_active.sum,l1tex__data_bank_conflicts_pipe_lsu_mem_shared.sum,sm__mio2rf_writeback_active.sum,sm__mio_pq_read_cycles_active.sum,sm__mio_pq_write_cycles_active.sum,sm__inst_pending_pipe_lsu_mem_lg_cmd_read.sum,sm__inst_pending_pipe_lsu_mem_shared_cmd_read.sum,lts__xbar2lts_cycles_active.sum,lts__lts2xbar_cycles_active.sum",
+    "--cache-control",
+    "none",
+    "-k",
+    "regex:^smax_kernel$",
+    "--launch-skip",
+    "10",
+    "--launch-count",
+    "1",
+    "/home/memx/kta-work/data/perfmodel/batches/r15b/build/testset/wl_m2000/bin",
+    "1"
+   ],
+   "rc": 0,
+   "t0": 1793862193.2786365,
+   "s": 1.8
+  },
+  {
+   "step": "5u-ncu-wl_m2040",
+   "cmd": [
+    "sudo",
+    "-n",
+    "/usr/local/cuda/bin/ncu",
+    "--csv",
+    "--page",
+    "raw",
+    "--metrics",
+    "smsp__warps_issue_stalled_long_scoreboard.sum,smsp__warps_issue_stalled_short_scoreboard.sum,smsp__warps_issue_stalled_mio_throttle.sum,smsp__warps_issue_stalled_lg_throttle.sum,smsp__warps_issue_stalled_math_pipe_throttle.sum,smsp__warps_issue_stalled_wait.sum,smsp__warps_issue_stalled_barrier.sum,smsp__warps_issue_stalled_not_selected.sum,smsp__warps_issue_stalled_selected.sum,smsp__warps_issue_stalled_no_instruction.sum,smsp__warps_issue_stalled_drain.sum,smsp__warps_issue_stalled_dispatch_stall.sum,smsp__warps_issue_stalled_branch_resolving.sum,smsp__warps_issue_stalled_membar.sum,smsp__warps_issue_stalled_misc.sum,smsp__warps_active.sum,smsp__warps_eligible.sum,smsp__issue_active.sum,sm__pipe_fmaheavy_cycles_active.sum,sm__pipe_fmalite_cycles_active.sum,sm__cycles_active.sum",
+    "--cache-control",
+    "none",
+    "-k",
+    "regex:^smax_kernel$",
+    "--launch-skip",
+    "10",
+    "--launch-count",
+    "1",
+    "/home/memx/kta-work/data/perfmodel/batches/r15b/build/testset/wl_m2040/bin",
+    "1"
+   ],
+   "rc": 0,
+   "t0": 1793862195.1274679,
+   "s": 1.8
+  },
+  {
+   "step": "5v-ncu-wl_m2040",
+   "cmd": [
+    "sudo",
+    "-n",
+    "/usr/local/cuda/bin/ncu",
+    "--csv",
+    "--page",
+    "raw",
+    "--metrics",
+    "l1tex__m_l1tex2xbar_req_cycles_active.sum,l1tex__m_l1tex2xbar_req_cycles_stalled.sum,l1tex__m_xbar2l1tex_read_bytes_pipe_lsu.sum,l1tex__lsu_writeback_active.sum,l1tex__data_bank_conflicts_pipe_lsu_mem_shared.sum,sm__mio2rf_writeback_active.sum,sm__mio_pq_read_cycles_active.sum,sm__mio_pq_write_cycles_active.sum,sm__inst_pending_pipe_lsu_mem_lg_cmd_read.sum,sm__inst_pending_pipe_lsu_mem_shared_cmd_read.sum,lts__xbar2lts_cycles_active.sum,lts__lts2xbar_cycles_active.sum",
+    "--cache-control",
+    "none",
+    "-k",
+    "regex:^smax_kernel$",
+    "--launch-skip",
+    "10",
+    "--launch-count",
+    "1",
+    "/home/memx/kta-work/data/perfmodel/batches/r15b/build/testset/wl_m2040/bin",
+    "1"
+   ],
+   "rc": 0,
+   "t0": 1793862196.9384944,
+   "s": 1.8
+  },
+  {
+   "step": "5u-ncu-wl_m2080",
+   "cmd": [
+    "sudo",
+    "-n",
+    "/usr/local/cuda/bin/ncu",
+    "--csv",
+    "--page",
+    "raw",
+    "--metrics",
+    "smsp__warps_issue_stalled_long_scoreboard.sum,smsp__warps_issue_stalled_short_scoreboard.sum,smsp__warps_issue_stalled_mio_throttle.sum,smsp__warps_issue_stalled_lg_throttle.sum,smsp__warps_issue_stalled_math_pipe_throttle.sum,smsp__warps_issue_stalled_wait.sum,smsp__warps_issue_stalled_barrier.sum,smsp__warps_issue_stalled_not_selected.sum,smsp__warps_issue_stalled_selected.sum,smsp__warps_issue_stalled_no_instruction.sum,smsp__warps_issue_stalled_drain.sum,smsp__warps_issue_stalled_dispatch_stall.sum,smsp__warps_issue_stalled_branch_resolving.sum,smsp__warps_issue_stalled_membar.sum,smsp__warps_issue_stalled_misc.sum,smsp__warps_active.sum,smsp__warps_eligible.sum,smsp__issue_active.sum,sm__pipe_fmaheavy_cycles_active.sum,sm__pipe_fmalite_cycles_active.sum,sm__cycles_active.sum",
+    "--cache-control",
+    "none",
+    "-k",
+    "regex:^smax_kernel$",
+    "--launch-skip",
+    "10",
+    "--launch-count",
+    "1",
+    "/home/memx/kta-work/data/perfmodel/batches/r15b/build/testset/wl_m2080/bin",
+    "1"
+   ],
+   "rc": 0,
+   "t0": 1793862198.7359047,
+   "s": 1.8
+  },
+  {
+   "step": "5v-ncu-wl_m2080",
+   "cmd": [
+    "sudo",
+    "-n",
+    "/usr/local/cuda/bin/ncu",
+    "--csv",
+    "--page",
+    "raw",
+    "--metrics",
+    "l1tex__m_l1tex2xbar_req_cycles_active.sum,l1tex__m_l1tex2xbar_req_cycles_stalled.sum,l1tex__m_xbar2l1tex_read_bytes_pipe_lsu.sum,l1tex__lsu_writeback_active.sum,l1tex__data_bank_conflicts_pipe_lsu_mem_shared.sum,sm__mio2rf_writeback_active.sum,sm__mio_pq_read_cycles_active.sum,sm__mio_pq_write_cycles_active.sum,sm__inst_pending_pipe_lsu_mem_lg_cmd_read.sum,sm__inst_pending_pipe_lsu_mem_shared_cmd_read.sum,lts__xbar2lts_cycles_active.sum,lts__lts2xbar_cycles_active.sum",
+    "--cache-control",
+    "none",
+    "-k",
+    "regex:^smax_kernel$",
+    "--launch-skip",
+    "10",
+    "--launch-count",
+    "1",
+    "/home/memx/kta-work/data/perfmodel/batches/r15b/build/testset/wl_m2080/bin",
+    "1"
+   ],
+   "rc": 0,
+   "t0": 1793862200.5801609,
+   "s": 1.9
+  },
+  {
+   "step": "5u-ncu-wl_m2240",
+   "cmd": [
+    "sudo",
+    "-n",
+    "/usr/local/cuda/bin/ncu",
+    "--csv",
+    "--page",
+    "raw",
+    "--metrics",
+    "smsp__warps_issue_stalled_long_scoreboard.sum,smsp__warps_issue_stalled_short_scoreboard.sum,smsp__warps_issue_stalled_mio_throttle.sum,smsp__warps_issue_stalled_lg_throttle.sum,smsp__warps_issue_stalled_math_pipe_throttle.sum,smsp__warps_issue_stalled_wait.sum,smsp__warps_issue_stalled_barrier.sum,smsp__warps_issue_stalled_not_selected.sum,smsp__warps_issue_stalled_selected.sum,smsp__warps_issue_stalled_no_instruction.sum,smsp__warps_issue_stalled_drain.sum,smsp__warps_issue_stalled_dispatch_stall.sum,smsp__warps_issue_stalled_branch_resolving.sum,smsp__warps_issue_stalled_membar.sum,smsp__warps_issue_stalled_misc.sum,smsp__warps_active.sum,smsp__warps_eligible.sum,smsp__issue_active.sum,sm__pipe_fmaheavy_cycles_active.sum,sm__pipe_fmalite_cycles_active.sum,sm__cycles_active.sum",
+    "--cache-control",
+    "none",
+    "-k",
+    "regex:^smax_kernel$",
+    "--launch-skip",
+    "10",
+    "--launch-count",
+    "1",
+    "/home/memx/kta-work/data/perfmodel/batches/r15b/build/testset/wl_m2240/bin",
+    "1"
+   ],
+   "rc": 0,
+   "t0": 1793862202.4648108,
+   "s": 1.9
+  },
+  {
+   "step": "5v-ncu-wl_m2240",
+   "cmd": [
+    "sudo",
+    "-n",
+    "/usr/local/cuda/bin/ncu",
+    "--csv",
+    "--page",
+    "raw",
+    "--metrics",
+    "l1tex__m_l1tex2xbar_req_cycles_active.sum,l1tex__m_l1tex2xbar_req_cycles_stalled.sum,l1tex__m_xbar2l1tex_read_bytes_pipe_lsu.sum,l1tex__lsu_writeback_active.sum,l1tex__data_bank_conflicts_pipe_lsu_mem_shared.sum,sm__mio2rf_writeback_active.sum,sm__mio_pq_read_cycles_active.sum,sm__mio_pq_write_cycles_active.sum,sm__inst_pending_pipe_lsu_mem_lg_cmd_read.sum,sm__inst_pending_pipe_lsu_mem_shared_cmd_read.sum,lts__xbar2lts_cycles_active.sum,lts__lts2xbar_cycles_active.sum",
+    "--cache-control",
+    "none",
+    "-k",
+    "regex:^smax_kernel$",
+    "--launch-skip",
+    "10",
+    "--launch-count",
+    "1",
+    "/home/memx/kta-work/data/perfmodel/batches/r15b/build/testset/wl_m2240/bin",
+    "1"
+   ],
+   "rc": 0,
+   "t0": 1793862204.3333344,
+   "s": 1.9
+  },
+  {
+   "step": "1-env-after-smi",
+   "cmd": [
+    "nvidia-smi",
+    "-q",
+    "-d",
+    "CLOCK,TEMPERATURE,POWER,PERFORMANCE"
+   ],
+   "rc": 0,
+   "t0": 1793862206.1939955,
+   "s": 0.1
+  },
+  {
+   "step": "1-env-after-apps",
+   "cmd": [
+    "nvidia-smi",
+    "--query-compute-apps=pid,process_name",
+    "--format=csv,noheader"
+   ],
+   "rc": 0,
+   "t0": 1793862206.258305,
+   "s": 0.0
+  },
+  {
+   "step": "1-env-after-uptime",
+   "cmd": [
+    "uptime"
+   ],
+   "rc": 0,
+   "t0": 1793862206.277591,
+   "s": 0.0
+  }
+ ],
+ "not_owned_by_user": "",
+ "raw": "data/perfmodel/batches/r15b",
+ "invalid_cases": {}
+}
