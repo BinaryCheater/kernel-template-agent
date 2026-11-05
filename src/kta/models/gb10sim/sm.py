@@ -365,6 +365,7 @@ class SM:
             w.nldg = 0
             if self.lane_track:
                 w.lanes = Lanes(w.tid0, bd, self.const_bank)  # type: ignore[arg-type]
+                w.lanes.spill = self.P["lanes_through_stack"]
         self.events = []  # (time, seq, kind, warp, arg)
         # round 13 (atb_*): a uniform address: the compiler has one lane carry the warp's sum
         self.atomic_reduced = any(x.base in ("REDUX", "UFLO") for x in ins)
@@ -385,7 +386,10 @@ class SM:
         if addr is None:
             if last is None or last[2] is None:
                 return None
-            addr = (last[0], tuple((o + d) & 0xFFFFFFFF for o, d in zip(last[1], last[2], strict=True)))
+            addr = (
+                last[0],
+                tuple((o + d) & 0xFFFFFFFF for o, d in zip(last[1], last[2], strict=True)),
+            )
             self.ldg_last[k] = (*addr, last[2])
             return addr
         d = None
@@ -1378,6 +1382,14 @@ class SM:
         cold = chip_stack > self.m.C["l2_effective_bytes"]
         if x.base == "STL":
             rate = P["local_chip_B_per_clk"]
+            if P["stack_counts_dirty"]:
+                # round 18 (sp_*): frames written through a launch add to the kernel's stores:
+                # past the dirty limit they leave at the DRAM's write rate, from the first frame
+                nb = min(32, self.launch_threads // (self.grid_blocks or 1)) * width_of(x.op)
+                frames = self.stack_bytes * self.launch_threads
+                if frames + (self.write_footprint or 0) > P["stg_dirty_bytes"]:
+                    cold = True
+                    hit = False
             reg = re.search(r"\[(R\d+)", x.args)
             val = w.lanes.get(reg[1], w.vals) if reg and w.lanes is not None else None
             if val is not None and not w.lanes.uniform(val):

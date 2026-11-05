@@ -220,11 +220,22 @@ _l2_cache: dict[tuple, Any] = {}
 def _l2_replay(ins: list[Ins], L: dict[str, Any], trips: int, in_flight: int, m: Machine) -> Any:
     cap, burst = m.C["l2_effective_bytes"], m.P["dram_burst_bytes"]
     edge = m.P["dram_burst_edge"]
-    key = (L["entry"], json.dumps(L, sort_keys=True), len(ins), trips, in_flight, cap, burst, edge)
+    one = m.P["dram_twins_one_warp"] and L["threads"] <= 32
+    key = (
+        L["entry"],
+        json.dumps(L, sort_keys=True),
+        len(ins),
+        trips,
+        in_flight,
+        cap,
+        burst,
+        edge,
+        one,
+    )
     if key not in _l2_cache:
         block = tuple(L.get("block", [L["threads"]]))
         acc = walk(ins, L["threads"], trips, tuple(L["grid"]), block, m, grid_bank(L))
-        _l2_cache[key] = replay_walk(acc, in_flight, cap, burst, edge)
+        _l2_cache[key] = replay_walk(acc, in_flight, cap, burst, edge, one)
     return _l2_cache[key]
 
 

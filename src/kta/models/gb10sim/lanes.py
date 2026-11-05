@@ -195,6 +195,8 @@ class Lanes:
         self.wide: Val | None = None  # round 15: the high half `_eval` just computed, if any
         self.why: dict[str, str] = {}  # round 15: unknown register -> the opcode that broke it
         self.sym_op: dict[int, str] = {}  # round 15: fresh symbol -> the opcode that made it
+        self.spill = False  # round 18: values follow the compiler's spills through the stack
+        self.stack: dict[str, tuple[Val | None, Val | None]] = {}
 
     # --- operands ---------------------------------------------------------------------------
     def get(self, tok: str, vals: dict[str, Any]) -> Val | None:
@@ -246,6 +248,9 @@ class Lanes:
         elif base in CARRY_DEST and len(args) > 2 and args[1][0] == "P":  # a carry out
             self.p.pop(args[1], None)
             self.p.pop(args[2], None)
+        if self.spill and runs is not False and base in ("STL", "LDL"):
+            if self._spill(base, op, args, vals):
+                return None
         if base in NO_DEST or not args or not _REG.match(args[0]):
             return None
         d = args[0]
@@ -320,6 +325,30 @@ class Lanes:
             if sym[0] == "u" and len(sym) == 3:
                 return ("opaque", self.sym_op.get(sym[2], "?"))
         return None
+
+    def _spill(self, base: str, op: str, args: tuple[str, ...], vals: dict[str, Any]) -> bool:
+        """A store to or load from a fixed slot of the frame (`[R1+0x8]`): the compiler's spills.
+        True when the load found its value."""
+        slot, reg = (args[0], args[1]) if base == "STL" else (args[1], args[0])
+        r = re.match(r"^R(\d+)$", reg)
+        if not r or not slot.startswith("[R1+"):
+            return False
+        hi = f"R{int(r.group(1)) + 1}"
+        if base == "STL":
+            wide = self.get(hi, vals) if ".64" in op else None
+            self.stack[slot] = (self.get(reg, vals), wide)
+            return False
+        got = self.stack.get(slot)
+        if got is None or got[0] is None:
+            return False
+        self.v[reg] = got[0]
+        self.unknown.discard(reg)
+        self.loaded.discard(reg)
+        if ".64" in op and got[1] is not None:
+            self.v[hi] = got[1]
+            self.unknown.discard(hi)
+            self.loaded.discard(hi)
+        return True
 
     def lanes_of(self, tok: str) -> tuple[bool, ...] | None:
         """The 32 lanes of a predicate token (`P1`, `!P1`, `@!P1`), when known."""

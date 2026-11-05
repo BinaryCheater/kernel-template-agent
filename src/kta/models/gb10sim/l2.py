@@ -364,7 +364,12 @@ def _burst_cost(asked: dict[int, set], burst: int, edge: float) -> float:
 
 
 def replay_walk(
-    acc: Access, in_flight: int, cap: float, burst: int = 0, edge: float = 1.0
+    acc: Access,
+    in_flight: int,
+    cap: float,
+    burst: int = 0,
+    edge: float = 1.0,
+    one_warp: bool = False,
 ) -> Replay:
     """`acc`'s blocks in launch order, `in_flight` at a time, through one `Cache`. `burst`: the
     DRAM's burst in bytes (round 16): sectors of one burst asked by one instruction share it, a
@@ -457,7 +462,7 @@ def replay_walk(
                 r_pc[pc] = r_pc.get(pc, 0.0) + LINE
                 p[0] += LINE
                 missed.append(key)
-                asked.setdefault(pc, set()).add(key)
+                asked.setdefault(0 if one_warp else pc, set()).add(key)
         burst_bytes[-1] += (
             _burst_cost(asked, burst, edge) if burst else sum(map(len, asked.values())) * LINE
         )

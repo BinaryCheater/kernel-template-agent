@@ -149,3 +149,8 @@
 {"date": "2026-11-05T10:26:28Z", "round": 18, "mode": "override", "commit": "177d93fc6daf", "dirty": true, "rows": 9, "replayed": 9, "cpu_s": 34.5, "wall_s": 11.4, "jobs": 6}
 {"date": "2026-11-05T10:27:06Z", "round": 18, "mode": "override", "commit": "177d93fc6daf", "dirty": true, "rows": 44, "replayed": 35, "cpu_s": 80.0, "wall_s": 17.9, "jobs": 6}
 {"date": "2026-11-05T10:38:09Z", "round": 18, "mode": "predict", "commit": "d7f62be18945", "dirty": false, "rows": 395, "replayed": 145, "cpu_s": 1414.3, "wall_s": 237.1, "jobs": 6}
+{"date": "2026-11-05T10:39:53Z", "round": 18, "mode": "scratch", "commit": "wip", "dirty": true, "rows": 10, "replayed": 10, "cpu_s": 20.0, "wall_s": 3.3333333333333335, "jobs": 6, "note": "address walk of five rows"}
+{"date": "2026-11-05T10:41:22Z", "round": 18, "mode": "scratch", "commit": "wip", "dirty": true, "rows": 2, "replayed": 2, "cpu_s": 30.0, "wall_s": 5.0, "jobs": 6, "note": "address walk fa17 t64 with stack tracking"}
+{"date": "2026-11-05T10:51:05Z", "round": 18, "mode": "scratch", "commit": "wip", "dirty": true, "rows": 8, "replayed": 8, "cpu_s": 12.0, "wall_s": 2.0, "jobs": 6, "note": "address walk of decode rows"}
+{"date": "2026-11-05T10:52:14Z", "round": 18, "mode": "scratch", "commit": "wip", "dirty": true, "rows": 2, "replayed": 2, "cpu_s": 6.0, "wall_s": 1.0, "jobs": 6, "note": "two replays with stack stats"}
+{"date": "2026-11-05T10:53:24Z", "round": 18, "mode": "selection", "commit": "f5aae9859269", "dirty": true, "rows": 13, "replayed": 13, "cpu_s": 36.9, "wall_s": 10.9, "jobs": 6}

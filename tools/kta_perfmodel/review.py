@@ -113,7 +113,9 @@ def report(round_no: int) -> str:
     off = lambda n: not n.startswith("hgemm")  # noqa: E731
     al = lambda _: True  # noqa: E731
     nog = lambda n: off(n) and not _warm_gemv(n)  # noqa: E731
-    out = [f"Round {round_no}, blind, first scores of {len(kernels)} kernel rows; {_batches(round_no)}"]
+    out = [
+        f"Round {round_no}, blind, first scores of {len(kernels)} kernel rows; {_batches(round_no)}"
+    ]
     for name, a, b, sel in (
         ("Pairs ≥ 3 % right, all", "pairs_right", "pairs", al),
         ("  HGEMM", "pairs_right", "pairs", hg),

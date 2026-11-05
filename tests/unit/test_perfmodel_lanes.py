@@ -85,3 +85,31 @@ def test_gap_names_the_opcode_that_broke_the_chain() -> None:
     )
     addr = ls.address("[R6.64]", {})
     assert addr is None and ls.address_gap("[R6.64]", addr) == ("unknown", "LDG.E")
+
+
+def test_a_spilled_value_comes_back_through_the_frame() -> None:
+    ls = lanes()
+    ls.spill = True
+    tid(ls)
+    run(
+        ls,
+        ("STL", "STL", ("[R1+0x8]", "R0")),
+        ("LDG", "LDG.E", ("R0", "desc[UR6][R4.64]")),
+        ("LDL", "LDL", ("R0", "[R1+0x8]")),
+    )
+    assert ls.get("R0", {}) == ((), tuple(range(32)))
+
+
+def test_without_the_frame_a_reload_is_unknown() -> None:
+    ls = lanes()
+    tid(ls)
+    run(ls, ("STL", "STL", ("[R1+0x8]", "R0")), ("LDL", "LDL", ("R0", "[R1+0x8]")))
+    assert ls.get("R0", {}) is None
+
+
+def test_a_slot_indexed_by_another_register_is_not_a_spill() -> None:
+    ls = lanes()
+    ls.spill = True
+    tid(ls)
+    run(ls, ("STL", "STL", ("[R5+0x8]", "R0")), ("LDL", "LDL", ("R0", "[R5+0x8]")))
+    assert ls.get("R0", {}) is None

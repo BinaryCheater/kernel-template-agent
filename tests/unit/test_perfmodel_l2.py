@@ -31,6 +31,17 @@ def test_reuse_shows_per_load_instruction() -> None:
     assert r.footprint == r.reads
 
 
+def test_one_unknown_execution_is_a_part_of_its_load() -> None:
+    # round 18: GEMV's last pass, guarded per lane: seven known executions of pc 1, one unknown
+    known = [
+        Load(0, 1, i, -1, 4, ((("c", 0, 1), 1),), tuple(j * 32 + i << 16 for j in range(32)), shift=[{0: 0}, {0: 0}, {0: 0}])
+        for i in range(7)
+    ]  # fmt: skip
+    lost = Load(0, 1, 7, -1, 4, None, None, shift=[{0: None}, {0: 0}, {0: 0}])
+    r = replay_walk(Access(1, (1, 1, 1), [*known, lost]), 1, 1e9)
+    assert r.loose_share[1] == 1 / 8
+
+
 def test_warm_curve_is_flat_below_capacity_and_high_above() -> None:
     assert warm_miss(8 * 2**20) < 0.05 < 0.8 < warm_miss(40 * 2**20)
 
