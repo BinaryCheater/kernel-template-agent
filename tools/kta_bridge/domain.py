@@ -58,12 +58,7 @@ def smem_of(family: str, x: dict) -> int:
 
 def regs_estimate(family: str, x: dict) -> int:
     """Fragments on registers plus a constant, from earlier compile records."""
-    if family == "hgemm":
-        return min(255, int(x["BM"] * x["BN"] / x["T"] + 62))
-    d = FA_SHAPE["D"]
-    r = -61.5 + 4.09 * x["BM"] * x["BN"] / x["T"] + 1.87 * x["BM"] * d / x["T"]
-    r += 87.5 * (x["s"] >= 2) + 45.9 * (x["s"] >= 3)
-    return min(255, int(r))
+    return int(forms.need_estimate(family, FA_SHAPE, x))
 
 
 def name_of(family: str, x: dict, cache: str, prefix: str = "lp1") -> str:

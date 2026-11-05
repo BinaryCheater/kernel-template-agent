@@ -4333,7 +4333,7 @@ def _search(out: Path) -> None:
             x, cache = r["x"], r["cache"]
             try:
                 if r["family"] == "moe_nvfp4":
-                    sh = {"E": 6, "T": 5760, "N": 1536, "K": 2048}
+                    sh = r.get("shape", {"E": 6, "T": 5760, "N": 1536, "K": 2048})
                     E, T_, N, K = sh["E"], sh["T"], sh["N"], sh["K"]
                     bm, bn, bk, st, th = x["BM"], x["BN"], x["BK"], x["s"], x["T"]
                     info = {
@@ -4341,7 +4341,7 @@ def _search(out: Path) -> None:
                         "shape": sh,
                         "pick": _pick(bm, bn, bk, st, th),
                         "cache": cache,
-                        "set": f"lp2 moe_nvfp4 {cache}",
+                        "set": r.get("set", f"lp2 moe_nvfp4 {cache}"),
                     }
                     sizes = [T_ * K, E * N * K // 2, E * N * K // NVFP4_BLOCK, T_ * N]
                     func = moe_nvfp4(E, T_, N, K, bm, bn, bk, st, th)
@@ -4350,13 +4350,14 @@ def _search(out: Path) -> None:
                     grid = _tiles(T_, N, bm, bn)
                     write(out, r["name"], func, sizes, grid, th, info, [2, 1, 2, 2], rot=rot)
                 elif r["family"] == "hgemm":
-                    sh = {"M": 2816, "N": 1760, "K": 2112}
+                    sh = r.get("shape", {"M": 2816, "N": 1760, "K": 2112})
                     tile = (x["BM"], x["BN"], x["BK"], x["s"], x["T"], 0)
-                    _hgemm(out, r["name"], tile, sh, cache, set=f"lp1 hgemm {cache}")
+                    label = r.get("set", f"lp1 hgemm {cache}")
+                    _hgemm(out, r["name"], tile, sh, cache, set=label)
                 else:
-                    f = {"B": 1, "S": 1920, "H": 9, "D": 112}
+                    f = dict(r.get("shape", {"B": 1, "S": 1920, "H": 9, "D": 112}))
                     f |= {"BM": x["BM"], "BN": x["BN"], "stages": x["s"], "threads": x["T"]}
-                    _fa(out, r["name"], f, cache, set=f"lp1 fa {cache}")
+                    _fa(out, r["name"], f, cache, set=r.get("set", f"lp1 fa {cache}"))
             except Exception:  # noqa: BLE001 - reported, the other assignments stand
                 print(f"REFUSED {r['name']}")
 

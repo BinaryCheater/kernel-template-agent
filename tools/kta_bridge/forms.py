@@ -7,6 +7,7 @@ is one constant, or one entry of a table indexed by a regime that is itself a fu
 decisions. That restriction is what lets `mip.py` export the form without approximation.
 """
 
+import dataclasses
 import math
 from dataclasses import dataclass
 
@@ -35,7 +36,7 @@ class Amounts:
     stages: int
     warps: int
     occ: int
-    spill: bool
+    spill: float  # share of the accumulators past the register limit
     rotating: bool
 
     @property
@@ -52,8 +53,14 @@ class Amounts:
 
 
 def regime(a: Amounts) -> str:
-    """Tensor issue regime: warps sharing one tensor pipe."""
-    return "w1" if a.wps <= 1 else "w15" if a.wps < 2 else "w2"
+    """Issue regime: warps sharing one tensor pipe and one scalar scheduler."""
+    return "w1" if a.wps <= 1 else "w15" if a.wps < 2 else "w2" if a.wps < 3 else "w3"
+
+
+def spill_share(need: float, threads: int) -> float:
+    """Registers past the per-thread limit, which falls to 128 above 256 threads a block."""
+    limit = 255 if threads <= 256 else 128
+    return max(0.0, need - limit) / need
 
 
 def hgemm(s: dict, x: dict, regs: int, smem: int, cache: str) -> Amounts:
@@ -72,7 +79,7 @@ def hgemm(s: dict, x: dict, regs: int, smem: int, cache: str) -> Amounts:
         stages=st,
         warps=T // 32,
         occ=occupancy(T, regs, smem),
-        spill=regs >= 250,
+        spill=spill_share(regs, T),
         rotating=cache == "rotating",
     )
 
@@ -93,7 +100,7 @@ def fa(s: dict, x: dict, regs: int, smem: int, cache: str) -> Amounts:
         stages=st,
         warps=T // 32,
         occ=occupancy(T, regs, smem),
-        spill=regs >= 250,
+        spill=spill_share(regs, T),
         rotating=cache == "rotating",
     )
 
@@ -115,7 +122,7 @@ def moe_nvfp4(s: dict, x: dict, regs: int, smem: int, cache: str) -> Amounts:
         stages=st,
         warps=th // 32,
         occ=occupancy(th, regs, smem),
-        spill=regs >= 250,
+        spill=spill_share(regs, th),
         rotating=cache == "rotating",
     )
 
@@ -139,7 +146,7 @@ def decode(s: dict, x: dict, regs: int, smem: int, cache: str) -> Amounts:
         stages=st,
         warps=4,
         occ=occupancy(128, regs, smem),
-        spill=regs >= 250,
+        spill=spill_share(regs, 128),
         rotating=cache == "rotating",
     )
 
@@ -148,7 +155,7 @@ def decisions(r: dict) -> dict:
     p = r["pick"]
     if r["family"] == "decode_gqa":
         return {"BN": p["BN"], "BH": p["BH"], "split": p["split"], "s": p["stages"]}
-    if r["family"] == "hgemm":
+    if r["family"] in ("hgemm", "moe_nvfp4"):
         return {
             "BM": p["block_M"],
             "BN": p["block_N"],
@@ -159,10 +166,27 @@ def decisions(r: dict) -> dict:
     return {"BM": p["BM"], "BN": p["BN"], "s": p["stages"], "T": p["threads"]}
 
 
+def need_estimate(family: str, s: dict, x: dict) -> float:
+    """Registers a thread asks for, before the compiler caps the record at 255."""
+    if family == "hgemm" or family == "moe_nvfp4":
+        return x["BM"] * x["BN"] / x["T"] + 62
+    if family == "fa_forward":
+        d = s["D"]
+        r = 4.09 * x["BM"] * x["BN"] / x["T"] + 1.87 * x["BM"] * d / x["T"] - 61.5
+        return r + 87.5 * (x["s"] >= 2) + 45.9 * (x["s"] >= 3)
+    return 2 * 64 * s["D"] / 128 + 4 * 64 * x["BN"] / 128 - 80
+
+
 def amounts(r: dict) -> Amounts:
     c = r.get("counters") or {}
     regs = c.get("launch__registers_per_thread") or r["res"].get("regs") or 200
-    build = {"hgemm": hgemm, "fa_forward": fa, "decode_gqa": decode}[r["family"]]
+    x = decisions(r)
+    if regs >= (255 if x.get("T", 128) <= 256 else 128) - 5:
+        # capped: the record cannot say how far past the limit it asked
+        regs = max(regs, need_estimate(r["family"], r["shape"], x))
+    build = {"hgemm": hgemm, "fa_forward": fa, "decode_gqa": decode, "moe_nvfp4": moe_nvfp4}[
+        r["family"]
+    ]
     return build(r["shape"], decisions(r), regs, r["smem"], r.get("cache") or "warm")
 
 
@@ -174,7 +198,7 @@ def terms(a: Amounts) -> tuple[dict[str, float], dict[str, dict[str, float]]]:
         f"scalar_{reg}": a.scalar_mop / a.use,
     }
     if a.spill:
-        compute["spill"] = a.tensor_gflop / a.use
+        compute["spill"] = a.spill * a.tensor_gflop / a.use
     latency = "latency_dram" if a.rotating else "latency_l2"
     recurrence = {k: v / a.stages for k, v in compute.items()}
     recurrence[latency] = a.waves * a.trips / a.stages
@@ -212,6 +236,7 @@ DERIVED = {
     "tensor_w1": 2e6 / (SMS * 1024 * CLOCK_GHZ * 0.833),  # tensor_flop, tensor_eff_gemm_loop[1]
     "tensor_w15": 2e6 / (SMS * 1024 * CLOCK_GHZ * 0.895),
     "tensor_w2": 2e6 / (SMS * 1024 * CLOCK_GHZ * 0.895),
+    "tensor_w3": 2e6 / (SMS * 1024 * CLOCK_GHZ * 0.895),
     "copy": 1e3 / 2250,  # cpasync_l2_aggregate_GBs
     "dram": 1e3 / 237,  # dram_read_GBs
     "store": 1e3 / (244 * CLOCK_GHZ),  # sim.stg_chip_wide_B_per_clk
