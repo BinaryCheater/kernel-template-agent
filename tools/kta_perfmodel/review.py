@@ -53,7 +53,7 @@ def real_line(round_no: int) -> tuple[int, int, int, int]:
     rs = [r for r in blind.rows(round_no) if r["mode"] == "kernel"]
     gs = [g for g in _sums(rs, blind.passes(round_no)) if not g["name"].startswith("hgemm")]
     a, b = sum(g["real_right"] for g in gs), sum(g["real_of"] for g in gs)
-    gs = [g for g in gs if g["name"] not in () and not _warm_gemv(g["name"])]
+    gs = [g for g in gs if not _warm_gemv(g["name"])]
     return a, b, sum(g["real_right"] for g in gs), sum(g["real_of"] for g in gs)
 
 
