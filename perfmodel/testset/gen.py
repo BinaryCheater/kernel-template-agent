@@ -2055,6 +2055,13 @@ WI_HAND14 = (
     ("stackscan", "t128", "threads", (1024, 1, 1), None, None, T128),
     ("stackfilter", "t128", "threads", (1024, 1, 1), None, None, T128),
 )
+OCCUPANCY = {  # threads: blocks per SM on average, around the limit by 1536 and by 1024 threads
+    64: (8, 16, 24, 25),
+    128: (1, 6, 8, 9, 12, 13),
+    256: (1, 3, 4, 5, 6, 7),
+    512: (1, 2, 3, 4),
+    1024: (1, 2),
+}
 STACK_READ = (16, 64, 256, 1024)  # words of the frame, read four times over
 QS_SHAPE = {"M": 3072, "N": 1536, "K": 2048}
 QS_ONE, QS_TWO = {"M": 1024, "N": 768, "K": 2048}, {"M": 1536, "N": 1024, "K": 2048}
@@ -2090,6 +2097,21 @@ def _twelve_registers(src: str) -> str:
     end = src.rstrip().rfind("}")
     use = f"  if (({' ^ '.join(names)}) == 0x5a5a5a5au) C[0] = half_t(0.0f);\n"
     return src[:end] + use + src[end:]
+
+
+def _copies_late(src: str) -> str:
+    """The next tile's copies after the compute: nothing but the wait stands before the compute."""
+    m = re.search(r"for \(int ko = 0; ko < \d+; \+\+ko\) \{\s*__syncthreads\(\);", src)
+    end = src.index("tl::cp_async_commit();", m.end()) + len("tl::cp_async_commit();")
+    copies = src[m.end() : end]
+    w = re.compile(r"\s*tl::cp_async_wait<\d+>\(\);\s*__syncthreads\(\);").match(src, end)
+    depth, i = 0, w.end()
+    while True:  # the compute's block ends where the loop's body does
+        depth += {"{": 1, "}": -1}.get(src[i], 0)
+        if depth < 0:
+            break
+        i += 1
+    return src[: m.end()] + src[end:i] + copies + src[i:]
 
 
 def _hand14(out: Path) -> None:
@@ -2149,9 +2171,29 @@ def _sweeps14(out: Path) -> None:
     _hgemm(out, "qs_s3_b1", t3, sh, "warm", edit=_first_barrier_out, **group)
     _hgemm(out, "qs_s2_nocopy", t2, sh, "warm", edit=_copies_out, **group)
     _hgemm(out, "qs_s3_nocopy", t3, sh, "warm", edit=_copies_out, **group)
+    _hgemm(out, "qs_s2_late", t2, sh, "warm", edit=_copies_late, **group)
+    _hgemm(out, "qs_s3_late", t3, sh, "warm", edit=_copies_late, **group)
     for tag, shape in (("qs1", QS_ONE), ("qs2", QS_TWO)):
         for s in (1, 2, 3):
             _hgemm(out, f"{tag}_s{s}", (128, 128, 32, s, 128, 0), shape, "warm", **group)
+    _hgemm(out, "qs1_s2_nocopy", t2, QS_ONE, "warm", edit=_copies_out, **group)
+    for tag, tile in (("s2", t2), ("s3", t3)):
+        _hgemm(out, f"qs2_{tag}_nocopy", tile, QS_TWO, "warm", edit=_copies_out, **group)
+        _hgemm(out, f"qs2_{tag}_b1", tile, QS_TWO, "warm", edit=_first_barrier_out, **group)
+    for th, ks in OCCUPANCY.items():
+        for k in ks:
+            src = f"""// round 14: blocks of {th} threads, {k} per SM on average: one warp chases loads, the rest wait
+__global__ void __launch_bounds__({th}) k_occ(unsigned* o, const unsigned* a) {{
+  unsigned x = blockIdx.x * {th} + threadIdx.x;
+  if (threadIdx.x < 32)
+    for (int i = 0; i < 64; ++i) x = a[(x * 2654435761u >> 12) & 1048575u];
+  __syncthreads();
+  o[blockIdx.x & 65535u] = x;
+}}
+"""
+            sizes = [256 << 10, 4 * MB]
+            g = (48 * k, 1, 1)
+            _source_kernel(out, f"occ_t{th}_k{k}", src, g, (th,), sizes, "hand", "occupancy")
 
 
 def _round14(out: Path) -> None:

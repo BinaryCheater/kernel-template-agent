@@ -199,6 +199,7 @@ def report(round_no: int) -> str:
         "record_sweep",
         "stack_load",
         "stage_question",
+        "occupancy",
     )
     blind = [r for r in kernels if r["launch"].get("set") not in sweeps]
     long_blind = [r for r in blind if r["measured"] >= SHORT_US]
