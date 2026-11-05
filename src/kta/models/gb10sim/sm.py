@@ -367,6 +367,7 @@ class SM:
         self.count.update(ldg_sectors=0, ldg_miss_sectors=0.0, stg_l2_sectors=0)
         self.assumed_latency: dict[str, int] = {}
         self.copy_seen: set = set()
+        self.loose_stores = any(x.base in ("LDG", "BREV") for x in ins)
         self.copy_flight: list[float] = []  # round 14: when the copies on their way land
         self.copy_hold = 0.0
         self.pc_count = [0] * len(ins)  # dynamic weight per instruction (the opcode ranking)
@@ -1354,7 +1355,8 @@ class SM:
             reg = re.search(r"\[(R\d+)", x.args)
             val = w.lanes.get(reg[1], w.vals) if reg and w.lanes is not None else None
             on_sm = self.stack_bytes * self.wpb * 32 * own
-            if (val is None and reg or val is not None and not w.lanes.uniform(val)) and (
+            lanes_apart = val is not None and not w.lanes.uniform(val)
+            if (lanes_apart or (val is None and reg)) and (
                 on_sm > self.m.C["local_capacity_bytes"]
             ):
                 # round 14 (stl_*, bl14_stackscan): an index per lane, past the SM's stack: each
@@ -1528,7 +1530,7 @@ class SM:
                     t["dram_queue"] += nbytes * self.active_sms / wr
         if addr0 is None and self.stg_lanes:
             nbytes = 32 * self.stg_lanes
-        if addr0 is None and self.lane_track and w_ == "4B" and P["stg_unknown_apart"]:
+        if addr0 is None and self.loose_stores and w_ == "4B" and P["stg_unknown_apart"]:
             # round 14 (hs_*, bl14_hashput): an address from loaded data: lanes apart, as hashed
             lanes = self.stg_lanes or 32
             nbytes, rate = 32 * lanes, P["stg_chip_wide_B_per_clk"]
