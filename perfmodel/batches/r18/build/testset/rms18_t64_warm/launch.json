@@ -1,0 +1,28 @@
+{
+ "entry": "rms_kernel",
+ "grid": [
+  704
+ ],
+ "threads": 64,
+ "block": [
+  64
+ ],
+ "smem": 256,
+ "rot": 1,
+ "footprint_bytes": 15870976,
+ "write_bytes": 7929856,
+ "family": "rmsnorm",
+ "shape": {
+  "M": 704,
+  "N": 5632
+ },
+ "pick": {
+  "threads": 64
+ },
+ "cache": "warm",
+ "set": "rmsnorm 704x5632",
+ "whatif": {
+  "base": "rms18_t128_warm",
+  "axis": "threads"
+ }
+}

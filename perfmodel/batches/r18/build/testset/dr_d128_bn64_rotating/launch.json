@@ -1,0 +1,32 @@
+{
+ "entry": "part_kernel",
+ "grid": [
+  1,
+  9,
+  8
+ ],
+ "threads": 128,
+ "block": [
+  128
+ ],
+ "smem": 81920,
+ "rot": 7,
+ "footprint_bytes": 10015920,
+ "write_bytes": 55728,
+ "family": "decode_gqa",
+ "shape": {
+  "B": 1,
+  "H": 27,
+  "G": 9,
+  "S": 2160,
+  "D": 128
+ },
+ "pick": {
+  "BN": 64,
+  "BH": 64,
+  "split": 8,
+  "stages": 2
+ },
+ "cache": "rotating",
+ "set": "decode_tile"
+}

@@ -1,0 +1,34 @@
+{
+ "entry": "gemv_kernel",
+ "grid": [
+  1100,
+  1
+ ],
+ "threads": 128,
+ "block": [
+  16,
+  8
+ ],
+ "smem": 0,
+ "rot": 1,
+ "footprint_bytes": 14596736,
+ "write_bytes": 17600,
+ "family": "gemv_w4a16",
+ "shape": {
+  "N": 8800,
+  "K": 3168
+ },
+ "pick": {
+  "N": 8800,
+  "K": 3168,
+  "group": 88,
+  "n_part": 8,
+  "reduce": 16
+ },
+ "cache": "warm",
+ "set": "gemv 8800x3168",
+ "whatif": {
+  "base": "gemv18_b_warm",
+  "axis": "design"
+ }
+}
