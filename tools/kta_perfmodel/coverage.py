@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import math
 import statistics
-from collections import Counter
+from collections import Counter, defaultdict
 from typing import Any
 
 from . import blind, matrix, table
@@ -88,7 +88,7 @@ def cell_of(r: dict[str, Any], a: dict[str, Any]) -> tuple[str, str, str, str] |
 def by_time(rows: list[dict[str, Any]]) -> dict[str, Any]:
     """Per row the replayed time by state; totals over rows, each row counting as one kernel."""
     t = matrix.cells(matrix.ALL_MARKS)
-    per: dict[str, Counter[Any]] = {}
+    per: dict[str, dict[str, float]] = {}
     cells: Counter = Counter()
     n = 0
     for r in rows:
@@ -96,7 +96,7 @@ def by_time(rows: list[dict[str, Any]]) -> dict[str, Any]:
             continue
         n += 1
         fam = _family(r)
-        got: Counter[Any] = per.setdefault(fam, Counter())
+        got = per.setdefault(fam, defaultdict(float))
         got["kernels"] += 1
         left = 1.0
         for a in r["attribution"]:
@@ -124,9 +124,10 @@ def _family(r: dict[str, Any]) -> str:
 
 def report(doc: dict[str, Any]) -> str:
     res = by_time(doc["rows"])
-    tot: Counter = Counter()
+    tot: dict[str, float] = defaultdict(float)
     for c in res["families"].values():
-        tot.update(c)
+        for key, v in c.items():
+            tot[key] += v
     k = tot["kernels"] or 1
     out = [
         f"Replayed time by cell, table {doc.get('kind')} of {doc.get('kta_commit', '?')[:7]}, "
@@ -137,7 +138,7 @@ def report(doc: dict[str, Any]) -> str:
     for f, c in sorted(res["families"].items(), key=lambda x: -x[1]["kernels"]):
         n = c["kernels"]
         out.append(
-            f"  {f:16s} {n:5d} kernels: M {100 * c['M'] / n:3.0f}, m {100 * c['m'] / n:3.0f}, "
+            f"  {f:16s} {n:5.0f} kernels: M {100 * c['M'] / n:3.0f}, m {100 * c['m'] / n:3.0f}, "
             f"empty {100 * c['empty'] / n:3.0f}, beside {100 * c['beside'] / n:3.0f} %"
         )
     out.append("Cells not M by the time they carry, in kernels' worth of time:")
