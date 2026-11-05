@@ -2,6 +2,8 @@
 
 import json
 
+import pytest
+
 from kta.models.gb10sim.lanes import Lanes
 
 
@@ -124,6 +126,8 @@ def _sectors_of(batch: str, case: str) -> tuple[float, float]:
     from kta_perfmodel import addresses, table
 
     d = table.BATCHES / batch
+    if not (d / "build").is_dir():
+        pytest.skip("batch builds are local, not in Git (D914)")
     m = default_machine().with_overrides({"sim.l2_replay": False})
     keep, kernel.SM = kernel.SM, addresses._one_block  # type: ignore[assignment,misc]
     try:

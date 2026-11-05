@@ -11,7 +11,7 @@ Read this at the start of every round. It is the whole working method of the GB1
 | 3 | Machine description | `src/kta/models/gb10sim/machine.yaml` | adding or changing a mechanism |
 | 4 | Simulator | engine, front ends, attribution, what-if under `src/kta/models/gb10sim/`, `tools/kta_perfmodel/` | adding or changing a mechanism |
 | 5 | Probe set | one directory per probe: source, batch record, measured values, predicted values, tolerance | each round adds one; every probe is a permanent regression |
-| 6 | Test set + scorecard | kernels (SASS, launch config, measured time, counter values, cache state) and `error-table.{md,json}` | the measurement and table scripts only |
+| 6 | Test set + scorecard | kernels (SASS, launch config, measured time, counter values, cache state) and `error-table.{md,json}`; `perfmodel/batches/*/build/` and `error-table.json` are local, outside Git (D914) | the measurement and table scripts only |
 | 7 | State | `STATE.md`: round reports, open questions with experiment counts, frozen parameters, fit ledger | the end of every round |
 
 Notes, hand-over files, reports elsewhere: not allowed. Anything worth keeping goes into one of the seven. Decisions go to `docs/decisions.md` as usual.

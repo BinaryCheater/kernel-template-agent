@@ -50,3 +50,8 @@ knowledge/studies/*/inputs/*
 !knowledge/studies/*/inputs/sources.json
 knowledge/studies/*/checks/*.json
 knowledge/studies/*/checks/*.txt
+
+# PERFMODEL: compiled kernels and the generated table: local, not disposable (D914).
+# Tracked for each batch: batch.json, build.json, entry.md, measured.json, predicted.json.
+perfmodel/batches/*/build/
+docs/design/perfmodel/error-table.json
