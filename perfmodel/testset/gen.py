@@ -30,6 +30,8 @@ Round 13: design groups of GEMV, FA, decode, RMSNorm and softmax (blind, warm an
 kernels in `hand13/`. Round 14: the same at new shapes, `hand14/`, the third stage (`qs*`).
 Round 15: blind at other divisors, `hand15/`, the DRAM limit (`dl_*`, `gd_*`, `rd_*`), `fad_*`,
 `ct_*`.
+Round 16: the fixed blind recipe (D874) at a factor 7 in every size, HGEMM a factor 25, `hand16/`;
+the memory-hierarchy sweep of the coverage matrix (`_mem`).
 `ONLY` limits generation to the matching names; `SHARD=i/n` generates one share of them.
 """
 
@@ -2454,6 +2456,311 @@ def _round15(out: Path) -> None:
         _tried(_softmax, out, f"sm15_t{th}_warm", ROWS15, kw, set=f"softmax {tag}", **more)
 
 
+# round 16: the blind recipe of round 14 at new sizes. Rule, chosen before any result: off HGEMM a
+# factor 7 in every size, HGEMM a factor 25 in M; tiles and divisors as TileLang accepts them.
+GEMV16 = {"N": 7168, "K": 2688, "group": 56, "n_part": 4, "reduce": 32}
+FA16 = {**FA, "S": 2240, "H": 7, "D": 112}
+DECODE16 = {**DECODE, "H": 28, "G": 7, "S": 2240, "D": 112}
+ROWS16 = {"M": 1344, "N": 2240}
+HGEMM_BLIND16_SHAPE = {"M": 3200, "N": 1280, "K": 1600}
+HAND16 = {
+    "atomhash": ((1024, 1, 1), (256,), [4 * MB], None),
+    "blockmin": ((1024, 1, 1), (128,), [1 * MB, 4 * MB], None),
+    "recordthree": ((1024, 1, 1), (256,), [8 * MB], None),
+    "packrows": ((2048, 1, 1), (256,), [2 * MB, 8 * MB], None),
+    "stridewalk": ((2048, 1, 1), (128,), [1 * MB, 8 * MB], None),
+    "revrows": ((1024, 1, 1), (128,), [4 * MB, 8 * MB], None),
+    "primering": ((1024, 1, 1), (256,), [4 * MB, 1 * MB], None),
+    "stackwin": ((512, 1, 1), (256,), [1 * MB, 1 * MB], None),
+    "stackhist": ((1024, 1, 1), (128,), [1 * MB, 1 * MB], None),
+    "twolevel": ((1024, 1, 1), (256,), [1 * MB, 1 * MB, 4 * MB], None),
+    "gatherfour": ((1024, 1, 1), (256,), [1 * MB, 1 * MB, 4 * MB], None),
+    "ninepoint": ((2048, 1, 1), (256,), [8 * MB, 8 * MB], None),
+    "xorput": ((1024, 1, 1), (256,), [8 * MB], None),
+}
+WI_HAND16 = (
+    ("stridewalk", "t256", "threads", (1024, 1, 1), None, None, ()),
+    ("primering", "k2", "stores removed", None, None, None, (("k < 4", "k < 2"),)),
+    ("xorput", "k2", "stores removed", None, None, None, (("k < 4", "k < 2"),)),
+    ("gatherfour", "two", "loads removed", None, None, None, (("b[i] + b[i + 3] + b[i + 64] + b[i + 1024]", "b[i] + b[i + 1024]"),)),
+)
+MEM_READ = """// round 16: {what}
+__global__ void __launch_bounds__({t}) k_mem(unsigned* o, const {ty}* a) {{
+  const unsigned t = blockIdx.x * {t} + threadIdx.x;
+  unsigned s = 0;
+  for (unsigned k = 0; k < {n}; ++k) {{
+    const {ty} x = {load};
+    s += {sum_};
+  }}
+  o[blockIdx.x & 65535u] = s;
+}}
+"""
+MEM_WRITE = """// round 16: {what}
+__global__ void __launch_bounds__({t}) k_mem(unsigned* o{more}) {{
+  const unsigned t = blockIdx.x * {t} + threadIdx.x;
+  for (unsigned k = 0; k < {n}; ++k) {{
+    {body}
+  }}
+}}
+"""
+HASH = "2654435761u"
+W8 = ("uint2", "x.x ^ x.y")
+
+
+def _mem_read(out, name, group, what, t, n, load, grid, bytes_, cache="warm", ty=W8, rot=None):
+    src = MEM_READ.format(what=what, t=t, ty=ty[0], n=n, load=load, sum_=ty[1])
+    r = _rots(cache, bytes_) if rot is None else rot
+    _source_kernel(out, name, src, (grid, 1, 1), (t,), [1 * MB, bytes_], "hand", group, rot=r, written=1024)
+
+
+def _mem_dram(out: Path) -> None:
+    """Read × DRAM (rotating) and L2 retention: pattern × footprint × threads, one sweep."""
+    g = "mem_dram"
+    for f in (1, 2, 4, 16, 32, 64):
+        _mem_read(out, f"mr_o_f{f}", g, f"{f} MiB in order", 128, 8, "a[t * 8 + k]", f * MB // (128 * 64), f * MB, "rotating")
+    for d in (2, 4, 8):
+        _mem_read(out, f"mr_o_f8_d{d}", g, "8 MiB in order, deeper rotation", 128, 8, "a[t * 8 + k]", 1024, 8 * MB, rot=d * _rot(8 * MB))
+    for t in (32, 128, 512):
+        n = 4
+        grid = 8 * MB // (t * 16 * n)
+        _mem_read(out, f"mr_cs_t{t}", g, "8 MiB in order, evict-first", t, n, "__ldcs(a + t * 4 + k)", grid, 8 * MB, "rotating", ("int4", "x.x ^ x.y ^ x.z ^ x.w"))
+        _mem_read(out, f"mr_cg_t{t}", g, "8 MiB in order, plain, the same width", t, n, "a[t * 4 + k]", grid, 8 * MB, "rotating", ("int4", "x.x ^ x.y ^ x.z ^ x.w"))
+    for s in (64, 128, 256, 1024, 4096):
+        grid = 8 * MB // (128 * s)
+        _mem_read(out, f"mr_s{s}", g, f"8 MiB, lanes {s} bytes apart", 128, 1, f"a[t * {s // 8}]", grid, 8 * MB, "rotating")
+    for r in (512, 2048, 4096):
+        grid = 8 * MB // 8192
+        n = r // (32 * 8)
+        _mem_read(out, f"mr_row_r{r}", g, f"rows of {r} bytes, pitch 8 KiB", 32, n, f"a[blockIdx.x * 1024 + threadIdx.x * {n} + k]", grid, 8 * MB, "rotating")
+    for f, t in ((8, 128), (8, 512), (32, 128), (32, 512)):
+        grid = f * MB // (t * 64)
+        mask = f * MB // 8 - 1
+        _mem_read(out, f"mr_h_f{f}_t{t}", g, f"hashed through {f} MiB", t, 8, f"a[((t * 8 + k) * {HASH}) >> 7 & {mask}u]", grid, f * MB, "rotating")
+    for kind, load in (("cg", "p[(size_t)i * 48 * 1024]"), ("cs", "__ldcs(p + (size_t)i * 48 * 1024)")):
+        src = f"""// round 16: dram_burst's kernel: 48 blocks in step, 8 MiB, {kind}
+__global__ void __launch_bounds__(1024) k_mem(int* o, const int4* a) {{
+  const int4* p = a + blockIdx.x * 1024 + threadIdx.x;
+  int s = 0;
+  for (int i = 0; i < 10; i++) {{
+    const int4 v = {load};
+    s ^= v.x ^ v.y ^ v.z ^ v.w;
+  }}
+  if (s == 0x7fff1234) o[0] = s;
+}}
+"""
+        _source_kernel(out, f"mr_b48_{kind}", src, (48, 1, 1), (1024,), [1 * MB, 8 * MB], "hand", g, rot=_rot(8 * MB), written=0)
+    for grid in (1, 12, 48):
+        _mem_read(out, f"mr_g{grid}", g, f"{grid} blocks, 256 KiB each", 128, 256, "a[t * 256 + k]", grid, grid * 256 * 1024, "rotating")
+    for f, r in ((8, 2), (8, 3), (8, 4), (8, 6), (4, 4), (4, 6), (4, 8)):
+        _mem_read(out, f"mk_f{f}_r{r}", "mem_retain", f"{f} MiB, {r} sets in turn", 128, 8, "a[t * 8 + k]", f * MB // (128 * 64), f * MB, rot=r)
+
+
+def _mem_threads(out: Path) -> None:
+    """Rows warm by threads: 1920 rows of 4 KiB: loads, stores, both, loads and a barrier."""
+    for t in (32, 128, 256, 512):
+        n = 4096 // (t * 8)
+        g = "mem_threads"
+        idx = f"blockIdx.x * 512 + threadIdx.x * {n}"
+        _mem_read(out, f"mt_r_t{t}", g, "rows warm, loads", t, n, f"a[{idx} + k]", 1920, 8 * MB)
+        src = MEM_WRITE.format(what="rows warm, stores", t=t, n=n, more="", body=f"((uint2*)o)[{idx} + k] = make_uint2(t, k);")
+        _source_kernel(out, f"mt_w_t{t}", src, (1920, 1, 1), (t,), [8 * MB], "hand", g)
+        src = MEM_WRITE.format(what="rows warm, loads then stores", t=t, n=n, more=", const uint2* a", body=f"((uint2*)o)[{idx} + k] = a[{idx} + k];")
+        _source_kernel(out, f"mt_rw_t{t}", src, (1920, 1, 1), (t,), [8 * MB, 8 * MB], "hand", g)
+        src = MEM_READ.format(what="rows warm, loads and a barrier", t=t, ty="uint2", n=n, load=f"a[{idx} + k]", sum_="x.x ^ x.y").replace("  o[blockIdx", "  __syncthreads();\n  o[blockIdx")
+        _source_kernel(out, f"mt_rb_t{t}", src, (1920, 1, 1), (t,), [1 * MB, 8 * MB], "hand", g, written=1024)
+
+
+def _mem_write(out: Path) -> None:
+    """Write × L2 at the dirty limit, by blocks, with reads beside; write × DRAM; RMW."""
+    g = "mem_write"
+    st = "((uint2*)o)[t * 8 + k] = make_uint2(t, k);"
+    rw = "((uint2*)o)[t * 8 + k] = a[t * 8 + k];"
+    for f10 in (50, 60, 65, 70, 75, 80, 120):
+        b = f10 * MB // 10
+        src = MEM_WRITE.format(what=f"{f10 / 10} MiB written", t=128, n=8, more="", body=st)
+        _source_kernel(out, f"mw_o_f{f10}", src, (b // (128 * 64), 1, 1), (128,), [b], "hand", g)
+        src = MEM_WRITE.format(what=f"{f10 / 10} MiB written, as much read once", t=128, n=8, more=", const uint2* a", body=rw)
+        _source_kernel(out, f"mw_rw_f{f10}", src, (b // (128 * 64), 1, 1), (128,), [b, b], "hand", g)
+    for t in (32, 512):
+        b = 7 * MB
+        src = MEM_WRITE.format(what="7 MiB written, read once, by threads", t=t, n=8, more=", const uint2* a", body=rw)
+        _source_kernel(out, f"mw_rw_f70_t{t}", src, (b // (t * 64), 1, 1), (t,), [b, b], "hand", g)
+    b = 7 * MB
+    src = MEM_WRITE.format(what="7 MiB written, read once, few blocks", t=1024, n=8, more=", const uint2* a", body=rw)
+    _source_kernel(out, "mw_rw_f70_t1024", src, (b // (1024 * 64), 1, 1), (1024,), [b, b], "hand", g)
+    for f in (16, 32, 64):
+        b = f * MB
+        src = MEM_WRITE.format(what=f"{f} MiB written", t=128, n=8, more="", body=st)
+        _source_kernel(out, f"mw_o_f{f}0", src, (b // (128 * 64), 1, 1), (128,), [b], "hand", g)
+    for f in (16, 64):
+        b = f * MB
+        body = f"o[((t * 8 + k) * {HASH}) >> 6 & {b // 4 - 1}u] = t;"
+        src = MEM_WRITE.format(what=f"{f} MiB hashed", t=128, n=8, more="", body=body)
+        _source_kernel(out, f"mw_h_f{f}", src, (b // (128 * 32), 1, 1), (128,), [b], "hand", g)
+    src = MEM_WRITE.format(what="16 MiB, lanes 4 KiB apart", t=128, n=1, more="", body="o[t * 1024] = t;")
+    _source_kernel(out, "mw_s4096_f16", src, (16 * MB // (128 * 4096), 1, 1), (128,), [16 * MB], "hand", g)
+    for f in (4, 8, 16, 32):
+        b = f * MB
+        src = MEM_WRITE.format(what=f"{f} MiB read and written in place", t=128, n=8, more="", body="o[t * 8 + k] += 1u;")
+        _source_kernel(out, f"mx_f{f}", src, (b // (128 * 32), 1, 1), (128,), [b], "hand", g)
+
+
+def _mem_stride(out: Path) -> None:
+    """Bytes a thread holds by 32: global loads, shared memory, copies; D as FA's rows."""
+    g = "mem_sector"
+    for d in (48, 64, 80, 96, 112, 128):
+        w = d // 16
+        _mem_read(out, f"ms_g_d{d}", g, f"16-byte loads, {d} bytes apart", 128, 4, f"a[(t * 4 + k) * {w}]", 4 * MB // (128 * 4 * d), 4 * MB, ty=("uint4", "x.x ^ x.y ^ x.z ^ x.w"))
+        src = f"""// round 16: shared memory, 16 bytes each thread, {d} bytes apart: stores, barrier, loads
+__global__ void __launch_bounds__(128) k_mem(unsigned* o) {{
+  __shared__ uint4 v[{128 * w}];
+  const unsigned t = threadIdx.x;
+  unsigned s = 0;
+  for (unsigned k = 0; k < 16; ++k) {{
+    v[t * {w}] = make_uint4(t, k, t, k);
+    __syncthreads();
+    const uint4 x = v[((t + 1) & 127u) * {w}];
+    s += x.x;
+    __syncthreads();
+  }}
+  o[blockIdx.x] = s;
+}}
+"""
+        _source_kernel(out, f"ms_s_d{d}", src, (96, 1, 1), (128,), [1 * MB], "hand", g, written=1024)
+        src = f"""// round 16: copies of 16 bytes per thread, rows {d} bytes a thread
+__global__ void __launch_bounds__(128) k_mem(unsigned* o, const char* a) {{
+  __shared__ __align__(128) unsigned char buf[32768];
+  const unsigned sm = (unsigned)__cvta_generic_to_shared(buf);
+  const unsigned t = threadIdx.x;
+  for (unsigned k = 0; k < 8; ++k) {{
+    const char* p = a + ((size_t)(blockIdx.x * 128 + t) * 8 + k) * {d};
+    const unsigned at = sm + (t * 16 + k * 2048);
+    asm volatile("cp.async.cg.shared.global [%0], [%1], 16;" ::"r"(at), "l"(p) : "memory");
+  }}
+  asm volatile("cp.async.commit_group;" ::: "memory");
+  asm volatile("cp.async.wait_group 0;" ::: "memory");
+  o[blockIdx.x] = t;
+}}
+"""
+        _source_kernel(out, f"ms_c_d{d}", src, (24, 1, 1), (128,), [1 * MB, 8 * MB], "hand", g, written=1024)
+
+
+def _mem_l1(out: Path) -> None:
+    """L1 capacity and replacement: one or two blocks per SM, 8 passes of a region of P KiB."""
+    g = "mem_l1"
+    ty = ("uint4", "x.x ^ x.y ^ x.z ^ x.w")
+    for p in (16, 32, 64, 96, 128, 160, 192, 256, 384):
+        n = p * 1024 // (256 * 16)
+        load = f"a[blockIdx.x * {p * 64} + threadIdx.x * {n} + k % {n}u]"
+        _mem_read(out, f"ml_p{p}", g, f"8 passes of {p} KiB, a block per SM", 256, 8 * n, load, 48, 48 * p * 1024, ty=ty)
+    for p in (32, 64, 96, 128):
+        n = p * 1024 // (128 * 16)
+        load = f"a[blockIdx.x * {p * 64} + threadIdx.x * {n} + k % {n}u]"
+        _mem_read(out, f"ml2_p{p}", g, f"8 passes of {p} KiB, two blocks per SM", 128, 8 * n, load, 96, 96 * p * 1024, ty=ty)
+    for p in (128, 192):
+        n = p * 1024 // (256 * 16)
+        load = f"a[blockIdx.x * {p * 64} + ((threadIdx.x + k) * {HASH} >> 8) % {p * 64}u]"
+        _mem_read(out, f"ml_h_p{p}", g, f"8 passes hashed over {p} KiB", 256, 8 * n, load, 48, 48 * p * 1024, ty=ty)
+
+
+def _mem_far(out: Path) -> None:
+    """DRAM channels and banks by stride; hashed reach (L2, TLB); warm strides."""
+    g = "mem_far"
+    for s in (128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768):
+        b = 32768 * s
+        rot = 1 if b >= 64 * MB else _rot(b)
+        _mem_read(out, f"md_s{s}", g, f"32 K lanes, {s} bytes apart", 128, 1, f"a[(size_t)t * {s // 8}]", 256, b, rot=rot)
+    for f in (1, 4, 16, 32, 64, 256, 1024):
+        b = f * MB
+        _mem_read(out, f"mh_f{f}", g, f"256 K lanes hashed through {f} MiB", 128, 1, f"a[(t * {HASH}) >> 4 & {b // 8 - 1}u]", 2048, b)
+    for f in (16, 64):
+        b = f * MB
+        _mem_read(out, f"mh_f{f}_t512", g, f"256 K lanes hashed through {f} MiB", 512, 1, f"a[(t * {HASH}) >> 4 & {b // 8 - 1}u]", 512, b)
+    for s in (64, 128, 256, 1024, 4096):
+        _mem_read(out, f"mst_s{s}", g, f"warm, 4 MiB, lanes {s} bytes apart", 128, 1, f"a[t * {s // 8}]", 4 * MB // (128 * s), 4 * MB)
+    _mem_read(out, "mst_s256_t512", g, "warm, 4 MiB, lanes 256 bytes apart", 512, 1, "a[t * 32]", 4 * MB // (512 * 256), 4 * MB)
+
+
+def _mem(out: Path) -> None:
+    _mem_dram(out)
+    _mem_threads(out)
+    _mem_write(out)
+    _mem_stride(out)
+    _mem_l1(out)
+    _mem_far(out)
+
+
+def _hand16(out: Path) -> None:
+    src_dir = Path(__file__).parent / "hand16"
+    for name, (grid, block, sizes, written) in HAND16.items():
+        text = (src_dir / f"{name}.cu").read_text()
+        _source_kernel(
+            out, f"bl16_{name}", text, grid, block, sizes, "hand", "breadth blind", written=written
+        )
+    for name, tag, axis, grid, sizes, written, subs in WI_HAND16:
+        g0, block, s0, w0 = HAND16[name]
+        text = (src_dir / f"{name}.cu").read_text()
+        for old, new in subs:
+            text = text.replace(old, new)
+        if tag == "t256":
+            text = text.replace("(128)", "(256)").replace("* 128", "* 256")
+            block = (256,)
+        _source_kernel(
+            out,
+            f"bl16_{name}_{tag}",
+            text,
+            grid or g0,
+            block,
+            sizes or s0,
+            "hand",
+            "breadth blind",
+            written=written if written is not None else w0,
+            whatif={"base": f"bl16_{name}", "axis": axis},
+        )
+
+
+def _round16(out: Path) -> None:
+    _hand16(out)
+    _mem(out)
+    sh = HGEMM_BLIND16_SHAPE
+    M, N, K = sh["M"], sh["N"], sh["K"]
+    pre = f"hgemm_m{M}n{N}k{K}"
+    for name, tile in HGEMM_BLIND14.items():
+        for cache, tail in (("warm", ""), ("rotating", " rotating")):
+            suffix = "" if cache == "warm" else "_rotating"
+            base = f"{pre}_c128x128x32_s3_t128{suffix}"
+            more = _wi(name, base, "base" if f"{pre}_{name}{suffix}" == base else "design")
+            group = f"hgemm {M}x{N}x{K}{tail}"
+            _tried(_hgemm, out, f"{pre}_{name}{suffix}", tile, sh, cache, set=group, **more)
+    tag = f"{GEMV16['N']}x{GEMV16['K']}"
+    for cache, tail in (("warm", ""), ("rotating", " rotating")):
+        for v, (kw, axis) in GEMV13_V.items():
+            more = _wi(v, f"gemv16_b_{cache}", axis)
+            c = {**GEMV16, **kw}
+            _tried(_gemv_row, out, f"gemv16_{v}_{cache}", c, cache, set=f"gemv {tag}{tail}", **more)
+    tag = f"{FA16['S']}x{FA16['H']}x{FA16['D']}"
+    for cache, tail in (("warm", ""), ("rotating", " rotating")):
+        for name, (bm, bn, s, th) in FA_BLIND7_V.items():
+            f = {**FA16, "BM": bm, "BN": bn, "stages": s, "threads": th}
+            more = _wi(name, f"fa16_c64x64_s2_t128_{cache}", FA13_AXIS.get(name, "base"))
+            _tried(_fa, out, f"fa16_{name}_{cache}", f, cache, set=f"fa {tag}{tail}", **more)
+    tag = f"{DECODE16['H']}x{DECODE16['S']}x{DECODE16['D']}"
+    for cache, tail in (("warm", ""), ("rotating", " rotating")):
+        for v, (kw, axis) in DECODE13_V.items():
+            more = _wi(v, f"dec16_b_{cache}", axis)
+            c = {**DECODE16, **kw}
+            _tried(_decode_part, out, f"dec16_{v}_{cache}", c, cache, set=f"decode {tag}{tail}", **more)
+    tag = f"{ROWS16['M']}x{ROWS16['N']}"
+    for th in THREADS13:
+        axis = "base" if th == 128 else "threads"
+        kw = {"threads": th}
+        for cache, tail in (("warm", ""), ("rotating", " rotating")):
+            more = _wi("", f"rms16_t128_{cache}", axis)
+            _tried(_rms, out, f"rms16_t{th}_{cache}", ROWS16, cache, kw, set=f"rmsnorm {tag}{tail}", **more)
+        more = _wi("", "sm16_t128_warm", axis)
+        _tried(_softmax, out, f"sm16_t{th}_warm", ROWS16, kw, set=f"softmax {tag}", **more)
+
+
 def main(out: Path) -> None:
     _hand(out)
     _round11(out)
@@ -2486,6 +2793,7 @@ def main(out: Path) -> None:
         ("round14", _round14),
         ("round15", _round15),
         ("round15b", _round15b),
+        ("round16", _round16),
     ):
         try:  # a kernel that fails to generate is reported; the others stand
             gen(out)
