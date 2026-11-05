@@ -76,7 +76,7 @@ Status: written 2026-11-04 for phase P0 of [28](28-gb10-programme.md) §5. It li
 
 | Mechanism | Sources | Status | Kernels | Var |
 | --- | --- | --- | --- | --- |
-| cp.async path: MIO → address stage → L2 (350) or DRAM (1560 + queue) → return port → array write → group; round 15: an SM issues a copy every 10 clk (measured, copy_two, structural rate, D869), the fit of round 14 removed; round 14's fit on `qs*` removed | gb10 §4.7 | M | G, E | S (copy path, stages), H |
+| cp.async path: MIO → address stage → L2 (350) or DRAM (1560 + queue) → return port → array write → group; round 20 (`cb_*`, D910): the array takes lanes in runs of one 128-byte line, 5 + 3.3 clk per run holds the return, M, empirical; round 15: an SM issues a copy every 10 clk (measured, copy_two, structural rate, D869), the fit of round 14 removed; round 14's fit on `qs*` removed | gb10 §4.7 | M | G, E | S (copy path, stages), H |
 | cp.async completion spread under load | cov cp.async; gap#23, #24, #40 | Round 9 (probe first_share, D807, D808): P: misses by slice and wave of blocks, one reader takes the DRAM traffic, the others wait on its fill **structural**; a miss brings its 32-byte sector (`pieces`); spread inside a step not modelled; was X (fixed latency, even miss spreading) | G, E | H |
 | cp.async beside TMA traffic (mixed 1.94 TB/s > either alone) | gap#31 | X | — (mixed lowerings) | S |
 | TMA engine per SM: min(81 GB/s alone, 1.86 TB/s chip ÷ share) | gb10 §5 | A (both rates fitted on the TMA loads-only ablation) | G, F, E, D | S, H |
@@ -105,6 +105,7 @@ Status: written 2026-11-04 for phase P0 of [28](28-gb10-programme.md) §5. It li
 | L2 latency under load | — | Round 10 (`load_curve`, D816): no curve to the L2 rate; round 16 added no sweep. X (fixed) | all | H |
 | L2 persistence window, set aside 18 MB | upstream tier-4 (`l2persist.cu`) | X | D, Q | S |
 | L2 slices, set hash, NoC | gap list; 26:02 | X | — | H |
+| Warm stores beside single-use reads past the L2 | `rw_*`, `sw_*`, `wb_*` | Round 20 (D911): M, empirical: a miss curve with stores by footprint, bistable near 17 MiB, replaces the limit of D889 | rows, softmax | H |
 | Dirty-L2 write-back paid by a flush (`dirty_l2_extra_us`) | `gb10.json` | X in the engine (analytical model only) | measurement protocol | — |
 | DRAM read rate by run length (204/233/237 GB/s), write 197, mix rule | gb10 §6.4 (`tileload.cu`, `mlp_stream.cu`, `dram.cu`) | Round 17 (`tw_*`, `gr_*`, D886): no twin window, runs pay at their edges. Round 16 (`mr_*`, D877): M: 64-byte bursts at 237 GB/s; a sector asked alone pays the whole burst **structural**; T 32 runs 1.4 times, open. M (wave-level); round 4 (probe `dram_rw`, batch r4): the mix rule re-measured in KTA (read:write 2:0 … 0:2 within 1 % at 2:1 and 1:1, +4.6 % at 1:2; write-only 197 GB/s); rotating rows of the generic front end now pace reads and writes by it (D771); no DRAM pacing for a kernel without reads (dram_rw 0:2 −85 %) Round 7 (`dram_burst`): no burst above the plateau: 3.9–67 MB per launch within −6 to +5 % of the replay. **empirical** | G, D, Q, E | H |
 | DRAM queue per SM: wave DRAM time spread over read misses, fair share by SM-equivalents | gb10 §6.4 | Round 9 (probe first_share, D807): M: per wave of blocks: the first wave to read a slice takes its misses, even spreading rejected (later waves 17.0 k, warm 17.1 k, even 33–36 k) **structural**; Round 8 (probe copy_dram, D798): M: the rate limits what has been read so far, no sum with arithmetic **structural**; A (structural: even spreading, fair share) Round 11 (wr_*, D832): M: written-back bytes share the DRAM with reads when past the dirty limit. Structural; the 1.5 bound and 7 MiB step empirical. | G, D, Q, E | H |
@@ -150,19 +151,19 @@ Cells that can occur: 406 of 800, the rest dropped (`tools/kta_perfmodel/matrix.
 
 | State | Before round 16 | Before round 17 | Now |
 | --- | ---: | ---: | ---: |
-| M measured with a rule | 60 | 73 | 75 |
-| m measured without a rule | 18 | 20 | 18 |
+| M measured with a rule | 60 | 73 | 77 |
+| m measured without a rule | 18 | 20 | 16 |
 | · empty | 328 | 313 | 313 |
 
-Round 19's 51 blind rows above 10 %, placed after the replay's check: in M cells 21, in m cells 30, in empty cells 0. By class at first score: defect 0, known rule 32, no rule 19.
+Round 19's 51 blind rows above 10 %, placed after the replay's check: in M cells 34, in m cells 17, in empty cells 0. By class at first score: defect 0, known rule 32, no rule 19.
 
-Round 18's 49 blind rows above 10 %, placed after the rules: in M cells 23, in m cells 25, in empty cells 1. By class at first score: defect 9, known rule 24, no rule 16.
+Round 18's 49 blind rows above 10 %, placed after the rules: in M cells 26, in m cells 22, in empty cells 1. By class at first score: defect 9, known rule 24, no rule 16.
 
-Round 17's 54 blind rows above 10 %, placed after the rules: in M cells 25, in m cells 28, in empty cells 1. By class at first score: defect 0, known rule 34, no rule 20.
+Round 17's 54 blind rows above 10 %, placed after the rules: in M cells 29, in m cells 24, in empty cells 1. By class at first score: defect 0, known rule 34, no rule 20.
 
-Round 16's 56 blind rows above 10 %, placed after the sweep: in M cells 27, in m cells 28, in empty cells 1. By class at first score: defect 0, known rule 35, no rule 21.
+Round 16's 56 blind rows above 10 %, placed after the sweep: in M cells 29, in m cells 26, in empty cells 1. By class at first score: defect 0, known rule 35, no rule 21.
 
-Round 15's 51 blind rows above 10 %: in M cells 9, in m cells 33, in empty cells 9 before round 16; 20, 29, 2 now. By class: defect 6, known rule 25, no rule 20.
+Round 15's 51 blind rows above 10 %: in M cells 9, in m cells 33, in empty cells 9 before round 16; 30, 19, 2 now. By class: defect 6, known rule 25, no rule 20.
 
 Patterns: order (contiguous lanes walking on), stride (lanes or warps a constant apart), row (rows a pitch apart), hashed (no order in the lanes), cap (footprint across the target's capacity; for DRAM, across the TLB's reach). Sharing: w one warp, b one block, s blocks on an SM, c every SM. A cell reads `state` and, in brackets, the blind misses of round 15 in it.
 
@@ -242,7 +243,7 @@ Patterns: order (contiguous lanes walking on), stride (lanes or warps a constant
 | stride | · | · | · | M (1) | store_lines, store_spread, st256 (D838) |
 | row | · | · | · | M | pw_*, mt_w_* (D887): 0.063 clk a sector, 0.105 a line |
 | hashed | · | · | · | m (1) | mw_h_f16 −73 %: inside the L2, not pursued |
-| cap | · | · | · | m (6) | rs_m*, rms19, sm19 (D907): past 4 MiB written, no rule |
+| cap | · | · | · | M (6) | rw_*, sw_*, wb_* (D911): a miss curve with stores |
 
 **write (STG, STS, STL) × DRAM**: decides store path past the dirty limit.
 
@@ -328,7 +329,7 @@ Patterns: order (contiguous lanes walking on), stride (lanes or warps a constant
 | --- | --- | --- | --- | --- | --- |
 | order | M | M | M (2) | M | copy_two, copy_depth (D869); l2_cap, loopsteps (D835) |
 | stride | · | · | · | M | l2_cap, loopsteps (D835) |
-| row | · | m | · | m (4) | ms_c_*: short rows, flat by D; fad_* (D871): loss by D mod 32 |
+| row | · | m | · | M (4) | ms_c_*: short rows, flat by D; cb_*, fas_*, dw_* (D910): runs of lanes in a line |
 | hashed | · | · | · | · |  |
 | cap | · | · | · | M | first_share (D807) |
 
@@ -338,7 +339,7 @@ Patterns: order (contiguous lanes walking on), stride (lanes or warps a constant
 | --- | --- | --- | --- | --- | --- |
 | order | · | M | M (1) | M | first_reader (D810); copy_cold (D882): 10 clk per copy, cold as warm |
 | stride | · | · | · | · |  |
-| row | · | · | · | m (4) | dr_* (D899): rows off 64 bytes slow BN 64, no rule |
+| row | · | · | · | m (4) | dec20 BN 64 rotating after D910 (D912): no rule |
 | hashed | · | · | · | · |  |
 | cap | · | · | · | · |  |
 

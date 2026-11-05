@@ -412,3 +412,37 @@ Blind block, round 16: r16, first scores, predictions at 6640750, engine of roun
 Real pairs off HGEMM, rounds 13 to 16: 74 %, 71 %, 72 %, 83 %. It moved, before any engine change of this round: engines of 15 and new shapes, so it is not this round's rules: the shapes are others, GEMV warm alone gives 28/28 of those pairs. One round; not a trend.
 Misses above 10 % on `kernel` rows, 56 of 103: defect 0; known rule wrong 35; no rule 21; cells in `29` §7a.
 ```
+
+| **Blind position against 28 §1, round 18 (the number that counts: first scores of 96 new kernel rows, r18, predictions committed before the run, engine of round 17, the recipe of D874)** | Pairs ≥ 3 % right 213/255 (83.5 %; target 95): **not met**; HGEMM 71/76 (93.4 %), the others 142/179 (79.3 %); real pairs 206/242, off HGEMM 135/166 (81.3 %), without warm GEMV 110/138 (79.7 %). True best in top 3 6/11: **not met**. First pick's loss worst 25.3 %, 5 of 11 above 3 %: **not met**. What-if direction ≥ 3 % 41/52 (78.8 %): **not met**. Magnitude ≥ 10 % median 53 % over 32: **not met**. Time median 10.6 %, ≥ 30 µs 8.5 %: **not met** on all rows; 24 above 25 %, worst −81.5 %: **not met**. Of 49 rows off by more than 10 %: 9 defects, 24 known rules wrong on the row, 16 no rule covered |
+
+```
+Round 17: batch r17 (blind set, tw_*, gr_*, pw_*, px_*, rr_*, tv_*, fs_*): rules for the cells that hold blind pairs and first-pick losses, no wider sweep.
+Question: ranking of round 16's pairs and losses by cell: read × DRAM × order × c 21 pairs (GEMV rotating), read × L2 × row × c 6 pairs and 17.3 % (rows warm), read × DRAM × row × c 6 and 8.4 % (decode rotating), copy × DRAM × order × c 6 and 4.8 %, FA 3 and 9.5 %.
+Hypotheses: twins H-instr / H-window / H-queue / H-local; GEMV read H-flat / H-align / H-width / H-table; stores H-sectors / H-lines / H-fill; rows H-store / H-read / H-launch; turnover H-wave / H-none; FA H-mma / H-exp / H-store.
+Result: no time window for twin sectors: D877 stands; twins merge across warps and blocks asked at once. GEMV's read alone is flat at bytes / 237 GB/s; only runs crossing a burst pay a little. Stores apart cost by sectors and by lines. Turnover holds (H-none). Rows warm and FA's one stage: every hypothesis rejected or unsupported.
+Change: D886 burst edges, unknown addresses bounded; D887 stores by sectors and lines; D888 dirty limit by lines; D889 once-limit by blocks (threshold unmeasured); D892 core. Probes replayed before and after each rule: `dl_*`, `mr_*`, `mk_*` unchanged; `mw_*` worse (D887).
+Scorecard: core table of 7083a2e against the core of a841f67: 431 kernel rows median 7.2 → 7.4 %, above 25 % 51 → 47; 25 rows better by 3 points, 32 worse; pairs 883/1018 → 892/1019, top 3 63 → 63, loss worst 22.5 → 18.9 %, what-if 113/143 → 115/143, magnitude 39 → 33 %. Better: softmax 1920×1792 +144 to +211 → −18 to −26, `wl_*` +190 → −25, `hs_*`, `mx_*`, `mt_*`. Worse: `bl15_chunked_w6` −19 → −31, `rf_w*_m4` −5 → −15, `bl13_recordfill_w4` −30 → −38, `mw_o_f120` −3 → −14. The list grew by 14 rows, so the pair totals are not on the same rows.
+New mechanism: no new module; `dram_burst_edge` and stores by lines refine known rows.
+Fits: none added; `dram_burst_edge` empirical over two probe points; `stg_dirty_once_blocks` assumed.
+Matrix: 406 cells, M 73 → 75, m 20 → 18, empty 313. Round 16's 56 misses: M 27, m 28, empty 1. Round 17's 54: M 25, m 28, empty 1.
+Core back-test: worsened families 19/31 → 30/31 in sample (D892), moved 85 → 90 %.
+Testing cost: below the core 2218 CPU s of 2500: held. Predictions 1234, selection 944, scratch 40 (estimate). Core 3499, 201 s wall. GPU: one batch, 30.4 min: profiler 23.0, timing 5.4, cool-downs 2.0; preflight dropped 14 of 199 (shared memory). Time about 1 h 30.
+Not solved: 28 §1 not met on any row. GEMV rotating 18/35: the replay follows compute (D891). Decode rotating by tile, first pick's loss 33 % (55). Rows warm: the gap stays, no rule. T 32's twins. `pw_f12_*_one`. Real pairs off HGEMM fell back: round 16's 83 % was not a trend. D889's threshold.
+Next: question 55 and GEMV's critical path against the DRAM's rate (D891), one experiment left on 52; `--full` is due in round 18.
+Blind set: the recipe of D874: HGEMM 3456×1296×1728, GEMV 7200×2592 group 72, FA 2016×9×144, decode 27×2160×144 G 9, rows 720×4608, own kernels `hand17/`. Rule: a factor 9 off HGEMM, 27 on it; D 108 and 72 refused by TileLang, before any result. Preflight dropped most large-tile FA variants and two of decode: groups smaller than round 16's, FA's 14/14 rests on few pairs.
+```
+
+```
+Blind block, round 17: r17, first scores, predictions at b27fd52, engine of round 16: not mixed with anything below.
+| 28 §1 | Target | HGEMM, one new shape | Off HGEMM, 9 groups | All 11 groups |
+| Pairs ≥ 3 % right | ≥ 95 % | 64/73 (87.7 %) | 93/126 (73.8 %) | 157/199 (78.9 %), not met |
+| Real pairs right | report | 64/73 (87.7 %) | 87/111 (78.4 %) | 151/184 (82.1 %) |
+| Best in top 3 | every group | 2/2 | 7/9 | 9/11, not met |
+| First pick's loss | ≤ 3 % | 4.5, 1.4 % | worst 33.0 %; 4 of 9 above | 5 of 11 above, not met |
+| What-if direction ≥ 3 % | ≥ 95 % | | | 37/47 (78.7 %), not met |
+| Magnitude ≥ 10 % | median ≤ 20-25 % | | | 38 % over 31, not met |
+| Time | median ≤ 10 %, none > 25 % | 3.1, 3.6 % | decode 11.1, 20.6 %; FA 17.4, 15.6 %; GEMV 10.5, 15.4 %; RMSNorm 27.2, 4.3 %; softmax 22.8 %; hand 13.1 % | 11.1 %, ≥ 30 µs 7.6 %; 15 above 25 %, worst +114.5 %, not met |
+
+Real pairs off HGEMM, rounds 13 to 17: 74, 71, 72, 83, 78 %. Without warm GEMV: 75, 73, 73, 79, 74 %. Warm GEMV alone gave 28/28 and 20/20 in the last two rounds. D877-D883's first blind score: no step above rounds 13-15 once warm GEMV is out.
+Misses above 10 % on `kernel` rows, 54 of 95: defect 0; known rule wrong 34; no rule 20; cells in `29` §7a.
+```

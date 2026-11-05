@@ -310,7 +310,9 @@ ROUND18: tuple[Mark, ...] = (
     Mark("read", "DRAM", "row", "c", "M", "gq_* (D898): warps per row +5 % a doubling, no rule"),
 )
 ROUND19: tuple[Mark, ...] = (
-    Mark("write", "L2", "cap", "c", "m", "rs_m*, rms19, sm19 (D907): past 4 MiB written, no rule"),
+    Mark("write", "L2", "cap", "c", "M", "rw_*, sw_*, wb_* (D911): a miss curve with stores"),
+    Mark("copy", "L2", "row", "c", "M", "cb_*, fas_*, dw_* (D910): runs of lanes in a line"),
+    Mark("copy", "DRAM", "row", "c", "m", "dec20 BN 64 rotating after D910 (D912): no rule"),
 )
 ALL_MARKS = CELLS + ROUND16 + ROUND17 + ROUND18 + ROUND19
 # Placed after replay's check (`review coverage`): decode's time is its copies and its compute

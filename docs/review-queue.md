@@ -1042,3 +1042,16 @@ Decisions made without the user that need review. Newest last. Each entry: quest
 - **Rationale:** `rs_m*` places the gap past 4 MiB written, so a rule can now be written from a sweep; no replays were left in round 19's limit.
 - **Cost of changing later:** one rule and its probe rows, next round.
 
+## PERFMODEL round 20: the written footprint's curve is empirical and on a design variable (D911)
+
+- **Question:** warm rows past about 16 MiB of footprint are bistable (passes 32 to 48 µs at one row), and D911's curve takes the median. Is a median the right report for a design search near that turn?
+- **Choice:** a curve from probes; bistability recorded, not modelled; D889's limits removed.
+- **Rationale:** flat in T and blocks, which the limit by blocks was not; a structural rule needs the L2's replacement under stores, not measured.
+- **Cost of changing later:** one table and three lines in `kernel.py`; a sweep of retention under stores.
+
+## PERFMODEL round 20: profiler on spark-6951 (D909)
+
+- **Question:** the batch ran timing only because `sudo -n ncu` is refused there, while the driver reports `RmProfilingAdminOnly: 0`, so `ncu` without sudo may work. Should the worker try it?
+- **Choice:** not tried: the instruction was timing only if sudo is refused. Counters came from spark.
+- **Rationale:** the rule given was explicit.
+- **Cost of changing later:** one setting in `run.py`.
