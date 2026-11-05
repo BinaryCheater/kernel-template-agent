@@ -123,11 +123,12 @@ def _entries(log: list, lp: tuple[int, int] | None) -> list[Load]:
 
 def _shifts(a: list[Load], b: list[Load]) -> list[int | None]:
     """Per load the byte shift from block a to block b; None when the two do not line up."""
-    if len(a) != len(b):
-        return [None] * len(a)
+    # round 13: by the load, not its place: decode's blocks differ in a few guarded loads of Q
+    other = {(y.wid, y.pc, y.occ): y for y in b}
     out: list[int | None] = []
-    for x, y in zip(a, b, strict=True):
-        if (x.wid, x.pc, x.occ) != (y.wid, y.pc, y.occ) or x.offs is None or y.offs is None:
+    for x in a:
+        y = other.get((x.wid, x.pc, x.occ))
+        if y is None or x.offs is None or y.offs is None:
             out.append(None)
             continue
         d = {(q - p) & 0xFFFFFFFF for p, q in zip(x.offs, y.offs, strict=True)}

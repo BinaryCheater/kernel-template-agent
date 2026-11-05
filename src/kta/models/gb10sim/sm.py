@@ -34,7 +34,16 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from .lanes import Lanes, contiguous, footprint, lut3, shared_part_sector, spread_lines, width_of
+from .lanes import (
+    Lanes,
+    contiguous,
+    footprint,
+    lut3,
+    prmt,
+    shared_part_sector,
+    spread_lines,
+    width_of,
+)
 from .machine import Machine, OpClass, default_machine
 from .sass import Ins, main_loop, parse
 
@@ -618,6 +627,10 @@ class SM:
                 )
                 if None not in (a, b, c, lut):
                     v = lut3(a, b, c, lut)
+            elif x.base == "PRMT" and len(args) >= 4:
+                a, sel, c = (self._val(w, t) for t in args[1:4])
+                if None not in (a, sel, c):
+                    v = prmt(a, sel, c)
             elif x.base in ("SEL", "USEL") and len(args) >= 4:
                 pv = self._pred(w, args[3])
                 a, b = self._val(w, args[1]), self._val(w, args[2])

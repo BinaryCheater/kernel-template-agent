@@ -395,17 +395,10 @@ class Lanes:
             return None
         if base == "PRMT" and len(g) >= 3 and all(self.exact(x) for x in g[:3]):
             # round 10: bytes of a and c by the selector's nibbles (TileLang's 16-bit products)
-            sel = g[1][1][0]
-            if not self.uniform(g[1]) or sel & 0x8888:
+            if not self.uniform(g[1]):
                 return None
-            out = []
-            for x, y in zip(g[0][1], g[2][1], strict=True):
-                v = 0
-                for i in range(4):
-                    n = (sel >> (4 * i)) & 7
-                    v |= (((y if n > 3 else x) >> (8 * (n & 3))) & 255) << (8 * i)
-                out.append(v)
-            return ((), tuple(out))
+            sel = g[1][1][0]
+            return ((), tuple(prmt(x, sel, y) for x, y in zip(g[0][1], g[2][1], strict=True)))
         if base in ("LOP3", "ULOP3") and len(g) >= 4:
             # round 8: a | (b & c) over a base: the fields of an address, the base's bits apart
             keep: tuple = ()
@@ -508,6 +501,17 @@ def _compare(op: str, a: Val, b: Val) -> tuple[bool, ...] | None:
         return None
     sign = (lambda v: v) if m[2] else _signed
     return tuple(cmp(sign(p), sign(q)) for p, q in zip(a[1], b[1], strict=True))
+
+
+def prmt(a: int, sel: int, c: int) -> int:
+    """Bytes of a (0-3) and c (4-7) by the selector's nibbles; a nibble's top bit replicates that
+    byte's sign (round 13: 0x9910, a 16-bit sign extension in the compiler's division by 3)."""
+    v = 0
+    for i in range(4):
+        n = (sel >> (4 * i)) & 15
+        b = ((c if n & 4 else a) >> (8 * (n & 3))) & 255
+        v |= ((0xFF if b & 128 else 0) if n & 8 else b) << (8 * i)
+    return v
 
 
 def lut3(a: int, b: int, c: int, lut: int) -> int:

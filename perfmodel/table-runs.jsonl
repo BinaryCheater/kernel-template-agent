@@ -42,3 +42,13 @@
 {"date": "2026-11-04T23:25:00Z", "round": 13, "mode": "predict failed: stale build (cost read from the shell, not logged by the tool)", "commit": "d2264965bba6", "dirty": false, "rows": 0, "replayed": 0, "cpu_s": 713, "wall_s": 120, "jobs": 6}
 {"date": "2026-11-04T23:25:00Z", "round": 13, "mode": "predict failed: replay crash (cost read from the shell, not logged by the tool)", "commit": "d2264965bba6", "dirty": false, "rows": 0, "replayed": 0, "cpu_s": 699, "wall_s": 120, "jobs": 6}
 {"date": "2026-11-04T23:25:00Z", "round": 13, "mode": "predict failed: replay crash, traceback (cost read from the shell, not logged by the tool)", "commit": "d2264965bba6", "dirty": false, "rows": 0, "replayed": 0, "cpu_s": 700, "wall_s": 120, "jobs": 6}
+{"date": "2026-11-05T01:47:07Z", "round": 13, "mode": "scratch l2 look", "commit": "d0ebab6a7a90", "dirty": false, "rows": 1, "replayed": 1, "cpu_s": 0.7, "wall_s": 0.6, "jobs": 1}
+{"date": "2026-11-05T01:48:48Z", "round": 13, "mode": "scratch l2 look", "commit": "d0ebab6a7a90", "dirty": false, "rows": 1, "replayed": 1, "cpu_s": 1.4, "wall_s": 1.3, "jobs": 1}
+{"date": "2026-11-05T01:48:48Z", "round": 13, "mode": "scratch l2 look", "commit": "d0ebab6a7a90", "dirty": false, "rows": 1, "replayed": 1, "cpu_s": 0.6, "wall_s": 0.6, "jobs": 1}
+{"date": "2026-11-05T01:49:10Z", "round": 13, "mode": "scratch unknown ops", "commit": "d0ebab6a7a90", "dirty": false, "rows": 1, "replayed": 1, "cpu_s": 0.7, "wall_s": 0.7, "jobs": 1}
+{"date": "2026-11-05T01:49:53Z", "round": 13, "mode": "scratch l2 look", "commit": "d0ebab6a7a90", "dirty": true, "rows": 1, "replayed": 1, "cpu_s": 1.0, "wall_s": 0.9, "jobs": 1}
+{"date": "2026-11-05T01:50:38Z", "round": 13, "mode": "selection", "commit": "d0ebab6a7a90", "dirty": true, "rows": 45, "replayed": 45, "cpu_s": 231.6, "wall_s": 44.0, "jobs": 6}
+{"date": "2026-11-05T01:51:00Z", "round": 13, "mode": "scratch acc look", "commit": "d0ebab6a7a90", "dirty": true, "rows": 1, "replayed": 1, "cpu_s": 1.0, "wall_s": 0.9, "jobs": 1}
+{"date": "2026-11-05T01:51:17Z", "round": 13, "mode": "scratch acc look", "commit": "d0ebab6a7a90", "dirty": true, "rows": 1, "replayed": 1, "cpu_s": 1.0, "wall_s": 0.9, "jobs": 1}
+{"date": "2026-11-05T01:51:29Z", "round": 13, "mode": "scratch acc look", "commit": "d0ebab6a7a90", "dirty": true, "rows": 1, "replayed": 1, "cpu_s": 1.1, "wall_s": 1.0, "jobs": 1}
+{"date": "2026-11-05T01:51:35Z", "round": 13, "mode": "selection", "commit": "d0ebab6a7a90", "dirty": true, "rows": 7, "replayed": 7, "cpu_s": 7.5, "wall_s": 5.6, "jobs": 6}
