@@ -1,11 +1,13 @@
 """One measurement batch on spark under the gb10-measure protocol (perfmodel-measure run).
 
-    python3 perfmodel/remote/run.py <build_dir> <out_dir>
+    python3 perfmodel/remote/run.py <build_dir> <out_dir> [no-counters regex]
 
 Standard library only (runs with the host's python3). Order, all in one exclusive job:
  1 environment record     2 clock calibration     3 compute and memory canaries
+ 0 the GPU below 45 C
  4 every probe and test-set kernel, event/clock64 timing, no profiler attached
  6 canaries and clock again
+ 4r1, 4r2 each kernel timed again after a cool-down, with its own clock (3r*, 6r*)
  5 test-set kernels under ncu, counts only, fixed metric list (one launch after warm-up)
  7 environment record again
 Each step's stdout goes to <out>/raw/<step>-<unit>.txt; <out>/run.json lists the steps.
@@ -17,6 +19,7 @@ round 2 with `--cache-control none`: the profiled launch sees the cache state th
 
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -158,7 +161,7 @@ def sh(cmd: list[str], cwd: Path | None = None, timeout: int = 1800) -> tuple[in
     return p.returncode, p.stdout + (("\n# stderr\n" + p.stderr) if p.stderr.strip() else "")
 
 
-def main(build: Path, out: Path) -> int:
+def main(build: Path, out: Path, no_counters: str = "") -> int:
     raw = out / "raw"
     raw.mkdir(parents=True, exist_ok=True)
     steps: list[dict] = []
@@ -188,6 +191,16 @@ def main(build: Path, out: Path) -> int:
         for mode in ("clock", "fma", "mem"):
             step(f"{tag}-protocol-{mode}", [str(b), mode])
 
+    def cool(limit_c: int = 45, wait_s: int = 900) -> None:
+        t0 = time.time()
+        while time.time() - t0 < wait_s:
+            q = ["nvidia-smi", "--query-gpu=temperature.gpu", "--format=csv,noheader"]
+            if int(sh(q)[1].split()[0]) <= limit_c:
+                break
+            time.sleep(10)
+        print(f"cooled {time.time() - t0:.0f} s", flush=True)
+
+    cool()
     env("before")
     if any(s.get("busy") for s in steps):
         print("GPU busy: refusing the batch", flush=True)
@@ -200,15 +213,17 @@ def main(build: Path, out: Path) -> int:
     kernels = sorted(p for p in (build / "testset").iterdir() if (p / "bin").exists())
     for d in kernels:
         step(f"4-{d.name}", [str(d / "bin"), "30"], cwd=d)
-    # round 13: each kernel timed twice more, each time in its own process, in reverse order and
-    # in order: what one process's memory placement and neighbours move. The closing clock and
-    # canaries stand right after the timing: the profiler passes take four times as long, and the
-    # clock falls with temperature (r13: 2.494 to 2.454 GHz over 48 minutes)
-    for d in reversed(kernels):
-        step(f"4r1-{d.name}", [str(d / "bin"), "30"], cwd=d)
-    for d in kernels:
-        step(f"4r2-{d.name}", [str(d / "bin"), "30"], cwd=d)
+    # round 13: the clock falls with temperature, about 0.002 GHz per degree (r13, r13a: 2.494 at
+    # 40 C, 2.454 at 59 C), and three passes in a row leave the 1 % band. The batch's clock and
+    # canaries bracket the first pass; each repeat, in its own process, cools down first and has its
+    # own clock: 4r1 in reverse order, 4r2 in order
     protocol("6")
+    for i, order in ((1, reversed(kernels)), (2, kernels)):
+        cool()
+        protocol(f"3r{i}")
+        for d in order:
+            step(f"4r{i}-{d.name}", [str(d / "bin"), "30"], cwd=d)
+        protocol(f"6r{i}")
 
     def ncu(tag: str, d: Path, metrics: str) -> None:
         entry = json.loads((d / "launch.json").read_text())["entry"]
@@ -239,6 +254,8 @@ def main(build: Path, out: Path) -> int:
 
     # a sequence's kernels have their counts on their own rows (one entry per profiler run)
     single = [d for d in kernels if "kernels" not in json.loads((d / "launch.json").read_text())]
+    if no_counters:  # rows an earlier batch has counters for: timing only
+        single = [d for d in single if not re.search(no_counters, d.name)]
     for d in single:
         ncu("5-ncu", d, METRICS)
     for d in single:
@@ -294,4 +311,4 @@ def main(build: Path, out: Path) -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main(Path(sys.argv[1]).resolve(), Path(sys.argv[2]).resolve()))
+    sys.exit(main(Path(sys.argv[1]).resolve(), Path(sys.argv[2]).resolve(), *sys.argv[3:4]))

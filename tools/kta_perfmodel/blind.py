@@ -89,6 +89,8 @@ def passes(round_no: int, root: Path = BATCHES) -> dict[str, list[float]]:
         if batch_order(d.name)[0] != round_no or not (d / "measured.json").exists():
             continue
         doc = json.loads((d / "measured.json").read_text())
+        if not doc["valid"]:
+            continue
         for k, v in doc["results"].items():
             out.setdefault(k, []).append(v["median"])
         for k, v in doc.get("repeats", {}).items():
@@ -146,8 +148,11 @@ def report(round_no: int) -> str:
     pred, meas = {}, {}
     for d in BATCHES.iterdir():
         if batch_order(d.name)[0] == round_no and (d / "measured.json").exists():
+            doc = json.loads((d / "measured.json").read_text())
+            if not doc["valid"]:
+                continue
             pred.update(json.loads((d / "predicted.json").read_text())["predicted"])
-            for k, v in json.loads((d / "measured.json").read_text())["results"].items():
+            for k, v in doc["results"].items():
                 meas[k] = v["median"]
     kernels = [r for r in rs if r["mode"] == "kernel"]
     lines = [f"Blind rows of round {round_no}: {len(rs)} rows first scored, first scores only.", ""]

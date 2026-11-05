@@ -175,7 +175,8 @@ def run(batch: str) -> int:
     rb = f"~/{built['remote_build']}"
     ro = f"~/{REMOTE_DATA}/{batch}/run"
     _remote(f"test ! -e {ro} || {{ echo 'refused: {ro} exists'; exit 1; }}")
-    _remote(f"cd src/{head} && python3 perfmodel/remote/run.py {rb} {ro} > {ro}.log 2>&1")
+    skip = shlex.quote(built.get("no_counters", ""))
+    _remote(f"cd src/{head} && python3 perfmodel/remote/run.py {rb} {ro} {skip} > {ro}.log 2>&1")
     local = RAW / batch
     local.mkdir(parents=True, exist_ok=True)
     _run(["rsync", "-a", f"{HOST}:{REMOTE_DATA}/{batch}/run/", f"{local}/"])
@@ -268,6 +269,14 @@ def import_(batch: str) -> int:
             key = "metrics_p" if name.startswith("5p") else "metrics_q"
             x = _ncu(text, run_doc.get(key, ""))
             counters.setdefault(name[7:], {}).update(x)
+    pass_clock = {
+        p: {
+            k: _results(texts[f"{s}-protocol-clock"])["clock chain_GHz"]["median"]
+            for k, s in (("before", f"3{p}"), ("after", f"6{p}"))
+        }
+        for p in ("r1", "r2")
+        if f"3{p}-protocol-clock" in texts and f"6{p}-protocol-clock" in texts
+    }
     clock = statistics.mean(
         [before["clock chain_GHz"]["median"], after["clock chain_GHz"]["median"]]
     )
@@ -313,6 +322,7 @@ def import_(batch: str) -> int:
     meas["invalid_results"] = dropped
     meas["counters"] = counters
     meas["repeats"] = repeats
+    meas["repeat_clock"] = pass_clock
     (d / "measured.json").write_text(json.dumps(meas, indent=1) + "\n")
     print(f"{batch}: {'valid' if valid else 'INVALID'}; {len(results)} results; checks {checks}")
     if failed:
