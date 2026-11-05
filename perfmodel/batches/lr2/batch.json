@@ -1,0 +1,865 @@
+{
+ "batch": "lr2",
+ "commit": "022d03de8cc62ec1643276062943e34f1edeed17",
+ "build_commit": "3e66c87d07da5c5e1c483f11ad8efedff8e957e3",
+ "host": "spark-6951",
+ "entry": "entry.md",
+ "prediction": "predicted.json",
+ "clock_GHz": 2.49125,
+ "checks": {
+  "clock chain_GHz": {
+   "before": 2.5008,
+   "after": 2.4817,
+   "drift": -0.007637555982085709,
+   "ok": true
+  },
+  "canary fma_us": {
+   "before": 488.672,
+   "after": 492.48,
+   "drift": 0.007792547966734231,
+   "ok": true
+  },
+  "canary mem_us": {
+   "before": 2359.616,
+   "after": 2403.424,
+   "drift": 0.018565732729393325,
+   "ok": true
+  }
+ },
+ "failed_steps": [],
+ "preflight_dropped": {},
+ "valid": true,
+ "cache_state": {
+  "lr2f_c128x32_s1_t256_warm kernel": "warm",
+  "lr2f_c128x32_s1_t256_warm b2b": "warm",
+  "lr2f_c128x32_s1_t256_warm graph": "warm",
+  "lr2h_c128x128x96_s1_t128_warm kernel": "warm",
+  "lr2h_c128x128x96_s1_t128_warm b2b": "warm",
+  "lr2h_c128x128x96_s1_t128_warm graph": "warm",
+  "lr2h_c128x192x64_s1_t128_warm kernel": "warm",
+  "lr2h_c128x192x64_s1_t128_warm b2b": "warm",
+  "lr2h_c128x192x64_s1_t128_warm graph": "warm",
+  "lr2h_c128x96x32_s2_t128_warm kernel": "warm",
+  "lr2h_c128x96x32_s2_t128_warm b2b": "warm",
+  "lr2h_c128x96x32_s2_t128_warm graph": "warm",
+  "lr2h_c192x128x64_s1_t128_warm kernel": "warm",
+  "lr2h_c192x128x64_s1_t128_warm b2b": "warm",
+  "lr2h_c192x128x64_s1_t128_warm graph": "warm",
+  "lr2h_c256x96x64_s1_t128_warm kernel": "warm",
+  "lr2h_c256x96x64_s1_t128_warm b2b": "warm",
+  "lr2h_c256x96x64_s1_t128_warm graph": "warm",
+  "lr2h_c96x128x32_s2_t128_warm kernel": "warm",
+  "lr2h_c96x128x32_s2_t128_warm b2b": "warm",
+  "lr2h_c96x128x32_s2_t128_warm graph": "warm",
+  "lr2h_c96x128x32_s2_t64_warm kernel": "warm",
+  "lr2h_c96x128x32_s2_t64_warm b2b": "warm",
+  "lr2h_c96x128x32_s2_t64_warm graph": "warm",
+  "lr2h_c96x256x64_s1_t128_warm kernel": "warm",
+  "lr2h_c96x256x64_s1_t128_warm b2b": "warm",
+  "lr2h_c96x256x64_s1_t128_warm graph": "warm",
+  "lr2m_c160x32x64_s1_t128_warm kernel": "warm",
+  "lr2m_c160x32x64_s1_t128_warm b2b": "warm",
+  "lr2m_c160x32x64_s1_t128_warm graph": "warm",
+  "lr2m_c160x48x64_s1_t128_warm kernel": "warm",
+  "lr2m_c160x48x64_s1_t128_warm b2b": "warm",
+  "lr2m_c160x48x64_s1_t128_warm graph": "warm",
+  "lr2m_c192x32x64_s1_t128_warm kernel": "warm",
+  "lr2m_c192x32x64_s1_t128_warm b2b": "warm",
+  "lr2m_c192x32x64_s1_t128_warm graph": "warm",
+  "lr2m_c192x32x96_s1_t256_warm kernel": "warm",
+  "lr2m_c192x32x96_s1_t256_warm b2b": "warm",
+  "lr2m_c192x32x96_s1_t256_warm graph": "warm",
+  "lr2m_c192x64x96_s1_t512_warm kernel": "warm",
+  "lr2m_c192x64x96_s1_t512_warm b2b": "warm",
+  "lr2m_c192x64x96_s1_t512_warm graph": "warm",
+  "lr2m_c320x32x96_s1_t512_warm kernel": "warm",
+  "lr2m_c320x32x96_s1_t512_warm b2b": "warm",
+  "lr2m_c320x32x96_s1_t512_warm graph": "warm",
+  "lr2m_c320x80x96_s1_t256_warm kernel": "warm",
+  "lr2m_c320x80x96_s1_t256_warm b2b": "warm",
+  "lr2m_c320x80x96_s1_t256_warm graph": "warm",
+  "lr2m_c320x96x96_s1_t256_warm kernel": "warm",
+  "lr2m_c320x96x96_s1_t256_warm b2b": "warm",
+  "lr2m_c320x96x96_s1_t256_warm graph": "warm",
+  "clock chain_GHz": "warm"
+ },
+ "environment": {
+  "1-env-before-apps": "",
+  "1-env-after-apps": "",
+  "1-env-after-uptime": " 06:38:01 up 22 days,  5:27,  8 users,  load average: 0.48, 0.73, 0.98\n",
+  "1-env-before-uptime": " 06:32:20 up 22 days,  5:21,  8 users,  load average: 1.04, 1.64, 1.30\n",
+  "1-env-versions": "NVIDIA-SMI version  : 580.159.03\nNVML version        : 580.159\nDRIVER version      : 580.159.03\nCUDA Version        : 13.0\nCuda compilation tools, release 13.0, V13.0.88\nBuild cuda_13.0.r13.0/compiler.36424714_0\n"
+ },
+ "smi_before": "\n==============NVSMI LOG==============\n\nTimestamp                                              : Fri Nov  6 06:32:19 2026\nDriver Version                                         : 580.159.03\nCUDA Version                                           : 13.0\n\nAttached GPUs                                          : 1\nGPU 0000000F:01:00.0\n    Performance State                                  : P0\n    Clocks Event Reasons\n        Idle                                           : Not Active\n        Applications Clocks Setting                    : Not Active\n        SW Power Cap                                   : Not Active\n        HW Slowdown                                    : Not Active\n            HW Thermal Slowdown                        : Not Active\n            HW Power Brake Slowdown                    : Not Active\n        Sync Boost                                     : Not Active\n        SW Thermal Slowdown                            : Not Active\n        Display Clock Setting                          : Not Active\n    Clocks Event Reasons Counters\n        SW Power Capping                               : 11792239312 us\n        Sync Boost                                     : 0 us\n        SW Thermal Slowdown                            : 0 us\n        HW Thermal Slowdown                            : 0 us\n        HW Power Braking                               : 0 us\n    Sparse Operation Mode                              : N/A\n    Temperature\n        GPU Current Temp                               : 62 C\n        GPU T.Limit Temp                               : 34 C\n        GPU Shutdown T.Limit Temp                      : -5 C\n        GPU Slowdown T.Limit Temp                      : -2 C\n        GPU Max Operating T.Limit Temp                 : 0 C\n        GPU Target Temperature                         : N/A\n        Memory Current Temp                            : N/A\n        Memory Max Operating T.Limit Temp              : N/A\n    GPU Power Readings\n        Average Power Draw                             : 34.05 W\n        Instantaneous Power Draw                       : 21.39 W\n        Current Power Limit                            : N/A\n        Requested Power Limit                          : N/A\n        Default Power Limit                            : N/A\n        Min Power Limit                                : N/A\n        Max Power Limit                                : N/A\n    Power Samples\n        Duration                                       : Not Found\n        Number of Samples                              : Not Found\n        Max                                            : Not Found\n        Min                                            : Not Found\n        Avg                                            : Not Found\n    GPU Memory Power Readings \n        Average Power Draw                             : N/A\n        Instantaneous Power Draw                       : N/A\n    Module Power Readings\n        Average Power Draw                             : N/A\n        Instantaneous Power Draw                       : N/A\n        Current Power Limit                            : N/A\n        Requested Power Limit                          : N/A\n        Default Power Limit                            : N/A\n        Min Power Limit                                : N/A\n        Max Power Limit                                : N/A\n    Clocks\n        Graphics                                       : 2476 MHz\n        SM                                             : 2476 MHz\n        Memory                                         : N/A\n        Video                                          : 2184 MHz\n    Applications Clocks\n        Graphics                                       : 2418 MHz\n        Memory                                         : N/A\n    Default Applications Clocks\n        Graphics                                       : 2418 MHz\n        Memory                                         : N/A\n    Deferred Clocks\n        Memory                                         : N/A\n    Max Clocks\n        Graphics                                       : 3003 MHz\n        SM                                             : 3003 MHz\n        Memory                                         : N/A\n        Video                                          : 3003 MHz\n    Max Customer Boost Clocks\n        Graphics                                       : N/A\n    SM Clock Samples\n        Duration                                       : N/A\n        Number of Samples                              : N/A\n        Max                                            : N/A\n        Min                                            : N/A\n        Avg                                            : N/A\n    Memory Clock Samples\n        Duration                                       : N/A\n        Number of Samples                              : N/A\n        Max                                            : N/A\n        Min                                            : N/A\n        Avg                                            : N/A\n    Clock Policy\n        Auto Boost                                     : N/A\n        Auto Boost Default                             : N/A\n\n",
+ "smi_after": "\n==============NVSMI LOG==============\n\nTimestamp                                              : Fri Nov  6 06:38:01 2026\nDriver Version                                         : 580.159.03\nCUDA Version                                           : 13.0\n\nAttached GPUs                                          : 1\nGPU 0000000F:01:00.0\n    Performance State                                  : P0\n    Clocks Event Reasons\n        Idle                                           : Not Active\n        Applications Clocks Setting                    : Not Active\n        SW Power Cap                                   : Not Active\n        HW Slowdown                                    : Not Active\n            HW Thermal Slowdown                        : Not Active\n            HW Power Brake Slowdown                    : Not Active\n        Sync Boost                                     : Not Active\n        SW Thermal Slowdown                            : Not Active\n        Display Clock Setting                          : Not Active\n    Clocks Event Reasons Counters\n        SW Power Capping                               : 11792239312 us\n        Sync Boost                                     : 0 us\n        SW Thermal Slowdown                            : 0 us\n        HW Thermal Slowdown                            : 0 us\n        HW Power Braking                               : 0 us\n    Sparse Operation Mode                              : N/A\n    Temperature\n        GPU Current Temp                               : 58 C\n        GPU T.Limit Temp                               : 38 C\n        GPU Shutdown T.Limit Temp                      : -5 C\n        GPU Slowdown T.Limit Temp                      : -2 C\n        GPU Max Operating T.Limit Temp                 : 0 C\n        GPU Target Temperature                         : N/A\n        Memory Current Temp                            : N/A\n        Memory Max Operating T.Limit Temp              : N/A\n    GPU Power Readings\n        Average Power Draw                             : 17.20 W\n        Instantaneous Power Draw                       : 14.48 W\n        Current Power Limit                            : N/A\n        Requested Power Limit                          : N/A\n        Default Power Limit                            : N/A\n        Min Power Limit                                : N/A\n        Max Power Limit                                : N/A\n    Power Samples\n        Duration                                       : Not Found\n        Number of Samples                              : Not Found\n        Max                                            : Not Found\n        Min                                            : Not Found\n        Avg                                            : Not Found\n    GPU Memory Power Readings \n        Average Power Draw                             : N/A\n        Instantaneous Power Draw                       : N/A\n    Module Power Readings\n        Average Power Draw                             : N/A\n        Instantaneous Power Draw                       : N/A\n        Current Power Limit                            : N/A\n        Requested Power Limit                          : N/A\n        Default Power Limit                            : N/A\n        Min Power Limit                                : N/A\n        Max Power Limit                                : N/A\n    Clocks\n        Graphics                                       : 2405 MHz\n        SM                                             : 2405 MHz\n        Memory                                         : N/A\n        Video                                          : 2073 MHz\n    Applications Clocks\n        Graphics                                       : 2418 MHz\n        Memory                                         : N/A\n    Default Applications Clocks\n        Graphics                                       : 2418 MHz\n        Memory                                         : N/A\n    Deferred Clocks\n        Memory                                         : N/A\n    Max Clocks\n        Graphics                                       : 3003 MHz\n        SM                                             : 3003 MHz\n        Memory                                         : N/A\n        Video                                          : 3003 MHz\n    Max Customer Boost Clocks\n        Graphics                                       : N/A\n    SM Clock Samples\n        Duration                                       : N/A\n        Number of Samples                              : N/A\n        Max                                            : N/A\n        Min                                            : N/A\n        Avg                                            : N/A\n    Memory Clock Samples\n        Duration                                       : N/A\n        Number of Samples                              : N/A\n        Max                                            : N/A\n        Min                                            : N/A\n        Avg                                            : N/A\n    Clock Policy\n        Auto Boost                                     : N/A\n        Auto Boost Default                             : N/A\n\n",
+ "steps": [
+  {
+   "step": "1-env-before-smi",
+   "cmd": [
+    "nvidia-smi",
+    "-q",
+    "-d",
+    "CLOCK,TEMPERATURE,POWER,PERFORMANCE"
+   ],
+   "rc": 0,
+   "t0": 1793917939.9677532,
+   "s": 0.1
+  },
+  {
+   "step": "1-env-before-apps",
+   "cmd": [
+    "nvidia-smi",
+    "--query-compute-apps=pid,process_name",
+    "--format=csv,noheader"
+   ],
+   "rc": 0,
+   "t0": 1793917940.032886,
+   "s": 0.0
+  },
+  {
+   "step": "1-env-before-uptime",
+   "cmd": [
+    "uptime"
+   ],
+   "rc": 0,
+   "t0": 1793917940.0533726,
+   "s": 0.0
+  },
+  {
+   "step": "1-env-versions",
+   "cmd": [
+    "sh",
+    "-c",
+    "nvidia-smi --version; nvcc --version | tail -2"
+   ],
+   "rc": 0,
+   "t0": 1793917940.0550048,
+   "s": 0.0
+  },
+  {
+   "step": "2-protocol-clock",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr2/build/protocol/bin",
+    "clock"
+   ],
+   "rc": 0,
+   "t0": 1793917940.0760732,
+   "s": 0.6
+  },
+  {
+   "step": "2-protocol-fma",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr2/build/protocol/bin",
+    "fma"
+   ],
+   "rc": 0,
+   "t0": 1793917940.6868708,
+   "s": 0.4
+  },
+  {
+   "step": "2-protocol-mem",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr2/build/protocol/bin",
+    "mem"
+   ],
+   "rc": 0,
+   "t0": 1793917941.1193109,
+   "s": 0.5
+  },
+  {
+   "step": "4-lr2f_c128x32_s1_t256_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr2/build/testset/lr2f_c128x32_s1_t256_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917941.6179278,
+   "s": 0.8
+  },
+  {
+   "step": "4-lr2h_c128x128x96_s1_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr2/build/testset/lr2h_c128x128x96_s1_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917942.4481852,
+   "s": 1.2
+  },
+  {
+   "step": "4-lr2h_c128x192x64_s1_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr2/build/testset/lr2h_c128x192x64_s1_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917943.6709967,
+   "s": 1.2
+  },
+  {
+   "step": "4-lr2h_c128x96x32_s2_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr2/build/testset/lr2h_c128x96x32_s2_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917944.891513,
+   "s": 1.1
+  },
+  {
+   "step": "4-lr2h_c192x128x64_s1_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr2/build/testset/lr2h_c192x128x64_s1_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917945.9835234,
+   "s": 1.3
+  },
+  {
+   "step": "4-lr2h_c256x96x64_s1_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr2/build/testset/lr2h_c256x96x64_s1_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917947.2591493,
+   "s": 1.3
+  },
+  {
+   "step": "4-lr2h_c96x128x32_s2_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr2/build/testset/lr2h_c96x128x32_s2_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917948.5592525,
+   "s": 1.1
+  },
+  {
+   "step": "4-lr2h_c96x128x32_s2_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr2/build/testset/lr2h_c96x128x32_s2_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917949.6285858,
+   "s": 1.1
+  },
+  {
+   "step": "4-lr2h_c96x256x64_s1_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr2/build/testset/lr2h_c96x256x64_s1_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917950.708879,
+   "s": 1.2
+  },
+  {
+   "step": "4-lr2m_c160x32x64_s1_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr2/build/testset/lr2m_c160x32x64_s1_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917951.9124792,
+   "s": 1.7
+  },
+  {
+   "step": "4-lr2m_c160x48x64_s1_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr2/build/testset/lr2m_c160x48x64_s1_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917953.585752,
+   "s": 1.6
+  },
+  {
+   "step": "4-lr2m_c192x32x64_s1_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr2/build/testset/lr2m_c192x32x64_s1_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917955.157583,
+   "s": 1.7
+  },
+  {
+   "step": "4-lr2m_c192x32x96_s1_t256_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr2/build/testset/lr2m_c192x32x96_s1_t256_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917956.8582711,
+   "s": 1.7
+  },
+  {
+   "step": "4-lr2m_c192x64x96_s1_t512_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr2/build/testset/lr2m_c192x64x96_s1_t512_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917958.5668757,
+   "s": 1.7
+  },
+  {
+   "step": "4-lr2m_c320x32x96_s1_t512_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr2/build/testset/lr2m_c320x32x96_s1_t512_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917960.2733684,
+   "s": 1.9
+  },
+  {
+   "step": "4-lr2m_c320x80x96_s1_t256_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr2/build/testset/lr2m_c320x80x96_s1_t256_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917962.2010212,
+   "s": 1.7
+  },
+  {
+   "step": "4-lr2m_c320x96x96_s1_t256_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr2/build/testset/lr2m_c320x96x96_s1_t256_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917963.8744187,
+   "s": 1.7
+  },
+  {
+   "step": "6-protocol-clock",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr2/build/protocol/bin",
+    "clock"
+   ],
+   "rc": 0,
+   "t0": 1793917965.5821965,
+   "s": 0.6
+  },
+  {
+   "step": "6-protocol-fma",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr2/build/protocol/bin",
+    "fma"
+   ],
+   "rc": 0,
+   "t0": 1793917966.2192721,
+   "s": 0.4
+  },
+  {
+   "step": "6-protocol-mem",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr2/build/protocol/bin",
+    "mem"
+   ],
+   "rc": 0,
+   "t0": 1793917966.6601777,
+   "s": 0.5
+  },
+  {
+   "step": "3r1-protocol-clock",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr2/build/protocol/bin",
+    "clock"
+   ],
+   "rc": 0,
+   "t0": 1793918117.529247,
+   "s": 0.7
+  },
+  {
+   "step": "3r1-protocol-fma",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr2/build/protocol/bin",
+    "fma"
+   ],
+   "rc": 0,
+   "t0": 1793918118.2071798,
+   "s": 0.4
+  },
+  {
+   "step": "3r1-protocol-mem",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr2/build/protocol/bin",
+    "mem"
+   ],
+   "rc": 0,
+   "t0": 1793918118.646687,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-lr2m_c320x96x96_s1_t256_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr2/build/testset/lr2m_c320x96x96_s1_t256_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793918119.1263764,
+   "s": 1.7
+  },
+  {
+   "step": "4r1-lr2m_c320x80x96_s1_t256_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr2/build/testset/lr2m_c320x80x96_s1_t256_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793918120.8122709,
+   "s": 1.7
+  },
+  {
+   "step": "4r1-lr2m_c320x32x96_s1_t512_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr2/build/testset/lr2m_c320x32x96_s1_t512_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793918122.4663749,
+   "s": 1.9
+  },
+  {
+   "step": "4r1-lr2m_c192x64x96_s1_t512_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr2/build/testset/lr2m_c192x64x96_s1_t512_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793918124.3801754,
+   "s": 1.7
+  },
+  {
+   "step": "4r1-lr2m_c192x32x96_s1_t256_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr2/build/testset/lr2m_c192x32x96_s1_t256_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793918126.0759275,
+   "s": 1.7
+  },
+  {
+   "step": "4r1-lr2m_c192x32x64_s1_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr2/build/testset/lr2m_c192x32x64_s1_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793918127.7648673,
+   "s": 1.7
+  },
+  {
+   "step": "4r1-lr2m_c160x48x64_s1_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr2/build/testset/lr2m_c160x48x64_s1_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793918129.4533212,
+   "s": 1.5
+  },
+  {
+   "step": "4r1-lr2m_c160x32x64_s1_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr2/build/testset/lr2m_c160x32x64_s1_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793918131.001881,
+   "s": 1.6
+  },
+  {
+   "step": "4r1-lr2h_c96x256x64_s1_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr2/build/testset/lr2h_c96x256x64_s1_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793918132.6506467,
+   "s": 1.2
+  },
+  {
+   "step": "4r1-lr2h_c96x128x32_s2_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr2/build/testset/lr2h_c96x128x32_s2_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793918133.863224,
+   "s": 1.1
+  },
+  {
+   "step": "4r1-lr2h_c96x128x32_s2_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr2/build/testset/lr2h_c96x128x32_s2_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793918134.9257238,
+   "s": 1.1
+  },
+  {
+   "step": "4r1-lr2h_c256x96x64_s1_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr2/build/testset/lr2h_c256x96x64_s1_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793918135.9850388,
+   "s": 1.3
+  },
+  {
+   "step": "4r1-lr2h_c192x128x64_s1_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr2/build/testset/lr2h_c192x128x64_s1_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793918137.2691786,
+   "s": 1.3
+  },
+  {
+   "step": "4r1-lr2h_c128x96x32_s2_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr2/build/testset/lr2h_c128x96x32_s2_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793918138.5360472,
+   "s": 1.1
+  },
+  {
+   "step": "4r1-lr2h_c128x192x64_s1_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr2/build/testset/lr2h_c128x192x64_s1_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793918139.6217976,
+   "s": 1.2
+  },
+  {
+   "step": "4r1-lr2h_c128x128x96_s1_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr2/build/testset/lr2h_c128x128x96_s1_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793918140.8314526,
+   "s": 1.2
+  },
+  {
+   "step": "4r1-lr2f_c128x32_s1_t256_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr2/build/testset/lr2f_c128x32_s1_t256_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793918142.0509121,
+   "s": 0.8
+  },
+  {
+   "step": "6r1-protocol-clock",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr2/build/protocol/bin",
+    "clock"
+   ],
+   "rc": 0,
+   "t0": 1793918142.8797154,
+   "s": 0.6
+  },
+  {
+   "step": "6r1-protocol-fma",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr2/build/protocol/bin",
+    "fma"
+   ],
+   "rc": 0,
+   "t0": 1793918143.5027502,
+   "s": 0.4
+  },
+  {
+   "step": "6r1-protocol-mem",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr2/build/protocol/bin",
+    "mem"
+   ],
+   "rc": 0,
+   "t0": 1793918143.935219,
+   "s": 0.5
+  },
+  {
+   "step": "3r2-protocol-clock",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr2/build/protocol/bin",
+    "clock"
+   ],
+   "rc": 0,
+   "t0": 1793918254.6967747,
+   "s": 0.7
+  },
+  {
+   "step": "3r2-protocol-fma",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr2/build/protocol/bin",
+    "fma"
+   ],
+   "rc": 0,
+   "t0": 1793918255.3603208,
+   "s": 0.4
+  },
+  {
+   "step": "3r2-protocol-mem",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr2/build/protocol/bin",
+    "mem"
+   ],
+   "rc": 0,
+   "t0": 1793918255.7930791,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-lr2f_c128x32_s1_t256_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr2/build/testset/lr2f_c128x32_s1_t256_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793918256.268828,
+   "s": 0.8
+  },
+  {
+   "step": "4r2-lr2h_c128x128x96_s1_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr2/build/testset/lr2h_c128x128x96_s1_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793918257.0890808,
+   "s": 1.2
+  },
+  {
+   "step": "4r2-lr2h_c128x192x64_s1_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr2/build/testset/lr2h_c128x192x64_s1_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793918258.3026876,
+   "s": 1.2
+  },
+  {
+   "step": "4r2-lr2h_c128x96x32_s2_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr2/build/testset/lr2h_c128x96x32_s2_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793918259.5053878,
+   "s": 1.1
+  },
+  {
+   "step": "4r2-lr2h_c192x128x64_s1_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr2/build/testset/lr2h_c192x128x64_s1_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793918260.5773208,
+   "s": 1.3
+  },
+  {
+   "step": "4r2-lr2h_c256x96x64_s1_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr2/build/testset/lr2h_c256x96x64_s1_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793918261.838718,
+   "s": 1.3
+  },
+  {
+   "step": "4r2-lr2h_c96x128x32_s2_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr2/build/testset/lr2h_c96x128x32_s2_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793918263.115436,
+   "s": 1.1
+  },
+  {
+   "step": "4r2-lr2h_c96x128x32_s2_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr2/build/testset/lr2h_c96x128x32_s2_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793918264.17108,
+   "s": 1.1
+  },
+  {
+   "step": "4r2-lr2h_c96x256x64_s1_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr2/build/testset/lr2h_c96x256x64_s1_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793918265.2402933,
+   "s": 1.2
+  },
+  {
+   "step": "4r2-lr2m_c160x32x64_s1_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr2/build/testset/lr2m_c160x32x64_s1_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793918266.4356577,
+   "s": 1.6
+  },
+  {
+   "step": "4r2-lr2m_c160x48x64_s1_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr2/build/testset/lr2m_c160x48x64_s1_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793918268.083997,
+   "s": 1.6
+  },
+  {
+   "step": "4r2-lr2m_c192x32x64_s1_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr2/build/testset/lr2m_c192x32x64_s1_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793918269.6353438,
+   "s": 1.7
+  },
+  {
+   "step": "4r2-lr2m_c192x32x96_s1_t256_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr2/build/testset/lr2m_c192x32x96_s1_t256_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793918271.3181124,
+   "s": 1.7
+  },
+  {
+   "step": "4r2-lr2m_c192x64x96_s1_t512_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr2/build/testset/lr2m_c192x64x96_s1_t512_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793918273.0085375,
+   "s": 1.7
+  },
+  {
+   "step": "4r2-lr2m_c320x32x96_s1_t512_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr2/build/testset/lr2m_c320x32x96_s1_t512_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793918274.7103138,
+   "s": 1.9
+  },
+  {
+   "step": "4r2-lr2m_c320x80x96_s1_t256_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr2/build/testset/lr2m_c320x80x96_s1_t256_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793918276.6302176,
+   "s": 1.7
+  },
+  {
+   "step": "4r2-lr2m_c320x96x96_s1_t256_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr2/build/testset/lr2m_c320x96x96_s1_t256_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793918278.2908683,
+   "s": 1.7
+  },
+  {
+   "step": "6r2-protocol-clock",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr2/build/protocol/bin",
+    "clock"
+   ],
+   "rc": 0,
+   "t0": 1793918279.9955,
+   "s": 0.6
+  },
+  {
+   "step": "6r2-protocol-fma",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr2/build/protocol/bin",
+    "fma"
+   ],
+   "rc": 0,
+   "t0": 1793918280.6187165,
+   "s": 0.4
+  },
+  {
+   "step": "6r2-protocol-mem",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr2/build/protocol/bin",
+    "mem"
+   ],
+   "rc": 0,
+   "t0": 1793918281.0478375,
+   "s": 0.5
+  },
+  {
+   "step": "1-env-after-smi",
+   "cmd": [
+    "nvidia-smi",
+    "-q",
+    "-d",
+    "CLOCK,TEMPERATURE,POWER,PERFORMANCE"
+   ],
+   "rc": 0,
+   "t0": 1793918281.539025,
+   "s": 0.1
+  },
+  {
+   "step": "1-env-after-apps",
+   "cmd": [
+    "nvidia-smi",
+    "--query-compute-apps=pid,process_name",
+    "--format=csv,noheader"
+   ],
+   "rc": 0,
+   "t0": 1793918281.603828,
+   "s": 0.0
+  },
+  {
+   "step": "1-env-after-uptime",
+   "cmd": [
+    "uptime"
+   ],
+   "rc": 0,
+   "t0": 1793918281.6244707,
+   "s": 0.0
+  }
+ ],
+ "not_owned_by_user": "",
+ "raw": "data/perfmodel/batches/lr2",
+ "invalid_cases": {}
+}
