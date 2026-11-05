@@ -5,8 +5,9 @@
 Standard library only (runs with the host's python3). Order, all in one exclusive job:
  1 environment record     2 clock calibration     3 compute and memory canaries
  4 every probe and test-set kernel, event/clock64 timing, no profiler attached
+ 6 canaries and clock again
  5 test-set kernels under ncu, counts only, fixed metric list (one launch after warm-up)
- 6 canaries and clock again                       7 environment record again
+ 7 environment record again
 Each step's stdout goes to <out>/raw/<step>-<unit>.txt; <out>/run.json lists the steps.
 The profiler runs as `sudo -n /usr/local/cuda/bin/ncu` (the one command allowed with sudo on
 spark; the driver keeps RmProfilingAdminOnly=1), stdout captured here, no report files. From
@@ -199,10 +200,15 @@ def main(build: Path, out: Path) -> int:
     kernels = sorted(p for p in (build / "testset").iterdir() if (p / "bin").exists())
     for d in kernels:
         step(f"4-{d.name}", [str(d / "bin"), "30"], cwd=d)
-    # round 13: each kernel timed again in its own process, in reverse order here and after the
-    # profiler passes: what one process's memory placement and neighbours move
+    # round 13: each kernel timed twice more, each time in its own process, in reverse order and
+    # in order: what one process's memory placement and neighbours move. The closing clock and
+    # canaries stand right after the timing: the profiler passes take four times as long, and the
+    # clock falls with temperature (r13: 2.494 to 2.454 GHz over 48 minutes)
     for d in reversed(kernels):
         step(f"4r1-{d.name}", [str(d / "bin"), "30"], cwd=d)
+    for d in kernels:
+        step(f"4r2-{d.name}", [str(d / "bin"), "30"], cwd=d)
+    protocol("6")
 
     def ncu(tag: str, d: Path, metrics: str) -> None:
         entry = json.loads((d / "launch.json").read_text())["entry"]
@@ -270,9 +276,6 @@ def main(build: Path, out: Path) -> int:
                     ],
                     cwd=d,
                 )
-    for d in kernels:
-        step(f"4r2-{d.name}", [str(d / "bin"), "30"], cwd=d)
-    protocol("6")
     env("after")
     owned = sh(["find", str(out), "-not", "-user", str(os.getuid())])[1].strip()
     doc = {

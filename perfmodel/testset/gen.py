@@ -1724,6 +1724,95 @@ def _hand13(out: Path) -> None:
         )
 
 
+# round 13 (question 46): the tile times of every block, with its SM: an HGEMM with one more
+# parameter, stamped by thread 0 at the start of each k-tile and at the end of the kernel
+TRACE13 = {
+    "s3": (128, 128, 32, 3, 128, 0),
+    "s2": (128, 128, 32, 2, 128, 0),
+    "sw8": (128, 128, 32, 3, 128, 8),
+}
+TRACE_SLOTS = 66  # k-tiles up to 64, the end of the kernel, the SM
+TRACE_STAMP = (
+    "if (threadIdx.x == 0) {{ unsigned* tr_ = trc + (blockIdx.y * gridDim.x + blockIdx.x) * "
+    f"{2 * TRACE_SLOTS} + 2 * ({{slot}}); unsigned long long gt_; "
+    'asm volatile("mov.u64 %0, %%globaltimer;" : "=l"(gt_)); '
+    "tr_[0] = (unsigned)clock64(); tr_[1] = (unsigned)(gt_ >> 5); }}"
+)
+TRACE_SM = (
+    'if (threadIdx.x == 0) { unsigned s_; asm volatile("mov.u32 %0, %%smid;" : "=r"(s_)); '
+    f"trc[(blockIdx.y * gridDim.x + blockIdx.x) * {2 * TRACE_SLOTS} + {2 * TRACE_SLOTS - 2}] = s_; }}"
+)
+TRACE_DUMP = """  for (int l = 0; l < 4; l++) {
+    launch();
+    CK(cudaDeviceSynchronize());
+    std::vector<unsigned> h(nt);
+    CK(cudaMemcpy(h.data(), trc, nt * 4, cudaMemcpyDeviceToHost));
+    printf("TRACE %d", l);
+    for (unsigned x : h) printf(" %u", x);
+    printf("\\n");
+  }
+  CK(cudaDeviceSynchronize());
+  return 0;
+}
+"""
+
+
+def _traced(out: Path, name: str, tile: tuple, sh: dict) -> None:
+    if not _wanted(name):
+        return
+    bm, bn, bk, s, th, panel = tile
+    M, N, K = sh["M"], sh["N"], sh["K"]
+    c = _compiled(hgemm(bm, bn, bk, s, th, panel, sh))
+    src = c["src"].replace("half_t* __restrict__ C)", "half_t* __restrict__ C, unsigned* trc)")
+    loop = re.search(r"for \(int ko = 0; ko < \d+; \+\+ko\) \{", src)
+    src = src[: loop.end()] + TRACE_STAMP.format(slot="ko") + src[loop.end() :]
+    src = src[: loop.start()] + TRACE_SM + src[loop.start() :]
+    end = src.rstrip().rfind("}")
+    src = src[:end] + TRACE_STAMP.format(slot=TRACE_SLOTS - 2) + src[end:]
+    grid = _tiles(M, N, bm, bn)
+    nt = math.prod(grid) * 2 * TRACE_SLOTS
+    d = out / name
+    d.mkdir(parents=True, exist_ok=True)
+    (d / "kernel.cu").write_text(src)
+    tail = "  CK(cudaDeviceSynchronize());\n  return 0;\n}\n"
+    harness = HARNESS % {
+        "includes": '#include "kernel.cu"',
+        "sizes": ", ".join(str(x) for x in (M * K * 2, K * N * 2, M * N * 2)),
+        "nbuf": 3,
+        "rot": 1,
+        "setup": _setup(c["entry"], c["smem"])
+        + f"\n  dim3 grid({grid[0]}, {grid[1]}, {grid[2]}), block({th});\n"
+        + f"  const size_t nt = {nt};\n  unsigned* trc;\n  CK(cudaMalloc(&trc, nt * 4));",
+        "launches": f"    {c['entry']}<<<grid, block, smem, st>>>({c['args']}, trc);",
+        "name": name,
+    }
+    assert harness.endswith(tail)
+    (d / "harness.cu").write_text(harness[: -len(tail)] + TRACE_DUMP)
+    launch = {
+        "entry": c["entry"],
+        "grid": grid,
+        "threads": th,
+        "block": [th],
+        "smem": c["smem"],
+        "rot": 1,
+        "footprint_bytes": (M * K + K * N + M * N) * 2,
+        "write_bytes": M * N * 2,
+        "family": "hgemm",
+        "shape": sh,
+        "pick": _pick(bm, bn, bk, s, th, swizzle=panel),
+        "smem_estimate": s * (bm + bn) * bk * 2,
+        "cache": "warm",
+        "set": "tile trace",
+    }
+    (d / "launch.json").write_text(json.dumps(launch, indent=1) + "\n")
+
+
+def _round13b(out: Path) -> None:
+    for sh, tag in ((HGEMM_BLIND7_SHAPE, "m3072"), (HGEMM_BLIND9_SHAPE, "m1536"), (SHAPE, "c2048")):
+        for name, tile in TRACE13.items():
+            _traced(out, f"tr_{tag}_{name}", tile, sh)
+
+
 def _tried(gen, out: Path, name: str, *a, **kw) -> None:
     """One kernel; a variant TileLang refuses leaves its group."""
     try:
@@ -1846,6 +1935,7 @@ def main(out: Path) -> None:
         ("round12", _round12),
         ("round12b", _round12b),
         ("round13", _round13),
+        ("round13b", _round13b),
     ):
         try:  # a kernel that fails to generate is reported; the others stand
             gen(out)
