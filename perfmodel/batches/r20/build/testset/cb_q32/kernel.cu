@@ -4,7 +4,8 @@ extern "C" __global__ void __launch_bounds__(128) k_mem(unsigned* o, const char*
   const unsigned sm = (unsigned)__cvta_generic_to_shared(buf);
   const unsigned t = threadIdx.x;
   unsigned s = 0;
-  for (unsigned r = 0; r < 10; ++r) {
+  for (unsigned q = 0; q < 10 * 8; ++q) {
+    const unsigned r = q % 10;
     for (unsigned k = 0; k < 3; ++k) {
       const unsigned x = k * 64 + (t >> 1);
       const char* p = a + ((size_t)(blockIdx.x * 10 + r) * 3 + k) * 2048 + t * 16;

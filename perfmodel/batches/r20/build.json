@@ -1,10 +1,10 @@
 {
  "batch": "r20",
- "commit": "3c5c82885cf5e32f51b700766fd465a4cb4e8476",
+ "commit": "fd0b7e0f70642ee96d11394598ac042cdaa57f39",
  "host": "spark",
  "remote_build": "kta-work/data/perfmodel/batches/r20/build",
  "only": "^(bl20_|rw_m|rw_nl|rw_ns|sw_|wb_|cb_|fas_|dw_|gb_|hgemm_m3584|gemv20_|fa20_|dec20_|rms20_|sm20_)",
- "date": "2026-11-05T16:47:17Z",
+ "date": "2026-11-05T16:53:54Z",
  "nvcc_host": "Cuda compilation tools, release 13.0, V13.0.88\nBuild cuda_13.0.r13.0/compiler.36424714_0",
  "nvcc_image": "Cuda compilation tools, release 13.2, V13.2.51\nBuild cuda_13.2.r13.2/compiler.37434383_0",
  "tilelang": "0.1.15",

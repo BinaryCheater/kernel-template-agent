@@ -1,7 +1,7 @@
 {
  "entry": "k_mem",
  "grid": [
-  1560,
+  9360,
   1,
   1
  ],
@@ -12,7 +12,7 @@
  ],
  "smem": 0,
  "rot": 8,
- "footprint_bytes": 11534336,
+ "footprint_bytes": 63963136,
  "write_bytes": 1024,
  "family": "hand",
  "set": "gemv_table",

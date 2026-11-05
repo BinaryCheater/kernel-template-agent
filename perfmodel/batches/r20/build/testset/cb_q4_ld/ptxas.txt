@@ -71,7 +71,7 @@ Remark: The warnings can be suppressed with "-diag-suppress <warning-number>"
     __inline__ __attribute__((always_inline)) __attribute__((device)) __attribute__((host))
                                                                                      ^
 
-/o/testset/cb_q4_ld//kernel.cu(9): warning #177-D: variable "x" was declared but never referenced
+/o/testset/cb_q4_ld//kernel.cu(10): warning #177-D: variable "x" was declared but never referenced
         const unsigned x = k * 64 + (t >> 1);
                        ^
 
@@ -122,7 +122,7 @@ Remark: The warnings can be suppressed with "-diag-suppress <warning-number>"
     __inline__ __attribute__((always_inline)) __attribute__((device)) __attribute__((host))
                                                                                      ^
 
-/o/testset/cb_q4_ld//kernel.cu(9): warning #177-D: variable "x" was declared but never referenced
+/o/testset/cb_q4_ld//kernel.cu(10): warning #177-D: variable "x" was declared but never referenced
         const unsigned x = k * 64 + (t >> 1);
                        ^
 
@@ -131,12 +131,12 @@ ptxas info    : Compiling entry function '_Z4fillPN7cutlass6half_tEmj' for 'sm_1
 ptxas info    : Function properties for _Z4fillPN7cutlass6half_tEmj
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 16 registers, used 0 barriers
-ptxas info    : Compile time = 3.364 ms
+ptxas info    : Compile time = 2.111 ms
 ptxas info    : Compiling entry function 'k_mem' for 'sm_121a'
 ptxas info    : Function properties for k_mem
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
-ptxas info    : Used 98 registers, used 0 barriers, 65536 bytes smem
-ptxas info    : Compile time = 9.910 ms
+ptxas info    : Used 118 registers, used 0 barriers, 65536 bytes smem
+ptxas info    : Compile time = 36.062 ms
 /usr/local/lib/python3.12/dist-packages/tilelang/3rdparty/cutlass/include/cutlass/platform/platform.h:611:33: warning: ‘long4’ is deprecated: use long4_16a or long4_32a [-Wdeprecated-declarations]
   611 | struct alignment_of<long4> {
       |                                 ^    
