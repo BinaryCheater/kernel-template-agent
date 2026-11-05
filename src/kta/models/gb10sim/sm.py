@@ -215,6 +215,7 @@ class SM:
         self.st_pending: dict[Any, float] = {}
         self.st_units: set = set()
         self.st_lines: set = set()  # round 17: the lines of the last store
+        self.frame_seen: set = set()  # round 18: frame slots a warp has written
         self.ldg_last: dict = {}  # round 18: per warp and load, the last address and its stride
         self.st_dram = 0.0  # round 16: when the DRAM has taken the bursts stores opened
         self.dram_writes_counted = dram_writes_counted  # the DRAM clock already holds the writes
@@ -1384,10 +1385,12 @@ class SM:
             rate = P["local_chip_B_per_clk"]
             if P["stack_counts_dirty"]:
                 # round 18 (sp_*): frames written through a launch add to the kernel's stores:
-                # past the dirty limit they leave at the DRAM's write rate, from the first frame
+                # past the dirty limit a slot's first write leaves at the DRAM's write rate
                 nb = min(32, self.launch_threads // (self.grid_blocks or 1)) * width_of(x.op)
                 frames = self.stack_bytes * self.launch_threads
-                if frames + (self.write_footprint or 0) > P["stg_dirty_bytes"]:
+                first = (w.wid, x.args) not in self.frame_seen
+                self.frame_seen.add((w.wid, x.args))
+                if first and frames + (self.write_footprint or 0) > P["stg_dirty_bytes"]:
                     cold = True
                     hit = False
             reg = re.search(r"\[(R\d+)", x.args)
