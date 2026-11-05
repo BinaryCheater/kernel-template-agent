@@ -2766,8 +2766,8 @@ def _round16(out: Path) -> None:
 # round 17: the blind recipe (D874). Rule, chosen before any result: off HGEMM a factor 9 in every
 # size, HGEMM a factor 27 in every size; tiles and divisors as TileLang accepts them.
 GEMV17 = {"N": 7200, "K": 2592, "group": 72, "n_part": 4, "reduce": 32}
-FA17 = {**FA, "S": 2016, "H": 9, "D": 72}
-DECODE17 = {**DECODE, "H": 27, "G": 9, "S": 2160, "D": 72}
+FA17 = {**FA, "S": 2016, "H": 9, "D": 144}
+DECODE17 = {**DECODE, "H": 27, "G": 9, "S": 2160, "D": 144}
 ROWS17 = {"M": 720, "N": 4608}
 HGEMM_BLIND17_SHAPE = {"M": 3456, "N": 1296, "K": 1728}
 HAND17 = {
