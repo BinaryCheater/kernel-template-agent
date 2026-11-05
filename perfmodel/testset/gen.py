@@ -704,6 +704,43 @@ def rmsnorm(
     return rms
 
 
+def moe_nvfp4(E: int, T_: int, N: int, K: int, BM: int, BN: int, BK: int, S: int, threads: int):
+    """LEARNDEMO1: MoE expert GEMM on NVFP4 weights, `moe_gemm`'s routing with `nvfp4gemm`'s
+    dequantisation in the main loop: tokens grouped by expert, one scale per 16 elements along K."""
+    per = T_ // E // BM
+    SC = BK // NVFP4_BLOCK
+
+    @T.prim_func
+    def gemm(
+        A: T.Tensor((T_, K), "float16"),
+        Bq: T.Tensor((E, N, K // 2), "int8"),
+        Sc: T.Tensor((E, N, K // NVFP4_BLOCK), "float16"),
+        C: T.Tensor((T_, N), "float16"),
+    ):
+        with T.Kernel(T.ceildiv(N, BN), T.ceildiv(T_, BM), threads=threads) as (bx, by):
+            A_shared = T.alloc_shared((BM, BK), "float16")
+            Bq_shared = T.alloc_shared((BN, BK // 2), "int8")
+            Sc_shared = T.alloc_shared((BN, SC), "float16")
+            B_shared = T.alloc_shared((BN, BK), "float16")
+            C_local = T.alloc_fragment((BM, BN), "float32")
+            e = by // per
+            T.clear(C_local)
+            for ko in T.Pipelined(T.ceildiv(K, BK), num_stages=S):
+                T.copy(A[by * BM, ko * BK], A_shared)
+                T.copy(Bq[e, bx * BN, ko * (BK // 2)], Bq_shared)
+                T.copy(Sc[e, bx * BN, ko * BK // NVFP4_BLOCK], Sc_shared)
+                for i, j in T.Parallel(BN, BK):
+                    x = (T.Cast("int32", Bq_shared[i, j // 2]) >> ((j % 2) * 4)) & 15
+                    ex, m = (x >> 1) & 3, x & 1
+                    mag = T.if_then_else(ex > 0, (2 + m) << (ex - 1), m)
+                    v = T.Cast("float16", mag) * T.float16(0.5)
+                    B_shared[i, j] = T.if_then_else(x >= 8, -v, v) * Sc_shared[i, j // NVFP4_BLOCK]
+                T.gemm(A_shared, B_shared, C_local, transpose_B=True)
+            T.copy(C_local, C[by * BM, bx * BN])
+
+    return gemm
+
+
 def nvfp4gemm(BM: int, BN: int, BK: int, S: int, threads: int, compute: bool = True):
     """GEMM with an NVFP4 B dequantised in the main loop (round 8): e2m1 elements, two per byte, one
     scale per 16 elements along K; sm_121a's ptxas refuses the block-scaled mma, so the elements and
@@ -4295,7 +4332,24 @@ def _search(out: Path) -> None:
                 continue
             x, cache = r["x"], r["cache"]
             try:
-                if r["family"] == "hgemm":
+                if r["family"] == "moe_nvfp4":
+                    sh = {"E": 6, "T": 5760, "N": 1536, "K": 2048}
+                    E, T_, N, K = sh["E"], sh["T"], sh["N"], sh["K"]
+                    bm, bn, bk, st, th = x["BM"], x["BN"], x["BK"], x["s"], x["T"]
+                    info = {
+                        "family": "moe_nvfp4",
+                        "shape": sh,
+                        "pick": _pick(bm, bn, bk, st, th),
+                        "cache": cache,
+                        "set": f"lp2 moe_nvfp4 {cache}",
+                    }
+                    sizes = [T_ * K, E * N * K // 2, E * N * K // NVFP4_BLOCK, T_ * N]
+                    func = moe_nvfp4(E, T_, N, K, bm, bn, bk, st, th)
+                    fp = T_ * K * 2 + sizes[1] + sizes[2] * 2 + T_ * N * 2
+                    rot = _rots(cache, fp)
+                    grid = _tiles(T_, N, bm, bn)
+                    write(out, r["name"], func, sizes, grid, th, info, [2, 1, 2, 2], rot=rot)
+                elif r["family"] == "hgemm":
                     sh = {"M": 2816, "N": 1760, "K": 2112}
                     tile = (x["BM"], x["BN"], x["BK"], x["s"], x["T"], 0)
                     _hgemm(out, r["name"], tile, sh, cache, set=f"lp1 hgemm {cache}")

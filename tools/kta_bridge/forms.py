@@ -17,7 +17,7 @@ SMS = 48
 def occupancy(threads: int, regs: int, smem: int) -> int:
     """Blocks per SM: the walls of `kta.models.gb10sim.kernel.occupancy`."""
     warps = math.ceil(threads / 32)
-    per_warp = math.ceil(regs * 32 / 256) * 256
+    per_warp = math.ceil(max(regs, 16) * 32 / 256) * 256
     return max(1, min(65536 // (warps * per_warp), 102400 // (smem + 1024), 1536 // threads, 24))
 
 
@@ -98,8 +98,56 @@ def fa(s: dict, x: dict, regs: int, smem: int, cache: str) -> Amounts:
     )
 
 
+def moe_nvfp4(s: dict, x: dict, regs: int, smem: int, cache: str) -> Amounts:
+    """Routed expert GEMM on NVFP4 weights: every block dequantises its B tile each trip."""
+    T_, N, K, E = s["T"], s["N"], s["K"], s["E"]
+    BM, BN, BK, st, th = x["BM"], x["BN"], x["BK"], x["s"], x["T"]
+    nb = math.ceil(T_ / BM) * math.ceil(N / BN)
+    kt = math.ceil(K / BK)
+    return Amounts(
+        tensor_gflop=T_ * N * K / 1e9,
+        scalar_mop=nb * kt * BN * BK / 1e6,
+        copy_mb=nb * kt * (BM * BK * 2 + BN * BK // 2 + BN * BK // 8) / 1e6,
+        dram_mb=(T_ * K * 2 + E * N * K // 2 + E * N * K // 8) / 1e6,
+        store_mb=T_ * N * 2 / 1e6,
+        blocks=nb,
+        trips=kt,
+        stages=st,
+        warps=th // 32,
+        occ=occupancy(th, regs, smem),
+        spill=regs >= 250,
+        rotating=cache == "rotating",
+    )
+
+
+def decode(s: dict, x: dict, regs: int, smem: int, cache: str) -> Amounts:
+    """GQA split-KV partial attention: Q heads padded to BH, one block per head tile and split."""
+    H, G, S, D = s["H"], s["G"], s["S"], s["D"]
+    BN, BH, split, st = x["BN"], x["BH"], x["split"], x["s"]
+    vh = min(BH, H // G)
+    seg = S // split
+    tiles = H // vh
+    nb = tiles * split
+    return Amounts(
+        tensor_gflop=2 * BH * S * D * tiles / 1e9,
+        scalar_mop=BH * S * tiles / 1e6,
+        copy_mb=(4 * S * D * tiles + BH * D * 2 * nb) / 1e6,
+        dram_mb=4 * S * G * D / 1e6,
+        store_mb=H * split * D * 2 / 1e6,
+        blocks=nb,
+        trips=math.ceil(seg / BN),
+        stages=st,
+        warps=4,
+        occ=occupancy(128, regs, smem),
+        spill=regs >= 250,
+        rotating=cache == "rotating",
+    )
+
+
 def decisions(r: dict) -> dict:
     p = r["pick"]
+    if r["family"] == "decode_gqa":
+        return {"BN": p["BN"], "BH": p["BH"], "split": p["split"], "s": p["stages"]}
     if r["family"] == "hgemm":
         return {
             "BM": p["block_M"],
@@ -114,7 +162,7 @@ def decisions(r: dict) -> dict:
 def amounts(r: dict) -> Amounts:
     c = r.get("counters") or {}
     regs = c.get("launch__registers_per_thread") or r["res"].get("regs") or 200
-    build = hgemm if r["family"] == "hgemm" else fa
+    build = {"hgemm": hgemm, "fa_forward": fa, "decode_gqa": decode}[r["family"]]
     return build(r["shape"], decisions(r), regs, r["smem"], r.get("cache") or "warm")
 
 
@@ -127,7 +175,10 @@ def terms(a: Amounts) -> tuple[dict[str, float], dict[str, dict[str, float]]]:
     }
     if a.spill:
         compute["spill"] = a.tensor_gflop / a.use
-    branches = {"compute": compute, "copy": {"copy": a.copy_mb}}
+    latency = "latency_dram" if a.rotating else "latency_l2"
+    recurrence = {k: v / a.stages for k, v in compute.items()}
+    recurrence[latency] = a.waves * a.trips / a.stages
+    branches = {"compute": compute, "copy": {"copy": a.copy_mb}, "recurrence": recurrence}
     if a.rotating:
         branches["dram"] = {"dram": a.dram_mb}
     additive = {
@@ -135,6 +186,7 @@ def terms(a: Amounts) -> tuple[dict[str, float], dict[str, dict[str, float]]]:
         "store": a.store_mb,
         "stage": float(a.stages),
         "wave": a.waves,
+        "trip": a.waves * a.trips / 100,
         "barrier": max(0, a.warps - 4) * a.waves * a.trips / 10,
     }
     return additive, branches
@@ -163,4 +215,6 @@ DERIVED = {
     "copy": 1e3 / 2250,  # cpasync_l2_aggregate_GBs
     "dram": 1e3 / 237,  # dram_read_GBs
     "store": 1e3 / (244 * CLOCK_GHZ),  # sim.stg_chip_wide_B_per_clk
+    "latency_l2": 325 / (CLOCK_GHZ * 1e3),  # D816: a copy lands 325 clk after issue
+    "latency_dram": 1075 / (CLOCK_GHZ * 1e3),  # sim.ldgsts_dram_latency_clk, D810
 }

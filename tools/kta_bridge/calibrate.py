@@ -46,7 +46,7 @@ def fit(
             additive, branches = forms.terms(r["a"])
             for k, v in {**additive, **branches[branch]}.items():
                 if k in frozen:
-                    b[i] -= c[k] * v / r[target]
+                    b[i] -= c.get(k, 0.0) * v / r[target]
                 else:
                     a[i, names.index(k)] = v / r[target]
         x = nnls(a, b)
