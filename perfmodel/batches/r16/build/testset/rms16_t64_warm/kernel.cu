@@ -16,33 +16,64 @@
 
 extern "C" __global__ void rms_kernel(const half_t* __restrict__ W, const half_t* __restrict__ X, half_t* __restrict__ Y);
 extern "C" __global__ void __launch_bounds__(64, 1) rms_kernel(const half_t* __restrict__ W, const half_t* __restrict__ X, half_t* __restrict__ Y) {
-  half_t x[35];
-  float sq[35];
+  half_t x[56];
+  float sq[56];
   float ss[1];
   extern __shared__ __align__(1024) float workspace[];
   #pragma unroll
-  for (int i = 0; i < 35; ++i) {
-    x[i] = X[(((((int)blockIdx.x) * 2240) + (i * 64)) + ((int)threadIdx.x))];
+  for (int i = 0; i < 7; ++i) {
+    *(uint4*)(x + (i * 8)) = *(uint4*)(X + (((((int)blockIdx.x) * 3584) + (i * 512)) + (((int)threadIdx.x) * 8)));
   }
   #pragma unroll
-  for (int i_1 = 0; i_1 < 35; ++i_1) {
-    sq[i_1] = (((float)x[i_1]) * ((float)x[i_1]));
+  for (int i_1 = 0; i_1 < 14; ++i_1) {
+    float4 __1;
+      float4 __2;
+      uint2 v_ = *(uint2*)(x + (i_1 * 4));
+      ((float2*)(&__2))[0] = __half22float2(((half2*)(&v_))[0]);
+      ((float2*)(&__2))[1] = __half22float2(((half2*)(&v_))[1]);
+      float4 __3;
+      ((float2*)(&__3))[0] = __half22float2(((half2*)(&v_))[0]);
+      ((float2*)(&__3))[1] = __half22float2(((half2*)(&v_))[1]);
+      *(float2*)(&(__1.x)) = tl::mul2(*(float2*)(&(__2.x)), *(float2*)(&(__3.x)));
+      *(float2*)(&(__1.z)) = tl::mul2(*(float2*)(&(__2.z)), *(float2*)(&(__3.z)));
+    *(float4*)(sq + (i_1 * 4)) = __1;
   }
   ss[0] = 0x0p+0f/*0.000000e+00*/;
   #pragma unroll
-  for (int rv = 0; rv < 35; ++rv) {
-    ss[0] = (ss[0] + sq[rv]);
+  for (int rv = 0; rv < 56; ++rv) {
+    ss[0] = (ss[0] + sq[(((rv % 7) * 8) + (rv / 7))]);
   }
   ss[0] = tl::AllReduce<tl::SumOp, 64, 1, 0, tl::NamedBarrier<64>>::run(ss[0], (&(workspace[0])));
-  ss[0] = rsqrtf(((ss[0] / 0x1.18p+11f/*2.240000e+03*/) + 0x1.0c6f7a0b5ed8dp-20f/*1.000000e-06*/));
+  ss[0] = rsqrtf(((ss[0] / 0x1.cp+11f/*3.584000e+03*/) + 0x1.0c6f7a0b5ed8dp-20f/*1.000000e-06*/));
   #pragma unroll
-  for (int i_2 = 0; i_2 < 35; ++i_2) {
-    float wj = ((float)W[((i_2 * 64) + ((int)threadIdx.x))]);
-    x[i_2] = ((half_t)((((float)x[i_2]) * ss[0]) * wj));
+  for (int i_2 = 0; i_2 < 7; ++i_2) {
+    half_t W_local_cast[8];
+    *(uint4*)(W_local_cast + 0) = *(uint4*)(W + ((i_2 * 512) + (((int)threadIdx.x) * 8)));
+    for (int vec = 0; vec < 2; ++vec) {
+      uint2 __4;
+      float4 __5;
+        float4 __6;
+          float4 __7;
+          uint2 v__1 = *(uint2*)(x + ((i_2 * 8) + (vec * 4)));
+          ((float2*)(&__7))[0] = __half22float2(((half2*)(&v__1))[0]);
+          ((float2*)(&__7))[1] = __half22float2(((half2*)(&v__1))[1]);
+          float4 v__2 = make_float4(ss[0], ss[0], ss[0], ss[0]);
+          *(float2*)(&(__6.x)) = tl::mul2(*(float2*)(&(__7.x)), *(float2*)(&(v__2.x)));
+          *(float2*)(&(__6.z)) = tl::mul2(*(float2*)(&(__7.z)), *(float2*)(&(v__2.z)));
+        float4 __8;
+        uint2 v__3 = *(uint2*)(W_local_cast + (vec * 4));
+        ((float2*)(&__8))[0] = __half22float2(((half2*)(&v__3))[0]);
+        ((float2*)(&__8))[1] = __half22float2(((half2*)(&v__3))[1]);
+        *(float2*)(&(__5.x)) = tl::mul2(*(float2*)(&(__6.x)), *(float2*)(&(__8.x)));
+        *(float2*)(&(__5.z)) = tl::mul2(*(float2*)(&(__6.z)), *(float2*)(&(__8.z)));
+      ((half2*)(&__4))[0] = __float22half2_rn(((float2*)(&__5))[0]);
+      ((half2*)(&__4))[1] = __float22half2_rn(((float2*)(&__5))[1]);
+      *(uint2*)(x + ((i_2 * 8) + (vec * 4))) = __4;
+    }
   }
   #pragma unroll
-  for (int i_3 = 0; i_3 < 35; ++i_3) {
-    Y[(((((int)blockIdx.x) * 2240) + (i_3 * 64)) + ((int)threadIdx.x))] = x[i_3];
+  for (int i_3 = 0; i_3 < 7; ++i_3) {
+    *(uint4*)(Y + (((((int)blockIdx.x) * 3584) + (i_3 * 512)) + (((int)threadIdx.x) * 8))) = *(uint4*)(x + (i_3 * 8));
   }
 }
 

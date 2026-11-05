@@ -20,42 +20,71 @@ extern "C" __global__ void __launch_bounds__(64, 1) smax_kernel(const half_t* __
   extern __shared__ __align__(1024) uchar buf_dyn_shmem[];
   void* workspace = ((void*)((char*)buf_dyn_shmem + 0));
   void* workspace_1 = ((void*)((char*)buf_dyn_shmem + 0));
-  half_t x[35];
-  float s[35];
+  half_t x[56];
+  float s[56];
   float mx[1];
   float sm[1];
   #pragma unroll
-  for (int i = 0; i < 35; ++i) {
-    x[i] = X[(((((int)blockIdx.x) * 2240) + (i * 64)) + ((int)threadIdx.x))];
+  for (int i = 0; i < 7; ++i) {
+    *(uint4*)(x + (i * 8)) = *(uint4*)(X + (((((int)blockIdx.x) * 3584) + (i * 512)) + (((int)threadIdx.x) * 8)));
   }
   #pragma unroll
-  for (int i_1 = 0; i_1 < 35; ++i_1) {
-    s[i_1] = (((float)x[i_1]) * 0x1.7154764ee6c2fp+0f/*1.442695e+00*/);
+  for (int i_1 = 0; i_1 < 14; ++i_1) {
+    float broadcast_var = 0x1.7154764ee6c2fp+0f/*1.442695e+00*/;
+    float4 __1;
+      float4 __2;
+      uint2 v_ = *(uint2*)(x + (i_1 * 4));
+      ((float2*)(&__2))[0] = __half22float2(((half2*)(&v_))[0]);
+      ((float2*)(&__2))[1] = __half22float2(((half2*)(&v_))[1]);
+      float4 v__1 = make_float4(broadcast_var, broadcast_var, broadcast_var, broadcast_var);
+      *(float2*)(&(__1.x)) = tl::mul2(*(float2*)(&(__2.x)), *(float2*)(&(v__1.x)));
+      *(float2*)(&(__1.z)) = tl::mul2(*(float2*)(&(__2.z)), *(float2*)(&(v__1.z)));
+    *(float4*)(s + (i_1 * 4)) = __1;
   }
   mx[0] = -CUDART_INF_F;
   #pragma unroll
-  for (int rv = 0; rv < 35; ++rv) {
-    mx[0] = max(mx[0], s[rv]);
+  for (int rv = 0; rv < 56; ++rv) {
+    mx[0] = max(mx[0], s[(((rv % 7) * 8) + (rv / 7))]);
   }
   mx[0] = tl::AllReduce<tl::MaxOp, 64, 1, 0, tl::NamedBarrier<64>>::run(mx[0], (&(((float*)workspace_1)[0])));
   #pragma unroll
-  for (int i_2 = 0; i_2 < 35; ++i_2) {
-    s[i_2] = exp2f((s[i_2] - mx[0]));
+  for (int i_2 = 0; i_2 < 14; ++i_2) {
+    float4 __3;
+    float4 __4;
+      float4 v__2 = *(float4*)(s + (i_2 * 4));
+      float4 v__3 = make_float4(mx[0], mx[0], mx[0], mx[0]);
+      *(float2*)(&(__4.x)) = tl::sub2(*(float2*)(&(v__2.x)), *(float2*)(&(v__3.x)));
+      *(float2*)(&(__4.z)) = tl::sub2(*(float2*)(&(v__2.z)), *(float2*)(&(v__3.z)));
+    __3.x = exp2f(__4.x);
+    __3.y = exp2f(__4.y);
+    __3.z = exp2f(__4.z);
+    __3.w = exp2f(__4.w);
+    *(float4*)(s + (i_2 * 4)) = __3;
   }
   sm[0] = 0x0p+0f/*0.000000e+00*/;
   #pragma unroll
-  for (int rv_1 = 0; rv_1 < 35; ++rv_1) {
-    sm[0] = (sm[0] + s[rv_1]);
+  for (int rv_1 = 0; rv_1 < 56; ++rv_1) {
+    sm[0] = (sm[0] + s[(((rv_1 % 7) * 8) + (rv_1 / 7))]);
   }
   __syncthreads();
   sm[0] = tl::AllReduce<tl::SumOp, 64, 1, 0, tl::NamedBarrier<64>>::run(sm[0], (&(((float*)workspace)[0])));
   #pragma unroll
-  for (int i_3 = 0; i_3 < 35; ++i_3) {
-    x[i_3] = ((half_t)(s[i_3] / sm[0]));
+  for (int i_3 = 0; i_3 < 14; ++i_3) {
+    uint2 __5;
+    float4 __6;
+      float4 v__4 = *(float4*)(s + (i_3 * 4));
+      float4 v__5 = make_float4(sm[0], sm[0], sm[0], sm[0]);
+      __6.x = (v__4.x/v__5.x);
+      __6.y = (v__4.y/v__5.y);
+      __6.z = (v__4.z/v__5.z);
+      __6.w = (v__4.w/v__5.w);
+    ((half2*)(&__5))[0] = __float22half2_rn(((float2*)(&__6))[0]);
+    ((half2*)(&__5))[1] = __float22half2_rn(((float2*)(&__6))[1]);
+    *(uint2*)(x + (i_3 * 4)) = __5;
   }
   #pragma unroll
-  for (int i_4 = 0; i_4 < 35; ++i_4) {
-    Y[(((((int)blockIdx.x) * 2240) + (i_4 * 64)) + ((int)threadIdx.x))] = x[i_4];
+  for (int i_4 = 0; i_4 < 7; ++i_4) {
+    *(uint4*)(Y + (((((int)blockIdx.x) * 3584) + (i_4 * 512)) + (((int)threadIdx.x) * 8))) = *(uint4*)(x + (i_4 * 8));
   }
 }
 

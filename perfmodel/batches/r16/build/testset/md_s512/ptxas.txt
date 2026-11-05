@@ -123,7 +123,7 @@ ptxas info    : Compiling entry function '_Z4fillPN7cutlass6half_tEmj' for 'sm_1
 ptxas info    : Function properties for _Z4fillPN7cutlass6half_tEmj
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
 ptxas info    : Used 16 registers, used 0 barriers
-ptxas info    : Compile time = 3.553 ms
+ptxas info    : Compile time = 3.787 ms
 ptxas info    : Compiling entry function 'k_mem' for 'sm_121a'
 ptxas info    : Function properties for k_mem
     0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads

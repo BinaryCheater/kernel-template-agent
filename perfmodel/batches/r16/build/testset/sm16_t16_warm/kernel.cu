@@ -5,6 +5,8 @@
 #undef alignas
 #define alignas _tl_orig_alignas
 #endif
+#include <tl_templates/cuda/copy_sm90.h>
+#include <tl_templates/cuda/copy_sm100.h>
 #include <math_constants.h>
 #include <tl_templates/cuda/reduce.h>
 #include <tl_templates/cuda/scan.h>
@@ -17,16 +19,16 @@
 
 extern "C" __global__ void smax_kernel(const half_t* __restrict__ X, half_t* __restrict__ Y);
 extern "C" __global__ void __launch_bounds__(16, 1) smax_kernel(const half_t* __restrict__ X, half_t* __restrict__ Y) {
-  half_t x[140];
-  float s[140];
+  half_t x[224];
+  float s[224];
   float mx[1];
   float sm[1];
   #pragma unroll
-  for (int i = 0; i < 35; ++i) {
-    *(uint2*)(x + (i * 4)) = *(uint2*)(X + (((((int)blockIdx.x) * 2240) + (i * 64)) + (((int)threadIdx.x) * 4)));
+  for (int i = 0; i < 14; ++i) {
+    *(ulonglong4*)(x + (i * 16)) = tl::load_global_256(&(*(ulonglong4*)(X + (((((int)blockIdx.x) * 3584) + (i * 256)) + (((int)threadIdx.x) * 16)))));
   }
   #pragma unroll
-  for (int i_1 = 0; i_1 < 35; ++i_1) {
+  for (int i_1 = 0; i_1 < 56; ++i_1) {
     float broadcast_var = 0x1.7154764ee6c2fp+0f/*1.442695e+00*/;
     float4 __1;
       float4 __2;
@@ -40,12 +42,12 @@ extern "C" __global__ void __launch_bounds__(16, 1) smax_kernel(const half_t* __
   }
   mx[0] = -CUDART_INF_F;
   #pragma unroll
-  for (int rv = 0; rv < 140; ++rv) {
-    mx[0] = max(mx[0], s[(((rv % 35) * 4) + (rv / 35))]);
+  for (int rv = 0; rv < 224; ++rv) {
+    mx[0] = max(mx[0], s[(((rv % 14) * 16) + (rv / 14))]);
   }
   mx[0] = tl::AllReduce<tl::MaxOp, 16, 1, 0, tl::NamedBarrier<16>>::run(mx[0]);
   #pragma unroll
-  for (int i_2 = 0; i_2 < 35; ++i_2) {
+  for (int i_2 = 0; i_2 < 56; ++i_2) {
     float4 __3;
     float4 __4;
       float4 v__2 = *(float4*)(s + (i_2 * 4));
@@ -60,12 +62,12 @@ extern "C" __global__ void __launch_bounds__(16, 1) smax_kernel(const half_t* __
   }
   sm[0] = 0x0p+0f/*0.000000e+00*/;
   #pragma unroll
-  for (int rv_1 = 0; rv_1 < 140; ++rv_1) {
-    sm[0] = (sm[0] + s[(((rv_1 % 35) * 4) + (rv_1 / 35))]);
+  for (int rv_1 = 0; rv_1 < 224; ++rv_1) {
+    sm[0] = (sm[0] + s[(((rv_1 % 14) * 16) + (rv_1 / 14))]);
   }
   sm[0] = tl::AllReduce<tl::SumOp, 16, 1, 0, tl::NamedBarrier<16>>::run(sm[0]);
   #pragma unroll
-  for (int i_3 = 0; i_3 < 35; ++i_3) {
+  for (int i_3 = 0; i_3 < 56; ++i_3) {
     uint2 __5;
     float4 __6;
       float4 v__4 = *(float4*)(s + (i_3 * 4));
@@ -79,8 +81,8 @@ extern "C" __global__ void __launch_bounds__(16, 1) smax_kernel(const half_t* __
     *(uint2*)(x + (i_3 * 4)) = __5;
   }
   #pragma unroll
-  for (int i_4 = 0; i_4 < 35; ++i_4) {
-    *(uint2*)(Y + (((((int)blockIdx.x) * 2240) + (i_4 * 64)) + (((int)threadIdx.x) * 4))) = *(uint2*)(x + (i_4 * 4));
+  for (int i_4 = 0; i_4 < 14; ++i_4) {
+    tl::store_global_256(&(*(ulonglong4*)(Y + (((((int)blockIdx.x) * 3584) + (i_4 * 256)) + (((int)threadIdx.x) * 16)))), *(ulonglong4*)(x + (i_4 * 16)));
   }
 }
 

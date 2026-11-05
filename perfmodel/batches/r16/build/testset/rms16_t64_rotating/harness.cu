@@ -15,7 +15,7 @@ __global__ void fill(half_t* p, size_t n, unsigned seed) {
 int main(int argc, char** argv) {
   int reps = argc > 1 ? atoi(argv[1]) : 30;
   const int ROT = 6;
-  const size_t bytes[] = {6021120, 4480, 6021120};
+  const size_t bytes[] = {6422528, 7168, 6422528};
   void* buf[ROT][3];
   // round 14: reps 0 is the preflight: one launch, each buffer followed by a marked guard, read back
   const size_t GUARD = reps == 0 ? 65536 : 0;
@@ -28,7 +28,7 @@ int main(int argc, char** argv) {
   CK(cudaDeviceSynchronize());
   const int smem = 256;
   CK(cudaFuncSetAttribute(rms_kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, smem));
-  dim3 grid(1344), block(64);
+  dim3 grid(896), block(64);
   int next = 0;
   auto launch = [&](cudaStream_t st = 0) {
     void** b = buf[next++ % ROT];
