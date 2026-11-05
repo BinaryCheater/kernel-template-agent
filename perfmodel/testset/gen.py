@@ -38,6 +38,8 @@ Round 18: the same recipe at a factor 11, HGEMM a factor 29, `hand18/`; sweeps: 
 `sp_*`, `gq_*`, `tw_t16_g0`, `tw_t64_g0`.
 Round 19: the same recipe at a factor 13, HGEMM a factor 31, D 112, `hand19/`; strip-downs (LOOP
 §3b): `gs_*`, `rs_*`.
+Round 20: the same recipe at a factor 10, HGEMM a factor 28, D 112 (shapes capped at about round
+18's), `hand20/`; sweeps: `rw_*`, `sw_*`, `wb_*`, `cb_*`, `fas_*`, `dw_*`, `gb_*`.
 `ONLY` limits generation to the matching names; `SHARD=i/n` generates one share of them.
 """
 
@@ -3285,6 +3287,249 @@ def _round19(out: Path) -> None:
         _tried(_softmax, out, f"sm19_t{th}_warm", ROWS19, kw, set=f"softmax {tag}", **more)
 
 
+GEMV20 = {"N": 8000, "K": 2880, "group": 80, "n_part": 4, "reduce": 32}
+FA20 = {**FA, "S": 2080, "H": 10, "D": 112}
+DECODE20 = {**DECODE, "H": 30, "G": 10, "S": 2000, "D": 112}
+ROWS20 = {"M": 640, "N": 5120}
+HGEMM_BLIND20_SHAPE = {"M": 3584, "N": 1344, "K": 1792}
+HAND20 = {
+    "evenodd": ((1024, 1, 1), (128,), [2 * MB, 1 * MB], None),
+    "reverseread": ((1024, 1, 1), (128,), [1 * MB, 1 * MB], None),
+    "sumfour": ((1024, 1, 1), (128,), [1 * MB, 1 * MB], None),
+    "storepair": ((1024, 1, 1), (128,), [2 * MB, 1 * MB], None),
+    "shortload": ((1024, 1, 1), (128,), [1 * MB, 1 * MB], None),
+    "clampstore": ((1024, 1, 1), (128,), [1 * MB, 1 * MB], None),
+    "lanehash": ((1024, 1, 1), (128,), [1 * MB, 1 * MB], None),
+    "tallybyte": ((1024, 1, 1), (128,), [4096, 1 * MB], None),
+    "stackfive": ((1024, 1, 1), (128,), [1 * MB, 1 * MB], None),
+    "rowthree": ((1024, 1, 1), (64, 2), [1 * MB, 1 * MB], None),
+    "everysixteen": ((1024, 1, 1), (128,), [1 * MB, 1 * MB], None),
+    "storeskip": ((1024, 1, 1), (128,), [2 * MB, 1 * MB], None),
+    "doubleword": ((1024, 1, 1), (128,), [2 * MB, 1 * MB], None),
+}
+WI_HAND20 = (
+    ("sumfour", "two", "loads removed", None, None, None, ((" + a[(t + 8u) & 262143u] + a[(t + 12u) & 262143u]", ""),)),
+    ("evenodd", "one", "loads removed", None, None, None, ((" + a[(t | 1u) & 262143u] * 3u", ""),)),
+    ("storepair", "one", "stores removed", None, None, None, (("  o[t * 2] = t;\n", ""),)),
+    ("stackfive", "four", "loads removed", None, None, None, (("k < 8", "k < 4"), ("& 7u", "& 3u"))),
+)
+
+
+def _hand20(out: Path) -> None:
+    src_dir = Path(__file__).parent / "hand20"
+    for name, (grid, block, sizes, written) in HAND20.items():
+        text = (src_dir / f"{name}.cu").read_text()
+        _source_kernel(
+            out, f"bl20_{name}", text, grid, block, sizes, "hand", "breadth blind", written=written
+        )
+    for name, tag, axis, grid, sizes, written, subs in WI_HAND20:
+        g0, block, s0, w0 = HAND20[name]
+        text = (src_dir / f"{name}.cu").read_text()
+        for old, new in subs:
+            text = text.replace(old, new)
+        _source_kernel(
+            out,
+            f"bl20_{name}_{tag}",
+            text,
+            grid or g0,
+            block,
+            sizes or s0,
+            "hand",
+            "breadth blind",
+            written=written if written is not None else w0,
+            whatif={"base": f"bl20_{name}", "axis": axis},
+        )
+
+
+def _rows_past(out: Path) -> None:
+    """Question 59: rows warm between 4 and 11 MB written: by rows, threads, blocks at one size;
+    without the load or the store; softmax. Then writes and reads apart: which size the limit is
+    of."""
+    g = "rows_past"
+    n = ROWS18["N"]
+    for m in (440, 528, 616, 660, 748, 792, 880, 968):
+        _tried(_rms, out, f"rw_m{m}_t128_warm", {"M": m, "N": n}, "warm", {"threads": 128}, set=g)
+    for m in (880, 968):
+        for t in (32, 512):
+            _tried(_rms, out, f"rw_m{m}_t{t}_warm", {"M": m, "N": n}, "warm", {"threads": t}, set=g)
+    for m in (528, 880, 968):
+        kw = {"threads": 128, "load": False}
+        _tried(_rms, out, f"rw_nl_m{m}_t128_warm", {"M": m, "N": n}, "warm", kw, set=g)
+    for m in (880, 968):
+        kw = {"threads": 128, "store": "shared"}
+        _tried(_rms, out, f"rw_ns_m{m}_t128_warm", {"M": m, "N": n}, "warm", kw, set=g)
+    for m, nn in ((1760, 2816), (1408, 3520), (604, 8192)):
+        _tried(_rms, out, f"rw_m{m}n{nn}_t128_warm", {"M": m, "N": nn}, "warm", {"threads": 128}, set=g)
+    for m in (616, 792, 880, 968):
+        _tried(_softmax, out, f"sw_m{m}_t128_warm", {"M": m, "N": n}, {"threads": 128}, set=g)
+    src = """// round 20: {r} MiB read once, {w} MiB stored once, both in order, as many blocks as the larger
+__global__ void __launch_bounds__(256) k_wb(float* a, const float* b) {{
+  const size_t base = (size_t)blockIdx.x * 256 * {k} + threadIdx.x;
+  float s = 0.f;
+  for (int k = 0; k < {k}; ++k) {{
+    const size_t i = base + (size_t)k * 256;
+    if (i < {rw}) s += b[i];
+    if (i < {ww}) a[i] = s;
+  }}
+}}
+"""
+    points = [(6, r, 64) for r in (0, 2, 4, 8, 12, 16)] + [(9, r, 64) for r in (0, 3, 6, 9, 12)]
+    points += [(12, r, 64) for r in (0, 4, 12)] + [(9, 9, 16), (9, 9, 4)]
+    for w, r, k in points:
+        grid = max(w, r) * MB // (1024 * k)
+        text = src.format(r=r, w=w, k=k, rw=r * MB // 4, ww=w * MB // 4)
+        tag = f"_k{k}" if k != 64 else ""
+        _source_kernel(out, f"wb_w{w}_r{r}{tag}", text, (grid, 1, 1), (256,), [w * MB, max(1, r) * MB], "hand", g)
+
+
+COPY_BANK = """// round 20: copies of 16 bytes into shared memory, lanes on a bank by the layout {tag}
+__global__ void __launch_bounds__(128) k_mem(unsigned* o, const char* a) {{
+  __shared__ __align__(128) unsigned char buf[65536];
+  const unsigned sm = (unsigned)__cvta_generic_to_shared(buf);
+  const unsigned t = threadIdx.x;
+  unsigned s = 0;
+  for (unsigned r = 0; r < {rounds}; ++r) {{
+    for (unsigned k = 0; k < {n}; ++k) {{
+      const unsigned x = k * 64 + (t >> 1);
+      const char* p = a + {src};
+      const unsigned at = sm + ({dst});
+      asm volatile("cp.async.cg.shared.global [%0], [%1], 16;" ::"r"(at), "l"(p) : "memory");
+    }}
+    asm volatile("cp.async.commit_group;" ::: "memory");{beside}
+    asm volatile("cp.async.wait_group 0;" ::: "memory");
+  }}
+  o[blockIdx.x] = t ^ s;
+}}
+"""
+COPY_BESIDE = """
+    for (unsigned m = 0; m < {m}; ++m) {{
+      unsigned v[4];
+      const unsigned from = sm + 49152 + (t >> 5) * 4096 + (t & 31u) * 16 + (m & 7u) * 512;
+      asm volatile("ldmatrix.sync.aligned.m8n8.x4.shared.b16 {{%0,%1,%2,%3}}, [%4];" : "=r"(v[0]), "=r"(v[1]), "=r"(v[2]), "=r"(v[3]) : "r"(from) : "memory");
+      s ^= v[0];
+    }}"""
+
+
+def _odd_tiles(n: int) -> str:
+    """TileLang's layout at D = 16 n, n odd: `cp_async_gs<16>` of FA and decode, bytes."""
+    return f"((x % {n}) * 2048 + (x / {n}) * 32 + ((((k * 16 + (t >> 3)) % {2 * n}) / {n} + (t & 1)) & 1) * 16)"
+
+
+def _copy_banks(out: Path) -> None:
+    """Questions 48 and 55 together: FA and decode lose at D mod 32 = 16, where TileLang's layout
+    puts 5 to 9 lanes of a warp on one bank quarter against 4; plain layouts, then TileLang's own,
+    alone and beside ldmatrix, in order and from D 112's source rows."""
+    g = "copy_bank"
+    plain = "((size_t)(blockIdx.x * {rounds} + r) * {n} + k) * 2048 + t * 16"
+    rows = "(size_t)(blockIdx.x * {rounds} + r) * 65536 + ((x / 7) * 448 + ((k * 128 + t) % 14) * 8) * 2"
+    lay = {
+        "q4": ("t * 16 + k * 2048", 3, 10),
+        "q8": ("(t & 3u) * 16 + (t >> 2) * 128 + k * 4096", 3, 10),
+        "q16": ("(t & 1u) * 16 + (t >> 1) * 128 + k * 8192", 3, 10),
+        "q32": ("t * 128 + k * 16384", 3, 10),
+        "tl5": (_odd_tiles(5), 5, 6),
+        "tl7": (_odd_tiles(7), 7, 4),
+        "tl9": (_odd_tiles(9), 9, 3),
+    }
+    for tag, (dst, n, rounds) in lay.items():
+        src = plain.format(rounds=rounds, n=n)
+        bytes_ = 48 * rounds * n * 2048
+        for beside, tail in (("", ""), (COPY_BESIDE.format(m=2 * n), "_ld")):
+            text = COPY_BANK.format(tag=tag, rounds=rounds, n=n, src=src, dst=dst, beside=beside)
+            _source_kernel(out, f"cb_{tag}{tail}", text, (48, 1, 1), (128,), [1 * MB, bytes_ + MB], "hand", g, written=1024)
+        if tag in ("q4", "tl7", "tl9"):
+            text = COPY_BANK.format(tag=tag, rounds=rounds, n=n, src=src, dst=dst, beside="")
+            size = bytes_ + MB
+            _source_kernel(out, f"cb_{tag}_rotating", text, (48, 1, 1), (128,), [1 * MB, size], "hand", g, rot=_rot(size), written=1024)
+    n, rounds = 7, 4
+    for tag, dst in (("q4", lay["q4"][0]), ("tl7", lay["tl7"][0])):
+        text = COPY_BANK.format(tag=tag, rounds=rounds, n=n, src=rows.format(rounds=rounds), dst=dst, beside="")
+        _source_kernel(out, f"cb_rows_{tag}", text, (48, 1, 1), (128,), [1 * MB, 14 * MB], "hand", g, written=1024)
+    # the one knob in the kernels themselves: D by 16, one stage; decode warm, BN 32 and 64
+    for d in FA_D:
+        f = {**FA, "S": 768, "H": 4, "D": d, "BM": 64, "BN": 64, "stages": 1, "threads": 128}
+        _tried(_fa, out, f"fas_d{d}_t128", f, "warm", set=g)
+    for d in (96, 112, 128, 144):
+        for bn in (32, 64):
+            c = {**DECODE17, "D": d, "BN": bn}
+            _tried(_decode_part, out, f"dw_d{d}_bn{bn}_warm", c, "warm", set=g)
+
+
+def _gemv_table(out: Path) -> None:
+    """Question 58: the scale table's load by itself and beside a stream, at the stream's rate:
+    one instruction, or five with the same lanes (twins counted per instruction, D886)."""
+    g = "gemv_table"
+    p, r, np, w = 1344, 32, 4, 4
+    n = -(-p // (r * w))
+    one = "s ^= c[row * 48 + (ko * 256 + kr * 8) / 56];"
+    five = "".join(
+        f"\n      if (kr % 5 == {j}) s ^= c[row * 48 + (ko * 256 + kr * 8) / 56];" for j in range(5)
+    )
+    for tag, load in (("i1", one), ("i5", five)):
+        for every in (1, 4):
+            for keep in (True, False):
+                stream = "s ^= *(const unsigned*)(a + at);" if keep else ""
+                src = f"""// round 20: the scale table's load every {every} passes, {tag}, {"beside" if keep else "without"} the stream
+__global__ void __launch_bounds__({r * np}) k_mem(unsigned* o, const char* a, const unsigned short* c) {{
+  const unsigned row = blockIdx.x * {np} + threadIdx.y, kr = threadIdx.x;
+  unsigned s = 0;
+  for (unsigned ko = 0; ko < {n}; ++ko) {{
+    const size_t at = (size_t)row * {p} + (ko * {r} + kr) * {w};
+    {stream}
+    if (ko % {every} == 0) {{ {load} }}
+  }}
+  if (kr == 0) o[row & 65535u] = s;
+}}
+"""
+                grid = 8 * MB // (np * p)
+                name = f"gb_{tag}_e{every}_{'beside' if keep else 'alone'}"
+                _source_kernel(out, name, src, (grid, 1, 1), (r, np), [1 * MB, 9 * MB, 1 * MB], "hand", g, rot=_rot(9 * MB), written=1024)
+
+
+def _round20(out: Path) -> None:
+    _hand20(out)
+    _rows_past(out)
+    _copy_banks(out)
+    _gemv_table(out)
+    sh = HGEMM_BLIND20_SHAPE
+    M, N, K = sh["M"], sh["N"], sh["K"]
+    pre = f"hgemm_m{M}n{N}k{K}"
+    for name, tile in HGEMM_BLIND14.items():
+        for cache, tail in (("warm", ""), ("rotating", " rotating")):
+            suffix = "" if cache == "warm" else "_rotating"
+            base = f"{pre}_c128x128x32_s3_t128{suffix}"
+            more = _wi(name, base, "base" if f"{pre}_{name}{suffix}" == base else "design")
+            group = f"hgemm {M}x{N}x{K}{tail}"
+            _tried(_hgemm, out, f"{pre}_{name}{suffix}", tile, sh, cache, set=group, **more)
+    tag = f"{GEMV20['N']}x{GEMV20['K']}"
+    for cache, tail in (("warm", ""), ("rotating", " rotating")):
+        for v, (kw, axis) in GEMV13_V.items():
+            more = _wi(v, f"gemv20_b_{cache}", axis)
+            c = {**GEMV20, **kw}
+            _tried(_gemv_row, out, f"gemv20_{v}_{cache}", c, cache, set=f"gemv {tag}{tail}", **more)
+    tag = f"{FA20['S']}x{FA20['H']}x{FA20['D']}"
+    for cache, tail in (("warm", ""), ("rotating", " rotating")):
+        for name, (bm, bn, s, th) in FA_BLIND7_V.items():
+            f = {**FA20, "BM": bm, "BN": bn, "stages": s, "threads": th}
+            more = _wi(name, f"fa20_c64x64_s2_t128_{cache}", FA13_AXIS.get(name, "base"))
+            _tried(_fa, out, f"fa20_{name}_{cache}", f, cache, set=f"fa {tag}{tail}", **more)
+    tag = f"{DECODE20['H']}x{DECODE20['S']}x{DECODE20['D']}"
+    for cache, tail in (("warm", ""), ("rotating", " rotating")):
+        for v, (kw, axis) in DECODE13_V.items():
+            more = _wi(v, f"dec20_b_{cache}", axis)
+            c = {**DECODE20, **kw}
+            _tried(_decode_part, out, f"dec20_{v}_{cache}", c, cache, set=f"decode {tag}{tail}", **more)
+    tag = f"{ROWS20['M']}x{ROWS20['N']}"
+    for th in THREADS13:
+        axis = "base" if th == 128 else "threads"
+        kw = {"threads": th}
+        for cache, tail in (("warm", ""), ("rotating", " rotating")):
+            more = _wi("", f"rms20_t128_{cache}", axis)
+            _tried(_rms, out, f"rms20_t{th}_{cache}", ROWS20, cache, kw, set=f"rmsnorm {tag}{tail}", **more)
+        more = _wi("", "sm20_t128_warm", axis)
+        _tried(_softmax, out, f"sm20_t{th}_warm", ROWS20, kw, set=f"softmax {tag}", **more)
+
+
 def _round18(out: Path) -> None:
     _hand18(out)
     _decode_tile(out)
@@ -3365,6 +3610,7 @@ def main(out: Path) -> None:
         ("round17", _round17),
         ("round18", _round18),
         ("round19", _round19),
+        ("round20", _round20),
     ):
         try:  # a kernel that fails to generate is reported; the others stand
             gen(out)

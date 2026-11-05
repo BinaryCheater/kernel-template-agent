@@ -50,6 +50,9 @@ SWEEPS = (
     "decode_tile",
     "reg_limit",
     "gemv_strip",
+    "rows_past",
+    "copy_bank",
+    "gemv_table",
 )
 
 
