@@ -299,6 +299,7 @@ def import_(batch: str) -> int:
         "clock_GHz": clock,
         "checks": checks,
         "failed_steps": failed,
+        "preflight_dropped": run_doc.get("preflight_dropped", {}),
         "valid": valid,
         "cache_state": cache,
         "environment": {

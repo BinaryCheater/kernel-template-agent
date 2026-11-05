@@ -160,7 +160,16 @@ def report(round_no: int) -> str:
     groups: dict[str, list[dict[str, Any]]] = {}
     for r in kernels:
         groups.setdefault(r["launch"].get("set", "probe"), []).append(r)
-    sweeps = ("stack_path", "atomic_bins", "wr_footprint", "wr_rmw", "hash_sweep", "record_sweep")
+    sweeps = (
+        "stack_path",
+        "atomic_bins",
+        "wr_footprint",
+        "wr_rmw",
+        "hash_sweep",
+        "record_sweep",
+        "stack_load",
+        "stage_question",
+    )
     blind = [r for r in kernels if r["launch"].get("set") not in sweeps]
     long_blind = [r for r in blind if r["measured"] >= SHORT_US]
     head = [("blind kernels", blind), ("those ≥ 30 µs", long_blind), ("with the sweeps", kernels)]

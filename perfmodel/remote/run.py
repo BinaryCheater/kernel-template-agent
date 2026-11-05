@@ -4,6 +4,7 @@
 
 Standard library only (runs with the host's python3). Order, all in one exclusive job:
  1 environment record     2 clock calibration     3 compute and memory canaries
+ p every kernel launched once (reps 0), one that faults, leaves its buffer or hangs is dropped
  0 the GPU below 45 C
  4 every probe and test-set kernel, event/clock64 timing, no profiler attached
  6 canaries and clock again
@@ -157,7 +158,12 @@ METRICS_V = ",".join(
 
 
 def sh(cmd: list[str], cwd: Path | None = None, timeout: int = 1800) -> tuple[int, str]:
-    p = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=timeout, check=False)
+    try:
+        p = subprocess.run(
+            cmd, cwd=cwd, capture_output=True, text=True, timeout=timeout, check=False
+        )
+    except subprocess.TimeoutExpired:
+        return 124, f"timed out after {timeout} s"
     return p.returncode, p.stdout + (("\n# stderr\n" + p.stderr) if p.stderr.strip() else "")
 
 
@@ -200,6 +206,17 @@ def main(build: Path, out: Path, no_counters: str = "") -> int:
             time.sleep(10)
         print(f"cooled {time.time() - t0:.0f} s", flush=True)
 
+    # round 14: rounds 12 and 13 lost kernels and sweeps to harness faults found after the run
+    kernels, dropped = [], {}
+    for d in sorted(p for p in (build / "testset").iterdir() if (p / "bin").exists()):
+        rc, text = sh([str(d / "bin"), "0"], d, 120)
+        if rc == 0 and "PREFLIGHT ok" in text:
+            kernels.append(d)
+        else:
+            dropped[d.name] = text.strip()[-300:]
+            print(f"PREFLIGHT dropped {d.name}: rc {rc} {dropped[d.name]}", flush=True)
+    print(f"preflight: {len(kernels)} kernels go on, {len(dropped)} dropped", flush=True)
+    (raw / "0-preflight.txt").write_text(json.dumps(dropped, indent=1) + "\n")
     cool()
     env("before")
     if any(s.get("busy") for s in steps):
@@ -210,7 +227,6 @@ def main(build: Path, out: Path, no_counters: str = "") -> int:
     protocol("2")
     for d in sorted(build.glob("probe-*")):
         step(f"4-{d.name}", [str(d / "bin")], cwd=d)
-    kernels = sorted(p for p in (build / "testset").iterdir() if (p / "bin").exists())
     for d in kernels:
         step(f"4-{d.name}", [str(d / "bin"), "30"], cwd=d)
     # round 13: the clock falls with temperature, about 0.002 GHz per degree (r13, r13a: 2.494 at
@@ -304,6 +320,7 @@ def main(build: Path, out: Path, no_counters: str = "") -> int:
         "metrics_p": METRICS_P,
         "metrics_q": METRICS_Q,
         "not_owned_by_user": owned,
+        "preflight_dropped": dropped,
     }
     (out / "run.json").write_text(json.dumps(doc, indent=1) + "\n")
     print("done", flush=True)

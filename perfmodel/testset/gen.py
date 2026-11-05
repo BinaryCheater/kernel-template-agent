@@ -27,7 +27,7 @@ split-KV decode as one sequence of two kernels (`_decode_seq`: launch.json famil
 Round 7: one-change variants (`_whatif`: launch.json `whatif` names the base unit and the axis; the
 table scores predicted delta against measured delta) and larger blind groups (`_blind7`).
 Round 13: design groups of GEMV, FA, decode, RMSNorm and softmax (blind, warm and rotating), own
-kernels in `hand13/`.
+kernels in `hand13/`. Round 14: the same at new shapes, `hand14/`, the third stage (`qs*`).
 `ONLY` limits generation to the matching names; `SHARD=i/n` generates one share of them.
 """
 
@@ -764,9 +764,12 @@ int main(int argc, char** argv) {
   const int ROT = %(rot)d;
   const size_t bytes[] = {%(sizes)s};
   void* buf[ROT][%(nbuf)d];
+  // round 14: reps 0 is the preflight: one launch, each buffer followed by a marked guard, read back
+  const size_t GUARD = reps == 0 ? 65536 : 0;
   for (int r = 0; r < ROT; r++)
     for (int i = 0; i < %(nbuf)d; i++) {
-      CK(cudaMalloc(&buf[r][i], bytes[i]));
+      CK(cudaMalloc(&buf[r][i], bytes[i] + GUARD));
+      if (GUARD) CK(cudaMemset((char*)buf[r][i] + bytes[i], 0xA5, GUARD));
       fill<<<1024, 256>>>((half_t*)buf[r][i], bytes[i] / 2, 0x9E3779B9u * (i + 1) + 77u * r);
     }
   CK(cudaDeviceSynchronize());
@@ -776,6 +779,18 @@ int main(int argc, char** argv) {
     void** b = buf[next++ %% ROT];
 %(launches)s
   };
+  if (reps == 0) {
+    launch();
+    CK(cudaDeviceSynchronize());
+    std::vector<unsigned char> g(GUARD);
+    for (int i = 0; i < %(nbuf)d; i++) {
+      CK(cudaMemcpy(g.data(), (char*)buf[0][i] + bytes[i], GUARD, cudaMemcpyDeviceToHost));
+      for (unsigned char x : g)
+        if (x != 0xA5) { printf("PREFLIGHT left buffer %%d\n", i); return 3; }
+    }
+    printf("PREFLIGHT ok\n");
+    return 0;
+  }
   for (int i = 0; i < 10; i++) launch();
   CK(cudaDeviceSynchronize());
   if (reps == 1) { launch(); CK(cudaDeviceSynchronize()); printf("RESULT %(name)s once\n"); return 0; }
@@ -888,12 +903,19 @@ def write(
     elem_bytes: list[int] | None = None,
     rot: int = 1,
     writes: tuple[int, ...] = (-1,),
+    edit=None,
+    smem: int | None = None,
 ):
     """`sizes` in elements of each buffer, `elem_bytes` per buffer (default 2, fp16); `writes` the
-    indices of the buffers the kernel writes (default the last)."""
+    indices of the buffers the kernel writes (default the last); round 14: `edit` a change to
+    TileLang's source, `smem` the launch's dynamic shared memory instead of TileLang's."""
     if not _wanted(name):
         return
     c = _compiled(func)
+    if edit:
+        c["src"] = edit(c["src"])
+    if smem:
+        c["smem"] = smem
     eb = elem_bytes or [2] * len(sizes)
     nbytes = [n * b for n, b in zip(sizes, eb, strict=True)]
     block = list(threads) if isinstance(threads, tuple) else [threads]
@@ -1008,7 +1030,9 @@ def _tiles(M: int, N: int, bm: int, bn: int) -> list[int]:
 
 
 # one kernel each: `more` joins its launch.json
-def _hgemm(out: Path, name: str, tile: tuple, sh: dict, cache: str, opt=None, **more) -> None:
+def _hgemm(
+    out: Path, name: str, tile: tuple, sh: dict, cache: str, opt=None, edit=None, smem=None, **more
+) -> None:
     bm, bn, bk, s, th, panel = tile
     M, N, K = sh["M"], sh["N"], sh["K"]
     info = {
@@ -1021,7 +1045,8 @@ def _hgemm(out: Path, name: str, tile: tuple, sh: dict, cache: str, opt=None, **
     }
     func = hgemm(bm, bn, bk, s, th, panel, sh, **(opt or {}))
     rot = _rots(cache, (M * K + K * N + M * N) * 2)
-    write(out, name, func, [M * K, K * N, M * N], _tiles(M, N, bm, bn), th, info, rot=rot)
+    sizes = [M * K, K * N, M * N]
+    write(out, name, func, sizes, _tiles(M, N, bm, bn), th, info, rot=rot, edit=edit, smem=smem)
 
 
 def _fa(out: Path, name: str, f: dict, cache="warm", estimate=False, writes=(-1,), **more) -> None:
@@ -1876,7 +1901,7 @@ def _sweeps13(out: Path) -> None:
   for (int k = 0; k < {w}; ++k) a[r * 16 + k] = (unsigned)r + k;
 }}
 """
-            g = (m * 256, 1, 1)
+            g = (m * 64, 1, 1)  # 256 threads of 64 bytes each: 64 blocks per MiB
             name = f"rf_w{w}_m{m}"
             _source_kernel(out, name, src, g, (256,), [m * MB], "hand", "record_sweep")
 
@@ -1982,6 +2007,198 @@ def _round13(out: Path) -> None:
     _softmax(out, "sm13_nostore_warm", ROWS13, kw, set="whatif softmax warm", **more)
 
 
+# round 14: a blind set at shapes not on the scorecard; sweeps for records, stack reads by lane and
+# the third stage (question 47), none of them blind rows
+GEMV14 = {"N": 5120, "K": 2560, "group": 32, "n_part": 4, "reduce": 32}
+FA14 = {**FA, "S": 2560, "H": 6, "D": 112}
+DECODE14 = {**DECODE, "H": 40, "G": 10, "S": 2560, "D": 112}
+ROWS14 = {"M": 1280, "N": 2560}
+HGEMM_BLIND14_SHAPE = {"M": 2304, "N": 1792, "K": 1792}
+HGEMM_BLIND14 = {
+    "c128x128x32_s3_t128": (128, 128, 32, 3, 128, 0),
+    "c128x128x32_s2_t128": (128, 128, 32, 2, 128, 0),
+    "c128x128x32_s4_t128": (128, 128, 32, 4, 128, 0),
+    "c128x128x64_s2_t128": (128, 128, 64, 2, 128, 0),
+    "c128x256x32_s3_t256": (128, 256, 32, 3, 256, 0),
+    "c256x128x32_s3_t256": (256, 128, 32, 3, 256, 0),
+    "c64x128x32_s4_t128": (64, 128, 32, 4, 128, 0),
+    "c128x256x64_s2_t256": (128, 256, 64, 2, 256, 0),
+    "c128x128x32_s3_t128_sw8": (128, 128, 32, 3, 128, 8),
+    "c64x64x32_s4_t64": (64, 64, 32, 4, 64, 0),
+}
+HAND14 = {
+    "histlane": ((1024, 1, 1), (256,), [1024, 4 * MB], None),
+    "countblock": ((1024, 1, 1), (256,), [256, 4 * MB], None),
+    "minblock": ((1024, 1, 1), (256,), [512, 4 * MB], None),
+    "xorwide": ((1024, 1, 1), (256,), [16 * MB], None),
+    "exchring": ((1024, 1, 1), (256,), [1 * MB, 256 << 10], None),
+    "stridefill": ((1024, 1, 1), (256,), [32 * MB], None),
+    "brevfill": ((1024, 1, 1), (256,), [8 * MB], None),
+    "hashput": ((1024, 1, 1), (256,), [8 * MB, 4 * MB], None),
+    "maskput": ((1024, 1, 1), (256,), [8 * MB, 4 * MB], None),
+    "recordinit": ((1024, 1, 1), (256,), [8 * MB], None),
+    "recordpatch": ((1024, 1, 1), (256,), [16 * MB], None),
+    "recordwide": ((512, 1, 1), (256,), [16 * MB], None),
+    "stackscan": ((512, 1, 1), (256,), [1 * MB, 4 * MB], None),
+    "stackfilter": ((512, 1, 1), (256,), [1 * MB, 4 * MB], None),
+    "stackmerge": ((512, 1, 1), (256,), [1 * MB, 4 * MB], None),
+}
+WI_HAND14 = (
+    ("histlane", "b64", "shape", None, None, None, (("255u", "63u"),)),
+    ("countblock", "nl", "loads removed", None, None, None, (("a[(t * 8 + k) & 1048575u]", "t"),)),
+    ("xorwide", "m1", "shape", None, [1 * MB], None, (("4194303u", "262143u"),)),
+    ("exchring", "t128", "threads", (2048, 1, 1), None, None, T128),
+    ("stridefill", "m4", "shape", None, [4 * MB], None, (("8388607u", "1048575u"),)),
+    ("hashput", "m1", "shape", None, [1 * MB, 4 * MB], None, (("2097151u", "262143u"),)),
+    ("recordinit", "w4", "stores removed", None, None, None, (("k < 8", "k < 4"),)),
+    ("recordwide", "w8", "stores removed", None, None, None, (("k < 32", "k < 8"),)),
+    ("stackscan", "t128", "threads", (1024, 1, 1), None, None, T128),
+    ("stackfilter", "t128", "threads", (1024, 1, 1), None, None, T128),
+)
+STACK_READ = (16, 64, 256, 1024)  # words of the frame, read four times over
+QS_SHAPE = {"M": 3072, "N": 1536, "K": 2048}
+QS_ONE, QS_TWO = {"M": 1024, "N": 768, "K": 2048}, {"M": 1536, "N": 1024, "K": 2048}
+
+
+def _first_barrier_out(src: str) -> str:
+    return re.sub(r"(for \(int ko = 0; ko < \d+; \+\+ko\) \{\s*)__syncthreads\(\);\s*", r"\1", src)
+
+
+def _copies_out(src: str) -> str:
+    """The stages' rotation and barriers without a byte copied."""
+    for pat in (
+        r"tl::cp_async_gs<\d+>\(.*\);",
+        r"tl::cp_async_commit\(\);",
+        r"tl::cp_async_wait<\d+>\(\);",
+    ):
+        src = re.sub(pat, ";", src)
+    return src
+
+
+def _wait_one(src: str) -> str:
+    return src.replace("tl::cp_async_wait<2>();", "tl::cp_async_wait<1>();", 1)
+
+
+def _twelve_registers(src: str) -> str:
+    """Twelve words live over the whole kernel: registers per thread as s3 has them, little code."""
+    names = [f"keep{i}" for i in range(12)]
+    defs = "".join(
+        f"  const unsigned {n} = ((const unsigned*)A)[threadIdx.x + {i * 128}];\n"
+        for i, n in enumerate(names)
+    )
+    src = src.replace("buf_dyn_shmem[];\n", "buf_dyn_shmem[];\n" + defs, 1)
+    end = src.rstrip().rfind("}")
+    use = f"  if (({' ^ '.join(names)}) == 0x5a5a5a5au) C[0] = half_t(0.0f);\n"
+    return src[:end] + use + src[end:]
+
+
+def _hand14(out: Path) -> None:
+    src_dir = Path(__file__).parent / "hand14"
+    for name, (grid, block, sizes, written) in HAND14.items():
+        text = (src_dir / f"{name}.cu").read_text()
+        _source_kernel(
+            out, f"bl14_{name}", text, grid, block, sizes, "hand", "breadth blind", written=written
+        )
+    for name, tag, axis, grid, sizes, written, subs in WI_HAND14:
+        g0, block, s0, w0 = HAND14[name]
+        text = (src_dir / f"{name}.cu").read_text()
+        for old, new in subs:
+            text = text.replace(old, new)
+        if subs == T128:
+            block = (128,)
+        _source_kernel(
+            out,
+            f"bl14_{name}_{tag}",
+            text,
+            grid or g0,
+            block,
+            sizes or s0,
+            "hand",
+            "breadth blind",
+            written=written if written is not None else w0,
+            whatif={"base": f"bl14_{name}", "axis": axis},
+        )
+
+
+def _sweeps14(out: Path) -> None:
+    head = "__global__ void __launch_bounds__(256)"
+    for n in STACK_READ:
+        for tag, index in (("u", "(k * 5u)"), ("l", "(k * 5u + t * 3u)")):
+            src = f"""// round 14: {n} words of stack, read {4 * n} times at an index {tag}
+{head} k_stl(unsigned* o) {{
+  const unsigned t = blockIdx.x * 256 + threadIdx.x;
+  unsigned r[{n}];
+  for (unsigned i = 0; i < {n}; ++i) r[i] = i * t;
+  unsigned s = 0;
+  for (unsigned k = 0; k < {4 * n}; ++k) s += r[{index} & {n - 1}u];
+  o[t] = s;
+}}
+"""
+            sizes = [1 * MB]
+            _source_kernel(
+                out, f"stl_{tag}_n{n}", src, (256, 1, 1), (256,), sizes, "hand", "stack_load"
+            )
+    t2, t3 = (128, 128, 32, 2, 128, 0), (128, 128, 32, 3, 128, 0)
+    sh, group = QS_SHAPE, {"set": "stage_question"}
+    _hgemm(out, "qs_s2", t2, sh, "warm", **group)
+    _hgemm(out, "qs_s3", t3, sh, "warm", **group)
+    _hgemm(out, "qs_s2_smem3", t2, sh, "warm", smem=49152, **group)
+    _hgemm(out, "qs_s2_reg12", t2, sh, "warm", edit=_twelve_registers, **group)
+    _hgemm(out, "qs_s3_wait1", t3, sh, "warm", edit=_wait_one, **group)
+    _hgemm(out, "qs_s2_b1", t2, sh, "warm", edit=_first_barrier_out, **group)
+    _hgemm(out, "qs_s3_b1", t3, sh, "warm", edit=_first_barrier_out, **group)
+    _hgemm(out, "qs_s2_nocopy", t2, sh, "warm", edit=_copies_out, **group)
+    _hgemm(out, "qs_s3_nocopy", t3, sh, "warm", edit=_copies_out, **group)
+    for tag, shape in (("qs1", QS_ONE), ("qs2", QS_TWO)):
+        for s in (1, 2, 3):
+            _hgemm(out, f"{tag}_s{s}", (128, 128, 32, s, 128, 0), shape, "warm", **group)
+
+
+def _round14(out: Path) -> None:
+    _hand14(out)
+    _sweeps14(out)
+    sh = HGEMM_BLIND14_SHAPE
+    M, N, K = sh["M"], sh["N"], sh["K"]
+    pre = f"hgemm_m{M}n{N}k{K}"
+    for name, tile in HGEMM_BLIND14.items():
+        for cache, tail in (("warm", ""), ("rotating", " rotating")):
+            suffix = "" if cache == "warm" else "_rotating"
+            base = f"{pre}_c128x128x32_s3_t128{suffix}"
+            more = _wi(name, base, "base" if f"{pre}_{name}{suffix}" == base else "design")
+            group = f"hgemm {M}x{N}x{K}{tail}"
+            _tried(_hgemm, out, f"{pre}_{name}{suffix}", tile, sh, cache, set=group, **more)
+    tag = f"{GEMV14['N']}x{GEMV14['K']}"
+    for cache, tail in (("warm", ""), ("rotating", " rotating")):
+        for v, (kw, axis) in GEMV13_V.items():
+            more = _wi(v, f"gemv14_b_{cache}", axis)
+            group = f"gemv {tag}{tail}"
+            c = {**GEMV14, **kw}
+            _tried(_gemv_row, out, f"gemv14_{v}_{cache}", c, cache, set=group, **more)
+    tag = f"{FA14['S']}x{FA14['H']}x{FA14['D']}"
+    for cache, tail in (("warm", ""), ("rotating", " rotating")):
+        for name, (bm, bn, s, th) in FA_BLIND7_V.items():
+            f = {**FA14, "BM": bm, "BN": bn, "stages": s, "threads": th}
+            more = _wi(name, f"fa14_c64x64_s2_t128_{cache}", FA13_AXIS.get(name, "base"))
+            _tried(_fa, out, f"fa14_{name}_{cache}", f, cache, set=f"fa {tag}{tail}", **more)
+    tag = f"{DECODE14['H']}x{DECODE14['S']}x{DECODE14['D']}"
+    for cache, tail in (("warm", ""), ("rotating", " rotating")):
+        for v, (kw, axis) in DECODE13_V.items():
+            more = _wi(v, f"dec14_b_{cache}", axis)
+            group = f"decode {tag}{tail}"
+            c = {**DECODE14, **kw}
+            _tried(_decode_part, out, f"dec14_{v}_{cache}", c, cache, set=group, **more)
+    tag = f"{ROWS14['M']}x{ROWS14['N']}"
+    for th in THREADS13:
+        axis = "base" if th == 128 else "threads"
+        kw = {"threads": th}
+        for cache, tail in (("warm", ""), ("rotating", " rotating")):
+            more = _wi("", f"rms14_t128_{cache}", axis)
+            group = f"rmsnorm {tag}{tail}"
+            _tried(_rms, out, f"rms14_t{th}_{cache}", ROWS14, cache, kw, set=group, **more)
+        more = _wi("", "sm14_t128_warm", axis)
+        _tried(_softmax, out, f"sm14_t{th}_warm", ROWS14, kw, set=f"softmax {tag}", **more)
+
+
 def main(out: Path) -> None:
     _hand(out)
     _round11(out)
@@ -2011,6 +2228,7 @@ def main(out: Path) -> None:
         ("round12b", _round12b),
         ("round13", _round13),
         ("round13b", _round13b),
+        ("round14", _round14),
     ):
         try:  # a kernel that fails to generate is reported; the others stand
             gen(out)
