@@ -1,0 +1,23 @@
+{
+ "entry": "k_countblock",
+ "grid": [
+  1024,
+  1,
+  1
+ ],
+ "threads": 256,
+ "block": [
+  256
+ ],
+ "smem": 0,
+ "rot": 1,
+ "footprint_bytes": 4194560,
+ "write_bytes": 256,
+ "family": "hand",
+ "set": "breadth blind",
+ "cache": "warm",
+ "whatif": {
+  "base": "bl14_countblock",
+  "axis": "loads removed"
+ }
+}

@@ -1,0 +1,23 @@
+{
+ "entry": "k_exchring",
+ "grid": [
+  2048,
+  1,
+  1
+ ],
+ "threads": 128,
+ "block": [
+  128
+ ],
+ "smem": 0,
+ "rot": 1,
+ "footprint_bytes": 1310720,
+ "write_bytes": 1048576,
+ "family": "hand",
+ "set": "breadth blind",
+ "cache": "warm",
+ "whatif": {
+  "base": "bl14_exchring",
+  "axis": "threads"
+ }
+}

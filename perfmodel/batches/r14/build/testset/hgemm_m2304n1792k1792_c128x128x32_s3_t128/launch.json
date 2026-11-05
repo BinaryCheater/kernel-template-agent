@@ -1,0 +1,33 @@
+{
+ "entry": "gemm_kernel",
+ "grid": [
+  14,
+  18,
+  1
+ ],
+ "threads": 128,
+ "block": [
+  128
+ ],
+ "smem": 49152,
+ "rot": 1,
+ "footprint_bytes": 22937600,
+ "write_bytes": 8257536,
+ "family": "hgemm",
+ "shape": {
+  "M": 2304,
+  "N": 1792,
+  "K": 1792
+ },
+ "pick": {
+  "block_M": 128,
+  "block_N": 128,
+  "block_K": 32,
+  "num_stages": 3,
+  "threads": 128,
+  "swizzle": 0
+ },
+ "smem_estimate": 49152,
+ "cache": "warm",
+ "set": "hgemm 2304x1792x1792"
+}
