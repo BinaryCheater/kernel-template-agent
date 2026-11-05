@@ -8,6 +8,7 @@ Shapes here are new to every earlier batch. Controls are drawn before any time i
 
 import json
 import random
+import re
 import sys
 import time
 from pathlib import Path
@@ -86,6 +87,20 @@ def shortlist(c: dict) -> list[dict]:
     return rows
 
 
+def second(c: dict, measured: list[dict]) -> list[dict]:
+    """Round two: constants refit on what round one measured, those assignments cut out."""
+    rows = []
+    for fam, k in SHORTLIST.items():
+        f = family(fam)
+        seen = tuple(key_of(fam, r["x"]) for r in measured if r["family"] == fam)
+        t0 = time.perf_counter()
+        s = mip.solve(f, c[fam], k=k, time_limit=120, diverse=True, exclude=seen)
+        spent = time.perf_counter() - t0
+        sys.stdout.write(f"{fam}: {spent:.0f} s\n")
+        rows += [row(fam, p["x"], "mip2", "lq2", c, spent / k) for p in s["picks"]]
+    return rows
+
+
 def rerank(c: dict, rows: list[dict], build: Path) -> list[dict]:
     """Compile records replace the register estimate; the top few go to the GPU."""
     out = []
@@ -108,11 +123,13 @@ def rerank(c: dict, rows: list[dict], build: Path) -> list[dict]:
             occ = forms.occupancy(x["T"], regs, f.smem(key[0], key[1]))
             a = forms.dataclasses.replace(a, occ=occ, spill=forms.spill_share(need, x["T"]))
             got.append({**r, "regs": regs, "post_us": forms.time_us(a, c[fam])})
-        mips = sorted((r for r in got if r["roles"] == ["mip"]), key=lambda r: r["post_us"])
+        mips = sorted(
+            (r for r in got if r["roles"][0].startswith("mip")), key=lambda r: r["post_us"]
+        )
         randoms = [r for r in got if r["roles"] == ["random"]][:RANDOM]
         anchors = [r for r in got if r["roles"] == ["anchor"]]
         out += mips[:MEASURE] + randoms + anchors
-    return [{**r, "name": r["name"].replace("lq", "lr", 1)} for r in out]
+    return [{**r, "name": re.sub("^lq", "lr", r["name"])} for r in out]
 
 
 def main() -> None:
@@ -120,6 +137,9 @@ def main() -> None:
     if sys.argv[1] == "shortlist":
         rows = shortlist(c)
         Path(sys.argv[3]).write_text(json.dumps(rows, indent=0))
+    elif sys.argv[1] == "second":
+        rows = second(c, json.loads(Path(sys.argv[3]).read_text()))
+        Path(sys.argv[4]).write_text(json.dumps(rows, indent=0))
     else:
         rows = rerank(c, json.loads(Path(sys.argv[3]).read_text()), Path(sys.argv[4]))
         Path(sys.argv[5]).write_text(json.dumps(rows, indent=0))

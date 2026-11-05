@@ -161,7 +161,12 @@ def walls_at(f: Family, a, t) -> int:
 
 
 def solve(
-    f: Family, c: dict, k: int = 16, time_limit: float = 120.0, diverse: bool = False
+    f: Family,
+    c: dict,
+    k: int = 16,
+    time_limit: float = 120.0,
+    diverse: bool = False,
+    exclude: tuple = (),
 ) -> dict:
     """The k best assignments in objective order, by re-solving with no-good cuts.
 
@@ -171,6 +176,9 @@ def solve(
     t0 = time.perf_counter()
     m, x = build(f, c)
     m.h.setOptionValue("time_limit", time_limit)
+    for key in exclude:  # assignments already measured
+        cut = {x[n][p]: 1.0 for n, p in zip(("a", "b", "t"), key, strict=True)}
+        m.row(-highspy.kHighsInf, 2.0, cut)
     built = time.perf_counter() - t0
     out = []
     status = []

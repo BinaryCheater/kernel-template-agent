@@ -12,6 +12,7 @@ import math
 from dataclasses import dataclass
 
 CLOCK_GHZ = 2.5
+DEQUANT_REGS = 40
 SMS = 48
 
 
@@ -168,8 +169,10 @@ def decisions(r: dict) -> dict:
 
 def need_estimate(family: str, s: dict, x: dict) -> float:
     """Registers a thread asks for, before the compiler caps the record at 255."""
-    if family == "hgemm" or family == "moe_nvfp4":
+    if family == "hgemm":
         return x["BM"] * x["BN"] / x["T"] + 62
+    if family == "moe_nvfp4":  # the dequantisation's temporaries live beside the accumulators
+        return x["BM"] * x["BN"] / x["T"] + 62 + DEQUANT_REGS
     if family == "fa_forward":
         d = s["D"]
         r = 4.09 * x["BM"] * x["BN"] / x["T"] + 1.87 * x["BM"] * d / x["T"] - 61.5
@@ -181,8 +184,8 @@ def amounts(r: dict) -> Amounts:
     c = r.get("counters") or {}
     regs = c.get("launch__registers_per_thread") or r["res"].get("regs") or 200
     x = decisions(r)
-    if regs >= (255 if x.get("T", 128) <= 256 else 128) - 5:
-        # capped: the record cannot say how far past the limit it asked
+    if regs >= (255 if x.get("T", 128) <= 256 else 128) - 25:
+        # near or at the cap: the record cannot say how far past the limit it asked
         regs = max(regs, need_estimate(r["family"], r["shape"], x))
     build = {"hgemm": hgemm, "fa_forward": fa, "decode_gqa": decode, "moe_nvfp4": moe_nvfp4}[
         r["family"]

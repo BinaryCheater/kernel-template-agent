@@ -82,7 +82,7 @@ def moe_nvfp4(cache: str = "warm") -> Family:
         return moe_smem(assign(a, b, 128))
 
     def regs(a, b, t):
-        return int(a[0] * a[1] / t + 62)
+        return int(a[0] * a[1] / t + 62 + forms.DEQUANT_REGS)
 
     def amounts(a, b, t):
         return forms.moe_nvfp4(MOE_SHAPE, assign(a, b, t), regs(a, b, t), smem(a, b), cache)

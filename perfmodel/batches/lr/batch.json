@@ -1,0 +1,2284 @@
+{
+ "batch": "lr",
+ "commit": "6b077788df980dac7b79ffee43f053554a4328a3",
+ "build_commit": "f2d154401054621ce042c179cae2ccab6b247359",
+ "host": "spark-6951",
+ "entry": "entry.md",
+ "prediction": "predicted.json",
+ "clock_GHz": 2.49155,
+ "checks": {
+  "clock chain_GHz": {
+   "before": 2.5015,
+   "after": 2.4816,
+   "drift": -0.007955226863881726,
+   "ok": true
+  },
+  "canary fma_us": {
+   "before": 487.744,
+   "after": 492.352,
+   "drift": 0.009447579057866307,
+   "ok": true
+  },
+  "canary mem_us": {
+   "before": 2359.9041,
+   "after": 2365.376,
+   "drift": 0.002318695916499358,
+   "ok": true
+  }
+ },
+ "failed_steps": [],
+ "preflight_dropped": {},
+ "valid": true,
+ "cache_state": {
+  "lrf_c128x128_s1_t256_warm kernel": "warm",
+  "lrf_c128x128_s1_t256_warm b2b": "warm",
+  "lrf_c128x128_s1_t256_warm graph": "warm",
+  "lrf_c128x128_s1_t64_warm kernel": "warm",
+  "lrf_c128x128_s1_t64_warm b2b": "warm",
+  "lrf_c128x128_s1_t64_warm graph": "warm",
+  "lrf_c128x48_s1_t256_warm kernel": "warm",
+  "lrf_c128x48_s1_t256_warm b2b": "warm",
+  "lrf_c128x48_s1_t256_warm graph": "warm",
+  "lrf_c128x48_s3_t64_warm kernel": "warm",
+  "lrf_c128x48_s3_t64_warm b2b": "warm",
+  "lrf_c128x48_s3_t64_warm graph": "warm",
+  "lrf_c128x64_s2_t128_warm kernel": "warm",
+  "lrf_c128x64_s2_t128_warm b2b": "warm",
+  "lrf_c128x64_s2_t128_warm graph": "warm",
+  "lrf_c128x64_s3_t128_warm kernel": "warm",
+  "lrf_c128x64_s3_t128_warm b2b": "warm",
+  "lrf_c128x64_s3_t128_warm graph": "warm",
+  "lrf_c128x64_s3_t256_warm kernel": "warm",
+  "lrf_c128x64_s3_t256_warm b2b": "warm",
+  "lrf_c128x64_s3_t256_warm graph": "warm",
+  "lrf_c128x64_s3_t64_warm kernel": "warm",
+  "lrf_c128x64_s3_t64_warm b2b": "warm",
+  "lrf_c128x64_s3_t64_warm graph": "warm",
+  "lrf_c32x48_s1_t64_warm kernel": "warm",
+  "lrf_c32x48_s1_t64_warm b2b": "warm",
+  "lrf_c32x48_s1_t64_warm graph": "warm",
+  "lrf_c32x96_s2_t64_warm kernel": "warm",
+  "lrf_c32x96_s2_t64_warm b2b": "warm",
+  "lrf_c32x96_s2_t64_warm graph": "warm",
+  "lrf_c64x32_s1_t128_warm kernel": "warm",
+  "lrf_c64x32_s1_t128_warm b2b": "warm",
+  "lrf_c64x32_s1_t128_warm graph": "warm",
+  "lrf_c64x48_s1_t128_warm kernel": "warm",
+  "lrf_c64x48_s1_t128_warm b2b": "warm",
+  "lrf_c64x48_s1_t128_warm graph": "warm",
+  "lrf_c64x48_s1_t64_warm kernel": "warm",
+  "lrf_c64x48_s1_t64_warm b2b": "warm",
+  "lrf_c64x48_s1_t64_warm graph": "warm",
+  "lrf_c64x48_s3_t128_warm kernel": "warm",
+  "lrf_c64x48_s3_t128_warm b2b": "warm",
+  "lrf_c64x48_s3_t128_warm graph": "warm",
+  "lrf_c64x64_s2_t128_warm kernel": "warm",
+  "lrf_c64x64_s2_t128_warm b2b": "warm",
+  "lrf_c64x64_s2_t128_warm graph": "warm",
+  "lrf_c64x64_s3_t128_warm kernel": "warm",
+  "lrf_c64x64_s3_t128_warm b2b": "warm",
+  "lrf_c64x64_s3_t128_warm graph": "warm",
+  "lrf_c64x96_s1_t128_warm kernel": "warm",
+  "lrf_c64x96_s1_t128_warm b2b": "warm",
+  "lrf_c64x96_s1_t128_warm graph": "warm",
+  "lrh_c128x128x32_s3_t128_warm kernel": "warm",
+  "lrh_c128x128x32_s3_t128_warm b2b": "warm",
+  "lrh_c128x128x32_s3_t128_warm graph": "warm",
+  "lrh_c128x128x32_s3_t256_warm kernel": "warm",
+  "lrh_c128x128x32_s3_t256_warm b2b": "warm",
+  "lrh_c128x128x32_s3_t256_warm graph": "warm",
+  "lrh_c128x128x48_s2_t128_warm kernel": "warm",
+  "lrh_c128x128x48_s2_t128_warm b2b": "warm",
+  "lrh_c128x128x48_s2_t128_warm graph": "warm",
+  "lrh_c128x192x32_s2_t128_warm kernel": "warm",
+  "lrh_c128x192x32_s2_t128_warm b2b": "warm",
+  "lrh_c128x192x32_s2_t128_warm graph": "warm",
+  "lrh_c128x256x16_s1_t128_warm kernel": "warm",
+  "lrh_c128x256x16_s1_t128_warm b2b": "warm",
+  "lrh_c128x256x16_s1_t128_warm graph": "warm",
+  "lrh_c128x96x16_s3_t256_warm kernel": "warm",
+  "lrh_c128x96x16_s3_t256_warm b2b": "warm",
+  "lrh_c128x96x16_s3_t256_warm graph": "warm",
+  "lrh_c128x96x32_s2_t64_warm kernel": "warm",
+  "lrh_c128x96x32_s2_t64_warm b2b": "warm",
+  "lrh_c128x96x32_s2_t64_warm graph": "warm",
+  "lrh_c192x128x32_s2_t128_warm kernel": "warm",
+  "lrh_c192x128x32_s2_t128_warm b2b": "warm",
+  "lrh_c192x128x32_s2_t128_warm graph": "warm",
+  "lrh_c192x256x96_s1_t256_warm kernel": "warm",
+  "lrh_c192x256x96_s1_t256_warm b2b": "warm",
+  "lrh_c192x256x96_s1_t256_warm graph": "warm",
+  "lrh_c192x64x32_s4_t128_warm kernel": "warm",
+  "lrh_c192x64x32_s4_t128_warm b2b": "warm",
+  "lrh_c192x64x32_s4_t128_warm graph": "warm",
+  "lrh_c256x192x96_s1_t256_warm kernel": "warm",
+  "lrh_c256x192x96_s1_t256_warm b2b": "warm",
+  "lrh_c256x192x96_s1_t256_warm graph": "warm",
+  "lrh_c256x96x32_s2_t128_warm kernel": "warm",
+  "lrh_c256x96x32_s2_t128_warm b2b": "warm",
+  "lrh_c256x96x32_s2_t128_warm graph": "warm",
+  "lrh_c256x96x96_s1_t256_warm kernel": "warm",
+  "lrh_c256x96x96_s1_t256_warm b2b": "warm",
+  "lrh_c256x96x96_s1_t256_warm graph": "warm",
+  "lrh_c64x128x16_s3_t128_warm kernel": "warm",
+  "lrh_c64x128x16_s3_t128_warm b2b": "warm",
+  "lrh_c64x128x16_s3_t128_warm graph": "warm",
+  "lrh_c64x192x32_s1_t64_warm kernel": "warm",
+  "lrh_c64x192x32_s1_t64_warm b2b": "warm",
+  "lrh_c64x192x32_s1_t64_warm graph": "warm",
+  "lrh_c64x192x64_s3_t64_warm kernel": "warm",
+  "lrh_c64x192x64_s3_t64_warm b2b": "warm",
+  "lrh_c64x192x64_s3_t64_warm graph": "warm",
+  "lrh_c64x64x96_s2_t128_warm kernel": "warm",
+  "lrh_c64x64x96_s2_t128_warm b2b": "warm",
+  "lrh_c64x64x96_s2_t128_warm graph": "warm",
+  "lrh_c96x128x96_s1_t256_warm kernel": "warm",
+  "lrh_c96x128x96_s1_t256_warm b2b": "warm",
+  "lrh_c96x128x96_s1_t256_warm graph": "warm",
+  "lrh_c96x128x96_s2_t256_warm kernel": "warm",
+  "lrh_c96x128x96_s2_t256_warm b2b": "warm",
+  "lrh_c96x128x96_s2_t256_warm graph": "warm",
+  "lrh_c96x256x32_s2_t128_warm kernel": "warm",
+  "lrh_c96x256x32_s2_t128_warm b2b": "warm",
+  "lrh_c96x256x32_s2_t128_warm graph": "warm",
+  "lrh_c96x64x64_s2_t64_warm kernel": "warm",
+  "lrh_c96x64x64_s2_t64_warm b2b": "warm",
+  "lrh_c96x64x64_s2_t64_warm graph": "warm",
+  "lrm_c160x128x32_s3_t128_warm kernel": "warm",
+  "lrm_c160x128x32_s3_t128_warm b2b": "warm",
+  "lrm_c160x128x32_s3_t128_warm graph": "warm",
+  "lrm_c160x192x64_s2_t128_warm kernel": "warm",
+  "lrm_c160x192x64_s2_t128_warm b2b": "warm",
+  "lrm_c160x192x64_s2_t128_warm graph": "warm",
+  "lrm_c160x64x64_s1_t64_warm kernel": "warm",
+  "lrm_c160x64x64_s1_t64_warm b2b": "warm",
+  "lrm_c160x64x64_s1_t64_warm graph": "warm",
+  "lrm_c192x128x96_s1_t128_warm kernel": "warm",
+  "lrm_c192x128x96_s1_t128_warm b2b": "warm",
+  "lrm_c192x128x96_s1_t128_warm graph": "warm",
+  "lrm_c192x192x48_s1_t512_warm kernel": "warm",
+  "lrm_c192x192x48_s1_t512_warm b2b": "warm",
+  "lrm_c192x192x48_s1_t512_warm graph": "warm",
+  "lrm_c192x64x48_s1_t64_warm kernel": "warm",
+  "lrm_c192x64x48_s1_t64_warm b2b": "warm",
+  "lrm_c192x64x48_s1_t64_warm graph": "warm",
+  "lrm_c240x128x32_s4_t256_warm kernel": "warm",
+  "lrm_c240x128x32_s4_t256_warm b2b": "warm",
+  "lrm_c240x128x32_s4_t256_warm graph": "warm",
+  "lrm_c240x256x48_s1_t128_warm kernel": "warm",
+  "lrm_c240x256x48_s1_t128_warm b2b": "warm",
+  "lrm_c240x256x48_s1_t128_warm graph": "warm",
+  "lrm_c240x96x64_s2_t128_warm kernel": "warm",
+  "lrm_c240x96x64_s2_t128_warm b2b": "warm",
+  "lrm_c240x96x64_s2_t128_warm graph": "warm",
+  "lrm_c240x96x96_s1_t128_warm kernel": "warm",
+  "lrm_c240x96x96_s1_t128_warm b2b": "warm",
+  "lrm_c240x96x96_s1_t128_warm graph": "warm",
+  "lrm_c320x160x16_s3_t64_warm kernel": "warm",
+  "lrm_c320x160x16_s3_t64_warm b2b": "warm",
+  "lrm_c320x160x16_s3_t64_warm graph": "warm",
+  "lrm_c48x256x64_s1_t64_warm kernel": "warm",
+  "lrm_c48x256x64_s1_t64_warm b2b": "warm",
+  "lrm_c48x256x64_s1_t64_warm graph": "warm",
+  "lrm_c64x192x48_s1_t64_warm kernel": "warm",
+  "lrm_c64x192x48_s1_t64_warm b2b": "warm",
+  "lrm_c64x192x48_s1_t64_warm graph": "warm",
+  "lrm_c64x320x16_s1_t512_warm kernel": "warm",
+  "lrm_c64x320x16_s1_t512_warm b2b": "warm",
+  "lrm_c64x320x16_s1_t512_warm graph": "warm",
+  "lrm_c64x32x64_s3_t64_warm kernel": "warm",
+  "lrm_c64x32x64_s3_t64_warm b2b": "warm",
+  "lrm_c64x32x64_s3_t64_warm graph": "warm",
+  "lrm_c64x96x48_s1_t64_warm kernel": "warm",
+  "lrm_c64x96x48_s1_t64_warm b2b": "warm",
+  "lrm_c64x96x48_s1_t64_warm graph": "warm",
+  "lrm_c80x128x64_s1_t64_warm kernel": "warm",
+  "lrm_c80x128x64_s1_t64_warm b2b": "warm",
+  "lrm_c80x128x64_s1_t64_warm graph": "warm",
+  "lrm_c80x64x16_s4_t64_warm kernel": "warm",
+  "lrm_c80x64x16_s4_t64_warm b2b": "warm",
+  "lrm_c80x64x16_s4_t64_warm graph": "warm",
+  "lrm_c96x128x32_s3_t128_warm kernel": "warm",
+  "lrm_c96x128x32_s3_t128_warm b2b": "warm",
+  "lrm_c96x128x32_s3_t128_warm graph": "warm",
+  "lrm_c96x128x48_s1_t64_warm kernel": "warm",
+  "lrm_c96x128x48_s1_t64_warm b2b": "warm",
+  "lrm_c96x128x48_s1_t64_warm graph": "warm",
+  "lrm_c96x256x96_s1_t128_warm kernel": "warm",
+  "lrm_c96x256x96_s1_t128_warm b2b": "warm",
+  "lrm_c96x256x96_s1_t128_warm graph": "warm",
+  "lrm_c96x32x64_s4_t256_warm kernel": "warm",
+  "lrm_c96x32x64_s4_t256_warm b2b": "warm",
+  "lrm_c96x32x64_s4_t256_warm graph": "warm",
+  "clock chain_GHz": "warm"
+ },
+ "environment": {
+  "1-env-before-apps": "",
+  "1-env-after-apps": "",
+  "1-env-after-uptime": " 06:21:40 up 22 days,  5:10,  8 users,  load average: 0.95, 0.70, 1.00\n",
+  "1-env-before-uptime": " 06:04:49 up 22 days,  4:54,  8 users,  load average: 0.91, 2.09, 1.83\n",
+  "1-env-versions": "NVIDIA-SMI version  : 580.159.03\nNVML version        : 580.159\nDRIVER version      : 580.159.03\nCUDA Version        : 13.0\nCuda compilation tools, release 13.0, V13.0.88\nBuild cuda_13.0.r13.0/compiler.36424714_0\n"
+ },
+ "smi_before": "\n==============NVSMI LOG==============\n\nTimestamp                                              : Fri Nov  6 06:04:49 2026\nDriver Version                                         : 580.159.03\nCUDA Version                                           : 13.0\n\nAttached GPUs                                          : 1\nGPU 0000000F:01:00.0\n    Performance State                                  : P0\n    Clocks Event Reasons\n        Idle                                           : Not Active\n        Applications Clocks Setting                    : Not Active\n        SW Power Cap                                   : Not Active\n        HW Slowdown                                    : Not Active\n            HW Thermal Slowdown                        : Not Active\n            HW Power Brake Slowdown                    : Not Active\n        Sync Boost                                     : Not Active\n        SW Thermal Slowdown                            : Not Active\n        Display Clock Setting                          : Not Active\n    Clocks Event Reasons Counters\n        SW Power Capping                               : 11789818997 us\n        Sync Boost                                     : 0 us\n        SW Thermal Slowdown                            : 0 us\n        HW Thermal Slowdown                            : 0 us\n        HW Power Braking                               : 0 us\n    Sparse Operation Mode                              : N/A\n    Temperature\n        GPU Current Temp                               : 64 C\n        GPU T.Limit Temp                               : 33 C\n        GPU Shutdown T.Limit Temp                      : -5 C\n        GPU Slowdown T.Limit Temp                      : -2 C\n        GPU Max Operating T.Limit Temp                 : 0 C\n        GPU Target Temperature                         : N/A\n        Memory Current Temp                            : N/A\n        Memory Max Operating T.Limit Temp              : N/A\n    GPU Power Readings\n        Average Power Draw                             : 27.73 W\n        Instantaneous Power Draw                       : 16.47 W\n        Current Power Limit                            : N/A\n        Requested Power Limit                          : N/A\n        Default Power Limit                            : N/A\n        Min Power Limit                                : N/A\n        Max Power Limit                                : N/A\n    Power Samples\n        Duration                                       : Not Found\n        Number of Samples                              : Not Found\n        Max                                            : Not Found\n        Min                                            : Not Found\n        Avg                                            : Not Found\n    GPU Memory Power Readings \n        Average Power Draw                             : N/A\n        Instantaneous Power Draw                       : N/A\n    Module Power Readings\n        Average Power Draw                             : N/A\n        Instantaneous Power Draw                       : N/A\n        Current Power Limit                            : N/A\n        Requested Power Limit                          : N/A\n        Default Power Limit                            : N/A\n        Min Power Limit                                : N/A\n        Max Power Limit                                : N/A\n    Clocks\n        Graphics                                       : 2405 MHz\n        SM                                             : 2405 MHz\n        Memory                                         : N/A\n        Video                                          : 2093 MHz\n    Applications Clocks\n        Graphics                                       : 2418 MHz\n        Memory                                         : N/A\n    Default Applications Clocks\n        Graphics                                       : 2418 MHz\n        Memory                                         : N/A\n    Deferred Clocks\n        Memory                                         : N/A\n    Max Clocks\n        Graphics                                       : 3003 MHz\n        SM                                             : 3003 MHz\n        Memory                                         : N/A\n        Video                                          : 3003 MHz\n    Max Customer Boost Clocks\n        Graphics                                       : N/A\n    SM Clock Samples\n        Duration                                       : N/A\n        Number of Samples                              : N/A\n        Max                                            : N/A\n        Min                                            : N/A\n        Avg                                            : N/A\n    Memory Clock Samples\n        Duration                                       : N/A\n        Number of Samples                              : N/A\n        Max                                            : N/A\n        Min                                            : N/A\n        Avg                                            : N/A\n    Clock Policy\n        Auto Boost                                     : N/A\n        Auto Boost Default                             : N/A\n\n",
+ "smi_after": "\n==============NVSMI LOG==============\n\nTimestamp                                              : Fri Nov  6 06:21:40 2026\nDriver Version                                         : 580.159.03\nCUDA Version                                           : 13.0\n\nAttached GPUs                                          : 1\nGPU 0000000F:01:00.0\n    Performance State                                  : P0\n    Clocks Event Reasons\n        Idle                                           : Not Active\n        Applications Clocks Setting                    : Not Active\n        SW Power Cap                                   : Not Active\n        HW Slowdown                                    : Not Active\n            HW Thermal Slowdown                        : Not Active\n            HW Power Brake Slowdown                    : Not Active\n        Sync Boost                                     : Not Active\n        SW Thermal Slowdown                            : Not Active\n        Display Clock Setting                          : Not Active\n    Clocks Event Reasons Counters\n        SW Power Capping                               : 11792140257 us\n        Sync Boost                                     : 0 us\n        SW Thermal Slowdown                            : 0 us\n        HW Thermal Slowdown                            : 0 us\n        HW Power Braking                               : 0 us\n    Sparse Operation Mode                              : N/A\n    Temperature\n        GPU Current Temp                               : 66 C\n        GPU T.Limit Temp                               : 29 C\n        GPU Shutdown T.Limit Temp                      : -5 C\n        GPU Slowdown T.Limit Temp                      : -2 C\n        GPU Max Operating T.Limit Temp                 : 0 C\n        GPU Target Temperature                         : N/A\n        Memory Current Temp                            : N/A\n        Memory Max Operating T.Limit Temp              : N/A\n    GPU Power Readings\n        Average Power Draw                             : 19.61 W\n        Instantaneous Power Draw                       : 17.62 W\n        Current Power Limit                            : N/A\n        Requested Power Limit                          : N/A\n        Default Power Limit                            : N/A\n        Min Power Limit                                : N/A\n        Max Power Limit                                : N/A\n    Power Samples\n        Duration                                       : Not Found\n        Number of Samples                              : Not Found\n        Max                                            : Not Found\n        Min                                            : Not Found\n        Avg                                            : Not Found\n    GPU Memory Power Readings \n        Average Power Draw                             : N/A\n        Instantaneous Power Draw                       : N/A\n    Module Power Readings\n        Average Power Draw                             : N/A\n        Instantaneous Power Draw                       : N/A\n        Current Power Limit                            : N/A\n        Requested Power Limit                          : N/A\n        Default Power Limit                            : N/A\n        Min Power Limit                                : N/A\n        Max Power Limit                                : N/A\n    Clocks\n        Graphics                                       : 2398 MHz\n        SM                                             : 2398 MHz\n        Memory                                         : N/A\n        Video                                          : 2093 MHz\n    Applications Clocks\n        Graphics                                       : 2418 MHz\n        Memory                                         : N/A\n    Default Applications Clocks\n        Graphics                                       : 2418 MHz\n        Memory                                         : N/A\n    Deferred Clocks\n        Memory                                         : N/A\n    Max Clocks\n        Graphics                                       : 3003 MHz\n        SM                                             : 3003 MHz\n        Memory                                         : N/A\n        Video                                          : 3003 MHz\n    Max Customer Boost Clocks\n        Graphics                                       : N/A\n    SM Clock Samples\n        Duration                                       : N/A\n        Number of Samples                              : N/A\n        Max                                            : N/A\n        Min                                            : N/A\n        Avg                                            : N/A\n    Memory Clock Samples\n        Duration                                       : N/A\n        Number of Samples                              : N/A\n        Max                                            : N/A\n        Min                                            : N/A\n        Avg                                            : N/A\n    Clock Policy\n        Auto Boost                                     : N/A\n        Auto Boost Default                             : N/A\n\n",
+ "steps": [
+  {
+   "step": "1-env-before-smi",
+   "cmd": [
+    "nvidia-smi",
+    "-q",
+    "-d",
+    "CLOCK,TEMPERATURE,POWER,PERFORMANCE"
+   ],
+   "rc": 0,
+   "t0": 1793916289.7118988,
+   "s": 0.1
+  },
+  {
+   "step": "1-env-before-apps",
+   "cmd": [
+    "nvidia-smi",
+    "--query-compute-apps=pid,process_name",
+    "--format=csv,noheader"
+   ],
+   "rc": 0,
+   "t0": 1793916289.7758203,
+   "s": 0.0
+  },
+  {
+   "step": "1-env-before-uptime",
+   "cmd": [
+    "uptime"
+   ],
+   "rc": 0,
+   "t0": 1793916289.794657,
+   "s": 0.0
+  },
+  {
+   "step": "1-env-versions",
+   "cmd": [
+    "sh",
+    "-c",
+    "nvidia-smi --version; nvcc --version | tail -2"
+   ],
+   "rc": 0,
+   "t0": 1793916289.795841,
+   "s": 0.0
+  },
+  {
+   "step": "2-protocol-clock",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/protocol/bin",
+    "clock"
+   ],
+   "rc": 0,
+   "t0": 1793916289.8148828,
+   "s": 0.6
+  },
+  {
+   "step": "2-protocol-fma",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/protocol/bin",
+    "fma"
+   ],
+   "rc": 0,
+   "t0": 1793916290.4328048,
+   "s": 0.4
+  },
+  {
+   "step": "2-protocol-mem",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/protocol/bin",
+    "mem"
+   ],
+   "rc": 0,
+   "t0": 1793916290.8728402,
+   "s": 0.5
+  },
+  {
+   "step": "4-lrf_c128x128_s1_t256_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrf_c128x128_s1_t256_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916291.3657818,
+   "s": 0.8
+  },
+  {
+   "step": "4-lrf_c128x128_s1_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrf_c128x128_s1_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916292.1589568,
+   "s": 4.1
+  },
+  {
+   "step": "4-lrf_c128x48_s1_t256_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrf_c128x48_s1_t256_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916296.2620318,
+   "s": 0.9
+  },
+  {
+   "step": "4-lrf_c128x48_s3_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrf_c128x48_s3_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916297.12256,
+   "s": 2.2
+  },
+  {
+   "step": "4-lrf_c128x64_s2_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrf_c128x64_s2_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916299.3323712,
+   "s": 0.8
+  },
+  {
+   "step": "4-lrf_c128x64_s3_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrf_c128x64_s3_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916300.1686618,
+   "s": 0.9
+  },
+  {
+   "step": "4-lrf_c128x64_s3_t256_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrf_c128x64_s3_t256_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916301.022433,
+   "s": 0.8
+  },
+  {
+   "step": "4-lrf_c128x64_s3_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrf_c128x64_s3_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916301.8163106,
+   "s": 2.3
+  },
+  {
+   "step": "4-lrf_c32x48_s1_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrf_c32x48_s1_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916304.129402,
+   "s": 0.9
+  },
+  {
+   "step": "4-lrf_c32x96_s2_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrf_c32x96_s2_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916305.0491595,
+   "s": 1.2
+  },
+  {
+   "step": "4-lrf_c64x32_s1_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrf_c64x32_s1_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916306.2732172,
+   "s": 0.8
+  },
+  {
+   "step": "4-lrf_c64x48_s1_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrf_c64x48_s1_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916307.0555665,
+   "s": 0.8
+  },
+  {
+   "step": "4-lrf_c64x48_s1_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrf_c64x48_s1_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916307.8817356,
+   "s": 0.8
+  },
+  {
+   "step": "4-lrf_c64x48_s3_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrf_c64x48_s3_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916308.694186,
+   "s": 0.9
+  },
+  {
+   "step": "4-lrf_c64x64_s2_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrf_c64x64_s2_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916309.5826585,
+   "s": 0.9
+  },
+  {
+   "step": "4-lrf_c64x64_s3_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrf_c64x64_s3_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916310.443519,
+   "s": 0.9
+  },
+  {
+   "step": "4-lrf_c64x96_s1_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrf_c64x96_s1_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916311.3027077,
+   "s": 0.8
+  },
+  {
+   "step": "4-lrh_c128x128x32_s3_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrh_c128x128x32_s3_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916312.1045606,
+   "s": 1.1
+  },
+  {
+   "step": "4-lrh_c128x128x32_s3_t256_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrh_c128x128x32_s3_t256_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916313.2002745,
+   "s": 1.1
+  },
+  {
+   "step": "4-lrh_c128x128x48_s2_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrh_c128x128x48_s2_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916314.3069167,
+   "s": 1.1
+  },
+  {
+   "step": "4-lrh_c128x192x32_s2_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrh_c128x192x32_s2_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916315.4325342,
+   "s": 1.1
+  },
+  {
+   "step": "4-lrh_c128x256x16_s1_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrh_c128x256x16_s1_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916316.5468824,
+   "s": 3.5
+  },
+  {
+   "step": "4-lrh_c128x96x16_s3_t256_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrh_c128x96x16_s3_t256_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916320.0933585,
+   "s": 1.3
+  },
+  {
+   "step": "4-lrh_c128x96x32_s2_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrh_c128x96x32_s2_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916321.360259,
+   "s": 1.1
+  },
+  {
+   "step": "4-lrh_c192x128x32_s2_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrh_c192x128x32_s2_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916322.4699945,
+   "s": 1.1
+  },
+  {
+   "step": "4-lrh_c192x256x96_s1_t256_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrh_c192x256x96_s1_t256_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916323.5552227,
+   "s": 1.3
+  },
+  {
+   "step": "4-lrh_c192x64x32_s4_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrh_c192x64x32_s4_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916324.8944435,
+   "s": 1.2
+  },
+  {
+   "step": "4-lrh_c256x192x96_s1_t256_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrh_c256x192x96_s1_t256_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916326.1015491,
+   "s": 1.3
+  },
+  {
+   "step": "4-lrh_c256x96x32_s2_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrh_c256x96x32_s2_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916327.4185364,
+   "s": 1.1
+  },
+  {
+   "step": "4-lrh_c256x96x96_s1_t256_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrh_c256x96x96_s1_t256_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916328.5230155,
+   "s": 1.4
+  },
+  {
+   "step": "4-lrh_c64x128x16_s3_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrh_c64x128x16_s3_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916329.9467924,
+   "s": 1.2
+  },
+  {
+   "step": "4-lrh_c64x192x32_s1_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrh_c64x192x32_s1_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916331.1149666,
+   "s": 1.3
+  },
+  {
+   "step": "4-lrh_c64x192x64_s3_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrh_c64x192x64_s3_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916332.4129832,
+   "s": 2.0
+  },
+  {
+   "step": "4-lrh_c64x64x96_s2_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrh_c64x64x96_s2_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916334.3705685,
+   "s": 1.3
+  },
+  {
+   "step": "4-lrh_c96x128x96_s1_t256_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrh_c96x128x96_s1_t256_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916335.6926508,
+   "s": 1.2
+  },
+  {
+   "step": "4-lrh_c96x128x96_s2_t256_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrh_c96x128x96_s2_t256_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916336.8968608,
+   "s": 1.3
+  },
+  {
+   "step": "4-lrh_c96x256x32_s2_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrh_c96x256x32_s2_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916338.1742015,
+   "s": 1.1
+  },
+  {
+   "step": "4-lrh_c96x64x64_s2_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrh_c96x64x64_s2_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916339.2544694,
+   "s": 1.2
+  },
+  {
+   "step": "4-lrm_c160x128x32_s3_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrm_c160x128x32_s3_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916340.4520552,
+   "s": 1.9
+  },
+  {
+   "step": "4-lrm_c160x192x64_s2_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrm_c160x192x64_s2_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916342.3488975,
+   "s": 3.8
+  },
+  {
+   "step": "4-lrm_c160x64x64_s1_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrm_c160x64x64_s1_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916346.1462667,
+   "s": 2.3
+  },
+  {
+   "step": "4-lrm_c192x128x96_s1_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrm_c192x128x96_s1_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916348.4117029,
+   "s": 4.0
+  },
+  {
+   "step": "4-lrm_c192x192x48_s1_t512_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrm_c192x192x48_s1_t512_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916352.4376338,
+   "s": 2.0
+  },
+  {
+   "step": "4-lrm_c192x64x48_s1_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrm_c192x64x48_s1_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916354.4557278,
+   "s": 3.2
+  },
+  {
+   "step": "4-lrm_c240x128x32_s4_t256_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrm_c240x128x32_s4_t256_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916357.6500797,
+   "s": 2.1
+  },
+  {
+   "step": "4-lrm_c240x256x48_s1_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrm_c240x256x48_s1_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916359.7483408,
+   "s": 18.9
+  },
+  {
+   "step": "4-lrm_c240x96x64_s2_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrm_c240x96x64_s2_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916378.6397111,
+   "s": 2.5
+  },
+  {
+   "step": "4-lrm_c240x96x96_s1_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrm_c240x96x96_s1_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916381.1297784,
+   "s": 3.8
+  },
+  {
+   "step": "4-lrm_c320x160x16_s3_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrm_c320x160x16_s3_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916384.894848,
+   "s": 20.5
+  },
+  {
+   "step": "4-lrm_c48x256x64_s1_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrm_c48x256x64_s1_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916405.3828077,
+   "s": 7.6
+  },
+  {
+   "step": "4-lrm_c64x192x48_s1_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrm_c64x192x48_s1_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916413.001501,
+   "s": 7.2
+  },
+  {
+   "step": "4-lrm_c64x320x16_s1_t512_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrm_c64x320x16_s1_t512_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916420.1907976,
+   "s": 3.5
+  },
+  {
+   "step": "4-lrm_c64x32x64_s3_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrm_c64x32x64_s3_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916423.6799474,
+   "s": 4.1
+  },
+  {
+   "step": "4-lrm_c64x96x48_s1_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrm_c64x96x48_s1_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916427.7971268,
+   "s": 3.6
+  },
+  {
+   "step": "4-lrm_c80x128x64_s1_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrm_c80x128x64_s1_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916431.3812594,
+   "s": 3.7
+  },
+  {
+   "step": "4-lrm_c80x64x16_s4_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrm_c80x64x16_s4_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916435.0778408,
+   "s": 2.7
+  },
+  {
+   "step": "4-lrm_c96x128x32_s3_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrm_c96x128x32_s3_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916437.8019478,
+   "s": 2.6
+  },
+  {
+   "step": "4-lrm_c96x128x48_s1_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrm_c96x128x48_s1_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916440.3559847,
+   "s": 5.1
+  },
+  {
+   "step": "4-lrm_c96x256x96_s1_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrm_c96x256x96_s1_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916445.4087768,
+   "s": 6.8
+  },
+  {
+   "step": "4-lrm_c96x32x64_s4_t256_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrm_c96x32x64_s4_t256_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916452.2450624,
+   "s": 3.1
+  },
+  {
+   "step": "6-protocol-clock",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/protocol/bin",
+    "clock"
+   ],
+   "rc": 0,
+   "t0": 1793916455.356616,
+   "s": 0.6
+  },
+  {
+   "step": "6-protocol-fma",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/protocol/bin",
+    "fma"
+   ],
+   "rc": 0,
+   "t0": 1793916455.9752076,
+   "s": 0.4
+  },
+  {
+   "step": "6-protocol-mem",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/protocol/bin",
+    "mem"
+   ],
+   "rc": 0,
+   "t0": 1793916456.4164453,
+   "s": 0.5
+  },
+  {
+   "step": "3r1-protocol-clock",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/protocol/bin",
+    "clock"
+   ],
+   "rc": 0,
+   "t0": 1793916747.599269,
+   "s": 0.7
+  },
+  {
+   "step": "3r1-protocol-fma",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/protocol/bin",
+    "fma"
+   ],
+   "rc": 0,
+   "t0": 1793916748.2708254,
+   "s": 0.4
+  },
+  {
+   "step": "3r1-protocol-mem",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/protocol/bin",
+    "mem"
+   ],
+   "rc": 0,
+   "t0": 1793916748.7124007,
+   "s": 0.5
+  },
+  {
+   "step": "4r1-lrm_c96x32x64_s4_t256_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrm_c96x32x64_s4_t256_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916749.248017,
+   "s": 3.1
+  },
+  {
+   "step": "4r1-lrm_c96x256x96_s1_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrm_c96x256x96_s1_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916752.3079903,
+   "s": 6.7
+  },
+  {
+   "step": "4r1-lrm_c96x128x48_s1_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrm_c96x128x48_s1_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916759.0408635,
+   "s": 5.0
+  },
+  {
+   "step": "4r1-lrm_c96x128x32_s3_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrm_c96x128x32_s3_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916764.0166912,
+   "s": 2.5
+  },
+  {
+   "step": "4r1-lrm_c80x64x16_s4_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrm_c80x64x16_s4_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916766.5534089,
+   "s": 2.7
+  },
+  {
+   "step": "4r1-lrm_c80x128x64_s1_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrm_c80x128x64_s1_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916769.2441761,
+   "s": 3.7
+  },
+  {
+   "step": "4r1-lrm_c64x96x48_s1_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrm_c64x96x48_s1_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916772.9175994,
+   "s": 3.6
+  },
+  {
+   "step": "4r1-lrm_c64x32x64_s3_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrm_c64x32x64_s3_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916776.484073,
+   "s": 4.1
+  },
+  {
+   "step": "4r1-lrm_c64x320x16_s1_t512_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrm_c64x320x16_s1_t512_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916780.5751226,
+   "s": 3.5
+  },
+  {
+   "step": "4r1-lrm_c64x192x48_s1_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrm_c64x192x48_s1_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916784.0523126,
+   "s": 7.2
+  },
+  {
+   "step": "4r1-lrm_c48x256x64_s1_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrm_c48x256x64_s1_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916791.236143,
+   "s": 7.6
+  },
+  {
+   "step": "4r1-lrm_c320x160x16_s3_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrm_c320x160x16_s3_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916798.8691785,
+   "s": 20.7
+  },
+  {
+   "step": "4r1-lrm_c240x96x96_s1_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrm_c240x96x96_s1_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916819.6003478,
+   "s": 3.8
+  },
+  {
+   "step": "4r1-lrm_c240x96x64_s2_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrm_c240x96x64_s2_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916823.3666704,
+   "s": 2.4
+  },
+  {
+   "step": "4r1-lrm_c240x256x48_s1_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrm_c240x256x48_s1_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916825.7930722,
+   "s": 17.4
+  },
+  {
+   "step": "4r1-lrm_c240x128x32_s4_t256_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrm_c240x128x32_s4_t256_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916843.2265308,
+   "s": 2.1
+  },
+  {
+   "step": "4r1-lrm_c192x64x48_s1_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrm_c192x64x48_s1_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916845.3277898,
+   "s": 3.2
+  },
+  {
+   "step": "4r1-lrm_c192x192x48_s1_t512_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrm_c192x192x48_s1_t512_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916848.5363102,
+   "s": 2.0
+  },
+  {
+   "step": "4r1-lrm_c192x128x96_s1_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrm_c192x128x96_s1_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916850.5700724,
+   "s": 4.0
+  },
+  {
+   "step": "4r1-lrm_c160x64x64_s1_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrm_c160x64x64_s1_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916854.579083,
+   "s": 2.3
+  },
+  {
+   "step": "4r1-lrm_c160x192x64_s2_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrm_c160x192x64_s2_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916856.8595395,
+   "s": 3.8
+  },
+  {
+   "step": "4r1-lrm_c160x128x32_s3_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrm_c160x128x32_s3_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916860.6734965,
+   "s": 1.9
+  },
+  {
+   "step": "4r1-lrh_c96x64x64_s2_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrh_c96x64x64_s2_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916862.5762286,
+   "s": 1.2
+  },
+  {
+   "step": "4r1-lrh_c96x256x32_s2_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrh_c96x256x32_s2_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916863.7818844,
+   "s": 1.1
+  },
+  {
+   "step": "4r1-lrh_c96x128x96_s2_t256_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrh_c96x128x96_s2_t256_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916864.85813,
+   "s": 1.3
+  },
+  {
+   "step": "4r1-lrh_c96x128x96_s1_t256_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrh_c96x128x96_s1_t256_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916866.1449041,
+   "s": 1.2
+  },
+  {
+   "step": "4r1-lrh_c64x64x96_s2_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrh_c64x64x96_s2_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916867.3398578,
+   "s": 1.3
+  },
+  {
+   "step": "4r1-lrh_c64x192x64_s3_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrh_c64x192x64_s3_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916868.6634693,
+   "s": 2.0
+  },
+  {
+   "step": "4r1-lrh_c64x192x32_s1_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrh_c64x192x32_s1_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916870.6235597,
+   "s": 1.3
+  },
+  {
+   "step": "4r1-lrh_c64x128x16_s3_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrh_c64x128x16_s3_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916871.9115589,
+   "s": 1.2
+  },
+  {
+   "step": "4r1-lrh_c256x96x96_s1_t256_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrh_c256x96x96_s1_t256_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916873.0798585,
+   "s": 1.4
+  },
+  {
+   "step": "4r1-lrh_c256x96x32_s2_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrh_c256x96x32_s2_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916874.512176,
+   "s": 1.1
+  },
+  {
+   "step": "4r1-lrh_c256x192x96_s1_t256_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrh_c256x192x96_s1_t256_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916875.6226382,
+   "s": 1.3
+  },
+  {
+   "step": "4r1-lrh_c192x64x32_s4_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrh_c192x64x32_s4_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916876.9479163,
+   "s": 1.2
+  },
+  {
+   "step": "4r1-lrh_c192x256x96_s1_t256_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrh_c192x256x96_s1_t256_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916878.1519718,
+   "s": 1.3
+  },
+  {
+   "step": "4r1-lrh_c192x128x32_s2_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrh_c192x128x32_s2_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916879.4965982,
+   "s": 1.1
+  },
+  {
+   "step": "4r1-lrh_c128x96x32_s2_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrh_c128x96x32_s2_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916880.5798144,
+   "s": 1.1
+  },
+  {
+   "step": "4r1-lrh_c128x96x16_s3_t256_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrh_c128x96x16_s3_t256_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916881.6846414,
+   "s": 1.3
+  },
+  {
+   "step": "4r1-lrh_c128x256x16_s1_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrh_c128x256x16_s1_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916882.9501343,
+   "s": 3.5
+  },
+  {
+   "step": "4r1-lrh_c128x192x32_s2_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrh_c128x192x32_s2_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916886.4877167,
+   "s": 1.1
+  },
+  {
+   "step": "4r1-lrh_c128x128x48_s2_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrh_c128x128x48_s2_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916887.5899084,
+   "s": 1.1
+  },
+  {
+   "step": "4r1-lrh_c128x128x32_s3_t256_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrh_c128x128x32_s3_t256_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916888.7215514,
+   "s": 1.1
+  },
+  {
+   "step": "4r1-lrh_c128x128x32_s3_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrh_c128x128x32_s3_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916889.8308525,
+   "s": 1.1
+  },
+  {
+   "step": "4r1-lrf_c64x96_s1_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrf_c64x96_s1_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916890.93318,
+   "s": 0.8
+  },
+  {
+   "step": "4r1-lrf_c64x64_s3_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrf_c64x64_s3_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916891.74642,
+   "s": 0.9
+  },
+  {
+   "step": "4r1-lrf_c64x64_s2_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrf_c64x64_s2_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916892.611447,
+   "s": 0.9
+  },
+  {
+   "step": "4r1-lrf_c64x48_s3_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrf_c64x48_s3_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916893.484909,
+   "s": 0.9
+  },
+  {
+   "step": "4r1-lrf_c64x48_s1_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrf_c64x48_s1_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916894.3815384,
+   "s": 0.8
+  },
+  {
+   "step": "4r1-lrf_c64x48_s1_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrf_c64x48_s1_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916895.1990337,
+   "s": 0.8
+  },
+  {
+   "step": "4r1-lrf_c64x32_s1_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrf_c64x32_s1_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916896.023843,
+   "s": 0.8
+  },
+  {
+   "step": "4r1-lrf_c32x96_s2_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrf_c32x96_s2_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916896.8169966,
+   "s": 1.2
+  },
+  {
+   "step": "4r1-lrf_c32x48_s1_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrf_c32x48_s1_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916898.0378597,
+   "s": 0.9
+  },
+  {
+   "step": "4r1-lrf_c128x64_s3_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrf_c128x64_s3_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916898.9596086,
+   "s": 2.3
+  },
+  {
+   "step": "4r1-lrf_c128x64_s3_t256_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrf_c128x64_s3_t256_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916901.2966547,
+   "s": 0.8
+  },
+  {
+   "step": "4r1-lrf_c128x64_s3_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrf_c128x64_s3_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916902.105089,
+   "s": 0.9
+  },
+  {
+   "step": "4r1-lrf_c128x64_s2_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrf_c128x64_s2_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916902.9596407,
+   "s": 0.8
+  },
+  {
+   "step": "4r1-lrf_c128x48_s3_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrf_c128x48_s3_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916903.8043966,
+   "s": 2.2
+  },
+  {
+   "step": "4r1-lrf_c128x48_s1_t256_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrf_c128x48_s1_t256_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916906.0102203,
+   "s": 0.9
+  },
+  {
+   "step": "4r1-lrf_c128x128_s1_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrf_c128x128_s1_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916906.878603,
+   "s": 4.3
+  },
+  {
+   "step": "4r1-lrf_c128x128_s1_t256_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrf_c128x128_s1_t256_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793916911.1529055,
+   "s": 0.8
+  },
+  {
+   "step": "6r1-protocol-clock",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/protocol/bin",
+    "clock"
+   ],
+   "rc": 0,
+   "t0": 1793916911.955566,
+   "s": 0.6
+  },
+  {
+   "step": "6r1-protocol-fma",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/protocol/bin",
+    "fma"
+   ],
+   "rc": 0,
+   "t0": 1793916912.5909226,
+   "s": 0.4
+  },
+  {
+   "step": "6r1-protocol-mem",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/protocol/bin",
+    "mem"
+   ],
+   "rc": 0,
+   "t0": 1793916913.023908,
+   "s": 0.5
+  },
+  {
+   "step": "3r2-protocol-clock",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/protocol/bin",
+    "clock"
+   ],
+   "rc": 0,
+   "t0": 1793917134.0488083,
+   "s": 0.7
+  },
+  {
+   "step": "3r2-protocol-fma",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/protocol/bin",
+    "fma"
+   ],
+   "rc": 0,
+   "t0": 1793917134.7215781,
+   "s": 0.4
+  },
+  {
+   "step": "3r2-protocol-mem",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/protocol/bin",
+    "mem"
+   ],
+   "rc": 0,
+   "t0": 1793917135.1390917,
+   "s": 0.5
+  },
+  {
+   "step": "4r2-lrf_c128x128_s1_t256_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrf_c128x128_s1_t256_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917135.630014,
+   "s": 0.8
+  },
+  {
+   "step": "4r2-lrf_c128x128_s1_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrf_c128x128_s1_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917136.415825,
+   "s": 4.1
+  },
+  {
+   "step": "4r2-lrf_c128x48_s1_t256_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrf_c128x48_s1_t256_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917140.5188553,
+   "s": 0.9
+  },
+  {
+   "step": "4r2-lrf_c128x48_s3_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrf_c128x48_s3_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917141.3740375,
+   "s": 2.2
+  },
+  {
+   "step": "4r2-lrf_c128x64_s2_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrf_c128x64_s2_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917143.536022,
+   "s": 0.8
+  },
+  {
+   "step": "4r2-lrf_c128x64_s3_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrf_c128x64_s3_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917144.3613343,
+   "s": 0.8
+  },
+  {
+   "step": "4r2-lrf_c128x64_s3_t256_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrf_c128x64_s3_t256_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917145.1947336,
+   "s": 0.8
+  },
+  {
+   "step": "4r2-lrf_c128x64_s3_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrf_c128x64_s3_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917145.9862897,
+   "s": 2.3
+  },
+  {
+   "step": "4r2-lrf_c32x48_s1_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrf_c32x48_s1_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917148.2579663,
+   "s": 0.9
+  },
+  {
+   "step": "4r2-lrf_c32x96_s2_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrf_c32x96_s2_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917149.1631677,
+   "s": 1.2
+  },
+  {
+   "step": "4r2-lrf_c64x32_s1_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrf_c64x32_s1_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917150.3827262,
+   "s": 0.8
+  },
+  {
+   "step": "4r2-lrf_c64x48_s1_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrf_c64x48_s1_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917151.1660306,
+   "s": 0.8
+  },
+  {
+   "step": "4r2-lrf_c64x48_s1_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrf_c64x48_s1_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917151.9871507,
+   "s": 0.8
+  },
+  {
+   "step": "4r2-lrf_c64x48_s3_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrf_c64x48_s3_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917152.7916555,
+   "s": 0.9
+  },
+  {
+   "step": "4r2-lrf_c64x64_s2_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrf_c64x64_s2_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917153.6788797,
+   "s": 0.9
+  },
+  {
+   "step": "4r2-lrf_c64x64_s3_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrf_c64x64_s3_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917154.5434926,
+   "s": 0.8
+  },
+  {
+   "step": "4r2-lrf_c64x96_s1_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrf_c64x96_s1_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917155.3927522,
+   "s": 0.8
+  },
+  {
+   "step": "4r2-lrh_c128x128x32_s3_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrh_c128x128x32_s3_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917156.1966376,
+   "s": 1.1
+  },
+  {
+   "step": "4r2-lrh_c128x128x32_s3_t256_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrh_c128x128x32_s3_t256_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917157.269356,
+   "s": 1.1
+  },
+  {
+   "step": "4r2-lrh_c128x128x48_s2_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrh_c128x128x48_s2_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917158.3599389,
+   "s": 1.1
+  },
+  {
+   "step": "4r2-lrh_c128x192x32_s2_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrh_c128x192x32_s2_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917159.461535,
+   "s": 1.1
+  },
+  {
+   "step": "4r2-lrh_c128x256x16_s1_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrh_c128x256x16_s1_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917160.5585883,
+   "s": 3.6
+  },
+  {
+   "step": "4r2-lrh_c128x96x16_s3_t256_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrh_c128x96x16_s3_t256_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917164.1335275,
+   "s": 1.3
+  },
+  {
+   "step": "4r2-lrh_c128x96x32_s2_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrh_c128x96x32_s2_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917165.3977482,
+   "s": 1.1
+  },
+  {
+   "step": "4r2-lrh_c192x128x32_s2_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrh_c192x128x32_s2_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917166.5068493,
+   "s": 1.1
+  },
+  {
+   "step": "4r2-lrh_c192x256x96_s1_t256_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrh_c192x256x96_s1_t256_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917167.568165,
+   "s": 1.4
+  },
+  {
+   "step": "4r2-lrh_c192x64x32_s4_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrh_c192x64x32_s4_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917168.9206212,
+   "s": 1.2
+  },
+  {
+   "step": "4r2-lrh_c256x192x96_s1_t256_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrh_c256x192x96_s1_t256_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917170.115375,
+   "s": 1.3
+  },
+  {
+   "step": "4r2-lrh_c256x96x32_s2_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrh_c256x96x32_s2_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917171.451493,
+   "s": 1.1
+  },
+  {
+   "step": "4r2-lrh_c256x96x96_s1_t256_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrh_c256x96x96_s1_t256_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917172.5574088,
+   "s": 1.4
+  },
+  {
+   "step": "4r2-lrh_c64x128x16_s3_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrh_c64x128x16_s3_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917173.979739,
+   "s": 1.2
+  },
+  {
+   "step": "4r2-lrh_c64x192x32_s1_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrh_c64x192x32_s1_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917175.1409588,
+   "s": 1.3
+  },
+  {
+   "step": "4r2-lrh_c64x192x64_s3_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrh_c64x192x64_s3_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917176.4130683,
+   "s": 2.0
+  },
+  {
+   "step": "4r2-lrh_c64x64x96_s2_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrh_c64x64x96_s2_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917178.3759494,
+   "s": 1.3
+  },
+  {
+   "step": "4r2-lrh_c96x128x96_s1_t256_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrh_c96x128x96_s1_t256_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917179.6882691,
+   "s": 1.2
+  },
+  {
+   "step": "4r2-lrh_c96x128x96_s2_t256_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrh_c96x128x96_s2_t256_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917180.8927133,
+   "s": 1.3
+  },
+  {
+   "step": "4r2-lrh_c96x256x32_s2_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrh_c96x256x32_s2_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917182.1710424,
+   "s": 1.1
+  },
+  {
+   "step": "4r2-lrh_c96x64x64_s2_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrh_c96x64x64_s2_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917183.2456129,
+   "s": 1.2
+  },
+  {
+   "step": "4r2-lrm_c160x128x32_s3_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrm_c160x128x32_s3_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917184.4486263,
+   "s": 1.9
+  },
+  {
+   "step": "4r2-lrm_c160x192x64_s2_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrm_c160x192x64_s2_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917186.355004,
+   "s": 3.8
+  },
+  {
+   "step": "4r2-lrm_c160x64x64_s1_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrm_c160x64x64_s1_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917190.1337109,
+   "s": 2.3
+  },
+  {
+   "step": "4r2-lrm_c192x128x96_s1_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrm_c192x128x96_s1_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917192.4064283,
+   "s": 4.0
+  },
+  {
+   "step": "4r2-lrm_c192x192x48_s1_t512_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrm_c192x192x48_s1_t512_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917196.4067485,
+   "s": 2.0
+  },
+  {
+   "step": "4r2-lrm_c192x64x48_s1_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrm_c192x64x48_s1_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917198.4282176,
+   "s": 3.2
+  },
+  {
+   "step": "4r2-lrm_c240x128x32_s4_t256_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrm_c240x128x32_s4_t256_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917201.6306586,
+   "s": 2.1
+  },
+  {
+   "step": "4r2-lrm_c240x256x48_s1_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrm_c240x256x48_s1_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917203.7305589,
+   "s": 18.6
+  },
+  {
+   "step": "4r2-lrm_c240x96x64_s2_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrm_c240x96x64_s2_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917222.2923346,
+   "s": 2.4
+  },
+  {
+   "step": "4r2-lrm_c240x96x96_s1_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrm_c240x96x96_s1_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917224.7419116,
+   "s": 3.8
+  },
+  {
+   "step": "4r2-lrm_c320x160x16_s3_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrm_c320x160x16_s3_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917228.5210369,
+   "s": 20.2
+  },
+  {
+   "step": "4r2-lrm_c48x256x64_s1_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrm_c48x256x64_s1_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917248.6789129,
+   "s": 7.7
+  },
+  {
+   "step": "4r2-lrm_c64x192x48_s1_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrm_c64x192x48_s1_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917256.3554766,
+   "s": 7.2
+  },
+  {
+   "step": "4r2-lrm_c64x320x16_s1_t512_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrm_c64x320x16_s1_t512_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917263.5485086,
+   "s": 3.5
+  },
+  {
+   "step": "4r2-lrm_c64x32x64_s3_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrm_c64x32x64_s3_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917267.0356038,
+   "s": 4.1
+  },
+  {
+   "step": "4r2-lrm_c64x96x48_s1_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrm_c64x96x48_s1_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917271.1490371,
+   "s": 3.6
+  },
+  {
+   "step": "4r2-lrm_c80x128x64_s1_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrm_c80x128x64_s1_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917274.7356548,
+   "s": 3.7
+  },
+  {
+   "step": "4r2-lrm_c80x64x16_s4_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrm_c80x64x16_s4_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917278.4369764,
+   "s": 2.7
+  },
+  {
+   "step": "4r2-lrm_c96x128x32_s3_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrm_c96x128x32_s3_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917281.1657028,
+   "s": 2.6
+  },
+  {
+   "step": "4r2-lrm_c96x128x48_s1_t64_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrm_c96x128x48_s1_t64_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917283.735381,
+   "s": 5.1
+  },
+  {
+   "step": "4r2-lrm_c96x256x96_s1_t128_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrm_c96x256x96_s1_t128_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917288.7917244,
+   "s": 6.8
+  },
+  {
+   "step": "4r2-lrm_c96x32x64_s4_t256_warm",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/testset/lrm_c96x32x64_s4_t256_warm/bin",
+    "30"
+   ],
+   "rc": 0,
+   "t0": 1793917295.6214697,
+   "s": 3.1
+  },
+  {
+   "step": "6r2-protocol-clock",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/protocol/bin",
+    "clock"
+   ],
+   "rc": 0,
+   "t0": 1793917298.7367377,
+   "s": 0.6
+  },
+  {
+   "step": "6r2-protocol-fma",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/protocol/bin",
+    "fma"
+   ],
+   "rc": 0,
+   "t0": 1793917299.3683925,
+   "s": 0.4
+  },
+  {
+   "step": "6r2-protocol-mem",
+   "cmd": [
+    "/home/dingyi/kta-perfmodel/data/perfmodel/batches/lr/build/protocol/bin",
+    "mem"
+   ],
+   "rc": 0,
+   "t0": 1793917299.8138537,
+   "s": 0.5
+  },
+  {
+   "step": "1-env-after-smi",
+   "cmd": [
+    "nvidia-smi",
+    "-q",
+    "-d",
+    "CLOCK,TEMPERATURE,POWER,PERFORMANCE"
+   ],
+   "rc": 0,
+   "t0": 1793917300.3058157,
+   "s": 0.1
+  },
+  {
+   "step": "1-env-after-apps",
+   "cmd": [
+    "nvidia-smi",
+    "--query-compute-apps=pid,process_name",
+    "--format=csv,noheader"
+   ],
+   "rc": 0,
+   "t0": 1793917300.3693252,
+   "s": 0.0
+  },
+  {
+   "step": "1-env-after-uptime",
+   "cmd": [
+    "uptime"
+   ],
+   "rc": 0,
+   "t0": 1793917300.3892694,
+   "s": 0.0
+  }
+ ],
+ "not_owned_by_user": "",
+ "raw": "data/perfmodel/batches/lr",
+ "invalid_cases": {}
+}
