@@ -22,7 +22,7 @@ ROOT = upstream.ROOT
 LOG = ROOT / "perfmodel" / "table-runs.jsonl"
 STATE = ROOT / "docs" / "design" / "perfmodel" / "STATE.md"
 JOBS = 18  # of spark's 20 cores
-BELOW_CORE_S = 3000.0  # hard limit of a round's replays below the core table (D874, D875)
+BELOW_CORE_S = 2500.0  # hard limit of a round's replays below the core table (D874, D875; round 17)
 FULL_EVERY = 3  # rounds
 
 
