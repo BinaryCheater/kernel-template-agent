@@ -59,9 +59,11 @@ class Cache:
 
 def warm_miss(footprint_bytes: float, kind: str = "ca", machine: Machine | None = None) -> float:
     """Fraction of a warm re-read of `footprint_bytes` that misses the L2 (probe l2reuse): plain
-    and .cg loads by `l2_warm_miss_by_MiB`, evict-first (`cs`) loads by their own curve."""
+    and .cg loads by `l2_warm_miss_by_MiB`, evict-first (`cs`) loads by their own curve, single-use
+    reads beside stores (`w`, round 20) by `l2_warm_write_miss_by_MiB`."""
     C = (machine or default_machine()).C
-    pts = C["l2_warm_miss_evict_first_by_MiB" if kind == "cs" else "l2_warm_miss_by_MiB"]
+    name = {"cs": "evict_first_", "w": "write_"}.get(kind, "")
+    pts = C[f"l2_warm_miss_{name}by_MiB" if name != "write_" else "l2_warm_write_miss_by_MiB"]
     x = footprint_bytes / 2**20
     if x >= pts[-1][0]:
         return float(pts[-1][1])

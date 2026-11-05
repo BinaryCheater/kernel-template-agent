@@ -343,6 +343,8 @@
    "stg_queue_merge": true,
    "dram_writes_shared": true,
    "warm_window_writes": true,
+   "warm_miss_writes_back": true,
+   "warm_once_loads": 2.5,
    "red_region_bytes": 4096,
    "red_region_atomics_per_clk": 1.44,
    "red_chip_atomics_per_clk": 12.0,
@@ -368,12 +370,10 @@
    "stg_merge_run_clk": 32,
    "stg_merge_lines": 4,
    "stg_pair_clk_per_line": 1.875,
-   "stg_dirty_once_bytes": 6815744,
    "dram_burst_bytes": 64,
    "dram_burst_edge": 0.6,
    "stg_wide_clk_per_sector": 0.063,
    "stg_wide_clk_per_line": 0.105,
-   "stg_dirty_once_blocks": 512,
    "l2_line_bytes": 128,
    "launch_thread_us_per_k": 0.0055,
    "launch_thread_free_k": 245
@@ -489,6 +489,8 @@
    "stg_queue_merge": "measured",
    "dram_writes_shared": "measured",
    "warm_window_writes": "measured",
+   "warm_miss_writes_back": "measured",
+   "warm_once_loads": "measured",
    "red_region_bytes": "measured",
    "red_region_atomics_per_clk": "measured",
    "red_chip_atomics_per_clk": "measured",
@@ -497,12 +499,10 @@
    "stg_merge_run_clk": "measured",
    "stg_merge_lines": "measured",
    "stg_pair_clk_per_line": "measured",
-   "stg_dirty_once_bytes": "measured",
    "dram_burst_bytes": "measured",
    "dram_burst_edge": "measured",
    "stg_wide_clk_per_sector": "measured",
    "stg_wide_clk_per_line": "measured",
-   "stg_dirty_once_blocks": "assumed",
    "l2_line_bytes": "measured",
    "launch_thread_us_per_k": "measured",
    "launch_thread_free_k": "measured"
@@ -581,6 +581,8 @@
    "stg_pair_clk_per_sector": "15 cycles at 32 sectors (store_tail) over 32; rw_* r11: runs at 1.6 hold, misaligned too",
    "stg_queue_merge": "rw_* r11, counters: L2 write sectors against L1 sectors 1.2 x at g 48, 4 x at g 768; stress_09",
    "dram_writes_shared": "wr_* r11: reads / 260 + writes / 197 GB/s within 15 % at F + W 64 MiB and above",
+   "warm_once_loads": "r20 rw_m*: rows and softmax load each line twice (loaded 19.8 MB, footprint 9.9) and lose by the footprint with the stores; was 1.1, a line loaded once; between 2 and HGEMM's reuse nothing measured",
+   "warm_miss_writes_back": "r20 rw_m*, sw_m*, wb_*: warm rows on the line to about 16 MB of footprint, then +3, +20, +25, +31, +48 us at 17.8, 19.8, 21.8, 22.2, 25.7 MB, flat in T and blocks, the passes 30 % apart near the turn; replaces stg_dirty_once_bytes and stg_dirty_once_blocks (D889); false: no written-back bytes in a warm miss",
    "warm_window_writes": "wr_* r11: wr_r2w1_8m 0.47 of the additive time at 24 MiB, HGEMM counters r9 hit 93 %",
    "red_region_bytes": "atom_* r11: rate proportional to bytes over 4 KiB from 1 to 8 regions",
    "red_region_atomics_per_clk": "atom_b1024 r11",
@@ -590,12 +592,10 @@
    "stg_merge_lines": "probe store_merge (r12): spans equal at every step S up to 8 lines per instruction (no merge), S matters from 4 lines down; wr_r1w4 (4 lines) merges, HGEMM (8 rows) does not",
    "stg_pair_clk_per_line": "probe store_merge (r12) G 128: 3.6-4 cycles per line on an SM at 8, 16, 32 lines, the pair at half; 15 for 8 rows of store_tail",
    "stg_merge_run_clk": "wr_r1w4 counters r11: 4 stores on end merge; HGEMM r9: none across its loop; chosen between",
-   "stg_dirty_once_bytes": "wr_r1w1 r11b: 6 MiB 12.9 us, 7 MiB 38.6 us",
    "dram_burst_bytes": "r16 mr_*, mh_*, mw_h_*: reads and writes pay whole 64-byte bursts: a sector whose twin is not asked by the same instruction costs a burst: 8 MiB in order, 8 loads per thread 68 µs (2 x 8 MiB at 237 GB/s = 71), lanes 64 B apart 35 (35), 128 B 16.6 (17.7), hashed 1 M loads through 32 MiB at half hits 537 (566), 1 GiB 256 K lanes 68 (72); evict-first and plain alike; contiguous lanes 16 B each 32 (35). 0: the rule before (ablation)",
    "dram_burst_edge": "r17 gr_w2_p1360, gr_w4_p1360 against pitch 1280: a run of contiguous lanes crossing a burst pays about 0.6 of a burst on each side, 2 lanes 1.27 times, 4 lanes 1.0; lanes apart pay all of it at any gap (tw_g*, tw_dep, D886). Empirical: two points. 1: the rule of round 16 (ablation)",
    "stg_wide_clk_per_sector": "r17 pw_*, mt_w_*, mw_o_*: lanes apart, more than 4 lines per instruction: 11, 8.4, 6 sectors per clock at 8, 16, 32 lines per 32 sectors: clk per sector on the chip = 0.063 + 0.105 x lines per sector. 0: the fixed rate stg_chip_wide_B_per_clk (ablation)",
    "stg_wide_clk_per_line": "as stg_wide_clk_per_sector",
-   "stg_dirty_once_blocks": "r16 mt_rw_*, r15 wl_* (1920 blocks) no step at 7 to 8 MiB beside single-use reads, wr_r1w1 r11b (112 blocks) a step: the limit `stg_dirty_once_bytes` holds at few blocks; the threshold lies between, not measured",
    "l2_line_bytes": "r16 md_*, mr_s*, mr_row_*: the L2 holds 128-byte lines whatever part of them is read: 137 K lines: 32 K lanes in 4 sets, 128 B or more apart, hit, in 8 sets miss; 0: by sectors read (ablation)",
    "launch_thread_us_per_k": "probe launch (round 3): empty kernel 4.67 µs at 524 K, 6.72 at 1 M threads; r16 mt_r_*: rows warm T 256 +1.9, T 512 +3.0 µs on the replay",
    "launch_thread_free_k": "probe launch (round 3): empty kernels 2.43 µs to 262 K threads nearly, r16 mt_r_t128 at 245 K no excess"
@@ -933,6 +933,11 @@
   ],
   "status": "measured",
   "source": "probe l2reuse (batch r3): a footprint of F MiB re-read back-to-back with plain or .cg 16-byte loads by 48 x 1024 threads, miss fraction from the span between the all-hit rate (12 MiB, 0.52 us/MiB) and the cold rate (4.45 us/MiB): 0.02 at 15-16.5 MiB, 0.08 at 18, 0.13 at 20.25, 0.62 at 24, 0.85 at 32.25 MiB; 40 MiB from upstream l2policy (hit 0.012). Within one kernel (4 passes) the same capacity. Profiler hit counters do not see it: under ncu every launch refills the L2 from sysmem (lts__d_sectors_fill_sysmem = all read sectors, warm and cold)"
+ },
+ "l2_warm_write_miss_by_MiB": {
+  "value": [[0, 0.0], [15.5, 0.0], [17, 0.22], [18.9, 0.36], [20.8, 0.4], [24.5, 0.6], [32, 0.9], [40, 0.99]],
+  "status": "measured",
+  "source": "probes r20 rw_m*, sw_m*, r17 rr_m1792, r11 wr_r1w1_*: warm, reads used once beside as many bytes stored: the time past the line over (reads / 237 + stores / 197 GB/s) at a footprint of 17, 18.9, 20.8, 24.5, 32 MiB; empirical, the passes 30 % apart near the turn (bistable); no blind row in it"
  },
  "l2_warm_miss_evict_first_by_MiB": {
   "value": [

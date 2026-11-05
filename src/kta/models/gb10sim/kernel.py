@@ -309,8 +309,16 @@ def generic_kernel(
         else:
             # round 11 (wr_*): reads a launch uses once stay on the L2's probation list beside the
             # stores; re-read lines are protected (HGEMM)
-            once = m.P["warm_window_writes"] and r.loaded < 1.1 * seen and not r.rewrites
+            # round 20: rows read each line twice, a block apart at most: as far as a launch goes
+            # that is one use; HGEMM's lines come round many times
+            uses = m.P["warm_once_loads"]
+            once = m.P["warm_window_writes"] and r.loaded < uses * seen and not r.rewrites
             scale = l2_warm_miss(seen + (written if once else 0), kind, m)
+            if once and written and m.P["warm_miss_writes_back"]:
+                # round 20 (rw_*, sw_*, wb_*): dirty lines leave sooner than a re-read's: what the
+                # footprint loses it loses of the stores too, and they take their turn on the DRAM
+                scale = l2_warm_miss(seen + written, "w", m)
+                wb = written * scale
         # the kernel's arguments, 8 bytes each from the first parameter slot, by name
         slots = {P0_SLOT + 8 * i: n for i, n in enumerate(L.get("params", ()))}
         byname = {
@@ -355,12 +363,11 @@ def generic_kernel(
     else:  # warm (round 3, probe l2reuse): the re-read misses by the footprint
         rb, miss, bf = fb, l2_warm_miss(fb, kind, m), 1.0
     kw["dram_writes_counted"] = wb > 0
-    # round 11 (wr_*, r11b): repeated launches writing past the limit find it full from the start:
-    # W 6 MiB pays nothing, 7 most of it, beside single-use reads; beside re-read lines (HGEMM's
-    # 9.4 MB of rewritten C) only past 1.5 times the limit, up to 16 MiB unmeasured
-    w_limit = m.P["stg_dirty_once_bytes"] if once else 1.5 * m.P["stg_dirty_bytes"]
-    few = tiles <= m.P["stg_dirty_once_blocks"]  # round 17: many blocks show no step (q51)
-    kw["dirty_full"] = not rotating and (few or not once) and L.get("write_bytes", 0) > w_limit
+    # round 11: beside re-read lines (HGEMM's 9.4 MB of rewritten C) the limit starts past 1.5 times
+    # its bytes, up to 16 MiB unmeasured; beside single-use reads the footprint decides (D911)
+    kw["dirty_full"] = (
+        not rotating and not once and L.get("write_bytes", 0) > 1.5 * m.P["stg_dirty_bytes"]
+    )
     if any(x.base in ("RED", "REDG", "ATOMG") for x in ins):
         kw["atomic_bytes"] = L.get("write_bytes", 0)
     elif "write_bytes" in L:
