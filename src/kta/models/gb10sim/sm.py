@@ -1573,6 +1573,8 @@ class SM:
         self._warp_done = False
         live: list[Warp] = []
         by_smsp: list[list[Warp]] = [[] for _ in range(self.nsp)]
+        P_old = self.P["older_block_first"]
+        self.is_mma = [c.name == "mma" for c in self.icls]
         while now < limit and self.addr_want != set():
             if self._live_dirty:
                 live = [w for w in self.warps if not w.done and w.ready < INF]
@@ -1631,6 +1633,11 @@ class SM:
                     continue
                 last = self.last_issue[s]
                 # greedy, then oldest
+                # round 13 (tr_*, question 46): the older block of an SM issues first, except between
+                # mma, which share the pipe fairly (mma_pair, D768)
+                if P_old and len(cand) > 1 and any(not self.is_mma[q.pc] for q in cand):
+                    b0 = min(q.block for q in cand)
+                    cand = [q for q in cand if q.block == b0]
                 w = last if (last in cand) else min(cand, key=lambda q: (q.loops, q.wid))
                 if self.trace:
                     self.hist.setdefault(w.wid, []).append(
