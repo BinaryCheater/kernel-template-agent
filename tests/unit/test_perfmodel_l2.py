@@ -33,3 +33,12 @@ def test_reuse_shows_per_load_instruction() -> None:
 
 def test_warm_curve_is_flat_below_capacity_and_high_above() -> None:
     assert warm_miss(8 * 2**20) < 0.05 < 0.8 < warm_miss(40 * 2**20)
+
+
+def test_prmt_sign_and_zero_extension() -> None:
+    from kta.models.gb10sim.lanes import prmt
+
+    assert prmt(0x0000_8001, 0x9910, 0) == 0xFFFF_8001  # 16-bit sign extension, division by 3
+    assert prmt(0x0000_7001, 0x9910, 0) == 0x0000_7001
+    assert prmt(0x1234_8001, 0x7710, 0) == 0x0000_8001  # zero extension
+    assert prmt(0x0102_0304, 0x3210, 0) == 0x0102_0304

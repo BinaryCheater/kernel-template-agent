@@ -357,6 +357,8 @@ class SM:
             if self.lane_track:
                 w.lanes = Lanes(w.tid0, bd, self.const_bank)  # type: ignore[arg-type]
         self.events = []  # (time, seq, kind, warp, arg)
+        # round 13 (atb_*): a uniform address: the compiler has one lane carry the warp's sum
+        self.atomic_reduced = any(x.base in ("REDUX", "UFLO") for x in ins)
         self.seq = 0
         self.bar_arrived = {}
         self.last_issue: list[Warp | None] = [None] * n
@@ -1308,7 +1310,12 @@ class SM:
         cold = chip_stack > self.m.C["l2_effective_bytes"]
         if x.base == "STL":
             rate = P["local_chip_B_per_clk"]
-            if not hit:
+            reg = re.search(r"\[(R\d+)", x.args)
+            val = w.lanes.get(reg[1], w.vals) if reg and w.lanes is not None else None
+            if val is not None and not w.lanes.uniform(val):
+                # round 13 (stk_*, r12): an index per lane: each lane its own sector
+                rate, nb = P["local_chip_lanes_B_per_clk"], 32 * 32
+            elif not hit:
                 wr = self.m.C["dram_write_GBs"] / self.m.C["clock_under_load_GHz"]
                 rate = wr if cold else P["local_chip_over_B_per_clk"]
             t1 = max(now, t["l1"], t["local_chip"])
@@ -1352,8 +1359,11 @@ class SM:
             # (4 KiB regions map to one target) and how often one word comes round
             regions = max(1.0, self.atomic_bytes / P["red_region_bytes"])
             rate = min(P["red_chip_atomics_per_clk"], P["red_region_atomics_per_clk"] * regions)
-            rate *= _interp(self.atomic_bytes, P["red_merge_gain_by_bytes"])
-            per = max(per, 32 * self.active_sms / rate)
+            if self.atomic_reduced:
+                per = max(per, self.active_sms / rate)
+            else:
+                rate *= _interp(self.atomic_bytes, P["red_merge_gain_by_bytes"])
+                per = max(per, 32 * self.active_sms / rate)
         start = max(now, t["store_port"])
         t["store_port"] = start + per
         self.busy["red"] = self.busy.get("red", 0) + per
@@ -1429,7 +1439,8 @@ class SM:
                 self.stg_bases.add(addr0[0])
             run = w_ == "4B" and contiguous(addr0, 4)
             many = w_ == "4B" and len(lines) > P["stg_merge_lines"]
-            if not run and many and (spread_lines(lines) or shared_part_sector(addr0, 4)):
+            wide = not run and many and (spread_lines(lines) or shared_part_sector(addr0, 4))
+            if wide:
                 # round 12 (probe store_merge): more than 4 lines per instruction, apart or in part
                 # filled: by lines at the pair, the chip's lower rate
                 rate = P["stg_chip_wide_B_per_clk"]
@@ -1462,7 +1473,9 @@ class SM:
             written = self.st_bytes * self.active_sms
             if self.write_footprint is not None:  # rewritten lines stay in the L2 (wf_*)
                 written = min(written, self.write_footprint)
-            if self.dirty_full or written > P["stg_dirty_bytes"]:
+            # round 13 (hs_*, hb_*): lanes apart pay past a larger footprint, 16 MiB free, 64 not
+            free = wide and (self.write_footprint or 0) <= P["stg_dirty_wide_bytes"]
+            if not free and (self.dirty_full or written > P["stg_dirty_bytes"]):
                 wr = self.m.C["dram_write_GBs"] / self.m.C["clock_under_load_GHz"]
                 rate = min(rate, wr)
                 if P["dram_writes_shared"] and not self.dram_writes_counted:
@@ -1633,8 +1646,8 @@ class SM:
                     continue
                 last = self.last_issue[s]
                 # greedy, then oldest
-                # round 13 (tr_*, question 46): the older block of an SM issues first, except between
-                # mma, which share the pipe fairly (mma_pair, D768)
+                # round 13 (tr_*, question 46): the older block of an SM issues first, except
+                # between mma, which share the pipe fairly (mma_pair, D768)
                 if P_old and len(cand) > 1 and any(not self.is_mma[q.pc] for q in cand):
                     b0 = min(q.block for q in cand)
                     cand = [q for q in cand if q.block == b0]

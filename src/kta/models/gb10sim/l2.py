@@ -381,6 +381,11 @@ def replay_walk(acc: Access, in_flight: int, cap: float) -> Replay:
                 flat, idx = flat[keep], idx[keep]
                 reads += n / len(wave)
                 loaded += n / len(wave)
+                # round 13 (hl_*): a hashed load's lanes follow no shift: as unknown addresses
+                loose += 32 * LINE * len(bb)
+                for pc in g.pc[bb].tolist():
+                    r_pc[pc] = r_pc.get(pc, 0.0) + 32 * LINE
+                    l_pc[pc] = l_pc.get(pc, 0.0) + 32 * LINE
             u, first = np.unique(flat, return_index=True)  # the block's distinct lines
             own = g.pc[idx[first]]
             new = ~np.isin(u, held[block]) if block in held else np.ones(len(u), dtype=bool)
