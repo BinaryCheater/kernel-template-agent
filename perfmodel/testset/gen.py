@@ -1807,7 +1807,82 @@ def _traced(out: Path, name: str, tile: tuple, sh: dict) -> None:
     (d / "launch.json").write_text(json.dumps(launch, indent=1) + "\n")
 
 
+ATOM_WORDS = (1, 4, 16, 128, 1024)  # words the blocks share, every lane of a block on its word
+ATOM_REPEAT = (1, 2, 4, 8)  # atomics in a row on one word
+HASH_FOOT = (16, 1024, 4096, 16384, 65536)  # KiB hashed over, by the whole grid
+HASH_LOCAL = (4, 16, 64, 256)  # KiB hashed over, each block its own
+RECORD_WORDS = (1, 2, 4, 8, 16)  # of a 64-byte record per thread, MiB 4 and 16
+
+
+def _sweeps13(out: Path) -> None:
+    head = "__global__ void __launch_bounds__(256)"
+    tid = "const unsigned t = blockIdx.x * 256 + threadIdx.x;"
+    hash_ = "unsigned x = (t + k * 4099u) * 2654435761u;"
+    for w in ATOM_WORDS:
+        src = f"""// round 13: all lanes of a block add to one word of {w}, the same word every time
+{head} k_atb(unsigned* h) {{
+  for (unsigned k = 0; k < 8; ++k) atomicAdd(&h[blockIdx.x & {w - 1}u], 1u);
+}}
+"""
+        _source_kernel(out, f"atb_w{w}", src, (1024, 1, 1), (256,), [w * 4], "hand", "atomic_bins")
+    for p in ATOM_REPEAT:
+        src = f"""// round 13: all lanes of a block on one word of 1024, a new word every {p} atomics
+{head} k_atk(unsigned* h) {{
+  for (unsigned k = 0; k < 8; ++k) atomicAdd(&h[(blockIdx.x * 37u + k / {p}u * 101u) & 1023u], 1u);
+}}
+"""
+        _source_kernel(out, f"atk_p{p}", src, (1024, 1, 1), (256,), [4096], "hand", "atomic_bins")
+    for f in HASH_FOOT:
+        src = f"""// round 13: 2 M hashed stores over {f} KiB
+{head} k_hs(unsigned* a) {{
+  {tid}
+  for (unsigned k = 0; k < 8; ++k) {{
+    {hash_}
+    a[(x >> 7) & {f * 256 - 1}u] = t;
+  }}
+}}
+"""
+        _source_kernel(out, f"hs_f{f}", src, (1024, 1, 1), (256,), [f << 10], "hand", "hash_sweep")
+        src = f"""// round 13: 2 M hashed loads over {f} KiB, one sum per thread stored
+{head} k_hl(unsigned* o, const unsigned* a) {{
+  {tid}
+  unsigned s = 0;
+  for (unsigned k = 0; k < 8; ++k) {{
+    {hash_}
+    s += a[(x >> 7) & {f * 256 - 1}u];
+  }}
+  o[t] = s;
+}}
+"""
+        sizes = [1 * MB, f << 10]
+        _source_kernel(out, f"hl_f{f}", src, (1024, 1, 1), (256,), sizes, "hand", "hash_sweep")
+    for f in HASH_LOCAL:
+        src = f"""// round 13: 2 M hashed stores, each block over its own {f} KiB
+{head} k_hb(unsigned* a) {{
+  {tid}
+  for (unsigned k = 0; k < 8; ++k) {{
+    {hash_}
+    a[blockIdx.x * {f * 256}u + ((x >> 7) & {f * 256 - 1}u)] = t;
+  }}
+}}
+"""
+        sizes = [f << 20]
+        _source_kernel(out, f"hb_f{f}", src, (1024, 1, 1), (256,), sizes, "hand", "hash_sweep")
+    for w in RECORD_WORDS:
+        for m in (4, 16):
+            src = f"""// round 13: {w} of the 16 words of a 64-byte record per thread, over {m} MiB
+{head} k_rf(unsigned* a) {{
+  const size_t r = (size_t)blockIdx.x * 256 + threadIdx.x;
+  for (int k = 0; k < {w}; ++k) a[r * 16 + k] = (unsigned)r + k;
+}}
+"""
+            g = (m * 256, 1, 1)
+            name = f"rf_w{w}_m{m}"
+            _source_kernel(out, name, src, g, (256,), [m * MB], "hand", "record_sweep")
+
+
 def _round13b(out: Path) -> None:
+    _sweeps13(out)
     for sh, tag in ((HGEMM_BLIND7_SHAPE, "m3072"), (HGEMM_BLIND9_SHAPE, "m1536"), (SHAPE, "c2048")):
         for name, tile in TRACE13.items():
             _traced(out, f"tr_{tag}_{name}", tile, sh)
