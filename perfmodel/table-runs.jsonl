@@ -137,3 +137,4 @@
 {"date": "2026-11-05T09:01:16Z", "round": 17, "mode": "selection", "commit": "7aedb11c66ea", "dirty": false, "rows": 8, "replayed": 8, "cpu_s": 25.1, "wall_s": 10.4, "jobs": 6}
 {"date": "2026-11-05T09:03:58Z", "round": 17, "mode": "selection", "commit": "7aedb11c66ea", "dirty": false, "rows": 172, "replayed": 146, "cpu_s": 103.7, "wall_s": 27.1, "jobs": 6}
 {"date": "2026-11-05T09:06:32Z", "round": 17, "mode": "selection", "commit": "7aedb11c66ea", "dirty": false, "rows": 4, "replayed": 3, "cpu_s": 21.6, "wall_s": 14.1, "jobs": 6}
+{"date": "2026-11-05T09:20:23Z", "round": 17, "mode": "predict", "commit": "0dac186e5cc8", "dirty": false, "rows": 557, "replayed": 199, "cpu_s": 1234.5, "wall_s": 207.0, "jobs": 6}
