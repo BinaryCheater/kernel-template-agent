@@ -367,6 +367,8 @@ class SM:
         self.count.update(ldg_sectors=0, ldg_miss_sectors=0.0, stg_l2_sectors=0)
         self.assumed_latency: dict[str, int] = {}
         self.copy_seen: set = set()
+        self.copy_flight: list[float] = []  # round 14: when the copies on their way land
+        self.copy_hold = 0.0
         self.pc_count = [0] * len(ins)  # dynamic weight per instruction (the opcode ranking)
         self.busy: dict[str, float] = {"tensor": 0, "smem": 0, "fill": 0}
 
@@ -858,6 +860,9 @@ class SM:
             done = self.ops[w.pc](w, x, cls, now, addr0)
             self._release(w, x, cls, now, *done)
         w.ready = now + max(1, x.stall)
+        if self.copy_hold:
+            w.ready = max(w.ready, self.copy_hold)
+            self.copy_hold = 0.0
         if x.base == "BRA" and self.redirect[w.pc]:
             # round 6 (probe branch): fetch resumes this long after a branch, whichever way it went
             w.ready = max(w.ready, now + P["branch_redirect_clk"])
@@ -1106,6 +1111,14 @@ class SM:
         # array ldmatrix reads)
         P, t = self.P, self.t
         self.free["mio"][w.smsp] = now + P["mio_ldgsts_clk"]
+        flight, cap = self.copy_flight, P["copy_inflight_sm"]
+        while flight and flight[0] <= now:
+            heapq.heappop(flight)
+        if cap and self.resident > 1 and len(flight) >= cap:
+            # round 14 (qs*): two blocks on an SM hold so many copies on their way; the next one's
+            # issue waits, and everything behind it in its warp
+            self.copy_hold = heapq.heappop(flight)
+            self.free["mio"][w.smsp] = self.copy_hold + P["mio_ldgsts_clk"]
         self._beside(cls, w.smsp, now)
         if self.addr_log is not None:
             self.addr_log.append((w.wid, w.loops, w.pc, width_of(x.op), addr0))
@@ -1178,6 +1191,8 @@ class SM:
         ret = max(arrive, t["l2_return"])
         ret_clk = self._copy_ret_clk(addr0, width_of(x.op))
         t["l2_return"] = ret + ret_clk
+        if lat[0][2] == "l2":  # back-pressure from the L2 return: copies from the DRAM come late
+            heapq.heappush(flight, t["l2_return"])
         if state is None:
             for k in keys:
                 self.line_fill[k] = arrive
