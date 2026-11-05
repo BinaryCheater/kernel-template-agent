@@ -76,7 +76,7 @@ Status: written 2026-11-04 for phase P0 of [28](28-gb10-programme.md) §5. It li
 
 | Mechanism | Sources | Status | Kernels | Var |
 | --- | --- | --- | --- | --- |
-| cp.async path: MIO → address stage → L2 (350) or DRAM (1560 + queue) → return port → array write → group; round 14: copies on their way with two blocks on an SM, 56, fitted on `qs*` (D864), F | gb10 §4.7 | M | G, E | S (copy path, stages), H |
+| cp.async path: MIO → address stage → L2 (350) or DRAM (1560 + queue) → return port → array write → group; round 15: an SM issues a copy every 10 clk (measured, copy_two, structural rate, D869), the fit of round 14 removed; round 14's fit on `qs*` removed | gb10 §4.7 | M | G, E | S (copy path, stages), H |
 | cp.async completion spread under load | cov cp.async; gap#23, #24, #40 | Round 9 (probe first_share, D807, D808): P: misses by slice and wave of blocks, one reader takes the DRAM traffic, the others wait on its fill **structural**; a miss brings its 32-byte sector (`pieces`); spread inside a step not modelled; was X (fixed latency, even miss spreading) | G, E | H |
 | cp.async beside TMA traffic (mixed 1.94 TB/s > either alone) | gap#31 | X | — (mixed lowerings) | S |
 | TMA engine per SM: min(81 GB/s alone, 1.86 TB/s chip ÷ share) | gb10 §5 | A (both rates fitted on the TMA loads-only ablation) | G, F, E, D | S, H |
