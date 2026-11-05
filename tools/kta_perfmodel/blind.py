@@ -27,6 +27,38 @@ MODE = re.compile(r"(.*) (kernel|b2b|graph)$")
 DESIGN = ("hgemm", "fa ", "gemv ", "decode ", "rmsnorm ", "softmax ")
 
 
+SWEEPS = (
+    "stack_path",
+    "atomic_bins",
+    "wr_footprint",
+    "wr_rmw",
+    "hash_sweep",
+    "record_sweep",
+    "stack_load",
+    "stage_question",
+    "occupancy",
+    "dram_limit",
+    "fa_stride",
+    "turnover",
+    "write_limit",
+    "twin",
+    "gemv_rows",
+    "part_sector",
+    "rows_warm",
+    "turnover",
+    "fa_stage",
+)
+
+
+def sweep_rows(kernels: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The rows of probes and sweeps: not part of the blind recipe."""
+    return [
+        r
+        for r in kernels
+        if r["launch"].get("set") in SWEEPS or r["launch"].get("set", "").startswith("mem_")
+    ]
+
+
 def rows(round_no: int, root: Path = BATCHES) -> list[dict[str, Any]]:
     """First-scored rows of the round, with their set and what-if link from launch.json."""
     out = []
@@ -190,33 +222,7 @@ def report(round_no: int) -> str:
     groups: dict[str, list[dict[str, Any]]] = {}
     for r in kernels:
         groups.setdefault(r["launch"].get("set", "probe"), []).append(r)
-    sweeps = (
-        "stack_path",
-        "atomic_bins",
-        "wr_footprint",
-        "wr_rmw",
-        "hash_sweep",
-        "record_sweep",
-        "stack_load",
-        "stage_question",
-        "occupancy",
-        "dram_limit",
-        "fa_stride",
-        "turnover",
-        "write_limit",
-        "twin",
-        "gemv_rows",
-        "part_sector",
-        "rows_warm",
-        "turnover",
-        "fa_stage",
-    )
-    blind = [
-        r
-        for r in kernels
-        if r["launch"].get("set") not in sweeps
-        and not r["launch"].get("set", "").startswith("mem_")
-    ]
+    blind = [r for r in kernels if r not in sweep_rows(kernels)]
     long_blind = [r for r in blind if r["measured"] >= SHORT_US]
     head = [("blind kernels", blind), ("those ≥ 30 µs", long_blind), ("with the sweeps", kernels)]
     for name, g in [*head, *groups.items()]:

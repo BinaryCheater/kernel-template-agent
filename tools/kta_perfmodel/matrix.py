@@ -270,6 +270,9 @@ MISSES17: dict[str, tuple[str, str, str, str, str, int]] = {
 }
 
 
+ALL_MARKS = CELLS + ROUND16 + ROUND17
+
+
 def cells(marks: tuple[Mark, ...]) -> dict[tuple[str, str, str, str], Mark | None]:
     out: dict[tuple[str, str, str, str], Mark | None] = {}
     for key in itertools.product(OPS, TARGETS, PATTERNS, SHARING):
@@ -390,7 +393,7 @@ def main() -> None:
     assert sum(v[5] for v in MISSES17.values()) == 54
     ap = argparse.ArgumentParser(prog="python -m kta_perfmodel.matrix")
     ap.parse_args()
-    marks = CELLS + ROUND16 + ROUND17
+    marks = ALL_MARKS
     body = render(marks)
     text = DOC.read_text()
     section = f"{BEGIN}\n{body}\n{END}"
