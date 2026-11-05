@@ -1,0 +1,35 @@
+{
+ "entry": "fa_kernel",
+ "grid": [
+  33,
+  10,
+  1
+ ],
+ "threads": 128,
+ "block": [
+  128
+ ],
+ "smem": 129024,
+ "rot": 4,
+ "footprint_bytes": 18636800,
+ "write_bytes": 4659200,
+ "family": "fa_forward",
+ "shape": {
+  "B": 1,
+  "S": 2080,
+  "H": 10,
+  "D": 112
+ },
+ "pick": {
+  "BM": 64,
+  "BN": 128,
+  "stages": 2,
+  "threads": 128
+ },
+ "cache": "rotating",
+ "set": "fa 2080x10x112 rotating",
+ "whatif": {
+  "base": "fa20_c64x64_s2_t128_rotating",
+  "axis": "tile"
+ }
+}

@@ -1,0 +1,20 @@
+{
+ "entry": "k_mem",
+ "grid": [
+  1560,
+  1,
+  1
+ ],
+ "threads": 128,
+ "block": [
+  32,
+  4
+ ],
+ "smem": 0,
+ "rot": 8,
+ "footprint_bytes": 11534336,
+ "write_bytes": 1024,
+ "family": "hand",
+ "set": "gemv_table",
+ "cache": "rotating"
+}

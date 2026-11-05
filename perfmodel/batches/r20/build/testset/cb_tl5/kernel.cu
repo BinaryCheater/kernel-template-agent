@@ -1,0 +1,18 @@
+// round 20: copies of 16 bytes into shared memory, lanes on a bank by the layout tl5
+extern "C" __global__ void __launch_bounds__(128) k_mem(unsigned* o, const char* a) {
+  __shared__ __align__(128) unsigned char buf[65536];
+  const unsigned sm = (unsigned)__cvta_generic_to_shared(buf);
+  const unsigned t = threadIdx.x;
+  unsigned s = 0;
+  for (unsigned r = 0; r < 6; ++r) {
+    for (unsigned k = 0; k < 5; ++k) {
+      const unsigned x = k * 64 + (t >> 1);
+      const char* p = a + ((size_t)(blockIdx.x * 6 + r) * 5 + k) * 2048 + t * 16;
+      const unsigned at = sm + (((x % 5) * 2048 + (x / 5) * 32 + ((((k * 16 + (t >> 3)) % 10) / 5 + (t & 1)) & 1) * 16));
+      asm volatile("cp.async.cg.shared.global [%0], [%1], 16;" ::"r"(at), "l"(p) : "memory");
+    }
+    asm volatile("cp.async.commit_group;" ::: "memory");
+    asm volatile("cp.async.wait_group 0;" ::: "memory");
+  }
+  o[blockIdx.x] = t ^ s;
+}

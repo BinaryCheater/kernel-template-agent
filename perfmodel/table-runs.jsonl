@@ -164,3 +164,5 @@
 {"date": "2026-11-05T14:30:56Z", "round": 19, "mode": "scratch sensitivity", "commit": "8dcde554d416", "dirty": true, "rows": 6, "replayed": 6, "cpu_s": 181.6, "wall_s": 53.8, "jobs": 1}
 {"date": "2026-11-05T14:44:28Z", "round": 19, "mode": "predict", "commit": "866802aff4df", "dirty": true, "rows": 362, "replayed": 134, "cpu_s": 2157.6, "wall_s": 363.7, "jobs": 6}
 {"date": "2026-11-05T15:40:44Z", "round": 19, "mode": "core", "commit": "39f00b245962", "dirty": false, "rows": 890, "replayed": 713, "cpu_s": 3681.5, "wall_s": 211.9, "jobs": 18}
+{"date": "2026-11-05T16:50:58Z", "round": 20, "mode": "predict", "commit": "3c5c82885cf5", "dirty": false, "rows": 533, "replayed": 191, "cpu_s": 1248.0, "wall_s": 209.6, "jobs": 6}
+{"date": "2026-11-05T16:52:09Z", "round": 20, "mode": "predict", "commit": "0eabb3542db0", "dirty": true, "rows": 81, "replayed": 27, "cpu_s": 8.3, "wall_s": 1.9, "jobs": 6}
