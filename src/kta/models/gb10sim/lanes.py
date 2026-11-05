@@ -179,6 +179,7 @@ class Lanes:
         self.bd = block_dim
         self.fresh = 0
         self.p: dict[str, tuple[bool, ...]] = {}  # round 11: predicates that split the lanes
+        self.loaded: set[str] = set()  # round 14: registers computed from loaded data
 
     # --- operands ---------------------------------------------------------------------------
     def get(self, tok: str, vals: dict[str, Any]) -> Val | None:
@@ -251,6 +252,10 @@ class Lanes:
 
             return done
         self._set(d, out, op)
+        if out is None and (base in ("LDG", "BREV") or self.loaded.intersection(args[1:])):
+            self.loaded.add(d)
+        elif self.loaded:
+            self.loaded.discard(d)
         return None
 
     def lanes_of(self, tok: str) -> tuple[bool, ...] | None:
