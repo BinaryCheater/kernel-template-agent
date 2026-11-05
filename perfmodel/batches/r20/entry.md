@@ -1,6 +1,8 @@
 # Batch r20: entry blocks
 
-Written before the run. Engine: `3c5c828`, the same as the end of round 19 (no change to the simulator since), so this is the first blind score of nothing new: r20 scores the engine again at a new shape; a rule entered this round gets its first blind score in round 21. No parameter comes from a blind row of this batch. Three passes, cool-downs as D847; `counter_sets` main; sweeps without counters except `rw_*`, which read the L2's sector hit rate.
+Written before the run. Engine: `3c5c828`, the same as the end of round 19 (no change to the simulator since), so this is the first blind score of nothing new: r20 scores the engine again at a new shape; a rule entered this round gets its first blind score in round 21. No parameter comes from a blind row of this batch. Three passes, cool-downs as D847.
+
+**Machine.** spark is down for electrical work; this batch runs on `spark-6951` (`ssh spark-hk`), another physical GB10, driver 580.159.03 against spark's 580.95.05, CUDA 13.0.88, the user's instruction (D909). `sudo -n ncu` is refused there, so timing only: no counters in this batch, `rw_*` read no hit rate, R1 and the bottleneck column have no new rows. 22 rows of r19c go in the same batch (`comparison`): the same generator and compiler, SASS checked against r19c's; they are kept out of the results by `invalid_cases.json`, so no spark row is replaced by a spark-6951 number, and reported against r19c's medians by family. No parameter moves on the difference.
 
 ## Blind, the recipe (D874) with shapes capped
 

@@ -15,6 +15,13 @@ ssh = "spark"
 root = "~/kta-work"
 path = ["~/.local/bin", "/usr/local/cuda/bin"]
 
+# The other GB10, as a perfmodel worker while spark is down (D909): its own directory, nothing
+# under ~/kta is touched; uv is only read from there.
+[hosts.spark-6951]
+ssh = "spark-hk"
+root = "~/kta-perfmodel"
+path = ["~/kta/.uv/bin", "/usr/local/cuda/bin"]
+
 [hosts.slai]
 ssh = "slai"
 # The root filesystem on slai is full; only /storage has space.

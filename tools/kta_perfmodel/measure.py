@@ -21,6 +21,7 @@ import argparse
 import csv
 import io
 import json
+import os
 import re
 import shlex
 import statistics
@@ -35,7 +36,11 @@ from . import upstream
 ROOT = upstream.ROOT
 BATCHES = ROOT / "perfmodel" / "batches"
 RAW = ROOT / "data" / "perfmodel" / "batches"
-HOST, REMOTE_ROOT = "spark", "kta-work"
+# the worker of a batch: PERFMODEL_HOST names a host of config/remote.toml, spark unless set
+# (D909); its ssh name and project directory, the second machine's its own beside ~/kta
+WORKERS = {"spark": ("spark", "kta-work"), "spark-6951": ("spark-hk", "kta-perfmodel")}
+HOST = os.environ.get("PERFMODEL_HOST", "spark")
+SSH, REMOTE_ROOT = WORKERS[HOST]
 REMOTE_DATA = f"{REMOTE_ROOT}/data/perfmodel/batches"
 CLOCK_DRIFT, CANARY_DRIFT = 0.01, 0.03  # gb10-measure: clock < 1 %; canaries inside their band
 RESULT = re.compile(r"^RESULT (\S+) (\S+) median=(\S+) iqr=(\S+) unit=(\S+) n=(\d+)(.*)$")
@@ -77,7 +82,7 @@ def build(batch: str, only: str = ".") -> int:
             "--exclude=bin",
             "--exclude=*.cubin",
             "--exclude=common.cuh",
-            f"{HOST}:{rb}/",
+            f"{SSH}:{rb}/",
             f"{local}/",
         ]
     )
@@ -187,7 +192,7 @@ def run(batch: str) -> int:
     )
     local = RAW / batch
     local.mkdir(parents=True, exist_ok=True)
-    _run(["rsync", "-a", f"{HOST}:{REMOTE_DATA}/{batch}/run/", f"{local}/"])
+    _run(["rsync", "-a", f"{SSH}:{REMOTE_DATA}/{batch}/run/", f"{local}/"])
     (local / "commit").write_text(head + "\n")
     return import_(batch)
 
@@ -302,6 +307,7 @@ def import_(batch: str) -> int:
         "batch": batch,
         "commit": (raw / "commit").read_text().strip(),
         "build_commit": built["commit"],
+        "host": built.get("host", "spark"),
         "entry": "entry.md",
         "prediction": "predicted.json",
         "clock_GHz": clock,

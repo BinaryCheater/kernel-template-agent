@@ -16,7 +16,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from . import upstream
-from .measure import HOST, REMOTE_ROOT
+from .measure import HOST, REMOTE_ROOT, SSH
 
 ROOT = upstream.ROOT
 LOG = ROOT / "perfmodel" / "table-runs.jsonl"
@@ -91,8 +91,8 @@ def refuse_full(reason: str | None) -> None:
 
 
 def _ssh(cmd: str) -> str:
-    print("+ ssh", HOST, cmd, flush=True)
-    return subprocess.run(["ssh", HOST, cmd], check=True, text=True, stdout=subprocess.PIPE).stdout
+    print("+ ssh", SSH, cmd, flush=True)
+    return subprocess.run(["ssh", SSH, cmd], check=True, text=True, stdout=subprocess.PIPE).stdout
 
 
 def _rsync(src: str, dst: str) -> None:
@@ -118,17 +118,17 @@ def on_spark(table_dir: Path, kind: str = "full", reason: str | None = None) -> 
     _ssh(f"mkdir -p {tree}/data/perfmodel/cache")
     data = ROOT / "data" / "perfmodel"
     for up in data.glob("upstream-*"):
-        _rsync(f"{up}", f"{HOST}:{tree}/data/perfmodel/")
-    _rsync(f"{data}/cache/", f"{HOST}:{tree}/data/perfmodel/cache/")
+        _rsync(f"{up}", f"{SSH}:{tree}/data/perfmodel/")
+    _rsync(f"{data}/cache/", f"{SSH}:{tree}/data/perfmodel/cache/")
     why = f" --reason {shlex.quote(reason)}" if reason else ""
     _ssh(
-        f"cd {tree} && PATH=$HOME/.local/bin:$PATH PYTHONPATH=tools nice -n 19 "
+        f"cd {tree} && PATH=$HOME/.local/bin:$HOME/kta/.uv/bin:$PATH PYTHONPATH=tools nice -n 19 "
         f"uv run --frozen --quiet python -m kta_perfmodel --{kind}-here --jobs {JOBS}{why} "
         f"> table.log 2>&1 || {{ tail -30 table.log; exit 1; }}; tail -3 table.log"
     )
-    _rsync(f"{HOST}:{tree}/data/perfmodel/cache/", f"{data}/cache/")
+    _rsync(f"{SSH}:{tree}/data/perfmodel/cache/", f"{data}/cache/")
     for name in ("error-table.json", "error-table.md"):
-        _rsync(f"{HOST}:{tree}/docs/design/perfmodel/{name}", f"{table_dir}/{name}")
+        _rsync(f"{SSH}:{tree}/docs/design/perfmodel/{name}", f"{table_dir}/{name}")
     last = _ssh(f"tail -1 {tree}/perfmodel/table-runs.jsonl")
     with LOG.open("a") as f:
         f.write(last)
