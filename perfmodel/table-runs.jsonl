@@ -79,3 +79,4 @@
 {"date": "2026-11-05T03:26:46Z", "round": 14, "mode": "selection", "commit": "d0d66da4da76", "dirty": false, "rows": 2, "replayed": 2, "cpu_s": 16.0, "wall_s": 11.5, "jobs": 6}
 {"date": "2026-11-05T03:28:05Z", "round": 14, "mode": "selection", "commit": "d0d66da4da76", "dirty": false, "rows": 24, "replayed": 24, "cpu_s": 9.4, "wall_s": 5.5, "jobs": 6}
 {"date": "2026-11-05T03:28:11Z", "round": 14, "mode": "override", "commit": "d0d66da4da76", "dirty": false, "rows": 24, "replayed": 24, "cpu_s": 9.1, "wall_s": 5.4, "jobs": 6}
+{"date": "2026-11-05T03:30:45Z", "round": 14, "mode": "predict", "commit": "7223198adf3b", "dirty": false, "rows": 73, "replayed": 29, "cpu_s": 50.0, "wall_s": 11.7, "jobs": 6}

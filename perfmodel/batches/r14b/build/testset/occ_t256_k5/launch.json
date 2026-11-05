@@ -1,0 +1,19 @@
+{
+ "entry": "k_occ",
+ "grid": [
+  240,
+  1,
+  1
+ ],
+ "threads": 256,
+ "block": [
+  256
+ ],
+ "smem": 0,
+ "rot": 1,
+ "footprint_bytes": 4456448,
+ "write_bytes": 262144,
+ "family": "hand",
+ "set": "occupancy",
+ "cache": "warm"
+}
