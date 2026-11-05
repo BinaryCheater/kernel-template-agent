@@ -1,0 +1,29 @@
+2026-11-05 09:14:39  [TileLang:tilelang.jit.kernel:INFO] (kernel.py:137): TileLang begins to compile kernel `rms` with `out_idx=None`
+2026-11-05 09:14:39  [TileLang:tilelang.jit.kernel:INFO] (kernel.py:145): TileLang completes to compile kernel `rms`
+generated rr_nostore_t512_warm: entry rms_kernel, grid [896], block [512], smem 7168, rot 1
+2026-11-05 09:14:40  [TileLang:tilelang.jit.kernel:INFO] (kernel.py:137): TileLang begins to compile kernel `gemm` with `out_idx=None`
+2026-11-05 09:14:41  [TileLang:tilelang.jit.kernel:INFO] (kernel.py:145): TileLang completes to compile kernel `gemm`
+generated hgemm_m3456n1296k1728_c128x128x32_s2_t128: entry gemm_kernel, grid [11, 27, 1], block [128], smem 32768, rot 1
+2026-11-05 09:14:42  [TileLang:tilelang.jit.kernel:INFO] (kernel.py:137): TileLang begins to compile kernel `gemm` with `out_idx=None`
+2026-11-05 09:14:43  [TileLang:tilelang.jit.kernel:INFO] (kernel.py:145): TileLang completes to compile kernel `gemm`
+generated hgemm_m3456n1296k1728_c64x128x32_s4_t128_rotating: entry gemm_kernel, grid [11, 54, 1], block [128], smem 49152, rot 3
+2026-11-05 09:14:43  [TileLang:tilelang.jit.kernel:INFO] (kernel.py:137): TileLang begins to compile kernel `fa` with `out_idx=None`
+2026-11-05 09:14:46  [TileLang:tilelang.jit.kernel:INFO] (kernel.py:145): TileLang completes to compile kernel `fa`
+generated fa17_c64x64_s1_t128_warm: entry fa_kernel, grid [32, 9, 1], block [128], smem 55296, rot 1
+2026-11-05 09:14:46  [TileLang:tilelang.jit.kernel:INFO] (kernel.py:137): TileLang begins to compile kernel `fa` with `out_idx=None`
+2026-11-05 09:14:50  [TileLang:tilelang.jit.kernel:INFO] (kernel.py:145): TileLang completes to compile kernel `fa`
+generated fa17_c64x128_s2_t128_warm: entry fa_kernel, grid [32, 9, 1], block [128], smem 165888, rot 1
+2026-11-05 09:14:51  [TileLang:tilelang.jit.kernel:INFO] (kernel.py:137): TileLang begins to compile kernel `fa` with `out_idx=None`
+2026-11-05 09:14:55  [TileLang:tilelang.jit.kernel:INFO] (kernel.py:145): TileLang completes to compile kernel `fa`
+generated fa17_c128x64_s2_t128_warm: entry fa_kernel, grid [16, 9, 1], block [128], smem 110592, rot 1
+generated fa17_c64x32_s3_t128_rotating: entry fa_kernel, grid [32, 9, 1], block [128], smem 73728, rot 4
+generated fa17_c32x64_s2_t64_rotating: entry fa_kernel, grid [63, 9, 1], block [64], smem 82944, rot 4
+2026-11-05 09:14:57  [TileLang:tilelang.jit.kernel:INFO] (kernel.py:137): TileLang begins to compile kernel `part` with `out_idx=None`
+2026-11-05 09:14:59  [TileLang:tilelang.jit.kernel:INFO] (kernel.py:145): TileLang completes to compile kernel `part`
+generated dec17_split4_bn32_rotating: entry part_kernel, grid [1, 9, 4], block [128], smem 55296, rot 6
+2026-11-05 09:15:00  [TileLang:tilelang.jit.kernel:INFO] (kernel.py:137): TileLang begins to compile kernel `rms` with `out_idx=None`
+2026-11-05 09:15:00  [TileLang:tilelang.jit.kernel:INFO] (kernel.py:145): TileLang completes to compile kernel `rms`
+generated rms17_t32_warm: entry rms_kernel, grid [720], block [32], smem 0, rot 1
+2026-11-05 09:15:01  [TileLang:tilelang.jit.kernel:INFO] (kernel.py:137): TileLang begins to compile kernel `smax` with `out_idx=None`
+2026-11-05 09:15:02  [TileLang:tilelang.jit.kernel:INFO] (kernel.py:145): TileLang completes to compile kernel `smax`
+generated sm17_t128_warm: entry smax_kernel, grid [720], block [128], smem 512, rot 1

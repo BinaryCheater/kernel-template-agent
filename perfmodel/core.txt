@@ -18,6 +18,7 @@ arith_beside L2_S0_A128_g512  # sample probe arith_beside
 arith_beside L2_S0_A32_g96  # sample probe arith_beside
 atb_w1024 kernel  # sample atomic_bins
 atk_p2 kernel  # sample atomic_bins
+atom_b1 kernel  # missed by the back-test (D886)
 atom_b16_gap128 kernel  # sample atomic_bins
 atom_b256_gap4096 kernel  # sample atomic_bins
 atw_l32_b1048576 kernel  # sample atomic_bins
@@ -138,6 +139,7 @@ decode_gqa_part_s4096_warm b2b  # design group decode_gqa
 decode_gqa_part_s4096_warm graph  # design group decode_gqa
 decode_gqa_part_s4096_warm kernel  # design group decode_gqa
 decode_seq_s4096_rotating kernel  # sample decode_gqa_seq
+decode_seq_s4096_warm graph  # missed by the back-test (D886)
 decode_seq_s4096_warm kernel  # sample decode_gqa_seq
 dl_w16_t128_rotating kernel  # sample dram_limit
 dl_w4_t32_rotating kernel  # sample dram_limit
@@ -184,6 +186,8 @@ fa15_c64x64_s2_t64_rotating kernel  # design group fa 2304x6x144
 fa15_c64x64_s2_t64_warm kernel  # design group fa 2304x6x144
 fa_fwd_s1024_h16_d64 kernel  # design group fa_forward
 fa_fwd_s2048_h8_d128 kernel  # design group fa_forward
+fa_s1536_h12_d96_c64x32_s3_t128 kernel  # missed by the back-test (D886)
+fa_s1536_h12_d96_c64x64_s1_t128 kernel  # missed by the back-test (D886)
 fad_d64_t128 kernel  # sample fa_stride
 fad_d80_t128 kernel  # sample fa_stride
 fad_d96_t128 kernel  # sample fa_stride
@@ -205,12 +209,14 @@ first_share warm_share_d48_z256  # sample probe first_share
 fp8gemm2048_c128x128x64_s3_t128 kernel  # design group fp8gemm2048
 fp8gemm2048_c128x256x64_s3_t256 kernel  # design group fp8gemm2048
 gd_np2_r64 kernel  # sample dram_limit
+gemm1024 c128x128x32_st3_th128 full  # missed by the back-test (D886)
 gemm1024 c128x256x32_st3_th256 nocompute  # sample gemm1024 nocompute
 gemm1024 c128x256x64_st2_th256 full  # sample gemm1024 full
 gemm1024 c128x64x32_st3_th128 full  # sample gemm1024 full
 gemm1024 c256x128x32_st3_th256 nocompute  # sample gemm1024 nocompute
 gemm1024 c256x128x64_st2_th256 nocompute  # sample gemm1024 nocompute
 gemm1024 c256x128x64_st2_th256 noload 1 block  # sample gemm1024 noload 1 block
+gemm1024 c256x64x32_st3_th128 full  # missed by the back-test (D886)
 gemm1024 c256x64x32_st3_th256 nocompute  # sample gemm1024 nocompute
 gemm1024 c256x64x32_st3_th256 noload 1 block  # sample gemm1024 noload 1 block
 gemm1024 c64x128x32_st3_th128 nocompute  # sample gemm1024 nocompute
@@ -284,6 +290,7 @@ gemv_w4a16_n4096_k4096_warm b2b  # design group gemv_w4a16
 gemv_w4a16_n4096_k4096_warm graph  # design group gemv_w4a16
 gemv_w4a16_n4096_k4096_warm kernel  # design group gemv_w4a16
 hand_bcast kernel  # sample breadth hand
+hand_mandel graph  # missed by the back-test (D886)
 hand_oddeven kernel  # sample breadth hand
 hand_smear kernel  # sample breadth hand
 hand_stencil512 kernel  # sample breadth hand
@@ -443,6 +450,7 @@ load_curve g24_z64  # sample probe load_curve
 load_curve g48_z16  # sample probe load_curve
 load_curve g96_z16  # sample probe load_curve
 load_sat g12_z0  # sample probe load_sat
+load_sat g144_z64  # missed by the back-test (D886)
 load_sat g24_z64  # sample probe load_sat
 load_sat g48_z0  # sample probe load_sat
 load_sat g96_z256  # sample probe load_sat
@@ -584,6 +592,7 @@ row_reduce ld_red_st_g48_span  # sample probe row_reduce
 row_reduce red_g48_span  # sample probe row_reduce
 rw_s16_o0_g48 kernel  # sample store_rewrite
 rw_s32_o0_g48 kernel  # sample store_rewrite
+rw_s32_o0_g768 kernel  # missed by the back-test (D886)
 rw_s4_o0_g48 kernel  # sample store_rewrite
 rw_s8_o3_g768 kernel  # sample store_rewrite
 sched adds alone  # sample probe sched.cu
@@ -662,7 +671,10 @@ spill t64_n16_g1_s0  # sample probe spill
 spill t64_n16_g1_s96  # sample probe spill
 spill t64_n16_g48_s0  # sample probe spill
 spill t64_n256_g48_s0  # sample probe spill
+spill_rw n256_L1_S0_H0_g1  # missed by the back-test (D886)
 spill_rw n256_L1_S0_H0_g48  # sample probe spill_rw
+spill_rw n256_L1_S1_H0_g48  # missed by the back-test (D886)
+spill_rw n256_L4_S1_H0_g1  # missed by the back-test (D886)
 spill_rw n64_L0_S1_H0_g1  # sample probe spill_rw
 spill_rw n64_L0_S1_H0_g48  # sample probe spill_rw
 spill_rw n64_L1_S0_H0_g48  # sample probe spill_rw
@@ -718,6 +730,7 @@ tma m128 noload 1 block  # sample tma noload 1 block
 tma m32 full  # sample tma full
 tma m32 noload 1 block  # sample tma noload 1 block
 tr_c2048_s3 kernel  # sample tile trace
+tr_c2048_sw8 kernel  # missed by the back-test (D886)
 w4gemm2048_c128x128x32_s3_t128_rotating kernel  # design group w4gemm
 w4gemm2048_c128x128x32_s3_t128_warm kernel  # design group w4gemm
 w4gemm2048_c64x128x32_s4_t128_rotating kernel  # design group w4gemm
@@ -725,6 +738,7 @@ w4gemm2048_c64x128x32_s4_t128_warm kernel  # design group w4gemm
 warp_map ex2_t32_n1  # sample probe warp_map
 warp_map ex2_t32_n8  # sample probe warp_map
 warp_map ex2_t96_n1  # sample probe warp_map
+warp_map ex2_t96_n2  # missed by the back-test (D886)
 warp_map mma_t128_n1  # sample probe warp_map
 warp_map mma_t64_n4  # sample probe warp_map
 wf_m4 kernel  # sample wr_footprint

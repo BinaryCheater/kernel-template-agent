@@ -55,6 +55,24 @@ SHAPES = (
     "w4gemm",
     "moe_gemm",
 )
+# round 17 (D886): families whose worsening the core missed in the back-test, the cheapest rows that
+# worsened; `write` keeps them, so the rule above stays what it was
+MISSED = (
+    "atom_b1 kernel",
+    "decode_seq_s4096_warm graph",
+    "fa_s1536_h12_d96_c64x32_s3_t128 kernel",
+    "fa_s1536_h12_d96_c64x64_s1_t128 kernel",
+    "gemm1024 c128x128x32_st3_th128 full",
+    "gemm1024 c256x64x32_st3_th128 full",
+    "hand_mandel graph",
+    "load_sat g144_z64",
+    "rw_s32_o0_g768 kernel",
+    "spill_rw n256_L1_S0_H0_g1",
+    "spill_rw n256_L1_S1_H0_g48",
+    "spill_rw n256_L4_S1_H0_g1",
+    "tr_c2048_sw8 kernel",
+    "warp_map ex2_t96_n2",
+)
 WHATIF_AXIS = 2
 DEAR_S = 6.0
 SHORT_US = table.SHORT_US
@@ -194,7 +212,7 @@ def cost(rows: list[dict], ids: set[str]) -> float:
 
 def write() -> None:
     rows = _doc(FULL_TABLE_REV)["rows"]
-    picked = choose(rows)
+    picked = {**choose(rows), **dict.fromkeys(MISSED, "missed by the back-test (D886)")}
     lines = [
         "# rows of `scripts/perfmodel-table --core`: fixed; rule in tools/kta_perfmodel/core.py",
         f"# drawn from the full table at {FULL_TABLE_REV}; python -m kta_perfmodel.core rewrites",
