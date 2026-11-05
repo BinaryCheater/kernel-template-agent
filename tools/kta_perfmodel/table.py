@@ -1147,15 +1147,17 @@ def bottlenecks(rows: list[dict[str, Any]], pairs: list[dict[str, Any]]) -> list
 
 
 def summary_line(s: dict[str, Any]) -> str:
-    sp = f"{s['spearman']:.2f}" if "spearman" in s else ""
-    kt = f"{s['kendall']:.2f}" if "kendall" in s else ""
+    sp = f"{s['spearman']:.2f}" if s.get("spearman") is not None else ""
+    kt = f"{s['kendall']:.2f}" if s.get("kendall") is not None else ""
     bv = _best(s.get("best"))
     inv = str(s["inversions"]) if "inversions" in s else ""
     r1 = f"{s['r1_pass']}/{s['r1_n']}" if "r1_n" in s else ""
     bn = f"{s['bottleneck_agree']}/{s['r1_n']}" if "r1_n" in s else ""
     mm = f"{100 * s['median_abs_mech']:.1f} %" if "median_abs_mech" in s else ""
     mw = _pct(s["worst_mech"]) if "worst_mech" in s else ""
-    ms = f"{s['spearman_mech']:.2f} / {s['inversions_mech']}" if "spearman_mech" in s else ""
+    ms = ""
+    if s.get("spearman_mech") is not None:
+        ms = f"{s['spearman_mech']:.2f} / {s['inversions_mech']}"
     bl = ""
     if "blind_median" in s:
         bl = f"{100 * s['blind_median']:.1f} % / {_pct(s['blind_worst'])}"
