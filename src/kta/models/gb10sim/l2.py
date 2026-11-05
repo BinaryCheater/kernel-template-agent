@@ -290,6 +290,7 @@ class Replay:
     runs: list[dict[int, float]] = field(default_factory=list)
     # round 12: bytes loaded at addresses the replay does not know (hashes, loaded indices)
     loose: float = 0.0
+    loose_pcs: frozenset = frozenset()
     rewrites: bool = False  # round 12 (rmw_*): stores land on a buffer the kernel reads
 
 
@@ -350,6 +351,7 @@ def replay_walk(acc: Access, in_flight: int, cap: float) -> Replay:
     ]
     seen: set = set()
     reads = loaded = loose = 0.0
+    loose_pcs: set[int] = set()
     r_pc: dict[int, float] = {}
     l_pc: dict[int, float] = {}
     waves: list[float] = []
@@ -365,6 +367,7 @@ def replay_walk(acc: Access, in_flight: int, cap: float) -> Replay:
             reads += b
             loaded += b
             loose += 32 * (LINE if e.width <= 4 else e.width) * len(wave)
+            loose_pcs.add(e.pc)
             r_pc[e.pc] = r_pc.get(e.pc, 0.0) + b
             l_pc[e.pc] = l_pc.get(e.pc, 0.0) + b
         if not g.known:
@@ -383,6 +386,7 @@ def replay_walk(acc: Access, in_flight: int, cap: float) -> Replay:
                 loaded += n / len(wave)
                 # round 13 (hl_*): a hashed load's lanes follow no shift: as unknown addresses
                 loose += 32 * LINE * len(bb)
+                loose_pcs.update(g.pc[bb].tolist())
                 for pc in g.pc[bb].tolist():
                     r_pc[pc] = r_pc.get(pc, 0.0) + 32 * LINE
                     l_pc[pc] = l_pc.get(pc, 0.0) + 32 * LINE
@@ -444,7 +448,19 @@ def replay_walk(acc: Access, in_flight: int, cap: float) -> Replay:
     by_tag = {tag: b for b, tag in bases.items()}
     named = [{by_tag[t]: v for t, v in p.items()} for p in parts]
     rewrites = bool(set(base.values()) & acc.stg_bases)
-    return Replay(reads, len(seen) * LINE, loaded, miss, waves, base, named, runs, loose, rewrites)
+    return Replay(
+        reads,
+        len(seen) * LINE,
+        loaded,
+        miss,
+        waves,
+        base,
+        named,
+        runs,
+        loose,
+        rewrites=rewrites,
+        loose_pcs=frozenset(loose_pcs),
+    )
 
 
 def rotating_miss(window_bytes: float, kind: str, m: Machine) -> float:

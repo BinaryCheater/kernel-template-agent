@@ -299,8 +299,14 @@ def generic_kernel(
             for sym, _ in base or ()
             if sym[0] == "c"
         }
+        # round 14 (`bl_csr`, hl_*): unknown addresses are distinct only up to the buffers they
+        # read: past those bytes they re-read lines a launch already brought in
+        once_loose = min(1.0, rest / r.loose) if r.loose and m.P["loose_reads_bounded"] else 1.0
         miss_pc = {
-            pc: 0.0 if byname.get(pc) in carried else v * scale for pc, v in r.miss_by_pc.items()
+            pc: 0.0
+            if byname.get(pc) in carried
+            else v * scale * (once_loose if pc in r.loose_pcs else 1.0)
+            for pc, v in r.miss_by_pc.items()
         }
         kept = sum(miss_pc.values()) / max(1e-9, sum(r.miss_by_pc.values()))
         rb, miss = r.reads * kept, 1.0 if kept > 0 else 0.0
