@@ -366,7 +366,6 @@ class SM:
         self.count: dict[str, Any] = {"issued": 0, "HMMA": 0, "LDSM": 0, "LDGSTS": 0, "BAR": 0}
         self.count.update(ldg_sectors=0, ldg_miss_sectors=0.0, stg_l2_sectors=0)
         self.assumed_latency: dict[str, int] = {}
-        self.copy_seen: set = set()
         self.copy_flight: list[float] = []  # round 14: when the copies on their way land
         self.copy_hold = 0.0
         self.pc_count = [0] * len(ins)  # dynamic weight per instruction (the opcode ranking)
@@ -1160,14 +1159,8 @@ class SM:
             cost = self.dram_clk * self.miss_share
             if state == "miss" and addr0 is not None:
                 # round 14 (dec14_bn32_*): a copy costs its sectors, of the 16 of 512 B
-                new = {
-                    (k, b)
-                    for k, mask in footprint(addr0, width_of(x.op))[0].items()
-                    for b in range(4)
-                    if mask >> b & 1
-                }
-                cost *= min(1.0, len(new - self.copy_seen) / 16)
-                self.copy_seen |= new
+                masks = footprint(addr0, width_of(x.op))[0].values()
+                cost *= min(1.0, sum(m.bit_count() for m in masks) / 16)
             t["dram_queue"] = self._dram_after(t_d) + cost
             self.busy["dram"] = self.busy.get("dram", 0) + cost
             arrive = t_d

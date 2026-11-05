@@ -100,3 +100,4 @@
 {"date": "2026-11-05T03:49:34Z", "round": 14, "mode": "override", "commit": "f265e29d2bf6", "dirty": false, "rows": 1, "replayed": 0, "cpu_s": 0.0, "wall_s": 3.1, "jobs": 6}
 {"date": "2026-11-05T03:49:38Z", "round": 14, "mode": "override", "commit": "f265e29d2bf6", "dirty": false, "rows": 1, "replayed": 1, "cpu_s": 0.5, "wall_s": 3.9, "jobs": 6}
 {"date": "2026-11-05T03:50:41Z", "round": 14, "mode": "selection", "commit": "f265e29d2bf6", "dirty": true, "rows": 6, "replayed": 6, "cpu_s": 10.0, "wall_s": 11.2, "jobs": 6}
+{"date": "2026-11-05T04:02:03Z", "round": 14, "mode": "full", "commit": "161032482247", "dirty": false, "rows": 3610, "replayed": 2345, "cpu_s": 9739.2, "wall_s": 606.1, "jobs": 18}
