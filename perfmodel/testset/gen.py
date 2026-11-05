@@ -2383,6 +2383,13 @@ def _sweeps15(out: Path) -> None:
         _hgemm(out, f"ct_k{k}", t2, sh, "warm", edit=_copies_out, set="turnover")
 
 
+def _round15b(out: Path) -> None:
+    """The write limit beside single-use reads, between r11b's 6 and 7 MiB: rows of softmax."""
+    for m in (1920, 1960, 2000, 2040, 2080, 2240):
+        sh = {"M": m, "N": 1792}
+        _tried(_softmax, out, f"wl_m{m}", sh, {"threads": 128}, set="write_limit")
+
+
 def _gemv_deep(out: Path, name: str, c: dict, **more) -> None:
     N, K, g = c["N"], c["K"], c["group"]
     sizes, eb = [K, N * K // 2, N * K // g, N], [2, 1, 2, 2]
@@ -2478,6 +2485,7 @@ def main(out: Path) -> None:
         ("round13b", _round13b),
         ("round14", _round14),
         ("round15", _round15),
+        ("round15b", _round15b),
     ):
         try:  # a kernel that fails to generate is reported; the others stand
             gen(out)

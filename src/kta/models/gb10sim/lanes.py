@@ -28,6 +28,7 @@ Val = tuple[tuple, tuple]  # (base, offsets[32])
 M32 = 0xFFFFFFFF
 LANES = tuple(range(32))
 ZERO = (0,) * 32
+APART = 0x40000000
 WRITES_UNKNOWN = {
     "LDG",
     "LDS",
@@ -98,6 +99,8 @@ NO_DEST = {
     "SYNCS",
     "BPT",
 }
+FLOAT_STEP = {"FMUL", "FADD", "FFMA", "MUFU", "F2I"}
+_DEC = re.compile(r"^\d+\.\d*(e[-+]?\d+)?$|^\d+e[-+]?\d+$")
 CARRY_DEST = {"IADD3", "UIADD3", "LEA", "ULEA", "IMAD", "VOTE"}
 PRED_DEST = {"FSETP", "HSETP2", "DSETP", "PLOP3", "UPLOP3", "UISETP"}
 _REG = re.compile(r"^-?U?R(\d+|Z)(\.reuse)?$")
@@ -415,7 +418,7 @@ class Lanes:
                 return None
         if base in ("I2F", "I2FP", "F2I", "MUFU", "FMUL", "FADD", "FFMA", "POPC", "FLO", "BREV"):
             # the steps of a division by a run-time count: lanes by their bits (round 15)
-            gs = [self.get(t, vals) for t in a[1:] if not _PRED.match(t)]
+            gs = [self._float_src(t, base, vals) for t in a[1:] if not _PRED.match(t)]
             if gs and all(x is not None and self.exact(x) for x in gs):
                 return _bit_step(base, op, gs)
             return None
@@ -444,6 +447,20 @@ class Lanes:
             self.sym_op[self.fresh] = ".".join(op.split(".")[:3])
             return (((("u", d, self.fresh), 1),), ZERO)
         return None
+
+    def _float_src(self, tok: str, base: str, vals: dict[str, Any]) -> Val | None:
+        """A source of a float step: a decimal immediate by its bits, a negated register by its
+        sign bit."""
+        if base not in FLOAT_STEP:
+            return self.get(tok, vals)
+        t = tok.lstrip("-")
+        if _DEC.match(t):
+            x = float(t)
+            return ((), (_b(-x if tok[0] == "-" else x),) * 32)
+        v = self.get(t, vals)
+        if v is not None and tok[0] == "-" and self.exact(v):
+            return ((), tuple(o ^ 0x80000000 for o in v[1]))
+        return v
 
     def _opaque(self, g: list[Val | None], d: str, op: str) -> Val | str | None:
         if all(x is not None and self.uniform(x) and self.exact(x) for x in g):
@@ -779,8 +796,15 @@ def _merge_lanes(lanes: tuple[bool, ...], a: Val | None, b: Val | None) -> Val |
         return a
     if not any(lanes):
         return b
-    if a is None or b is None or a[0] != b[0]:
+    if a is None or b is None:
         return None
+    if a[0] != b[0]:  # round 15 (`bl15_twobuf`): two buffers: far apart under one base
+        if not a[0] or not b[0]:
+            return None
+        return (
+            a[0],
+            tuple(x if p else y + APART for p, x, y in zip(lanes, a[1], b[1], strict=True)),
+        )
     return (a[0], tuple(x if p else y for p, x, y in zip(lanes, a[1], b[1], strict=True)))
 
 
