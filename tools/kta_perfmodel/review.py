@@ -143,7 +143,7 @@ def report(round_no: int) -> str:
     sweep = blind.sweep_rows(kernels)
     bl = [r for r in kernels if r not in sweep]
     longs = [r for r in bl if r["measured"] >= SHORT_US]
-    errs = sorted((abs(r["error"]), r) for r in bl)
+    errs = sorted(((abs(r["error"]), r) for r in bl), key=lambda x: x[0])
     if bl:
         t = blind._time(bl)
         out.append(

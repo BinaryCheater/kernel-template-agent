@@ -161,12 +161,7 @@ def within_group(round_no: int) -> dict[str, float]:
         key = name.split(" ")[0] + (" rotating" if name.endswith("rotating") else " warm")
         fam.setdefault(key, []).extend(x - statistics.fmean(e) for x in e)
     out = {f: math.sqrt(statistics.fmean(x * x for x in v)) for f, v in fam.items()}
-    rest = [
-        x
-        for f, v in fam.items()
-        if not f.startswith("hgemm") and f != "gemv warm"
-        for x in v
-    ]
+    rest = [x for f, v in fam.items() if not f.startswith("hgemm") and f != "gemv warm" for x in v]
     if rest:
         out["off HGEMM, without warm GEMV"] = math.sqrt(statistics.fmean(x * x for x in rest))
     return out
