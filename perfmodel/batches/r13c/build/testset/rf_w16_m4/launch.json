@@ -1,0 +1,19 @@
+{
+ "entry": "k_rf",
+ "grid": [
+  1024,
+  1,
+  1
+ ],
+ "threads": 256,
+ "block": [
+  256
+ ],
+ "smem": 0,
+ "rot": 1,
+ "footprint_bytes": 4194304,
+ "write_bytes": 4194304,
+ "family": "hand",
+ "set": "record_sweep",
+ "cache": "warm"
+}

@@ -53,3 +53,4 @@
 {"date": "2026-11-05T01:51:29Z", "round": 13, "mode": "scratch acc look", "commit": "d0ebab6a7a90", "dirty": true, "rows": 1, "replayed": 1, "cpu_s": 1.1, "wall_s": 1.0, "jobs": 1}
 {"date": "2026-11-05T01:51:35Z", "round": 13, "mode": "selection", "commit": "d0ebab6a7a90", "dirty": true, "rows": 7, "replayed": 7, "cpu_s": 7.5, "wall_s": 5.6, "jobs": 6}
 {"date": "2026-11-05T01:52:03Z", "round": 13, "mode": "scratch l2 look", "commit": "b193cf0217b5", "dirty": false, "rows": 3, "replayed": 3, "cpu_s": 13.4, "wall_s": 13.3, "jobs": 1}
+{"date": "2026-11-05T01:54:48Z", "round": 13, "mode": "predict", "commit": "54693baa650d", "dirty": false, "rows": 108, "replayed": 42, "cpu_s": 129.2, "wall_s": 30.9, "jobs": 6}
