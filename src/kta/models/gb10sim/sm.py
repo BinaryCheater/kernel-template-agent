@@ -365,6 +365,7 @@ class SM:
         self.count: dict[str, Any] = {"issued": 0, "HMMA": 0, "LDSM": 0, "LDGSTS": 0, "BAR": 0}
         self.count.update(ldg_sectors=0, ldg_miss_sectors=0.0, stg_l2_sectors=0)
         self.assumed_latency: dict[str, int] = {}
+        self.copy_seen: set = set()
         self.pc_count = [0] * len(ins)  # dynamic weight per instruction (the opcode ranking)
         self.busy: dict[str, float] = {"tensor": 0, "smem": 0, "fill": 0}
 
@@ -1142,8 +1143,19 @@ class SM:
         if state == "miss" if state else self._l2_miss(w.pc):
             t_l = lsu_done + dram_lat
             t_d = max(t_l, t["dram_queue"])
-            t["dram_queue"] = self._dram_after(t_d) + self.dram_clk * self.miss_share
-            self.busy["dram"] = self.busy.get("dram", 0) + self.dram_clk * self.miss_share
+            cost = self.dram_clk * self.miss_share
+            if state == "miss" and addr0 is not None:
+                # round 14 (dec14_bn32_*): a copy costs its sectors, of the 16 of 512 B
+                new = {
+                    (k, b)
+                    for k, mask in footprint(addr0, width_of(x.op))[0].items()
+                    for b in range(4)
+                    if mask >> b & 1
+                }
+                cost *= min(1.0, len(new - self.copy_seen) / 16)
+                self.copy_seen |= new
+            t["dram_queue"] = self._dram_after(t_d) + cost
+            self.busy["dram"] = self.busy.get("dram", 0) + cost
             arrive = t_d
             lat = (
                 (lsu_done, t_l, "dram", "DRAM latency", "sim.ldgsts_dram_latency_clk"),
@@ -1439,7 +1451,9 @@ class SM:
                 self.stg_bases.add(addr0[0])
             run = w_ == "4B" and contiguous(addr0, 4)
             many = w_ == "4B" and len(lines) > P["stg_merge_lines"]
-            wide = not run and many and (spread_lines(lines) or shared_part_sector(addr0, 4))
+            # round 14 (rf_*): lanes in sectors of their own are apart, whatever the lines
+            apart = spread_lines(lines) or shared_part_sector(addr0, 4) or n_sect >= 32
+            wide = not run and many and apart
             if wide:
                 # round 12 (probe store_merge): more than 4 lines per instruction, apart or in part
                 # filled: by lines at the pair, the chip's lower rate

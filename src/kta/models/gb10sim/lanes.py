@@ -382,6 +382,12 @@ class Lanes:
         if base in ("LEA", "ULEA") and ".HI" not in op:
             p = _shl(g[0], g[2])
             return _add(p, g[1]) if p is not None else None
+        if base == "LEA" and op.startswith("LEA.HI") and ".X" not in op and len(g) >= 4:
+            # round 14 (gemv14_*): (RZ:a >> 32 - s) + b, an index divided by a power of two
+            if src[2] in ("RZ", "URZ") and self.exact(g[0]) and self.exact(g[3]):
+                k = 32 - (g[3][1][0] & 31)
+                return _add(((), tuple(o >> k for o in g[0][1])), g[1])
+            return None
         if base in ("SHF", "USHF"):
             lo, s, hi = g[0], g[1], g[2]
             if ".L." in op and ".HI" not in op:
@@ -404,6 +410,13 @@ class Lanes:
             keep: tuple = ()
             if g[3] == ((), (0xF8,) * 32) and g[0][0] and self.exact(g[1]) and self.exact(g[2]):
                 keep, g = g[0][0], [((), g[0][1]), *g[1:]]
+            # round 14 (gemv14_*): a | b, a a product of the block index, b below its low zero bits
+            if g[3] == ((), (0xFC,) * 32) and g[2] == ((), ZERO) and bool(g[0][0]) != bool(g[1][0]):
+                a, b = (g[0], g[1]) if g[0][0] else (g[1], g[0])
+                low = min(k & -k for _, k in a[0]) - 1
+                if self.exact(b) and all(o & low == 0 for o in a[1]):
+                    if all(o & ~low == 0 for o in b[1]):
+                        return _add(a, b)
             if not all(self.exact(x) for x in g[:4]) or not self.uniform(g[3]):
                 return None
             lut = g[3][1][0]
