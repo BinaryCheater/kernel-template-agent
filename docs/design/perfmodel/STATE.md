@@ -1,11 +1,12 @@
 # Performance model: state
 
-The single state file of the GB10 programme (28 §7, LOOP.md product 7). Updated 2026-11-05 at the end of round 16. "Where things stand" below still describes round 9 except the first six rows; the current position is in the round 16 report and at the top of the error table. Table: [error-table.md](error-table.md). Inventory: [29](../29-mechanism-inventory.md). Batches: `perfmodel/batches/<batch>/` (entry blocks, SASS, predictions, batch record, measured values); raw outputs `data/perfmodel/batches/<batch>/` (not in git).
+The single state file of the GB10 programme (28 §7, LOOP.md product 7). Updated 2026-11-05 at the end of round 17. "Where things stand" below still describes round 9 except the first six rows; the current position is in the round 17 report and at the top of the error table. Table: [error-table.md](error-table.md). Inventory: [29](../29-mechanism-inventory.md). Batches: `perfmodel/batches/<batch>/` (entry blocks, SASS, predictions, batch record, measured values); raw outputs `data/perfmodel/batches/<batch>/` (not in git).
 
 ## Where things stand
 
 | Item | State |
 | --- | --- |
+| **Blind position against 28 §1, round 17 (the number that counts: first scores of 95 new kernel rows, r17, predictions committed before the run, engine of round 16, the recipe of D874)** | Pairs ≥ 3 % right 157/199 (78.9 %; target 95): **not met**; HGEMM 64/73 (87.7 %), the others 93/126 (73.8 %); real pairs 151/184, off HGEMM 87/111 (78.4 %), without warm GEMV 67/91 (73.6 %). True best in top 3 9/11: **not met**. First pick's loss worst 33.0 %, 5 of 11 above 3 %: **not met**. What-if direction ≥ 3 % 37/47 (78.7 %): **not met**. Magnitude ≥ 10 % median 38 % over 31: **not met**. Time median 11.1 %, ≥ 30 µs 7.6 %: **not met** on all rows; 15 above 25 %, worst +114.5 %: **not met**. Of 54 rows off by more than 10 %: 0 defects, 34 known rules wrong on the row, 20 no rule covered |
 | **Blind position against 28 §1, round 16 (the number that counts: first scores of 103 new kernel rows, r16, predictions committed before the run, engine of round 15, the recipe of D874)** | Pairs ≥ 3 % right 192/238 (80.7 %; target 95): **not met**; HGEMM 61/70 (87.1 %), the others 131/168 (78.0 %); pairs whose order holds in every pass 187/221 (84.6 %), off HGEMM 126/152 (82.9 %). True best in top 3 8/11: **not met**. First pick's loss worst 17.3 %, 6 of 11 above 3 %: **not met**. What-if direction ≥ 3 % 43/54 (79.6 %): **not met**. Magnitude ≥ 10 % median 27 % over 25: **not met**. Time median 11.2 %, ≥ 30 µs 6.2 %: **not met** on all rows; 13 above 25 %, worst +164 %: **not met**. Of 56 rows off by more than 10 %: 0 defects, 35 known rules wrong on the row, 21 no rule covered |
 | **Blind position against 28 §1, round 15 (the number that counts: first scores of 85 new kernel rows, r15, predictions committed before the run, engine of rounds 13, 14 and the new lanes, without this round's later fixes)** | Pairs ≥ 3 % right 96/135 (71.1 %; target 95): **not met**; HGEMM 40/48 (83.3 %), the others 56/87 (64.4 %); pairs whose order holds in every pass 87/113 (77.0 %). True best in top 3 8/11: **not met**. First pick's loss worst 36.3 %, 7 of 11 above 3 %: **not met**; HGEMM warm 5.8 %, the fit's test: it failed. What-if direction ≥ 3 % 25/39 (64.1 %): **not met**. Magnitude ≥ 10 % median 85 % over 24: **not met**. Time median 14.7 %, ≥ 30 µs 8.7 %: **not met** on all rows; 20 above 25 %, worst +771 %: **not met**. Of 51 rows off by more than 10 %: 6 defects, 25 known mechanisms wrong on the row, 20 no rule covers. Address coverage 99.68 % of global operations on the scorecard |
 | **Blind position against 28 §1, round 14 (the number that counts: first scores of 111 new kernel rows, r14, predictions committed before the run, engine of round 13)** | Pairs ≥ 3 % right 169/220 (76.8 %; target 95): **not met**; HGEMM 67/69 (97.1 %), the others 102/151 (67.5 %); pairs whose order holds in every pass 162/203 (79.8 %). True best in top 3 7/11: **not met**. First pick's loss worst 26.0 %, 4 of 11 above 3 %: **not met**. What-if direction ≥ 3 % 40/56 (71.4 %): **not met**. Magnitude ≥ 10 % median 76 % over 25: **not met**. Time median 14.1 %, ≥ 30 µs 8.5 %: **not met** on all rows; 36 above 25 %, worst +707 %: **not met**. Most of the fall is one address defect at the new shapes (D858), found by this score |
@@ -41,6 +42,8 @@ Wrong what-ifs (20, `kernel` rows): rotation depth 4 (question 26, at its limit)
 Worse than round 8, by ablation: `dram_burst_past_l2` 3072×1536×2048 warm τ 0.76 → 0.71, `miss_by_wave` 0.74 → 0.71; `fill_wait` 2048³ rotating best variant yes → +2.5 %, what-if 89 → 88; `l1_pending_fill` NVFP4 τ 1.00 → 0.87 (all within spread). All stay by probe (LOOP §5).
 
 ## Open questions (experiment counts per mechanism, LOOP §3)
+
+Round 17 changes: 51 given a rule by blocks with an unmeasured threshold (D889), 52 and 53 at 1 of 2, 48 stays closed (`fs_*`, D890), 55 and 56 new.
 
 Round 15 changes: 47 closed by a probed rate in place of the fit (D869), 48 closed at 2 of 2 without a rule (D871), 50 closed at 2 of 2 without a rule (D870), compute alone at turnover closed at 2 of 2 without a rule (D872), 51 new. Round 14 changes: 44 closed at 2 of 2 for an index per lane, 47 closed at 2 of 2 by a fit (D864), 48 at 1 of 2, 49 closed at 1 of 2, 50 at 1 of 2. Round 13 changes: 43 closed at 2 of 2 for uniform addresses, 45 at 1 of 2, 46 closed, 47–50 new; the entries below carry them. Round 12 changes: 2 at 2 of 2, 39 closed for `ATOMG` except few words, 40 and 41 closed, 43–46 new; the entries below carry them.
 
@@ -97,9 +100,11 @@ Round 15 changes: 47 closed by a probed rate in place of the fit (D869), 48 clos
 50. **Thread counts on rows** — 2 of 2, closed without a rule (D870): r15 `gd_*`, `rd_*`, `dl_*`: part is what stays in the L2: at a rotation four times deeper RMSNorm's gap goes, GEMV rises 3 to 5 µs and `np2_r64` loses its lead; `b` stays 10 % above `mk16`. 8 MiB read in order runs 66 µs, half the DRAM rate, replay 38, flat in bytes per lane except at T 32. Warm T 512 does not show on plain loads (`dl_w8_t512_warm` as T 128). Reopening needs a rule for the DRAM rate by pattern. Before: r14b `occ_*`: 1536 threads per SM holds (D863), the override to 1024 that fixed T 512 rows is rejected. Real pairs by group: RMSNorm rotating 2/5, GEMV rotating 5/18 at DRAM-bound rows where the replay is flat within 1 %; warm T 512 −21 to −34 % not found. Before: RMSNorm rotating pairs 1/6, first pick's loss 22.2 % warm (`t512`), GEMV rotating pairs 15/28 (new engine; 20/28 blind): the replay's rows are nearly flat in threads. Many of these pairs lie near the noise: passes differ by up to 27 % on short warm rows (`rms13_nostore`, `gemv13_mk16`).
 
 51. **Write limit beside single-use reads** — new, 1 of 2 (r15b `wl_*`, D873): softmax rows writing 6.56 to 7.65 MiB run 14 to 18 µs with no step; `wr_r1w1` 7 MiB 38.6 µs, 6 MiB 12.9. `sim.stg_dirty_once_bytes` stays; softmax 1920×1792 +130 to +210 %, `wl_*` +150 to +191 %. What separates the two is not found; a candidate, untested: 112 blocks against 1920.
-52. **Rotating order under bursts** — new, 0 of 2 (D877): rows moved towards the GPU in level, the order worsened: decode 36×2304×144 rotating pairs 8/11 → 5/11, loss 0.1 → 18.9 %; `gemv14_np2_r64_rotating` +12.6 → +25.5, `gemv14_mk16_rotating` +5.6 → +16.3. Cell read × DRAM × row × c. Compensating mechanism missing; T 32's 1.4 may be the same one: twin sectors asked close in time.
-53. **Stores in part of a sector** — new, 0 of 2: `mt_w_t128` +44, `mt_w_t32` −22, `mx_*` +73 to +104 % at first score, `bl16_recordthree` +68 %. Cells write × L2 × row, rmw × L2 × order.
+52. **Rotating order under bursts** — 1 of 2 (r17 `tw_*`, `gr_*`, D886, D891): no window by time; twins merge between warps and blocks asked at once, not between two instructions of a warp, whatever the gap; T 32 unexplained; GEMV's read alone flat. GEMV rotating follows bytes per instruction, the replay follows compute. Before (D877): rows moved towards the GPU in level, the order worsened: decode 36×2304×144 rotating pairs 8/11 → 5/11, loss 0.1 → 18.9 %; `gemv14_np2_r64_rotating` +12.6 → +25.5, `gemv14_mk16_rotating` +5.6 → +16.3. Cell read × DRAM × row × c. Compensating mechanism missing; T 32's 1.4 may be the same one: twin sectors asked close in time.
+53. **Stores in part of a sector** — 1 of 2 (r17 `pw_*`, `px_*`, D887, D888): a rate by sectors and lines; `pw_f12_*_one` still −33 to −70 %. Before: `mt_w_t128` +44, `mt_w_t32` −22, `mx_*` +73 to +104 % at first score, `bl16_recordthree` +68 %. Cells write × L2 × row, rmw × L2 × order.
 54. **Past the rules of this round** — new, 0 of 2: `wr_r1w4_4m` +0.5 → +52, `hb_f64` −31 → +37: writes with reads beside them, or by blocks, at the burst rule.
+55. **Decode rotating by tile** — new, 0 of 2: r17 `dec17_*` BN 64 68 to 74 µs, BN 32 56, the replay 54 to 56 flat; bytes alike, warm alike; first pick's loss 33 %. Cell read × DRAM × row × c. The burst count does not separate them (bursts/reads 1.03, 1.06).
+56. **Rows past the register limit** — new, 0 of 2: `rms17_t16_warm` −47 %, `sm17_t16_warm` −41 %: 576 words a thread at N 4608.
 
 ## Frozen parameters
 
@@ -451,4 +456,36 @@ Blind block, round 16: r16, first scores, predictions at 6640750, engine of roun
 
 Real pairs off HGEMM, rounds 13 to 16: 74 %, 71 %, 72 %, 83 %. It moved, before any engine change of this round: engines of 15 and new shapes, so it is not this round's rules: the shapes are others, GEMV warm alone gives 28/28 of those pairs. One round; not a trend.
 Misses above 10 % on `kernel` rows, 56 of 103: defect 0; known rule wrong 35; no rule 21; cells in `29` §7a.
+```
+
+```
+Round 17: batch r17 (blind set, tw_*, gr_*, pw_*, px_*, rr_*, tv_*, fs_*): rules for the cells that hold blind pairs and first-pick losses, no wider sweep.
+Question: ranking of round 16's pairs and losses by cell: read × DRAM × order × c 21 pairs (GEMV rotating), read × L2 × row × c 6 pairs and 17.3 % (rows warm), read × DRAM × row × c 6 and 8.4 % (decode rotating), copy × DRAM × order × c 6 and 4.8 %, FA 3 and 9.5 %.
+Hypotheses: twins H-instr / H-window / H-queue / H-local; GEMV read H-flat / H-align / H-width / H-table; stores H-sectors / H-lines / H-fill; rows H-store / H-read / H-launch; turnover H-wave / H-none; FA H-mma / H-exp / H-store.
+Result: no time window for twin sectors: D877 stands; twins merge across warps and blocks asked at once. GEMV's read alone is flat at bytes / 237 GB/s; only runs crossing a burst pay a little. Stores apart cost by sectors and by lines. Turnover holds (H-none). Rows warm and FA's one stage: every hypothesis rejected or unsupported.
+Change: D886 burst edges, unknown addresses bounded; D887 stores by sectors and lines; D888 dirty limit by lines; D889 once-limit by blocks (threshold unmeasured); D892 core. Probes replayed before and after each rule: `dl_*`, `mr_*`, `mk_*` unchanged; `mw_*` worse (D887).
+Scorecard: core table of 7083a2e against the core of a841f67: 431 kernel rows median 7.2 → 7.4 %, above 25 % 51 → 47; 25 rows better by 3 points, 32 worse; pairs 883/1018 → 892/1019, top 3 63 → 63, loss worst 22.5 → 18.9 %, what-if 113/143 → 115/143, magnitude 39 → 33 %. Better: softmax 1920×1792 +144 to +211 → −18 to −26, `wl_*` +190 → −25, `hs_*`, `mx_*`, `mt_*`. Worse: `bl15_chunked_w6` −19 → −31, `rf_w*_m4` −5 → −15, `bl13_recordfill_w4` −30 → −38, `mw_o_f120` −3 → −14. The list grew by 14 rows, so the pair totals are not on the same rows.
+New mechanism: no new module; `dram_burst_edge` and stores by lines refine known rows.
+Fits: none added; `dram_burst_edge` empirical over two probe points; `stg_dirty_once_blocks` assumed.
+Matrix: 406 cells, M 73 → 75, m 20 → 18, empty 313. Round 16's 56 misses: M 27, m 28, empty 1. Round 17's 54: M 25, m 28, empty 1.
+Core back-test: worsened families 19/31 → 30/31 in sample (D892), moved 85 → 90 %.
+Testing cost: below the core 2218 CPU s of 2500: held. Predictions 1234, selection 944, scratch 40 (estimate). Core 3499, 201 s wall. GPU: one batch, 30.4 min: profiler 23.0, timing 5.4, cool-downs 2.0; preflight dropped 14 of 199 (shared memory). Time about 1 h 30.
+Not solved: 28 §1 not met on any row. GEMV rotating 18/35: the replay follows compute (D891). Decode rotating by tile, first pick's loss 33 % (55). Rows warm: the gap stays, no rule. T 32's twins. `pw_f12_*_one`. Real pairs off HGEMM fell back: round 16's 83 % was not a trend. D889's threshold.
+Next: question 55 and GEMV's critical path against the DRAM's rate (D891), one experiment left on 52; `--full` is due in round 18.
+Blind set: the recipe of D874: HGEMM 3456×1296×1728, GEMV 7200×2592 group 72, FA 2016×9×144, decode 27×2160×144 G 9, rows 720×4608, own kernels `hand17/`. Rule: a factor 9 off HGEMM, 27 on it; D 108 and 72 refused by TileLang, before any result. Preflight dropped most large-tile FA variants and two of decode: groups smaller than round 16's, FA's 14/14 rests on few pairs.
+```
+
+```
+Blind block, round 17: r17, first scores, predictions at b27fd52, engine of round 16: not mixed with anything below.
+| 28 §1 | Target | HGEMM, one new shape | Off HGEMM, 9 groups | All 11 groups |
+| Pairs ≥ 3 % right | ≥ 95 % | 64/73 (87.7 %) | 93/126 (73.8 %) | 157/199 (78.9 %), not met |
+| Real pairs right | report | 64/73 (87.7 %) | 87/111 (78.4 %) | 151/184 (82.1 %) |
+| Best in top 3 | every group | 2/2 | 7/9 | 9/11, not met |
+| First pick's loss | ≤ 3 % | 4.5, 1.4 % | worst 33.0 %; 4 of 9 above | 5 of 11 above, not met |
+| What-if direction ≥ 3 % | ≥ 95 % | | | 37/47 (78.7 %), not met |
+| Magnitude ≥ 10 % | median ≤ 20-25 % | | | 38 % over 31, not met |
+| Time | median ≤ 10 %, none > 25 % | 3.1, 3.6 % | decode 11.1, 20.6 %; FA 17.4, 15.6 %; GEMV 10.5, 15.4 %; RMSNorm 27.2, 4.3 %; softmax 22.8 %; hand 13.1 % | 11.1 %, ≥ 30 µs 7.6 %; 15 above 25 %, worst +114.5 %, not met |
+
+Real pairs off HGEMM, rounds 13 to 17: 74, 71, 72, 83, 78 %. Without warm GEMV: 75, 73, 73, 79, 74 %. Warm GEMV alone gave 28/28 and 20/20 in the last two rounds. D877-D883's first blind score: no step above rounds 13-15 once warm GEMV is out.
+Misses above 10 % on `kernel` rows, 54 of 95: defect 0; known rule wrong 34; no rule 20; cells in `29` §7a.
 ```
