@@ -1,0 +1,24 @@
+{
+ "entry": "rms_kernel",
+ "grid": [
+  1280
+ ],
+ "threads": 16,
+ "block": [
+  16
+ ],
+ "smem": 0,
+ "rot": 24,
+ "footprint_bytes": 13112320,
+ "write_bytes": 6553600,
+ "family": "rmsnorm",
+ "shape": {
+  "M": 1280,
+  "N": 2560
+ },
+ "pick": {
+  "threads": 16
+ },
+ "cache": "rotating",
+ "set": "dram_limit"
+}

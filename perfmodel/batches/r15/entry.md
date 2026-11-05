@@ -5,7 +5,7 @@ Written before the run. Engine: round 14's rules with the lanes as a class of in
 ## Blind score of rules D854-D864 and the lanes
 
 1. Why now: the rules of rounds 13 and 14 have no blind score. The lanes were rewritten as a class; this is their first test too. The check of this round finds 99.8 % of memory operations resolved on the seen kernels; the blind rows are the test of that number at address forms not seen.
-2. New rows, predictions committed before the run (`predicted.json`): HGEMM 2688×1920×1728 (8 variants, warm and rotating); GEMV 6144×3072 group 48 (7 variants), FA 2304×7×104 (7), decode 36×2304×104 with 12 groups (7), RMSNorm 1920×1792 (6 thread counts), each warm and rotating; softmax 1920×1792 (6) warm; 14 own kernels in `perfmodel/testset/hand15/` with 4 one-change variants: division by 7, by a run-time count, remainders, a packed triangle, a Morton curve, clamps, a select between buffers, bit counts in the index, a negative stride, 64-bit products, an index through a float, a periodic stencil, non-power chunks, a 28-byte record.
+2. New rows, predictions committed before the run (`predicted.json`): HGEMM 2688×1920×1728 (8 variants, warm and rotating); GEMV 6144×3072 group 48 (7 variants), FA 2304×6×144 (7), decode 36×2304×144 with 12 groups (7), RMSNorm 1920×1792 (5 thread counts, T 512 refused by TileLang), each warm and rotating; softmax 1920×1792 (5) warm; 14 own kernels in `perfmodel/testset/hand15/` with 4 one-change variants: division by 7, by a run-time count, remainders, a packed triangle, a Morton curve, clamps, a select between buffers, bit counts in the index, a negative stride, 64-bit products, an index through a float, a periodic stencil, non-power chunks, a 28-byte record.
 3. The HGEMM part is also the test of the fit `copy_inflight_sm` (D864): first pick's loss at a new shape, warm; before the fit it was 10.7 % blind at 2304×1792.
 
 ## copy_two — copies on their way, one and two blocks (question 47 by a new row: fit on a design variable)
@@ -30,9 +30,8 @@ Written before the run. Engine: round 14's rules with the lanes as a class of in
 ## fad_* — FA by D (question 48, second experiment)
 
 1. Mechanism: t128 rows lose 11 to 30 % at D 80, 112, 2 to 5 % at D 96, 128, with R1 exact and barrier stalls 12 times t64's. At t128 a thread holds half a row, D bytes: 80 and 112 bytes per thread do not fill 32-byte sectors; 96 and 128 do; at t64, 160 and 224 bytes do.
-2. Sweep: S 768, H 4, c64x64 s2 t128, D 72 to 128 by 8; D 80, 96 at t256.
-   - H-sector: the loss goes with D mod 32: D 96, 128 small; 72, 80, 88, 104, 112, 120 large; t256 D 80 (40 bytes per thread) large, D 96 (48) large too.
-   - H-odd: the loss goes with chunks of 16 bytes per thread odd: D 72, 88, 104, 120 and 80, 112 alike, as H-sector; t256 D 96 (3 chunks) odd, D 80 (2.5): tells them apart only there.
+2. Sweep: S 768, H 4, c64x64 s2 t128, D 64 to 176 by 16 (TileLang wants multiples of 16; t256 refused).
+   - H-sector: the loss goes with D mod 32: D 64, 96, 128, 160 small; 80, 112, 144, 176 large.
    - H-smem: the loss goes with the block's shared memory: rises smoothly with D.
 
 ## ct_* — compute alone at block turnover (question 47, the part the fit does not touch)

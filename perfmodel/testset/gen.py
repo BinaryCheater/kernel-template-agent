@@ -2246,8 +2246,8 @@ def _round14(out: Path) -> None:
 # round 15: blind again at shapes with other divisors; new address forms; what differs at the DRAM
 # limit (question 50), FA at D by 8 (question 48), compute alone at block turnover (question 47)
 GEMV15 = {"N": 6144, "K": 3072, "group": 48, "n_part": 4, "reduce": 32}
-FA15 = {**FA, "S": 2304, "H": 7, "D": 104}
-DECODE15 = {**DECODE, "H": 36, "G": 12, "S": 2304, "D": 104}
+FA15 = {**FA, "S": 2304, "H": 6, "D": 144}
+DECODE15 = {**DECODE, "H": 36, "G": 12, "S": 2304, "D": 144}
 ROWS15 = {"M": 1920, "N": 1792}
 HGEMM_BLIND15_SHAPE = {"M": 2688, "N": 1920, "K": 1728}
 HGEMM_BLIND15 = {
@@ -2296,7 +2296,7 @@ WI_HAND15 = (
 DL_WIDTH = {4: ("unsigned", 16, "x"), 8: ("uint2", 8, "x.x ^ x.y"), 16: ("uint4", 4, "x.x ^ x.y ^ x.z ^ x.w")}
 DL_T = (32, 128, 512)
 DL_BYTES = 8 * MB
-FA_D = (72, 80, 88, 96, 104, 112, 120, 128)
+FA_D = (64, 80, 96, 112, 128, 144, 160, 176)
 CT_K = (480, 960, 1920, 3840)
 CT_SHAPE = {"M": 1536, "N": 3072}
 
@@ -2372,13 +2372,10 @@ def _sweeps15(out: Path) -> None:
     for th in (16, 512):
         kw = {"threads": th}
         _tried(_rms, out, f"rd_t{th}", ROWS14, "rotating", kw, depth=4, set="dram_limit")
-    # question 48: D by 8 at t128: bytes per thread by 32
+    # question 48: D by 16 at t128: bytes per thread by 32
     for d in FA_D:
         f = {**FA, "S": 768, "H": 4, "D": d, "BM": 64, "BN": 64, "stages": 2, "threads": 128}
         _tried(_fa, out, f"fad_d{d}_t128", f, "warm", set="fa_stride")
-    for d in (80, 96):
-        f = {**FA, "S": 768, "H": 4, "D": d, "BM": 64, "BN": 64, "stages": 2, "threads": 256}
-        _tried(_fa, out, f"fad_d{d}_t256", f, "warm", set="fa_stride")
     # question 47: compute alone, blocks fixed, tiles by K: the intercept is the turnover
     t2 = (128, 128, 32, 2, 128, 0)
     for k in CT_K:
