@@ -34,7 +34,7 @@ Status: written 2026-11-04 for phase P0 of [28](28-gb10-programme.md) §5. It li
 | Read-counter release of non-memory instructions | gb10 §4.3 | A: `rbar_release_clk` 8 (assumed) | all | — |
 | Register-file bank conflicts, operand collector, reuse cache | gb10 §8.7; 25; gap list "not measurable from user space" | P (round 6, probe `mma_pipe`, batch r6b, D783): the only visible trace, the tensor stream slows 0.05 cycles per A operand set (`unidentified`, cause not shown); X **empirical** | all | H |
 | Instruction cache / fetch | gb10 §8.7 (`icache.cu`: full rate to 32 KB of loop, −10 % at 64 KB) | M (round 6, probe `branch`, batch r6, D781): 1 cycle per 128-byte line outside a buffer of 64 lines per sub-partition, a warp's wait; was X; X (measured, not modelled) **structural** | F, E (large unrolled bodies) | S (unroll), H |
-| Intra-warp divergence and reconvergence (`BSSY`/`BSYNC`, `BRA.DIV`) | gb10 §4.4, §8.7 | Round 9 (D811): P: a forward branch in a BSSY region whose predicate splits the lanes runs both arms in turn, from the tracked lane values; a value from a load counts as splitting (default, counted); NVFP4 GEMM R1 6/6, instructions equal to the counter, −33 → −9 %; memory instructions in an arm stay at 32 lanes, `BRA.DIV` never taken **structural**; Round 8: now has a row, was X Round 11 (D831): lane predicates for compares, SEL, VIMNMX, guarded writes. | N (tails), E, D | — |
+| Intra-warp divergence and reconvergence (`BSSY`/`BSYNC`, `BRA.DIV`) | gb10 §4.4, §8.7 | Round 19 (D903): lane 0 stands for the warp only when no lane differs: `threadIdx.x` wraps at the block's first dimension, a load or store guarded per lane uses those lanes, an exit per lane ends those lanes: GEMV sectors equal the counter on every variant. Round 9 (D811): P: a forward branch in a BSSY region whose predicate splits the lanes runs both arms in turn, from the tracked lane values; a value from a load counts as splitting (default, counted); NVFP4 GEMM R1 6/6, instructions equal to the counter, −33 → −9 %; memory instructions in an arm stay at 32 lanes, `BRA.DIV` never taken **structural**; Round 8: now has a row, was X Round 11 (D831): lane predicates for compares, SEL, VIMNMX, guarded writes. | N (tails), E, D | — |
 | Branch and loop resolution from warp-uniform values | gb10 §4.4 (`audit_values`: 46/46) | M for the cost (round 6, probe `branch`, D780): next instruction at least 11 cycles after a BRA in loops without memory instructions or barriers; ; F (fallback rules: main-loop trip count, unconditional taken, else fall through) **empirical** | all | — |
 | Issue interference: a copy or ldmatrix beside an mma stream on one sub-partition | gb10 §8 (`interfere.cu`: 2.3 cycles per copy) | M (round 6: copies 2.3 cycles from upstream `interfere.cu`, ldmatrix and LDS none, probe `mma_issue`, D782); was X; X (measured, judged negligible) **empirical** | G, F | H |
 | Uniform datapath (`U*` ops) | — | X (issue slot only; no unit) | all | H |
@@ -154,6 +154,8 @@ Cells that can occur: 406 of 800, the rest dropped (`tools/kta_perfmodel/matrix.
 | m measured without a rule | 18 | 20 | 18 |
 | · empty | 328 | 313 | 313 |
 
+Round 19's 51 blind rows above 10 %, placed after the replay's check: in M cells 21, in m cells 30, in empty cells 0. By class at first score: defect 0, known rule 32, no rule 19.
+
 Round 18's 49 blind rows above 10 %, placed after the rules: in M cells 23, in m cells 25, in empty cells 1. By class at first score: defect 9, known rule 24, no rule 16.
 
 Round 17's 54 blind rows above 10 %, placed after the rules: in M cells 25, in m cells 28, in empty cells 1. By class at first score: defect 0, known rule 34, no rule 20.
@@ -240,7 +242,7 @@ Patterns: order (contiguous lanes walking on), stride (lanes or warps a constant
 | stride | · | · | · | M (1) | store_lines, store_spread, st256 (D838) |
 | row | · | · | · | M | pw_*, mt_w_* (D887): 0.063 clk a sector, 0.105 a line |
 | hashed | · | · | · | m (1) | mw_h_f16 −73 %: inside the L2, not pursued |
-| cap | · | · | · | m (6) | wr_*, wl_* (D802, D873): 6.5 to 7.6 MiB no step |
+| cap | · | · | · | m (6) | rs_m*, rms19, sm19 (D907): past 4 MiB written, no rule |
 
 **write (STG, STS, STL) × DRAM**: decides store path past the dirty limit.
 
@@ -410,6 +412,31 @@ Patterns: order (contiguous lanes walking on), stride (lanes or warps a constant
 | Pattern | w | b | s | c | Probes |
 | --- | --- | --- | --- | --- | --- |
 | order | · | · | · | · |  |
+
+Modules of 29 with no cell (LOOP §3a, the axes checked):
+
+| Module | State | Note |
+| --- | --- | --- |
+| Scheduler, stall counts, dependency counters | M | issue slots, not traffic |
+| Instruction fetch | M | `branch`; 9 clk per 8 past the buffer |
+| Divergence and reconvergence | P | D811; lanes and guards per lane D903 |
+| Value-dependent control | P | loops from loaded data: `hand_mandel` 3.27×, `stl_l_n1024` |
+| Register file, operand collector | P | not measurable from user space; mma operands frozen |
+| Uniform datapath, default latencies | A | `default_var_latency_clk`, `rbar_release_clk` |
+| Compute pipes: tensor, FMA, ALU, XU | M | one `compute` row beside traffic; pipes alone here |
+| Pipes mixed (LOP3 with FFMA, FP64, popcount) | X | issue slot only |
+| Shared-memory atomics, CAS loops | X | no kernel on the scorecard |
+| Constant loads `LDC` | X | default latency |
+| Memory fences, flag polling | X | `MEMBAR` default; polling has no primitive |
+| TMA box and engine | A | rates fitted on the TMA ablation; `tload` cells hold the path |
+| mbarrier hand-off | M | 134 clk; arrive after a store X |
+| L2 slices, set hash, NoC | X | not seen in any sweep so far |
+| DRAM channels, banks | X | D879: not reached |
+| TLB | M | D879: no cost to 1 GiB |
+| CPU contention for the DRAM | F | an input, 0 |
+| Residency, dispatch, block replacement | M | one SM stands for the rest (A) |
+| Launch, kernel sequences | M | D769, D779, D883 |
+| Clock under load, power, thermal | P | calibrated per batch; states X |
 
 <!-- matrix end -->
 

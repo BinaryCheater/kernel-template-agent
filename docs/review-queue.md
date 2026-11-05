@@ -1035,3 +1035,10 @@ Decisions made without the user that need review. Newest last. Each entry: quest
 - **Rationale:** one event timing steps by about 0.96 µs: the same RMSNorm measured 8.6 and 9.6 µs across batches, so a −10 % change on a 9 µs kernel can be that step alone. Graph rows repeat within 1 %. But changing the reference changes a scorecard definition (LOOP §7).
 - **Cost of changing later:** one line in `table.whatif_pairs`; no re-measurement, the rows exist. The same question applies to τ: the warm 2048³ group's `kernel` rows reach τ 0.78 against its own graph rows, so ≥ 0.8 sits at the measurement's ceiling there.
 
+## PERFMODEL round 19: D889, the once-limit by blocks (D907)
+
+- **Question:** does `sim.stg_dirty_once_blocks`, set without a measurement in round 17, stay? D889 asked for review if it started to move a design choice.
+- **Choice:** left as it is this round; the condition is met: at 832×6656 the replay moves with threads where measured is flat, softmax and RMSNorm warm.
+- **Rationale:** `rs_m*` places the gap past 4 MiB written, so a rule can now be written from a sweep; no replays were left in round 19's limit.
+- **Cost of changing later:** one rule and its probe rows, next round.
+

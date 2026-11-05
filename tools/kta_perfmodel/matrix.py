@@ -61,6 +61,7 @@ BESIDE: tuple[tuple[str, str, str], ...] = (
     ("L2 slices, set hash, NoC", "X", "not seen in any sweep so far"),
     ("DRAM channels, banks", "X", "D879: not reached"),
     ("TLB", "M", "D879: no cost to 1 GiB"),
+    ("CPU contention for the DRAM", "F", "an input, 0"),
     ("Residency, dispatch, block replacement", "M", "one SM stands for the rest (A)"),
     ("Launch, kernel sequences", "M", "D769, D779, D883"),
     ("Clock under load, power, thermal", "P", "calibrated per batch; states X"),
@@ -308,7 +309,32 @@ ROUND18: tuple[Mark, ...] = (
     Mark("copy", "DRAM", "row", "c", "m", "dr_* (D899): rows off 64 bytes slow BN 64, no rule"),
     Mark("read", "DRAM", "row", "c", "M", "gq_* (D898): warps per row +5 % a doubling, no rule"),
 )
-ALL_MARKS = CELLS + ROUND16 + ROUND17 + ROUND18
+ROUND19: tuple[Mark, ...] = (
+    Mark("write", "L2", "cap", "c", "m", "rs_m*, rms19, sm19 (D907): past 4 MiB written, no rule"),
+)
+ALL_MARKS = CELLS + ROUND16 + ROUND17 + ROUND18 + ROUND19
+# Placed after replay's check (`review coverage`): decode's time is its copies and its compute
+MISSES19: dict[str, tuple[str, str, str, str, str, int]] = {
+    "gemv warm": ("read", "L2", "row", "c", "k", 8),
+    "decode rotating": ("copy", "DRAM", "row", "c", "n", 6),
+    "decode warm": ("compute", "shared", "order", "s", "k", 6),
+    "rmsnorm warm": ("write", "L2", "cap", "c", "n", 5),
+    "softmax warm": ("write", "L2", "cap", "c", "n", 5),
+    "fa rotating": ("copy", "DRAM", "row", "c", "n", 3),
+    "fa warm": ("copy", "L2", "row", "c", "k", 3),
+    "rmsnorm rotating": ("read", "DRAM", "row", "c", "k", 3),
+    "byteload": ("read", "L2", "order", "c", "k", 2),
+    "atomtwo": ("atomic", "L2", "hashed", "c", "k", 1),
+    "halfstore": ("write", "L2", "order", "c", "k", 1),
+    "loadmax": ("read", "L2", "stride", "c", "k", 1),
+    "maskload": ("read", "L2", "order", "c", "k", 1),
+    "pairsum": ("read", "L2", "order", "c", "k", 1),
+    "stridestore": ("write", "L2", "stride", "c", "k", 1),
+    "triplet": ("read", "L2", "order", "c", "k", 1),
+    "twodim": ("read", "L2", "order", "c", "k", 1),
+    "gemv rotating": ("read", "DRAM", "row", "c", "k", 1),
+    "hgemm rotating": ("copy", "DRAM", "order", "c", "k", 1),
+}
 
 
 # Round 18's blind rows above 10 %, placed the same way; class d: a defect found by this round
@@ -387,6 +413,18 @@ def render(marks: tuple[Mark, ...]) -> str:
         m = table[v[:4]]
         c18[m.state if m else "."] += v[5]
         k18[v[4]] += v[5]
+    c19: Counter = Counter()
+    k19: Counter = Counter()
+    for v in MISSES19.values():
+        m = table[v[:4]]
+        c19[m.state if m else "."] += v[5]
+        k19[v[4]] += v[5]
+    lines += [
+        f"Round 19's {sum(c19.values())} blind rows above 10 %, placed after the replay's check: "
+        f"in M cells {c19['M']}, in m cells {c19['m']}, in empty cells {c19['.']}. By class at "
+        f"first score: defect {k19['d']}, known rule {k19['k']}, no rule {k19['n']}.",
+        "",
+    ]
     lines += [
         f"Round 18's {sum(c18.values())} blind rows above 10 %, placed after the rules: in M cells "
         f"{c18['M']}, in m cells {c18['m']}, in empty cells {c18['.']}. By class at first score: "
@@ -461,6 +499,7 @@ def main() -> None:
     assert sum(v[5] for v in MISSES16.values()) == 56
     assert sum(v[5] for v in MISSES17.values()) == 54
     assert sum(v[5] for v in MISSES18.values()) == 49
+    assert sum(v[5] for v in MISSES19.values()) == 51
     ap = argparse.ArgumentParser(prog="python -m kta_perfmodel.matrix")
     ap.parse_args()
     marks = ALL_MARKS

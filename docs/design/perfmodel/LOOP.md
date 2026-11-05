@@ -63,10 +63,10 @@ User, 2026-11-05 (D874): the hardware's modules and operations are known in adva
 - A rule is written once its sweep is in, from the probes alone, in a form that holds over the whole sweep. A rule shaped by one kernel family is not written.
 - A detail that moves no design choice (no pair ≥ 3 % apart changes) is recorded in its cell and not pursued.
 - Every blind miss is placed in a cell, and sorted as defect, known rule or new mechanism. A miss with no cell extends the matrix.
-- **Cells are counted by the time they carry** (D902). Rounds 16 to 18 placed 1 of about 50 misses in empty cells, but the blind set may simply not reach them, and misses are placed by hand. `review.py` computes from replays what share of each kernel's time falls in M, m and empty cells, and that share replaces the cell count. An empty cell is swept only when a kernel class on the scorecard spends time in it.
+- **Cells are counted by the time they carry** (D902). Rounds 16 to 18 placed 1 of about 50 misses in empty cells, but the blind set may simply not reach them, and misses are placed by hand. `python -m kta_perfmodel.review coverage` computes from replays what share of each kernel's time falls in M, m and empty cells, and that share replaces the cell count; misses are placed by it (round 18's hand placement agreed on 9 of 49). An empty cell is swept only when a kernel class on the scorecard spends time in it.
 - **`m` cells go first.** Eighteen cells held 25 to 28 misses a round. A cell measured without a rule is taken before any empty cell.
 - **A second layer: combinations.** Rounds 16 to 18 placed 23 to 27 misses a round in M cells: a rule right alone does not make a kernel right. For the cell pairs that share the most time in scorecard kernels, a round measures A, B and A+B (§3b step 5) and records additive, overlapping or worse than additive.
-- **The axes are checked.** The matrix holds memory operations and one compute row. Each mechanism module of `29` either maps to a cell or is listed beside the matrix with its state; a module in neither place is a gap.
+- **The axes are checked.** The matrix holds memory operations and one compute row. Each mechanism module of `29` either maps to a cell or is listed beside the matrix with its state (`BESIDE` in `matrix.py`, §7a of `29`); a module in neither place is a gap.
 
 ## 3b. Locating a miss — cheapest first (user, 2026-11-05, D902)
 
@@ -81,7 +81,7 @@ Five rounds added more than 15 rules with the blind score flat. Rounds 16 to 18'
 | 5. Combination | A, B and A+B | whether the miss is an interaction | three kernels |
 | 6. Stall counters | The stall metrics for what remains | where it waits | profiler on those kernels only |
 
-Step 1 was tried on r13 to r18: 511 of 515 rows outside the copy paths within 1.5×, with `gemv*_np8` at 0.72 and `gr_w8_*` at 3.5× as leads; 276 rows on copy paths are off by a factor that is the counter's meaning, not yet calibrated, and do not count until they are.
+Step 1 is `python -m kta_perfmodel.review work` (`--raw METRIC`), steps 2 and the work list `python -m kta_perfmodel.sensitivity` and `review pairs REGEX`. Its first run found D903: both leads, `gemv*_np8` at 0.72 and `gr_w8_*`, were lost executions. The copy paths are calibrated: the counters hold a copy's sectors, the model's column did not (D904).
 
 Fix in this order: defect; structural rule from a probe; parameter from a probe; a bounded fit (§4) last.
 

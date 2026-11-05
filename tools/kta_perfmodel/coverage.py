@@ -88,7 +88,7 @@ def cell_of(r: dict[str, Any], a: dict[str, Any]) -> tuple[str, str, str, str] |
 def by_time(rows: list[dict[str, Any]]) -> dict[str, Any]:
     """Per row the replayed time by state; totals over rows, each row counting as one kernel."""
     t = matrix.cells(matrix.ALL_MARKS)
-    per: dict[str, Counter] = {}
+    per: dict[str, Counter[Any]] = {}
     cells: Counter = Counter()
     n = 0
     for r in rows:
@@ -96,7 +96,7 @@ def by_time(rows: list[dict[str, Any]]) -> dict[str, Any]:
             continue
         n += 1
         fam = _family(r)
-        got = per.setdefault(fam, Counter())
+        got: Counter[Any] = per.setdefault(fam, Counter())
         got["kernels"] += 1
         left = 1.0
         for a in r["attribution"]:
@@ -144,6 +144,39 @@ def report(doc: dict[str, Any]) -> str:
     for key, v in res["cells"].most_common(10):
         out.append(f"  {v:7.1f} {key[0]:5s} {'×'.join(key[1:])}")
     return "\n".join(out)
+
+
+def hand_check(doc: dict[str, Any], round_no: int) -> str:
+    """The hand placement of a round's misses (matrix.MISSES<n>) against the cell that carries the
+    most time on those rows. The rows must be in `doc` with attribution: blind rows leave the core,
+    so this needs the full table that holds them."""
+    from .review import _family as family_of
+
+    table_rows = {r["id"]: r for r in doc["rows"]}
+    hand = getattr(matrix, f"MISSES{round_no}", {})
+    same = other = none = 0
+    lines = []
+    for b in blind.rows(round_no):
+        r = table_rows.get(b["id"])
+        fam = family_of(b)
+        if fam not in hand or abs(b["error"]) <= 0.10 or b["mode"] != "kernel":
+            continue
+        if not r or not r.get("attribution"):
+            none += 1
+            continue
+        got: Counter = Counter()
+        for a in r["attribution"]:
+            key = cell_of(r, a)
+            if key:
+                got[key] += a["share"]
+        top = got.most_common(1)[0][0] if got else None
+        if top and top[:2] == hand[fam][:2]:
+            same += 1
+        else:
+            other += 1
+            lines.append(f"  {b['unit']}: by hand {'×'.join(hand[fam][:4])}, top {top}")
+    head = f"Hand placement, round {round_no}: operation and target as the top cell {same}, "
+    return "\n".join([head + f"other {other}, no replay {none}", *lines[:12]])
 
 
 def within_group(round_no: int) -> dict[str, float]:
