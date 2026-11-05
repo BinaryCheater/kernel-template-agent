@@ -42,3 +42,37 @@ def test_prmt_sign_and_zero_extension() -> None:
     assert prmt(0x0000_7001, 0x9910, 0) == 0x0000_7001
     assert prmt(0x1234_8001, 0x7710, 0) == 0x0000_8001  # zero extension
     assert prmt(0x0102_0304, 0x3210, 0) == 0x0102_0304
+
+
+def test_lanes_follow_lea_hi_and_an_or_over_a_block_product() -> None:
+    """Round 14: an index divided by a power of two, and `tid | block * k`, stay known addresses."""
+    from kta.models.gb10sim.lanes import Lanes
+
+    la = Lanes(0, (32, 1, 1))
+    la.v["R0"] = ((), tuple(range(32)))
+    la.v["R7"] = ((), (5,) * 32)
+    la.step("LEA", "LEA.HI", ("R4", "R0", "R7", "RZ", "0x1e"), {}, True)
+    assert la.v["R4"][1][:6] == (5, 5, 5, 5, 6, 6)
+    la.v["R1"] = (((("b",), 0x140),), (0,) * 32)
+    la.v["R2"] = ((), tuple(i >> 2 for i in range(32)))
+    la.step("LOP3", "LOP3.LUT", ("R3", "R2", "R1", "RZ", "0xfc", "!PT"), {}, True)
+    assert la.v["R3"][0] == la.v["R1"][0] and la.v["R3"][1][4] == 1
+
+
+def test_real_pairs_split_by_the_passes() -> None:
+    """Round 14: a wrong pair counts as real only if its measured order holds in every pass."""
+    import sys
+    from pathlib import Path
+
+    sys.path.insert(0, str(Path(__file__).parents[2] / "tools"))
+    from kta_perfmodel.blind import real_pairs
+
+    g = [
+        {"id": "a", "measured": 10.0, "predicted": 12.0},
+        {"id": "b", "measured": 11.0, "predicted": 11.0},
+        {"id": "c", "measured": 13.0, "predicted": 14.0},
+    ]
+    t = {"a": [10.0, 10.0], "b": [11.0, 9.0], "c": [13.0, 13.0]}
+    c = real_pairs(g, t)
+    assert (c["of"], c["right"], c["wrong_flips"], c["wrong_real"]) == (3, 2, 1, 0)
+    assert (c["real_of"], c["real_right"]) == (2, 2)
