@@ -2461,7 +2461,7 @@ def _round15(out: Path) -> None:
 GEMV16 = {"N": 7168, "K": 2688, "group": 56, "n_part": 4, "reduce": 32}
 FA16 = {**FA, "S": 2240, "H": 7, "D": 112}
 DECODE16 = {**DECODE, "H": 28, "G": 7, "S": 2240, "D": 112}
-ROWS16 = {"M": 1344, "N": 2240}
+ROWS16 = {"M": 896, "N": 3584}  # N takes T 512; 2240 was refused at T 128 and above
 HGEMM_BLIND16_SHAPE = {"M": 3200, "N": 1280, "K": 1600}
 HAND16 = {
     "atomhash": ((1024, 1, 1), (256,), [4 * MB], None),

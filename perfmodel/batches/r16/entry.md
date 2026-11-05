@@ -4,7 +4,7 @@ Written before the run. Engine: the repaired engine of round 15 (no change to `s
 
 ## Blind, the fixed recipe (D874)
 
-1. Round 14's families and variant kinds, including T 512 where the launch allows it. New shapes by a rule chosen before any result: off HGEMM a factor 7 in every size, HGEMM a factor 25 in M: HGEMM 3200×1280×1600 (10 variants, warm and rotating), GEMV 7168×2688 group 56 (9), FA 2240×7×112 (10 asked, what the launch allows), decode 28×2240×112 G 7 (8), RMSNorm 1344×2240 (6 thread counts), each warm and rotating; softmax 1344×2240 (6) warm; 17 own kernels in `perfmodel/testset/hand16/`. Predictions committed before the run.
+1. Round 14's families and variant kinds, including T 512 where the launch allows it. New shapes by a rule chosen before any result: off HGEMM a factor 7 in every size, HGEMM a factor 25 in M: HGEMM 3200×1280×1600 (10 variants, warm and rotating), GEMV 7168×2688 group 56 (9), FA 2240×7×112 (10 asked, what the launch allows), decode 28×2240×112 G 7 (8), RMSNorm 896×3584 (6 thread counts; 1344×2240 was refused at build, T 128 and above, before any result), each warm and rotating; softmax 896×3584 (6) warm; 17 own kernels in `perfmodel/testset/hand16/`. Predictions committed before the run.
 
 ## mr_*, mk_* — read × DRAM × every pattern; what stays in the L2 (matrix: read × DRAM, 16 cells; retention, question 26 at a new form)
 
