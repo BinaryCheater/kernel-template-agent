@@ -166,6 +166,10 @@ def main(argv: list[str] | None = None) -> int:
         "cached_rows": sum(r["cached"] for r in rows),
         "rows": [{k: v for k, v in r.items() if k not in ("job", "cached")} for r in rows],
     }
+    if a.full_here:
+        from . import addresses
+
+        doc["sectors"] = addresses.sector_line(addresses.main(None, a.jobs))
     mode = "full" if a.full_here else "override" if over else "selection"
     full.log(
         {
@@ -187,9 +191,6 @@ def main(argv: list[str] | None = None) -> int:
     spent = sum(r["cpu_s"] for r in full.runs(n) if r["mode"] != "full")
     print(f"this run {table.STATS['cpu_s']:.0f} CPU s; round {n} so far {spent:.0f} below the full")
     if a.full_here:
-        from . import addresses
-
-        doc["sectors"] = addresses.sector_line(addresses.main(None, a.jobs))
         a.out.mkdir(parents=True, exist_ok=True)
         (a.out / "error-table.json").write_text(json.dumps(doc, indent=1) + "\n")
         (a.out / "error-table.md").write_text(table.render(doc))

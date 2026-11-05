@@ -122,3 +122,4 @@
 {"date": "2026-11-05T06:58:21Z", "round": 15, "mode": "override", "commit": "65e6f7e96acf", "dirty": true, "rows": 11, "replayed": 6, "cpu_s": 49.5, "wall_s": 19.9, "jobs": 6}
 {"date": "2026-11-05T06:58:41Z", "round": 15, "mode": "override", "commit": "65e6f7e96acf", "dirty": true, "rows": 11, "replayed": 6, "cpu_s": 50.9, "wall_s": 20.2, "jobs": 6}
 {"date": "2026-11-05T07:01:45Z", "round": 15, "mode": "predict", "commit": "f1bff9b2f26a", "dirty": false, "rows": 18, "replayed": 6, "cpu_s": 6.0, "wall_s": 1.1, "jobs": 6}
+{"date": "2026-11-05T07:05:18Z", "round": 15, "mode": "selection", "commit": "480ce48e5816", "dirty": false, "rows": 94, "replayed": 70, "cpu_s": 404.5, "wall_s": 75.6, "jobs": 6}
