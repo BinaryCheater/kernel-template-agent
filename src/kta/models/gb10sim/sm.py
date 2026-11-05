@@ -96,6 +96,7 @@ class Warp:
     st_done: float = 0.0
     vals: dict[str, Any] = field(default_factory=dict)
     nldg: int = 0
+    lane_reads: int = 0  # round 14: stack reads at an index per lane
     role: str | None = None
     k_prod: int = -1
     n_full: int = 0
@@ -1335,7 +1336,22 @@ class SM:
             t["local_chip"] = t1 + nb / (rate / self.active_sms)
         else:
             cost = lines * P["local_clk_per_line"]
-            if not hit:
+            reg = re.search(r"\[(R\d+)", x.args)
+            val = w.lanes.get(reg[1], w.vals) if reg and w.lanes is not None else None
+            on_sm = self.stack_bytes * self.wpb * 32 * own
+            if (val is None and reg or val is not None and not w.lanes.uniform(val)) and (
+                on_sm > self.m.C["local_capacity_bytes"]
+            ):
+                # round 14 (stl_*, bl14_stackscan): an index per lane, past the SM's stack: each
+                # lane its sector from the L2, as lanes apart in LDG; a frame read over lands in L1
+                w.lane_reads += 1
+                cost = max(cost, P["local_load_lanes_clk"])
+                if chip_stack > self.m.C["l2_bytes"]:
+                    rate = P["local_load_cold_lanes_B_per_clk"]
+                    cost = max(cost, 32 * 32 / (rate / self.active_sms))
+                elif w.lane_reads * 4 <= self.stack_bytes:
+                    cost = max(cost, 32 * self.active_sms / P["l2_chip_ldg_lines_per_clk"])
+            elif not hit:
                 cost = lines * P["local_miss_clk_per_line"]
                 if cold:
                     cost = max(cost, nb / (P["local_load_cold_B_per_clk"] / self.active_sms))
@@ -1497,6 +1513,13 @@ class SM:
                     t["dram_queue"] += nbytes * self.active_sms / wr
         if addr0 is None and self.stg_lanes:
             nbytes = 32 * self.stg_lanes
+        if addr0 is None and self.lane_track and w_ == "4B" and P["stg_unknown_apart"]:
+            # round 14 (hs_*, bl14_hashput): an address from loaded data: lanes apart, as hashed
+            lanes = self.stg_lanes or 32
+            nbytes, rate = 32 * lanes, P["stg_chip_wide_B_per_clk"]
+            pair = lanes * P["stg_pair_clk_per_line"] * self.stg_share
+            if (self.write_footprint or 0) > P["stg_dirty_wide_bytes"]:
+                rate = min(rate, self.m.C["dram_write_GBs"] / self.m.C["clock_under_load_GHz"])
         self.stg_lanes = 0
         chip = nbytes / (rate / self.active_sms)
         start = max(now, t["store_port"])
