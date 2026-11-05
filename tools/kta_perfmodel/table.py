@@ -1249,8 +1249,17 @@ def render(doc: dict[str, Any], top: int = 15) -> str:
     rows = doc["rows"]
     replay = sum(r["wall_s"] for r in rows)
     slowest = max(r["wall_s"] for r in rows)
+    kind = doc.get("kind", "full")
     lines = [
         "# Error table",
+        "",
+        f"**{kind.capitalize()} table**: {len(rows)} rows"
+        + (
+            f", {len(doc.get('left_out', {}))} rows left out (`perfmodel/core.txt`, LOOP §8); "
+            "scores below are over these rows only and do not compare with a full table's."
+            if kind == "core"
+            else ", every row."
+        ),
         "",
         f"Produced by `scripts/perfmodel-table` from KTA commit `{doc['kta_commit']}`"
         f"{' (dirty)' if doc['kta_dirty'] else ''} on {doc['date']}; upstream inputs "

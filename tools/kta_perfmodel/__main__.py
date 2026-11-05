@@ -3,11 +3,12 @@
     scripts/perfmodel-table [--top]                    # the sentinels
     scripts/perfmodel-table --focus REGEX [--sentinels]  # the rows REGEX matches, no attribution
     scripts/perfmodel-table --override '{"sim.x": 1}'  # an ablation, on the same selection
-    scripts/perfmodel-table --full                     # once per round, on spark; writes the table
+    scripts/perfmodel-table --core                     # the fixed core, end of a round, on spark
+    scripts/perfmodel-table --full [--reason TEXT]     # every third round or a stated reason
 
-Sentinels show that something moved; only the full table scores the round. Every run appends rows,
-replays, CPU seconds and wall time to perfmodel/table-runs.jsonl. Local replays run at nice 19 on
-at most table.LOCAL_JOBS processes.
+Sentinels show that something moved; the core or full table scores the round. Every run appends
+rows, replays, CPU seconds and wall time to perfmodel/table-runs.jsonl. Local replays run at nice
+19 on at most table.LOCAL_JOBS processes.
 """
 
 from __future__ import annotations
@@ -20,7 +21,7 @@ import time
 from datetime import UTC, datetime
 from pathlib import Path
 
-from . import full, sentinels, table, upstream
+from . import core, full, sentinels, table, upstream
 
 OUT = upstream.ROOT / "docs" / "design" / "perfmodel"
 LAST = upstream.ROOT / "data" / "perfmodel" / "last-selection.json"
@@ -50,8 +51,11 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument(
         "--wide", action="store_true", help=f"past the {table.LOCAL_CAP_S:.0f} CPU s cap; logged"
     )
-    ap.add_argument("--full", action="store_true", help="every row, once per round, on spark")
+    ap.add_argument("--core", action="store_true", help="the fixed core list, on spark")
+    ap.add_argument("--core-here", action="store_true", help="what --core runs on the worker")
+    ap.add_argument("--full", action="store_true", help="every row, every third round, on spark")
     ap.add_argument("--full-here", action="store_true", help="what --full runs on the worker")
+    ap.add_argument("--reason", default=None, help="why a --full in a round not divisible by 3")
     ap.add_argument("--upstream", type=Path, default=upstream.UPSTREAM)
     ap.add_argument("--rev", default=upstream.UPSTREAM_REV)
     ap.add_argument("--out", type=Path, default=OUT)
@@ -76,25 +80,32 @@ def main(argv: list[str] | None = None) -> int:
         addresses.save(got, LAST.parent / "addresses.json")
         addresses.report(got)
         return 0
-    if a.full:
-        full.on_spark(a.out)
+    if a.full or a.core:
+        full.on_spark(a.out, "full" if a.full else "core", a.reason)
         return 0
     if a.full_here:
+        full.refuse_full(a.reason)
         full.refuse_second()
+    here = a.full_here or a.core_here
+    kind = "full" if a.full_here else "core" if a.core_here else "selection"
     over = json.loads(a.override) if a.override else None
-    trace = a.full_here or (a.trace and not over)
+    trace = here or (a.trace and not over)
     cal, sha = upstream.calibration_dir(a.upstream, a.rev)
     head, dirty = upstream.kta_commit()
     t0 = time.perf_counter()
     rows = table.specs(cal, tuple(a.sets))
-    if not a.full_here:
+    everything = rows
+    if a.core_here:
+        keep = core.read()
+        rows = [r for r in rows if r["id"] in keep]
+    elif not a.full_here:
         rows = select(rows, a.focus, a.sentinels)
     prev = a.out / "error-table.json"
-    hint = (
-        {r["id"]: r.get("wall_s", 0.0) for r in json.loads(prev.read_text())["rows"]}
-        if prev.exists()
-        else {}
-    )
+    hint = {}
+    if prev.exists():
+        old = json.loads(prev.read_text())
+        hint = {**old.get("left_out", {}), **{r["id"]: r.get("wall_s", 0.0) for r in old["rows"]}}
+    room = max(0.0, full.BELOW_CORE_S - full.below_core(full.current_round()))
     for r in table.run(
         cal,
         sha,
@@ -106,9 +117,9 @@ def main(argv: list[str] | None = None) -> int:
         a.cached_only,
         over,
         trace=trace,
-        cap_s=None if a.full_here or a.wide else table.LOCAL_CAP_S,
+        cap_s=None if here else room if a.wide else min(table.LOCAL_CAP_S, room),
     ):
-        if a.full_here:
+        if here:
             err = "" if r["error"] is None else f"{100 * r['error']:+7.1f} %"
             print(
                 f"{r['id']:48s} {r['measured']:12.2f} {table._fmt(r['predicted']):>12s} "
@@ -118,7 +129,7 @@ def main(argv: list[str] | None = None) -> int:
     # the "mechanisms only" column (LOOP §4.4): the same rows with every fitted parameter replaced;
     # it replays every row that reads one, so only the full table computes it
     mech = {}
-    if a.full_here:
+    if here:
         mech = {
             r["id"]: r
             for r in table.run(
@@ -145,6 +156,7 @@ def main(argv: list[str] | None = None) -> int:
             r.update(blind=f["error"], blind_batch=f["batch"], blind_predicted=f["predicted"])
     latest_batch = max((f["batch"] for f in first.values()), default=None, key=table.batch_order)
     doc = {
+        "kind": kind,
         "kta_commit": head,
         "kta_dirty": dirty,
         "upstream": str(a.upstream),
@@ -166,11 +178,16 @@ def main(argv: list[str] | None = None) -> int:
         "cached_rows": sum(r["cached"] for r in rows),
         "rows": [{k: v for k, v in r.items() if k not in ("job", "cached")} for r in rows],
     }
+    if a.core_here:
+        ids = {r["id"] for r in rows}
+        doc["left_out"] = {
+            r["id"]: hint.get(r["id"], 2.0) for r in everything if r["id"] not in ids
+        }
     if a.full_here:
         from . import addresses
 
         doc["sectors"] = addresses.sector_line(addresses.main(None, a.jobs))
-    mode = "full" if a.full_here else "override" if over else "selection"
+    mode = kind if here else "override" if over else "selection"
     full.log(
         {
             "mode": mode,
@@ -188,9 +205,12 @@ def main(argv: list[str] | None = None) -> int:
             err = "" if r["error"] is None else f"{100 * r['error']:+7.1f} %"
             print(f"  {r['id']:52s} {table._fmt(r['predicted']):>12s} {err}")
     n = full.current_round()
-    spent = sum(r["cpu_s"] for r in full.runs(n) if r["mode"] != "full")
-    print(f"this run {table.STATS['cpu_s']:.0f} CPU s; round {n} so far {spent:.0f} below the full")
-    if a.full_here:
+    spent = full.below_core(n)
+    print(
+        f"this run {table.STATS['cpu_s']:.0f} CPU s; round {n} so far {spent:.0f} below the core, "
+        f"limit {full.BELOW_CORE_S:.0f}"
+    )
+    if here:
         a.out.mkdir(parents=True, exist_ok=True)
         (a.out / "error-table.json").write_text(json.dumps(doc, indent=1) + "\n")
         (a.out / "error-table.md").write_text(table.render(doc))

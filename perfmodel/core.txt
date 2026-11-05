@@ -1,0 +1,878 @@
+# rows of `scripts/perfmodel-table --core`: fixed; the rule is in tools/kta_perfmodel/core.py
+# drawn from the full table at 1b9cb9c; python -m kta_perfmodel.core rewrites it
+alu F2F.F16.F32+HADD2.F32 w4  # sample probe alu.cu
+alu F2FP.PACK_AB w8  # sample probe alu.cu
+alu F2I w4  # sample probe alu.cu
+alu HADD2.F32(h2f) w4  # sample probe alu.cu
+alu HFMA2 w4  # sample probe alu.cu
+alu LOP3 w4  # sample probe alu.cu
+alu SHF w4  # sample probe alu.cu
+alumix FFMA+FFMA  # sample probe alumix.cu
+alumix HADD2.F32+FADD+IMAD  # sample probe alumix.cu
+alumix HFMA2+LOP3  # sample probe alumix.cu
+alumix PRMT+IMAD  # sample probe alumix.cu
+arith_beside L0_S2_A128_g96  # sample probe arith_beside
+arith_beside L0_S2_A32_g96  # sample probe arith_beside
+arith_beside L2_S0_A0_g96  # sample probe arith_beside
+arith_beside L2_S0_A128_g512  # sample probe arith_beside
+arith_beside L2_S0_A32_g96  # sample probe arith_beside
+atb_w1024 kernel  # sample atomic_bins
+atk_p2 kernel  # sample atomic_bins
+atom_b16_gap128 kernel  # sample atomic_bins
+atom_b256_gap4096 kernel  # sample atomic_bins
+atw_l32_b1048576 kernel  # sample atomic_bins
+atw_l8_b64 kernel  # sample atomic_bins
+bl13_interleave_t128 kernel  # sample breadth blind
+bl13_recordfill_w4 kernel  # sample breadth blind
+bl13_swaprows b2b  # what-if base breadth blind loads removed
+bl13_swaprows graph  # what-if base breadth blind loads removed
+bl13_swaprows kernel  # what-if base breadth blind loads removed
+bl13_swaprows_l1 b2b  # what-if breadth blind loads removed
+bl13_swaprows_l1 graph  # what-if breadth blind loads removed
+bl13_swaprows_l1 kernel  # what-if breadth blind loads removed
+bl13_ticket b2b  # what-if base breadth blind stores removed
+bl13_ticket graph  # what-if base breadth blind stores removed
+bl13_ticket kernel  # what-if base breadth blind stores removed
+bl13_ticket_noret b2b  # what-if breadth blind stores removed
+bl13_ticket_noret graph  # what-if breadth blind stores removed
+bl13_ticket_noret kernel  # what-if breadth blind stores removed
+bl13_tilefill_p2 kernel  # sample breadth blind
+bl13_transpose kernel  # what-if base breadth blind threads
+bl13_transpose_t128 kernel  # what-if breadth blind threads
+bl14_countblock_nl kernel  # sample breadth blind
+bl14_exchring kernel  # what-if base breadth blind threads
+bl14_exchring_t128 kernel  # what-if breadth blind threads
+bl14_histlane_b64 kernel  # sample breadth blind
+bl14_xorwide kernel  # what-if base breadth blind shape
+bl14_xorwide_m1 kernel  # what-if breadth blind shape
+bl15_chunked_w6 kernel  # sample breadth blind
+bl15_gather3 kernel  # sample breadth blind
+bl15_morton_k1 kernel  # sample breadth blind
+bl_aos kernel  # what-if base breadth blind stores removed
+bl_aos_f1 kernel  # what-if breadth blind stores removed
+bl_axpy_m8 kernel  # sample breadth blind
+bl_fanout kernel  # what-if base breadth blind shape
+bl_fanout_s16 kernel  # what-if breadth blind shape
+bl_maskstore_all kernel  # sample breadth blind
+bl_mixrwa kernel  # what-if base breadth blind loads removed
+bl_mixrwa_noatom b2b  # what-if breadth blind compute removed
+bl_mixrwa_noatom graph  # what-if breadth blind compute removed
+bl_mixrwa_noatom kernel  # what-if breadth blind compute removed
+bl_mixrwa_noload kernel  # what-if breadth blind loads removed
+bl_mixrwa_nostore kernel  # sample breadth blind
+branch flat1024_w1  # sample probe branch
+branch flat256_w2  # sample probe branch
+branch flat4096_w1  # sample probe branch
+branch flat64_w1  # sample probe branch
+branch fwd_taken_w1  # sample probe branch
+branch loop16_w1  # sample probe branch
+branch loop8_w4  # sample probe branch
+copy_depth rot_t128_k8  # sample probe copy_depth
+copy_depth rot_t32_k16_landed  # sample probe copy_depth
+copy_depth warm_t128_k4  # sample probe copy_depth
+copy_depth warm_t32_k16  # sample probe copy_depth
+copy_depth warm_t32_k256  # sample probe copy_depth
+copy_depth warm_t32_k4  # sample probe copy_depth
+copy_depth warm_t32_k4_landed  # sample probe copy_depth
+copy_depth warm_t32_k64  # sample probe copy_depth
+copy_dram rot_z1024_g48  # sample probe copy_dram
+copy_dram rot_z256_g48  # sample probe copy_dram
+copy_dram rot_z64_g16  # sample probe copy_dram
+copy_dram warm_z0_g1  # sample probe copy_dram
+copy_dram warm_z0_g16  # sample probe copy_dram
+ct_k480 kernel  # sample turnover
+ct_k960 kernel  # sample turnover
+cvt int to fp32  # sample probe cvt.cu
+dec13_b_rotating kernel  # what-if base decode stages
+dec13_b_warm b2b  # what-if base decode blocks
+dec13_b_warm graph  # what-if base decode blocks
+dec13_b_warm kernel  # what-if base decode blocks
+dec13_bn32_rotating kernel  # what-if decode tile
+dec13_bn32_warm b2b  # what-if decode tile
+dec13_bn32_warm graph  # what-if decode tile
+dec13_bn32_warm kernel  # what-if decode tile
+dec13_s1_warm b2b  # what-if decode stages
+dec13_s1_warm graph  # what-if decode stages
+dec13_s1_warm kernel  # what-if decode stages
+dec13_s3_rotating kernel  # what-if decode stages
+dec13_split16_warm b2b  # what-if decode blocks
+dec13_split16_warm graph  # what-if decode blocks
+dec13_split16_warm kernel  # what-if decode blocks
+dec13_split4_bn32_rotating kernel  # what-if decode design
+dec13_split4_bn32_warm b2b  # what-if decode design
+dec13_split4_bn32_warm graph  # what-if decode design
+dec13_split4_bn32_warm kernel  # what-if decode design
+dec14_b_rotating kernel  # what-if base decode design
+dec14_b_warm b2b  # what-if base decode design
+dec14_b_warm graph  # what-if base decode design
+dec14_b_warm kernel  # what-if base decode design
+dec14_split4_bn32_rotating kernel  # what-if decode design
+dec14_split4_bn32_warm b2b  # what-if decode design
+dec14_split4_bn32_warm graph  # what-if decode design
+dec14_split4_bn32_warm kernel  # what-if decode design
+dec15_b_rotating kernel  # design group decode 36x2304x144
+dec15_b_warm b2b  # design group decode 36x2304x144
+dec15_b_warm graph  # design group decode 36x2304x144
+dec15_b_warm kernel  # design group decode 36x2304x144
+dec15_bn32_rotating kernel  # design group decode 36x2304x144
+dec15_bn32_warm b2b  # design group decode 36x2304x144
+dec15_bn32_warm graph  # design group decode 36x2304x144
+dec15_bn32_warm kernel  # design group decode 36x2304x144
+dec15_s1_rotating kernel  # design group decode 36x2304x144
+dec15_s1_warm b2b  # design group decode 36x2304x144
+dec15_s1_warm graph  # design group decode 36x2304x144
+dec15_s1_warm kernel  # design group decode 36x2304x144
+dec15_split16_rotating kernel  # design group decode 36x2304x144
+dec15_split16_warm kernel  # design group decode 36x2304x144
+dec15_split4_bn32_rotating kernel  # design group decode 36x2304x144
+dec15_split4_bn32_warm b2b  # design group decode 36x2304x144
+dec15_split4_bn32_warm graph  # design group decode 36x2304x144
+dec15_split4_bn32_warm kernel  # design group decode 36x2304x144
+dec15_split4_rotating kernel  # design group decode 36x2304x144
+dec15_split4_warm b2b  # design group decode 36x2304x144
+dec15_split4_warm graph  # design group decode 36x2304x144
+dec15_split4_warm kernel  # design group decode 36x2304x144
+decode_gqa_comb_s4096_warm kernel  # sample decode_gqa_combine
+decode_gqa_part_s4096_rotating kernel  # design group decode_gqa
+decode_gqa_part_s4096_warm b2b  # design group decode_gqa
+decode_gqa_part_s4096_warm graph  # design group decode_gqa
+decode_gqa_part_s4096_warm kernel  # design group decode_gqa
+decode_seq_s4096_rotating kernel  # sample decode_gqa_seq
+decode_seq_s4096_warm kernel  # sample decode_gqa_seq
+dl_w16_t128_rotating kernel  # sample dram_limit
+dl_w4_t32_rotating kernel  # sample dram_limit
+dl_w8_t512_warm kernel  # sample dram_limit
+dram_burst t1024_n10  # sample probe dram_burst
+dram_burst t256_n21  # sample probe dram_burst
+dram_burst t256_n42  # sample probe dram_burst
+dram_burst t256_n5  # sample probe dram_burst
+dram_rotate t128  # sample probe dram_rotate
+dram_rotate t256  # sample probe dram_rotate
+dram_rotate t64  # sample probe dram_rotate
+dram_rw r1_w1  # sample probe dram_rw
+dram_rw r1_w2  # sample probe dram_rw
+dram_rw r2_w0  # sample probe dram_rw
+ex2_ffma E8_F0  # sample probe ex2_ffma
+ex2_ffma E8_F16  # sample probe ex2_ffma
+ex2_ffma E8_F8  # sample probe ex2_ffma
+fa13_c128x64_s2_t128_rotating kernel  # what-if fa tile
+fa13_c128x64_s2_t256_rotating kernel  # what-if fa design
+fa13_c128x64_s2_t256_warm kernel  # what-if fa design
+fa13_c64x128_s2_t128_rotating kernel  # what-if fa tile
+fa13_c64x128_s2_t128_warm kernel  # what-if fa tile
+fa13_c64x32_s3_t128_rotating kernel  # what-if fa design
+fa13_c64x32_s3_t128_warm kernel  # what-if fa design
+fa13_c64x64_s1_t128_rotating kernel  # what-if fa stages
+fa13_c64x64_s2_t128_rotating kernel  # what-if base fa design
+fa13_c64x64_s2_t128_warm kernel  # what-if base fa design
+fa13_c64x64_s3_t128_rotating kernel  # what-if fa stages
+fa13_c64x64_s3_t128_warm kernel  # what-if fa stages
+fa13_noexp_rotating kernel  # what-if fa compute removed
+fa13_noexp_warm kernel  # what-if fa compute removed
+fa13_nostore_rotating kernel  # what-if fa stores removed
+fa13_nostore_warm kernel  # what-if fa stores removed
+fa13_nov_rotating kernel  # what-if fa compute removed
+fa15_c32x64_s2_t64_rotating kernel  # design group fa 2304x6x144
+fa15_c32x64_s2_t64_warm kernel  # design group fa 2304x6x144
+fa15_c64x32_s3_t128_rotating kernel  # design group fa 2304x6x144
+fa15_c64x32_s3_t128_warm kernel  # design group fa 2304x6x144
+fa15_c64x64_s1_t128_rotating kernel  # design group fa 2304x6x144
+fa15_c64x64_s1_t128_warm kernel  # design group fa 2304x6x144
+fa15_c64x64_s2_t128_rotating kernel  # design group fa 2304x6x144
+fa15_c64x64_s2_t128_warm kernel  # design group fa 2304x6x144
+fa15_c64x64_s2_t64_rotating kernel  # design group fa 2304x6x144
+fa15_c64x64_s2_t64_warm kernel  # design group fa 2304x6x144
+fa_fwd_s1024_h16_d64 kernel  # design group fa_forward
+fa_fwd_s2048_h8_d128 kernel  # design group fa_forward
+fad_d64_t128 kernel  # sample fa_stride
+fad_d80_t128 kernel  # sample fa_stride
+fad_d96_t128 kernel  # sample fa_stride
+first_reader rot_cp_z4_lead  # sample probe first_reader
+first_reader rot_cp_z64_alone  # sample probe first_reader
+first_reader rot_ldg_z16_alone  # sample probe first_reader
+first_reader warm_cp_z32_alone  # sample probe first_reader
+first_reader warm_ldg_z0_alone  # sample probe first_reader
+first_reader warm_ldg_z24_alone  # sample probe first_reader
+first_reader warm_ldg_z48_alone  # sample probe first_reader
+first_reader warm_ldg_z8_alone  # sample probe first_reader
+first_share rot_pieces_s64  # sample probe first_share
+first_share rot_seqd2_w2_last  # sample probe first_share
+first_share rot_share_d8_z0  # sample probe first_share
+first_share warm_seq_w4_first  # sample probe first_share
+first_share warm_share_d16_z0  # sample probe first_share
+first_share warm_share_d1_z0  # sample probe first_share
+first_share warm_share_d48_z256  # sample probe first_share
+fp8gemm2048_c128x128x64_s3_t128 kernel  # design group fp8gemm2048
+fp8gemm2048_c128x256x64_s3_t256 kernel  # design group fp8gemm2048
+gd_np2_r64 kernel  # sample dram_limit
+gemm1024 c128x256x32_st3_th256 nocompute  # sample gemm1024 nocompute
+gemm1024 c128x256x64_st2_th256 full  # sample gemm1024 full
+gemm1024 c128x64x32_st3_th128 full  # sample gemm1024 full
+gemm1024 c256x128x32_st3_th256 nocompute  # sample gemm1024 nocompute
+gemm1024 c256x128x64_st2_th256 nocompute  # sample gemm1024 nocompute
+gemm1024 c256x128x64_st2_th256 noload 1 block  # sample gemm1024 noload 1 block
+gemm1024 c256x64x32_st3_th256 nocompute  # sample gemm1024 nocompute
+gemm1024 c256x64x32_st3_th256 noload 1 block  # sample gemm1024 noload 1 block
+gemm1024 c64x128x32_st3_th128 nocompute  # sample gemm1024 nocompute
+gemm1024 c64x128x32_st3_th256 full  # sample gemm1024 full
+gemm1024 c64x128x64_st3_th128 full  # sample gemm1024 full
+gemm1024 c64x128x64_st3_th128 noload 1 block  # sample gemm1024 noload 1 block
+gemm1024 c64x256x32_st3_th256 full  # sample gemm1024 full
+gemm1024 c64x64x128_st3_th128 noload 1 block  # sample gemm1024 noload 1 block
+gemm1024 c64x64x32_st3_th256 noload 1 block  # sample gemm1024 noload 1 block
+gemv13_b_rotating kernel  # design group gemv 3072x6144
+gemv13_b_warm b2b  # design group gemv 3072x6144
+gemv13_b_warm graph  # design group gemv 3072x6144
+gemv13_b_warm kernel  # design group gemv 3072x6144
+gemv13_mk16_rotating kernel  # design group gemv 3072x6144
+gemv13_mk16_warm b2b  # design group gemv 3072x6144
+gemv13_mk16_warm graph  # design group gemv 3072x6144
+gemv13_mk16_warm kernel  # design group gemv 3072x6144
+gemv13_mk4_rotating kernel  # design group gemv 3072x6144
+gemv13_mk4_warm b2b  # design group gemv 3072x6144
+gemv13_mk4_warm graph  # design group gemv 3072x6144
+gemv13_mk4_warm kernel  # design group gemv 3072x6144
+gemv13_nocompute_rotating kernel  # what-if gemv compute removed
+gemv13_nocompute_warm b2b  # what-if gemv compute removed
+gemv13_nocompute_warm graph  # what-if gemv compute removed
+gemv13_nocompute_warm kernel  # what-if gemv compute removed
+gemv13_np2_r64_rotating kernel  # what-if gemv design
+gemv13_np2_r64_warm b2b  # what-if gemv design
+gemv13_np2_r64_warm graph  # what-if gemv design
+gemv13_np2_r64_warm kernel  # what-if gemv design
+gemv13_np2_rotating kernel  # design group gemv 3072x6144
+gemv13_np2_warm b2b  # what-if gemv threads
+gemv13_np2_warm graph  # what-if gemv threads
+gemv13_np2_warm kernel  # what-if gemv threads
+gemv13_np8_r16_rotating kernel  # design group gemv 3072x6144
+gemv13_np8_r16_warm b2b  # design group gemv 3072x6144
+gemv13_np8_r16_warm graph  # design group gemv 3072x6144
+gemv13_np8_r16_warm kernel  # design group gemv 3072x6144
+gemv13_np8_rotating kernel  # design group gemv 3072x6144
+gemv13_np8_warm b2b  # design group gemv 3072x6144
+gemv13_np8_warm graph  # design group gemv 3072x6144
+gemv13_np8_warm kernel  # design group gemv 3072x6144
+gemv13_r16_rotating kernel  # design group gemv 3072x6144
+gemv13_r16_warm b2b  # design group gemv 3072x6144
+gemv13_r16_warm graph  # design group gemv 3072x6144
+gemv13_r16_warm kernel  # design group gemv 3072x6144
+gemv13_r64_rotating kernel  # design group gemv 3072x6144
+gemv13_r64_warm b2b  # design group gemv 3072x6144
+gemv13_r64_warm graph  # design group gemv 3072x6144
+gemv13_r64_warm kernel  # design group gemv 3072x6144
+gemv14_b_rotating kernel  # what-if base gemv bytes per lane
+gemv14_b_warm b2b  # what-if base gemv bytes per lane
+gemv14_b_warm graph  # what-if base gemv bytes per lane
+gemv14_b_warm kernel  # what-if base gemv bytes per lane
+gemv14_mk16_rotating kernel  # what-if gemv bytes per lane
+gemv14_mk16_warm b2b  # what-if gemv bytes per lane
+gemv14_mk16_warm graph  # what-if gemv bytes per lane
+gemv14_mk16_warm kernel  # what-if gemv bytes per lane
+gemv14_np2_r64_rotating kernel  # what-if gemv design
+gemv14_r16_rotating kernel  # what-if gemv threads
+gemv15_b_warm b2b  # what-if base gemv design
+gemv15_b_warm graph  # what-if base gemv design
+gemv15_b_warm kernel  # what-if base gemv design
+gemv15_mk16_warm b2b  # what-if gemv bytes per lane
+gemv15_mk16_warm graph  # what-if gemv bytes per lane
+gemv15_mk16_warm kernel  # what-if gemv bytes per lane
+gemv15_np2_r64_warm b2b  # what-if gemv design
+gemv15_np2_r64_warm graph  # what-if gemv design
+gemv15_np2_r64_warm kernel  # what-if gemv design
+gemv_w4a16_n4096_k4096_rotating kernel  # design group gemv_w4a16
+gemv_w4a16_n4096_k4096_warm b2b  # design group gemv_w4a16
+gemv_w4a16_n4096_k4096_warm graph  # design group gemv_w4a16
+gemv_w4a16_n4096_k4096_warm kernel  # design group gemv_w4a16
+hand_bcast kernel  # sample breadth hand
+hand_oddeven kernel  # sample breadth hand
+hand_smear kernel  # sample breadth hand
+hand_stencil512 kernel  # sample breadth hand
+hb_f4 kernel  # sample hash_sweep
+hb_f64 kernel  # sample hash_sweep
+hgemm2048_c128x128x32_s3_t128 kernel  # design group hgemm2048
+hgemm2048_c128x128x32_s3_t128_rotating kernel  # design group hgemm2048
+hgemm2048_c128x128x32_s3_t128_sw8 kernel  # design group hgemm2048
+hgemm2048_c128x128x32_s3_t128_sw8_rotating kernel  # design group hgemm2048
+hgemm2048_c128x128x32_s4_t128 kernel  # design group hgemm2048
+hgemm2048_c128x128x32_s4_t128_rotating kernel  # design group hgemm2048
+hgemm2048_c128x128x64_s2_t128 kernel  # design group hgemm2048
+hgemm2048_c128x128x64_s2_t128_rotating kernel  # design group hgemm2048
+hgemm2048_c128x128x64_s3_t256 kernel  # design group hgemm2048
+hgemm2048_c128x128x64_s3_t256_rotating kernel  # design group hgemm2048
+hgemm2048_c128x256x32_s3_t256 kernel  # design group hgemm2048
+hgemm2048_c128x256x32_s3_t256_rotating kernel  # design group hgemm2048
+hgemm2048_c128x256x32_s3_t256_sw4 kernel  # design group hgemm2048
+hgemm2048_c128x256x32_s3_t256_sw4_rotating kernel  # design group hgemm2048
+hgemm2048_c128x256x64_s2_t256 kernel  # design group hgemm2048
+hgemm2048_c128x256x64_s2_t256_rotating kernel  # design group hgemm2048
+hgemm2048_c256x128x32_s3_t256 kernel  # design group hgemm2048
+hgemm2048_c256x128x32_s3_t256_rotating kernel  # design group hgemm2048
+hgemm2048_c64x128x32_s4_t128 kernel  # design group hgemm2048
+hgemm2048_c64x128x32_s4_t128_rotating kernel  # design group hgemm2048
+hgemm_m1024n1024k1024_c128x128x32_s4_t128 kernel  # design group hgemm 1024x1024x1024
+hgemm_m1024n1024k1024_c128x128x32_s4_t128_rotating kernel  # design group hgemm 1024x1024x1024
+hgemm_m1024n1024k1024_c128x128x64_s3_t256 kernel  # design group hgemm 1024x1024x1024
+hgemm_m1024n1024k1024_c128x128x64_s3_t256_rotating kernel  # design group hgemm 1024x1024x1024
+hgemm_m1024n1024k1024_c64x128x32_s4_t128 kernel  # design group hgemm 1024x1024x1024
+hgemm_m1024n1024k1024_c64x128x32_s4_t128_rotating kernel  # design group hgemm 1024x1024x1024
+hgemm_m1792n2560k2304_c128x128x32_s3_t128 kernel  # what-if base hgemm loads removed
+hgemm_m1792n2560k2304_c128x128x32_s3_t128_rotating kernel  # what-if base hgemm stages
+hgemm_m1792n2560k2304_c128x128x32_s4_t128_rotating kernel  # what-if hgemm stages
+hgemm_m1792n2560k2304_direct kernel  # what-if hgemm cp.async vs direct
+hgemm_m1792n2560k2304_noload kernel  # what-if hgemm loads removed
+hgemm_m1792n2560k2304_s1 kernel  # what-if hgemm stages
+hgemm_m1792n2560k2304_t256_rotating kernel  # what-if hgemm threads
+hgemm_m1792n2560k2304_t64 kernel  # what-if hgemm threads
+hgemm_m1792n2560k2304_t64_rotating kernel  # what-if hgemm threads
+hgemm_m2304n1792k1792_c128x128x32_s3_t128_rotating kernel  # what-if base hgemm design
+hgemm_m2304n1792k1792_c128x128x64_s2_t128_rotating kernel  # what-if hgemm design
+hgemm_m2560n2048k1536_c128x128x32_s3_t128 kernel  # what-if base hgemm stores removed
+hgemm_m2560n2048k1536_c128x128x32_s3_t128_nocompute kernel  # what-if hgemm compute removed
+hgemm_m2560n2048k1536_c128x128x32_s3_t128_noload kernel  # what-if hgemm loads removed
+hgemm_m2560n2048k1536_c128x128x32_s3_t128_nostore kernel  # what-if hgemm stores removed
+hgemm_m2688n1920k1728_c128x128x32_s2_t128 kernel  # what-if hgemm design
+hgemm_m2688n1920k1728_c128x128x32_s2_t128_rotating kernel  # design group hgemm 2688x1920x1728
+hgemm_m2688n1920k1728_c128x128x32_s3_t128 kernel  # design group hgemm 2688x1920x1728
+hgemm_m2688n1920k1728_c128x128x32_s3_t128_rotating kernel  # design group hgemm 2688x1920x1728
+hgemm_m2688n1920k1728_c128x128x32_s3_t128_sw8 kernel  # design group hgemm 2688x1920x1728
+hgemm_m2688n1920k1728_c128x128x32_s3_t128_sw8_rotating kernel  # design group hgemm 2688x1920x1728
+hgemm_m2688n1920k1728_c128x128x32_s4_t128 kernel  # what-if hgemm design
+hgemm_m2688n1920k1728_c128x128x32_s4_t128_rotating kernel  # design group hgemm 2688x1920x1728
+hgemm_m2688n1920k1728_c128x128x64_s2_t128 kernel  # design group hgemm 2688x1920x1728
+hgemm_m2688n1920k1728_c128x128x64_s2_t128_rotating kernel  # what-if hgemm design
+hgemm_m2688n1920k1728_c128x256x32_s3_t256 kernel  # design group hgemm 2688x1920x1728
+hgemm_m2688n1920k1728_c128x256x32_s3_t256_rotating kernel  # design group hgemm 2688x1920x1728
+hgemm_m2688n1920k1728_c256x128x32_s2_t256 kernel  # design group hgemm 2688x1920x1728
+hgemm_m2688n1920k1728_c256x128x32_s2_t256_rotating kernel  # design group hgemm 2688x1920x1728
+hgemm_m2688n1920k1728_c64x128x32_s4_t128 kernel  # design group hgemm 2688x1920x1728
+hgemm_m2688n1920k1728_c64x128x32_s4_t128_rotating kernel  # design group hgemm 2688x1920x1728
+hgemm_m3072n1536k2048_c128x128x32_s2_t128 kernel  # design group hgemm 3072x1536x2048
+hgemm_m3072n1536k2048_c128x128x32_s2_t128_rotating kernel  # design group hgemm 3072x1536x2048
+hgemm_m3072n1536k2048_c128x128x32_s3_t128 kernel  # design group hgemm 3072x1536x2048
+hgemm_m3072n1536k2048_c128x128x32_s3_t128_rotating kernel  # design group hgemm 3072x1536x2048
+hgemm_m3072n1536k2048_c128x128x32_s3_t128_sw8 kernel  # design group hgemm 3072x1536x2048
+hgemm_m3072n1536k2048_c128x128x32_s3_t128_sw8_rotating kernel  # design group hgemm 3072x1536x2048
+hgemm_m3072n1536k2048_c128x128x32_s4_t128 kernel  # design group hgemm 3072x1536x2048
+hgemm_m3072n1536k2048_c128x128x32_s4_t128_rotating kernel  # design group hgemm 3072x1536x2048
+hgemm_m3072n1536k2048_c128x128x64_s2_t128 kernel  # design group hgemm 3072x1536x2048
+hgemm_m3072n1536k2048_c128x128x64_s2_t128_rotating kernel  # design group hgemm 3072x1536x2048
+hgemm_m3072n1536k2048_c128x128x64_s3_t256 kernel  # design group hgemm 3072x1536x2048
+hgemm_m3072n1536k2048_c128x128x64_s3_t256_rotating kernel  # design group hgemm 3072x1536x2048
+hgemm_m3072n1536k2048_c128x256x32_s3_t256 kernel  # design group hgemm 3072x1536x2048
+hgemm_m3072n1536k2048_c128x256x32_s3_t256_rotating kernel  # design group hgemm 3072x1536x2048
+hgemm_m3072n1536k2048_c128x256x32_s3_t256_sw4 kernel  # design group hgemm 3072x1536x2048
+hgemm_m3072n1536k2048_c128x256x32_s3_t256_sw4_rotating kernel  # design group hgemm 3072x1536x2048
+hgemm_m3072n1536k2048_c128x256x64_s2_t256 kernel  # design group hgemm 3072x1536x2048
+hgemm_m3072n1536k2048_c128x256x64_s2_t256_rotating kernel  # design group hgemm 3072x1536x2048
+hgemm_m3072n1536k2048_c128x64x32_s4_t128 kernel  # design group hgemm 3072x1536x2048
+hgemm_m3072n1536k2048_c128x64x32_s4_t128_rotating kernel  # design group hgemm 3072x1536x2048
+hgemm_m3072n1536k2048_c256x128x32_s3_t256 kernel  # design group hgemm 3072x1536x2048
+hgemm_m3072n1536k2048_c256x128x32_s3_t256_rotating kernel  # design group hgemm 3072x1536x2048
+hgemm_m3072n1536k2048_c256x256x32_s2_t256 kernel  # design group hgemm 3072x1536x2048
+hgemm_m3072n1536k2048_c256x256x32_s2_t256_rotating kernel  # design group hgemm 3072x1536x2048
+hgemm_m3072n1536k2048_c64x128x32_s4_t128 kernel  # design group hgemm 3072x1536x2048
+hgemm_m3072n1536k2048_c64x128x32_s4_t128_rotating kernel  # design group hgemm 3072x1536x2048
+hgemm_m3072n1536k2048_c64x64x32_s4_t64 kernel  # design group hgemm 3072x1536x2048
+hgemm_m3072n1536k2048_c64x64x32_s4_t64_rotating kernel  # design group hgemm 3072x1536x2048
+hl_f4096 kernel  # sample hash_sweep
+hs_f1024 kernel  # sample hash_sweep
+l1hit chase  # sample probe l1hit
+l1hit tput_w4  # sample probe l1hit
+l1hit tput_w8  # sample probe l1hit
+l2_cap cp16_g48  # sample probe l2_cap
+l2_cap cp64_g12  # sample probe l2_cap
+l2_cap ld128_g480  # sample probe l2_cap
+l2_cap ld32_g144  # sample probe l2_cap
+l2_cap ld4_g12  # sample probe l2_cap
+l2_local lockstep_g48  # sample probe l2_local
+l2_local page_g144  # sample probe l2_local
+l2_local scatter_g48  # sample probe l2_local
+l2_local walk_g48  # sample probe l2_local
+l2mix L0_S2_W16_D16_P0_g96  # sample probe l2mix
+l2mix L0_S2_W16_D64_P0_g512  # sample probe l2mix
+l2mix L0_S2_W16_D64_P0_g96  # sample probe l2mix
+l2mix L0_S2_W4_D4_P0_g96  # sample probe l2mix
+l2mix L1_S4_W32_D32_P0_g96  # sample probe l2mix
+l2mix L2_S1_W32_D32_P0_g96  # sample probe l2mix
+l2mix L2_S1_W32_D32_P1_g96  # sample probe l2mix
+l2mix L4_S1_W32_D32_P1_g96  # sample probe l2mix
+l2reuse n16_cs_warm  # sample probe l2reuse
+l2reuse n20_cg_warm  # sample probe l2reuse
+l2reuse n22_cg_warm  # sample probe l2reuse
+l2reuse n24_cg_cold  # sample probe l2reuse
+l2reuse n27_ca_warm  # sample probe l2reuse
+l2reuse n2_cg_in4  # sample probe l2reuse
+l2reuse n32_cg_cold  # sample probe l2reuse
+l2reuse n43_cg_warm  # sample probe l2reuse
+l2reuse n8_ca_cold  # sample probe l2reuse
+l2share_copy b1  # sample probe l2share_copy
+l2share_copy b32  # sample probe l2share_copy
+l2share_stages s1_b48  # sample probe l2share_stages
+l2share_stages s2_b16  # sample probe l2share_stages
+l2share_stages s3_b1  # sample probe l2share_stages
+l2share_stages s4_b48  # sample probe l2share_stages
+launch b2b_work_i0  # sample probe launch
+launch empty_g1_t128  # sample probe launch
+launch empty_g2048_t128  # sample probe launch
+launch empty_g4096_t128  # sample probe launch
+launch empty_g96_t128  # sample probe launch
+launch graph_g512_t128  # sample probe launch
+launch tiny_g48_t1024  # sample probe launch
+launch_short b2b_work_i0  # sample probe launch_short
+launch_short graph_work_i8  # sample probe launch_short
+launch_short work_i16  # sample probe launch_short
+launch_short work_i24  # sample probe launch_short
+launch_short work_i32  # sample probe launch_short
+launch_short work_i40  # sample probe launch_short
+launch_short work_i48  # sample probe launch_short
+lds_narrow LDS.32_s4_w32  # sample probe lds_narrow
+lds_narrow LDS.U16_s16_w4  # sample probe lds_narrow
+lds_narrow LDS.U8_s1_w32  # sample probe lds_narrow
+lds_narrow LDS.U8_s64_w4  # sample probe lds_narrow
+lds_narrow STS.32_s64_w1  # sample probe lds_narrow
+lds_narrow STS.U16_s16_w1  # sample probe lds_narrow
+lds_narrow STS.U16_s2_w1  # sample probe lds_narrow
+lib_E01 kernel  # sample breadth library
+lib_E02 kernel  # sample breadth library
+lib_E07 kernel  # sample breadth library
+lib_E08 kernel  # sample breadth library
+load_curve g12_z256  # sample probe load_curve
+load_curve g144_z16  # sample probe load_curve
+load_curve g1_z0  # sample probe load_curve
+load_curve g24_z64  # sample probe load_curve
+load_curve g48_z16  # sample probe load_curve
+load_curve g96_z16  # sample probe load_curve
+load_sat g12_z0  # sample probe load_sat
+load_sat g24_z64  # sample probe load_sat
+load_sat g48_z0  # sample probe load_sat
+load_sat g96_z256  # sample probe load_sat
+mma_issue malu_2  # sample probe mma_issue
+mma_issue mfma_8  # sample probe mma_issue
+mma_issue mlds_1  # sample probe mma_issue
+mma_issue mlds_4  # sample probe mma_issue
+mma_issue n16  # sample probe mma_issue
+mma_issue nbr_lds  # sample probe mma_issue
+mma_ldsm t128_L0_M64  # sample probe mma_ldsm
+mma_ldsm t128_L8_M64  # sample probe mma_ldsm
+mma_ldsm t256_L4_M32  # sample probe mma_ldsm
+mma_ldsm t512_L2_M16  # sample probe mma_ldsm
+mma_pair b1_span  # sample probe mma_pair
+mma_pair b96_s0_span  # sample probe mma_pair
+mma_pair b96_s4096_first  # sample probe mma_pair
+mma_pipe v13_0_a1_b1_w8  # sample probe mma_pipe
+mma_pipe v13_0_a1_b4_w8  # sample probe mma_pipe
+mma_pipe v13_2_a1_b1_w1  # sample probe mma_pipe
+mma_pipe v13_2_a1_b1_w8  # sample probe mma_pipe
+mma_pipe v13_2_a1_b4_w1  # sample probe mma_pipe
+mma_pipe v13_2_a1_b8_w8  # sample probe mma_pipe
+mma_pipe v13_2_a8_b1_w1  # sample probe mma_pipe
+mma_types f32_bf16_chain  # sample probe mma_types
+mma_types f32_e4m3_w1  # sample probe mma_types
+mma_types f32_e5m2_chain  # sample probe mma_types
+mma_types s32_s8_w1  # sample probe mma_types
+mma_types s32_s8_w4  # sample probe mma_types
+moe_e8_t2048_n1024_k2048_c128x128x32_s3_t128 kernel  # design group moe_gemm
+moe_e8_t2048_n1024_k2048_c64x128x32_s4_t128 kernel  # design group moe_gemm
+namedbar arrive_L0  # sample probe namedbar
+namedbar sync_w2  # sample probe namedbar
+namedbar sync_w4  # sample probe namedbar
+nvfp4gemm2048_c128x128x32_s2_t128_rotating kernel  # design group nvfp4gemm
+nvfp4gemm2048_c128x128x32_s2_t128_warm kernel  # design group nvfp4gemm
+nvfp4gemm2048_c128x128x32_s3_t128_rotating kernel  # design group nvfp4gemm
+nvfp4gemm2048_c128x128x32_s3_t128_warm kernel  # design group nvfp4gemm
+nvfp4gemm2048_c64x128x32_s4_t128_rotating kernel  # design group nvfp4gemm
+nvfp4gemm2048_c64x128x32_s4_t128_warm kernel  # design group nvfp4gemm
+occ_t1024_k1 kernel  # sample occupancy
+occ_t128_k1 kernel  # sample occupancy
+occ_t256_k4 kernel  # sample occupancy
+occ_t512_k2 kernel  # sample occupancy
+occ_t64_k8 kernel  # sample occupancy
+qs1_s1 kernel  # sample stage_question
+qs1_s2_nocopy kernel  # sample stage_question
+qs1_s3 kernel  # sample stage_question
+qs2_s3_nocopy kernel  # sample stage_question
+qs_s2_late kernel  # sample stage_question
+rf_w1_m4 kernel  # sample record_sweep
+rf_w2_m16 kernel  # sample record_sweep
+rf_w2_m4 kernel  # sample record_sweep
+rf_w8_m4 kernel  # sample record_sweep
+rms14_t128_rotating kernel  # design group rmsnorm 1280x2560
+rms14_t128_warm b2b  # design group rmsnorm 1280x2560
+rms14_t128_warm graph  # design group rmsnorm 1280x2560
+rms14_t128_warm kernel  # design group rmsnorm 1280x2560
+rms14_t16_rotating kernel  # design group rmsnorm 1280x2560
+rms14_t16_warm b2b  # design group rmsnorm 1280x2560
+rms14_t16_warm graph  # design group rmsnorm 1280x2560
+rms14_t16_warm kernel  # design group rmsnorm 1280x2560
+rms14_t256_rotating kernel  # design group rmsnorm 1280x2560
+rms14_t256_warm b2b  # design group rmsnorm 1280x2560
+rms14_t256_warm graph  # design group rmsnorm 1280x2560
+rms14_t256_warm kernel  # design group rmsnorm 1280x2560
+rms14_t32_rotating kernel  # design group rmsnorm 1280x2560
+rms14_t32_warm b2b  # design group rmsnorm 1280x2560
+rms14_t32_warm graph  # design group rmsnorm 1280x2560
+rms14_t32_warm kernel  # design group rmsnorm 1280x2560
+rms14_t512_rotating kernel  # design group rmsnorm 1280x2560
+rms14_t512_warm b2b  # design group rmsnorm 1280x2560
+rms14_t512_warm graph  # design group rmsnorm 1280x2560
+rms14_t512_warm kernel  # design group rmsnorm 1280x2560
+rms14_t64_rotating kernel  # design group rmsnorm 1280x2560
+rms14_t64_warm b2b  # design group rmsnorm 1280x2560
+rms14_t64_warm graph  # design group rmsnorm 1280x2560
+rms14_t64_warm kernel  # design group rmsnorm 1280x2560
+rms15_t128_rotating kernel  # design group rmsnorm 1920x1792
+rms15_t128_warm b2b  # design group rmsnorm 1920x1792
+rms15_t128_warm graph  # design group rmsnorm 1920x1792
+rms15_t128_warm kernel  # design group rmsnorm 1920x1792
+rms15_t16_rotating kernel  # design group rmsnorm 1920x1792
+rms15_t16_warm b2b  # design group rmsnorm 1920x1792
+rms15_t16_warm graph  # design group rmsnorm 1920x1792
+rms15_t16_warm kernel  # design group rmsnorm 1920x1792
+rms15_t256_rotating kernel  # design group rmsnorm 1920x1792
+rms15_t256_warm b2b  # design group rmsnorm 1920x1792
+rms15_t256_warm graph  # design group rmsnorm 1920x1792
+rms15_t256_warm kernel  # design group rmsnorm 1920x1792
+rms15_t32_rotating kernel  # design group rmsnorm 1920x1792
+rms15_t32_warm b2b  # design group rmsnorm 1920x1792
+rms15_t32_warm graph  # design group rmsnorm 1920x1792
+rms15_t32_warm kernel  # design group rmsnorm 1920x1792
+rms15_t64_rotating kernel  # design group rmsnorm 1920x1792
+rms15_t64_warm b2b  # design group rmsnorm 1920x1792
+rms15_t64_warm graph  # design group rmsnorm 1920x1792
+rms15_t64_warm kernel  # design group rmsnorm 1920x1792
+rmsb_m192_arith b2b  # what-if rmsnorm loads and stores removed
+rmsb_m192_arith graph  # what-if rmsnorm loads and stores removed
+rmsb_m192_arith kernel  # what-if rmsnorm loads and stores removed
+rmsb_m192_b b2b  # what-if base rmsnorm stores removed
+rmsb_m192_b graph  # what-if base rmsnorm stores removed
+rmsb_m192_b kernel  # what-if base rmsnorm stores removed
+rmsb_m192_nocompute b2b  # what-if rmsnorm compute removed
+rmsb_m192_nocompute graph  # what-if rmsnorm compute removed
+rmsb_m192_nocompute kernel  # what-if rmsnorm compute removed
+rmsb_m192_noload b2b  # what-if rmsnorm loads removed
+rmsb_m192_noload graph  # what-if rmsnorm loads removed
+rmsb_m192_noload kernel  # what-if rmsnorm loads removed
+rmsb_m192_nostore b2b  # what-if rmsnorm stores removed
+rmsb_m192_nostore graph  # what-if rmsnorm stores removed
+rmsb_m192_nostore kernel  # what-if rmsnorm stores removed
+rmsb_m48_arith b2b  # what-if rmsnorm loads and stores removed
+rmsb_m48_arith graph  # what-if rmsnorm loads and stores removed
+rmsb_m48_arith kernel  # what-if rmsnorm loads and stores removed
+rmsb_m48_b b2b  # what-if base rmsnorm stores removed
+rmsb_m48_b graph  # what-if base rmsnorm stores removed
+rmsb_m48_b kernel  # what-if base rmsnorm stores removed
+rmsb_m48_nocompute b2b  # what-if rmsnorm compute removed
+rmsb_m48_nocompute graph  # what-if rmsnorm compute removed
+rmsb_m48_nocompute kernel  # what-if rmsnorm compute removed
+rmsb_m48_noload b2b  # what-if rmsnorm loads removed
+rmsb_m48_noload graph  # what-if rmsnorm loads removed
+rmsb_m48_noload kernel  # what-if rmsnorm loads removed
+rmsb_m48_nostore b2b  # what-if rmsnorm stores removed
+rmsb_m48_nostore graph  # what-if rmsnorm stores removed
+rmsb_m48_nostore kernel  # what-if rmsnorm stores removed
+rmsnorm_m2048_n1024_warm kernel  # sample rmsnorm
+rmsnorm_m512_n4096_rotating kernel  # sample rmsnorm
+rmw_e6 kernel  # sample wr_rmw
+rot_depth n10_D192  # sample probe rot_depth
+rot_depth n10_D32  # sample probe rot_depth
+rot_depth n10_D64  # sample probe rot_depth
+rot_depth n10_D96  # sample probe rot_depth
+rot_depth n21_D48  # sample probe rot_depth
+row_reduce empty_g48_span  # sample probe row_reduce
+row_reduce empty_g512_span  # sample probe row_reduce
+row_reduce ld_red_st_g48_span  # sample probe row_reduce
+row_reduce red_g48_span  # sample probe row_reduce
+rw_s16_o0_g48 kernel  # sample store_rewrite
+rw_s32_o0_g48 kernel  # sample store_rewrite
+rw_s4_o0_g48 kernel  # sample store_rewrite
+rw_s8_o3_g768 kernel  # sample store_rewrite
+sched adds alone  # sample probe sched.cu
+sched adds beside FFMA  # sample probe sched.cu
+sfu ex2.f32 w1  # sample probe sfu.cu
+sfu ffma.f32 latency  # sample probe sfu.cu
+sfu lg2.f32 w8  # sample probe sfu.cu
+sfu rsqrt.f32 latency  # sample probe sfu.cu
+sfu sin.f32 latency  # sample probe sfu.cu
+sfu tanh.f32 w4  # sample probe sfu.cu
+shfl latency_w1  # sample probe shfl
+shfl tput_w4  # sample probe shfl
+shfl tput_w8  # sample probe shfl
+sm13_t128_warm b2b  # what-if base softmax threads
+sm13_t128_warm graph  # what-if base softmax threads
+sm13_t128_warm kernel  # what-if base softmax threads
+sm13_t64_warm b2b  # what-if softmax threads
+sm13_t64_warm graph  # what-if softmax threads
+sm13_t64_warm kernel  # what-if softmax threads
+sm14_t128_warm b2b  # design group softmax 1280x2560
+sm14_t128_warm graph  # design group softmax 1280x2560
+sm14_t128_warm kernel  # design group softmax 1280x2560
+sm14_t16_warm kernel  # design group softmax 1280x2560
+sm14_t256_warm b2b  # design group softmax 1280x2560
+sm14_t256_warm graph  # design group softmax 1280x2560
+sm14_t256_warm kernel  # design group softmax 1280x2560
+sm14_t32_warm b2b  # design group softmax 1280x2560
+sm14_t32_warm graph  # design group softmax 1280x2560
+sm14_t32_warm kernel  # design group softmax 1280x2560
+sm14_t512_warm b2b  # design group softmax 1280x2560
+sm14_t512_warm graph  # design group softmax 1280x2560
+sm14_t512_warm kernel  # design group softmax 1280x2560
+sm14_t64_warm b2b  # design group softmax 1280x2560
+sm14_t64_warm graph  # design group softmax 1280x2560
+sm14_t64_warm kernel  # design group softmax 1280x2560
+sm15_t128_warm b2b  # design group softmax 1920x1792
+sm15_t128_warm graph  # design group softmax 1920x1792
+sm15_t128_warm kernel  # design group softmax 1920x1792
+sm15_t16_warm b2b  # design group softmax 1920x1792
+sm15_t16_warm graph  # design group softmax 1920x1792
+sm15_t16_warm kernel  # design group softmax 1920x1792
+sm15_t256_warm b2b  # design group softmax 1920x1792
+sm15_t256_warm graph  # design group softmax 1920x1792
+sm15_t256_warm kernel  # design group softmax 1920x1792
+sm15_t32_warm b2b  # design group softmax 1920x1792
+sm15_t32_warm graph  # design group softmax 1920x1792
+sm15_t32_warm kernel  # design group softmax 1920x1792
+sm15_t64_warm b2b  # design group softmax 1920x1792
+sm15_t64_warm graph  # design group softmax 1920x1792
+sm15_t64_warm kernel  # design group softmax 1920x1792
+smb_m192_b b2b  # what-if base softmax stores removed
+smb_m192_b graph  # what-if base softmax stores removed
+smb_m192_b kernel  # what-if base softmax stores removed
+smb_m192_nostore b2b  # what-if softmax stores removed
+smb_m192_nostore graph  # what-if softmax stores removed
+smb_m192_nostore kernel  # what-if softmax stores removed
+smb_m48_b b2b  # what-if base softmax stores removed
+smb_m48_b graph  # what-if base softmax stores removed
+smb_m48_b kernel  # what-if base softmax stores removed
+smb_m48_nostore b2b  # what-if softmax stores removed
+smb_m48_nostore graph  # what-if softmax stores removed
+smb_m48_nostore kernel  # what-if softmax stores removed
+smem_ldsts LDS.32_w8  # sample probe smem_ldsts
+smem_ldsts LDS.64_w1  # sample probe smem_ldsts
+smem_ldsts STS.128_w5  # sample probe smem_ldsts
+smem_ldsts STS.32_w2  # sample probe smem_ldsts
+smem_ldsts STS.32_w3  # sample probe smem_ldsts
+smem_ldsts STS.32_w4  # sample probe smem_ldsts
+smem_ldsts STS.32_w6  # sample probe smem_ldsts
+softmax_m1024_n2048_warm kernel  # sample softmax
+softmax_m512_n4096_warm kernel  # sample softmax
+spill t256_n1024_g48_s0  # sample probe spill
+spill t256_n64_g1_s0  # sample probe spill
+spill t64_n16_g192_s96  # sample probe spill
+spill t64_n16_g1_s0  # sample probe spill
+spill t64_n16_g1_s96  # sample probe spill
+spill t64_n16_g48_s0  # sample probe spill
+spill t64_n256_g48_s0  # sample probe spill
+spill_rw n256_L1_S0_H0_g48  # sample probe spill_rw
+spill_rw n64_L0_S1_H0_g1  # sample probe spill_rw
+spill_rw n64_L0_S1_H0_g48  # sample probe spill_rw
+spill_rw n64_L1_S0_H0_g48  # sample probe spill_rw
+spill_rw n64_L1_S1_H0_g1  # sample probe spill_rw
+spill_rw n64_L4_S1_H0_g48  # sample probe spill_rw
+st256 ld_g1  # sample probe st256
+st256 st_g16  # sample probe st256
+st256 st_g2  # sample probe st256
+st256 st_g48  # sample probe st256
+st256 st_g96  # sample probe st256
+stk_t128_n256_g48 kernel  # sample stack_path
+stk_t128_n64_g144 kernel  # sample stack_path
+stk_t64_n64_g48 kernel  # sample stack_path
+stl_l_n64 kernel  # sample stack_load
+stl_u_n16 kernel  # sample stack_load
+stl_u_n256 kernel  # sample stack_load
+store_lines S1_W32_D64_g256  # sample probe store_lines
+store_lines S1_W4_D128_g128  # sample probe store_lines
+store_lines S2_W16_D32_g128  # sample probe store_lines
+store_lines S2_W4_D128_g128  # sample probe store_lines
+store_lines S2_W4_D32_g256  # sample probe store_lines
+store_lines S3_W32_D32_g128  # sample probe store_lines
+store_lines S4_W16_D32_g128  # sample probe store_lines
+store_lines S6_W32_D32_g128  # sample probe store_lines
+store_lines S8_W4_D4_g512  # sample probe store_lines
+store_merge L16_R4096_S16_g128  # sample probe store_merge
+store_merge L16_R4096_S32_g128  # sample probe store_merge
+store_merge L1_R4096_S4_g128  # sample probe store_merge
+store_merge L2_R4096_S8_g128  # sample probe store_merge
+store_merge L2_R512_S8_g128  # sample probe store_merge
+store_merge L32_R4096_S32_g128  # sample probe store_merge
+store_spread L16_R4096_S64_g256  # sample probe store_spread
+store_spread L2_R4096_S8_g256  # sample probe store_spread
+store_spread L4_R1024_S16_g256  # sample probe store_spread
+store_spread L4_R128_S16_g512  # sample probe store_spread
+store_spread L4_R2048_S16_g256  # sample probe store_spread
+store_spread L8_R4096_S32_g256  # sample probe store_spread
+store_tail tl_b1  # sample probe store_tail
+store_tail v16_b2  # sample probe store_tail
+store_tail v16_b32  # sample probe store_tail
+store_tail v16_b48  # sample probe store_tail
+stress_00 kernel  # sample breadth stress
+stress_02 kernel  # sample breadth stress
+stress_10 kernel  # sample breadth stress
+stress_12 kernel  # sample breadth stress
+stu_t64_n1024_g48 kernel  # sample stack_path
+stu_t64_n256_g48 kernel  # sample stack_path
+stu_t64_n256_g96 kernel  # sample stack_path
+tma 1024 full  # sample tma full
+tma k1024 noload 1 block  # sample tma noload 1 block
+tma m128 full  # sample tma full
+tma m128 noload 1 block  # sample tma noload 1 block
+tma m32 full  # sample tma full
+tma m32 noload 1 block  # sample tma noload 1 block
+tr_c2048_s3 kernel  # sample tile trace
+w4gemm2048_c128x128x32_s3_t128_rotating kernel  # design group w4gemm
+w4gemm2048_c128x128x32_s3_t128_warm kernel  # design group w4gemm
+w4gemm2048_c64x128x32_s4_t128_rotating kernel  # design group w4gemm
+w4gemm2048_c64x128x32_s4_t128_warm kernel  # design group w4gemm
+warp_map ex2_t32_n1  # sample probe warp_map
+warp_map ex2_t32_n8  # sample probe warp_map
+warp_map ex2_t96_n1  # sample probe warp_map
+warp_map mma_t128_n1  # sample probe warp_map
+warp_map mma_t64_n4  # sample probe warp_map
+wf_m4 kernel  # sample wr_footprint
+wf_m8 kernel  # sample wr_footprint
+wi12_fa_b_warm kernel  # what-if base fa stages
+wi12_fa_bn32_warm kernel  # what-if fa tile
+wi12_fa_noexp_warm kernel  # what-if fa compute removed
+wi12_fa_nostore_warm kernel  # what-if fa stores removed
+wi12_fa_s1_warm kernel  # what-if fa stages
+wi12_fa_t64_warm kernel  # what-if fa threads
+wi12_rms_b_rotating kernel  # what-if base rmsnorm compute removed
+wi12_rms_b_warm b2b  # what-if base rmsnorm threads
+wi12_rms_b_warm graph  # what-if base rmsnorm threads
+wi12_rms_b_warm kernel  # what-if base rmsnorm threads
+wi12_rms_fp32_rotating kernel  # what-if rmsnorm bytes per lane
+wi12_rms_fp32_warm b2b  # what-if rmsnorm bytes per lane
+wi12_rms_fp32_warm graph  # what-if rmsnorm bytes per lane
+wi12_rms_fp32_warm kernel  # what-if rmsnorm bytes per lane
+wi12_rms_nocompute_rotating kernel  # what-if rmsnorm compute removed
+wi12_rms_nostore_rotating b2b  # what-if rmsnorm stores removed
+wi12_rms_nostore_rotating graph  # what-if rmsnorm stores removed
+wi12_rms_nostore_rotating kernel  # what-if rmsnorm stores removed
+wi12_rms_t64_warm b2b  # what-if rmsnorm threads
+wi12_rms_t64_warm graph  # what-if rmsnorm threads
+wi12_rms_t64_warm kernel  # what-if rmsnorm threads
+wi12b_dec_b_rotating b2b  # what-if base decode blocks
+wi12b_dec_b_rotating graph  # what-if base decode blocks
+wi12b_dec_b_rotating kernel  # what-if base decode blocks
+wi12b_dec_b_warm b2b  # what-if base decode blocks
+wi12b_dec_b_warm graph  # what-if base decode blocks
+wi12b_dec_b_warm kernel  # what-if base decode blocks
+wi12b_dec_bn32_rotating b2b  # what-if decode tile
+wi12b_dec_bn32_rotating graph  # what-if decode tile
+wi12b_dec_bn32_rotating kernel  # what-if decode tile
+wi12b_dec_bn32_warm b2b  # what-if decode tile
+wi12b_dec_bn32_warm graph  # what-if decode tile
+wi12b_dec_bn32_warm kernel  # what-if decode tile
+wi12b_dec_s1_rotating b2b  # what-if decode stages
+wi12b_dec_s1_rotating graph  # what-if decode stages
+wi12b_dec_s1_rotating kernel  # what-if decode stages
+wi12b_dec_s1_warm b2b  # what-if decode stages
+wi12b_dec_s1_warm graph  # what-if decode stages
+wi12b_dec_s1_warm kernel  # what-if decode stages
+wi12b_dec_split16_rotating b2b  # what-if decode blocks
+wi12b_dec_split16_rotating graph  # what-if decode blocks
+wi12b_dec_split16_rotating kernel  # what-if decode blocks
+wi12b_dec_split16_warm b2b  # what-if decode blocks
+wi12b_dec_split16_warm graph  # what-if decode blocks
+wi12b_dec_split16_warm kernel  # what-if decode blocks
+wi12b_dec_split4_rotating b2b  # what-if decode blocks
+wi12b_dec_split4_rotating graph  # what-if decode blocks
+wi12b_dec_split4_rotating kernel  # what-if decode blocks
+wi_dec_S2048_rotating kernel  # what-if decode shape
+wi_dec_S2048_warm b2b  # what-if decode shape
+wi_dec_S2048_warm graph  # what-if decode shape
+wi_dec_S2048_warm kernel  # what-if decode shape
+wi_dec_S8192_rotating kernel  # what-if decode shape
+wi_dec_S8192_warm kernel  # what-if decode shape
+wi_dec_b_rotating kernel  # what-if base decode rotation depth
+wi_dec_b_warm b2b  # what-if base decode shape
+wi_dec_b_warm graph  # what-if base decode shape
+wi_dec_b_warm kernel  # what-if base decode shape
+wi_dec_rot2_rotating kernel  # what-if decode rotation depth
+wi_dec_rot4_rotating kernel  # what-if decode rotation depth
+wi_fa_b_rotating kernel  # what-if base fa stores removed
+wi_fa_b_warm kernel  # what-if base fa threads
+wi_fa_direct_warm kernel  # what-if fa cp.async vs direct
+wi_fa_nostore_rotating kernel  # what-if fa stores removed
+wi_fa_t64_warm kernel  # what-if fa threads
+wi_gemv_b_rotating kernel  # what-if base gemv bytes per lane
+wi_gemv_b_warm b2b  # what-if base gemv threads
+wi_gemv_b_warm graph  # what-if base gemv threads
+wi_gemv_b_warm kernel  # what-if base gemv threads
+wi_gemv_mk16_rotating kernel  # what-if gemv bytes per lane
+wi_gemv_nocompute_rotating kernel  # what-if gemv compute removed
+wi_gemv_nocompute_warm b2b  # what-if gemv compute removed
+wi_gemv_nocompute_warm graph  # what-if gemv compute removed
+wi_gemv_nocompute_warm kernel  # what-if gemv compute removed
+wi_gemv_r16_rotating kernel  # what-if gemv threads
+wi_gemv_r64_warm b2b  # what-if gemv threads
+wi_gemv_r64_warm graph  # what-if gemv threads
+wi_gemv_r64_warm kernel  # what-if gemv threads
+wi_hg_S_s1_rotating kernel  # what-if hgemm stages
+wi_hg_S_s4_rotating kernel  # what-if base hgemm stages
+wi_hg_b_rotating kernel  # what-if base hgemm stores removed
+wi_hg_b_warm kernel  # what-if base hgemm raster
+wi_hg_bk64_warm kernel  # what-if hgemm tile
+wi_hg_bm256_rotating kernel  # what-if hgemm tile+threads
+wi_hg_bm256_warm kernel  # what-if hgemm tile+threads
+wi_hg_bm64_rotating kernel  # what-if hgemm tile
+wi_hg_bm64_warm kernel  # what-if hgemm tile
+wi_hg_bn256_rotating kernel  # what-if hgemm tile+threads
+wi_hg_bn256_warm kernel  # what-if hgemm tile+threads
+wi_hg_bn64_rotating kernel  # what-if hgemm tile
+wi_hg_direct_rotating kernel  # what-if hgemm cp.async vs direct
+wi_hg_direct_warm kernel  # what-if hgemm cp.async vs direct
+wi_hg_nocompute_rotating kernel  # what-if hgemm compute removed
+wi_hg_noload_rotating kernel  # what-if hgemm loads removed
+wi_hg_nostore_rotating kernel  # what-if hgemm stores removed
+wi_hg_s2_warm kernel  # what-if hgemm stages
+wi_hg_sw4_rotating kernel  # what-if hgemm raster
+wi_hg_sw4_warm kernel  # what-if hgemm raster
+wi_hg_sw8_rotating kernel  # what-if hgemm raster
+wi_hg_sw8_warm kernel  # what-if hgemm raster
+wi_hg_t64_warm kernel  # what-if hgemm threads
+wi_rms_b_rotating kernel  # what-if base rmsnorm threads
+wi_rms_b_warm b2b  # what-if base rmsnorm threads
+wi_rms_b_warm graph  # what-if base rmsnorm threads
+wi_rms_b_warm kernel  # what-if base rmsnorm threads
+wi_rms_fp32_rotating kernel  # what-if rmsnorm bytes per lane
+wi_rms_fp32_warm b2b  # what-if rmsnorm bytes per lane
+wi_rms_fp32_warm graph  # what-if rmsnorm bytes per lane
+wi_rms_fp32_warm kernel  # what-if rmsnorm bytes per lane
+wi_rms_nocompute_rotating kernel  # what-if rmsnorm compute removed
+wi_rms_nostore_rotating b2b  # what-if rmsnorm stores removed
+wi_rms_nostore_rotating graph  # what-if rmsnorm stores removed
+wi_rms_nostore_rotating kernel  # what-if rmsnorm stores removed
+wi_rms_rot2_rotating kernel  # what-if rmsnorm rotation depth
+wi_rms_rot4_rotating kernel  # what-if rmsnorm rotation depth
+wi_rms_t256_rotating kernel  # what-if rmsnorm threads
+wi_rms_t64_rotating kernel  # what-if rmsnorm threads
+wi_rms_t64_warm b2b  # what-if rmsnorm threads
+wi_rms_t64_warm graph  # what-if rmsnorm threads
+wi_rms_t64_warm kernel  # what-if rmsnorm threads
+wi_softmax_b_warm b2b  # what-if base softmax threads
+wi_softmax_b_warm graph  # what-if base softmax threads
+wi_softmax_b_warm kernel  # what-if base softmax threads
+wi_softmax_t64_warm b2b  # what-if softmax threads
+wi_softmax_t64_warm graph  # what-if softmax threads
+wi_softmax_t64_warm kernel  # what-if softmax threads
+wi_w4_b_warm kernel  # what-if base whatif w4gemm dequantisation removed
+wi_w4_nocompute_warm kernel  # what-if whatif w4gemm compute removed
+wi_w4_nodequant_warm kernel  # what-if whatif w4gemm dequantisation removed
+wl_m1920 kernel  # sample write_limit
+wl_m1960 kernel  # sample write_limit
+wl_m2000 kernel  # sample write_limit
+wq_k32_s3_t256 kernel  # what-if base hgemm compute removed
+wq_k32_s3_t256_nocompute kernel  # what-if hgemm compute removed
+wq_m3072_s2 kernel  # what-if base hgemm stores removed
+wq_m3072_s2_nostore kernel  # what-if hgemm stores removed
+wr_e12 kernel  # sample wr_rmw
+wr_e4 kernel  # sample wr_rmw
+wr_e8 kernel  # sample wr_rmw
+wr_r1w0_8m kernel  # sample wr_past_l2
+wr_r1w0_8m_rot4 kernel  # sample wr_rotating
+wr_r1w0_8m_rot8 kernel  # sample wr_rotating
+wr_r1w1_5m kernel  # sample wr_past_l2
+wr_r1w1_8m_rot2 kernel  # sample wr_rotating
+wr_r1w2_32m kernel  # sample wr_past_l2
+wr_r1w4_4m kernel  # sample wr_past_l2
+wr_r2w1_16m kernel  # sample wr_past_l2

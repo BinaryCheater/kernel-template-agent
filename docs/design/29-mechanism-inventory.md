@@ -143,6 +143,270 @@ Status: written 2026-11-04 for phase P0 of [28](28-gb10-programme.md) §5. It li
 | Clock: cycles → time | gb10 §6.6, §12 (`clock.cu`, `sustain.cu`); protocol clock kernel (round 1) | M for KTA batches: 2.494 GHz (r1), 2.496 (r1fa), 2.485 (r2) from a dependent FFMA chain against event time; under full-chip tensor load 2.493 GHz in the kernel (`mma_pair` b48, clock64 against globaltimer), as alone (2.500); upstream rows keep 2.52 / 2.54 | all | — |
 | Power and thermal states | 26:09 | X | all | H |
 
+## 7a. Coverage matrix (LOOP §3a)
+
+<!-- matrix: generated -->
+Cells that can occur: 406 of 800, the rest dropped (`tools/kta_perfmodel/matrix.py`, `dropped`, says why for each).
+
+| State | Before round 16 | Now |
+| --- | ---: | ---: |
+| M measured with a rule | 60 | 60 |
+| m measured without a rule | 18 | 18 |
+| · empty | 328 | 328 |
+
+Round 15's 51 blind rows above 10 %: in M cells 9, in m cells 33, in empty cells 9 before round 16; 9, 33, 9 now. By class: defect 6, known rule 25, no rule 20.
+
+Patterns: order (contiguous lanes walking on), stride (lanes or warps a constant apart), row (rows a pitch apart), hashed (no order in the lanes), cap (footprint across the target's capacity; for DRAM, across the TLB's reach). Sharing: w one warp, b one block, s blocks on an SM, c every SM. A cell reads `state` and, in brackets, the blind misses of round 15 in it.
+
+**read (LDG, LDS, LDL) × shared**: decides layout, split of loads and arithmetic.
+
+| Pattern | w | b | s | c | Probes |
+| --- | --- | --- | --- | --- | --- |
+| order | M | M | M |  | smem_ldsts, lds_narrow (D784); upstream smem_bw, shfl |
+| stride | M | M | · |  | smem_ldsts, lds_narrow (D784) |
+| row | · | M | · |  | lds_narrow (D784) |
+| hashed | · | · | · |  |  |
+
+**read (LDG, LDS, LDL) × stack**: decides tile size at the register limit.
+
+| Pattern | w | b | s | c | Probes |
+| --- | --- | --- | --- | --- | --- |
+| order | · | M | M | M | spill_rw (D800) |
+| stride | · | · | · | · |  |
+| row | · | · | · | · |  |
+| hashed | · | · | · | M | stl_* (D862) |
+| cap | · | · | · | m | stl_u_* (question 44) |
+
+**read (LDG, LDS, LDL) × L1**: decides threads, row layout (GEMV, decode, rows).
+
+| Pattern | w | b | s | c | Probes |
+| --- | --- | --- | --- | --- | --- |
+| order | M | M | · | · | l1hit, first_reader (D809) |
+| stride | · | · | · | · (1) |  |
+| row | · | M | · | M | row_reduce (D777) |
+| hashed | · | · | · | · (1) |  |
+| cap | · | · | · | · |  |
+
+**read (LDG, LDS, LDL) × L2**: decides threads, split, tile.
+
+| Pattern | w | b | s | c | Probes |
+| --- | --- | --- | --- | --- | --- |
+| order | M | M | · | M (2) | l1hit (342 clk miss); first_reader; l2_cap (D835) |
+| stride | · | · | · | M (2) | l2_cap (D835) |
+| row | · | · | · | m (14) | row_reduce, dl_*_warm; threads D870 |
+| hashed | · | · | · | · (2) |  |
+| cap | · | · | · | M | l2reuse (D766), rot_depth |
+
+**read (LDG, LDS, LDL) × DRAM**: decides threads, split, rotation; every rotating group.
+
+| Pattern | w | b | s | c | Probes |
+| --- | --- | --- | --- | --- | --- |
+| order | M | · | · | m (3) | dram_spread (latency); dram_rotate, dram_burst, dl_* (D870): half the rate |
+| stride | · | · | · | · |  |
+| row | · | · | · | m (5) | gd_*, rd_* (D870) |
+| hashed | M | · | · | · | dram_spread (chase) |
+| cap | · | · | · | · |  |
+
+**write (STG, STS, STL) × shared**: decides layout.
+
+| Pattern | w | b | s | c | Probes |
+| --- | --- | --- | --- | --- | --- |
+| order | M | m | · |  | smem_ldsts, lds_narrow; smem_ldsts: 2-6 warps unidentified |
+| stride | M | m | · |  | smem_ldsts, lds_narrow; smem_ldsts: 2-6 warps unidentified |
+| row | · | · | · |  |  |
+| hashed | · | · | · |  |  |
+
+**write (STG, STS, STL) × stack**: decides tile size at the register limit.
+
+| Pattern | w | b | s | c | Probes |
+| --- | --- | --- | --- | --- | --- |
+| order | · | M | M | M | spill_rw (D800) |
+| stride | · | · | · | · |  |
+| row | · | · | · | · |  |
+| hashed | · | · | · | M | stk_* (D852) |
+| cap | · | · | · | M | spill_rw (133 B/clk past 192 KB) |
+
+**write (STG, STS, STL) × L2**: decides store path, width, split, batch size at the dirty limit.
+
+| Pattern | w | b | s | c | Probes |
+| --- | --- | --- | --- | --- | --- |
+| order | · | M | M | M (2) | store_tail (partner rule); store_lines, store_spread, st256 (D838) |
+| stride | · | · | · | M (1) | store_lines, store_spread, st256 (D838) |
+| row | · | · | · | M | store_lines, store_spread, st256 (D838) |
+| hashed | · | · | · | m (1) | hs_*, hb_* (D851): past 4 MiB not separated |
+| cap | · | · | · | m (6) | wr_*, wl_* (D802, D873): 6.5 to 7.6 MiB no step |
+
+**write (STG, STS, STL) × DRAM**: decides store path past the dirty limit.
+
+| Pattern | w | b | s | c | Probes |
+| --- | --- | --- | --- | --- | --- |
+| order | · | · | · | m | dram_rw 0:2 −85 %: no pacing without reads |
+| stride | · | · | · | · |  |
+| row | · | · | · | · |  |
+| hashed | · | · | · | m | hs_* (D851) |
+| cap | · | · | · | · |  |
+
+**read-modify-write of the same words × shared**: decides —.
+
+| Pattern | w | b | s | c | Probes |
+| --- | --- | --- | --- | --- | --- |
+| order | · | · | · |  |  |
+| stride | · | · | · |  |  |
+| row | · | · | · |  |  |
+| hashed | · | · | · |  |  |
+
+**read-modify-write of the same words × stack**: decides tile size at the register limit.
+
+| Pattern | w | b | s | c | Probes |
+| --- | --- | --- | --- | --- | --- |
+| order | · | · | · | M | spill (load then store) |
+| stride | · | · | · | · |  |
+| row | · | · | · | · |  |
+| hashed | · | · | · | · |  |
+| cap | · | · | · | m | stu_* (question 44) |
+
+**read-modify-write of the same words × L2**: decides in-place or out-of-place rows.
+
+| Pattern | w | b | s | c | Probes |
+| --- | --- | --- | --- | --- | --- |
+| order | · | · | · | M | rw_*, wr_rmw (D833) |
+| stride | · | · | · | · |  |
+| row | · | · | · | m | rmw_*, question 42 |
+| hashed | · | · | · | m | bl_mixrwa |
+| cap | · | · | · | · |  |
+
+**read-modify-write of the same words × DRAM**: decides in-place or out-of-place rows.
+
+| Pattern | w | b | s | c | Probes |
+| --- | --- | --- | --- | --- | --- |
+| order | · | · | · | m | rmw_* |
+| stride | · | · | · | · |  |
+| row | · | · | · | · |  |
+| hashed | · | · | · | · |  |
+| cap | · | · | · | · |  |
+
+**atomic (ATOM, RED, ATOMS) × shared**: decides reduction form.
+
+| Pattern | w | b | s | c | Probes |
+| --- | --- | --- | --- | --- | --- |
+| order | · | · | · |  |  |
+| stride | · | · | · |  |  |
+| row | · | · | · |  |  |
+| hashed | · | · | · |  |  |
+
+**atomic (ATOM, RED, ATOMS) × L2**: decides reduction form, bins.
+
+| Pattern | w | b | s | c | Probes |
+| --- | --- | --- | --- | --- | --- |
+| order | · | · | · | M | atom_*, atb_*, atr_* (D834, D850) |
+| stride | · | · | · | · |  |
+| row | · | · | · | M | atom_*, atb_*, atr_* (D834, D850) |
+| hashed | · | · | · | M | atom_*, atb_*, atr_* (D834, D850) |
+| cap | · | · | · | · |  |
+
+**atomic (ATOM, RED, ATOMS) × DRAM**: decides reduction form past the L2.
+
+| Pattern | w | b | s | c | Probes |
+| --- | --- | --- | --- | --- | --- |
+| order | · | · | · | · |  |
+| stride | · | · | · | · |  |
+| row | · | · | · | · |  |
+| hashed | · | · | · | · |  |
+| cap | · | · | · | · |  |
+
+**copy (cp.async) × L2**: decides stages, tile, threads.
+
+| Pattern | w | b | s | c | Probes |
+| --- | --- | --- | --- | --- | --- |
+| order | M | M | M (2) | M | copy_two, copy_depth (D869); l2_cap, loopsteps (D835) |
+| stride | · | · | · | M | l2_cap, loopsteps (D835) |
+| row | · | · | · | m (4) | fad_* (D871): loss by D mod 32 |
+| hashed | · | · | · | · |  |
+| cap | · | · | · | M | first_share (D807) |
+
+**copy (cp.async) × DRAM**: decides stages, tile, swizzle.
+
+| Pattern | w | b | s | c | Probes |
+| --- | --- | --- | --- | --- | --- |
+| order | · | M | · (1) | m | first_reader (D810); copy_dram, first_share; rate D869 rows +18 % |
+| stride | · | · | · | · |  |
+| row | · | · | · | · (4) |  |
+| hashed | · | · | · | · |  |
+| cap | · | · | · | · |  |
+
+**tensor load (ldmatrix from shared, TMA from global) × shared**: decides tile, layout, ways.
+
+| Pattern | w | b | s | c | Probes |
+| --- | --- | --- | --- | --- | --- |
+| order | M | M | M |  | mma_ldsm, upstream instlat |
+| stride | M | M | M |  | mma_ldsm, upstream instlat |
+| row | · | · | · |  |  |
+| hashed | · | · | · |  |  |
+
+**tensor load (ldmatrix from shared, TMA from global) × L2**: decides copy path: TMA or cp.async.
+
+| Pattern | w | b | s | c | Probes |
+| --- | --- | --- | --- | --- | --- |
+| order | · | M | · | m | upstream dramlat (440 clk); fitted rates (TMA ablation) |
+| stride | · | · | · | · |  |
+| row | · | · | · | · |  |
+| hashed | · | · | · | · |  |
+| cap | · | · | · | · |  |
+
+**tensor load (ldmatrix from shared, TMA from global) × DRAM**: decides copy path: TMA or cp.async.
+
+| Pattern | w | b | s | c | Probes |
+| --- | --- | --- | --- | --- | --- |
+| order | · | M | · | · | upstream dramlat (1170 clk) |
+| stride | · | · | · | · |  |
+| row | · | · | · | · |  |
+| hashed | · | · | · | · |  |
+| cap | · | · | · | · |  |
+
+**compute beside traffic to the target × shared**: decides warp specialisation.
+
+| Pattern | w | b | s | c | Probes |
+| --- | --- | --- | --- | --- | --- |
+| order | M | M | M |  | mma_issue, mma_ldsm; mma_pair, tr_* (D849) |
+
+**compute beside traffic to the target × stack**: decides tile size.
+
+| Pattern | w | b | s | c | Probes |
+| --- | --- | --- | --- | --- | --- |
+| order | · | · | · | · |  |
+
+**compute beside traffic to the target × L1**: decides split of arithmetic.
+
+| Pattern | w | b | s | c | Probes |
+| --- | --- | --- | --- | --- | --- |
+| order | · | · | · | M | arith_beside (D809) |
+
+**compute beside traffic to the target × L2**: decides stages, threads.
+
+| Pattern | w | b | s | c | Probes |
+| --- | --- | --- | --- | --- | --- |
+| order | · | · | · | m | wq_*: questions 32, 36 |
+
+**compute beside traffic to the target × DRAM**: decides stages.
+
+| Pattern | w | b | s | c | Probes |
+| --- | --- | --- | --- | --- | --- |
+| order | · | · | · | · |  |
+
+**barrier (BAR, mbarrier, fence) × shared**: decides threads, stages.
+
+| Pattern | w | b | s | c | Probes |
+| --- | --- | --- | --- | --- | --- |
+| order | M | M | M |  | namedbar; mma_pair |
+
+**barrier (BAR, mbarrier, fence) × L2**: decides store path, sequence.
+
+| Pattern | w | b | s | c | Probes |
+| --- | --- | --- | --- | --- | --- |
+| order | · | · | · | · |  |
+
+<!-- matrix end -->
+
 ## 8. Counts
 
 Round 6 moved 9 rows to M or P (see their status cells); counts below are as of round 2. Rows: 84. M 34, A 10, P 5, X 33, F 2 after round 2 (round 2: the warp scheduler row M → P between co-resident blocks; chip L2 share and STS frozen `unidentified`). After round 1: M 35, A 10, P 4, X 33, F 2 (before: M 29, A 12, X 37; round 1 measured LDS/STS, SHFL, ex2 beside FFMA, BAR.ARV, the BAR.SYNC base and the clock). A row that carries two codes is counted by its first.

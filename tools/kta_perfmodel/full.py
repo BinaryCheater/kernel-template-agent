@@ -7,6 +7,7 @@ from __future__ import annotations
 import json
 import re
 import resource
+import shlex
 import subprocess
 import time
 from collections.abc import Iterator
@@ -21,6 +22,8 @@ ROOT = upstream.ROOT
 LOG = ROOT / "perfmodel" / "table-runs.jsonl"
 STATE = ROOT / "docs" / "design" / "perfmodel" / "STATE.md"
 JOBS = 18  # of spark's 20 cores
+BELOW_CORE_S = 3000.0  # hard limit of a round's replays below the core table (D874, D875)
+FULL_EVERY = 3  # rounds
 
 
 def current_round() -> int:
@@ -70,10 +73,21 @@ def runs(round_no: int) -> list[dict]:
     return [r for r in map(json.loads, lines) if r["round"] == round_no]
 
 
+def below_core(round_no: int) -> float:
+    return sum(r["cpu_s"] for r in runs(round_no) if r["mode"] not in ("full", "core"))
+
+
 def refuse_second() -> None:
     n = current_round()
     if any(r["mode"] == "full" for r in runs(n)):
         raise SystemExit(f"refused: round {n} has had its full table (perfmodel/table-runs.jsonl)")
+
+
+def refuse_full(reason: str | None) -> None:
+    """The full table: every third round, or before a claim stated in `reason` (LOOP §8)."""
+    n = current_round()
+    if n % FULL_EVERY and not reason:
+        raise SystemExit(f"refused: round {n}: --full every {FULL_EVERY} rounds, or give --reason")
 
 
 def _ssh(cmd: str) -> str:
@@ -86,8 +100,10 @@ def _rsync(src: str, dst: str) -> None:
     subprocess.run(["rsync", "-a", src, dst], check=True)
 
 
-def on_spark(table_dir: Path) -> None:
-    refuse_second()
+def on_spark(table_dir: Path, kind: str = "full", reason: str | None = None) -> None:
+    if kind == "full":
+        refuse_full(reason)
+        refuse_second()
     head, dirty = upstream.kta_commit()
     if dirty:
         raise SystemExit("refused: uncommitted changes; a table belongs to a commit")
@@ -104,9 +120,10 @@ def on_spark(table_dir: Path) -> None:
     for up in data.glob("upstream-*"):
         _rsync(f"{up}", f"{HOST}:{tree}/data/perfmodel/")
     _rsync(f"{data}/cache/", f"{HOST}:{tree}/data/perfmodel/cache/")
+    why = f" --reason {shlex.quote(reason)}" if reason else ""
     _ssh(
         f"cd {tree} && PATH=$HOME/.local/bin:$PATH PYTHONPATH=tools nice -n 19 "
-        f"uv run --frozen --quiet python -m kta_perfmodel --full-here --jobs {JOBS} "
+        f"uv run --frozen --quiet python -m kta_perfmodel --{kind}-here --jobs {JOBS}{why} "
         f"> table.log 2>&1 || {{ tail -30 table.log; exit 1; }}; tail -3 table.log"
     )
     _rsync(f"{HOST}:{tree}/data/perfmodel/cache/", f"{data}/cache/")
@@ -115,4 +132,4 @@ def on_spark(table_dir: Path) -> None:
     last = _ssh(f"tail -1 {tree}/perfmodel/table-runs.jsonl")
     with LOG.open("a") as f:
         f.write(last)
-    print(f"full table of {head[:12]} on {HOST}: {last}", end="")
+    print(f"{kind} table of {head[:12]} on {HOST}: {last}", end="")
