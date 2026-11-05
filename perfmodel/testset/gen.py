@@ -28,6 +28,8 @@ Round 7: one-change variants (`_whatif`: launch.json `whatif` names the base uni
 table scores predicted delta against measured delta) and larger blind groups (`_blind7`).
 Round 13: design groups of GEMV, FA, decode, RMSNorm and softmax (blind, warm and rotating), own
 kernels in `hand13/`. Round 14: the same at new shapes, `hand14/`, the third stage (`qs*`).
+Round 15: blind at other divisors, `hand15/`, the DRAM limit (`dl_*`, `gd_*`, `rd_*`), `fad_*`,
+`ct_*`.
 `ONLY` limits generation to the matching names; `SHARD=i/n` generates one share of them.
 """
 
@@ -2241,6 +2243,213 @@ def _round14(out: Path) -> None:
         _tried(_softmax, out, f"sm14_t{th}_warm", ROWS14, kw, set=f"softmax {tag}", **more)
 
 
+# round 15: blind again at shapes with other divisors; new address forms; what differs at the DRAM
+# limit (question 50), FA at D by 8 (question 48), compute alone at block turnover (question 47)
+GEMV15 = {"N": 6144, "K": 3072, "group": 48, "n_part": 4, "reduce": 32}
+FA15 = {**FA, "S": 2304, "H": 7, "D": 104}
+DECODE15 = {**DECODE, "H": 36, "G": 12, "S": 2304, "D": 104}
+ROWS15 = {"M": 1920, "N": 1792}
+HGEMM_BLIND15_SHAPE = {"M": 2688, "N": 1920, "K": 1728}
+HGEMM_BLIND15 = {
+    "c128x128x32_s3_t128": (128, 128, 32, 3, 128, 0),
+    "c128x128x32_s2_t128": (128, 128, 32, 2, 128, 0),
+    "c128x128x32_s4_t128": (128, 128, 32, 4, 128, 0),
+    "c128x128x64_s2_t128": (128, 128, 64, 2, 128, 0),
+    "c128x256x32_s3_t256": (128, 256, 32, 3, 256, 0),
+    "c256x128x32_s2_t256": (256, 128, 32, 2, 256, 0),
+    "c64x128x32_s4_t128": (64, 128, 32, 4, 128, 0),
+    "c128x128x32_s3_t128_sw8": (128, 128, 32, 3, 128, 8),
+}
+GEMV15_V = ("b", "np2", "np8", "r16", "r64", "mk16", "np2_r64")
+DECODE15_V = ("b", "s1", "s3", "split4", "split16", "bn32", "split4_bn32")
+FA15_V = (
+    "c64x64_s2_t128",
+    "c64x64_s3_t128",
+    "c64x64_s1_t128",
+    "c64x32_s3_t128",
+    "c128x64_s2_t128",
+    "c64x64_s2_t64",
+    "c32x64_s2_t64",
+)
+HAND15 = {
+    "divseven": ((1024, 1, 1), (256,), [1 * MB, 8 * MB], None),
+    "divrun": ((1024, 1, 1), (256,), [16 * MB], None),
+    "modring": ((2048, 1, 1), (128,), [8 * MB, 8 * MB], None),
+    "triangle": ((1024, 1, 1), (256,), [1 * MB, 40 * MB], None),
+    "morton": ((1024, 1, 1), (256,), [1 * MB, 16 * MB], None),
+    "clampread": ((2048, 1, 1), (128,), [1 * MB, 4 * MB], None),
+    "twobuf": ((1024, 1, 1), (256,), [1 * MB, 4 * MB, 4 * MB], None),
+    "popindex": ((1024, 1, 1), (256,), [1 * MB, 64 << 10], None),
+    "reverse": ((1024, 1, 1), (256,), [16 * MB, 16 * MB], None),
+    "wideindex": ((1024, 1, 1), (256,), [1 * MB, 8 * MB], None),
+    "floatindex": ((2048, 1, 1), (128,), [1 * MB, 1 * MB], None),
+    "wrapstencil": ((8190, 1, 1), (256,), [8 * MB, 8 * MB], None),
+    "chunked": ((2048, 1, 1), (128,), [16 * MB, 16 * MB], None),
+    "gather3": ((1024, 1, 1), (256,), [1 * MB, 8 * MB], None),
+}
+WI_HAND15 = (
+    ("divseven", "t128", "threads", (2048, 1, 1), None, None, T128),
+    ("morton", "k1", "loads removed", None, None, None, (("k < 4", "k < 1"),)),
+    ("reverse", "m4", "shape", (128, 1, 1), [4 * MB, 4 * MB], None, (("4194303", "1048575"),)),
+    ("chunked", "w6", "stores removed", None, None, None, (("k < 12", "k < 6"),)),
+)
+DL_WIDTH = {4: ("unsigned", 16, "x"), 8: ("uint2", 8, "x.x ^ x.y"), 16: ("uint4", 4, "x.x ^ x.y ^ x.z ^ x.w")}
+DL_T = (32, 128, 512)
+DL_BYTES = 8 * MB
+FA_D = (72, 80, 88, 96, 104, 112, 120, 128)
+CT_K = (480, 960, 1920, 3840)
+CT_SHAPE = {"M": 1536, "N": 3072}
+
+
+def _hand15(out: Path) -> None:
+    src_dir = Path(__file__).parent / "hand15"
+    for name, (grid, block, sizes, written) in HAND15.items():
+        text = (src_dir / f"{name}.cu").read_text()
+        _source_kernel(
+            out, f"bl15_{name}", text, grid, block, sizes, "hand", "breadth blind", written=written
+        )
+    for name, tag, axis, grid, sizes, written, subs in WI_HAND15:
+        g0, block, s0, w0 = HAND15[name]
+        text = (src_dir / f"{name}.cu").read_text()
+        for old, new in subs:
+            text = text.replace(old, new)
+        if subs == T128:
+            block = (128,)
+        _source_kernel(
+            out,
+            f"bl15_{name}_{tag}",
+            text,
+            grid or g0,
+            block,
+            sizes or s0,
+            "hand",
+            "breadth blind",
+            written=written if written is not None else w0,
+            whatif={"base": f"bl15_{name}", "axis": axis},
+        )
+
+
+def _dl(out: Path) -> None:
+    """Question 50: the same bytes read at the DRAM limit, by bytes per lane and threads."""
+    for w, (ty, m, sum_) in DL_WIDTH.items():
+        for th in DL_T:
+            for cache in ("rotating", "warm"):
+                if cache == "warm" and (w != 8 or th == 32):
+                    continue
+                src = f"""// round 15: {DL_BYTES >> 20} MiB read in order, {w} bytes per lane, {m} loads per thread
+__global__ void __launch_bounds__({th}) k_dl(unsigned* o, const {ty}* a) {{
+  const unsigned t = blockIdx.x * {th} + threadIdx.x;
+  unsigned s = 0;
+  for (unsigned k = 0; k < {m}; ++k) {{
+    const {ty} x = a[t * {m} + k];
+    s += {sum_};
+  }}
+  o[blockIdx.x & 65535u] = s;
+}}
+"""
+                grid = (DL_BYTES // (th * 64), 1, 1)
+                rot = _rots(cache, DL_BYTES)
+                _source_kernel(
+                    out,
+                    f"dl_w{w}_t{th}_{cache}",
+                    src,
+                    grid,
+                    (th,),
+                    [1 * MB, DL_BYTES],
+                    "hand",
+                    "dram_limit",
+                    rot=rot,
+                    written=1024,
+                )
+
+
+def _sweeps15(out: Path) -> None:
+    _dl(out)
+    # question 50: the rows themselves with a deeper rotation: what stays in the L2 goes
+    for v in ("b", "mk16", "np2_r64"):
+        c = {**GEMV14, **GEMV13_V[v][0]}
+        _tried(_gemv_deep, out, f"gd_{v}", c, set="dram_limit")
+    for th in (16, 512):
+        kw = {"threads": th}
+        _tried(_rms, out, f"rd_t{th}", ROWS14, "rotating", kw, depth=4, set="dram_limit")
+    # question 48: D by 8 at t128: bytes per thread by 32
+    for d in FA_D:
+        f = {**FA, "S": 768, "H": 4, "D": d, "BM": 64, "BN": 64, "stages": 2, "threads": 128}
+        _tried(_fa, out, f"fad_d{d}_t128", f, "warm", set="fa_stride")
+    for d in (80, 96):
+        f = {**FA, "S": 768, "H": 4, "D": d, "BM": 64, "BN": 64, "stages": 2, "threads": 256}
+        _tried(_fa, out, f"fad_d{d}_t256", f, "warm", set="fa_stride")
+    # question 47: compute alone, blocks fixed, tiles by K: the intercept is the turnover
+    t2 = (128, 128, 32, 2, 128, 0)
+    for k in CT_K:
+        sh = {**CT_SHAPE, "K": k}
+        _hgemm(out, f"ct_k{k}", t2, sh, "warm", edit=_copies_out, set="turnover")
+
+
+def _gemv_deep(out: Path, name: str, c: dict, **more) -> None:
+    N, K, g = c["N"], c["K"], c["group"]
+    sizes, eb = [K, N * K // 2, N * K // g, N], [2, 1, 2, 2]
+    info = {"family": "gemv_w4a16", "shape": {"N": N, "K": K}, "pick": c, "cache": "rotating", **more}
+    write(
+        out,
+        name,
+        gemv_w4a16(**c),
+        sizes,
+        [-(-N // c["n_part"]), 1],
+        (c["reduce"], c["n_part"]),
+        info,
+        elem_bytes=eb,
+        rot=_rots("rotating", sum(a * b for a, b in zip(sizes, eb, strict=True)), 4),
+    )
+
+
+def _round15(out: Path) -> None:
+    _hand15(out)
+    _sweeps15(out)
+    sh = HGEMM_BLIND15_SHAPE
+    M, N, K = sh["M"], sh["N"], sh["K"]
+    pre = f"hgemm_m{M}n{N}k{K}"
+    for name, tile in HGEMM_BLIND15.items():
+        for cache, tail in (("warm", ""), ("rotating", " rotating")):
+            suffix = "" if cache == "warm" else "_rotating"
+            base = f"{pre}_c128x128x32_s3_t128{suffix}"
+            more = _wi(name, base, "base" if f"{pre}_{name}{suffix}" == base else "design")
+            group = f"hgemm {M}x{N}x{K}{tail}"
+            _tried(_hgemm, out, f"{pre}_{name}{suffix}", tile, sh, cache, set=group, **more)
+    tag = f"{GEMV15['N']}x{GEMV15['K']}"
+    for cache, tail in (("warm", ""), ("rotating", " rotating")):
+        for v in GEMV15_V:
+            kw, axis = GEMV13_V[v]
+            more = _wi(v, f"gemv15_b_{cache}", axis)
+            c = {**GEMV15, **kw}
+            _tried(_gemv_row, out, f"gemv15_{v}_{cache}", c, cache, set=f"gemv {tag}{tail}", **more)
+    tag = f"{FA15['S']}x{FA15['H']}x{FA15['D']}"
+    for cache, tail in (("warm", ""), ("rotating", " rotating")):
+        for name in FA15_V:
+            bm, bn, s, th = FA_BLIND7_V[name]
+            f = {**FA15, "BM": bm, "BN": bn, "stages": s, "threads": th}
+            more = _wi(name, f"fa15_c64x64_s2_t128_{cache}", FA13_AXIS.get(name, "base"))
+            _tried(_fa, out, f"fa15_{name}_{cache}", f, cache, set=f"fa {tag}{tail}", **more)
+    tag = f"{DECODE15['H']}x{DECODE15['S']}x{DECODE15['D']}"
+    for cache, tail in (("warm", ""), ("rotating", " rotating")):
+        for v in DECODE15_V:
+            kw, axis = DECODE13_V[v]
+            more = _wi(v, f"dec15_b_{cache}", axis)
+            c = {**DECODE15, **kw}
+            group = f"decode {tag}{tail}"
+            _tried(_decode_part, out, f"dec15_{v}_{cache}", c, cache, set=group, **more)
+    tag = f"{ROWS15['M']}x{ROWS15['N']}"
+    for th in THREADS13:
+        axis = "base" if th == 128 else "threads"
+        kw = {"threads": th}
+        for cache, tail in (("warm", ""), ("rotating", " rotating")):
+            more = _wi("", f"rms15_t128_{cache}", axis)
+            group = f"rmsnorm {tag}{tail}"
+            _tried(_rms, out, f"rms15_t{th}_{cache}", ROWS15, cache, kw, set=group, **more)
+        more = _wi("", "sm15_t128_warm", axis)
+        _tried(_softmax, out, f"sm15_t{th}_warm", ROWS15, kw, set=f"softmax {tag}", **more)
+
+
 def main(out: Path) -> None:
     _hand(out)
     _round11(out)
@@ -2271,6 +2480,7 @@ def main(out: Path) -> None:
         ("round13", _round13),
         ("round13b", _round13b),
         ("round14", _round14),
+        ("round15", _round15),
     ):
         try:  # a kernel that fails to generate is reported; the others stand
             gen(out)
