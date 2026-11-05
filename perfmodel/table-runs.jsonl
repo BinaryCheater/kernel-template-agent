@@ -167,3 +167,6 @@
 {"date": "2026-11-05T16:50:58Z", "round": 20, "mode": "predict", "commit": "3c5c82885cf5", "dirty": false, "rows": 533, "replayed": 191, "cpu_s": 1248.0, "wall_s": 209.6, "jobs": 6}
 {"date": "2026-11-05T16:52:09Z", "round": 20, "mode": "predict", "commit": "0eabb3542db0", "dirty": true, "rows": 81, "replayed": 27, "cpu_s": 8.3, "wall_s": 1.9, "jobs": 6}
 {"date": "2026-11-05T16:53:59Z", "round": 20, "mode": "predict", "commit": "fd0b7e0f7064", "dirty": true, "rows": 81, "replayed": 27, "cpu_s": 21.8, "wall_s": 5.1, "jobs": 6}
+{"date": "2026-11-05T17:45:42Z", "round": 20, "mode": "selection", "commit": "b86734cb20f3", "dirty": true, "rows": 35, "replayed": 35, "cpu_s": 41.7, "wall_s": 11.7, "jobs": 6}
+{"date": "2026-11-05T17:45:51Z", "round": 20, "mode": "selection", "commit": "b86734cb20f3", "dirty": true, "rows": 35, "replayed": 0, "cpu_s": 0.0, "wall_s": 3.8, "jobs": 6}
+{"date": "2026-11-05T17:49:09Z", "round": 20, "mode": "selection", "commit": "b86734cb20f3", "dirty": true, "rows": 47, "replayed": 47, "cpu_s": 946.3, "wall_s": 186.7, "jobs": 6}

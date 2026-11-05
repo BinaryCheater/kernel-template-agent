@@ -1280,6 +1280,15 @@ class SM:
             lat = ((lsu_done, arrive, "l2", "L2 latency", "sim.ldgsts_l2_latency_clk"),)
         ret = max(arrive, t["l2_return"])
         ret_clk = self._copy_ret_clk(addr0, width_of(x.op))
+        if P["smem_copy_clk_per_run"]:
+            # round 20 (cb_*, fas_*): the array takes a copy's lanes in lane order, a run at a time
+            # in one line; lanes that change line pair by pair hold the return (D910)
+            dest = w.lanes.address(x.args.split(",")[0], w.vals) if w.lanes is not None else None
+            if dest is not None:
+                lanes = dest[1]
+                runs = 1 + sum(a // 128 != b // 128 for a, b in zip(lanes, lanes[1:], strict=False))
+                hold = P["smem_copy_clk"] + P["smem_copy_clk_per_run"] * runs
+                ret_clk = max(ret_clk, hold)
         t["l2_return"] = ret + ret_clk
         if state is None:
             for k in keys:
