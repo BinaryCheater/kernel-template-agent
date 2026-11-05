@@ -1,10 +1,10 @@
 {
  "batch": "r15",
- "commit": "eab06dc50eb8dd513657a1fde3350b6277022c1a",
+ "commit": "3ad8126f2410287d5b2e312530f2a2ce88748333",
  "host": "spark",
  "remote_build": "kta-work/data/perfmodel/batches/r15/build",
  "only": "^(probe-copy_two|bl15_|dl_|gd_|rd_|fad_|ct_|hgemm_m2688|gemv15_|fa15_|dec15_|rms15_|sm15_)",
- "date": "2026-11-05T06:26:50Z",
+ "date": "2026-11-05T06:29:37Z",
  "nvcc_host": "Cuda compilation tools, release 13.0, V13.0.88\nBuild cuda_13.0.r13.0/compiler.36424714_0",
  "nvcc_image": "Cuda compilation tools, release 13.2, V13.2.51\nBuild cuda_13.2.r13.2/compiler.37434383_0",
  "tilelang": "0.1.15"

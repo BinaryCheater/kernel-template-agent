@@ -1,0 +1,28 @@
+{
+ "entry": "rms_kernel",
+ "grid": [
+  1920
+ ],
+ "threads": 32,
+ "block": [
+  32
+ ],
+ "smem": 0,
+ "rot": 5,
+ "footprint_bytes": 13766144,
+ "write_bytes": 6881280,
+ "family": "rmsnorm",
+ "shape": {
+  "M": 1920,
+  "N": 1792
+ },
+ "pick": {
+  "threads": 32
+ },
+ "cache": "rotating",
+ "set": "rmsnorm 1920x1792 rotating",
+ "whatif": {
+  "base": "rms15_t128_rotating",
+  "axis": "threads"
+ }
+}

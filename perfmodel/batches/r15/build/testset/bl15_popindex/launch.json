@@ -1,0 +1,19 @@
+{
+ "entry": "k_popindex",
+ "grid": [
+  1024,
+  1,
+  1
+ ],
+ "threads": 256,
+ "block": [
+  256
+ ],
+ "smem": 0,
+ "rot": 1,
+ "footprint_bytes": 1114112,
+ "write_bytes": 1048576,
+ "family": "hand",
+ "set": "breadth blind",
+ "cache": "warm"
+}
