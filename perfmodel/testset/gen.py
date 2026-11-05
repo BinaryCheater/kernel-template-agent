@@ -2316,7 +2316,11 @@ WI_HAND15 = (
     ("reverse", "m4", "shape", (128, 1, 1), [4 * MB, 4 * MB], None, (("4194303", "1048575"),)),
     ("chunked", "w6", "stores removed", None, None, None, (("k < 12", "k < 6"),)),
 )
-DL_WIDTH = {4: ("unsigned", 16, "x"), 8: ("uint2", 8, "x.x ^ x.y"), 16: ("uint4", 4, "x.x ^ x.y ^ x.z ^ x.w")}
+DL_WIDTH = {
+    4: ("unsigned", 16, "x"),
+    8: ("uint2", 8, "x.x ^ x.y"),
+    16: ("uint4", 4, "x.x ^ x.y ^ x.z ^ x.w"),
+}
 DL_T = (32, 128, 512)
 DL_BYTES = 8 * MB
 FA_D = (64, 80, 96, 112, 128, 144, 160, 176)
@@ -2416,7 +2420,13 @@ def _round15b(out: Path) -> None:
 def _gemv_deep(out: Path, name: str, c: dict, **more) -> None:
     N, K, g = c["N"], c["K"], c["group"]
     sizes, eb = [K, N * K // 2, N * K // g, N], [2, 1, 2, 2]
-    info = {"family": "gemv_w4a16", "shape": {"N": N, "K": K}, "pick": c, "cache": "rotating", **more}
+    info = {
+        "family": "gemv_w4a16",
+        "shape": {"N": N, "K": K},
+        "pick": c,
+        "cache": "rotating",
+        **more,
+    }
     write(
         out,
         name,
@@ -2503,7 +2513,15 @@ WI_HAND16 = (
     ("stridewalk", "t256", "threads", (1024, 1, 1), None, None, ()),
     ("primering", "k2", "stores removed", None, None, None, (("k < 4", "k < 2"),)),
     ("xorput", "k2", "stores removed", None, None, None, (("k < 4", "k < 2"),)),
-    ("gatherfour", "two", "loads removed", None, None, None, (("b[i] + b[i + 3] + b[i + 64] + b[i + 1024]", "b[i] + b[i + 1024]"),)),
+    (
+        "gatherfour",
+        "two",
+        "loads removed",
+        None,
+        None,
+        None,
+        (("b[i] + b[i + 3] + b[i + 64] + b[i + 1024]", "b[i] + b[i + 1024]"),),
+    ),
 )
 MEM_READ = """// round 16: {what}
 __global__ void __launch_bounds__({t}) k_mem(unsigned* o, const {ty}* a) {{
@@ -2531,33 +2549,117 @@ W8 = ("uint2", "x.x ^ x.y")
 def _mem_read(out, name, group, what, t, n, load, grid, bytes_, cache="warm", ty=W8, rot=None):
     src = MEM_READ.format(what=what, t=t, ty=ty[0], n=n, load=load, sum_=ty[1])
     r = _rots(cache, bytes_) if rot is None else rot
-    _source_kernel(out, name, src, (grid, 1, 1), (t,), [1 * MB, bytes_], "hand", group, rot=r, written=1024)
+    _source_kernel(
+        out, name, src, (grid, 1, 1), (t,), [1 * MB, bytes_], "hand", group, rot=r, written=1024
+    )
 
 
 def _mem_dram(out: Path) -> None:
     """Read × DRAM (rotating) and L2 retention: pattern × footprint × threads, one sweep."""
     g = "mem_dram"
     for f in (1, 2, 4, 16, 32, 64):
-        _mem_read(out, f"mr_o_f{f}", g, f"{f} MiB in order", 128, 8, "a[t * 8 + k]", f * MB // (128 * 64), f * MB, "rotating")
+        _mem_read(
+            out,
+            f"mr_o_f{f}",
+            g,
+            f"{f} MiB in order",
+            128,
+            8,
+            "a[t * 8 + k]",
+            f * MB // (128 * 64),
+            f * MB,
+            "rotating",
+        )
     for d in (2, 4, 8):
-        _mem_read(out, f"mr_o_f8_d{d}", g, "8 MiB in order, deeper rotation", 128, 8, "a[t * 8 + k]", 1024, 8 * MB, rot=d * _rot(8 * MB))
+        _mem_read(
+            out,
+            f"mr_o_f8_d{d}",
+            g,
+            "8 MiB in order, deeper rotation",
+            128,
+            8,
+            "a[t * 8 + k]",
+            1024,
+            8 * MB,
+            rot=d * _rot(8 * MB),
+        )
     for t in (32, 128, 512):
         n = 4
         grid = 8 * MB // (t * 16 * n)
-        _mem_read(out, f"mr_cs_t{t}", g, "8 MiB in order, evict-first", t, n, "__ldcs(a + t * 4 + k)", grid, 8 * MB, "rotating", ("int4", "x.x ^ x.y ^ x.z ^ x.w"))
-        _mem_read(out, f"mr_cg_t{t}", g, "8 MiB in order, plain, the same width", t, n, "a[t * 4 + k]", grid, 8 * MB, "rotating", ("int4", "x.x ^ x.y ^ x.z ^ x.w"))
+        _mem_read(
+            out,
+            f"mr_cs_t{t}",
+            g,
+            "8 MiB in order, evict-first",
+            t,
+            n,
+            "__ldcs(a + t * 4 + k)",
+            grid,
+            8 * MB,
+            "rotating",
+            ("int4", "x.x ^ x.y ^ x.z ^ x.w"),
+        )
+        _mem_read(
+            out,
+            f"mr_cg_t{t}",
+            g,
+            "8 MiB in order, plain, the same width",
+            t,
+            n,
+            "a[t * 4 + k]",
+            grid,
+            8 * MB,
+            "rotating",
+            ("int4", "x.x ^ x.y ^ x.z ^ x.w"),
+        )
     for s in (64, 128, 256, 1024, 4096):
         grid = 8 * MB // (128 * s)
-        _mem_read(out, f"mr_s{s}", g, f"8 MiB, lanes {s} bytes apart", 128, 1, f"a[t * {s // 8}]", grid, 8 * MB, "rotating")
+        _mem_read(
+            out,
+            f"mr_s{s}",
+            g,
+            f"8 MiB, lanes {s} bytes apart",
+            128,
+            1,
+            f"a[t * {s // 8}]",
+            grid,
+            8 * MB,
+            "rotating",
+        )
     for r in (512, 2048, 4096):
         grid = 8 * MB // 8192
         n = r // (32 * 8)
-        _mem_read(out, f"mr_row_r{r}", g, f"rows of {r} bytes, pitch 8 KiB", 32, n, f"a[blockIdx.x * 1024 + threadIdx.x * {n} + k]", grid, 8 * MB, "rotating")
+        _mem_read(
+            out,
+            f"mr_row_r{r}",
+            g,
+            f"rows of {r} bytes, pitch 8 KiB",
+            32,
+            n,
+            f"a[blockIdx.x * 1024 + threadIdx.x * {n} + k]",
+            grid,
+            8 * MB,
+            "rotating",
+        )
     for f, t in ((8, 128), (8, 512), (32, 128), (32, 512)):
         grid = f * MB // (t * 64)
         mask = f * MB // 8 - 1
-        _mem_read(out, f"mr_h_f{f}_t{t}", g, f"hashed through {f} MiB", t, 8, f"a[((t * 8 + k) * {HASH}) >> 7 & {mask}u]", grid, f * MB, "rotating")
-    for kind, load in (("cg", "p[(size_t)i * 48 * 1024]"), ("cs", "__ldcs(p + (size_t)i * 48 * 1024)")):
+        _mem_read(
+            out,
+            f"mr_h_f{f}_t{t}",
+            g,
+            f"hashed through {f} MiB",
+            t,
+            8,
+            f"a[((t * 8 + k) * {HASH}) >> 7 & {mask}u]",
+            grid,
+            f * MB,
+            "rotating",
+        )
+    for kind, load in (
+        ("cg", "p[(size_t)i * 48 * 1024]"),
+        ("cs", "__ldcs(p + (size_t)i * 48 * 1024)"),
+    ):
         src = f"""// round 16: dram_burst's kernel: 48 blocks in step, 8 MiB, {kind}
 __global__ void __launch_bounds__(1024) k_mem(int* o, const int4* a) {{
   const int4* p = a + blockIdx.x * 1024 + threadIdx.x;
@@ -2569,11 +2671,44 @@ __global__ void __launch_bounds__(1024) k_mem(int* o, const int4* a) {{
   if (s == 0x7fff1234) o[0] = s;
 }}
 """
-        _source_kernel(out, f"mr_b48_{kind}", src, (48, 1, 1), (1024,), [1 * MB, 8 * MB], "hand", g, rot=_rot(8 * MB), written=0)
+        _source_kernel(
+            out,
+            f"mr_b48_{kind}",
+            src,
+            (48, 1, 1),
+            (1024,),
+            [1 * MB, 8 * MB],
+            "hand",
+            g,
+            rot=_rot(8 * MB),
+            written=0,
+        )
     for grid in (1, 12, 48):
-        _mem_read(out, f"mr_g{grid}", g, f"{grid} blocks, 256 KiB each", 128, 256, "a[t * 256 + k]", grid, grid * 256 * 1024, "rotating")
+        _mem_read(
+            out,
+            f"mr_g{grid}",
+            g,
+            f"{grid} blocks, 256 KiB each",
+            128,
+            256,
+            "a[t * 256 + k]",
+            grid,
+            grid * 256 * 1024,
+            "rotating",
+        )
     for f, r in ((8, 2), (8, 3), (8, 4), (8, 6), (4, 4), (4, 6), (4, 8)):
-        _mem_read(out, f"mk_f{f}_r{r}", "mem_retain", f"{f} MiB, {r} sets in turn", 128, 8, "a[t * 8 + k]", f * MB // (128 * 64), f * MB, rot=r)
+        _mem_read(
+            out,
+            f"mk_f{f}_r{r}",
+            "mem_retain",
+            f"{f} MiB, {r} sets in turn",
+            128,
+            8,
+            "a[t * 8 + k]",
+            f * MB // (128 * 64),
+            f * MB,
+            rot=r,
+        )
 
 
 def _mem_threads(out: Path) -> None:
@@ -2583,12 +2718,33 @@ def _mem_threads(out: Path) -> None:
         g = "mem_threads"
         idx = f"blockIdx.x * 512 + threadIdx.x * {n}"
         _mem_read(out, f"mt_r_t{t}", g, "rows warm, loads", t, n, f"a[{idx} + k]", 1920, 8 * MB)
-        src = MEM_WRITE.format(what="rows warm, stores", t=t, n=n, more="", body=f"((uint2*)o)[{idx} + k] = make_uint2(t, k);")
+        src = MEM_WRITE.format(
+            what="rows warm, stores",
+            t=t,
+            n=n,
+            more="",
+            body=f"((uint2*)o)[{idx} + k] = make_uint2(t, k);",
+        )
         _source_kernel(out, f"mt_w_t{t}", src, (1920, 1, 1), (t,), [8 * MB], "hand", g)
-        src = MEM_WRITE.format(what="rows warm, loads then stores", t=t, n=n, more=", const uint2* a", body=f"((uint2*)o)[{idx} + k] = a[{idx} + k];")
+        src = MEM_WRITE.format(
+            what="rows warm, loads then stores",
+            t=t,
+            n=n,
+            more=", const uint2* a",
+            body=f"((uint2*)o)[{idx} + k] = a[{idx} + k];",
+        )
         _source_kernel(out, f"mt_rw_t{t}", src, (1920, 1, 1), (t,), [8 * MB, 8 * MB], "hand", g)
-        src = MEM_READ.format(what="rows warm, loads and a barrier", t=t, ty="uint2", n=n, load=f"a[{idx} + k]", sum_="x.x ^ x.y").replace("  o[blockIdx", "  __syncthreads();\n  o[blockIdx")
-        _source_kernel(out, f"mt_rb_t{t}", src, (1920, 1, 1), (t,), [1 * MB, 8 * MB], "hand", g, written=1024)
+        src = MEM_READ.format(
+            what="rows warm, loads and a barrier",
+            t=t,
+            ty="uint2",
+            n=n,
+            load=f"a[{idx} + k]",
+            sum_="x.x ^ x.y",
+        ).replace("  o[blockIdx", "  __syncthreads();\n  o[blockIdx")
+        _source_kernel(
+            out, f"mt_rb_t{t}", src, (1920, 1, 1), (t,), [1 * MB, 8 * MB], "hand", g, written=1024
+        )
 
 
 def _mem_write(out: Path) -> None:
@@ -2600,15 +2756,29 @@ def _mem_write(out: Path) -> None:
         b = f10 * MB // 10
         src = MEM_WRITE.format(what=f"{f10 / 10} MiB written", t=128, n=8, more="", body=st)
         _source_kernel(out, f"mw_o_f{f10}", src, (b // (128 * 64), 1, 1), (128,), [b], "hand", g)
-        src = MEM_WRITE.format(what=f"{f10 / 10} MiB written, as much read once", t=128, n=8, more=", const uint2* a", body=rw)
-        _source_kernel(out, f"mw_rw_f{f10}", src, (b // (128 * 64), 1, 1), (128,), [b, b], "hand", g)
+        src = MEM_WRITE.format(
+            what=f"{f10 / 10} MiB written, as much read once",
+            t=128,
+            n=8,
+            more=", const uint2* a",
+            body=rw,
+        )
+        _source_kernel(
+            out, f"mw_rw_f{f10}", src, (b // (128 * 64), 1, 1), (128,), [b, b], "hand", g
+        )
     for t in (32, 512):
         b = 7 * MB
-        src = MEM_WRITE.format(what="7 MiB written, read once, by threads", t=t, n=8, more=", const uint2* a", body=rw)
+        src = MEM_WRITE.format(
+            what="7 MiB written, read once, by threads", t=t, n=8, more=", const uint2* a", body=rw
+        )
         _source_kernel(out, f"mw_rw_f70_t{t}", src, (b // (t * 64), 1, 1), (t,), [b, b], "hand", g)
     b = 7 * MB
-    src = MEM_WRITE.format(what="7 MiB written, read once, few blocks", t=1024, n=8, more=", const uint2* a", body=rw)
-    _source_kernel(out, "mw_rw_f70_t1024", src, (b // (1024 * 64), 1, 1), (1024,), [b, b], "hand", g)
+    src = MEM_WRITE.format(
+        what="7 MiB written, read once, few blocks", t=1024, n=8, more=", const uint2* a", body=rw
+    )
+    _source_kernel(
+        out, "mw_rw_f70_t1024", src, (b // (1024 * 64), 1, 1), (1024,), [b, b], "hand", g
+    )
     for f in (16, 32, 64):
         b = f * MB
         src = MEM_WRITE.format(what=f"{f} MiB written", t=128, n=8, more="", body=st)
@@ -2618,11 +2788,21 @@ def _mem_write(out: Path) -> None:
         body = f"o[((t * 8 + k) * {HASH}) >> 6 & {b // 4 - 1}u] = t;"
         src = MEM_WRITE.format(what=f"{f} MiB hashed", t=128, n=8, more="", body=body)
         _source_kernel(out, f"mw_h_f{f}", src, (b // (128 * 32), 1, 1), (128,), [b], "hand", g)
-    src = MEM_WRITE.format(what="16 MiB, lanes 4 KiB apart", t=128, n=1, more="", body="o[t * 1024] = t;")
-    _source_kernel(out, "mw_s4096_f16", src, (16 * MB // (128 * 4096), 1, 1), (128,), [16 * MB], "hand", g)
+    src = MEM_WRITE.format(
+        what="16 MiB, lanes 4 KiB apart", t=128, n=1, more="", body="o[t * 1024] = t;"
+    )
+    _source_kernel(
+        out, "mw_s4096_f16", src, (16 * MB // (128 * 4096), 1, 1), (128,), [16 * MB], "hand", g
+    )
     for f in (4, 8, 16, 32):
         b = f * MB
-        src = MEM_WRITE.format(what=f"{f} MiB read and written in place", t=128, n=8, more="", body="o[t * 8 + k] += 1u;")
+        src = MEM_WRITE.format(
+            what=f"{f} MiB read and written in place",
+            t=128,
+            n=8,
+            more="",
+            body="o[t * 8 + k] += 1u;",
+        )
         _source_kernel(out, f"mx_f{f}", src, (b // (128 * 32), 1, 1), (128,), [b], "hand", g)
 
 
@@ -2631,7 +2811,18 @@ def _mem_stride(out: Path) -> None:
     g = "mem_sector"
     for d in (48, 64, 80, 96, 112, 128):
         w = d // 16
-        _mem_read(out, f"ms_g_d{d}", g, f"16-byte loads, {d} bytes apart", 128, 4, f"a[(t * 4 + k) * {w}]", 4 * MB // (128 * 4 * d), 4 * MB, ty=("uint4", "x.x ^ x.y ^ x.z ^ x.w"))
+        _mem_read(
+            out,
+            f"ms_g_d{d}",
+            g,
+            f"16-byte loads, {d} bytes apart",
+            128,
+            4,
+            f"a[(t * 4 + k) * {w}]",
+            4 * MB // (128 * 4 * d),
+            4 * MB,
+            ty=("uint4", "x.x ^ x.y ^ x.z ^ x.w"),
+        )
         src = f"""// round 16: shared memory, 16 bytes each thread, {d} bytes apart: stores, barrier, loads
 __global__ void __launch_bounds__(128) k_mem(unsigned* o) {{
   __shared__ uint4 v[{128 * w}];
@@ -2647,7 +2838,9 @@ __global__ void __launch_bounds__(128) k_mem(unsigned* o) {{
   o[blockIdx.x] = s;
 }}
 """
-        _source_kernel(out, f"ms_s_d{d}", src, (96, 1, 1), (128,), [1 * MB], "hand", g, written=1024)
+        _source_kernel(
+            out, f"ms_s_d{d}", src, (96, 1, 1), (128,), [1 * MB], "hand", g, written=1024
+        )
         src = f"""// round 16: copies of 16 bytes per thread, rows {d} bytes a thread
 __global__ void __launch_bounds__(128) k_mem(unsigned* o, const char* a) {{
   __shared__ __align__(128) unsigned char buf[32768];
@@ -2663,7 +2856,9 @@ __global__ void __launch_bounds__(128) k_mem(unsigned* o, const char* a) {{
   o[blockIdx.x] = t;
 }}
 """
-        _source_kernel(out, f"ms_c_d{d}", src, (24, 1, 1), (128,), [1 * MB, 8 * MB], "hand", g, written=1024)
+        _source_kernel(
+            out, f"ms_c_d{d}", src, (24, 1, 1), (128,), [1 * MB, 8 * MB], "hand", g, written=1024
+        )
 
 
 def _mem_l1(out: Path) -> None:
@@ -2673,15 +2868,48 @@ def _mem_l1(out: Path) -> None:
     for p in (16, 32, 64, 96, 128, 160, 192, 256, 384):
         n = p * 1024 // (256 * 16)
         load = f"a[blockIdx.x * {p * 64} + threadIdx.x * {n} + k % {n}u]"
-        _mem_read(out, f"ml_p{p}", g, f"8 passes of {p} KiB, a block per SM", 256, 8 * n, load, 48, 48 * p * 1024, ty=ty)
+        _mem_read(
+            out,
+            f"ml_p{p}",
+            g,
+            f"8 passes of {p} KiB, a block per SM",
+            256,
+            8 * n,
+            load,
+            48,
+            48 * p * 1024,
+            ty=ty,
+        )
     for p in (32, 64, 96, 128):
         n = p * 1024 // (128 * 16)
         load = f"a[blockIdx.x * {p * 64} + threadIdx.x * {n} + k % {n}u]"
-        _mem_read(out, f"ml2_p{p}", g, f"8 passes of {p} KiB, two blocks per SM", 128, 8 * n, load, 96, 96 * p * 1024, ty=ty)
+        _mem_read(
+            out,
+            f"ml2_p{p}",
+            g,
+            f"8 passes of {p} KiB, two blocks per SM",
+            128,
+            8 * n,
+            load,
+            96,
+            96 * p * 1024,
+            ty=ty,
+        )
     for p in (128, 192):
         n = p * 1024 // (256 * 16)
         load = f"a[blockIdx.x * {p * 64} + ((threadIdx.x + k) * {HASH} >> 8) % {p * 64}u]"
-        _mem_read(out, f"ml_h_p{p}", g, f"8 passes hashed over {p} KiB", 256, 8 * n, load, 48, 48 * p * 1024, ty=ty)
+        _mem_read(
+            out,
+            f"ml_h_p{p}",
+            g,
+            f"8 passes hashed over {p} KiB",
+            256,
+            8 * n,
+            load,
+            48,
+            48 * p * 1024,
+            ty=ty,
+        )
 
 
 def _mem_far(out: Path) -> None:
@@ -2690,16 +2918,67 @@ def _mem_far(out: Path) -> None:
     for s in (128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768):
         b = 32768 * s
         rot = 1 if b >= 64 * MB else _rot(b)
-        _mem_read(out, f"md_s{s}", g, f"32 K lanes, {s} bytes apart", 128, 1, f"a[(size_t)t * {s // 8}]", 256, b, rot=rot)
+        _mem_read(
+            out,
+            f"md_s{s}",
+            g,
+            f"32 K lanes, {s} bytes apart",
+            128,
+            1,
+            f"a[(size_t)t * {s // 8}]",
+            256,
+            b,
+            rot=rot,
+        )
     for f in (1, 4, 16, 32, 64, 256, 1024):
         b = f * MB
-        _mem_read(out, f"mh_f{f}", g, f"256 K lanes hashed through {f} MiB", 128, 1, f"a[(t * {HASH}) >> 4 & {b // 8 - 1}u]", 2048, b)
+        _mem_read(
+            out,
+            f"mh_f{f}",
+            g,
+            f"256 K lanes hashed through {f} MiB",
+            128,
+            1,
+            f"a[(t * {HASH}) >> 4 & {b // 8 - 1}u]",
+            2048,
+            b,
+        )
     for f in (16, 64):
         b = f * MB
-        _mem_read(out, f"mh_f{f}_t512", g, f"256 K lanes hashed through {f} MiB", 512, 1, f"a[(t * {HASH}) >> 4 & {b // 8 - 1}u]", 512, b)
+        _mem_read(
+            out,
+            f"mh_f{f}_t512",
+            g,
+            f"256 K lanes hashed through {f} MiB",
+            512,
+            1,
+            f"a[(t * {HASH}) >> 4 & {b // 8 - 1}u]",
+            512,
+            b,
+        )
     for s in (64, 128, 256, 1024, 4096):
-        _mem_read(out, f"mst_s{s}", g, f"warm, 4 MiB, lanes {s} bytes apart", 128, 1, f"a[t * {s // 8}]", 4 * MB // (128 * s), 4 * MB)
-    _mem_read(out, "mst_s256_t512", g, "warm, 4 MiB, lanes 256 bytes apart", 512, 1, "a[t * 32]", 4 * MB // (512 * 256), 4 * MB)
+        _mem_read(
+            out,
+            f"mst_s{s}",
+            g,
+            f"warm, 4 MiB, lanes {s} bytes apart",
+            128,
+            1,
+            f"a[t * {s // 8}]",
+            4 * MB // (128 * s),
+            4 * MB,
+        )
+    _mem_read(
+        out,
+        "mst_s256_t512",
+        g,
+        "warm, 4 MiB, lanes 256 bytes apart",
+        512,
+        1,
+        "a[t * 32]",
+        4 * MB // (512 * 256),
+        4 * MB,
+    )
 
 
 def _mem(out: Path) -> None:
@@ -2770,14 +3049,25 @@ def _round16(out: Path) -> None:
         for v, (kw, axis) in DECODE13_V.items():
             more = _wi(v, f"dec16_b_{cache}", axis)
             c = {**DECODE16, **kw}
-            _tried(_decode_part, out, f"dec16_{v}_{cache}", c, cache, set=f"decode {tag}{tail}", **more)
+            _tried(
+                _decode_part, out, f"dec16_{v}_{cache}", c, cache, set=f"decode {tag}{tail}", **more
+            )
     tag = f"{ROWS16['M']}x{ROWS16['N']}"
     for th in THREADS13:
         axis = "base" if th == 128 else "threads"
         kw = {"threads": th}
         for cache, tail in (("warm", ""), ("rotating", " rotating")):
             more = _wi("", f"rms16_t128_{cache}", axis)
-            _tried(_rms, out, f"rms16_t{th}_{cache}", ROWS16, cache, kw, set=f"rmsnorm {tag}{tail}", **more)
+            _tried(
+                _rms,
+                out,
+                f"rms16_t{th}_{cache}",
+                ROWS16,
+                cache,
+                kw,
+                set=f"rmsnorm {tag}{tail}",
+                **more,
+            )
         more = _wi("", "sm16_t128_warm", axis)
         _tried(_softmax, out, f"sm16_t{th}_warm", ROWS16, kw, set=f"softmax {tag}", **more)
 
@@ -2808,7 +3098,15 @@ WI_HAND17 = (
     ("strideloop", "t128", "threads", (2048, 1, 1), None, None, ()),
     ("primefold", "k2", "stores removed", None, None, None, (("k < 3", "k < 2"),)),
     ("addput", "k2", "stores removed", None, None, None, (("k < 3", "k < 2"),)),
-    ("gathertwo", "one", "loads removed", None, None, None, (("b[i] + b[i + 1] + b[j] + b[j + 256]", "b[i] + b[j]"),)),
+    (
+        "gathertwo",
+        "one",
+        "loads removed",
+        None,
+        None,
+        None,
+        (("b[i] + b[i + 1] + b[j] + b[j + 256]", "b[i] + b[j]"),),
+    ),
 )
 TWIN = """// round 17: {what}
 __global__ void __launch_bounds__({t}) k_mem(unsigned* o, const uint2* a) {{
@@ -2858,35 +3156,147 @@ def _twins(out: Path) -> None:
     F = 8 * MB
     for gap in (0, 1, 8, 32, 128, 512):
         busy = BUSY.format(g=gap) if gap else ""
-        src = TWIN.format(what=f"twin sectors, {gap} passes apart", t=128, first="t * 8", gap=busy, second="t * 8 + 4")
-        _source_kernel(out, f"tw_g{gap}", src, (F // (128 * 64), 1, 1), (128,), [1 * MB, F], "hand", g, rot=_rot(F), written=1024)
-    src = TWIN.format(what="the twin after the first sector's data", t=128, first="t * 8", gap="if (x.x == 0x7fff1234u) s = 1;", second="t * 8 + 4")
-    _source_kernel(out, "tw_dep", src, (F // (128 * 64), 1, 1), (128,), [1 * MB, F], "hand", g, rot=_rot(F), written=1024)
-    src = TWIN.format(what="two sectors of bursts far apart", t=128, first="t * 8", gap="", second="(t ^ 65536u) * 8 + 4")
-    _source_kernel(out, "tw_far", src, (F // (128 * 64), 1, 1), (128,), [1 * MB, F], "hand", g, rot=_rot(F), written=1024)
-    src = TWIN.format(what="two sectors of a line, not of a burst", t=128, first="t * 16", gap="", second="t * 16 + 8")
-    _source_kernel(out, "tw_l", src, (F // (128 * 128), 1, 1), (128,), [1 * MB, F], "hand", g, rot=_rot(F), written=1024)
+        src = TWIN.format(
+            what=f"twin sectors, {gap} passes apart",
+            t=128,
+            first="t * 8",
+            gap=busy,
+            second="t * 8 + 4",
+        )
+        _source_kernel(
+            out,
+            f"tw_g{gap}",
+            src,
+            (F // (128 * 64), 1, 1),
+            (128,),
+            [1 * MB, F],
+            "hand",
+            g,
+            rot=_rot(F),
+            written=1024,
+        )
+    src = TWIN.format(
+        what="the twin after the first sector's data",
+        t=128,
+        first="t * 8",
+        gap="if (x.x == 0x7fff1234u) s = 1;",
+        second="t * 8 + 4",
+    )
+    _source_kernel(
+        out,
+        "tw_dep",
+        src,
+        (F // (128 * 64), 1, 1),
+        (128,),
+        [1 * MB, F],
+        "hand",
+        g,
+        rot=_rot(F),
+        written=1024,
+    )
+    src = TWIN.format(
+        what="two sectors of bursts far apart",
+        t=128,
+        first="t * 8",
+        gap="",
+        second="(t ^ 65536u) * 8 + 4",
+    )
+    _source_kernel(
+        out,
+        "tw_far",
+        src,
+        (F // (128 * 64), 1, 1),
+        (128,),
+        [1 * MB, F],
+        "hand",
+        g,
+        rot=_rot(F),
+        written=1024,
+    )
+    src = TWIN.format(
+        what="two sectors of a line, not of a burst",
+        t=128,
+        first="t * 16",
+        gap="",
+        second="t * 16 + 8",
+    )
+    _source_kernel(
+        out,
+        "tw_l",
+        src,
+        (F // (128 * 128), 1, 1),
+        (128,),
+        [1 * MB, F],
+        "hand",
+        g,
+        rot=_rot(F),
+        written=1024,
+    )
     for t in (32, 512):
         for gap in (0, 32):
             busy = BUSY.format(g=gap) if gap else ""
-            src = TWIN.format(what=f"twin sectors at T {t}, {gap} passes apart", t=t, first="t * 8", gap=busy, second="t * 8 + 4")
-            _source_kernel(out, f"tw_t{t}_g{gap}", src, (F // (t * 64), 1, 1), (t,), [1 * MB, F], "hand", g, rot=_rot(F), written=1024)
-    src = f"""// round 17: twin sectors by neighbouring warps of a block
-__global__ void __launch_bounds__(128) k_mem(unsigned* o, const uint2* a) {{
+            src = TWIN.format(
+                what=f"twin sectors at T {t}, {gap} passes apart",
+                t=t,
+                first="t * 8",
+                gap=busy,
+                second="t * 8 + 4",
+            )
+            _source_kernel(
+                out,
+                f"tw_t{t}_g{gap}",
+                src,
+                (F // (t * 64), 1, 1),
+                (t,),
+                [1 * MB, F],
+                "hand",
+                g,
+                rot=_rot(F),
+                written=1024,
+            )
+    src = """// round 17: twin sectors by neighbouring warps of a block
+__global__ void __launch_bounds__(128) k_mem(unsigned* o, const uint2* a) {
   const unsigned l = threadIdx.x & 31u, w = threadIdx.x >> 5;
   const uint2 x = a[(blockIdx.x * 64 + (w >> 1) * 32 + l) * 8 + (w & 1u) * 4];
   o[blockIdx.x & 65535u] = x.x ^ x.y;
-}}
+}
 """
-    _source_kernel(out, "tw_sw", src, (F // (64 * 64), 1, 1), (128,), [1 * MB, F], "hand", g, rot=_rot(F), written=1024)
+    _source_kernel(
+        out,
+        "tw_sw",
+        src,
+        (F // (64 * 64), 1, 1),
+        (128,),
+        [1 * MB, F],
+        "hand",
+        g,
+        rot=_rot(F),
+        written=1024,
+    )
     pairs = (
-        ("tw_ss", "twin sectors by two blocks on an SM", "blockIdx.x % 48u", "(blockIdx.x / 48u) * 4"),
+        (
+            "tw_ss",
+            "twin sectors by two blocks on an SM",
+            "blockIdx.x % 48u",
+            "(blockIdx.x / 48u) * 4",
+        ),
         ("tw_sc", "twin sectors by blocks on two SMs", "blockIdx.x / 2u", "(blockIdx.x & 1u) * 4"),
         ("tw_s0", "first sectors alone, as many bursts as blocks ask", "blockIdx.x", "0"),
     )
     for name, what, pair, side in pairs:
         src = TWO_BLOCKS.format(what=what, pair=pair, side=side)
-        _source_kernel(out, name, src, (96, 1, 1), (128,), [1 * MB, 16 * MB], "hand", g, rot=_rot(16 * MB), written=1024)
+        _source_kernel(
+            out,
+            name,
+            src,
+            (96, 1, 1),
+            (128,),
+            [1 * MB, 16 * MB],
+            "hand",
+            g,
+            rot=_rot(16 * MB),
+            written=1024,
+        )
 
 
 def _gemv_rows(out: Path) -> None:
@@ -2896,9 +3306,22 @@ def _gemv_rows(out: Path) -> None:
 
     def row(name, w, p, r=32, np=4, more="", beside="", sizes=()):
         n = -(-p // (r * w))
-        src = GEMV_ROWS.format(w=w, p=p, t=r * np, more=more, np=np, n=n, r=r, ty=tys[w], beside=beside)
+        src = GEMV_ROWS.format(
+            w=w, p=p, t=r * np, more=more, np=np, n=n, r=r, ty=tys[w], beside=beside
+        )
         grid = 8 * MB // (np * p)
-        _source_kernel(out, name, src, (grid, 1, 1), (r, np), [1 * MB, 9 * MB, *sizes], "hand", g, rot=_rot(9 * MB), written=1024)
+        _source_kernel(
+            out,
+            name,
+            src,
+            (grid, 1, 1),
+            (r, np),
+            [1 * MB, 9 * MB, *sizes],
+            "hand",
+            g,
+            rot=_rot(9 * MB),
+            written=1024,
+        )
 
     for w in (2, 4, 8):
         for p in (1280, 1344, 1360):
@@ -2917,18 +3340,50 @@ def _part_sectors(out: Path) -> None:
         for s in (8, 16, 32, 64, 128):
             n = s // 8
             idx = f"t * {n} + k"
-            src = MEM_WRITE.format(what=f"8-byte lanes {s} bytes apart, sectors filled", t=128, n=n, more="", body=f"((uint2*)o)[{idx}] = make_uint2(t, k);")
-            _source_kernel(out, f"pw_f{f}_s{s}", src, (F // (128 * s), 1, 1), (128,), [F], "hand", g)
+            src = MEM_WRITE.format(
+                what=f"8-byte lanes {s} bytes apart, sectors filled",
+                t=128,
+                n=n,
+                more="",
+                body=f"((uint2*)o)[{idx}] = make_uint2(t, k);",
+            )
+            _source_kernel(
+                out, f"pw_f{f}_s{s}", src, (F // (128 * s), 1, 1), (128,), [F], "hand", g
+            )
             if s > 8:
-                src = MEM_WRITE.format(what=f"8-byte lanes {s} bytes apart, one store", t=128, n=1, more="", body=f"((uint2*)o)[t * {n}] = make_uint2(t, k);")
-                _source_kernel(out, f"pw_f{f}_s{s}_one", src, (F // (128 * s), 1, 1), (128,), [F], "hand", g)
+                src = MEM_WRITE.format(
+                    what=f"8-byte lanes {s} bytes apart, one store",
+                    t=128,
+                    n=1,
+                    more="",
+                    body=f"((uint2*)o)[t * {n}] = make_uint2(t, k);",
+                )
+                _source_kernel(
+                    out, f"pw_f{f}_s{s}_one", src, (F // (128 * s), 1, 1), (128,), [F], "hand", g
+                )
     for s in (16, 32, 128):
-        src = MEM_WRITE.format(what=f"4-byte lanes {s} bytes apart, one store", t=128, n=1, more="", body=f"o[t * {s // 4}] = t;")
-        _source_kernel(out, f"pw4_f4_s{s}_one", src, (4 * MB // (128 * s), 1, 1), (128,), [4 * MB], "hand", g)
+        src = MEM_WRITE.format(
+            what=f"4-byte lanes {s} bytes apart, one store",
+            t=128,
+            n=1,
+            more="",
+            body=f"o[t * {s // 4}] = t;",
+        )
+        _source_kernel(
+            out, f"pw4_f4_s{s}_one", src, (4 * MB // (128 * s), 1, 1), (128,), [4 * MB], "hand", g
+        )
     for s in (16, 32, 64, 128):
         n = s // 8
-        src = MEM_WRITE.format(what=f"8-byte lanes {s} bytes apart read and written in place", t=128, n=n, more="", body=f"((uint2*)o)[t * {n} + k].x += 1u;")
-        _source_kernel(out, f"px_f4_s{s}", src, (4 * MB // (128 * s), 1, 1), (128,), [4 * MB], "hand", g)
+        src = MEM_WRITE.format(
+            what=f"8-byte lanes {s} bytes apart read and written in place",
+            t=128,
+            n=n,
+            more="",
+            body=f"((uint2*)o)[t * {n} + k].x += 1u;",
+        )
+        _source_kernel(
+            out, f"px_f4_s{s}", src, (4 * MB // (128 * s), 1, 1), (128,), [4 * MB], "hand", g
+        )
 
 
 def _rows_warm(out: Path) -> None:
@@ -2936,10 +3391,22 @@ def _rows_warm(out: Path) -> None:
     shape of round 16, a seen shape."""
     g = "rows_warm"
     for t in (32, 128, 512):
-        for tag, kw in (("nostore", {"store": "shared"}), ("noload", {"load": False}), ("nocompute", {"compute": False})):
+        for tag, kw in (
+            ("nostore", {"store": "shared"}),
+            ("noload", {"load": False}),
+            ("nocompute", {"compute": False}),
+        ):
             _tried(_rms, out, f"rr_{tag}_t{t}_warm", ROWS16, "warm", {"threads": t, **kw}, set=g)
     for m in (224, 448, 1792):
-        _tried(_rms, out, f"rr_m{m}_t128_warm", {"M": m, "N": ROWS16["N"]}, "warm", {"threads": 128}, set=g)
+        _tried(
+            _rms,
+            out,
+            f"rr_m{m}_t128_warm",
+            {"M": m, "N": ROWS16["N"]},
+            "warm",
+            {"threads": 128},
+            set=g,
+        )
 
 
 def _turnover(out: Path) -> None:
@@ -2949,8 +3416,20 @@ def _turnover(out: Path) -> None:
     for t in (32, 128):
         for grid in (48, 96, 192, 384):
             for tag, sh in (("one", big), ("many", "")):
-                src = TURNOVER.format(us=2, what=f"{grid} blocks of {t}, {tag} on an SM", t=t, shared=sh, n=400)
-                _source_kernel(out, f"tv_{tag}_t{t}_g{grid}", src, (grid, 1, 1), (t,), [1 * MB], "hand", g, written=1024)
+                src = TURNOVER.format(
+                    us=2, what=f"{grid} blocks of {t}, {tag} on an SM", t=t, shared=sh, n=400
+                )
+                _source_kernel(
+                    out,
+                    f"tv_{tag}_t{t}_g{grid}",
+                    src,
+                    (grid, 1, 1),
+                    (t,),
+                    [1 * MB],
+                    "hand",
+                    g,
+                    written=1024,
+                )
 
 
 def _fa_stage(out: Path) -> None:
@@ -2958,7 +3437,11 @@ def _fa_stage(out: Path) -> None:
     g = "fa_stage"
     for s in (1, 2):
         base = {**FA16, "BM": 64, "BN": 64, "stages": s, "threads": 128}
-        for tag, kw in (("nov", {"second": False}), ("noexp", {"exp": False}), ("shared", {"store": "shared"})):
+        for tag, kw in (
+            ("nov", {"second": False}),
+            ("noexp", {"exp": False}),
+            ("shared", {"store": "shared"}),
+        ):
             more = {"writes": ()} if tag == "shared" else {}
             _tried(_fa, out, f"fs_{tag}_s{s}_warm", {**base, **kw}, "warm", set=g, **more)
 
@@ -3027,14 +3510,25 @@ def _round17(out: Path) -> None:
         for v, (kw, axis) in DECODE13_V.items():
             more = _wi(v, f"dec17_b_{cache}", axis)
             c = {**DECODE17, **kw}
-            _tried(_decode_part, out, f"dec17_{v}_{cache}", c, cache, set=f"decode {tag}{tail}", **more)
+            _tried(
+                _decode_part, out, f"dec17_{v}_{cache}", c, cache, set=f"decode {tag}{tail}", **more
+            )
     tag = f"{ROWS17['M']}x{ROWS17['N']}"
     for th in THREADS13:
         axis = "base" if th == 128 else "threads"
         kw = {"threads": th}
         for cache, tail in (("warm", ""), ("rotating", " rotating")):
             more = _wi("", f"rms17_t128_{cache}", axis)
-            _tried(_rms, out, f"rms17_t{th}_{cache}", ROWS17, cache, kw, set=f"rmsnorm {tag}{tail}", **more)
+            _tried(
+                _rms,
+                out,
+                f"rms17_t{th}_{cache}",
+                ROWS17,
+                cache,
+                kw,
+                set=f"rmsnorm {tag}{tail}",
+                **more,
+            )
         more = _wi("", "sm17_t128_warm", axis)
         _tried(_softmax, out, f"sm17_t{th}_warm", ROWS17, kw, set=f"softmax {tag}", **more)
 
@@ -3066,7 +3560,15 @@ WI_HAND18 = (
     ("rangesum", "k2", "loads removed", None, None, None, (("k < 4", "k < 2"),)),
     ("storeevery", "k2", "stores removed", None, None, None, (("k < 3", "k < 2"),)),
     ("hopscotch", "k2", "loads removed", None, None, None, (("k < 3", "k < 2"),)),
-    ("stackfold", "w8", "stack", None, None, None, (("w[12]", "w[8]"), ("k < 12", "k < 8"), ("11 - k", "7 - k"), ("k < 6", "k < 4"))),
+    (
+        "stackfold",
+        "w8",
+        "stack",
+        None,
+        None,
+        None,
+        (("w[12]", "w[8]"), ("k < 12", "k < 8"), ("11 - k", "7 - k"), ("k < 6", "k < 4")),
+    ),
 )
 RUNS = """// round 18: rows of {run} bytes, {w} bytes per lane, pitch {p}: decode's copies as loads
 __global__ void __launch_bounds__(128) k_mem(unsigned* o, const char* a) {{
@@ -3100,7 +3602,18 @@ def _decode_tile(out: Path) -> None:
             grid = int(F * run / p) // (128 * n * w) if p != run else F // (128 * n * w)
             src = RUNS.format(run=run, w=w, p=p, n=n, lanes=lanes, ty=ty)
             size = int(grid * 128 * n * w * p / run) + 2 * MB
-            _source_kernel(out, f"dp_w{w}_r{run}_p{p}", src, (grid, 1, 1), (128,), [1 * MB, size], "hand", g, rot=_rot(size), written=1024)
+            _source_kernel(
+                out,
+                f"dp_w{w}_r{run}_p{p}",
+                src,
+                (grid, 1, 1),
+                (128,),
+                [1 * MB, size],
+                "hand",
+                g,
+                rot=_rot(size),
+                written=1024,
+            )
 
 
 def _reg_limit(out: Path) -> None:
@@ -3109,7 +3622,9 @@ def _reg_limit(out: Path) -> None:
     for th, ns in ((16, (1024, 1536, 2048, 3072, 4608, 6144)), (32, (6144, 9216))):
         for n in ns:
             m = max(16, (3317760 // n) // 16 * 16)
-            _tried(_rms, out, f"sp_n{n}_t{th}_warm", {"M": m, "N": n}, "warm", {"threads": th}, set=g)
+            _tried(
+                _rms, out, f"sp_n{n}_t{th}_warm", {"M": m, "N": n}, "warm", {"threads": th}, set=g
+            )
     for n in (2048, 6144):
         m = max(16, (3317760 // n) // 16 * 16)
         _tried(_softmax, out, f"sp_sm_n{n}_t16_warm", {"M": m, "N": n}, {"threads": 16}, set=g)
@@ -3125,7 +3640,18 @@ def _gemv_pitch(out: Path) -> None:
     def row(w, r, np):
         n = -(-p // (r * w))
         src = GEMV_ROWS.format(w=w, p=p, t=r * np, more="", np=np, n=n, r=r, ty=tys[w], beside="")
-        _source_kernel(out, f"gq_w{w}_r{r}_np{np}", src, (8 * MB // (np * p), 1, 1), (r, np), [1 * MB, 9 * MB], "hand", g, rot=_rot(9 * MB), written=1024)
+        _source_kernel(
+            out,
+            f"gq_w{w}_r{r}_np{np}",
+            src,
+            (8 * MB // (np * p), 1, 1),
+            (r, np),
+            [1 * MB, 9 * MB],
+            "hand",
+            g,
+            rot=_rot(9 * MB),
+            written=1024,
+        )
 
     for np in (1, 2, 4, 8, 16):
         row(4, 32, np)
@@ -3133,8 +3659,21 @@ def _gemv_pitch(out: Path) -> None:
         row(w, r, 8)
     F = 8 * MB
     for t in (16, 64):
-        src = TWIN.format(what=f"twin sectors at T {t}, no gap", t=t, first="t * 8", gap="", second="t * 8 + 4")
-        _source_kernel(out, f"tw_t{t}_g0", src, (F // (t * 64), 1, 1), (t,), [1 * MB, F], "hand", "twin", rot=_rot(F), written=1024)
+        src = TWIN.format(
+            what=f"twin sectors at T {t}, no gap", t=t, first="t * 8", gap="", second="t * 8 + 4"
+        )
+        _source_kernel(
+            out,
+            f"tw_t{t}_g0",
+            src,
+            (F // (t * 64), 1, 1),
+            (t,),
+            [1 * MB, F],
+            "hand",
+            "twin",
+            rot=_rot(F),
+            written=1024,
+        )
 
 
 def _hand18(out: Path) -> None:
@@ -3187,7 +3726,15 @@ WI_HAND19 = (
     ("loadmax", "k3", "loads removed", None, None, None, (("k < 6", "k < 3"),)),
     ("byteload", "k4", "loads removed", None, None, None, (("k < 8", "k < 4"),)),
     ("triplet", "two", "loads removed", None, None, None, ((" * a[t * 3 + 2]", ""),)),
-    ("swapwords", "one", "stores removed", None, None, None, (("  o[t * 2 + 1] = a[t * 2];\n", ""),)),
+    (
+        "swapwords",
+        "one",
+        "stores removed",
+        None,
+        None,
+        None,
+        (("  o[t * 2 + 1] = a[t * 2];\n", ""),),
+    ),
 )
 
 
@@ -3238,10 +3785,22 @@ def _rows_strip(out: Path) -> None:
     """LOOP §3b step 4, rows warm at round 18's shape: each part out, then by rows."""
     g = "rows_warm"
     for t in (128, 512):
-        for tag, kw in (("nostore", {"store": "shared"}), ("noload", {"load": False}), ("nocompute", {"compute": False})):
+        for tag, kw in (
+            ("nostore", {"store": "shared"}),
+            ("noload", {"load": False}),
+            ("nocompute", {"compute": False}),
+        ):
             _tried(_rms, out, f"rs_{tag}_t{t}_warm", ROWS18, "warm", {"threads": t, **kw}, set=g)
     for m in (88, 176, 352):
-        _tried(_rms, out, f"rs_m{m}_t128_warm", {"M": m, "N": ROWS18["N"]}, "warm", {"threads": 128}, set=g)
+        _tried(
+            _rms,
+            out,
+            f"rs_m{m}_t128_warm",
+            {"M": m, "N": ROWS18["N"]},
+            "warm",
+            {"threads": 128},
+            set=g,
+        )
 
 
 def _round19(out: Path) -> None:
@@ -3275,14 +3834,25 @@ def _round19(out: Path) -> None:
         for v, (kw, axis) in DECODE13_V.items():
             more = _wi(v, f"dec19_b_{cache}", axis)
             c = {**DECODE19, **kw}
-            _tried(_decode_part, out, f"dec19_{v}_{cache}", c, cache, set=f"decode {tag}{tail}", **more)
+            _tried(
+                _decode_part, out, f"dec19_{v}_{cache}", c, cache, set=f"decode {tag}{tail}", **more
+            )
     tag = f"{ROWS19['M']}x{ROWS19['N']}"
     for th in THREADS13:
         axis = "base" if th == 128 else "threads"
         kw = {"threads": th}
         for cache, tail in (("warm", ""), ("rotating", " rotating")):
             more = _wi("", f"rms19_t128_{cache}", axis)
-            _tried(_rms, out, f"rms19_t{th}_{cache}", ROWS19, cache, kw, set=f"rmsnorm {tag}{tail}", **more)
+            _tried(
+                _rms,
+                out,
+                f"rms19_t{th}_{cache}",
+                ROWS19,
+                cache,
+                kw,
+                set=f"rmsnorm {tag}{tail}",
+                **more,
+            )
         more = _wi("", "sm19_t128_warm", axis)
         _tried(_softmax, out, f"sm19_t{th}_warm", ROWS19, kw, set=f"softmax {tag}", **more)
 
@@ -3308,10 +3878,26 @@ HAND20 = {
     "doubleword": ((1024, 1, 1), (128,), [2 * MB, 1 * MB], None),
 }
 WI_HAND20 = (
-    ("sumfour", "two", "loads removed", None, None, None, ((" + a[(t + 8u) & 262143u] + a[(t + 12u) & 262143u]", ""),)),
+    (
+        "sumfour",
+        "two",
+        "loads removed",
+        None,
+        None,
+        None,
+        ((" + a[(t + 8u) & 262143u] + a[(t + 12u) & 262143u]", ""),),
+    ),
     ("evenodd", "one", "loads removed", None, None, None, ((" + a[(t | 1u) & 262143u] * 3u", ""),)),
     ("storepair", "one", "stores removed", None, None, None, (("  o[t * 2] = t;\n", ""),)),
-    ("stackfive", "four", "loads removed", None, None, None, (("k < 8", "k < 4"), ("& 7u", "& 3u"))),
+    (
+        "stackfive",
+        "four",
+        "loads removed",
+        None,
+        None,
+        None,
+        (("k < 8", "k < 4"), ("& 7u", "& 3u")),
+    ),
 )
 
 
@@ -3359,7 +3945,9 @@ def _rows_past(out: Path) -> None:
         kw = {"threads": 128, "store": "shared"}
         _tried(_rms, out, f"rw_ns_m{m}_t128_warm", {"M": m, "N": n}, "warm", kw, set=g)
     for m, nn in ((1760, 2816), (1408, 3520), (604, 8192)):
-        _tried(_rms, out, f"rw_m{m}n{nn}_t128_warm", {"M": m, "N": nn}, "warm", {"threads": 128}, set=g)
+        _tried(
+            _rms, out, f"rw_m{m}n{nn}_t128_warm", {"M": m, "N": nn}, "warm", {"threads": 128}, set=g
+        )
     for m in (616, 792, 880, 968):
         _tried(_softmax, out, f"sw_m{m}_t128_warm", {"M": m, "N": n}, {"threads": 128}, set=g)
     src = """// round 20: {r} MiB read once, {w} MiB stored once, both in order, as many blocks as the larger
@@ -3379,7 +3967,16 @@ __global__ void __launch_bounds__(256) k_wb(float* a, const float* b) {{
         grid = max(w, r) * MB // (1024 * k)
         text = src.format(r=r, w=w, k=k, rw=r * MB // 4, ww=w * MB // 4)
         tag = f"_k{k}" if k != 64 else ""
-        _source_kernel(out, f"wb_w{w}_r{r}{tag}", text, (grid, 1, 1), (256,), [w * MB, max(1, r) * MB], "hand", g)
+        _source_kernel(
+            out,
+            f"wb_w{w}_r{r}{tag}",
+            text,
+            (grid, 1, 1),
+            (256,),
+            [w * MB, max(1, r) * MB],
+            "hand",
+            g,
+        )
 
 
 COPY_BANK = """// round 20: copies of 16 bytes into shared memory, lanes on a bank by the layout {tag}
@@ -3437,15 +4034,48 @@ def _copy_banks(out: Path) -> None:
         bytes_ = 48 * rounds * n * 2048
         for beside, tail in (("", ""), (COPY_BESIDE.format(m=2 * n), "_ld")):
             text = COPY_BANK.format(tag=tag, rounds=rounds, n=n, src=src, dst=dst, beside=beside)
-            _source_kernel(out, f"cb_{tag}{tail}", text, (48, 1, 1), (128,), [1 * MB, bytes_ + MB], "hand", g, written=1024)
+            _source_kernel(
+                out,
+                f"cb_{tag}{tail}",
+                text,
+                (48, 1, 1),
+                (128,),
+                [1 * MB, bytes_ + MB],
+                "hand",
+                g,
+                written=1024,
+            )
         if tag in ("q4", "tl7", "tl9"):
             text = COPY_BANK.format(tag=tag, rounds=rounds, n=n, src=src, dst=dst, beside="")
             size = bytes_ + MB
-            _source_kernel(out, f"cb_{tag}_rotating", text, (48, 1, 1), (128,), [1 * MB, size], "hand", g, rot=_rot(size), written=1024)
+            _source_kernel(
+                out,
+                f"cb_{tag}_rotating",
+                text,
+                (48, 1, 1),
+                (128,),
+                [1 * MB, size],
+                "hand",
+                g,
+                rot=_rot(size),
+                written=1024,
+            )
     n, rounds = 7, 4
     for tag, dst in (("q4", lay["q4"][0]), ("tl7", lay["tl7"][0])):
-        text = COPY_BANK.format(tag=tag, rounds=rounds, n=n, src=rows.format(rounds=rounds), dst=dst, beside="")
-        _source_kernel(out, f"cb_rows_{tag}", text, (48, 1, 1), (128,), [1 * MB, 14 * MB], "hand", g, written=1024)
+        text = COPY_BANK.format(
+            tag=tag, rounds=rounds, n=n, src=rows.format(rounds=rounds), dst=dst, beside=""
+        )
+        _source_kernel(
+            out,
+            f"cb_rows_{tag}",
+            text,
+            (48, 1, 1),
+            (128,),
+            [1 * MB, 14 * MB],
+            "hand",
+            g,
+            written=1024,
+        )
     # the one knob in the kernels themselves: D by 16, one stage; decode warm, BN 32 and 64
     for d in FA_D:
         f = {**FA, "S": 768, "H": 4, "D": d, "BM": 64, "BN": 64, "stages": 1, "threads": 128}
@@ -3486,7 +4116,18 @@ __global__ void __launch_bounds__({r * np}) k_mem(unsigned* o, const char* a, co
                 grid = 8 * MB // (np * p) * big
                 name = f"gb_{tag}_e{every}_{'beside' if keep else 'alone'}"
                 sizes = [1 * MB, 9 * MB * big, 1 * MB * big]
-                _source_kernel(out, name, src, (grid, 1, 1), (r, np), sizes, "hand", g, rot=_rot(9 * MB), written=1024)
+                _source_kernel(
+                    out,
+                    name,
+                    src,
+                    (grid, 1, 1),
+                    (r, np),
+                    sizes,
+                    "hand",
+                    g,
+                    rot=_rot(9 * MB),
+                    written=1024,
+                )
 
 
 def _round20(out: Path) -> None:
@@ -3521,14 +4162,25 @@ def _round20(out: Path) -> None:
         for v, (kw, axis) in DECODE13_V.items():
             more = _wi(v, f"dec20_b_{cache}", axis)
             c = {**DECODE20, **kw}
-            _tried(_decode_part, out, f"dec20_{v}_{cache}", c, cache, set=f"decode {tag}{tail}", **more)
+            _tried(
+                _decode_part, out, f"dec20_{v}_{cache}", c, cache, set=f"decode {tag}{tail}", **more
+            )
     tag = f"{ROWS20['M']}x{ROWS20['N']}"
     for th in THREADS13:
         axis = "base" if th == 128 else "threads"
         kw = {"threads": th}
         for cache, tail in (("warm", ""), ("rotating", " rotating")):
             more = _wi("", f"rms20_t128_{cache}", axis)
-            _tried(_rms, out, f"rms20_t{th}_{cache}", ROWS20, cache, kw, set=f"rmsnorm {tag}{tail}", **more)
+            _tried(
+                _rms,
+                out,
+                f"rms20_t{th}_{cache}",
+                ROWS20,
+                cache,
+                kw,
+                set=f"rmsnorm {tag}{tail}",
+                **more,
+            )
         more = _wi("", "sm20_t128_warm", axis)
         _tried(_softmax, out, f"sm20_t{th}_warm", ROWS20, kw, set=f"softmax {tag}", **more)
 
@@ -3565,14 +4217,25 @@ def _round18(out: Path) -> None:
         for v, (kw, axis) in DECODE13_V.items():
             more = _wi(v, f"dec18_b_{cache}", axis)
             c = {**DECODE18, **kw}
-            _tried(_decode_part, out, f"dec18_{v}_{cache}", c, cache, set=f"decode {tag}{tail}", **more)
+            _tried(
+                _decode_part, out, f"dec18_{v}_{cache}", c, cache, set=f"decode {tag}{tail}", **more
+            )
     tag = f"{ROWS18['M']}x{ROWS18['N']}"
     for th in THREADS13:
         axis = "base" if th == 128 else "threads"
         kw = {"threads": th}
         for cache, tail in (("warm", ""), ("rotating", " rotating")):
             more = _wi("", f"rms18_t128_{cache}", axis)
-            _tried(_rms, out, f"rms18_t{th}_{cache}", ROWS18, cache, kw, set=f"rmsnorm {tag}{tail}", **more)
+            _tried(
+                _rms,
+                out,
+                f"rms18_t{th}_{cache}",
+                ROWS18,
+                cache,
+                kw,
+                set=f"rmsnorm {tag}{tail}",
+                **more,
+            )
         more = _wi("", "sm18_t128_warm", axis)
         _tried(_softmax, out, f"sm18_t{th}_warm", ROWS18, kw, set=f"softmax {tag}", **more)
 

@@ -268,6 +268,7 @@ def main(
     step("1-env-versions", ["sh", "-c", "nvidia-smi --version; nvcc --version | tail -2"])
     if only == "timing":
         passes(kernels)
+
     def ncu(tag: str, d: Path, metrics: str) -> None:
         entry = json.loads((d / "launch.json").read_text())["entry"]
         step(
