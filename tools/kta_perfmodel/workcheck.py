@@ -24,7 +24,7 @@ from typing import Any
 
 from kta.models.gb10sim.lanes import width_of
 
-from . import table, upstream
+from . import blind, table, upstream
 
 TABLE = upstream.ROOT / "docs" / "design" / "perfmodel" / "error-table.json"
 BAND = 1.5
@@ -191,6 +191,44 @@ def report(doc: dict[str, Any], focus: str | None = None, raw: str | None = None
 
 def load_doc(path: Path | None = None) -> dict[str, Any]:
     return json.loads((path or TABLE).read_text())
+
+
+def wrong_pairs(regex: str) -> str:
+    """Real pairs of the cached rows, group by group, and the wrong ones by variant over shapes:
+    the ladder's work list (LOOP §3b), seen rows on this engine."""
+    rows = [r for r in cached(regex)["rows"] if r.get("predicted")]
+    times: dict[str, list[float]] = {}
+    for n in {table.batch_order(r["note"].split()[-1])[0] for r in rows}:
+        times.update(blind.passes(n))
+    groups: dict[str, list[dict[str, Any]]] = {}
+    for r in rows:
+        groups.setdefault(r["set"], []).append({**r, "unit": r["id"].removesuffix(" kernel")})
+    out, wrong, pairs = [], Counter(), []
+    for name, g in sorted(groups.items()):
+        if len(g) < 3:
+            continue
+        c = blind.real_pairs(g, times)
+        err = [math.log(r["predicted"] / r["measured"]) for r in g]
+        spread = statistics.pstdev(err)
+        out.append(
+            f"{name:44s} real {c['real_right']}/{c['real_of']}, within the group {100 * spread:.1f} %"
+        )
+        for i, a in enumerate(g):
+            for b in g[i + 1 :]:
+                if abs(a["measured"] / b["measured"] - 1) < table.PAIR_GAP:
+                    continue
+                ta, tb = times.get(a["id"], []), times.get(b["id"], [])
+                first = a["measured"] - b["measured"]
+                if not all((x - y) * first > 0 for x, y in zip(ta, tb, strict=False)):
+                    continue
+                if first * (a["predicted"] - b["predicted"]) <= 0:
+                    key = sorted(re.sub(r"^[a-z]+\d+_", "", r["unit"]) for r in (a, b))
+                    wrong[" / ".join(key)] += 1
+                    pairs.append(f"{a['unit']}|{b['unit']}")
+    out.append(f"wrong real pairs by variant, over {len(groups)} groups:")
+    out += [f"  {n:3d} {k}" for k, n in wrong.most_common(16)]
+    out.append("for the sensitivity step: " + ",".join(pairs))
+    return "\n".join(out)
 
 
 def cached(regex: str) -> dict[str, Any]:

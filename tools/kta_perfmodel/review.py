@@ -192,6 +192,8 @@ def report(round_no: int) -> str:
 
 
 def main(argv: list[str]) -> str:
+    if argv[0] == "pairs":
+        return workcheck.wrong_pairs(argv[1])
     if argv[0] != "work":
         return report(int(argv[0]))
     ap = argparse.ArgumentParser(prog="review work")

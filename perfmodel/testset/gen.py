@@ -36,6 +36,8 @@ Round 17: the same recipe at a factor 9 in every size, HGEMM a factor 27, `hand1
 rules: `tw_*`, `gr_*`, `pw_*`, `px_*`, `rr_*`, `tv_*`, `fs_*`.
 Round 18: the same recipe at a factor 11, HGEMM a factor 29, `hand18/`; sweeps: `dr_*`, `dp_*`,
 `sp_*`, `gq_*`, `tw_t16_g0`, `tw_t64_g0`.
+Round 19: the same recipe at a factor 13, HGEMM a factor 31, D 112, `hand19/`; strip-downs (LOOP
+§3b): `gs_*`, `rs_*`.
 `ONLY` limits generation to the matching names; `SHARD=i/n` generates one share of them.
 """
 
@@ -587,7 +589,15 @@ def decode_combine(B: int, H: int, D: int, split: int, **_):
 
 
 def gemv_w4a16(
-    N: int, K: int, group: int, n_part: int, reduce: int, mk: int = 8, compute: bool = True
+    N: int,
+    K: int,
+    group: int,
+    n_part: int,
+    reduce: int,
+    mk: int = 8,
+    compute: bool = True,
+    load_a: bool = True,
+    load_bq: bool = True,
 ):
     """TileLang's dequantize-GEMV pattern (examples/dequantize_gemm/example_dequant_gemv_fp16xint4):
     y = W x with W int4 (unsigned, offset 8) packed two per int8 along K, fp16 scale per group of
@@ -614,9 +624,14 @@ def gemv_w4a16(
             T.clear(acc)
             for ko in T.serial(T.ceildiv(K, bk)):
                 for v in T.vectorized(mk):
-                    a[v] = A[by, ko * bk + kr * mk + v]
+                    # round 19, strip-downs: without a load the values are the indices
+                    a[v] = A[by, ko * bk + kr * mk + v] if load_a else T.Cast("float16", kr + v)
                 for v in T.vectorized(mkc):
-                    bq[v] = Bq[bx * n_part + ni, ko * (reduce * mkc) + kr * mkc + v]
+                    bq[v] = (
+                        Bq[bx * n_part + ni, ko * (reduce * mkc) + kr * mkc + v]
+                        if load_bq
+                        else T.Cast("int8", kr + v)
+                    )
                 if compute:
                     for ki in T.serial(mk):
                         bd[ki] = (
@@ -3146,6 +3161,130 @@ def _hand18(out: Path) -> None:
         )
 
 
+GEMV19 = {"N": 10400, "K": 3744, "group": 104, "n_part": 4, "reduce": 32}
+FA19 = {**FA, "S": 2704, "H": 13, "D": 112}
+DECODE19 = {**DECODE, "H": 39, "G": 13, "S": 2600, "D": 112}
+ROWS19 = {"M": 832, "N": 6656}
+HGEMM_BLIND19_SHAPE = {"M": 3968, "N": 1488, "K": 1984}
+HAND19 = {
+    "pairsum": ((1024, 1, 1), (128,), [1 * MB, 2 * MB], None),
+    "loadmax": ((1024, 1, 1), (128,), [1 * MB, 1 * MB], None),
+    "stridestore": ((1024, 1, 1), (128,), [4 * MB], None),
+    "swapwords": ((1024, 1, 1), (128,), [2 * MB, 2 * MB], None),
+    "byteload": ((1024, 1, 1), (128,), [1 * MB, 4 * MB], None),
+    "halfstore": ((1024, 1, 1), (128,), [1 * MB, 1 * MB], None),
+    "atomtwo": ((1024, 1, 1), (128,), [1 * MB, 1 * MB], None),
+    "stackswap": ((1024, 1, 1), (128,), [1 * MB, 1 * MB], None),
+    "ringload": ((1024, 1, 1), (128,), [1 * MB, 4 * MB], None),
+    "triplet": ((1024, 1, 1), (128,), [1 * MB, 2 * MB], None),
+    "maskload": ((1024, 1, 1), (128,), [1 * MB, 1 * MB], None),
+    "blockfirst": ((4096, 1, 1), (128,), [1 * MB, 1 * MB], None),
+    "twodim": ((1024, 1, 1), (32, 4), [1 * MB, 1 * MB], None),
+}
+WI_HAND19 = (
+    ("loadmax", "k3", "loads removed", None, None, None, (("k < 6", "k < 3"),)),
+    ("byteload", "k4", "loads removed", None, None, None, (("k < 8", "k < 4"),)),
+    ("triplet", "two", "loads removed", None, None, None, ((" * a[t * 3 + 2]", ""),)),
+    ("swapwords", "one", "stores removed", None, None, None, (("  o[t * 2 + 1] = a[t * 2];\n", ""),)),
+)
+
+
+def _hand19(out: Path) -> None:
+    src_dir = Path(__file__).parent / "hand19"
+    for name, (grid, block, sizes, written) in HAND19.items():
+        text = (src_dir / f"{name}.cu").read_text()
+        _source_kernel(
+            out, f"bl19_{name}", text, grid, block, sizes, "hand", "breadth blind", written=written
+        )
+    for name, tag, axis, grid, sizes, written, subs in WI_HAND19:
+        g0, block, s0, w0 = HAND19[name]
+        text = (src_dir / f"{name}.cu").read_text()
+        for old, new in subs:
+            text = text.replace(old, new)
+        _source_kernel(
+            out,
+            f"bl19_{name}_{tag}",
+            text,
+            grid or g0,
+            block,
+            sizes or s0,
+            "hand",
+            "breadth blind",
+            written=written if written is not None else w0,
+            whatif={"base": f"bl19_{name}", "axis": axis},
+        )
+
+
+def _gemv_strip(out: Path) -> None:
+    """LOOP §3b step 4, GEMV rotating's wrong pairs at their shape: without the scale table, the
+    matrix, the packed words, and the scale table alone."""
+    parts = (
+        ("nosc", {"compute": False}),
+        ("noa", {"load_a": False}),
+        ("nobq", {"load_bq": False}),
+        ("onlysc", {"load_a": False, "load_bq": False}),
+    )
+    for v, (kw, _) in GEMV13_V.items():
+        if v not in ("b", "r64", "mk16", "np2_r64"):
+            continue
+        for tag, off in parts:
+            c = {**GEMV14, **kw, **off}
+            _tried(_gemv_row, out, f"gs_{v}_{tag}_rotating", c, "rotating", set="gemv_strip")
+
+
+def _rows_strip(out: Path) -> None:
+    """LOOP §3b step 4, rows warm at round 18's shape: each part out, then by rows."""
+    g = "rows_warm"
+    for t in (128, 512):
+        for tag, kw in (("nostore", {"store": "shared"}), ("noload", {"load": False}), ("nocompute", {"compute": False})):
+            _tried(_rms, out, f"rs_{tag}_t{t}_warm", ROWS18, "warm", {"threads": t, **kw}, set=g)
+    for m in (88, 176, 352):
+        _tried(_rms, out, f"rs_m{m}_t128_warm", {"M": m, "N": ROWS18["N"]}, "warm", {"threads": 128}, set=g)
+
+
+def _round19(out: Path) -> None:
+    _hand19(out)
+    _gemv_strip(out)
+    _rows_strip(out)
+    sh = HGEMM_BLIND19_SHAPE
+    M, N, K = sh["M"], sh["N"], sh["K"]
+    pre = f"hgemm_m{M}n{N}k{K}"
+    for name, tile in HGEMM_BLIND14.items():
+        for cache, tail in (("warm", ""), ("rotating", " rotating")):
+            suffix = "" if cache == "warm" else "_rotating"
+            base = f"{pre}_c128x128x32_s3_t128{suffix}"
+            more = _wi(name, base, "base" if f"{pre}_{name}{suffix}" == base else "design")
+            group = f"hgemm {M}x{N}x{K}{tail}"
+            _tried(_hgemm, out, f"{pre}_{name}{suffix}", tile, sh, cache, set=group, **more)
+    tag = f"{GEMV19['N']}x{GEMV19['K']}"
+    for cache, tail in (("warm", ""), ("rotating", " rotating")):
+        for v, (kw, axis) in GEMV13_V.items():
+            more = _wi(v, f"gemv19_b_{cache}", axis)
+            c = {**GEMV19, **kw}
+            _tried(_gemv_row, out, f"gemv19_{v}_{cache}", c, cache, set=f"gemv {tag}{tail}", **more)
+    tag = f"{FA19['S']}x{FA19['H']}x{FA19['D']}"
+    for cache, tail in (("warm", ""), ("rotating", " rotating")):
+        for name, (bm, bn, s, th) in FA_BLIND7_V.items():
+            f = {**FA19, "BM": bm, "BN": bn, "stages": s, "threads": th}
+            more = _wi(name, f"fa19_c64x64_s2_t128_{cache}", FA13_AXIS.get(name, "base"))
+            _tried(_fa, out, f"fa19_{name}_{cache}", f, cache, set=f"fa {tag}{tail}", **more)
+    tag = f"{DECODE19['H']}x{DECODE19['S']}x{DECODE19['D']}"
+    for cache, tail in (("warm", ""), ("rotating", " rotating")):
+        for v, (kw, axis) in DECODE13_V.items():
+            more = _wi(v, f"dec19_b_{cache}", axis)
+            c = {**DECODE19, **kw}
+            _tried(_decode_part, out, f"dec19_{v}_{cache}", c, cache, set=f"decode {tag}{tail}", **more)
+    tag = f"{ROWS19['M']}x{ROWS19['N']}"
+    for th in THREADS13:
+        axis = "base" if th == 128 else "threads"
+        kw = {"threads": th}
+        for cache, tail in (("warm", ""), ("rotating", " rotating")):
+            more = _wi("", f"rms19_t128_{cache}", axis)
+            _tried(_rms, out, f"rms19_t{th}_{cache}", ROWS19, cache, kw, set=f"rmsnorm {tag}{tail}", **more)
+        more = _wi("", "sm19_t128_warm", axis)
+        _tried(_softmax, out, f"sm19_t{th}_warm", ROWS19, kw, set=f"softmax {tag}", **more)
+
+
 def _round18(out: Path) -> None:
     _hand18(out)
     _decode_tile(out)
@@ -3225,6 +3364,7 @@ def main(out: Path) -> None:
         ("round16", _round16),
         ("round17", _round17),
         ("round18", _round18),
+        ("round19", _round19),
     ):
         try:  # a kernel that fails to generate is reported; the others stand
             gen(out)

@@ -49,6 +49,7 @@ SWEEPS = (
     "fa_stage",
     "decode_tile",
     "reg_limit",
+    "gemv_strip",
 )
 
 
