@@ -13,7 +13,7 @@ import sys
 from collections import Counter
 from typing import Any
 
-from . import blind, full, matrix, workcheck
+from . import blind, coverage, full, matrix, workcheck
 from .table import BATCHES, SHORT_US, batch_order, goal
 
 MISS_US = 0.10
@@ -188,12 +188,30 @@ def report(round_no: int) -> str:
         a, b, x, y = real_line(n)
         line.append(f"r{n} {100 * a / b:.0f}/{100 * x / y:.0f}" if b and y else f"r{n} -")
     out.append("Real pairs off HGEMM, % with / without warm GEMV: " + ", ".join(line))
+    out += ["", within_table()]
+    return "\n".join(out)
+
+
+def within_table() -> str:
+    """Error within a group, blind, by family, rounds 13 on (LOOP §5)."""
+    rounds = [n for n in range(13, 40) if blind.rows(n)]
+    got = {n: coverage.within_group(n) for n in rounds}
+    keys = sorted({k for v in got.values() for k in v}, key=lambda k: (k.startswith("off"), k))
+    out = ["Error within a group, blind, % (rms around the group's mean):"]
+    out.append(f"{'':32s}" + "".join(f"{'r' + str(n):>7s}" for n in rounds))
+    for k in keys:
+        line = "".join(f"{100 * got[n][k]:7.1f}" if k in got[n] else f"{'':>7s}" for n in rounds)
+        out.append(f"{k:32s}{line}")
     return "\n".join(out)
 
 
 def main(argv: list[str]) -> str:
     if argv[0] == "pairs":
         return workcheck.wrong_pairs(argv[1])
+    if argv[0] == "coverage":
+        return coverage.report(workcheck.load_doc())
+    if argv[0] == "within":
+        return within_table()
     if argv[0] != "work":
         return report(int(argv[0]))
     ap = argparse.ArgumentParser(prog="review work")

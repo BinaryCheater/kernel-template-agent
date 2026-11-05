@@ -34,6 +34,31 @@ OP_NAME = {
 }
 
 
+# LOOP §3a, the axes checked (round 19, D904): modules of 29 with no cell, each with its state.
+# M: measured with a rule; P: partial; A: assumed; X: not modelled.
+BESIDE: tuple[tuple[str, str, str], ...] = (
+    ("Scheduler, stall counts, dependency counters", "M", "issue slots, not traffic"),
+    ("Instruction fetch", "M", "`branch`; 9 clk per 8 past the buffer"),
+    ("Divergence and reconvergence", "P", "D811; lanes and guards per lane D903"),
+    ("Value-dependent control", "P", "loops from loaded data: `hand_mandel` 3.27×, `stl_l_n1024`"),
+    ("Register file, operand collector", "P", "not measurable from user space; mma operands frozen"),
+    ("Uniform datapath, default latencies", "A", "`default_var_latency_clk`, `rbar_release_clk`"),
+    ("Compute pipes: tensor, FMA, ALU, XU", "M", "one `compute` row beside traffic; pipes alone here"),
+    ("Pipes mixed (LOP3 with FFMA, FP64, popcount)", "X", "issue slot only"),
+    ("Shared-memory atomics, CAS loops", "X", "no kernel on the scorecard"),
+    ("Constant loads `LDC`", "X", "default latency"),
+    ("Memory fences, flag polling", "X", "`MEMBAR` default; polling has no primitive"),
+    ("TMA box and engine", "A", "rates fitted on the TMA ablation; `tload` cells hold the path"),
+    ("mbarrier hand-off", "M", "134 clk; arrive after a store X"),
+    ("L2 slices, set hash, NoC", "X", "not seen in any sweep so far"),
+    ("DRAM channels, banks", "X", "D879: not reached"),
+    ("TLB", "M", "D879: no cost to 1 GiB"),
+    ("Residency, dispatch, block replacement", "M", "one SM stands for the rest (A)"),
+    ("Launch, kernel sequences", "M", "D769, D779, D883"),
+    ("Clock under load, power, thermal", "P", "calibrated per batch; states X"),
+)
+
+
 def dropped(op: str, t: str, p: str, s: str) -> str | None:
     """Why a cell cannot occur, else None."""
     if op in ("copy", "tload", "atomic") and t == "stack":
@@ -414,6 +439,10 @@ def render(marks: tuple[Mark, ...]) -> str:
                     probes.append(m.probe)
             lines.append(f"| {p} | {' | '.join(cols)} | {'; '.join(probes)} |")
         lines.append("")
+    lines += ["Modules of 29 with no cell (LOOP §3a, the axes checked):", ""]
+    lines += ["| Module | State | Note |", "| --- | --- | --- |"]
+    lines += [f"| {a} | {b} | {c} |" for a, b, c in BESIDE]
+    lines.append("")
     return "\n".join(lines)
 
 
