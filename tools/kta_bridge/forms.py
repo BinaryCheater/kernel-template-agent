@@ -119,7 +119,7 @@ def amounts(r: dict) -> Amounts:
 
 
 def terms(a: Amounts) -> tuple[dict[str, float], dict[str, dict[str, float]]]:
-    """The form as data: additive terms and the branches of the max, each linear in the constants."""
+    """The form as data: additive terms and the branches of the max, linear in constants."""
     reg = regime(a)
     compute = {
         f"tensor_{reg}": a.tensor_gflop / a.use,

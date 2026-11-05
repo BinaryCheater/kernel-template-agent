@@ -17,7 +17,7 @@ def groups(rows: Iterable[dict]) -> dict[str, list[dict]]:
 
 
 def score(rows: list[dict], predict: Callable[[dict], float | None], gap: float = 0.03) -> dict:
-    """Pairs right among pairs measured at least `gap` apart, best in top 3, first-pick loss, error."""
+    """Pairs right among pairs `gap` apart, best in top 3, first-pick loss, error."""
     right = total = top3 = n_groups = 0
     losses: list[float] = []
     errors: list[float] = []

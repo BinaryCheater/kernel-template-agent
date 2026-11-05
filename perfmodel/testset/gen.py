@@ -4277,12 +4277,34 @@ def main(out: Path) -> None:
         ("round18", _round18),
         ("round19", _round19),
         ("round20", _round20),
+        ("search", _search),
     ):
         try:  # a kernel that fails to generate is reported; the others stand
             gen(out)
         except Exception:  # noqa: BLE001 - reported, the batch keeps the other kernels
             print(f"FAILED {name}")
             traceback.print_exc()
+
+
+def _search(out: Path) -> None:
+    """LEARNDEMO1: the pilot's decision domains, named assignments from `search/*.json`, one
+    shape per family (`tools/kta_bridge/domain.py`); a generator refusal is a domain result."""
+    for spec in sorted(Path(__file__).parent.glob("search/*.json")):
+        for r in json.loads(spec.read_text()):
+            if not _wanted(r["name"]):
+                continue
+            x, cache = r["x"], r["cache"]
+            try:
+                if r["family"] == "hgemm":
+                    sh = {"M": 2816, "N": 1760, "K": 2112}
+                    tile = (x["BM"], x["BN"], x["BK"], x["s"], x["T"], 0)
+                    _hgemm(out, r["name"], tile, sh, cache, set=f"lp1 hgemm {cache}")
+                else:
+                    f = {"B": 1, "S": 1920, "H": 9, "D": 112}
+                    f |= {"BM": x["BM"], "BN": x["BN"], "stages": x["s"], "threads": x["T"]}
+                    _fa(out, r["name"], f, cache, set=f"lp1 fa {cache}")
+            except Exception:  # noqa: BLE001 - reported, the other assignments stand
+                print(f"REFUSED {r['name']}")
 
 
 def _decode(out: Path) -> None:
