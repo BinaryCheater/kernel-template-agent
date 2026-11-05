@@ -12,7 +12,16 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from .table import BATCHES, GOAL_DIR, GOAL_MAG, SHORT_US, batch_order, first_scores, goal
+from .table import (
+    BATCHES,
+    GOAL_DIR,
+    GOAL_MAG,
+    PAIR_GAP,
+    SHORT_US,
+    batch_order,
+    first_scores,
+    goal,
+)
 
 MODE = re.compile(r"(.*) (kernel|b2b|graph)$")
 DESIGN = ("hgemm", "fa ", "gemv ", "decode ", "rmsnorm ", "softmax ")
@@ -110,6 +119,27 @@ def split(p: dict[str, Any], times: dict[str, list[float]], mode: str = "kernel"
     return {"deltas": ds, "median": mid, "noise": max(ds) - min(ds) >= abs(mid)}
 
 
+def real_pairs(g: list[dict[str, Any]], times: dict[str, list[float]]) -> dict[str, int]:
+    """28 §1's pairs of one group, first scores, split by the repeats: a pair is `real` when its
+    measured order holds in every pass. A report beside the target, not a change of it."""
+    c = dict.fromkeys(("right", "of", "real_right", "real_of", "wrong_real", "wrong_flips"), 0)
+    for i, a in enumerate(g):
+        for b in g[i + 1 :]:
+            if abs(a["measured"] / b["measured"] - 1) < PAIR_GAP:
+                continue
+            first = a["measured"] - b["measured"]
+            right = first * (a["predicted"] - b["predicted"]) > 0
+            ta, tb = times.get(a["id"], []), times.get(b["id"], [])
+            holds = all((x - y) * first > 0 for x, y in zip(ta, tb, strict=False))
+            c["of"] += 1
+            c["right"] += right
+            c["real_of"] += holds
+            c["real_right"] += holds and right
+            c["wrong_real"] += holds and not right
+            c["wrong_flips"] += not holds and not right
+    return c
+
+
 def by_axis(ps: list[dict[str, Any]], times: dict[str, list[float]]) -> list[str]:
     """Direction by axis, `kernel` rows and graph rows side by side (D804 is the user's): the first
     pass as scored, then the median of the passes, and how many wrong pairs are noise."""
@@ -179,14 +209,24 @@ def report(round_no: int) -> str:
             f"| {name} | {t['n']} | {100 * t['median']:.1f} % | {100 * t['worst']:+.1f} % | "
             f"{t['above_25']} |"
         )
+    times = passes(round_no)
     lines += ["", "| Design group | pairs ≥ 3 % right | best in top 3 | first pick's loss |"]
     lines += ["| --- | ---: | --- | ---: |"]
     tp = tn = 0
+    real: list[str] = []
+    totals: dict[str, int] = {}
     for name, g in groups.items():
         if not name.startswith(DESIGN) or len(g) < 3:
             continue
         s = goal([{**r, "predicted": r["predicted"]} for r in g])
         tp, tn = tp + s["pairs_right"], tn + s["pairs"]
+        c = real_pairs(g, times)
+        for k, v in c.items():
+            totals[k] = totals.get(k, 0) + v
+        real.append(
+            f"| {name} | {c['right']}/{c['of']} | {c['wrong_real']} | {c['wrong_flips']} | "
+            f"{c['real_right']}/{c['real_of']} |"
+        )
         first = min(g, key=lambda r: r["predicted"])["unit"]
         lines.append(
             f"| {name} | {s['pairs_right']}/{s['pairs']} | {s['best_in_top']} | "
@@ -207,7 +247,16 @@ def report(round_no: int) -> str:
             f"What-if, {tag}: direction ≥ 3 % {w['right']}/{w['of']}, "
             f"magnitude ≥ 10 % median {mag} over {w['mag_n']}."
         )
-    times = passes(round_no)
+    if any(len(v) > 1 for v in times.values()) and real:
+        lines += ["", "The same pairs by the repeats: real when the measured order holds in every "]
+        lines[-1] += "pass (a report; the target stays on all pairs):"
+        lines += ["", "| Design group | all pairs right | wrong, real | wrong, order flips | "]
+        lines[-1] += "real pairs right |"
+        lines += ["| --- | ---: | ---: | ---: | ---: |", *real]
+        lines.append(
+            f"| all | {totals['right']}/{totals['of']} | {totals['wrong_real']} | "
+            f"{totals['wrong_flips']} | {totals['real_right']}/{totals['real_of']} |"
+        )
     if any(len(v) > 1 for v in times.values()):
         lines += ["", "What-if over the repeats, median of the passes against the first score:", ""]
         lines += by_axis(ps, times)
