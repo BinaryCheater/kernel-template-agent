@@ -1,0 +1,23 @@
+{
+"engine": "decision-form-v4",
+"predicted": {
+"lr2h_c128x192x64_s1_t128_warm kernel": 305.2926,
+"lr2h_c192x128x64_s1_t128_warm kernel": 305.8088,
+"lr2h_c96x256x64_s1_t128_warm kernel": 305.8088,
+"lr2h_c256x96x64_s1_t128_warm kernel": 306.325,
+"lr2h_c128x128x96_s1_t128_warm kernel": 308.3309,
+"lr2h_c128x96x32_s2_t128_warm kernel": 310.61,
+"lr2h_c96x128x32_s2_t64_warm kernel": 311.1746,
+"lr2h_c96x128x32_s2_t128_warm kernel": 311.1746,
+"lr2f_c128x32_s1_t256_warm kernel": 288.7447,
+"lr2m_c320x32x96_s1_t512_warm kernel": 506.5351,
+"lr2m_c192x32x64_s1_t128_warm kernel": 552.0624,
+"lr2m_c192x32x96_s1_t256_warm kernel": 557.6937,
+"lr2m_c192x64x96_s1_t512_warm kernel": 568.9562,
+"lr2m_c160x48x64_s1_t128_warm kernel": 580.5599,
+"lr2m_c320x96x96_s1_t256_warm kernel": 603.1054,
+"lr2m_c320x80x96_s1_t256_warm kernel": 604.2034,
+"lr2m_c160x32x64_s1_t128_warm kernel": 604.9864
+},
+"unit": "us"
+}
