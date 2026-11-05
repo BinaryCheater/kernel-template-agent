@@ -39,7 +39,6 @@
 {"date": "2026-11-04T23:20:13Z", "round": 13, "mode": "predict", "commit": "7c1902f53b5b", "dirty": true, "rows": 406, "replayed": 164, "cpu_s": 715.0, "wall_s": 121.2, "jobs": 6}
 {"date": "2026-11-04T23:21:22Z", "round": 13, "mode": "scratch q46 modes", "commit": "d2264965bba6", "dirty": false, "rows": 2, "replayed": 2, "cpu_s": 20.3, "wall_s": 20.2, "jobs": 1}
 {"date": "2026-11-04T23:32:09Z", "round": 13, "mode": "predict", "commit": "d2264965bba6", "dirty": true, "rows": 433, "replayed": 173, "cpu_s": 703.2, "wall_s": 118.9, "jobs": 6}
-{"date": "2026-11-04T23:25:00Z", "round": 13, "mode": "predict failed: stale build (cost read from the shell, not logged by the tool)", "commit": "d2264965bba6", "dirty": false, "rows": 0, "replayed": 0, "cpu_s": 713, "wall_s": 120, "jobs": 6}
 {"date": "2026-11-04T23:25:00Z", "round": 13, "mode": "predict failed: replay crash (cost read from the shell, not logged by the tool)", "commit": "d2264965bba6", "dirty": false, "rows": 0, "replayed": 0, "cpu_s": 699, "wall_s": 120, "jobs": 6}
 {"date": "2026-11-04T23:25:00Z", "round": 13, "mode": "predict failed: replay crash, traceback (cost read from the shell, not logged by the tool)", "commit": "d2264965bba6", "dirty": false, "rows": 0, "replayed": 0, "cpu_s": 700, "wall_s": 120, "jobs": 6}
 {"date": "2026-11-05T01:47:07Z", "round": 13, "mode": "scratch l2 look", "commit": "d0ebab6a7a90", "dirty": false, "rows": 1, "replayed": 1, "cpu_s": 0.7, "wall_s": 0.6, "jobs": 1}
@@ -62,3 +61,4 @@
 {"date": "2026-11-05T02:10:10Z", "round": 13, "mode": "scratch l2 look", "commit": "0317e6b3042f", "dirty": true, "rows": 2, "replayed": 2, "cpu_s": 14.7, "wall_s": 14.6, "jobs": 1}
 {"date": "2026-11-05T02:11:13Z", "round": 13, "mode": "selection", "commit": "0317e6b3042f", "dirty": true, "rows": 136, "replayed": 68, "cpu_s": 175.5, "wall_s": 45.0, "jobs": 6}
 {"date": "2026-11-05T02:11:37Z", "round": 13, "mode": "selection", "commit": "0317e6b3042f", "dirty": true, "rows": 7, "replayed": 7, "cpu_s": 0.7, "wall_s": 3.5, "jobs": 6}
+{"date": "2026-11-05T02:23:03Z", "round": 13, "mode": "full", "commit": "52e182fedd12", "dirty": false, "rows": 3205, "replayed": 2182, "cpu_s": 8339.1, "wall_s": 517.2, "jobs": 18}

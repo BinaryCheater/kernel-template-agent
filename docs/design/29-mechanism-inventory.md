@@ -122,6 +122,8 @@ Status: written 2026-11-04 for phase P0 of [28](28-gb10-programme.md) §5. It li
 | 8-byte-per-lane stores (`STG.64`) | engine code | A (256 B at the 4-byte rates) | N, Q | — |
 | Store queue: 16 STG/RED instructions before issue waits | gb10 §4.9 (`stq.cu`) | M | all | H |
 | Global reductions without return `RED`: SM 25.6 B/clk, pair 2 cycles per line, chip 330 / 225 B/clk | gb10 §4.9 (`ldg_atomic.cu`, `stq.cu`) | M Round 11 (atom_*, D834): M, X → M for lanes in their own sectors: 1.44 per clock per 4 KiB region, 12 chip-wide, merge gain by bytes. Region rule structural, gain empirical. | G (split-K), E | S (split), H |
+| Atomics at a uniform address: one lane carries the warp's sum (`VOTEU`, `REDUX` or `UFLO`, `POPC`) | r13c `atb_*`, D850 | Round 13: M: one request at 1.44 per clock per region; structural; few words 0.85 per clock not in the rule | H | — |
+| Older block of an SM issues first, except between mma | r13c `tr_*`, `mma_pair`, D849 | Round 13: M, structural; replaces fair sharing for everything but mma | H | — |
 | Global atomics with return `ATOMG`, CAS | — | Round 12 (`atr_*`, D840): M: rate of `REDG` by region, the old value a round trip later; CAS not measured; one bin −77 % | E (work queues), D | H |
 
 ## 7. Synchronisation, residency, dispatch, launch, clock
