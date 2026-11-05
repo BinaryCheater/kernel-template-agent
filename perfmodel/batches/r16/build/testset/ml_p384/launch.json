@@ -1,0 +1,19 @@
+{
+ "entry": "k_mem",
+ "grid": [
+  48,
+  1,
+  1
+ ],
+ "threads": 256,
+ "block": [
+  256
+ ],
+ "smem": 0,
+ "rot": 1,
+ "footprint_bytes": 19922944,
+ "write_bytes": 1024,
+ "family": "hand",
+ "set": "mem_l1",
+ "cache": "warm"
+}

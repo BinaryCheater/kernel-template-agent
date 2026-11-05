@@ -1,0 +1,19 @@
+{
+ "entry": "k_packrows",
+ "grid": [
+  2048,
+  1,
+  1
+ ],
+ "threads": 256,
+ "block": [
+  256
+ ],
+ "smem": 0,
+ "rot": 1,
+ "footprint_bytes": 10485760,
+ "write_bytes": 2097152,
+ "family": "hand",
+ "set": "breadth blind",
+ "cache": "warm"
+}

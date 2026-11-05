@@ -1,0 +1,28 @@
+{
+ "entry": "rms_kernel",
+ "grid": [
+  1344
+ ],
+ "threads": 32,
+ "block": [
+  32
+ ],
+ "smem": 0,
+ "rot": 1,
+ "footprint_bytes": 12046720,
+ "write_bytes": 6021120,
+ "family": "rmsnorm",
+ "shape": {
+  "M": 1344,
+  "N": 2240
+ },
+ "pick": {
+  "threads": 32
+ },
+ "cache": "warm",
+ "set": "rmsnorm 1344x2240",
+ "whatif": {
+  "base": "rms16_t128_warm",
+  "axis": "threads"
+ }
+}

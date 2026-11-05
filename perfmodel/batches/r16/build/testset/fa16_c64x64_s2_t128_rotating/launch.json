@@ -1,0 +1,31 @@
+{
+ "entry": "fa_kernel",
+ "grid": [
+  35,
+  7,
+  1
+ ],
+ "threads": 128,
+ "block": [
+  128
+ ],
+ "smem": 71680,
+ "rot": 5,
+ "footprint_bytes": 14049280,
+ "write_bytes": 3512320,
+ "family": "fa_forward",
+ "shape": {
+  "B": 1,
+  "S": 2240,
+  "H": 7,
+  "D": 112
+ },
+ "pick": {
+  "BM": 64,
+  "BN": 64,
+  "stages": 2,
+  "threads": 128
+ },
+ "cache": "rotating",
+ "set": "fa 2240x7x112 rotating"
+}

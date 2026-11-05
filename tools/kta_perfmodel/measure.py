@@ -129,6 +129,11 @@ def predict(batch: str) -> int:
     # a row an earlier batch measured is a repeat: its first score stands, nothing to predict
     known = table.first_scores()
     ids = [c.id for c in probeset.all_cases(d) if c.id not in known]
+    # the same engine's predictions of this batch stand; a rebuilt kernel's are deleted by hand
+    pfile = d / "predicted.json"
+    old = json.loads(pfile.read_text()) if pfile.exists() else {}
+    kept = old.get("predicted", {}) if old.get("engine") == table.engine_hash() else {}
+    ids = [i for i in ids if i not in kept]
     # the launch modes of one kernel share a replay (probeset.run_cases)
     groups: dict[str, list[str]] = {}
     for i in ids:
@@ -153,7 +158,7 @@ def predict(batch: str) -> int:
             "jobs": table.default_jobs(),
         }
     )
-    out = {i: out[i] for i in ids if i in out}
+    out = {**kept, **{i: out[i] for i in ids if i in out}}
     doc = {
         "engine": table.engine_hash(),
         "kta_commit": upstream.kta_commit()[0],

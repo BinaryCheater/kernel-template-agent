@@ -1,0 +1,28 @@
+{
+ "entry": "smax_kernel",
+ "grid": [
+  1344
+ ],
+ "threads": 16,
+ "block": [
+  16
+ ],
+ "smem": 0,
+ "rot": 1,
+ "footprint_bytes": 12042240,
+ "write_bytes": 6021120,
+ "family": "softmax",
+ "shape": {
+  "M": 1344,
+  "N": 2240
+ },
+ "pick": {
+  "threads": 16
+ },
+ "cache": "warm",
+ "set": "softmax 1344x2240",
+ "whatif": {
+  "base": "sm16_t128_warm",
+  "axis": "threads"
+ }
+}
