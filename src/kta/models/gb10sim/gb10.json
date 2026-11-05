@@ -363,6 +363,10 @@
    "stg_pair_clk_per_line": 1.875,
    "stg_dirty_once_bytes": 6815744,
    "dram_burst_bytes": 64,
+   "dram_burst_edge": 0.6,
+   "stg_wide_clk_per_sector": 0.063,
+   "stg_wide_clk_per_line": 0.105,
+   "stg_dirty_once_blocks": 512,
    "l2_line_bytes": 128,
    "launch_thread_us_per_k": 0.0055,
    "launch_thread_free_k": 245
@@ -481,6 +485,10 @@
    "stg_pair_clk_per_line": "measured",
    "stg_dirty_once_bytes": "measured",
    "dram_burst_bytes": "measured",
+   "dram_burst_edge": "measured",
+   "stg_wide_clk_per_sector": "measured",
+   "stg_wide_clk_per_line": "measured",
+   "stg_dirty_once_blocks": "assumed",
    "l2_line_bytes": "measured",
    "launch_thread_us_per_k": "measured",
    "launch_thread_free_k": "measured"
@@ -563,6 +571,10 @@
    "stg_merge_run_clk": "wr_r1w4 counters r11: 4 stores on end merge; HGEMM r9: none across its loop; chosen between",
    "stg_dirty_once_bytes": "wr_r1w1 r11b: 6 MiB 12.9 us, 7 MiB 38.6 us",
    "dram_burst_bytes": "r16 mr_*, mh_*, mw_h_*: reads and writes pay whole 64-byte bursts: a sector whose twin is not asked by the same instruction costs a burst: 8 MiB in order, 8 loads per thread 68 µs (2 x 8 MiB at 237 GB/s = 71), lanes 64 B apart 35 (35), 128 B 16.6 (17.7), hashed 1 M loads through 32 MiB at half hits 537 (566), 1 GiB 256 K lanes 68 (72); evict-first and plain alike; contiguous lanes 16 B each 32 (35). 0: the rule before (ablation)",
+   "dram_burst_edge": "r17 gr_w2_p1360, gr_w4_p1360 against pitch 1280: a run of contiguous lanes crossing a burst pays about 0.6 of a burst on each side, 2 lanes 1.27 times, 4 lanes 1.0; lanes apart pay all of it at any gap (tw_g*, tw_dep, D886). Empirical: two points. 1: the rule of round 16 (ablation)",
+   "stg_wide_clk_per_sector": "r17 pw_*, mt_w_*, mw_o_*: lanes apart, more than 4 lines per instruction: 11, 8.4, 6 sectors per clock at 8, 16, 32 lines per 32 sectors: clk per sector on the chip = 0.063 + 0.105 x lines per sector. 0: the fixed rate stg_chip_wide_B_per_clk (ablation)",
+   "stg_wide_clk_per_line": "as stg_wide_clk_per_sector",
+   "stg_dirty_once_blocks": "r16 mt_rw_*, r15 wl_* (1920 blocks) no step at 7 to 8 MiB beside single-use reads, wr_r1w1 r11b (112 blocks) a step: the limit `stg_dirty_once_bytes` holds at few blocks; the threshold lies between, not measured",
    "l2_line_bytes": "r16 md_*, mr_s*, mr_row_*: the L2 holds 128-byte lines whatever part of them is read: 137 K lines: 32 K lanes in 4 sets, 128 B or more apart, hit, in 8 sets miss; 0: by sectors read (ablation)",
    "launch_thread_us_per_k": "probe launch (round 3): empty kernel 4.67 µs at 524 K, 6.72 at 1 M threads; r16 mt_r_*: rows warm T 256 +1.9, T 512 +3.0 µs on the replay",
    "launch_thread_free_k": "probe launch (round 3): empty kernels 2.43 µs to 262 K threads nearly, r16 mt_r_t128 at 245 K no excess"

@@ -219,11 +219,12 @@ _l2_cache: dict[tuple, Any] = {}
 
 def _l2_replay(ins: list[Ins], L: dict[str, Any], trips: int, in_flight: int, m: Machine) -> Any:
     cap, burst = m.C["l2_effective_bytes"], m.P["dram_burst_bytes"]
-    key = (L["entry"], json.dumps(L, sort_keys=True), len(ins), trips, in_flight, cap, burst)
+    edge = m.P["dram_burst_edge"]
+    key = (L["entry"], json.dumps(L, sort_keys=True), len(ins), trips, in_flight, cap, burst, edge)
     if key not in _l2_cache:
         block = tuple(L.get("block", [L["threads"]]))
         acc = walk(ins, L["threads"], trips, tuple(L["grid"]), block, m, grid_bank(L))
-        _l2_cache[key] = replay_walk(acc, in_flight, cap, burst)
+        _l2_cache[key] = replay_walk(acc, in_flight, cap, burst, edge)
     return _l2_cache[key]
 
 
@@ -324,7 +325,10 @@ def generic_kernel(
         rb, miss = r.reads * kept, 1.0 if kept > 0 else 0.0
         kw["miss_by_pc"] = miss_pc
         kw["burst_bytes"] = rb / max(1, len(r.waves)) / max(1, trips)
-        bf = max(1.0, sum(r.bursts) / r.reads) if r.reads else 1.0
+        # round 17 (gr_sc): unknown addresses cost bursts only up to the buffers they read
+        tight = r.loose_reads * (1.0 - once_loose), r.loose_bursts * (1.0 - once_loose)
+        reads = r.reads - tight[0]
+        bf = max(1.0, (sum(r.bursts) - tight[1]) / reads) if reads > 0 else 1.0
         bf = min(bf, m.P["dram_burst_bytes"] / LINE or 1.0)
         if m.P["miss_by_wave"] and any(x.base == "LDGSTS" for x in ins):
             bases = {b for w in r.parts for b in w}
@@ -342,7 +346,8 @@ def generic_kernel(
     # W 6 MiB pays nothing, 7 most of it, beside single-use reads; beside re-read lines (HGEMM's
     # 9.4 MB of rewritten C) only past 1.5 times the limit, up to 16 MiB unmeasured
     w_limit = m.P["stg_dirty_once_bytes"] if once else 1.5 * m.P["stg_dirty_bytes"]
-    kw["dirty_full"] = not rotating and L.get("write_bytes", 0) > w_limit
+    few = tiles <= m.P["stg_dirty_once_blocks"]  # round 17: many blocks show no step (q51)
+    kw["dirty_full"] = not rotating and (few or not once) and L.get("write_bytes", 0) > w_limit
     if any(x.base in ("RED", "REDG", "ATOMG") for x in ins):
         kw["atomic_bytes"] = L.get("write_bytes", 0)
     elif "write_bytes" in L:

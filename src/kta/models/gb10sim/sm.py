@@ -214,6 +214,7 @@ class SM:
         # round 11 (rw_*): sectors waiting at the SM's store port, until when: a later store merges
         self.st_pending: dict[Any, float] = {}
         self.st_units: set = set()
+        self.st_lines: set = set()  # round 17: the lines of the last store
         self.st_dram = 0.0  # round 16: when the DRAM has taken the bursts stores opened
         self.dram_writes_counted = dram_writes_counted  # the DRAM clock already holds the writes
         # round 11 (wr_*): repeated launches writing past the dirty limit find it full at the start
@@ -1510,6 +1511,9 @@ class SM:
                 # round 12 (probe store_merge): more than 4 lines per instruction, apart or in part
                 # filled: by lines at the pair, the chip's lower rate
                 rate = P["stg_chip_wide_B_per_clk"]
+                if P["stg_wide_clk_per_line"]:  # round 17 (pw_*): sectors and lines each cost
+                    clk = n_sect * P["stg_wide_clk_per_sector"]
+                    rate = n_sect * 32 / (clk + len(lines) * P["stg_wide_clk_per_line"])
                 pair = len(lines) * P["stg_pair_clk_per_line"] * self.stg_share
             elif w_ == "4B":  # round 11 (rw_*): 32 lanes in a run: lines, else by sectors
                 pair = max(P["stg_tpc_clk_per_instr_line"], n_sect * P["stg_pair_clk_per_sector"])
@@ -1536,6 +1540,12 @@ class SM:
             self.count["stg_l2_sectors"] += len(fresh)
             # above what the L2 holds dirty the chip writes at the DRAM's rate (store_lines, r7b)
             self.st_bytes += 32 * width_of(x.op)  # one lane per sector or not: bytes written
+            if self.write_footprint is not None:
+                # round 17 (pw_f12_*_one): the limit counts lines dirtied, however little of each
+                seen = {(addr0[0], ln) for ln in lines}
+                extra = len(seen - self.st_lines) * P["l2_line_bytes"] - 32 * width_of(x.op)
+                self.st_bytes += max(0, extra)
+                self.st_lines = seen
             written = self.st_bytes * self.active_sms
             if self.write_footprint is not None:  # rewritten lines stay in the L2 (wf_*)
                 written = min(written, self.write_footprint)
@@ -1563,6 +1573,8 @@ class SM:
             # round 14 (hs_*, bl14_hashput): an address from loaded data: lanes apart, as hashed
             lanes = self.stg_lanes or 32
             nbytes, rate = 32 * lanes, P["stg_chip_wide_B_per_clk"]
+            if P["stg_wide_clk_per_line"]:
+                rate = 32 / (P["stg_wide_clk_per_sector"] + P["stg_wide_clk_per_line"])
             pair = lanes * P["stg_pair_clk_per_line"] * self.stg_share
             if (self.write_footprint or 0) > P["stg_dirty_wide_bytes"]:
                 rate = min(rate, self.m.C["dram_write_GBs"] / self.m.C["clock_under_load_GHz"])

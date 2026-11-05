@@ -17,7 +17,6 @@ walked at every index. A load whose address the tracking does not know reuses no
 from __future__ import annotations
 
 import itertools
-import math
 from collections import OrderedDict
 from dataclasses import dataclass, field
 from typing import Any
@@ -297,6 +296,9 @@ class Replay:
     # round 16: bytes of DRAM bursts the misses cost, per wave; distinct 128-byte lines read, bytes
     bursts: list[float] = field(default_factory=list)
     line_bytes: float = 0.0
+    # round 17: of `reads` and of `bursts`, what the loads at unknown addresses make up
+    loose_reads: float = 0.0
+    loose_bursts: float = 0.0
 
 
 class _Group:
@@ -345,7 +347,24 @@ class _Group:
         return k, bad
 
 
-def replay_walk(acc: Access, in_flight: int, cap: float, burst: int = 0) -> Replay:
+def _burst_cost(asked: dict[int, set], burst: int, edge: float) -> float:
+    """Bytes of DRAM bursts one pass of the loads costs, 32-byte sectors per load. Round 16: twin
+    sectors asked by one load share their burst, a sector alone pays all of it. Round 17 (`gr_*`,
+    `tw_*`): whatever the time between them; but a run of lanes crossing a burst pays `edge` of a
+    burst on each side, not all of it, the next load of the walk taking the rest."""
+    cost = 0.0
+    for keys in asked.values():
+        for k in keys:
+            if k ^ 1 in keys:
+                cost += burst / 2
+            else:
+                cost += burst * edge if (k + 1 if k & 1 else k - 1) in keys else burst
+    return cost
+
+
+def replay_walk(
+    acc: Access, in_flight: int, cap: float, burst: int = 0, edge: float = 1.0
+) -> Replay:
     """`acc`'s blocks in launch order, `in_flight` at a time, through one `Cache`. `burst`: the
     DRAM's burst in bytes (round 16): sectors of one burst asked by one instruction share it, a
     sector asked alone costs all of it; 0: a miss costs its bytes."""
@@ -367,14 +386,16 @@ def replay_walk(acc: Access, in_flight: int, cap: float, burst: int = 0) -> Repl
     runs: list[dict[int, float]] = []
     in_wave: set = set()
     burst_bytes: list[float] = []
-    shift = int(math.log2(burst)) - LINE_BITS if burst else 0
+    loose_reads = loose_bursts = 0.0
 
     def touch(g: _Group, wave: list[tuple], trip: int) -> None:
-        nonlocal reads, loaded, loose
+        nonlocal reads, loaded, loose, loose_reads, loose_bursts
         for e in g.unknown:  # unknown address: 32 lanes' lines, reused by nothing
             b = 32 * max(32, e.width) * len(wave)
             reads += b
             burst_bytes[-1] += 32 * max(burst or 32, e.width) * len(wave)
+            loose_reads += b
+            loose_bursts += 32 * max(burst or 32, e.width) * len(wave)
             loaded += b
             loose += 32 * (LINE if e.width <= 4 else e.width) * len(wave)
             loose_pcs.add(e.pc)
@@ -394,6 +415,8 @@ def replay_walk(acc: Access, in_flight: int, cap: float, burst: int = 0) -> Repl
                 flat, idx = flat[keep], idx[keep]
                 reads += n / len(wave)
                 burst_bytes[-1] += n / len(wave) * (burst or LINE) / LINE
+                loose_reads += n / len(wave)
+                loose_bursts += n / len(wave) * (burst or LINE) / LINE
                 loaded += n / len(wave)
                 # round 13 (hl_*): a hashed load's lanes follow no shift: as unknown addresses
                 loose += 32 * LINE * len(bb)
@@ -417,7 +440,7 @@ def replay_walk(acc: Access, in_flight: int, cap: float, burst: int = 0) -> Repl
         u, first = np.unique(np.concatenate(lists), return_index=True)
         own = np.concatenate(owners)[first]
         missed = []
-        asked: set = set()
+        asked: dict[int, set] = {}
         for key, pc in zip(u.tolist(), own.tolist(), strict=True):
             seen.add(key)
             tag = key >> 36
@@ -430,8 +453,10 @@ def replay_walk(acc: Access, in_flight: int, cap: float, burst: int = 0) -> Repl
                 r_pc[pc] = r_pc.get(pc, 0.0) + LINE
                 p[0] += LINE
                 missed.append(key)
-                asked.add((pc, key >> shift))
-        burst_bytes[-1] += len(asked) * (burst or LINE)
+                asked.setdefault(pc, set()).add(key)
+        burst_bytes[-1] += (
+            _burst_cost(asked, burst, edge) if burst else sum(map(len, asked.values())) * LINE
+        )
         if missed:  # `u` is sorted: a run ends where the next key does not follow
             n_runs = 1 + sum(b != a + 1 for a, b in itertools.pairwise(missed))
             run = len(missed) * LINE // n_runs
@@ -477,6 +502,8 @@ def replay_walk(acc: Access, in_flight: int, cap: float, burst: int = 0) -> Repl
         loose_pcs=frozenset(loose_pcs),
         bursts=burst_bytes,
         line_bytes=len({k >> (L2_LINE_BITS - LINE_BITS) for k in seen}) * (1 << L2_LINE_BITS),
+        loose_reads=loose_reads,
+        loose_bursts=loose_bursts,
     )
 
 
