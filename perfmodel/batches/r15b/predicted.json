@@ -1,0 +1,26 @@
+{
+ "engine": "bc0d92d5375b5b6135bf870f3c9348918febe0831a574cb350cfb69fd7e8e5ba",
+ "kta_commit": "f1bff9b2f26a00a2deb0d0925344b10a460e31bd",
+ "date": "2026-11-05T07:01:45Z",
+ "clock_GHz": "description kernel clock (no batch clock before the run)",
+ "predicted": {
+  "wl_m1920 kernel": 38.7592,
+  "wl_m1920 b2b": 38.6992,
+  "wl_m1920 graph": 36.5592,
+  "wl_m1960 kernel": 39.4898,
+  "wl_m1960 b2b": 39.4298,
+  "wl_m1960 graph": 37.2898,
+  "wl_m2000 kernel": 40.2203,
+  "wl_m2000 b2b": 40.1603,
+  "wl_m2000 graph": 38.0203,
+  "wl_m2040 kernel": 40.9509,
+  "wl_m2040 b2b": 40.8909,
+  "wl_m2040 graph": 38.7509,
+  "wl_m2080 kernel": 41.612,
+  "wl_m2080 b2b": 41.552,
+  "wl_m2080 graph": 39.412,
+  "wl_m2240 kernel": 44.5073,
+  "wl_m2240 b2b": 44.4473,
+  "wl_m2240 graph": 42.3073
+ }
+}

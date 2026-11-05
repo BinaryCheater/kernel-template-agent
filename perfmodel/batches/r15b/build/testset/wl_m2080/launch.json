@@ -1,0 +1,24 @@
+{
+ "entry": "smax_kernel",
+ "grid": [
+  2080
+ ],
+ "threads": 128,
+ "block": [
+  128
+ ],
+ "smem": 512,
+ "rot": 1,
+ "footprint_bytes": 14909440,
+ "write_bytes": 7454720,
+ "family": "softmax",
+ "shape": {
+  "M": 2080,
+  "N": 1792
+ },
+ "pick": {
+  "threads": 128
+ },
+ "cache": "warm",
+ "set": "write_limit"
+}
