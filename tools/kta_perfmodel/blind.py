@@ -47,6 +47,8 @@ SWEEPS = (
     "rows_warm",
     "turnover",
     "fa_stage",
+    "decode_tile",
+    "reg_limit",
 )
 
 

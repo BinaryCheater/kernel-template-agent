@@ -143,3 +143,8 @@
 {"date": "2026-11-05T10:02:51Z", "round": 17, "mode": "selection", "commit": "97e000b25504", "dirty": true, "rows": 149, "replayed": 99, "cpu_s": 288.8, "wall_s": 52.6, "jobs": 6}
 {"date": "2026-11-05T10:08:29Z", "round": 17, "mode": "core", "commit": "7083a2ed6242", "dirty": false, "rows": 890, "replayed": 717, "cpu_s": 3498.9, "wall_s": 201.3, "jobs": 18}
 {"date": "2026-11-05T10:12:00Z", "round": 17, "mode": "scratch", "commit": "7083a2ed6242", "dirty": true, "rows": 14, "replayed": 14, "cpu_s": 40.0, "wall_s": 20.0, "jobs": 1, "note": "estimate: hand replays of L2 stats and one row's charge, outside the table"}
+{"date": "2026-11-05T10:21:45Z", "round": 18, "mode": "override", "commit": "177d93fc6daf", "dirty": true, "rows": 9, "replayed": 9, "cpu_s": 33.9, "wall_s": 11.9, "jobs": 6}
+{"date": "2026-11-05T10:25:19Z", "round": 18, "mode": "override", "commit": "177d93fc6daf", "dirty": true, "rows": 18, "replayed": 18, "cpu_s": 722.7, "wall_s": 153.8, "jobs": 6}
+{"date": "2026-11-05T10:25:48Z", "round": 18, "mode": "scratch", "commit": "wip", "dirty": true, "rows": 90, "replayed": 90, "cpu_s": 90.0, "wall_s": 15.0, "jobs": 6, "note": "hand replays of GEMV, decode, rows, FA with L2 stats (diag)"}
+{"date": "2026-11-05T10:26:28Z", "round": 18, "mode": "override", "commit": "177d93fc6daf", "dirty": true, "rows": 9, "replayed": 9, "cpu_s": 34.5, "wall_s": 11.4, "jobs": 6}
+{"date": "2026-11-05T10:27:06Z", "round": 18, "mode": "override", "commit": "177d93fc6daf", "dirty": true, "rows": 44, "replayed": 35, "cpu_s": 80.0, "wall_s": 17.9, "jobs": 6}

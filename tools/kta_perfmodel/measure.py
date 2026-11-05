@@ -181,7 +181,8 @@ def run(batch: str) -> int:
     ro = f"~/{REMOTE_DATA}/{batch}/run"
     _remote(f"test ! -e {ro} || {{ echo 'refused: {ro} exists'; exit 1; }}")
     skip = shlex.quote(built.get("no_counters", ""))
-    _remote(f"cd src/{head} && python3 perfmodel/remote/run.py {rb} {ro} {skip} > {ro}.log 2>&1")
+    sets = shlex.quote(built.get("counter_sets", "all"))
+    _remote(f"cd src/{head} && python3 perfmodel/remote/run.py {rb} {ro} {skip} {sets} > {ro}.log 2>&1")
     local = RAW / batch
     local.mkdir(parents=True, exist_ok=True)
     _run(["rsync", "-a", f"{HOST}:{REMOTE_DATA}/{batch}/run/", f"{local}/"])

@@ -1,6 +1,6 @@
 """One measurement batch on spark under the gb10-measure protocol (perfmodel-measure run).
 
-    python3 perfmodel/remote/run.py <build_dir> <out_dir> [no-counters regex]
+    python3 perfmodel/remote/run.py <build_dir> <out_dir> [no-counters regex] [counter sets]
 
 Standard library only (runs with the host's python3). Order, all in one exclusive job:
  1 environment record     2 clock calibration     3 compute and memory canaries
@@ -167,7 +167,7 @@ def sh(cmd: list[str], cwd: Path | None = None, timeout: int = 1800) -> tuple[in
     return p.returncode, p.stdout + (("\n# stderr\n" + p.stderr) if p.stderr.strip() else "")
 
 
-def main(build: Path, out: Path, no_counters: str = "") -> int:
+def main(build: Path, out: Path, no_counters: str = "", sets: str = "all") -> int:
     raw = out / "raw"
     raw.mkdir(parents=True, exist_ok=True)
     steps: list[dict] = []
@@ -274,11 +274,12 @@ def main(build: Path, out: Path, no_counters: str = "") -> int:
         single = [d for d in single if not re.search(no_counters, d.name)]
     for d in single:
         ncu("5-ncu", d, METRICS)
-    for d in single:
-        ncu("5x-ncu", d, METRICS_X)
-    for d in single:
-        ncu("5u-ncu", d, METRICS_U)
-        ncu("5v-ncu", d, METRICS_V)
+    if sets == "all":  # round 18 (D894): the main set alone holds R1 and the bottleneck's pipes
+        for d in single:
+            ncu("5x-ncu", d, METRICS_X)
+        for d in single:
+            ncu("5u-ncu", d, METRICS_U)
+            ncu("5v-ncu", d, METRICS_V)
     for d in sorted(build.glob("probe-*")):
         spec = Path("perfmodel/probes") / d.name.removeprefix("probe-") / "ncu.json"
         if not spec.exists():
@@ -328,4 +329,4 @@ def main(build: Path, out: Path, no_counters: str = "") -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main(Path(sys.argv[1]).resolve(), Path(sys.argv[2]).resolve(), *sys.argv[3:4]))
+    sys.exit(main(Path(sys.argv[1]).resolve(), Path(sys.argv[2]).resolve(), *sys.argv[3:5]))

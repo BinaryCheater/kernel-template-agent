@@ -215,6 +215,7 @@ class SM:
         self.st_pending: dict[Any, float] = {}
         self.st_units: set = set()
         self.st_lines: set = set()  # round 17: the lines of the last store
+        self.ldg_last: dict = {}  # round 18: per warp and load, the last address and its stride
         self.st_dram = 0.0  # round 16: when the DRAM has taken the bursts stores opened
         self.dram_writes_counted = dram_writes_counted  # the DRAM clock already holds the writes
         # round 11 (wr_*): repeated launches writing past the dirty limit find it full at the start
@@ -376,12 +377,31 @@ class SM:
         self.pc_count = [0] * len(ins)  # dynamic weight per instruction (the opcode ranking)
         self.busy: dict[str, float] = {"tensor": 0, "smem": 0, "fill": 0}
 
+    def _ldg_continued(self, w: Warp, addr: Any) -> Any:
+        """Round 18 (GEMV's last pass, guarded per lane): a load whose address the tracking loses
+        after two known executions continues its own stride."""
+        k = (w.wid, w.pc)
+        last = self.ldg_last.get(k)
+        if addr is None:
+            if last is None or last[2] is None:
+                return None
+            addr = (last[0], tuple((o + d) & 0xFFFFFFFF for o, d in zip(last[1], last[2], strict=True)))
+            self.ldg_last[k] = (*addr, last[2])
+            return addr
+        d = None
+        if last is not None and last[0] == addr[0]:
+            d = tuple((o - p) & 0xFFFFFFFF for o, p in zip(addr[1], last[1], strict=True))
+        self.ldg_last[k] = (*addr, d)
+        return addr
+
     def _ldg_lanes(self, w: Warp, x: Ins, addr: Any) -> tuple[int, float, int]:
         """KTA (PERFMODEL round 3): (lines, bytes that miss the L1, lines that hit) of one LDG from
         its width and its lanes' addresses; an address the lane tracking does not know comes from
         loaded data: its lanes are taken apart, one sector each (a front-end default, round 12,
         counters of `bl_csr`: 1 sector per lane)."""
         width = width_of(x.op)
+        if self.P["ldg_continues"]:
+            addr = self._ldg_continued(w, addr)
         if self.addr_log is not None:
             self.addr_log.append((w.wid, w.loops, w.pc, width, addr))
             if self.addr_want and addr is not None:

@@ -315,10 +315,12 @@ def generic_kernel(
         once_loose += (1.0 - once_loose) * max(
             0.0, 1.0 - m.C["l2_effective_bytes"] / max(1.0, rest)
         )
+        # round 18: the bound holds for a load's unknown executions, not for the load
+        part = r.loose_share if m.P["loose_part_only"] else dict.fromkeys(r.loose_pcs, 1.0)
         miss_pc = {
             pc: 0.0
             if byname.get(pc) in carried
-            else v * scale * (once_loose if pc in r.loose_pcs else 1.0)
+            else v * scale * (1.0 - part.get(pc, 0.0) * (1.0 - once_loose))
             for pc, v in r.miss_by_pc.items()
         }
         kept = sum(miss_pc.values()) / max(1e-9, sum(r.miss_by_pc.values()))

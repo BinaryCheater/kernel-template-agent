@@ -299,6 +299,7 @@ class Replay:
     # round 17: of `reads` and of `bursts`, what the loads at unknown addresses make up
     loose_reads: float = 0.0
     loose_bursts: float = 0.0
+    loose_share: dict = field(default_factory=dict)  # per pc, the part of its reads that is loose
 
 
 class _Group:
@@ -387,6 +388,7 @@ def replay_walk(
     in_wave: set = set()
     burst_bytes: list[float] = []
     loose_reads = loose_bursts = 0.0
+    loose_pc: dict[int, float] = {}
 
     def touch(g: _Group, wave: list[tuple], trip: int) -> None:
         nonlocal reads, loaded, loose, loose_reads, loose_bursts
@@ -399,6 +401,7 @@ def replay_walk(
             loaded += b
             loose += 32 * (LINE if e.width <= 4 else e.width) * len(wave)
             loose_pcs.add(e.pc)
+            loose_pc[e.pc] = loose_pc.get(e.pc, 0.0) + b
             r_pc[e.pc] = r_pc.get(e.pc, 0.0) + b
             l_pc[e.pc] = l_pc.get(e.pc, 0.0) + b
         if not g.known:
@@ -422,6 +425,7 @@ def replay_walk(
                 loose += 32 * LINE * len(bb)
                 loose_pcs.update(g.pc[bb].tolist())
                 for pc in g.pc[bb].tolist():
+                    loose_pc[pc] = loose_pc.get(pc, 0.0) + 32 * LINE
                     r_pc[pc] = r_pc.get(pc, 0.0) + 32 * LINE
                     l_pc[pc] = l_pc.get(pc, 0.0) + 32 * LINE
             u, first = np.unique(flat, return_index=True)  # the block's distinct lines
@@ -504,6 +508,7 @@ def replay_walk(
         line_bytes=len({k >> (L2_LINE_BITS - LINE_BITS) for k in seen}) * (1 << L2_LINE_BITS),
         loose_reads=loose_reads,
         loose_bursts=loose_bursts,
+        loose_share={pc: v / r_pc[pc] for pc, v in loose_pc.items()},
     )
 
 

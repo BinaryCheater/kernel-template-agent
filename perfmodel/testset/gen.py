@@ -34,6 +34,8 @@ Round 16: the fixed blind recipe (D874) at a factor 7 in every size, HGEMM a fac
 the memory-hierarchy sweep of the coverage matrix (`_mem`).
 Round 17: the same recipe at a factor 9 in every size, HGEMM a factor 27, `hand17/`; sweeps for
 rules: `tw_*`, `gr_*`, `pw_*`, `px_*`, `rr_*`, `tv_*`, `fs_*`.
+Round 18: the same recipe at a factor 11, HGEMM a factor 29, `hand18/`; sweeps: `dr_*`, `dp_*`,
+`sp_*`, `gq_*`, `tw_t16_g0`, `tw_t64_g0`.
 `ONLY` limits generation to the matching names; `SHARD=i/n` generates one share of them.
 """
 
@@ -3020,6 +3022,174 @@ def _round17(out: Path) -> None:
         _tried(_softmax, out, f"sm17_t{th}_warm", ROWS17, kw, set=f"softmax {tag}", **more)
 
 
+# round 18: the blind recipe (D874). Rule, chosen before any result: off HGEMM a factor 11 in every
+# size, HGEMM a factor 29; D 112, the multiple of 16 nearest 11 x 10, and M × N rows at a multiple of
+# 512: shapes whose shared memory the preflight does not cut (round 17's D 144 lost most of FA).
+GEMV18 = {"N": 8800, "K": 3168, "group": 88, "n_part": 4, "reduce": 32}
+FA18 = {**FA, "S": 2288, "H": 11, "D": 112}
+DECODE18 = {**DECODE, "H": 33, "G": 11, "S": 2200, "D": 112}
+ROWS18 = {"M": 704, "N": 5632}
+HGEMM_BLIND18_SHAPE = {"M": 3712, "N": 1392, "K": 1856}
+HAND18 = {
+    "rangesum": ((1024, 1, 1), (128,), [4 * MB], None),
+    "zigzag": ((2048, 1, 1), (128,), [4 * MB], None),
+    "stackfold": ((1024, 1, 1), (128,), [1 * MB, 1 * MB], None),
+    "histbytes": ((512, 1, 1), (256,), [1 * MB, 1 * MB], None),
+    "storeevery": ((2048, 1, 1), (128,), [8 * MB], None),
+    "gatherhash": ((1024, 1, 1), (128,), [1 * MB, 1 * MB, 1 * MB], None),
+    "bitrev": ((1024, 1, 1), (128,), [1 * MB, 4 * MB], None),
+    "threestore": ((512, 1, 1), (256,), [4 * MB, 2 * MB], None),
+    "sevenpoint": ((1, 62, 30), (64,), [4 * MB, 4 * MB], None),
+    "blocksum": ((1024, 1, 1), (128,), [1 * MB, 4 * MB], None),
+    "rowswap": ((2048, 1, 1), (256,), [8 * MB, 8 * MB], None),
+    "hopscotch": ((1024, 1, 1), (128,), [1 * MB, 1 * MB], None),
+    "prefixstack": ((1024, 1, 1), (128,), [1 * MB, 1 * MB], None),
+}
+WI_HAND18 = (
+    ("rangesum", "k2", "loads removed", None, None, None, (("k < 4", "k < 2"),)),
+    ("storeevery", "k2", "stores removed", None, None, None, (("k < 3", "k < 2"),)),
+    ("hopscotch", "k2", "loads removed", None, None, None, (("k < 3", "k < 2"),)),
+    ("stackfold", "w8", "stack", None, None, None, (("w[12]", "w[8]"), ("k < 12", "k < 8"), ("11 - k", "7 - k"), ("k < 6", "k < 4"))),
+)
+RUNS = """// round 18: rows of {run} bytes, {w} bytes per lane, pitch {p}: decode's copies as loads
+__global__ void __launch_bounds__(128) k_mem(unsigned* o, const char* a) {{
+  unsigned s = 0;
+  for (unsigned k = 0; k < {n}; ++k) {{
+    const unsigned e = (blockIdx.x * {n} + k) * 128 + threadIdx.x;
+    const size_t at = (size_t)(e / {lanes}) * {p} + (e % {lanes}) * {w};
+    s ^= (*(const {ty}*)(a + at)).x;
+  }}
+  o[blockIdx.x & 65535u] = s;
+}}
+"""
+
+
+def _decode_tile(out: Path) -> None:
+    """Question 55: decode rotating by tile: row length × tile at one shape, then the same runs of
+    lanes as plain loads."""
+    g = "decode_tile"
+    base = {**DECODE17, "D": 128}
+    for d in (96, 112, 128):
+        for bn in (32, 64):
+            c = {**base, "D": d, "BN": bn}
+            _tried(_decode_part, out, f"dr_d{d}_bn{bn}_rotating", c, "rotating", set=g)
+    for split in (4,):
+        c = {**DECODE17, "BN": 16, "split": split}
+        _tried(_decode_part, out, f"dr_d144_bn16_s{split}_rotating", c, "rotating", set=g)
+    F = 8 * MB
+    for w, ty in ((16, "uint4"), (8, "uint2")):
+        for run, p in ((288, 1296), (288, 288), (256, 1296), (64, 1296)):
+            lanes, n = run // w, 8
+            grid = int(F * run / p) // (128 * n * w) if p != run else F // (128 * n * w)
+            src = RUNS.format(run=run, w=w, p=p, n=n, lanes=lanes, ty=ty)
+            size = int(grid * 128 * n * w * p / run) + 2 * MB
+            _source_kernel(out, f"dp_w{w}_r{run}_p{p}", src, (grid, 1, 1), (128,), [1 * MB, size], "hand", g, rot=_rot(size), written=1024)
+
+
+def _reg_limit(out: Path) -> None:
+    """Question 56: rows past the register limit: words a thread × threads, the same bytes."""
+    g = "reg_limit"
+    for th, ns in ((16, (1024, 1536, 2048, 3072, 4608, 6144)), (32, (6144, 9216))):
+        for n in ns:
+            m = max(16, (3317760 // n) // 16 * 16)
+            _tried(_rms, out, f"sp_n{n}_t{th}_warm", {"M": m, "N": n}, "warm", {"threads": th}, set=g)
+    for n in (2048, 6144):
+        m = max(16, (3317760 // n) // 16 * 16)
+        _tried(_softmax, out, f"sp_sm_n{n}_t16_warm", {"M": m, "N": n}, {"threads": 16}, set=g)
+
+
+def _gemv_pitch(out: Path) -> None:
+    """Question 52, experiment 2 of 2: GEMV's load at a pitch 16 mod 64: warps per row of the block
+    and bytes per instruction, the two axes GEMV's rotating rows move on; T 16, 64 twins."""
+    g = "gemv_rows"
+    tys = {2: "unsigned short", 4: "unsigned", 8: "unsigned long long"}
+    p = 1296
+
+    def row(w, r, np):
+        n = -(-p // (r * w))
+        src = GEMV_ROWS.format(w=w, p=p, t=r * np, more="", np=np, n=n, r=r, ty=tys[w], beside="")
+        _source_kernel(out, f"gq_w{w}_r{r}_np{np}", src, (8 * MB // (np * p), 1, 1), (r, np), [1 * MB, 9 * MB], "hand", g, rot=_rot(9 * MB), written=1024)
+
+    for np in (1, 2, 4, 8, 16):
+        row(4, 32, np)
+    for w, r in ((2, 32), (8, 32), (4, 16), (4, 64)):
+        row(w, r, 8)
+    F = 8 * MB
+    for t in (16, 64):
+        src = TWIN.format(what=f"twin sectors at T {t}, no gap", t=t, first="t * 8", gap="", second="t * 8 + 4")
+        _source_kernel(out, f"tw_t{t}_g0", src, (F // (t * 64), 1, 1), (t,), [1 * MB, F], "hand", "twin", rot=_rot(F), written=1024)
+
+
+def _hand18(out: Path) -> None:
+    src_dir = Path(__file__).parent / "hand18"
+    for name, (grid, block, sizes, written) in HAND18.items():
+        text = (src_dir / f"{name}.cu").read_text()
+        _source_kernel(
+            out, f"bl18_{name}", text, grid, block, sizes, "hand", "breadth blind", written=written
+        )
+    for name, tag, axis, grid, sizes, written, subs in WI_HAND18:
+        g0, block, s0, w0 = HAND18[name]
+        text = (src_dir / f"{name}.cu").read_text()
+        for old, new in subs:
+            text = text.replace(old, new)
+        _source_kernel(
+            out,
+            f"bl18_{name}_{tag}",
+            text,
+            grid or g0,
+            block,
+            sizes or s0,
+            "hand",
+            "breadth blind",
+            written=written if written is not None else w0,
+            whatif={"base": f"bl18_{name}", "axis": axis},
+        )
+
+
+def _round18(out: Path) -> None:
+    _hand18(out)
+    _decode_tile(out)
+    _reg_limit(out)
+    _gemv_pitch(out)
+    sh = HGEMM_BLIND18_SHAPE
+    M, N, K = sh["M"], sh["N"], sh["K"]
+    pre = f"hgemm_m{M}n{N}k{K}"
+    for name, tile in HGEMM_BLIND14.items():
+        for cache, tail in (("warm", ""), ("rotating", " rotating")):
+            suffix = "" if cache == "warm" else "_rotating"
+            base = f"{pre}_c128x128x32_s3_t128{suffix}"
+            more = _wi(name, base, "base" if f"{pre}_{name}{suffix}" == base else "design")
+            group = f"hgemm {M}x{N}x{K}{tail}"
+            _tried(_hgemm, out, f"{pre}_{name}{suffix}", tile, sh, cache, set=group, **more)
+    tag = f"{GEMV18['N']}x{GEMV18['K']}"
+    for cache, tail in (("warm", ""), ("rotating", " rotating")):
+        for v, (kw, axis) in GEMV13_V.items():
+            more = _wi(v, f"gemv18_b_{cache}", axis)
+            c = {**GEMV18, **kw}
+            _tried(_gemv_row, out, f"gemv18_{v}_{cache}", c, cache, set=f"gemv {tag}{tail}", **more)
+    tag = f"{FA18['S']}x{FA18['H']}x{FA18['D']}"
+    for cache, tail in (("warm", ""), ("rotating", " rotating")):
+        for name, (bm, bn, s, th) in FA_BLIND7_V.items():
+            f = {**FA18, "BM": bm, "BN": bn, "stages": s, "threads": th}
+            more = _wi(name, f"fa18_c64x64_s2_t128_{cache}", FA13_AXIS.get(name, "base"))
+            _tried(_fa, out, f"fa18_{name}_{cache}", f, cache, set=f"fa {tag}{tail}", **more)
+    tag = f"{DECODE18['H']}x{DECODE18['S']}x{DECODE18['D']}"
+    for cache, tail in (("warm", ""), ("rotating", " rotating")):
+        for v, (kw, axis) in DECODE13_V.items():
+            more = _wi(v, f"dec18_b_{cache}", axis)
+            c = {**DECODE18, **kw}
+            _tried(_decode_part, out, f"dec18_{v}_{cache}", c, cache, set=f"decode {tag}{tail}", **more)
+    tag = f"{ROWS18['M']}x{ROWS18['N']}"
+    for th in THREADS13:
+        axis = "base" if th == 128 else "threads"
+        kw = {"threads": th}
+        for cache, tail in (("warm", ""), ("rotating", " rotating")):
+            more = _wi("", f"rms18_t128_{cache}", axis)
+            _tried(_rms, out, f"rms18_t{th}_{cache}", ROWS18, cache, kw, set=f"rmsnorm {tag}{tail}", **more)
+        more = _wi("", "sm18_t128_warm", axis)
+        _tried(_softmax, out, f"sm18_t{th}_warm", ROWS18, kw, set=f"softmax {tag}", **more)
+
+
 def main(out: Path) -> None:
     _hand(out)
     _round11(out)
@@ -3054,6 +3224,7 @@ def main(out: Path) -> None:
         ("round15b", _round15b),
         ("round16", _round16),
         ("round17", _round17),
+        ("round18", _round18),
     ):
         try:  # a kernel that fails to generate is reported; the others stand
             gen(out)
