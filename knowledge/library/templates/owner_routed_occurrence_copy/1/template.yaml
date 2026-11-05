@@ -1,0 +1,92 @@
+name: owner_routed_occurrence_copy
+version: 1
+level_from: 2
+level_to: 3
+change: vertical
+refines: transfer
+produces:
+- transfer
+- store
+- sync
+object:
+  type: owner_routed_occurrence_copy
+  description: Selected logical occurrences are copied to uniquely owned peer rows
+    and published as a completed generation.
+variables:
+- name: direction
+  kind: structure
+  binding: compile
+  role: software
+  domain:
+  - token_to_expert
+  - expert_to_occurrence
+  meaning: Forward fanout or inverse occurrence permutation; neither direction adds
+    expert outputs.
+constraints: []
+preconditions:
+- id: pre0
+  expr: p.expert_owner_partition_exact and p.peer_buffers_addressable
+  meaning: Each expert has exactly one owner rank; rank0 is a real owner, not missing
+    metadata.
+  cls: semantic
+- id: pre1
+  expr: p.destination_occurrence_map_injective and p.all_indices_valid and p.rows_cover_requested_occurrences
+  meaning: Every peer destination row has one writer and all requested occurrences
+    are represented.
+  cls: semantic
+- id: pre2
+  expr: p.old_readers_retired and p.peer_store_completion_barrier_before_consumption
+  meaning: Buffers are fresh/reusable and the communication runtime publishes all
+    peer writes before consumers read.
+  cls: semantic
+program:
+  description: For token_to_expert, each source rank enumerates its local token t,
+    restores global token g=t+rank*local_tokens, and loads selected expert e(g,j)
+    plus destination row gate(g,j). Compute owner(e) from the unique membership bit
+    across ranks; the source uses sum(rank*membership). Copy the token vector to peer[owner(e)][gate(g,j)]
+    for every selected occurrence j, retaining duplicates only if their destination
+    rows are distinct. For expert_to_occurrence, source row s carries a global destination
+    occurrence d and its expert e(d). Only rank owner(e(d)) writes s to peer[d/local_occurrences][d%local_occurrences].
+    Launch completion plus the symmetric-memory barrier publishes the whole destination
+    generation. A later reduction across expert occurrences is separate; ordinary
+    stores here must not be presented as additive scatter.
+backward_map: Erase placement by following each output occurrence back to its original
+  token/expert occurrence; fanout preserves one value per selected occurrence, inverse
+  copy preserves its own expert result.
+obligations:
+- name: owner_and_address
+  statement: Unique expert ownership and injective occurrence indices yield exactly
+    one writer per peer destination coordinate.
+  method: test
+- name: generation_publication
+  statement: Consumers see complete stores only after runtime barrier completion and
+    no prior generation is reused early.
+  method: test
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: (p.expert_owner_partition_exact and p.peer_buffers_addressable) and (p.destination_occurrence_map_injective
+    and p.all_indices_valid and p.rows_cover_requested_occurrences) and (p.old_readers_retired
+    and p.peer_store_completion_barrier_before_consumption)
+  text: Direct peer-addressed copies with explicit occurrence identity and unique
+    expert owners. Replicated expert ownership, duplicate destination rows or reduction-to-token
+    require another protocol. The inverse global row is an occurrence index in the
+    flattened selected-expert domain, not necessarily a token index.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Selected logical occurrences are copied to uniquely owned peer rows and
+    published as a completed generation.
+  storage: Binding-specific counters, partials or output ranges.
+  boundary: Tile prefixes and logical membership.
+  resources: []
+numeric_risk: Integer counts must not overflow; ordering/rounding policy belongs to
+  the bound operation.
+summary: When routed expert work needs to move token/expert occurrences across shards,
+  retain a unique occurrence row and its expert owner. Forward fanout copies a token
+  to every selected expert row; the inverse route copies each expert result to its
+  own destination occurrence. Publish peer stores before consumers and reduce occurrences
+  only in an explicit later stage.

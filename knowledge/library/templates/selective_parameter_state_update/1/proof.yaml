@@ -1,0 +1,24 @@
+template: selective_parameter_state_update@1
+version: 1
+relation: The gated kernel implements the specified sparse parameter-state map, including all local and global clocks.
+rank: Remaining parameter owners in the update epoch.
+assumes:
+  - {name: state, statement: "All parameter-owned state components are known and inactivity is their identity transition."}
+  - {name: predicate, statement: "The exact incoming-gradient stage and group enablement define activity, with complete ready gradients."}
+  - {name: ownership, statement: "Each active state has one update owner and consumer publication follows all required writes."}
+guarantees: []
+models: []
+note: >-
+  Induct over epochs independently per parameter. An inactive epoch preserves the
+  complete state and the active-transition count. An active epoch applies the
+  original transition and increments that count, so the local counter used for
+  debiasing remains equal to the number of transitions. Global scheduler clocks
+  can still advance, because they are distinct state explicitly preserved by the
+  composition. Source include/tiny-cuda-nn/optimizers/adam.h:82-95 returns before
+  regularization and moment/weight writes, :111-132 uses ++param_steps[i], and
+  :153-160 initializes the local clocks. The host optimizer step counter advances
+  independently. With beta1=beta2=.5 and initial moments0, gradient2 gives(1,2)
+  after one active update; skipping a later zero gradient preserves these values
+  and clock1. A dense transition would produce(.5,1), clock2, demonstrating why
+  a generic zero-input argument is insufficient. Floating conversion, overflow,
+  device publication and performance remain executable binding obligations.

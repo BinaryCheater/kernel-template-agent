@@ -1,0 +1,15 @@
+template: multimem_peer_address_operation@1
+version: 1
+relation: 'Expand the multicast address to its member allocations: replicate_store
+  copies identical source bits to every peer and sum_load adds each peer FP32 value
+  once per coordinate.'
+rank: Unmapped coordinates or unretired readers.
+assumes:
+- name: binding
+  statement: Declared source layout and lifetime premises hold.
+guarantees: []
+models: []
+note: Source runtime/multicast.cu:12-35, runtime/multicast_reduce.cu:14-42; selected
+  caller csrc/multidevice/cuda_p2p.cpp:830-960. Correctness reduces to address membership,
+  hardware operation semantics and caller publication/retirement. No independent speed
+  or native rounding evidence is claimed.

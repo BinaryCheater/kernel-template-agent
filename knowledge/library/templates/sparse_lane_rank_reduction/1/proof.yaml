@@ -1,0 +1,14 @@
+template: sparse_lane_rank_reduction@1
+version: 1
+relation: Erase masked shuffles; the first member or every member receives the ordered
+  reduction of all original members in increasing logical rank.
+rank: Unprocessed source items or unmerged partials.
+assumes:
+- name: contract
+  statement: The stated partition, comparator/count and publication premises hold.
+guarantees: []
+models: []
+note: Source cudax coop/__group/mapping/binary_partition.cuh:ballot/popcount map;
+  coop/__algorithm/reduce.cuh:316-345 and shuffle_down.cuh masked-group route. Stride
+  induction concatenates adjacent logical-rank intervals; invalid right intervals
+  are absent. Native masked shuffle mapping remains an executable obligation.

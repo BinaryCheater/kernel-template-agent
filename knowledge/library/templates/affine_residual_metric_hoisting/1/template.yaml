@@ -1,0 +1,95 @@
+{
+  "name": "affine_residual_metric_hoisting",
+  "version": 1,
+  "level_from": 2,
+  "level_to": 3,
+  "change": "vertical",
+  "refines": "map",
+  "produces": [
+    "map",
+    "access"
+  ],
+  "object": {
+    "type": "affine_residual_metric_hoisting",
+    "description": "When each scanned vector decodes as centroid plus feature offset plus scaled code, hoist query-invariant and probe-invariant terms while retaining metric-specific normalization."
+  },
+  "variables": [
+    {
+      "name": "vector_bytes",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": [
+        16
+      ],
+      "meaning": "Observed per-lane SQ code-load chunk; padded dimension rounds to this width."
+    }
+  ],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_0",
+      "expr": "p.affine_decoder_contract and p.metadata_feature_aligned",
+      "meaning": "Decoded component is centroid[d]+vmin[d]+code[d]*scale[d] with matched metadata.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_1",
+      "expr": "p.hoisted_buffers_distinct and p.phase_barriers",
+      "meaning": "Query-invariant and per-probe shared arrays are distinct and synchronized before reads/reuse.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_2",
+      "expr": "p.metric_policy_and_rounding_admitted",
+      "meaning": "L2, IP or cosine convention including zero denominator and negated ranking is explicitly requested.",
+      "cls": "semantic"
+    }
+  ],
+  "program": {
+    "description": "Cache scale once per query. For L2, cache query-vmin and per probe subtract centroid to obtain query_term; sum (query_term-code*scale)^2. For IP/cosine, cache query and per probe cache centroid+vmin; sum query*(aux+code*scale), and for cosine additionally sum decoded components squared. Finalize L2 directly, IP by negation for select-min then undo sign on return, cosine as 1-dot/(query_norm*sqrt(decoded_norm_sq)) with requested zero-denominator result. Shared storage can be reused for top-k merge only after the final distance read barrier."
+  },
+  "backward_map": "Erase auxiliary organization and recover the visible results under the stated contract.",
+  "obligations": [
+    {
+      "name": "algebra",
+      "statement": "Hoisted expression equals requested affine-decoded metric before admitted rounding.",
+      "method": "proof"
+    },
+    {
+      "name": "lifetime",
+      "statement": "Probe overwrite follows all previous readers; merge scratch aliases shared metadata only after last use.",
+      "method": "proof"
+    },
+    {
+      "name": "normalization",
+      "statement": "Cosine uses decoded-vector norm, not original/prequantized vector norm.",
+      "method": "proof"
+    },
+    {
+      "name": "tails",
+      "statement": "Padded code loads stay inside allocated padded storage and dimensions beyond the logical size do not accumulate.",
+      "method": "proof"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.affine_decoder_contract and p.metadata_feature_aligned and p.hoisted_buffers_distinct and p.phase_barriers and p.metric_policy_and_rounding_admitted",
+    "text": "NVIDIA IVF-SQ8 residual scan. Unlike Faiss midpoint SQ, this decoder has no implicit half-step; format conversion and metric normalization must not be conflated. Source cosine zero denominator returns zero. Resource effects: Three dim-length shared float arrays per CTA, vectorized code loads and local top-k or full materialized output. Hoisting amortizes query/probe work across all vectors in a list."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "When each scanned vector decodes as centroid plus feature offset plus scaled code, hoist query-invariant and probe-invariant terms while retaining metric-specific normalization.",
+    "storage": "Three dim-length shared float arrays per CTA, vectorized code loads and local top-k or full materialized output. Hoisting amortizes query/probe work across all vectors in a list.",
+    "boundary": "For query5,centroid2,vmin1,code3,scale0.5, decoded4.5 gives L2=0.25 through (5-1-2-1.5)^2. Using query-centroid without vmin gives a different result; cosine must also include4.5 squared in its denominator.",
+    "resources": []
+  },
+  "numeric_risk": "Preserve the supplied arithmetic contract; reassociation, quantization and approximate search require separate permission.",
+  "summary": "When each scanned vector decodes as centroid plus feature offset plus scaled code, hoist query-invariant and probe-invariant terms while retaining metric-specific normalization. For query5,centroid2,vmin1,code3,scale0.5, decoded4.5 gives L2=0.25 through (5-1-2-1.5)^2. Using query-centroid without vmin gives a different result; cosine must also include4.5 squared in its denominator."
+}

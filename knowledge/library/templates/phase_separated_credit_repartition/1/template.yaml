@@ -1,0 +1,91 @@
+{
+  "name": "phase_separated_credit_repartition",
+  "version": 1,
+  "level_from": 2,
+  "level_to": 3,
+  "change": "vertical",
+  "refines": "map",
+  "produces": [
+    "map",
+    "access"
+  ],
+  "object": {
+    "type": "phase_separated_credit_repartition",
+    "description": "When a shared receive ring changes its slot-to-peer allocation, separate credit generations into phases and reset only a phase that can no longer have in-flight signals."
+  },
+  "variables": [
+    {
+      "name": "buffer_count_log2",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": {
+        "lo": 1,
+        "hi": 20
+      },
+      "meaning": "Power-of-two receive slot count constrained by per-peer and total credit limits."
+    }
+  ],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_0",
+      "expr": "p.signal_release_order_prevents_old_phase_inflight and p.phase_reuse_separation_proved",
+      "meaning": "No reset can erase a valid in-flight credit or readiness signal.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_1",
+      "expr": "p.complete_peer_rounds_and_slot_alias_mapping and p.unique_producer_per_live_slot",
+      "meaning": "Next credited peer is exactly the peer whose future step aliases the retired slot.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_2",
+      "expr": "p.network_put_signals_payload_ready and p.receive_retirement_after_readers",
+      "meaning": "Clear-to-send credits prevent overwrite; ready-to-read signals publish completed payload.",
+      "cls": "semantic"
+    }
+  ],
+  "program": {
+    "description": "Allocate B=2^b slots across N peer steps with quotient B//N plus one credit for first B%N peers. When allocation changes, issue initial credits in next phase, reset only previous phase guaranteed quiescent, then advance phase modulo the declared phase bank count and reset monotonic round/step indices. Sender waits clear-to-send then puts data into slot monoStep%B and signals ready-to-read. Receiver waits readiness, consumes/reduces, then returns a credit to the next step that aliases this slot: peerStep=(step+B%N)%N. End round advances monoStep by N. Keep send-source completion request ring independent from receive credits."
+  },
+  "backward_map": "Erase auxiliary organization and recover the visible results under the stated contract.",
+  "obligations": [
+    {
+      "name": "allocation",
+      "statement": "Initial credits sum to B and no simultaneously live producers share a slot.",
+      "method": "proof"
+    },
+    {
+      "name": "retirement",
+      "statement": "A new producer receives slot credit only after prior payload readers retire.",
+      "method": "proof"
+    },
+    {
+      "name": "phase",
+      "statement": "No current or in-flight next phase signal is reset; phase wrap cannot alias live old state.",
+      "method": "proof"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.signal_release_order_prevents_old_phase_inflight and p.phase_reuse_separation_proved and p.complete_peer_rounds_and_slot_alias_mapping and p.unique_producer_per_live_slot and p.network_put_signals_payload_ready and p.receive_retirement_after_readers",
+    "text": "Source GIN inbox four-phase bank and completed peer rounds; phase separation is a protocol premise needing backend signal-order proof. Resource effects: Adapts ring slot count to chunk size/peer count; minimum chunk size enforces hard per-peer and total credit capacities."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "When a shared receive ring changes its slot-to-peer allocation, separate credit generations into phases and reset only a phase that can no longer have in-flight signals.",
+    "storage": "Adapts ring slot count to chunk size/peer count; minimum chunk size enforces hard per-peer and total credit capacities.",
+    "boundary": "symmetric/gin_scratch__funcs.h:160-193,218-293; reduce_scatter_gin.cuh:65-105 distinguishes soft pipeline chunk cap from hard credit minimum.",
+    "resources": []
+  },
+  "numeric_risk": "Preserve the supplied arithmetic contract; reassociation, quantization and approximate search require separate permission.",
+  "summary": "When a shared receive ring changes its slot-to-peer allocation, separate credit generations into phases and reset only a phase that can no longer have in-flight signals. symmetric/gin_scratch__funcs.h:160-193,218-293; reduce_scatter_gin.cuh:65-105 distinguishes soft pipeline chunk cap from hard credit minimum."
+}

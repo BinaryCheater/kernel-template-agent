@@ -1,0 +1,100 @@
+name: butterfly_bit_ownership
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: map
+produces:
+- map
+- transfer
+- sync
+object:
+  type: butterfly_bit_ownership
+  description: When a butterfly transform exceeds one thread fragment, group butterflies
+    by register-owned logical bits and exchange ownership between stages; the final
+    store can absorb the remaining permutation.
+variables:
+- name: transform_extent
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 2
+    hi: 32768
+  meaning: 'H: workload-defined padded power-of-two transform extent.'
+- name: elements_per_thread
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 2
+    hi: 64
+  meaning: Register fragment size, power of two; source schedule groups log2(EPT)
+    bits.
+constraints:
+- id: c0
+  expr: is_pow2(transform_extent) and is_pow2(elements_per_thread) and elements_per_thread
+    <= transform_extent
+  meaning: Power-of-two butterfly geometry.
+  cls: implementation
+preconditions:
+- id: pre0
+  expr: p.stage_bit_sets_partition_index_bits and p.exchange_maps_bijective and p.exchange_visibility_complete
+    and p.store_map_matches_final_ownership and p.rounding_admitted
+  meaning: Stage coverage, communication, store mapping and numerical contract.
+  cls: semantic
+program:
+  description: Represent each logical index by log2(H) bits, each owned by exactly
+    one thread coordinate bit or register-value bit. Select a stage list of disjoint
+    logical bit sets whose union is all bits. Before a stage, move its selected bits
+    into register ownership through a bijective exchange (shared memory with synchronization
+    or subgroup shuffles); compute the sum/difference butterfly for each selected
+    bit locally. Maintain the index-to-owner map after every exchange. At the end
+    either restore the initial owner map or use its inverse in the global store. A
+    direct final store is legal only when vector contiguity/alignment and valid-tail
+    predicates follow the current mapping. For nonpower2 input N, use the workload-defined
+    H=next_pow2(N) zero-padded transform then crop to N and apply requested scale.
+backward_map: Power-of-two butterfly transforms including explicitly requested zero-pad/crop
+  workloads, source H<=32768. Scaling is part of the operation, not implicitly normalized;
+  no universal numerical bound for arbitrary scales or tree orders is asserted.
+obligations:
+- name: butterfly_coverage
+  statement: Every logical butterfly dimension is applied once; disjoint dimension
+    operators commute in exact arithmetic.
+  method: proof
+- name: owner_identity
+  statement: Every exchange preserves the logical index attached to each value.
+  method: proof
+- name: direct_store
+  statement: Final inverse map writes each requested coordinate once with legal vectors
+    and guarded crop.
+  method: proof
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: (is_pow2(transform_extent) and is_pow2(elements_per_thread) and elements_per_thread
+    <= transform_extent) and (p.stage_bit_sets_partition_index_bits and p.exchange_maps_bijective
+    and p.exchange_visibility_complete and p.store_map_matches_final_ownership and
+    p.rounding_admitted)
+  text: Power-of-two butterfly transforms including explicitly requested zero-pad/crop
+    workloads, source H<=32768. Scaling is part of the operation, not implicitly normalized;
+    no universal numerical bound for arbitrary scales or tree orders is asserted.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: When a butterfly transform exceeds one thread fragment, group butterflies
+    by register-owned logical bits and exchange ownership between stages; the final
+    store can absorb the remaining permutation.
+  boundary: Power-of-two butterfly transforms including explicitly requested zero-pad/crop
+    workloads, source H<=32768. Scaling is part of the operation, not implicitly normalized;
+    no universal numerical bound for arbitrary scales or tree orders is asserted.
+  resources:
+  - registers
+numeric_risk: Floating-point reassociation, casts and approximate functions require
+  an admitted numerical contract.
+summary: When a butterfly transform exceeds one thread fragment, group butterflies
+  by register-owned logical bits and exchange ownership between stages; the final
+  store can absorb the remaining permutation.

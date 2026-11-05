@@ -1,0 +1,63 @@
+name: byte_arrival_completion_join
+version: 1
+level_from: 5
+level_to: 5
+change: vertical
+refines: sync
+produces: [sync]
+object:
+  type: byte_and_arrival_stage_completion
+  description: One stage-generation wait joins transaction-byte completion and independently completed copy-producer arrivals using both counters of one barrier.
+variables:
+  - {name: transaction_bytes, kind: numeric, binding: compile, role: boundary, domain: {lo: 1, hi: 4194304}, meaning: Exact bytes registered by the single transaction owner and delivered to this barrier generation.}
+  - {name: copy_arrivals, kind: numeric, binding: compile, role: boundary, domain: {lo: 1, hi: 4096}, meaning: Copy-producer completion arrivals excluding the one reserved transaction-registration arrival.}
+constraints:
+  - {id: c_incidence, expr: "transaction_bytes == p.delivered_transaction_bytes and copy_arrivals == p.delivered_copy_arrivals", meaning: Both counters match the actual generation's signal incidence including cross-CTA targets., cls: semantic}
+preconditions:
+  - {id: pre_backend, expr: "p.joint_counter_backend_supported and p.atomic_expect_and_reserved_arrive", meaning: The backend waits for both counters and atomically registers bytes while consuming the reserved arrival., cls: implementation}
+  - {id: pre_copy, expr: "p.copy_arrives_after_own_writes and p.transactions_signal_after_writes and p.signals_target_correct_generation", meaning: Every completion signal certifies its own data and reaches the correct barrier generation., cls: semantic}
+  - {id: pre_lifetime, expr: "p.slot_empty_before_production and p.all_consumers_retire_before_reuse and p.delay_schedule_can_progress", meaning: Slot generations do not overlap and any delayed producer-arrival schedule can issue enough work to drain., cls: semantic}
+program:
+  description: >-
+    Initialize each full barrier generation with copy_arrivals+1 pending arrivals
+    and no registered transaction bytes. The extra arrival belongs to the single
+    transaction owner. After acquiring the empty slot, that owner atomically
+    registers transaction_bytes and consumes its reserved arrival before issuing
+    the corresponding transfers. Copy producers independently issue their writes,
+    wait for their own completion and each deliver their counted arrival. Transfer
+    completion decrements the byte counter. The consumer may read only after the
+    barrier generation completes with both counters zero. Release the slot only
+    after all consumers finish; reset both counts for the next generation.
+backward_map: Replace the joint full-barrier wait by independent waits for every required transaction and copy-producer completion, then read the same stage generation.
+obligations:
+  - {name: no_early_read, statement: Completion implies both all registered transaction writes and all independent copy writes are ready for the selected generation., method: exhaustive}
+  - {name: registration_race, statement: Copy producers finishing before transaction registration cannot complete the barrier prematurely because the registration arrival is reserved., method: exhaustive}
+  - {name: incidence_and_target, statement: Exactly the registered bytes and arrivals reach each local or remote generation once without omission or double count., method: test}
+  - {name: progress_and_reuse, statement: Delayed arrivals and tail drain are satisfiable before slot reuse and all readers retain their generation until release., method: test}
+effects:
+  transactions: []
+  storage:
+    - {id: joint_full_barriers, level: smem, scope: cta, bytes: "p.stages * p.full_barrier_bytes", note: Full barriers only; empty barriers and extra source allocations are accounted separately.}
+  overlap: []
+scope:
+  predicate: "p.joint_counter_backend_supported and p.atomic_expect_and_reserved_arrive and p.copy_arrives_after_own_writes and p.transactions_signal_after_writes and p.signals_target_correct_generation and p.slot_empty_before_production and p.all_consumers_retire_before_reuse and p.delay_schedule_can_progress"
+  text: >-
+    One transaction-registration owner plus independent copy-completion producers
+    per stage generation, on a backend joining byte and arrival counters. Pinned
+    convolution joins A/B/SFB TMA bytes with128 SFA thread arrivals for one CTA or256
+    for two, initializing129/257 arrivals including the reserved owner. Both CTAs
+    signal the leader for two-CTA SFA writes. Source delays arrivals by two copy
+    groups and drains pending arrivals at each tile tail; adequate stage capacity
+    remains a separate progress premise. Different signal incidence, registration
+    ownership, release domain or completion semantics needs a verified binding/variant.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: A full-stage barrier completes only after byte and copy-arrival counters both drain.
+  storage: One full barrier per stage plus independently managed empty/lifetime state.
+  boundary: Registration races, remote completion targets and delayed-arrival tails.
+  resources: [issue, smem]
+numeric_risk: Synchronization refinement only; early readiness or wrong generations corrupt operand values.
+summary: >-
+  When one operand stage mixes engine-counted transfers with writes completed by independent copy producers, consider joining both readiness streams in one barrier. Preserve both counters and reserve one arrival for atomic transaction registration, so early copy arrivals cannot publish unfinished data. Bind exact transaction_bytes and copy_arrivals to the signal incidence; the pinned SM100 path uses128/256 copy arrivals plus one owner, and its two-group delay requires a progress-safe stage capacity and explicit short-tail drain.

@@ -1,0 +1,27 @@
+template: indexed_additive_scatter@1
+version: 1
+relation: The completed destination contains its initial value plus every indexed source contribution once, with duplicate multiplicity preserved under the admitted atomic addition order.
+rank: Unissued logical indexed contributions.
+assumes:
+  - {name: ownership, statement: "Every valid source/feature has one issuing owner and retains its immutable original row index."}
+  - {name: bounds, statement: "Invalid rows are excluded before destination access; valid indices and all vector lanes are within the logical view and allocation."}
+  - {name: accumulation, statement: "One initial state precedes compatible atomic adds, every consumer follows completion, and FP32 interleaving is numerically admitted."}
+guarantees: []
+models: []
+note: >-
+  At any destination/feature, elementwise atomicity serializes successful adds
+  into some order without losing updates. Unique contribution ownership and the
+  index predicate make that sequence exactly the multiset in the original sum.
+  Duplicate indices change multiplicity, not ownership: indices[2,0,2,-1]
+  and row contributions[(1,10),(2,20),(4,40),(8,80)] yield Y0=(2,20),
+  Y2=(5,50) from zero. Assignment or deduplication loses one contribution;
+  clearing Y before a later chunk loses earlier chunks. The logical witness
+  also excludes index==logical_extent even if a larger backing allocation exists.
+  Source flash_bwd_mla_sm100.py:3270-3320 bounds dV scatter with both lower
+  and upper limits and uses FP32 four-element adds. flash_bwd_mla_dk_sm100.py:
+  1106-1132 uses scalar FP32 adds but guards only negative sentinels locally;
+  its upper bound is a caller premise, so arbitrary positive OOB indices are
+  not admitted by this rule. indexed_gather@1 only reads indexed rows, while
+  scatter_reduce_output_shards@1 gives each peer a disjoint output shard and
+  sender mailboxes, not collision atomics. Native atomic lowering/alignment,
+  sequence offsets, completion and numerical order require implementation checks.

@@ -1,0 +1,14 @@
+template: expected_observed_scale_pair@1
+version: 1
+relation: Decode current values with the immutable expected scale and expose a separate
+  complete statistic about their unscaled source values.
+rank: Unprocessed source items or unmerged partials.
+assumes:
+- name: contract
+  statement: The stated partition, comparator/count and publication premises hold.
+guarantees: []
+models: []
+note: Source numerics_details/flexpoint.py:119-176 and swiglu_details/_swiglu.py:67
+  onward in the shipped triton_kernels package. Immutable expected dataflow proves
+  current encoding independence; max reduction over all producer observations supplies
+  the final statistic. Caller initialization/completion and future policy remain explicit.

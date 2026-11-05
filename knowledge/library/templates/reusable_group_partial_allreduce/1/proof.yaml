@@ -1,0 +1,23 @@
+template: reusable_group_partial_allreduce@1
+version: 1
+relation: Every generation reads exactly its completed peer partials and can reuse its storage without
+  resetting counters externally.
+rank: Remaining logical reduction generations.
+assumes:
+- name: fixed_group
+  statement: All peers arrive exactly once per generation in the same order and can make progress.
+- name: memory
+  statement: Leader publication and acquire/CTA convergence implement the native visibility relation.
+- name: retirement
+  statement: Each peer completes generation t reads before arriving at t+1.
+guarantees: []
+models: []
+note: 'A peer may leave barrier t before another peer observes its terminal count. It cannot reuse that
+  counter at t+2 until every peer arrives at t+1; each such arrival implies retirement of t. The same
+  intervening barrier protects data bank t%2 from t+2 writes. The two counters alternatively rise to peers
+  and fall to zero, avoiding an external reset. The finite abstract interleaving check in checks/check_reusable_group_barrier.py
+  explores two peers over eight generations: two counters/two banks terminate safely; one counter can
+  deadlock by removing a terminal count before a slow peer observes it; one data bank permits next-generation
+  overwrite before a slow reader. That is a logical model with release/acquire and fairness premises,
+  not CUDA memory-model or occupancy validation. Source common/utils.cuh:400-435 and :445-488 supplies
+  the phase/bank binding. Native leader visibility and launch progress remain explicit obligations.'

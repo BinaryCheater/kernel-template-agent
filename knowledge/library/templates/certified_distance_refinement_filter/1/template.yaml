@@ -1,0 +1,96 @@
+{
+  "name": "certified_distance_refinement_filter",
+  "version": 1,
+  "level_from": 2,
+  "level_to": 3,
+  "change": "vertical",
+  "refines": "map",
+  "produces": [
+    "map",
+    "access"
+  ],
+  "object": {
+    "type": "certified_distance_refinement_filter",
+    "description": "When candidate distances are expensive, reject candidates from a conservative lower bound against a threshold certified by k retained complete scores, and refine only survivors."
+  },
+  "variables": [
+    {
+      "name": "terms_per_check",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": {
+        "lo": 1,
+        "hi": 65536
+      },
+      "meaning": "Score terms or packed chunks evaluated between lower-bound checks; choose within realization resource constraints."
+    }
+  ],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_0",
+      "expr": "p.lower_bound_valid_for_refined_score and (p.threshold_certified_by_k or p.threshold_fixed_by_workload)",
+      "meaning": "Bound is conservative and threshold is justified either by k complete retained scores or by the declared fixed-radius predicate.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_1",
+      "expr": "p.min_distance_order and p.threshold_equality_policy_defined",
+      "meaning": "Smaller is better; equality is discarded only when the workload/tie contract permits it.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_2",
+      "expr": "p.refinement_preserves_identity and p.survivor_capacity_sufficient",
+      "meaning": "Retained candidates keep original IDs and survivor storage cannot truncate permitted winners.",
+      "cls": "semantic"
+    }
+  ],
+  "program": {
+    "description": "For each candidate compute a lower bound L. If L>threshold discard it; discard L==threshold only when the declared equality/tie policy permits; otherwise evaluate more terms or a finer code representation and repeat, finally offering the complete score to top-k. Nonnegative partial squared-distance sums are lower bounds when all remaining terms and rounded accumulation preserve monotonicity. Signed inner-product sums are not, so disable early stopping unless a separate residual bound exists. For a short-code estimate with error radius E, use estimate-E only when E is proved conservative for the exact refinement score under all admitted rounding. For a fixed-radius predicate use its declared cutoff and the requested equality policy, without fabricating k retained candidates."
+  },
+  "backward_map": "Erase auxiliary organization and recover the visible results under the stated contract.",
+  "obligations": [
+    {
+      "name": "bound_soundness",
+      "statement": "No rejected candidate has a final score below L, including quantization and table rounding.",
+      "method": "proof"
+    },
+    {
+      "name": "threshold",
+      "statement": "Each threshold is either a fixed workload cutoff or an upper bound justified by k complete candidates; partial estimates alone cannot tighten it.",
+      "method": "proof"
+    },
+    {
+      "name": "capacity",
+      "statement": "Every survivor is retained until refinement/selection completes.",
+      "method": "proof"
+    },
+    {
+      "name": "ties",
+      "statement": "Strict versus nonstrict bound comparison matches inclusive-radius or top-k tie/identity policy.",
+      "method": "proof"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.lower_bound_valid_for_refined_score and (p.threshold_certified_by_k or p.threshold_fixed_by_workload) and p.min_distance_order and p.threshold_equality_policy_defined and p.refinement_preserves_identity and p.survivor_capacity_sufficient",
+    "text": "NVIDIA IVF-PQ partial nonnegative L2 sum and optional multi-stage quantized refinement. The generic rule applies to exact top-k of the declared final score; approximate error envelopes without proof remain hypotheses, not certified instances. Resource effects: Can reduce remaining lookup/decode work per rejected candidate; adds bound checks and survivor staging. Check frequency trades branch overhead against wasted late terms; no measured optimum claimed. Fixed-radius search may bind the threshold to its workload radius instead of a kth score; that branch has no top-k count obligation."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "When candidate distances are expensive, reject candidates from a conservative lower bound against a threshold certified by k retained complete scores, and refine only survivors.",
+    "storage": "Can reduce remaining lookup/decode work per rejected candidate; adds bound checks and survivor staging. Check frequency trades branch overhead against wasted late terms; no measured optimum claimed.",
+    "boundary": "Partial L2 sum7 with remaining nonnegative terms may be dropped against kth6; partial inner product7 could receive term-5 and become2, so the same test is invalid. An estimate10 with error3 has bound7; using estimate10 itself can incorrectly reject a true distance8 against threshold9.",
+    "resources": []
+  },
+  "numeric_risk": "Preserve the supplied arithmetic contract; reassociation, quantization and approximate search require separate permission.",
+  "summary": "When candidate distances are expensive, reject candidates from a conservative lower bound against a threshold certified by k retained complete scores, and refine only survivors. Partial L2 sum7 with remaining nonnegative terms may be dropped against kth6; partial inner product7 could receive term-5 and become2, so the same test is invalid. An estimate10 with error3 has bound7; using estimate10 itself can incorrectly reject a true distance8 against threshold9."
+}

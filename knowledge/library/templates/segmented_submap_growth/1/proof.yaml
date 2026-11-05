@@ -1,0 +1,15 @@
+{
+  "template": "segmented_submap_growth@1",
+  "version": 1,
+  "relation": "The union of live submaps denotes one unique-key map and the active insertion target cannot duplicate any key already present in another immutable segment.",
+  "rank": "Remaining insertion batches and unprobed submaps, under bounded local insert progress.",
+  "assumes": [
+    {
+      "name": "source_contract",
+      "statement": "NVIDIA dynamic_map with stream-ordered host growth and designated insertion submap. Source max_load_factor0.60 and min_insert_size10000 are policy constants. Concurrent independent target phases are outside this version."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Source-derived proof outline; no formal proof result or GPU execution claimed. global_uniqueness: No valid key can be newly inserted into two different submaps under the phase restriction. coverage: Find/contains/erase/retrieve accounts for every live submap as required by its operation contract. ref_lifetime: Copied device refs remain valid until every kernel using them completes. capacity: Load/headroom accounting covers requested insertions; duplicate suppression must not be mistaken for guaranteed free space without allocation."
+}

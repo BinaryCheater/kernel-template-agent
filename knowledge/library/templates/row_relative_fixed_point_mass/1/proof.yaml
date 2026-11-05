@@ -1,0 +1,48 @@
+template: row_relative_fixed_point_mass@1
+version: 1
+relation: Replace integer q_i by exact decoded mass q_i*Delta at the original coordinate. Total discarded
+  mass D=sum_i(w_i-q_i*Delta) satisfies0<=D<N*Delta. On the unchanged complete row, total variation between
+  normalized original and decoded masses is at most D/sum(w), by expressing original mass as decoded mass
+  plus a nonnegative residual. This does not bound a changed top-p membership without a separate crossing
+  premise.
+rank: Unencoded row masses and unresolved integer prefixes.
+assumes:
+- name: pre_values
+  statement: The row is already sanitized to nonnegative finite positive-sign FP32 and has a positive
+    maximum. NaN/negative/negative-zero/infinite/zero-row policies belong to a separate producer contract.
+- name: pre_peak
+  statement: The shared row maximum is exact for the same immutable row; each value exponent is no larger,
+    so unsigned exponent differences are valid.
+- name: pre_conversion
+  statement: Extract the FP32 significand with a hidden one only for normal inputs, use effective exponent
+    max(E,1), and produce zero when the right shift exceeds the native word width. Source converter padding29
+    is implemented; other widths are inferred bindings.
+- name: pre_count
+  statement: Every row/slab occurrence contributes once to a uint64 prefix sum. At most1024 values and
+    padding<=29 keep every total below2**63. The selected native scan shape covers every live entry, including
+    smaller64-entry versus full1024-entry variants.
+- name: pre_coordinates
+  statement: Codec and scan preserve requested value/ID order and original occurrence multiplicity. Sorting
+    and exact-k/tie selection are separate refinements, and inactive padding has zero mass.
+- name: pre_numeric
+  statement: The contract admits downward fixed-point masses, possibly dropping positive values below
+    one unit, and the resulting normalized-law error. A changed top-p support boundary needs its own certificate.
+- name: pre_lifetime
+  statement: All values/exponents/partial sums belong to one complete row generation, publish before readers
+    and survive through the prefix consumers.
+- name: pre_consumers
+  statement: Consumers declare any integer-to-FP64 conversion, finite RNG endpoint convention, threshold
+    comparisons and whether output numerators are original values or decoded integer masses. Exact integer
+    scans do not imply exact downstream real decisions.
+guarantees: []
+models: []
+note: csrc/cake_sampling/generated/cake_sampling_kernels_part15.cuh:46-92 loads/sanitizes64 slab values
+  and packs FP32 value with inverse ID for deterministic sort; :336-402 aligns FP32 significands with29
+  padding bits to maximum exponent and scans uint64; :405-431 converts totals/prefixes to double for top-p;
+  :573-623 converts a Philox word to FP32 uniform, samples with double comparisons/final-cutoff fallback
+  and optionally divides original values by an encoded retained mass scale. Fused-tail part1:1742-1798,1933-1957
+  repeats this codec. shared_exponent_integer_sum@1 sums fraction/counts exactly within one exponent and
+  rounds once; this rule instead truncates mixed-exponent values individually before prefixing. Logical
+  exact-unit checks cover exponent ranges, zero/drop/guarded shifts, partitioned scans, uint64 range and
+  normalized-mass error, plus FP64 prefix conversion and original-numerator witnesses. Native sort/PDL/RNG/categorical
+  error remain separate obligations.

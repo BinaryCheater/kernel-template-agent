@@ -1,0 +1,53 @@
+name: cache_prefetch
+version: 1
+level_from: 5
+level_to: 6
+change: vertical
+refines: transfer
+produces: [transfer]
+object:
+  type: cache_prefetch_schedule
+  description: A bounded lookahead stream of value-neutral L2 hints, independent of actual transfer destinations and their readiness protocol.
+variables:
+  - {name: distance, kind: numeric, binding: compile, role: software, domain: {lo: 0, hi: 2147483647}, unit: tiles, meaning: "Zero disables hints; a positive value primes that many tiles then hints distance ahead after each demand-copy issue."}
+constraints:
+  - {id: c_hint_semantics, expr: "p.hints_value_neutral and p.hint_addresses_valid", meaning: The selected backend supports non-faulting value-neutral hints for every selected source tile., cls: implementation}
+preconditions:
+  - {id: pre_hint_semantics, expr: "p.hints_value_neutral and p.hint_addresses_valid", meaning: Hints may affect cache state but cannot change application values or replace demand-copy completion., cls: implementation, same_as: c_hint_semantics}
+  - {id: pre_source, expr: "p.immutable_source and p.tiles >= 0", meaning: Source storage and metadata remain valid and immutable throughout this finite tile stream., cls: semantic}
+program:
+  description: >-
+    Preserve the original demand-copy stream for tiles0..T-1 and all its waits/releases.
+    For distance D>0, issue L2 hints for tiles0..min(D,T)-1 before that stream;
+    after demand-copy issue k, hint tile k+D iff k<T-D. D=0 issues no hints.
+    Restart hint indices at zero for each independent output-tile stream, preserving
+    any shared-buffer slot/phase state from the original program. A hint has no
+    program-visible destination slot and grants no readiness or release permission.
+backward_map: Erase all hint events; the original demand-copy, synchronization and arithmetic trace remains in the same order.
+obligations:
+  - {name: hint_bounds, statement: Every hint refers to a tile in0..T-1 and a valid source descriptor/address for that tile., method: exhaustive}
+  - {name: demand_trace, statement: Erasing hints preserves the demand-copy indices and every completion/release dependency of the original stream., method: exhaustive}
+  - {name: value_neutral_backend, statement: The selected hint backend has no application-visible value effect and all source/metadata lifetimes cover its use., method: unspecified}
+effects: {transactions: [], storage: [], overlap: []}
+scope:
+  predicate: "p.hints_value_neutral and p.hint_addresses_valid and p.immutable_source and p.tiles >= 0"
+  text: >-
+    Finite immutable global-memory tile streams with an L2-only hint mechanism.
+    Distance may exceed the actual shared-memory stage count or T: prologue bounds
+    still hold and no extra shared destination is allocated. Hint count is T per
+    selected stream when D>0 and zero otherwise; physical cache transactions, latency,
+    residency and cache pollution are unmeasured and are not priced by these empty effects.
+    TMA descriptor prefetch and eviction priority are separate choices.
+requires: []
+probed_on: []
+relations:
+  - {type: enables, target: async_transfer, note: May bring source data toward L2 before an actual async transfer; does not establish its readiness.}
+signature:
+  algorithm: Prime a finite cache-hint stream then issue one bounded rolling hint after each demand-copy issue.
+  reuse: Hint-selected source tiles may subsequently be consumed by one or several CTAs.
+  storage: L2 cache state only; no program-visible destination buffer is introduced.
+  boundary: Excludes invalid/faulting addresses, mutable source lifetimes and any use of a hint as synchronization.
+  resources: [l2, issue]
+numeric_risk: No arithmetic change under the stated backend and immutable-source premises; performance may improve or degrade.
+summary: >-
+  When future global operand tiles are addressable while a bounded shared-memory pipeline is already in use, consider independent L2 lookahead. Preserve the demand-copy indices and all real completion/release dependencies; tune distance with zero disabling hints, without allocating another shared slot. The pinned CuTe examples expose this distance for immutable A/B or A/B/SF streams; T5,D4,S2 is the index witness, while other backends and invalid source addresses require their own guarded implementation.

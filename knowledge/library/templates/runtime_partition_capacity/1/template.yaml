@@ -1,0 +1,145 @@
+name: runtime_partition_capacity
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: reduce
+produces:
+- reduce
+- map
+- store
+- sync
+object:
+  type: bounded_live_partition_prefix_with_fixed_scratch_topology
+  description: Keep partial-state capacity and collective topology static while the useful instruction-aligned
+    partition prefix changes per invocation/work item.
+variables:
+- name: capacity
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 1
+    hi: 2147483647
+  meaning: Prepared upper bound C for split states and addressing; independent of the current useful count.
+- name: requested_splits
+  kind: numeric
+  binding: runtime
+  role: software
+  domain:
+    lo: 1
+    hi: 2147483647
+  meaning: Runtime requested fanout R<=C; geometry and instruction alignment derive actual useful A, which
+    can be smaller.
+- name: inactive_protocol
+  kind: structure
+  binding: compile
+  role: software
+  domain:
+  - retire_local
+  - participate_neutral
+  meaning: Locally retire inactive producer CTAs only when no collective awaits them, or keep inactive
+    ranks in the fixed collective with neutral state.
+constraints:
+- id: c_counts
+  expr: requested_splits <= capacity and p.total_tiles >= 0 and p.instruction_tile_group >= 1
+  meaning: A nonnegative live tile count and positive instruction group admit bounded aligned splits.
+  cls: semantic
+preconditions:
+- id: pre_partition
+  expr: p.visible_tile_domain_complete_and_row_exact_masks_preserved and p.partial_state_merge_contract_admitted
+  meaning: Visible source tiles partition completely, with exact logical masks; merge representation and
+    rounding are specified.
+  cls: semantic
+- id: pre_count
+  expr: p.all_producers_reducers_and_work_decoders_use_same_runtime_count_generation and p.count_alignment_and_division_arithmetic_valid
+  meaning: Count, division metadata and workload lengths belong to one immutable invocation generation.
+    Count/alignment products and ceil numerators fit their integer types; precomputed exact-division metadata
+    matches the divisor.
+  cls: semantic
+- id: pre_address
+  expr: p.scratch_row_strides_derive_from_capacity_and_all_addresses_fit and p.capacity_and_participant_topology_unchanged_during_launch
+  meaning: Scratch addresses use C, never live A; collective ranks and resource allocations retain their
+    prepared topology.
+  cls: implementation
+- id: pre_publish
+  expr: p.live_partial_state_published_before_merge and p.reducer_never_loads_unpublished_inactive_slots
+  meaning: Only completed useful partials may be loaded; inactive caller scratch may be stale or uninitialized.
+  cls: implementation
+- id: pre_retire
+  expr: inactive_protocol != 'retire_local' or p.retired_ranks_have_no_collective_consumers_and_complete_resource_teardown
+  meaning: An early-retired CTA cannot leave a barrier arrival, dependency release or TMEM retirement
+    outstanding.
+  cls: implementation
+- id: pre_neutral
+  expr: inactive_protocol != 'participate_neutral' or p.inactive_ranks_supply_neutral_states_and_join_all_fixed_collectives
+  meaning: Fixed collective participants remain present even when their logical contribution is empty.
+  cls: implementation
+- id: pre_empty
+  expr: p.zero_work_output_policy_explicit_and_no_uninitialized_partial_read and p.replay_control_reset_and_workspace_exclusivity_valid
+  meaning: A=0 has declared output semantics without reading scratch; replay resets and concurrent workspace
+    ownership remain valid.
+  cls: implementation
+program:
+  description: For T=p.total_tiles, I=p.instruction_tile_group, R=requested_splits and C=capacity, derive
+    L=max(I,ceil(T/(R*I))*I) and A=ceil(T/L). A=0 when T=0 and always A<=R<=C. Useful split s in[0,A)
+    owns tiles[s*L,min((s+1)*L,T)); source row masks remain inside the tiles. Produce one complete merge
+    state per useful split. Allocate/index partial rows with fixed capacity C and keep the prepared participant
+    count unchanged. Reducers load only useful published s<A; inactive physical slots contribute no loads.
+    Inactive ranks either complete local teardown with no outstanding collective consumer, or join every
+    fixed collective using neutral state. Merge useful states under their declared frame. A count change
+    inside C reuses storage and compiled topology; C/topology changes require new preparation and resource
+    bindings.
+backward_map: Forget inactive physical capacity slots and concatenate useful aligned ranges; every live
+  tile occurs exactly once and the declared partial-state merge recovers the complete reduction. Empty
+  work follows its explicit output policy.
+obligations:
+- name: aligned_exact_cover
+  statement: Derived A<=R<=C and useful ranges partition[0,T) with no empty useful split.
+  method: test
+- name: capacity_addressing
+  statement: Live-count changes never alter fixed row strides or make reducers read inactive scratch.
+  method: test
+- name: inactive_protocol
+  statement: Inactive ranks preserve collective progress and resource/dependency teardown for the chosen
+    physical topology.
+  method: test
+- name: metadata_and_replay
+  statement: Producers and reducers share the same count generation and controls reset before exclusive
+    replay.
+  method: test
+scope:
+  text: Source task-scheduled FMHA/MLA split-KV on SM100/103/107. The FMHA runtime helper uses instruction-aligned
+    spans; separate and collective reducers retain prepared capacity/topology. Capacity selection/bucketing
+    and residency heuristics are upstream policy, not this rule. No cancellation or CLC protocol follows
+    from the logical partition. Neutral-state format depends on raw versus normalized partial representation.
+  predicate: (requested_splits <= capacity and p.total_tiles >= 0 and p.instruction_tile_group >= 1) and
+    (p.visible_tile_domain_complete_and_row_exact_masks_preserved and p.partial_state_merge_contract_admitted)
+    and (p.all_producers_reducers_and_work_decoders_use_same_runtime_count_generation) and (p.scratch_row_strides_derive_from_capacity_and_all_addresses_fit
+    and p.capacity_and_participant_topology_unchanged_during_launch) and (p.live_partial_state_published_before_merge
+    and p.reducer_never_loads_unpublished_inactive_slots) and (inactive_protocol != 'retire_local' or
+    p.retired_ranks_have_no_collective_consumers_and_complete_resource_teardown) and (inactive_protocol
+    != 'participate_neutral' or p.inactive_ranks_supply_neutral_states_and_join_all_fixed_collectives)
+    and (p.zero_work_output_policy_explicit_and_no_uninitialized_partial_read and p.replay_control_reset_and_workspace_exclusivity_valid)
+    and p.count_alignment_and_division_arithmetic_valid
+signature:
+  algorithm: Vary useful split count within fixed physical capacity and collective topology.
+  storage: Capacity-strided partial states with a separately agreed live-prefix count.
+  boundary: Uninitialized inactive slots, zero work and collective retirement.
+  resources:
+  - dram
+  - smem
+  - registers
+numeric_risk: Changing live partitions changes reduction association. Masking an inactive value after
+  loading it does not prove that stale NaN/uninitialized data is harmless; avoid the load or construct
+  a declared neutral state.
+summary: When lengths change between replays, keep split workspace/topology fixed at a prepared capacity
+  and derive a smaller useful prefix. Use the live count for work and merge loads, capacity for addresses,
+  and physical participation for barriers. Inactive work does not automatically permit early return.
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+requires: []
+probed_on: []
+relations: []

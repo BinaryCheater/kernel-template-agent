@@ -1,0 +1,99 @@
+{
+  "name": "statistic_dependent_rematerialization",
+  "version": 1,
+  "level_from": 3,
+  "level_to": 4,
+  "change": "vertical",
+  "refines": "map",
+  "produces": [
+    "map",
+    "reduce",
+    "store"
+  ],
+  "object": {
+    "type": "transform_values_across_group_statistic",
+    "description": "Transformed per-coordinate values retained or recomputed across a group-wide statistic needed to produce their outputs."
+  },
+  "variables": [
+    {
+      "name": "retention",
+      "kind": "structure",
+      "binding": "compile",
+      "role": "software",
+      "domain": [
+        "resident",
+        "recompute"
+      ],
+      "meaning": "Keep transformed values live through the statistic join, or discard and evaluate the same transform again from immutable inputs."
+    }
+  ],
+  "constraints": [
+    {
+      "id": "c_resident",
+      "expr": "retention != 'resident' or p.transformed_live_bytes <= p.register_budget_bytes",
+      "meaning": "Resident transformed values and required live work fit the admitted register budget.",
+      "cls": "resource"
+    }
+  ],
+  "preconditions": [
+    {
+      "id": "pre_pure",
+      "expr": "p.transform_is_pure_and_deterministic and p.source_parameters_immutable and p.same_transform_recipe_on_replay",
+      "meaning": "Recomputation has no side effects and preserves input generation, operation order and casts.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_stat",
+      "expr": "p.statistic_complete_before_output and p.group_output_dependency_explicit",
+      "meaning": "Every output uses the completed statistic for its own group.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_lifetime",
+      "expr": "p.recompute_inputs_live_until_last_read and p.output_stores_do_not_destroy_unread_inputs",
+      "meaning": "A second pass can still read original inputs; all cross-thread reads and barriers have matching ownership.",
+      "cls": "implementation"
+    }
+  ],
+  "program": {
+    "description": "Original operation computesz_i=f(x_i), group statistic s=reduce_i h(z_i), theny_i=g(z_i,s). Resident mode retains eachz_i until the completed statistic is visible, then emits output. Recompute mode reducesh(f(x_i)) in a first pass, discards transformed values, joins the statistic, and evaluates the identicalf(x_i) again for output. Preserve the group domain, final statistic and every numerical rounding step. No output may overwrite an input that another second-pass computation still needs."
+  },
+  "backward_map": "Erase the repeated pure evaluation in recompute mode; identical source generation and transform recipe give the samez_i used by the original output and statistic.",
+  "obligations": [
+    {
+      "name": "replay_identity",
+      "statement": "Each second-pass transformed value equals the first-pass value under the fixed numerical recipe.",
+      "method": "test"
+    },
+    {
+      "name": "statistic_join",
+      "statement": "Every output uses one complete matching-group statistic, with no stale or partial reduction.",
+      "method": "test"
+    },
+    {
+      "name": "lifetime",
+      "statement": "Inputs and parameters survive until the last recomputation and no output destroys an unread dependency.",
+      "method": "test"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.transform_is_pure_and_deterministic and p.source_parameters_immutable and p.group_output_dependency_explicit",
+    "text": "Independent transformed coordinates/groups whose output needs a complete enclosing-group statistic. Source ConvRot transforms Hadamard subgroups but quantization scale covers the full row; resident path retains the transformed row, largeK recomputes it. General mutable/racy state transitions are excluded."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "Trade transformed-value register residence against an identical second pure transform pass after a group statistic.",
+    "storage": "ResidentO(row values) versus bounded tile and reduced-statistic storage.",
+    "boundary": "Full statistic domain can exceed a transform tile; parameters/input generation remain fixed.",
+    "resources": []
+  },
+  "numeric_risk": "Changing transform rounding or using an algebraically different fast path invalidates replay identity. Only the identical pure recipe justifies recomputation equivalence.",
+  "summary": "When output codes need a row statistic over transformed values, keep the transformed row in registers or recompute it after the statistic join. Recompute reduces live registers but repeats input traffic and transform work; all outputs must still use the same full-group statistic and original inputs. Source ConvRot chooses recomputation forK>32768."
+}

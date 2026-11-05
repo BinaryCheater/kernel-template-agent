@@ -1,0 +1,44 @@
+template: chunked_delta_feedback@2
+version: 2
+relation: Expanding diag(alpha_i)*H_(i-1) gives channelwise D_ij on each prior insertion. Dotting by k_i
+  yields the strictly lower feedback equation; its unique residuals are the sequential ones. Substituting
+  those residuals gives both output orders and inclusive outgoing state. Repeating one scalar gate across
+  all key channels recovers chunked_delta_feedback@1 exactly in real arithmetic.
+rank: Unexpanded token positions in the ordered feedback system.
+assumes:
+- name: pre_recurrence
+  statement: K-major Hbar_i=diag(alpha_i)*H_(i-1), r_i=beta_i*(v_i-k_i^T*Hbar_i), H_i=Hbar_i+k_i outer
+    r_i; output q_i^T*H_i. Scalar geometry repeats one alpha over key channels; key_channel preserves
+    every channel. Normalization/query scale resolve consistently before factorization.
+- name: pre_frames
+  statement: E_i is the elementwise cumulative product of positive alpha through token i; D_ij=E_i/E_j
+    channelwise. No sequence/head mixing. Scalar mode uses identical channel entries.
+- name: pre_solve
+  statement: A=I+L is unit lower triangular with L_ij=beta_i*sum_c k_i,c*D_ij,c*k_j,c strictly below diagonal.
+    Solve A*T=diag(beta), including zero beta without division. Solve/casts meet the declared residual
+    policy.
+- name: pre_numeric
+  statement: The chosen direct-difference or separately factored E/reciprocal-E operands remain in range
+    at every stored precision. Pairwise dots, weighted solve, residual/coefficient products, state and
+    output casts have an explicit admitted error policy. Finite final ratios do not certify intermediate
+    reciprocal safety.
+- name: pre_boundary
+  statement: All outputs/residuals needing H_in capture that generation before H_out overwrites it. Optional
+    frozen output-only execution leaves H_in unchanged. The next chunk waits for complete H_out.
+- name: pre_scope
+  statement: Complete chunk coordinates, or a validated neutral extension alpha=1,beta=0,k=q=v=0 and masked
+    stores, preserve valid rows. Each output/state shard has one owner and reductions include every key
+    shard.
+- name: pre_backend
+  statement: The selected computation order, width, dtype, state layout and target have an implemented
+    binding. Output-only coefficient-first does not by itself produce an outgoing state.
+guarantees: []
+models: []
+note: KDA concrete helper kda_kernels/kda_chunked_bt16.py:1635-1669 builds per-channel prefix exchange;1700-1818
+  normalizes Q/K and packs K*E, K/E, K*(E_end/E) at explicit operand precision. The native auxiliary-MMA
+  producer consumes these decayed operands. Reference1238-1278 documents pairwise, weighted RHS, residual/output/state
+  stages;1070-1122 exposes strictly lower/inclusive masks and beta row placement. Exact channelwise tests
+  compare independent sequential diagonal-decay updates and both mathematical output orders, verify equal-channel
+  reduction to version1 and supply a scalar-collapse counterexample. Coefficient-first feature-gated algebra
+  is inferred; only supported implemented bindings may select it. Preparation/chain workspace and publication
+  are separate scheduling choices.

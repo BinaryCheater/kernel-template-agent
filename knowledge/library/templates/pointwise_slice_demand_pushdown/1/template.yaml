@@ -1,0 +1,87 @@
+name: pointwise_slice_demand_pushdown
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: map
+produces:
+- map
+- access
+object:
+  type: pointwise_slice_demand_pushdown
+  description: A slice after a pure pointwise producer narrows producer evaluation
+    to the requested input-coordinate domain.
+variables:
+- name: start
+  kind: numeric
+  binding: runtime
+  role: boundary
+  domain:
+    lo: 0
+    hi: 2147483647
+  meaning: First retained logical input coordinate; supplied by the slice contract.
+constraints:
+- id: c0
+  expr: start + p.output_length <= p.input_length and p.output_length >= 0
+  meaning: Demand interval is within the producer output domain.
+  cls: semantic
+preconditions:
+- id: pre0
+  expr: p.producer_pure_pointwise_and_coordinate_local and p.input_mapping_preserved
+  meaning: Each requested output depends only on corresponding producer input coordinates.
+  cls: semantic
+- id: pre1
+  expr: p.other_consumers_keep_original_producer_domain and p.replay_numeric_semantics_preserved
+  meaning: Shared producers are cloned as needed and arithmetic/casts retain their
+    contract.
+  cls: semantic
+program:
+  description: Replace slice(F(x),start,length) with evaluating the same pointwise
+    F only at original coordinates start+j for j in [0,length). Propagate that demanded
+    coordinate interval backward through each pure pointwise producer without changing
+    its scalar operations. If another consumer needs the unsliced producer domain,
+    keep its original producer and clone the producer slice for this consumer. Padding
+    is not pushed through F by this version; preserve the original padding value with
+    a separate guarded output path.
+backward_map: Substitute the original coordinate start+j into the unchanged scalar
+  producer DAG to recover every sliced result, leaving other consumers unchanged.
+obligations:
+- name: coordinate_identity
+  statement: Each retained output evaluates the same original-coordinate producer
+    inputs.
+  method: proof
+- name: consumer_isolation
+  statement: Cloning/narrowing does not change another consumer required domain or
+    values.
+  method: test
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: start + p.output_length <= p.input_length and p.output_length >= 0 and
+    p.producer_pure_pointwise_and_coordinate_local and p.input_mapping_preserved and
+    p.other_consumers_keep_original_producer_domain and p.replay_numeric_semantics_preserved
+  text: Pure coordinate-local pointwise producer DAG followed by an in-bounds contiguous
+    slice. No reduction, RNG, mutation or arbitrary pad-through-nonlinearity transformation.
+    Native resize scheduler has additional shape restrictions; this candidate records
+    the observed slice mechanism.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: A slice after a pure pointwise producer narrows producer evaluation to
+    the requested input-coordinate domain.
+  storage: Source-bound physical buffer; exact byte count and capacity supplied by
+    binding.
+  boundary: Coordinate identity and storage lifetime.
+  resources:
+  - smem
+  - reg
+numeric_risk: Address/storage transformation preserves values; arithmetic changes
+  require separate obligations.
+summary: When a pointwise producer computes values later discarded by a slice, propagate
+  the demanded coordinates backward instead of materializing the full producer output.
+  For y[j]=F(x[j+L]), compute only that input interval. Clone a shared producer for
+  the sliced consumer so an unsliced consumer still gets its full domain; do not move
+  a padding constant through F.

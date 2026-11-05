@@ -1,0 +1,96 @@
+{
+  "name": "transposed_incidence_owned_reduce",
+  "version": 1,
+  "level_from": 2,
+  "level_to": 3,
+  "change": "vertical",
+  "refines": "map",
+  "produces": [
+    "map",
+    "access"
+  ],
+  "object": {
+    "type": "transposed_incidence_owned_reduce",
+    "description": "When indexed scatter contributions would contend, materialize inverse incidence and let each destination own its complete gather-reduction."
+  },
+  "variables": [
+    {
+      "name": "offset_count",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": {
+        "lo": 1,
+        "hi": 4096
+      },
+      "meaning": "Number of stencil relation slots visited per destination; workload-fixed for a binding."
+    }
+  ],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_0",
+      "expr": "p.inverse_incidence_exact and p.invalid_sentinel_guarded",
+      "meaning": "Inverse incidence preserves every logical edge once and excludes -1 before payload access.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_1",
+      "expr": "p.destination_owner_unique and p.inputs_immutable",
+      "meaning": "One executor owns each destination feature; source payloads do not change during reduction.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_2",
+      "expr": "p.numeric_order_admitted and p.edge_weight_contract_explicit",
+      "meaning": "Caller admits chosen serial reduction order and exact per-edge weighting/predicate.",
+      "cls": "semantic"
+    }
+  ],
+  "program": {
+    "description": "Replace contributions sent along forward incidence with per-destination traversal of inverse incidence slots. For each destination feature, initialize its accumulator, loop all offset_count slots, load only present source rows, apply the original edge predicate/weight, reduce locally and store once. For max-pool backward the predicate is input_value==forward_output, so all tied maxima receive their original upstream contributions rather than selecting one winner. For average backward a correct gradient requires upstream_gradient/present_count; a different source multiplier cannot instantiate that gradient contract."
+  },
+  "backward_map": "Erase auxiliary organization and recover the visible results under the stated contract.",
+  "obligations": [
+    {
+      "name": "transpose",
+      "statement": "Each forward edge corresponds to exactly one inverse edge and neither duplicates nor disappears.",
+      "method": "proof"
+    },
+    {
+      "name": "edge_values",
+      "statement": "Each gathered contribution uses original source feature, predicate and weight.",
+      "method": "proof"
+    },
+    {
+      "name": "exclusive_write",
+      "statement": "No other executor writes the same destination feature, so the final store needs no atomic.",
+      "method": "proof"
+    },
+    {
+      "name": "boundaries",
+      "statement": "Absent neighbors contribute the reduction identity; empty neighborhoods follow the declared initial-value contract.",
+      "method": "proof"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.inverse_incidence_exact and p.invalid_sentinel_guarded and p.destination_owner_unique and p.inputs_immutable and p.numeric_order_admitted and p.edge_weight_contract_explicit",
+    "text": "Sparse NVIDIA stencil reductions where inverse incidence can be built once and reused across channels. The construction changes ownership, not the operator or its gradient convention; max tie-all and argmax-only gradients are different contracts. Resource effects: Inverse map O(offset_count*destinations); one output store per feature replaces contended writes, at the cost of reading neighbor slots including absent entries."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "When indexed scatter contributions would contend, materialize inverse incidence and let each destination own its complete gather-reduction.",
+    "storage": "Inverse map O(offset_count*destinations); one output store per feature replaces contended writes, at the cost of reading neighbor slots including absent entries.",
+    "boundary": "One input participates in two max outputs that both equal it: gather both upstream gradients into that input. A tied second input must also receive its own edge gradient under tie-all semantics. Dropping one tied edge changes the contract.",
+    "resources": []
+  },
+  "numeric_risk": "Preserve the supplied arithmetic contract; reassociation, quantization and approximate search require separate permission.",
+  "summary": "When indexed scatter contributions would contend, materialize inverse incidence and let each destination own its complete gather-reduction. One input participates in two max outputs that both equal it: gather both upstream gradients into that input. A tied second input must also receive its own edge gradient under tie-all semantics. Dropping one tied edge changes the contract."
+}

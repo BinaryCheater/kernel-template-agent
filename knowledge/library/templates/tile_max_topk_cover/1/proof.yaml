@@ -1,0 +1,15 @@
+{
+  "template": "tile_max_topk_cover@1",
+  "version": 1,
+  "relation": "Selected tile union contains an allowed global top-k value multiset and every gathered record retains its input index.",
+  "rank": "Unexamined tiles, then unselected candidates in retained union.",
+  "assumes": [
+    {
+      "name": "attained_witness",
+      "statement": "Tile maxima are exact, attained, and tiles are disjoint; at least min(k,tile_count) highest maxima are retained."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "For any omitted x, its tile maximum is no greater than each retained maximum. If there are omitted tiles, at least k distinct retained tiles supply k distinct real values >=x. Reinserting omitted values cannot force a strictly larger top-k value multiset. This proves arbitrary tied identity only. Loose upper bounds fail because they need not supply actual dominating values. Host exhaustive witness check is checks/tile_cover.json. Source ops/speculative/lilicorr.py:20-179; native sentinel, Triton gather and numerical LSE remain separate obligations."
+}

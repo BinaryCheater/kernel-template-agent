@@ -1,0 +1,61 @@
+name: adjacent_boundary_reuse
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: map
+produces: [map, transfer]
+object:
+  type: shared_adjacent_boundary_samples
+  description: Reused boundary evaluations for contiguous outputs that are differences of neighboring samples of the same function.
+variables:
+  - {name: exchange, kind: structure, binding: compile, role: software, domain: [serial, subwarp], meaning: "Carry the previous boundary in one thread or exchange neighboring boundary values across a lane subgroup."}
+  - {name: bins, kind: numeric, binding: compile, role: boundary, domain: {lo: 1, hi: 1024}, meaning: "Number of adjacent intervals belonging to one logical input."}
+constraints:
+  - {id: c_shuffle_width, expr: "exchange != 'subwarp' or (bins <= 32 and is_pow2(bins))", meaning: "The pinned shuffle implementation uses a power-of-two subgroup that fits one warp.", cls: implementation}
+preconditions:
+  - {id: pre_difference, expr: "p.outputs_are_adjacent_boundary_differences and p.boundary_function_same_input_and_parameters", meaning: "Output b is F(b+1)-F(b) for one common input/parameter binding, so adjacent endpoints are identical computations.", cls: semantic}
+  - {id: pre_exchange, expr: "exchange != 'subwarp' or (p.subgroups_aligned_with_bins and p.all_required_lanes_participate and p.endpoint_equals_first_plus_jump)", meaning: "Lane neighbors belong to the same bin group, all shuffle participants are active, and the last endpoint is reconstructible from the first plus the declared jump.", cls: implementation}
+  - {id: pre_numeric, expr: "p.reused_boundary_rounding_admitted and p.seam_reconstruction_error_admitted", meaning: "Sharing rounded evaluations and reconstructing the seam satisfy the output numerical contract.", cls: implementation}
+program:
+  description: >-
+    Replace independently evaluating two boundaries per interval. For serial
+    exchange evaluate F(0), then for b=0..bins-1 evaluate F(b+1), emit their
+    difference, and retain F(b+1) as the next left endpoint. For subwarp exchange,
+    aligned lane b evaluates F(b), obtains F((b+1) modulo bins) from the next
+    lane in the same subgroup, adds the declared endpoint_jump only for the
+    final lane, and subtracts its own F(b). Subtract/cast at the same logical
+    output stage. The boundary function may itself sum translated CDFs; its
+    computation and admitted coordinate domain are inputs to this rule.
+backward_map: Replace every retained or shuffled boundary by its defining F(b). The seam premise replaces F(0)+endpoint_jump by F(bins), recovering each independent interval difference.
+obligations:
+  - {name: common_boundary, statement: "Each reused value is exactly the endpoint required by the adjacent interval of the same logical input.", method: proof}
+  - {name: subgroup_and_seam, statement: "No shuffle crosses input groups, all required lanes participate, and the final endpoint identity holds on the declared domain.", method: proof}
+  - {name: numeric_equivalence, statement: "Reused evaluations, seam correction and output casts satisfy the declared numerical policy.", method: test}
+effects: {transactions: [], storage: [], overlap: []}
+scope:
+  predicate: "p.outputs_are_adjacent_boundary_differences and p.boundary_function_same_input_and_parameters and p.reused_boundary_rounding_admitted and p.seam_reconstruction_error_admitted"
+  text: >-
+    Adjacent finite differences of one boundary function. Serial uses bins+1
+    evaluations instead of2*bins; subwarp uses bins evaluations plus exchange,
+    but requires an aligned full-participation power-of-two group up to32 lanes
+    and a valid endpoint jump. No arbitrary-input periodicity or derivative seam
+    jump is inferred from a forward CDF example.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Reuse identical interval endpoints by a serial carry or subgroup exchange.
+  reuse: Each interior boundary supplies two adjacent interval outputs.
+  storage: One retained boundary per thread or lane.
+  boundary: Logical subgroup alignment and final endpoint correction.
+  resources: [registers, shuffle]
+numeric_risk: Reconstructing a periodic endpoint by a jump may round differently from separately evaluating it; derivative boundary functions can have a different jump.
+summary: >-
+  When many outputs subtract adjacent samples of the same expensive function,
+  evaluate the shared endpoints once. Carry the right endpoint into the next
+  interval, or let aligned bin lanes shuffle their next neighbor's value.
+  OneBlob with16 bins uses16 periodic-CDF boundary evaluations plus a final
+  +1 seam correction instead of32 evaluations. Without a valid seam identity or
+  with bin groups crossing shuffle boundaries, use the serial form or reject
+  the subgroup binding. Serial evaluation uses17 boundaries for16 bins.

@@ -1,0 +1,140 @@
+name: operator_fusion
+version: 2
+level_from: 2
+level_to: 3
+change: vertical
+refines: map
+produces:
+- map
+object:
+  type: fused_intermediate
+  description: An on-chip intermediate consumed by a local producer-consumer chain, optionally also materialized
+    as a checkpoint for later consumers.
+variables:
+- name: consumer_kind
+  kind: structure
+  binding: compile
+  role: software
+  domain:
+  - elementwise
+  - row_reduce_then_map
+  - contract
+  meaning: what the fused consumer does with the intermediate
+- name: intermediate_site
+  kind: structure
+  binding: compile
+  role: software
+  domain:
+  - registers
+  - smem
+  meaning: where the intermediate tile lives
+- name: fused_ops
+  kind: structure
+  binding: compile
+  role: software
+  domain:
+  - linear_combination
+  - scale
+  - scale_and_cast
+  - routed_weight
+  - softmax_then_matmul
+  - norm_scale
+  - dense_layer
+  - activated_dense_layer
+  meaning: the consumer computation absorbed into the producer
+- name: checkpoint
+  kind: structure
+  binding: compile
+  role: software
+  domain:
+  - none
+  - materialize
+  meaning: Whether a later external consumer also retains the fused intermediate; this does not force
+    the immediate consumer to reload it.
+constraints: []
+preconditions:
+- id: pre_tile_local
+  expr: consumer_kind == 'elementwise' or p.consumer_needs_full_row == False or p.consumer_reduce_rescalable
+    or p.consumer_full_dependency_local
+  meaning: The consumer dependency is local, or a valid rescalable combination is supplied; full-feature
+    dense layers require the local-dependency clause.
+  cls: semantic
+- id: pre_dense
+  expr: fused_ops not in ['dense_layer', 'activated_dense_layer'] or (consumer_kind == 'contract' and
+    p.complete_feature_axis_owned and p.layer_numeric_steps_preserved)
+  meaning: Dense consumers have every required feature of each owned sample locally and preserve admitted
+    MMA accumulation, activation and cast steps.
+  cls: semantic
+- id: pre_checkpoint
+  expr: checkpoint == 'none' or (p.checkpoint_matches_intermediate and p.checkpoint_visible_before_external_read
+    and p.checkpoint_storage_survives)
+  meaning: A checkpoint saves the exact logical stage required by later consumers and survives until their
+    last read.
+  cls: semantic
+- id: pre_external
+  expr: p.no_omitted_side_effects_or_consumers and p.onchip_lifetime_safe
+  meaning: All external consumers and effects are accounted for; destructive reuse follows the immediate
+    consumer last read.
+  cls: semantic
+program:
+  description: Apply the immediate consumer to the producer's on-chip intermediate tile. For dense_layer
+    and activated_dense_layer, assign a sample tile and its full intermediate feature axis to the same
+    executor; contract that complete feature axis with the next layer weights, then apply exactly the
+    specified activation and conversion. Repeat pairwise through the chain while each dependency remains
+    local. If checkpoint=materialize, additionally write the named logical stage for later consumers without
+    making the immediate consumer reload it. Other fused_ops retain their version1 transformations. Never
+    erase an externally required value or replace an activation input checkpoint with its output unless
+    the backward contract permits that substitution.
+backward_map: Insert a logical materialization at every fused edge and run producer then consumer with
+  identical stage precision and activation order. Keep each optional retained checkpoint in its declared
+  stage/layout. Erasing on-chip scheduling and duplicate checkpoint copies recovers the original dataflow.
+obligations:
+- name: same_values
+  statement: The consumer reads exactly the producer's values for its tile (no partial or stale values).
+  method: test
+- name: no_cross_tile_dependency
+  statement: No consumer output depends on intermediate values of another tile, unless an online/rescalable
+    combination step accounts for it.
+  method: test
+- name: retained_consumers
+  statement: Every later consumer sees its required stage, layout and generation; its checkpoint is complete
+    and alive.
+  method: proof
+- name: dense_dependency_closure
+  statement: Every dense consumer dependency belongs to the resident feature tile, and per-layer rounding/activation
+    semantics satisfy the declared contract.
+  method: proof
+effects:
+  transactions:
+  - id: traffic
+    pattern: transfer
+    kind: dram_stream
+    count: '1'
+    amounts:
+      bytes: p.producer_input_bytes + p.consumer_extra_input_bytes + p.output_bytes + p.checkpoint_bytes
+  storage: []
+  overlap: []
+scope:
+  predicate: 'True'
+  text: Version1 fusion scope plus complete-feature dense chains, optionally retaining intermediate checkpoints.
+    A checkpoint increases traffic and storage; fusion does not erase training state. Dense fusion is
+    invalid when the next consumer needs features owned by other independent executors without an explicit
+    exchange. Performance benefit is workload/target dependent.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Fuse a local producer-consumer edge, optionally saving an external checkpoint.
+  reuse: intermediate reused on chip instead of via global memory
+  storage: registers or smem
+  boundary: Complete consumer dependency, retained external consumers and per-stage numerical contract.
+  resources:
+  - dram
+numeric_risk: Changed accumulation precision, activation placement or intermediate conversion can change
+  network values and gradients; fusion alone does not authorize these changes.
+summary: When a chain repeatedly materializes a tile that its next consumer can use locally, keep that
+  edge on chip. For dense networks, own every hidden feature of each sample with one executor; a partial
+  feature shard is insufficient. Choose checkpoint=materialize for later training consumers, or none for
+  an edge with no external reader. Width64/sample128 in the source uses shared hidden activations while
+  saving each training layer globally; inference omits those saves. Preserve the original layer rounding
+  and activation order.

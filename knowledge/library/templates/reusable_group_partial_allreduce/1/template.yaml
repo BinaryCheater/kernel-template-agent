@@ -1,0 +1,110 @@
+name: reusable_group_partial_allreduce
+version: 1
+level_from: 4
+level_to: 5
+change: vertical
+refines: reduce
+produces:
+- transfer
+- sync
+- reduce
+object:
+  type: repeated_inter_cta_reduction
+  description: When the same resident CTA group repeatedly publishes partials and every CTA needs the
+    result, alternate two data banks and two release/acquire counters. Four phases raise each counter
+    to the participant count, then lower it to zero. The intervening group rendezvous retires old readers
+    before a bank or counter is reused; a one-shot barrier cannot be reused without this generation invariant.
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+requires: []
+probed_on: []
+relations: []
+summary: When the same resident CTA group repeatedly publishes partials and every CTA needs the result,
+  alternate two data banks and two release/acquire counters. Four phases raise each counter to the participant
+  count, then lower it to zero. The intervening group rendezvous retires old readers before a bank or
+  counter is reused; a one-shot barrier cannot be reused without this generation invariant.
+variables:
+- name: peers
+  kind: numeric
+  binding: compile
+  role: boundary
+  domain:
+    lo: 2
+    hi: 32
+  meaning: Fixed CTA participants in one reduction group; source static norm path combines at most 32
+    peers per row.
+constraints:
+- id: c_group
+  expr: peers == p.participants and p.counter_initial_value == 0
+  meaning: Participant count is fixed and both counters start at zero.
+  cls: semantic
+- id: c_storage
+  expr: p.partial_bank_count == 2 and p.counter_bank_count == 2
+  meaning: Two data banks and two counters implement the extracted four-phase protocol.
+  cls: implementation
+preconditions:
+- id: pre_generation
+  expr: p.all_peers_same_generation_order and p.exactly_one_arrival_per_peer and p.every_peer_participates
+  meaning: Each generation has the same fixed participants with exactly one leader arrival each.
+  cls: semantic
+- id: pre_publication
+  expr: p.partial_slots_disjoint and p.leader_release_publishes_partials and p.acquire_before_partial_reads
+    and p.local_thread_convergence_valid
+  meaning: CTA-local publication and global release/acquire make all completed partials visible before
+    reads.
+  cls: implementation
+- id: pre_lifetime
+  expr: p.reads_complete_before_next_arrival and p.group_progress_guaranteed and p.counters_and_banks_exclusively_owned
+  meaning: Every old read retires before its next-generation arrival; spinning peers can all make progress
+    and storage is group-private.
+  cls: implementation
+- id: pre_combine
+  expr: p.combine_identity_and_rounding_admitted and p.every_partial_combined_once
+  meaning: The complete partial table is folded once using the requested combine/numerical policy.
+  cls: semantic
+program:
+  description: For generation t, write the completed per-CTA partial into bank t%2 at a sender-injective
+    slot. Choose counter t%2. In phases t%4 in {0,1}, each CTA leader release-adds +1 and acquire-waits
+    for peers; in phases {2,3}, release-add -1 and wait for zero. Broadcast completion to all local threads,
+    read every peer partial from the selected data bank and combine locally. Complete those reads before
+    this CTA arrives at generation t+1. The next generation uses the other bank/counter. Before a peer
+    can touch bank/counter t again at t+2, all peers have arrived at t+1, proving their old t reads/waits
+    have retired. Counter states cycle (0,0)->(peers,0)->(peers,peers)->(0,peers)->(0,0).
+backward_map: Project each completed generation to one allreduce over its peer partials; forget the double
+  banks and four-phase implementation.
+obligations:
+- name: generation_safety
+  statement: No counter changes for a new use until all peers have retired its previous wait; no partial
+    bank is overwritten before old reads finish.
+  method: proof
+- name: native_visibility
+  statement: Leader release/acquire and CTA convergence publish every relevant write under the native
+    memory model.
+  method: test
+- name: progress
+  statement: All spinning CTA peers are scheduled and reach every group rendezvous.
+  method: test
+scope:
+  predicate: peers == p.participants and p.counter_initial_value == 0 and p.partial_bank_count == 2 and
+    p.counter_bank_count == 2 and p.all_peers_same_generation_order and p.exactly_one_arrival_per_peer
+    and p.every_peer_participates and p.partial_slots_disjoint and p.leader_release_publishes_partials
+    and p.acquire_before_partial_reads and p.local_thread_convergence_valid and p.reads_complete_before_next_arrival
+    and p.group_progress_guaranteed and p.counters_and_banks_exclusively_owned and p.combine_identity_and_rounding_admitted
+    and p.every_partial_combined_once
+  text: Fixed inter-CTA groups of 2..32 with two initialized GPU-global signed counters and two private
+    partial banks. Source common/utils.cuh uses release reduction-add, acquire loads and CTA completion,
+    then repeats across rows/statistics. This is not a cluster transaction barrier, cancellation-capable
+    group, dynamic membership or arbitrary oversubscribed grid barrier. Publication by other threads must
+    be ordered before the leader release; occupancy/launch progress is a native binding, not supplied
+    by counter arithmetic.
+signature:
+  algorithm: Repeated partial-table allreduce with double banks and alternating up/down counter generations.
+  storage: Two partial tables and two GPU-global counters per fixed CTA group.
+  boundary: Exactly matched generation order, reader retirement, release/acquire and group progress.
+  resources:
+  - dram
+  - registers
+numeric_risk: The synchronization rule does not make a floating-point combine associative or change its
+  requested fold order.

@@ -1,0 +1,52 @@
+template: shared_normalization_gradient_merge@1
+version: 1
+relation: Each raw row is shared, so its incoming smooth gradient is the sum of exactly its consumer gradients.
+  Apply the shared normalization Jacobian J=r*I-r^3*x*x^T once to that sum, respecting the fixed finite-precision
+  realization. Original raw/statistic generation identifies the same Jacobian used by the source backward
+  convention.
+rank: Consumer gradients not yet merged, then complete-row pullback and final gradient stores not yet
+  issued.
+assumes:
+- name: pre_shared
+  statement: One raw row x is normalized once and shared by exactly the enumerated consumer group. Each
+    consumer supplies its complete gradient D_j with respect to that same normalized row; no consumer
+    is omitted or counted twice.
+- name: pre_stage
+  statement: Forward supplies cast_narrow(x*r), with saved forward r. Backward convention applies the
+    smooth normalization pullback r*(D-y*dot(D,y)) with y=x*r at the declared FP32 stages, not the derivative
+    of a discrete quantizer. Epsilon and statistic domain match forward.
+- name: pre_generation
+  statement: Raw row, saved r, consumer gradients and head-group map refer to one forward generation;
+    normalized narrow activations cannot reconstruct the unrounded y. Replayed r is interchangeable only
+    with an explicit equality contract.
+- name: pre_order
+  statement: Initialize from the first gradient then add subsequent consumer IDs in fixed ascending order
+    in FP32. No per-consumer narrow cast, atomics or schedule-dependent reassociation occurs before the
+    shared pullback. Singleton groups bypass addition without changing the final stages.
+- name: pre_dot
+  statement: The complete normalized channel row participates in dot(D,y). Dot tree, product/add/FMA grouping,
+    subtraction, final scaling, FTZ and final cast follow the admitted recipe. Group-sum order and channel-dot
+    order are different contracts.
+- name: pre_workspace
+  statement: Materialized per-consumer partials have exact token/group/consumer/channel coordinates and
+    nonoverlapping writers. Reducers read only published live slots; buffers remain immutable until all
+    required rows are reduced.
+- name: pre_owned
+  statement: A unique group owner serially merges all consumer contributions in its FP32 accumulator and
+    retains it through the complete-row pullback; accumulator capacity and internal barriers are supported.
+- name: pre_output
+  statement: One owner writes each raw gradient element after the pullback and one final narrow cast.
+    Raw/normalized/output strides are distinct, chunk tails are masked and packed sibling gradients are
+    disjoint.
+- name: pre_backend
+  statement: The selected backend implements normalized preparation, saved-statistic application and raw
+    pullback for the shape and head ratio. Source host orchestration fallback still executes tensor operations
+    on the GPU; it is not CPU numerical execution.
+guarantees: []
+models: []
+note: cake_kcp.py:3223-3283 binds fused/raw-norm sibling or FP32 per-head partials;3299-3333 performs
+  host-orchestrated fixed-order group sum and optional pullback before one BF16 cast. Native bwd_dqkg_l2n
+  csrc/cake_gdn_det_train_3e6562c2f739184a3765_kernel.cu:600-655 owns chunk/QK-head and loops hl ascending;2287
+  and2719 retain ordered FP32 TMEM sums;2911-3760 stages raw rows, complete dot and r*(D-y*dot) before
+  narrow stores. cake_l2n.py specifies separate row trees and saved-r stages. Exact algebra and finite-format
+  counterexamples validate logical stage distinctions, not GPU execution or full native pipeline equivalence.

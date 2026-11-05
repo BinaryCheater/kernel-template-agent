@@ -1,0 +1,24 @@
+template: rebind_transfer_descriptors@1
+version: 1
+relation: Every issued transfer uses the same coordinate-to-address mapping and bounds as an immutable descriptor for its problem; unretired older uses retain their original generation.
+rank: Remaining consumed problem-key transitions plus finite retirement/publication/acquire phases.
+assumes:
+  - {name: metadata, statement: Problem keys identify immutable legal metadata and fixed transfer format/layout fields stay compatible.}
+  - {name: ownership, statement: Each publisher exclusively owns its shadow/global descriptor slots and old descriptor readers retire before overwrite.}
+  - {name: proxy_order, statement: Release publication exposes a complete tuple and each issuing reader acquires the matching generation before transfer issue.}
+guarantees: []
+models: []
+note: >-
+  Initialization supplies compatible fixed fields from the transfer templates.
+  On a changed consumed key, shadows receive the exact current addresses/shapes/
+  strides. Retiring old readers protects the previous generation; publishing and
+  acquiring the complete new tuple establishes the immutable-descriptor relation.
+  An equal immutable key needs no update. The replay tracks private worker tuples
+  across groups with K768,K0,K1536, distinguishing input-skipped K0 from required
+  output descriptors and checking that every issued tuple retains its problem id.
+  It also preserves a stale-output counterexample when the input K>0 gate is
+  incorrectly applied to C. Source TensorMapManager emits read waits and proxy
+  release/acquire operations; the exact retirement guarantee for every input/output
+  transfer engine remains a backend obligation, not a conclusion of this scalar
+  model. No descriptor encoding, GPU run, registered checker model or ProofSummary
+  is claimed.

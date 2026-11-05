@@ -1,0 +1,45 @@
+template: replicated_cluster_partials@1
+version: 1
+relation: For each phase erase replicated transports and view each receiver result as the same declared
+  fold of the original disjoint sender partials. Replicas enable local consumers but do not add contributions
+  to the logical sum.
+rank: Finite unpublished reduction phases.
+assumes:
+- name: c_slots
+  statement: One receiver warp can fold every sender slot.
+- name: c_phases
+  statement: At least one finite allreduce invocation with a dedicated bank.
+- name: pre_partition
+  statement: Each sender warp owns an exact disjoint contribution; four FP32 tuple components have declared
+    combine/order semantics.
+- name: pre_cluster
+  statement: All peers share a supported resident cluster and enter the same finite dependent phases without
+    divergent exits.
+- name: pre_slots
+  statement: Every source rank/warp has an exclusive slot in every destination; each destination receives
+    one identical completed16-byte tuple per sender, including its own rank.
+- name: pre_visibility
+  statement: Each destination transaction barrier expects exactly16*peers*warps bytes and completes only
+    after those payload stores become readable.
+- name: pre_banks
+  statement: The finite phase sequence uses distinct banks/barriers, initially phase0; this version does
+    not recycle banks by parity.
+- name: pre_reads
+  statement: Each consuming warp combines one tuple from every sender; unused warp lanes are neutral and never
+    read outside the allocated slot table.
+- name: pre_lifetime
+  statement: No peer exits or reuses distributed shared memory before every remote writer and reader retires.
+- name: pre_numeric
+  statement: The local and tuple reduction trees meet the numeric contract; downstream dependent statistics
+    use their specified rounded inputs rather than algebraically expanded substitutes.
+guarantees: []
+models: []
+note: flashinfer/norm/kernels/gated_residual_next_rmsnorm.py:42-98 sends one four-FP32 tuple per source
+  warp to every rank, slot rank*NWARPS+warp, and each destination expects NSLOT*16 transaction bytes.
+  Constants H8192/CLUSTER_N8/THREADS128 give32 slots; :115-245 allocates two tables/barriers, first normalizes
+  branch b, then forms/stores FP32 residual and reduces its actual rounded square for the next norm. Initialization
+  cluster join precedes remote stores and a terminal cluster join precedes exit. reusable_group_partial_allreduce@1
+  uses global counters and reused banks, so it cannot bind this native protocol. row_owned_cluster_state_combine@1
+  assigns output-row owners and merges softmax states, not replicated scalar statistics. Logical checks
+  enumerate sender/receiver maps, exact byte counts, delayed stores and distinct phase banks; native DSM
+  ordering, launch support and progress remain realization obligations.

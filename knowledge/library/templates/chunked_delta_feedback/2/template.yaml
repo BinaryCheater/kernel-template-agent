@@ -1,0 +1,156 @@
+name: chunked_delta_feedback
+version: 2
+level_from: 2
+level_to: 3
+change: vertical
+refines: map
+produces:
+- map
+- contract
+object:
+  type: causal_delta_feedback_factorization
+  description: Expose causal delta feedback through a weighted unit-lower solve and contractions, preserving
+    scalar or key-channel decay frames. Choose residual-first or query-coefficient-first evaluation where
+    implemented.
+variables:
+- name: chunk_tokens
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+  - 4
+  - 8
+  - 16
+  - 64
+  meaning: Short MTP native/staged widths4/8/16 or Hopper prefill width64. Other widths require a new
+    binding.
+- name: evaluation_order
+  kind: structure
+  binding: compile
+  role: software
+  domain:
+  - residual_first
+  - coefficient_first
+  meaning: Residual-first exposes corrected value rows and outgoing state; coefficient-first reuses state/value-independent
+    query coefficients and can omit state update in frozen verification.
+- name: gate_geometry
+  kind: structure
+  binding: compile
+  role: boundary
+  domain:
+  - scalar
+  - key_channel
+  meaning: 'Workload gate geometry: a scalar per token/head or one decay per state key channel. This is
+    not a free optimizer replacement of channel gates by their mean. Bind from the workload; only equal
+    channel values permit the scalar specialization.'
+constraints:
+- id: c_shape
+  expr: p.logical_tokens >= 1 and p.logical_tokens <= chunk_tokens
+  meaning: One nonempty chunk with complete or neutral-padded valid-token extent.
+  cls: implementation
+preconditions:
+- id: pre_recurrence
+  expr: p.delta_recurrence_matches_bound_gate_geometry_and_after_update_readout
+  meaning: K-major Hbar_i=diag(alpha_i)*H_(i-1), r_i=beta_i*(v_i-k_i^T*Hbar_i), H_i=Hbar_i+k_i outer r_i;
+    output q_i^T*H_i. Scalar geometry repeats one alpha over key channels; key_channel preserves every
+    channel. Normalization/query scale resolve consistently before factorization.
+  cls: implementation
+- id: pre_frames
+  expr: p.positive_diagonal_decays_and_complete_chunk_frames
+  meaning: E_i is the elementwise cumulative product of positive alpha through token i; D_ij=E_i/E_j channelwise.
+    No sequence/head mixing. Scalar mode uses identical channel entries.
+  cls: implementation
+- id: pre_solve
+  expr: p.unit_lower_weighted_solve_implemented_and_residual_admitted
+  meaning: A=I+L is unit lower triangular with L_ij=beta_i*sum_c k_i,c*D_ij,c*k_j,c strictly below diagonal.
+    Solve A*T=diag(beta), including zero beta without division. Solve/casts meet the declared residual
+    policy.
+  cls: implementation
+- id: pre_numeric
+  expr: p.gate_frame_operands_and_all_contraction_rounding_stages_admitted
+  meaning: The chosen direct-difference or separately factored E/reciprocal-E operands remain in range
+    at every stored precision. Pairwise dots, weighted solve, residual/coefficient products, state and
+    output casts have an explicit admitted error policy. Finite final ratios do not certify intermediate
+    reciprocal safety.
+  cls: implementation
+- id: pre_boundary
+  expr: p.incoming_state_readers_complete_before_state_replacement
+  meaning: All outputs/residuals needing H_in capture that generation before H_out overwrites it. Optional
+    frozen output-only execution leaves H_in unchanged. The next chunk waits for complete H_out.
+  cls: implementation
+- id: pre_scope
+  expr: p.complete_chunks_or_neutral_padding_and_unique_output_ownership
+  meaning: Complete chunk coordinates, or a validated neutral extension alpha=1,beta=0,k=q=v=0 and masked
+    stores, preserve valid rows. Each output/state shard has one owner and reductions include every key
+    shard.
+  cls: implementation
+- id: pre_backend
+  expr: p.selected_order_shape_dtype_and_target_supported
+  meaning: The selected computation order, width, dtype, state layout and target have an implemented binding.
+    Output-only coefficient-first does not by itself produce an outgoing state.
+  cls: implementation
+program:
+  description: 'Use K-major H. Bind gate_geometry from the workload: scalar alpha repeated across key
+    channels, or key_channel alpha_i,c. Define E_i,c=product_(u=0..i) alpha_u,c and D_ij,c=E_i,c/E_j,c.
+    Form EK_i=k_i elementwise E_i, EQ_i=q_i elementwise E_i, KI_j=k_j elementwise reciprocal(E_j). For
+    j<i set L_ij=beta_i*(EK_i dot KI_j); set its diagonal/upper entries zero. C_ij=EQ_i dot KI_j for j<=i,
+    zero above. Solve (I+L)*T=diag(beta). residual_first: R=T*(V-EK*H_in), Y=EQ*H_in+C*R. coefficient_first:
+    P=C*T, A=EQ-P*EK, Y=A*H_in+P*V. If outgoing state is requested, also obtain R and form H_out=diag(E_end)*H_in+sum_j
+    (k_j elementwise D_end,j) outer R_j after all H_in readers finish. Frozen output-only omits state
+    writes. Direct channelwise log differences can compute each pairwise coefficient; a factored GEMM
+    binding stores separate E and reciprocal-E operands and must admit their intermediate range/rounding.
+    Neutral padded tokens have alpha=ones, beta=0, k=q=v=0 and masked stores. Solver schedule, factor
+    preparation and instruction layouts remain separate choices.'
+backward_map: Expanding diag(alpha_i)*H_(i-1) gives channelwise D_ij on each prior insertion. Dotting
+  by k_i yields the strictly lower feedback equation; its unique residuals are the sequential ones. Substituting
+  those residuals gives both output orders and inclusive outgoing state. Repeating one scalar gate across
+  all key channels recovers chunked_delta_feedback@1 exactly in real arithmetic.
+obligations:
+- name: feedback_system
+  statement: The strictly lower feedback system has the same unique residuals as the sequential recurrence,
+    including beta0 and nonzero incoming state.
+  method: proof
+- name: contraction_order
+  statement: Both output orders preserve causal support and after-update readout, and outgoing state includes
+    every residual once.
+  method: test
+- name: numeric_and_lifetime
+  statement: Native stage precision and decay arithmetic meet the selected error policy; incoming state
+    and aliased scratch remain live through their last reader.
+  method: test
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: p.logical_tokens >= 1 and p.logical_tokens <= chunk_tokens and (p.delta_recurrence_matches_bound_gate_geometry_and_after_update_readout)
+    and (p.positive_diagonal_decays_and_complete_chunk_frames) and (p.unit_lower_weighted_solve_implemented_and_residual_admitted)
+    and (p.gate_frame_operands_and_all_contraction_rounding_stages_admitted) and (p.incoming_state_readers_complete_before_state_replacement)
+    and (p.complete_chunks_or_neutral_padding_and_unique_output_ownership) and (p.selected_order_shape_dtype_and_target_supported)
+  text: Extension of version1 retaining all scalar bindings. Concrete key-channel witness is KDA BT16,
+    DK=DV128, SM100-family tcgen05 path, residual-first with BF16/FP16 rounded decay operands, FP32 prefix
+    exchange and declared carried-state conversion. Other width/order/target combinations require implemented
+    backend support rather than a cross-product claim. Featurewise scalar replacement, non-diagonal state
+    transforms, multiple GDP substeps per real token and unrestricted reciprocal range are outside this
+    version.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Weighted lower-triangular feedback solve followed by residual-first or query-coefficient-first
+    contractions.
+  storage: Chunk KKT/QKT/weighted solve and residual or query coefficients plus incoming recurrent state.
+  boundary: Gate geometry fixed by workload; channelwise decay before prediction; beta row/RHS placement;
+    causal inclusive output; outgoing state generation.
+  resources:
+  - registers
+  - smem
+  - tensor
+numeric_risk: Small triangular systems are always invertible in exact arithmetic but can be ill-conditioned.
+  Coefficient cancellation, BF16/FP16 solve storage, gate underflow and reassociation change native error.
+  Key-channel inverse-prefix operands can overflow or underflow even when the mathematical pairwise ratio
+  is finite; safe-gate clipping changes the gate contract and must be explicit.
+summary: When state key channels have different decays, keep their cumulative gate frames inside Q/K pairwise
+  dots and the outgoing insertion. The same causal weighted feedback solve then supports residual-first
+  or query-coefficient-first contraction order. Scalar gates are the equal-channel specialization, not
+  an approximation chosen for arbitrary KDA input.

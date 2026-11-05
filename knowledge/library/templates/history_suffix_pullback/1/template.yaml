@@ -1,0 +1,85 @@
+name: history_suffix_pullback
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: map
+produces:
+- map
+- reduce
+object:
+  type: history_suffix_pullback
+  description: When a streaming operator returns the trailing input history as a differentiable
+    output, route its gradient to both current-input and initial-history coordinates
+    according to the concatenated logical stream.
+variables:
+- name: width
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 2
+    hi: 4
+  meaning: 'W: source stencil width.'
+- name: new_tokens
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 1
+    hi: 2147483647
+  meaning: 'L: invocation length, workload input.'
+constraints: []
+preconditions:
+- id: pre0
+  expr: p.returned_history_is_exact_suffix and p.gradient_initialization_defined and
+    p.each_boundary_contribution_owned_once and p.no_early_overwrite
+  meaning: Exact suffix convention and complete accumulation into initialized gradients.
+  cls: semantic
+program:
+  description: 'Let initial history h have W-1 samples at logical indices -(W-1)..-1,
+    then new input x have L samples0..L-1. Returned history f[j] is concatenated_stream[L-W+1+j],
+    j0..W-2. For final-history cotangent df[j], let q=L-W+1+j: add df[j] to dx[q]
+    if q>=0, otherwise dh[q+W-1]. Add these contributions to the independent stencil
+    pullback, do not replace it. This includes short invocations L<W-1, where final
+    history contains part of initial history. Fixed boundary ownership allows direct
+    adds after the local stencil gradient; if multiple producers share a state coordinate
+    use a complete sum protocol.'
+backward_map: "Differentiable suffix history, source widths2\u20134 including invocation\
+  \ shorter than history. This is independent of the numeric convolution weights and\
+  \ does not imply gradients through discrete sequence ids."
+obligations:
+- name: suffix_address
+  statement: q=L-W+1+j maps every returned sample to its original stream coordinate.
+  method: proof
+- name: pullback_sum
+  statement: Each df appears once at that coordinate and adds to all ordinary stencil
+    contributions.
+  method: proof
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: (p.returned_history_is_exact_suffix and p.gradient_initialization_defined
+    and p.each_boundary_contribution_owned_once and p.no_early_overwrite)
+  text: "Differentiable suffix history, source widths2\u20134 including invocation\
+    \ shorter than history. This is independent of the numeric convolution weights\
+    \ and does not imply gradients through discrete sequence ids."
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: When a streaming operator returns the trailing input history as a differentiable
+    output, route its gradient to both current-input and initial-history coordinates
+    according to the concatenated logical stream.
+  boundary: "Differentiable suffix history, source widths2\u20134 including invocation\
+    \ shorter than history. This is independent of the numeric convolution weights\
+    \ and does not imply gradients through discrete sequence ids."
+  resources:
+  - registers
+numeric_risk: Floating-point reassociation, casts and approximate functions require
+  an admitted numerical contract.
+summary: When a streaming operator returns the trailing input history as a differentiable
+  output, route its gradient to both current-input and initial-history coordinates
+  according to the concatenated logical stream.

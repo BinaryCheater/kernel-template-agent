@@ -1,0 +1,173 @@
+name: boundary_seeded_tape_replay
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: store
+produces:
+- store
+- map
+- contract
+object:
+  type: recurrent_training_retention_boundary_before_local_replay
+  description: Choose whether backward reuses full forward tapes, reconstructs local tapes from retained
+    nonlocal entry states, or recomputes those entry states including communication.
+variables:
+- name: forward_retention
+  kind: structure
+  binding: compile
+  role: software
+  domain:
+  - full_tape
+  - entry_boundaries
+  - nothing
+  meaning: Keep full local tapes and boundary artifacts, retain boundary seeds but replay local work,
+    or retain no forward-derived artifact and rerun boundary resolution. Inputs/autograd frames/workspace
+    storage are separate.
+constraints:
+- id: c_payload
+  expr: p.boundary_retained_bytes >= 0 and p.full_local_tape_bytes >= 0
+  meaning: Declared logical artifact bytes follow actual saved transfer/normalization/subsegment settings;
+    no-artifact mode does not imply zero total memory.
+  cls: implementation
+preconditions:
+- id: pre_forward
+  expr: p.forward_boundary_resolution_local_tape_and_backward_consumers_explicit
+  meaning: Forward resolves fragment-entry states through an ordered summary/exchange/merge phase, then
+    computes deterministic local factors and recurrent tapes. Enumerate every backward consumer, its required
+    state/factor stage and the separate reverse boundary-adjoint exchange.
+  cls: implementation
+- id: pre_inputs
+  expr: p.replay_inputs_parameters_partition_and_numeric_generation_immutable
+  meaning: Original local inputs, parameter/gate/norm stages, document/fragment order and precision options
+    remain unchanged or versioned through replay. Context/shape checks alone do not establish input content
+    identity.
+  cls: implementation
+- id: pre_boundary
+  expr: p.retained_entry_states_complete_for_all_local_replay_segments
+  meaning: When boundaries are retained, they include every nonlocal entry-state dependency; local subsegment
+    starts are saved or reconstructible from them and local factors. A whole-rank zero seed cannot replace
+    a crossing fragment entry state.
+  cls: implementation
+- id: pre_tapes
+  expr: p.retained_or_recreated_tapes_match_original_backward_stage_recipe
+  meaning: Recreated before-chunk states, corrected values, factors, gate rows and normalization checkpoints
+    match the forward stages required by backward under its declared equality/error contract. Matching
+    real recurrence alone does not prove native BF16/TF32 tape identity.
+  cls: implementation
+- id: pre_none
+  expr: forward_retention != 'nothing' or p.forward_boundary_replay_collective_order_and_seed_generation_reproducible
+  meaning: No-artifact mode reruns boundary resolution including required forward exchange/merge with
+    the same rank/fragment order and progress contract; it cannot silently start from zero or omit network
+    dependencies.
+  cls: implementation
+- id: pre_output
+  expr: p.recomputed_output_stage_elided_only_when_no_required_consumer
+  meaning: Replay may omit the forward output program only when the specific backward/recompute has no
+    consumer of that output. Torch checkpoint recompute that must provide outputs follows its own frame/liveness
+    proof, not this retention choice alone.
+  cls: implementation
+- id: pre_lifetime
+  expr: p.recreated_artifacts_publish_before_use_and_live_through_last_backward_reader
+  meaning: Saved boundaries, optional transfers and replayed tapes publish before their consumers and
+    remain alive through the last reader. Original forward arenas cannot be reused as retained tapes without
+    explicit storage ownership; after that reader release does not extend into unrelated backward work.
+  cls: implementation
+- id: pre_reverse
+  expr: p.reverse_boundary_adjoint_exchange_retained_in_all_forward_retention_modes
+  meaning: Reusing forward boundary seeds removes their forward replay work only; backward still computes
+    local adjoint offsets, exchanges/merges required boundary adjoints and performs seeded reverse local
+    walks.
+  cls: implementation
+- id: pre_backend
+  expr: p.selected_retention_norm_grouped_heads_and_replay_path_implemented
+  meaning: Backend implements selected retention for target/shape, grouped Q/K heads, optional normalization/raw-gate
+    path and graph mode. Source package/context/precision compatibility checks remain part of the binding.
+  cls: implementation
+program:
+  description: Forward resolves each fragment entry state S_in, computes local prepared factors and recurrent
+    tapes at declared numeric stages, then outputs. full_tape keeps the complete backward-required local
+    tapes plus configured boundary/transfer artifacts. entry_boundaries keeps S_in and required configured
+    boundary descriptors; on backward regenerate local factors and local subsegment carries, then replay
+    the forward state/tape walk from those saved entries, without repeating forward nonlocal summary exchange/owner
+    merge. nothing retains no forward-derived artifact; backward first reproduces boundary resolution,
+    including forward summaries/exchange/merges, then local factors/tapes. Recompute forward output only
+    if this replay has an actual output consumer. In all cases run the same reverse boundary-adjoint communication
+    and local gradient computation from the matching tapes. Keep matching normalization statistics/parameter/partition
+    generations; publish each recreated artifact before use and release it after its last backward reader.
+    An external recompute handle that retains S_in is an entry-boundary retention owner, not a zero-memory
+    no-artifact mode.
+backward_map: Replace each replayed artifact by its matching forward artifact at the same sequence/fragment/state
+  generation and numeric stage. Every backward consumer then receives the same admitted operands and reverse
+  boundary adjoints. Boundary retention removes only the dependency subgraph already represented by S_in,
+  not the reverse communication or local feedback itself.
+obligations:
+- name: boundary_sufficiency
+  statement: Saved fragment entries capture every nonlocal forward dependency needed by local replay;
+    partial/zero seeds cannot substitute for a crossing entry.
+  method: proof
+- name: tape_and_gradient_equivalence
+  statement: Full, boundary-seeded local replay and complete boundary replay give identical admitted backward
+    tapes/gradients under fixed inputs and arithmetic stages.
+  method: test
+- name: communication_contract
+  statement: Only no-artifact mode repeats forward boundary exchange; every mode retains necessary reverse
+    adjoint exchange, order and producer progress.
+  method: test
+- name: artifact_liveness
+  statement: Saved/replayed tensors keep their stage/generation through all backward readers, and elided
+    output work has no required consumer.
+  method: test
+effects:
+  transactions: []
+  storage:
+  - id: retained_forward_boundaries
+    level: dram
+    scope: kernel
+    bytes: p.boundary_retained_bytes
+    when: forward_retention != 'nothing'
+    note: Entry states and configured owner-transfer/subsegment/norm artifacts; inputs and autograd context
+      are not counted here.
+  - id: retained_local_forward_tapes
+    level: dram
+    scope: kernel
+    bytes: p.full_local_tape_bytes
+    when: forward_retention == 'full_tape'
+    note: Complete local factor/state/corrected-value/gate tapes at source stages. Replay transient workspace
+      is separate.
+  overlap: []
+scope:
+  predicate: (p.boundary_retained_bytes >= 0 and p.full_local_tape_bytes >= 0) and (p.forward_boundary_resolution_local_tape_and_backward_consumers_explicit)
+    and (p.replay_inputs_parameters_partition_and_numeric_generation_immutable) and (p.retained_entry_states_complete_for_all_local_replay_segments)
+    and (p.retained_or_recreated_tapes_match_original_backward_stage_recipe) and (forward_retention !=
+    'nothing' or p.forward_boundary_replay_collective_order_and_seed_generation_reproducible) and (p.recomputed_output_stage_elided_only_when_no_required_consumer)
+    and (p.recreated_artifacts_publish_before_use_and_live_through_last_backward_reader) and (p.reverse_boundary_adjoint_exchange_retained_in_all_forward_retention_modes)
+    and (p.selected_retention_norm_grouped_heads_and_replay_path_implemented)
+  text: FlashInfer deterministic KCP GDN training on SM100/SM103/SM107, local64-token chunks and grouped
+    Q/K heads. full_tape binds boundary_mode=saved,save_mode=full; entry_boundaries binds saved/light
+    or a valid caller-owned recompute handle; nothing binds boundary replay/saved=None. Optional transfer
+    retention changes exact retained/recomputed artifacts but not the dependency boundary. Native source
+    bitwise replay claims remain numeric-stage obligations of the outline; exact logical tests do not
+    validate distributed GPU execution. Arbitrary mutable external state, hidden RNG draws and unconditional
+    checkpoint-output elimination are excluded.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Retain recurrent boundary seeds to replay local training tapes without replaying forward
+    nonlocal communication.
+  storage: Full local tapes plus boundaries, boundaries only, or no forward-derived saved artifact with
+    larger replay work.
+  boundary: Complete entry-state dependency cut, unchanged precision/input generation, backward reverse
+    communication and last-reader lifetime.
+  resources:
+  - dram
+  - tensor
+  - registers
+numeric_risk: A replay with the wrong boundary seed or different normalization/rounding stages changes
+  gradients even when shapes match. Forward seed reuse does not remove reverse-adjoint communication or
+  prove native bitwise equality.
+summary: When recurrent training tapes are large but nonlocal entry states are small, retain those states
+  and reconstruct local tapes in backward. Full-tape retention saves replay work; retaining nothing repeats
+  boundary communication too. Preserve exact stage/generation identity and keep backward adjoint exchange
+  in every mode.

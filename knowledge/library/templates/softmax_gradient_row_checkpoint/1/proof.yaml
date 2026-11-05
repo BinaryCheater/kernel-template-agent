@@ -1,0 +1,29 @@
+template: softmax_gradient_row_checkpoint@1
+version: 1
+relation: Contracting the normalized weighted output with its incoming gradient recovers the softmax Jacobian row center, including an optional natural-LSE gradient and zero-value sink.
+rank: Unbound row reduction in the softmax Jacobian-vector product.
+assumes:
+  - {name: weighted_output, statement: "O=sum_j P_j*V_j uses the same normalized support and incoming gradient g; a sink has V_sink=0."}
+  - {name: differentiability, statement: "The normalization is finite with positive mass; support is fixed and LSE is natural-log or its gradient converted."}
+  - {name: numerical, statement: "The checkpoint and native arithmetic meet the stated numerical policy."}
+guarantees: []
+models: []
+note: >-
+  Linearity gives sum_j P_j*dot(g,V_j)=dot(g,sum_j P_j*V_j)=dot(g,O)=D.
+  The softmax Jacobian yields dZ_j=P_j*(a_j-D); adding e*dLSE/dZ_j=e*P_j
+  gives dZ_j=P_j*(a_j-(D-e)). With a_sink=0 its contribution to D vanishes
+  and its derivative is -P_sink*(D-e). Summing all score derivatives gives e,
+  including the sink when present. For P=(1/4,3/4), V=(2,6), g=2, D=10;
+  e=0 gives (-1.5,1.5), e=0.5 gives (-1.375,1.875). Omitting the subtraction
+  of e gives the wrong derivative sum. The retained logical check compares
+  ordinary and sink formulas to finite differences of g*O+e*natural_LSE.
+  Source flash_bwd_preprocess.py:1-14 and :494-520 saves dot(O,dO)-dLSE;
+  flash_bwd_sm90.py:1635-1670 consumes it after reconstructing P, and
+  flash_bwd_postprocess.py:48-58 uses the sink term. Empty rows encoded by
+  source-specific -inf-LSE sentinels require separate interpretation; this
+  outline admits a finite sink through its actual finite normalizer only.
+  softmax_probability_recomputation@1 supplies P from LSE but has no derivative
+  row center, optional LSE gradient or sink-gradient mapping. reduction_partition@1
+  groups an already-defined sum but does not establish the output-contraction
+  identity. Native checkpoint accuracy, callback chain rules and complete
+  shared-parameter reductions remain explicit implementation obligations.

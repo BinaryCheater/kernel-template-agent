@@ -1,0 +1,37 @@
+template: random_discarded_bit_rounding@2
+version: 1
+relation: Erase packing/generator realization and retain the exact declared random-carry conversion for
+  each original FP32 bit pattern and random field. Uniform-field carry counts recover normal finite stochastic
+  means; exponent rebasing and quantized subnormal preparation determine the separate FP16 law. The BF16
+  branch with discarded_bits16 recovers version1.
+rank: Converted elements not yet related to their format-specific random-carry law.
+assumes:
+- name: pre_format
+  statement: BF16 retains the original finite-range/guarded-special recipe. FP16 uses explicit exponent
+    rebasing, fixed-grid subnormal preparation and per-element Inf/NaN/overflow policy. Native/software
+    substitutions must match the selected domain, not assume all exponents truncate identically.
+- name: pre_rng
+  statement: Declare per-element random field, generator family/rounds, key/counter/pair component and
+    invocation epoch. Uniform-field mean claims require uniformity under the relevant conditioning; joint
+    independence and fresh-epoch claims are separate. Shared seed reuse or row LCG correlations are not
+    erased by the scalar rounding rule.
+- name: pre_input
+  statement: Compare conversion realizations at identical FP32 input bits. A changed state accumulation
+    or fold does not become bitwise equivalent merely by using the same random bits.
+- name: pre_pair
+  statement: Packed low/high elements use their own validity and random fields. Source FP16 low uses random
+    bits12:0, high uses28:16, with unused bits ignored and PTX source operands deliberately reversed for
+    low/high packing.
+- name: pre_backend
+  statement: Supported target implements the chosen conversion. Native/software bit identity, especially
+    FP16 subnormals/specials, is a separate obligation; source software tests do not establish GPU equality.
+guarantees: []
+models: []
+note: Version1 is pinned unchanged under inputs/reuse-additions/random_discarded_bit_rounding@1. Version2
+  keeps its BF16 algorithm but makes discarded_bits format-derived and adds FP16 destination/exponent/subnormal/pair-field
+  conditions; it does not broaden the old formula blindly. include/flashinfer/mamba/conversion.cuh:184-251
+  gives software scale/add/truncate and original classification guards. _umma_helpers.py:303-326 reverses
+  lo/hi PTX operands and assigns13-bit fields. gdn_replay_mtp_umma.py:1100-1205 uses per8-element Philox
+  counters or row/half-seeded jump-ahead LCG dithers in flush state RMW only. Logical checks compare an
+  independent rational grid oracle, quantify subnormal preparation bias, verify packed fields and coordinate
+  invariance; native cvt.rs behavior/quality and conditional RNG assumptions remain open obligations.

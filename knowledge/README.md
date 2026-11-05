@@ -2,6 +2,8 @@
 
 Start here when analyzing another kernel. The shared identity of a rule is its mechanism name and version. A Chain records that identity and its variable bindings. Source and hardware names belong on instances and Realisations unless the mechanism itself requires a particular capability.
 
+For kernel implementation experiments, start with the [canonical file library](library/README.md) and its generated catalog. Its [source mapping](library/mapping.json) preserves the seed/reference/study identities; unresolved proposals are listed separately.
+
 Browse the [Humming candidate rules by kernel need](studies/humming/review.md).
 
 1. For a live KTA study, query the starting Store snapshot by refined pattern, scope and target capability. Record the returned versions and assurance. The repository's seed inputs live in [templates](seed/templates/) with available [proof outlines](seed/proofs/). [Reference packages](seed/references/) also contain proposed rules; use the versions present in the selected snapshot.

@@ -1,0 +1,25 @@
+template: vocabulary_partitioned_loss@1
+version: 1
+relation: Scalar-statistic merging recovers the full-vocabulary smoothed cross entropy plus squared natural-LSE penalty and its disjoint local gradient slices.
+rank: Vocabulary shard statistics not yet included in the global row loss.
+assumes:
+  - {name: partition, statement: "Nonempty disjoint shards cover every class and each nonignored target has one owner."}
+  - {name: state, statement: "Local LSE values cover actual local logits; collective row mappings and final global checkpoint agree."}
+  - {name: numerical, statement: "Finite statistics, collective reductions and output casts satisfy the numerical policy."}
+guarantees: []
+models: []
+note: >-
+  exp(L_r)=sum_{c in r}exp(z_c), so logsumexp_r(L_r)=log(sum_c exp(z_c)).
+  Summing A_r recovers -(epsilon/C)*sum_c z_c-(1-epsilon)*z_y because y
+  has one owner. Differentiating L+sum(A_r)+lambda*L^2 gives
+  (1+2*lambda*L)*P_c-epsilon/C-(1-epsilon)*[c=y], then multiply by the
+  incoming row gradient and logit scale a. Ignore-index rows take a separate
+  zero branch. Source ops/triton/cross_entropy.py:25-98 produces local scalar
+  terms, :215-248 gathers LSE and allreduces additive losses before finalization,
+  and :104-146 uses the final global LSE for local derivatives. PRECOMPUTED_LSE
+  in distributed mode must mean local-shard LSE; gathering copies of an already
+  global L instead yields L+log(world_size), which is a separating counterexample.
+  online_rescaled_reduction@2 and reduction_partition@1 provide constituent
+  reductions but do not encode target ownership, global class smoothing or one
+  final squared-LSE term. Logical partition/finite-difference witnesses cover
+  this algebra; native distributed identity/visibility and precision remain open.

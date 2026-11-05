@@ -1,0 +1,14 @@
+template: block_scaled_instruction_operands@1
+version: 1
+relation: Replace the intrinsic by its specified contraction over decoded scaled operand
+  values at each logical (m,n,k), retaining the admitted native rounding contract.
+rank: Unprocessed source items or unmerged partials.
+assumes:
+- name: contract
+  statement: The stated partition, comparator/count and publication premises hold.
+guarantees: []
+models: []
+note: Source python/tutorials/10-block-scaled-matmul.py:178-242 and gluon/11-tcgen05-mma-scaled.py:124-174.
+  Direct intrinsic specifies scaled products; source independently indexes code bytes
+  and scale groups. The proof of hardware fragment/numerical behavior remains native
+  obligation. This corrects the earlier conditional raw-partial reuse description.

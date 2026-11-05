@@ -1,0 +1,84 @@
+name: alternating_peer_flit
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: transfer
+produces:
+- transfer
+- sync
+object:
+  type: alternating_peer_flit
+  description: When a peer exchange fits a small payload plus a ready tag in one transport
+    unit, alternate two receive slots and retain a local phase bit to distinguish
+    successive messages.
+variables:
+- name: payload_bytes
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 1
+    hi: 12
+  meaning: Source payload bound inside16-byte flit.
+constraints: []
+preconditions:
+- id: pre0
+  expr: p.paired_workers_matching_iteration and p.slots_initialized and p.transport_payload_tag_consistent
+    and p.reset_visible_before_reuse and p.peer_progress_guaranteed
+  meaning: Matched exchanges, initialized phase, native publication/reset contract
+    and resident progress.
+  cls: semantic
+program:
+  description: Assign one slot pair to each communicating worker. Source16-byte flit
+    contains <=12-byte payload plus a status word. Local status-bit equality chooses
+    slot1, inequality chooses slot2. Send payload with ready=1 and the selected status;
+    poll local selected slot until ready=1, consume payload, then clear ready and
+    invert its status. Fence reset before reusing the communication slot for later
+    elements. Initialize both slots consistently and keep matching peer iteration/worker
+    maps. Inactive tail threads exchange control flits but do not read/write invalid
+    tensor values. This protocol requires native payload/tag visibility and peer progress;
+    volatile syntax alone is not a portable atomicity proof.
+backward_map: Matched NVIDIA peer-memory halo exchanges with two phase-tracked flits
+  per worker; source CC>=700 path. Native memory protocol remains an explicit backend
+  premise, not inferred from vector access alone.
+obligations:
+- name: phase_identity
+  statement: Equality/difference selection alternates slots and accepts exactly the
+    current message.
+  method: proof
+- name: payload_visibility
+  statement: Observed ready tag implies the complete matching payload, at the native
+    transport granularity.
+  method: proof
+- name: reuse
+  statement: Sender cannot overwrite data before receiver consumption/reset permits
+    reuse.
+  method: proof
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: (p.paired_workers_matching_iteration and p.slots_initialized and p.transport_payload_tag_consistent
+    and p.reset_visible_before_reuse and p.peer_progress_guaranteed)
+  text: Matched NVIDIA peer-memory halo exchanges with two phase-tracked flits per
+    worker; source CC>=700 path. Native memory protocol remains an explicit backend
+    premise, not inferred from vector access alone.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: When a peer exchange fits a small payload plus a ready tag in one transport
+    unit, alternate two receive slots and retain a local phase bit to distinguish
+    successive messages.
+  boundary: Matched NVIDIA peer-memory halo exchanges with two phase-tracked flits
+    per worker; source CC>=700 path. Native memory protocol remains an explicit backend
+    premise, not inferred from vector access alone.
+  resources:
+  - registers
+numeric_risk: Floating-point reassociation, casts and approximate functions require
+  an admitted numerical contract.
+summary: When a peer exchange fits a small payload plus a ready tag in one transport
+  unit, alternate two receive slots and retain a local phase bit to distinguish successive
+  messages.

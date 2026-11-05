@@ -1,0 +1,19 @@
+template: centered_moment_merge@1
+version: 1
+relation: The merged state summarizes the union of partial sample sets.
+rank: Uncombined partial states.
+assumes:
+- name: partition
+  statement: Sample sets are disjoint, partial means/M2 and counts are correct.
+- name: count
+  statement: Empty identities are guarded and inferred counts are valid.
+- name: numeric
+  statement: The selected arithmetic/merge order meets the numerical policy.
+guarantees: []
+models: []
+note: For x in A, write x-mu=(x-mu_A)+(mu_A-mu). Cross terms sum to zero because sum_A(x-mu_A)=0. Adding
+  A and B yields M2_A+M2_B+n_A*(mu_A-mu)^2+n_B*(mu_B-mu)^2, simplifying to the stated correction. A=(1,3)
+  has n=2,mu=2,M2=2; B=(5,7) has n=2,mu=6,M2=2. The union has mu=4,M2=20 and population variance 5. Averaging
+  the two local variances gives 1 and misses the between-group term. TransformerEngine common/utils.cuh:672-700
+  implements count-aware Chan merging; :706-827 infers equal counts at CTA/warp levels; :844-863 computes
+  local two-pass centered statistics. Native range, shuffle masks and tails remain executable obligations.

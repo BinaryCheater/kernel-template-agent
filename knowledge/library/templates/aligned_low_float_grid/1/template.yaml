@@ -1,0 +1,75 @@
+name: aligned_low_float_grid
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: convert
+produces:
+- convert
+- store
+object:
+  type: aligned_low_float_grid
+  description: When the target low-float conversion is unavailable but its finite
+    magnitude grid embeds in another supported format, scale the subnormal knee into
+    alignment and extract the target code from the carrier bits.
+variables: []
+constraints: []
+preconditions:
+- id: pre0
+  expr: p.target_grid_equals_scaled_carrier_subgrid and p.carrier_floor_correct and
+    p.saturation_special_policy_matches and p.perturbation_contract_admitted
+  meaning: Grid embedding, toward-zero carrier conversion and exact exceptional-value/RNG
+    contract.
+  cls: semantic
+program:
+  description: For source E2M1 magnitudes0,0.5,1,1.5,2,3,4,6, multiply FP32 x by2^-14.
+    FP16 magnitude patterns at target grid points become0x0000,0x0200,...,0x0e00.
+    A toward-zero FP16 conversion supplies grid floor, then magnitude code=min((half_bits&0x7fff)>>9,7),
+    plus original sign bit into nibble bit3. For stochastic rounding the source adds
+    its declared scaled-grid random perturbation before floor; preserve that perturbation/RNG
+    mapping as an input to this embedding, not an arbitrary random offset. Native
+    RN E2M1 conversion can close an already exact target-grid value; no double-rounding
+    equivalence is inferred for arbitrary carrier rounding.
+backward_map: "Pinned E2M1-in-FP16 embedding with scale2^-14 and extraction bit9.\
+  \ Source rounding.py:727\u2013750; native lowering, stochastic perturbation and\
+  \ special-value equivalence remain separate premises."
+obligations:
+- name: grid_identity
+  statement: Each finite target code maps to the declared carrier bit pattern and
+    extracts back to itself.
+  method: proof
+- name: interval_identity
+  statement: Carrier floor and bit extraction choose the target interval floor before
+    saturation.
+  method: proof
+- name: boundary_policy
+  statement: Subnormal knee, saturation and NaN/sign conventions match the target
+    conversion contract.
+  method: proof
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: (p.target_grid_equals_scaled_carrier_subgrid and p.carrier_floor_correct
+    and p.saturation_special_policy_matches and p.perturbation_contract_admitted)
+  text: "Pinned E2M1-in-FP16 embedding with scale2^-14 and extraction bit9. Source\
+    \ rounding.py:727\u2013750; native lowering, stochastic perturbation and special-value\
+    \ equivalence remain separate premises."
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: When the target low-float conversion is unavailable but its finite magnitude
+    grid embeds in another supported format, scale the subnormal knee into alignment
+    and extract the target code from the carrier bits.
+  boundary: "Pinned E2M1-in-FP16 embedding with scale2^-14 and extraction bit9. Source\
+    \ rounding.py:727\u2013750; native lowering, stochastic perturbation and special-value\
+    \ equivalence remain separate premises."
+  resources:
+  - registers
+numeric_risk: Floating-point reassociation, casts and approximate functions require
+  an admitted numerical contract.
+summary: When the target low-float conversion is unavailable but its finite magnitude
+  grid embeds in another supported format, scale the subnormal knee into alignment
+  and extract the target code from the carrier bits.

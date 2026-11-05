@@ -1,0 +1,21 @@
+template: interleaved_consumer_streams@1
+version: 1
+relation: Merging the two consumer stripes recovers every producer item/stage exactly once with unchanged global ring index and generation.
+rank: Remaining owned items and their remaining producer steps.
+assumes:
+  - {name: stream, statement: Producer item order is immutable and each item has the same positive step count.}
+  - {name: ownership, statement: Group g owns g+2*j and only its arrivals release those steps.}
+  - {name: cursor, statement: Positive ring capacity and cursor arithmetic fit the selected integer representation.}
+  - {name: external, statement: Execution-order and output-lifetime protocols are valid and preserve progress.}
+guarantees: []
+models: []
+note: >-
+  Item i has unique owner i mod2. Its stage k has global ordinal i*K+k.
+  Initial skip g*K and repeated consume-K/skip-K cursor advances produce exactly
+  that ordinal. Index is q mod S and wrap parity floor(q/S) mod2; the retained
+  source jump method implements both small and multiple-wrap advances. No skipped
+  stage is released. Counterexamples include resetting phase and admitting K0.
+  Source PipelineOrder declaration2 versus required4 does not establish the
+  external storage premise; possible physical alignment padding is not modeled
+  as proof or as a native out-of-bounds observation. Scalar cursor/ownership checks do not execute
+  barriers, prove native progress or supply an arbitration implementation.

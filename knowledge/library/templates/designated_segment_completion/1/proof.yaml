@@ -1,0 +1,17 @@
+template: designated_segment_completion@1
+version: 1
+relation: Consumer reads only published current-phase partials; reuse follows retirement.
+rank: Producers not yet arrived, then readers not yet retired.
+assumes:
+- name: memory
+  statement: Fence/barrier/atomic visibility is supplied by the NVIDIA realization.
+- name: progress
+  statement: All awaited producers execute and only one phase is live.
+guarantees: []
+models: []
+note: The designated coordinate samples an old counter that includes only earlier
+  ordinary arrivals, since it has not yet contributed H-(N-1). Its addition flips
+  the high bit exactly when all remaining ordinary increments have occurred. Total
+  phase increment is H, so the next nonoverlapping join toggles back. This arithmetic
+  argument does not prove CUDA memory visibility or scheduling progress. See trace.md
+  and checks/results.md.

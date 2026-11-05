@@ -1,0 +1,15 @@
+{
+  "template": "split_slot_claim_publication@1",
+  "version": 1,
+  "relation": "A claimed key has one rightful final payload owner; intermediate key/payload states are consumed only by the reader mode admitted for that protocol.",
+  "rank": "Unfinished key claimants and payload cleanup/publication attempts, under eventual writer progress.",
+  "assumes": [
+    {
+      "name": "source_contract",
+      "statement": "NVIDIA nonpacked wide map slots. Source gates ordinary insertion back-to-back CAS at sm70+, older and stable mixed-operator paths use dependent payload write; packable16-byte slots at sm90 can use atomic whole-slot CAS instead. No erase or arbitrary mixed-operation guarantee added."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Source-derived proof outline; no formal proof result or GPU execution claimed. ownership: Only the successful key claimant determines the final payload for that key. reader_readiness: Observing key alone never suffices to expose an uninitialized or speculative payload. cleanup: A losing speculative payload claim is retired without erasing a completed rightful payload under the admitted insertion-only state machine. progress: Key winner and all speculative cleanup participants can run, and valid payload never equals the wait sentinel."
+}

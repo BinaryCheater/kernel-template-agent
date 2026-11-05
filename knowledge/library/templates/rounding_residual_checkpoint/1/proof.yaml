@@ -1,0 +1,28 @@
+template: rounding_residual_checkpoint@1
+version: 1
+relation: Decoding the selected checkpoint yields the original producer value within the declared reconstruction and consumer error contract.
+rank: Unrepresented precision of the finalized producer accumulator.
+assumes:
+  - {name: formats, statement: "A embeds T exactly and every intermediate is finite under bound cast/arithmetic policies."}
+  - {name: pairing, statement: "The two arrays refer to the same finalized value, coordinate and generation."}
+  - {name: numerical, statement: "The downstream operation admits reconstruction and reduction errors for the selected formats."}
+guarantees: []
+models: []
+note: >-
+  In real arithmetic let r0=x-A(h), r=fl_A(r0), l=round_T(r),
+  and xhat=fl_A(A(h)+A(l)). Then |x-xhat| is at most
+  |r0-r|+|r-A(l)|+|A(h)+A(l)-xhat|. Each term belongs to the bound
+  arithmetic policy; no universal relative bound follows at zero, underflow or
+  range boundaries. The high-only error is |x-A(h)|. The retained logical check
+  gives x=1+2^-9, where the pair recovers x exactly but a T-format addition loses
+  the residual, and x=1+2^-9+2^-18, where the BF16 pair is not exact. For a dot
+  product with gradient g, checkpoint error contributes at most
+  sum_i |g_i|*|x_i-xhat_i| before the additional arithmetic rounding errors.
+  Source flash_fwd_mla_1cta_kb64_sm100.py:2218-2260 computes both arrays from
+  the same scaled FP32 fragment; flash_bwd_preprocess.py:465-493 reconstructs
+  in FP32 before multiplying by dO and streams row slices. The source comment's
+  approximate relative-precision claim is not adopted as a proved bound.
+  carry_compensated_parameter_split@1 instead stores a signed integer low word
+  with a specific carry codec and recovers FP32 bits exactly. It cannot encode
+  this independently rounded floating residual. Native casts, subnormal policy,
+  publication and downstream gradient accuracy remain implementation obligations.

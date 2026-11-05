@@ -1,0 +1,115 @@
+name: indexed_descriptor_row_transfer
+version: 1
+level_from: 2
+level_to: 3
+change: vertical
+refines: transfer
+produces:
+- transfer
+- store
+- sync
+object:
+  type: indexed_descriptor_row_transfer
+  description: One descriptor transfer gathers or scatters a list of independently
+    indexed rows with one shared contiguous column interval.
+variables:
+- name: direction
+  kind: structure
+  binding: compile
+  role: software
+  domain:
+  - gather
+  - scatter
+  meaning: Read indexed global rows into a dense shared tile or write a dense shared
+    tile to indexed global rows.
+- name: rows
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 1
+    hi: 65536
+  meaning: Number of row offsets, at least eight in the source.
+- name: cols
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 1
+    hi: 65536
+  meaning: Transferred contiguous columns per row.
+constraints: []
+preconditions:
+- id: pre0
+  expr: rows >= 8 and p.descriptor_rank_two_and_block_rows_one and p.row_offset_layout_valid
+  meaning: Blackwell source descriptor is [1,cols], with replicated lane bases and
+    required register bases for offsets.
+  cls: semantic
+- id: pre1
+  expr: p.column_offset_bytes % 16 == 0 and cols >= (32 / p.element_bits) * 8
+  meaning: Column origin is 16-byte aligned and source dtype-dependent extent is legal.
+  cls: semantic
+- id: pre2
+  expr: direction == 'gather' or p.scatter_offsets_nonnegative_and_destinations_disjoint
+  meaning: Scatter excludes negative offsets and requires conflict-free destination
+    rows.
+  cls: semantic
+- id: pre3
+  expr: p.descriptor_and_shared_layout_match and p.transfer_completion_before_read_or_reuse
+  meaning: Descriptor layout and asynchronous completion protect the dense shared
+    tile.
+  cls: semantic
+program:
+  description: Form row index vector offsets[r] and a common column origin y. Gather
+    maps shared[r,c] to global[offsets[r],y+c], zero filling out-of-range coordinates.
+    Scatter maps dense shared[r,c] to that global address, skipping permitted positive
+    out-of-range coordinates; negative scatter coordinates are illegal. Convert row
+    offsets to the source-required replicated lane layout, allocate matching shared
+    layout and for gather register rows*descriptor_block_bytes on the mbarrier before
+    waiting for completion. Scatter fences generic shared writes before TMA and waits
+    source-read completion before reuse. Duplicated row offsets are allowed for gather
+    but require an explicit separate conflict policy for scatter.
+backward_map: Resolve every row index and column offset to the original logical global
+  coordinate; dense result rows retain their occurrence identity.
+obligations:
+- name: index_identity
+  statement: Each dense row occurrence uses exactly its requested global row and common
+    column interval.
+  method: proof
+- name: layout_and_bounds
+  statement: Native offset register/lane layout, alignment and asymmetric gather/scatter
+    bounds are obeyed.
+  method: test
+- name: completion
+  statement: Payload visibility and source/destination lifetimes match the asynchronous
+    direction.
+  method: test
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: (rows >= 8 and p.descriptor_rank_two_and_block_rows_one and p.row_offset_layout_valid)
+    and (p.column_offset_bytes % 16 == 0 and cols >= (32 / p.element_bits) * 8) and
+    (direction == 'gather' or p.scatter_offsets_nonnegative_and_destinations_disjoint)
+    and (p.descriptor_and_shared_layout_match and p.transfer_completion_before_read_or_reuse)
+  text: Blackwell NVIDIA TMA gather/scatter, two-dimensional descriptor with block
+    [1,cols], rows>=8, cols >= (32/element_bits)*8 and 16-byte aligned column origin.
+    Gather accepts negative offsets as zero-fill; scatter does not. Not an arbitrary
+    paged tensor transfer.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: One descriptor transfer gathers or scatters a list of independently indexed
+    rows with one shared contiguous column interval.
+  storage: Binding-specific counters, partials or output ranges.
+  boundary: Tile prefixes and logical membership.
+  resources: []
+numeric_risk: Integer counts must not overflow; ordering/rounding policy belongs to
+  the bound operation.
+summary: When rows are irregular but each row needs the same contiguous column window,
+  use an indexed descriptor transfer instead of scalar gather loads. Choose direction,
+  row count and column width subject to hardware layout/alignment. For FP16, cols
+  must be at least16 and column origin a multiple of8 elements. Preserve repeated
+  gather occurrences; reject overlapping scatter destinations without a separate contract.

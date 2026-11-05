@@ -1,0 +1,198 @@
+name: cluster_granularity_switch
+version: 1
+level_from: 4
+level_to: 5
+change: vertical
+refines: work_assign
+produces:
+- work_assign
+- map
+- sync
+- store
+object:
+  type: cluster_cooperative_or_independent_row_packing
+  description: Use a fixed-width cluster launch to execute one cooperative row or several independent
+    CTA rows according to a prepared workload partition.
+variables:
+- name: cluster_ctas
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+  - 2
+  - 4
+  - 8
+  meaning: Physical cluster width and number of CTAs that cooperate on one long-class row; short-class
+    rows use one CTA each.
+- name: cooperate_threshold
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 0
+    hi: 2147483647
+  meaning: Classify request scan key>threshold as cooperative. This is a scheduling threshold; it must
+    not alter the row operation or semantic valid length.
+- name: rows_per_request
+  kind: numeric
+  binding: compile
+  role: boundary
+  domain:
+    lo: 1
+    hi: 32
+  meaning: Uniform semantic row expansion per request, source next_n. Larger inferred settings require
+    supported body/metadata bindings.
+- name: max_requests
+  kind: numeric
+  binding: compile
+  role: boundary
+  domain:
+    lo: 1
+    hi: 1024
+  meaning: Prepared table and fixed grid capacity. Source classifier uses one block and at most1024 request
+    slots.
+constraints:
+- id: c_requests
+  expr: p.live_requests >= 0 and p.live_requests <= max_requests and p.request_row_grid_and_index_products_fit_int32
+  meaning: Live requests fit prepared capacity and all expanded indices/counts fit native arithmetic.
+  cls: implementation
+preconditions:
+- id: pre_keys
+  expr: p.nonnegative_bounded_request_scan_keys and p.scan_key_units_and_generation_explicit
+  meaning: One bounded nonnegative key per request describes the intended scan/work units. Source uses
+    floor(seq_len/compress_ratio), not raw token length.
+  cls: implementation
+- id: pre_classify
+  expr: p.stable_partition_lists_every_request_once and p.counts_equal_complete_class_populations and
+    p.prepare_threads >= p.live_requests and p.invalid_prepare_lanes_contribute_zero and p.partition_matches_scan_key_threshold
+  meaning: Prepare a stable partition of request IDs into key>threshold then remaining requests; counters
+    contain complete request counts, not expanded row counts. Preparation threads cover live request slots
+    and inactive scan lanes contribute zero. Class flags equal the declared scan-key>threshold predicate.
+  cls: implementation
+- id: pre_expansion
+  expr: p.each_request_has_declared_consecutive_row_ids and p.row_id_equals_request_times_rows_per_request_plus_local_row
+    and p.selected_consumer_expansion_matches_tensor_row_layout
+  meaning: Every request expands to the same declared number of semantic rows at unchanged original coordinates.
+    Expansion is a consumer/layout binding; the prepared request partition itself is independent of it.
+  cls: implementation
+- id: pre_bodies
+  expr: p.cooperative_and_independent_bodies_implement_same_row_contract and p.selected_body_shapes_and_targets_supported
+  meaning: Both bodies implement the requested row operation, including masks, exactness/ties, values
+    and output padding, on supported native bindings.
+  cls: implementation
+- id: pre_cluster
+  expr: p.cooperative_branch_uniform_for_all_cluster_ranks and p.all_cooperative_ranks_reach_matching_collectives_and_retire
+  meaning: A cooperating row is assigned to all physical ranks of one cluster; its collective participation
+    and retirement are complete.
+  cls: implementation
+- id: pre_independent
+  expr: p.independent_body_has_no_cluster_peer_wait_remote_access_or_collective and p.inactive_short_slots_skip_all_output_side_effects
+  meaning: Independent mode has CTA-local synchronization only. Tail/inactive sibling CTAs can skip work
+    without leaving a cluster dependency unsatisfied.
+  cls: implementation
+- id: pre_metadata
+  expr: p.partition_counts_keys_threshold_and_request_population_same_prepared_generation and p.prepare_completes_before_all_main_consumers
+  meaning: Prepared list/counts match request order/population, classification keys and threshold. Reuse
+    across layers requires that generation; a changed row expansion selects a matching consumer/layout
+    but does not inherently require recomputing the request partition.
+  cls: implementation
+- id: pre_resources
+  expr: p.cluster_launch_supports_selected_width_and_fixed_capacity_grid and p.compiled_combined_resource_budget_matches_launch
+    and p.row_scratch_outputs_private_or_properly_owned
+  meaning: Physical launch cluster width/grid and the compiled combined branch resource allocation are
+    legal; per-row scratch/output ownership prevents cross-row races.
+  cls: implementation
+- id: pre_lifetime
+  expr: p.every_active_row_output_has_one_body_owner and p.all_metadata_and_body_readers_retire_before_reprepare_or_reuse
+  meaning: Every row is processed exactly once at the body level, and prepared tables/scratch stay alive
+    until all readers retire.
+  cls: implementation
+program:
+  description: Prepare a stable request-ID order[long requests,short requests] from key>cooperate_threshold,
+    counts L and S. Launch max_requests*rows_per_request physical clusters of cluster_ctas CTAs. Define
+    A=L*rows_per_request and B=S*rows_per_request; live clusters=A+ceil(B/cluster_ctas). For cluster g<A,
+    request=order[g//rows_per_request], local=g%rows_per_request; all ranks call the cooperative body
+    for row request*rows_per_request+local. Otherwise let j=(g-A)*cluster_ctas+rank. If g is a live short
+    cluster and j<B, request=order[L+j//rows_per_request], local=j%rows_per_request; that CTA alone calls
+    the independent body for its original row. Other short tail ranks and surplus clusters perform no
+    row work. Independent bodies have no cluster collectives/peer reads, so partial short clusters are
+    safe. Cooperative branch choice is cluster-uniform. Keep prepared metadata immutable through all calls
+    and retire both branch roles before reuse; changing classification keys/request population/order/threshold
+    requires reprepare; changing row expansion instead requires a matching consumer and tensor layout.
+backward_map: Erase the prepared order and physical grouping. Every original request/local-row pair occurs
+  exactly once as either one cooperative body call or one independent body call, with unchanged row coordinates
+  and the same requested result.
+obligations:
+- name: row_bijection
+  statement: Stable request partition and both expansion formulas cover every live semantic row exactly
+    once without overlap, including nondivisible short tails.
+  method: exhaustive
+- name: collective_domains
+  statement: Every cooperative cluster has all ranks, while independent/tail branches introduce no cross-CTA
+    wait or remote lifetime dependency.
+  method: test
+- name: prepared_generation
+  statement: Counts/order/key units/request population remain one published generation; each consumer
+    binds the correct row expansion and tensor layout.
+  method: test
+- name: body_equivalence_and_resources
+  statement: Selected bodies satisfy the same row contract under their own numerical/tie semantics and
+    fit the combined native launch allocation.
+  method: test
+effects:
+  transactions:
+  - id: fixed_capacity_ctas
+    pattern: launch
+    kind: cta_launch
+    count: max_requests * rows_per_request * cluster_ctas
+  storage:
+  - id: request_order
+    level: dram
+    scope: kernel
+    bytes: 4 * max_requests
+  - id: class_counts
+    level: dram
+    scope: kernel
+    bytes: '8'
+  overlap: []
+scope:
+  predicate: p.live_requests >= 0 and p.live_requests <= max_requests and p.request_row_grid_and_index_products_fit_int32
+    and (p.nonnegative_bounded_request_scan_keys and p.scan_key_units_and_generation_explicit) and (p.stable_partition_lists_every_request_once
+    and p.counts_equal_complete_class_populations and p.prepare_threads >= p.live_requests and p.invalid_prepare_lanes_contribute_zero
+    and p.partition_matches_scan_key_threshold) and (p.each_request_has_declared_consecutive_row_ids and
+    p.row_id_equals_request_times_rows_per_request_plus_local_row and p.selected_consumer_expansion_matches_tensor_row_layout)
+    and (p.cooperative_and_independent_bodies_implement_same_row_contract and p.selected_body_shapes_and_targets_supported)
+    and (p.cooperative_branch_uniform_for_all_cluster_ranks and p.all_cooperative_ranks_reach_matching_collectives_and_retire)
+    and (p.independent_body_has_no_cluster_peer_wait_remote_access_or_collective and p.inactive_short_slots_skip_all_output_side_effects)
+    and (p.partition_counts_keys_threshold_and_request_population_same_prepared_generation and p.prepare_completes_before_all_main_consumers)
+    and (p.cluster_launch_supports_selected_width_and_fixed_capacity_grid and p.compiled_combined_resource_budget_matches_launch
+    and p.row_scratch_outputs_private_or_properly_owned) and (p.every_active_row_output_has_one_body_owner
+    and p.all_metadata_and_body_readers_retire_before_reprepare_or_reuse)
+  text: GVR hybrid source classifies request lengths in scan units, expands next_n rows, and uses physical
+    clusters2/4/8 with cooperative long rows and CTA-local short rows in one fixed-capacity launch. Default
+    key divisor is the workload compression ratio1/4 and default threshold64K scan entries; neither changes
+    actual valid-row bounds. This mapping does not prove the native top-k bodies, permit cluster barriers
+    in partial short clusters, or eliminate launched surplus CTAs. Other request expansions/body types
+    require explicit supported bindings.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Prepared workload classification switches executor granularity between a full cluster and
+    one CTA while retaining one launch shape.
+  storage: Stable request permutation, two class counts and body-private row scratch.
+  boundary: Request versus expanded-row counts, scan-key units, cluster-uniform collectives, independent
+    tail safety and metadata generation.
+  resources:
+  - launch
+  - smem
+  - dram
+  - issue
+numeric_risk: Both row bodies must meet the requested numerical/tie contract. Mismatched population/counts
+  or consumer row expansion can omit or misaddress rows; stale scan keys can choose the wrong execution
+  granularity.
+summary: When a few long rows benefit from cluster cooperation but many short rows do not, classify requests
+  once and use one fixed-width launch with two granularities. Assign all cluster ranks to each cooperative
+  row, then pack one independent row per CTA in short clusters. Preserve request/local-row identity, keep
+  short bodies free of peer dependencies and reprepare request metadata after relevant classification/population
+  changes; surplus grid slots still launch but do no row work.

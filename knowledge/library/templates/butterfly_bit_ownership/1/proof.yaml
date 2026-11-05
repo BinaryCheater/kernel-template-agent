@@ -1,0 +1,17 @@
+template: butterfly_bit_ownership@1
+version: 1
+relation: Power-of-two butterfly transforms including explicitly requested zero-pad/crop
+  workloads, source H<=32768. Scaling is part of the operation, not implicitly normalized;
+  no universal numerical bound for arbitrary scales or tree orders is asserted.
+rank: Number of input elements or state transitions still to consume.
+assumes:
+- name: source_contract
+  statement: Source binding and stated scope hold.
+guarantees: []
+models: []
+note: 'Source-derived candidate, not independently admitted. butterfly_coverage: Every
+  logical butterfly dimension is applied once; disjoint dimension operators commute
+  in exact arithmetic. owner_identity: Every exchange preserves the logical index
+  attached to each value. direct_store: Final inverse map writes each requested coordinate
+  once with legal vectors and guarded crop. Native lowering and numerical error remain
+  open; see trace and checks.'

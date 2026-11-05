@@ -1,0 +1,131 @@
+name: prefix_bounded_ragged_slots
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: store
+produces:
+- store
+- map
+object:
+  type: conservative_segment_chunk_storage_from_existing_token_prefix
+  description: Address variable-length chunk records directly from original token prefixes and segment
+    indices, using a safe host-known upper bound instead of a new prefix scan of rounded chunk counts.
+variables:
+- name: chunk_elements
+  kind: numeric
+  binding: runtime
+  role: software
+  domain:
+    lo: 64
+    hi: 2147483584
+    step: 64
+  meaning: Positive64-aligned CP piece length in the concrete source; choice trades chunk count, per-piece
+    serial work and summary workspace. The bound itself is valid for any positive integer C.
+constraints:
+- id: c_counts
+  expr: p.segments >= 1 and p.total_elements >= 0 and p.bytes_per_slot >= 1 and chunk_elements % 64 ==
+    0
+  meaning: Finite nonnegative ragged domain and native64-token-aligned piece extent.
+  cls: implementation
+- id: c_capacity
+  expr: p.slot_capacity == min(p.segments, p.total_elements) + (p.total_elements - min(p.segments, p.total_elements))
+    // chunk_elements
+  meaning: Capacity derives from segment count,total and C; it is not an independent live-count or dense-prefix
+    parameter.
+  cls: implementation
+preconditions:
+- id: pre_segments
+  expr: p.nonnegative_segment_lengths_and_complete_token_prefixes
+  meaning: N ordered segment lengths L_i>=0 have exact token prefixes S_i and total S_N=T. Segment count
+    and total are host-known; device metadata and host totals refer to the same immutable invocation.
+  cls: implementation
+- id: pre_index
+  expr: p.all_producers_and_consumers_use_the_bound_prefix_map
+  meaning: For chunk size C, slot start for segment i is B(i,S_i,C), not a dense prefix of ceil(L_j/C).
+    Local chunk j maps to B+j. Every descriptor/index reader uses this same conservative storage map.
+  cls: implementation
+- id: pre_holes
+  expr: p.readers_visit_only_valid_local_chunks_and_never_fold_capacity_gaps
+  meaning: Segment i has ceil(L_i/C) live chunks; zero-length segments have none. Allocation gaps may
+    remain stale because they are never read as states, summaries or outputs. A previous-chunk read occurs
+    only for local j>0, not merely global slot>0.
+  cls: implementation
+- id: pre_capacity
+  expr: p.total_and_prefix_bounds_and_slot_byte_products_fit_index_types
+  meaning: Reserve B(N,T,C) slots of the declared payload size. All index/stride products fit actual host/device
+    integer types. Chunk extent and slot capacity remain coherent through replay.
+  cls: implementation
+- id: pre_publish
+  expr: p.token_prefix_metadata_and_payloads_ready_before_consumers
+  meaning: Token prefixes publish before slot calculations; payload producers finish before valid consumers
+    read them. This map avoids scanning derived chunk counts but does not remove the original token-prefix
+    or payload publication dependencies.
+  cls: implementation
+- id: pre_backend
+  expr: p.consumer_supports_noncompact_slot_map_and_selected_chunk_extent
+  meaning: Backend accepts this noncompact storage map and supported C. Dense logical task enumeration
+    remains separate from storage addresses; kernels cannot infer live count from capacity or assume gaps
+    are neutral records.
+  cls: implementation
+program:
+  description: Define B(n,t,C)=m+floor((t-m)/C), m=min(n,t). Given original token prefix S_i, segment
+    i starts its chunk records at b_i=B(i,S_i,C). Its live count is q_i=ceil(L_i/C), and record j occupies
+    b_i+j for0<=j<q_i. Reserve capacity B(N,T,C); leave [b_i+q_i,b_(i+1)) unused. A valid previous-chunk
+    state is b_i+j-1 only when local j>0; the first chunk uses its own sequence seed even if b_i>0. Keep
+    dense logical task IDs and actual chunk counts separate from these storage slots. Do not initialize
+    or consume gaps as identity records unless a different algorithm explicitly requires that. Changing
+    C changes starts/counts and requires a coherent allocation/producer/consumer generation.
+backward_map: Remove unused capacity slots and concatenate the live local records of each segment. Each
+  valid segment/chunk retains its original identity. The next bound prefix is at least the current start
+  plus ceil(L_i/C), so record intervals cannot overlap and all fit final capacity.
+obligations:
+- name: bound_and_disjointness
+  statement: For every nonnegative prefix partition, B(i,S_i,C)+ceil(L_i/C)<=B(i+1,S_(i+1),C), and final
+    B bounds all records.
+  method: proof
+- name: live_coordinate_identity
+  statement: All source producers/consumers agree on segment/local chunk addresses and never treat gaps
+    or prior-sequence slots as live predecessors.
+  method: test
+- name: metadata_generation
+  statement: Host count/total, device token prefixes, C and capacity refer to one coherent generation
+    before consumers run.
+  method: test
+effects:
+  transactions: []
+  storage:
+  - id: chunk_record_capacity
+    level: dram
+    scope: kernel
+    bytes: p.slot_capacity * p.bytes_per_slot
+    note: Conservative record storage; useful live records may be fewer. Original prefix metadata and
+      per-record payload choice are separate.
+  overlap: []
+scope:
+  predicate: p.segments >= 1 and p.total_elements >= 0 and p.bytes_per_slot >= 1 and chunk_elements %
+    64 == 0 and p.slot_capacity == min(p.segments, p.total_elements) + (p.total_elements - min(p.segments,
+    p.total_elements)) // chunk_elements and (p.nonnegative_segment_lengths_and_complete_token_prefixes)
+    and (p.all_producers_and_consumers_use_the_bound_prefix_map) and (p.readers_visit_only_valid_local_chunks_and_never_fold_capacity_gaps)
+    and (p.total_and_prefix_bounds_and_slot_byte_products_fit_index_types) and (p.token_prefix_metadata_and_payloads_ready_before_consumers)
+    and (p.consumer_supports_noncompact_slot_map_and_selected_chunk_extent)
+  text: FlashInfer CP GDN varlen workspace uses this bound for local-transfer, local-state and fixed-state
+    records, with D128 and64-aligned CP piece lengths. It also allocates64-token T tiles under the same
+    mapping. Empty sequences own no chunk records; their final-state copy behavior is separate. Logical
+    checks use smaller positive C to isolate combinatorial boundaries, not native menu claims. This is
+    a conservative slot map, not aligned per-segment payload rounding or a dense chunk-prefix scan.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Bound-derived ragged chunk slots from original token prefixes, without a second chunk-count
+    scan.
+  storage: Potential holes between segment-local chunk intervals inside one host-known bounded allocation.
+  boundary: Nonnegative lengths, local predecessor guards, coherent C and no capacity-gap reads.
+  resources:
+  - dram
+numeric_risk: No arithmetic reassociation; stale gaps, dense-prefix substitution or a changed C with old
+  workspace offsets can silently feed another state generation.
+summary: When segment token prefixes already exist but rounded chunk-count prefixes would require another
+  scan or host readback, derive safe noncompact chunk slots from segment index and token prefix. Allocate
+  the matching count bound and keep gaps invisible to all consumers.

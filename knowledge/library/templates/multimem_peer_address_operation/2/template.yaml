@@ -1,0 +1,114 @@
+{
+  "name": "multimem_peer_address_operation",
+  "version": 2,
+  "level_from": 3,
+  "level_to": 4,
+  "change": "vertical",
+  "refines": "transfer",
+  "produces": [
+    "transfer",
+    "sync"
+  ],
+  "object": {
+    "type": "multimem_peer_address_operation",
+    "description": "A multicast virtual address applies one vector operation to corresponding bytes in each registered peer allocation."
+  },
+  "variables": [
+    {
+      "name": "operation",
+      "kind": "structure",
+      "binding": "compile",
+      "role": "boundary",
+      "domain": [
+        "replicate_store",
+        "sum_load",
+        "min_load",
+        "max_load"
+      ],
+      "meaning": "Source-supported hardware operation, constrained by exact type/pack capability record."
+    },
+    {
+      "name": "pack_bytes",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": {
+        "lo": 1,
+        "hi": 16
+      },
+      "meaning": "Exact supported instruction pack width; arbitrary widths in range are not legal without a capability record."
+    }
+  ],
+  "constraints": [
+    {
+      "id": "c_capability",
+      "expr": "p.multimem_capability_record_matches_operation_type_pack_and_target and p.address_alignment_bytes >= pack_bytes and p.size_bytes % pack_bytes == 0",
+      "meaning": "Capability record supplies legal PTX operation, element type, vector width and target/toolchain gate. Prefix/suffix must use a separate supported pack.",
+      "cls": "implementation"
+    }
+  ],
+  "preconditions": [
+    {
+      "id": "pre0",
+      "expr": "p.multicast_membership_matches_collective and p.peer_allocations_live and p.multimem_target_and_toolchain_supported",
+      "meaning": "Virtual address membership, peer lifetime and hardware gates are explicit.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre1",
+      "expr": "p.all_sources_ready_before_operation and p.all_readers_retired_before_source_reuse",
+      "meaning": "Upstream stream publication and downstream retirement protect peer payload.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre2",
+      "expr": "p.reduction_numeric_contract_admitted or operation == 'replicate_store'",
+      "meaning": "Hardware accumulation precision, min/max exceptional values, integer wrap and pre/post arithmetic are bound explicitly.",
+      "cls": "semantic"
+    }
+  ],
+  "program": {
+    "description": "Bind corresponding peer offsets through registered multicast mapping. For each supported aligned pack, replicate_store writes identical bits to all members; sum_load/min_load/max_load applies the exact capability-record hardware reduction over corresponding member values into one ordinary result. Bind PTX element type and accumulation modifier, not merely storage dtype. All peer input writes precede load; completion/retirement follows final access. Unsupported combinations are rejected. Scalar tails use separate legal capability records; they are never implied by full-vector support. Pre-scaling and final division remain caller stages, not silently folded into raw load."
+  },
+  "backward_map": "Expand the multicast address to its member allocations: replicate_store copies identical source bits to every peer and sum_load adds each peer FP32 value once per coordinate.",
+  "obligations": [
+    {
+      "name": "membership",
+      "statement": "Multicast registration denotes exactly the intended peer addresses for every vector.",
+      "method": "test"
+    },
+    {
+      "name": "payload_lifetime",
+      "statement": "Ready signals follow input writes and retirement signals follow all relevant reads.",
+      "method": "test"
+    },
+    {
+      "name": "operation_values",
+      "statement": "Vector store preserves bits or vector load performs the requested peer SUM under the numerical policy.",
+      "method": "test"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "(p.multimem_capability_record_matches_operation_type_pack_and_target and p.address_alignment_bytes >= pack_bytes and p.size_bytes % pack_bytes == 0) and (p.multicast_membership_matches_collective and p.peer_allocations_live and p.multimem_target_and_toolchain_supported) and (p.all_sources_ready_before_operation and p.all_readers_retired_before_source_reuse) and (p.reduction_numeric_contract_admitted or operation == 'replicate_store')",
+    "text": "Registered multicast peer operations with an exact operation/type/pack/target record. NCCL witnesses FP32 sum packs4/16, FP64 sum8, integer32/64 sum/min/max, half/bfloat16 vector and subpart paths, and architecture-specific FP8 packs. Not every combination in these families is legal; source specializations select actual menus."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "A multicast virtual address applies one vector operation to corresponding bytes in each registered peer allocation.",
+    "storage": "Source-bound physical buffer; exact byte count and capacity supplied by binding.",
+    "boundary": "Coordinate identity and storage lifetime.",
+    "resources": [
+      "smem",
+      "reg"
+    ]
+  },
+  "numeric_risk": "Address/storage transformation preserves values; arithmetic changes require separate obligations.",
+  "summary": "When matching peer addresses are registered for multicast, select an exact hardware reduction-load or replicated-store capability and retain payload publication/retirement. Version2 adds explicit pack/type/target records and min/max, with old FP32 vector sum/store as bindings."
+}

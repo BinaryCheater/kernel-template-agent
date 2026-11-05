@@ -1,0 +1,89 @@
+{
+  "name": "predicate_keyed_output_permutation",
+  "version": 1,
+  "level_from": 2,
+  "level_to": 3,
+  "change": "vertical",
+  "refines": "map",
+  "produces": [
+    "map",
+    "access"
+  ],
+  "object": {
+    "type": "predicate_keyed_output_permutation",
+    "description": "When neighboring output rows have different sparse support, sort their predicate keys and retain the row permutation so similar support can be scheduled together without changing output identity."
+  },
+  "variables": [
+    {
+      "name": "word_bits",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": [
+        32
+      ],
+      "meaning": "Source mask word width; multiword lexicographic sorting has separate ordering binding."
+    }
+  ],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_0",
+      "expr": "p.permutation_bijective and p.keys_match_rows",
+      "meaning": "Sort preserves a bijection from scheduled rows to original outputs and each mask describes that row.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_1",
+      "expr": "p.offset_partition_exact and p.consumer_maps_identity",
+      "meaning": "Split masks partition admitted offsets and consumers use argsort to restore row identity.",
+      "cls": "semantic"
+    }
+  ],
+  "program": {
+    "description": "Initialize row IDs arange(N), sort support masks together with IDs, comparing either whole mask or mask&offset_filter. Schedule contiguous sorted rows and load/store through retained original IDs. A split pass may mask away offsets outside its filter; combine pass contributions exactly once with defined first-pass initialization and later accumulation. For backward weight reductions, persist aggregate forward tile masks with the forward row tile width so consumers can skip absent offset tiles without changing incidence."
+  },
+  "backward_map": "Erase auxiliary organization and recover the visible results under the stated contract.",
+  "obligations": [
+    {
+      "name": "row_identity",
+      "statement": "Every scheduled row maps to exactly one original output and all outputs are covered.",
+      "method": "proof"
+    },
+    {
+      "name": "support",
+      "statement": "Pruned bits exclude only absent or other-pass offsets, never present contributions of this pass.",
+      "method": "proof"
+    },
+    {
+      "name": "combine",
+      "statement": "All offset partitions contribute once and bias/activation is applied at the correct complete-result boundary.",
+      "method": "proof"
+    },
+    {
+      "name": "checkpoint_shape",
+      "statement": "A backward tile mask is consumed with compatible forward mask width and argsort mapping.",
+      "method": "proof"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.permutation_bijective and p.keys_match_rows and p.offset_partition_exact and p.consumer_maps_identity",
+    "text": "NVIDIA sparse convolution mask sorting. Sorting is a schedule choice; stable tie order is unnecessary for independent outputs. Source compiled tile menus and actual benefit are separate from this semantic permutation. Resource effects: Adds row-ID permutation and sorting traffic; similar support may reduce wasted masked contraction tiles, but benefit depends on the workload and target. Forward tile masks add ceil(N/tile_width)*mask_words storage."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "When neighboring output rows have different sparse support, sort their predicate keys and retain the row permutation so similar support can be scheduled together without changing output identity.",
+    "storage": "Adds row-ID permutation and sorting traffic; similar support may reduce wasted masked contraction tiles, but benefit depends on the workload and target. Forward tile masks add ceil(N/tile_width)*mask_words storage.",
+    "boundary": "Masks [5,1,4] with filter1 sort by [1,1,0]; whichever equal-key order is chosen, the retained IDs must send rows back to original positions. A second pass filter4 supplies remaining offsets, not a second full convolution.",
+    "resources": []
+  },
+  "numeric_risk": "Preserve the supplied arithmetic contract; reassociation, quantization and approximate search require separate permission.",
+  "summary": "When neighboring output rows have different sparse support, sort their predicate keys and retain the row permutation so similar support can be scheduled together without changing output identity. Masks [5,1,4] with filter1 sort by [1,1,0]; whichever equal-key order is chosen, the retained IDs must send rows back to original positions. A second pass filter4 supplies remaining offsets, not a second full convolution."
+}

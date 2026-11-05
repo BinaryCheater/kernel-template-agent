@@ -1,0 +1,33 @@
+template: tile_anchor_probability_encoding@1
+version: 1
+relation: The real factorization z*lambda equals the original exponential weight; the selected code/scale
+  casts define an explicitly approximate numerator with a separate unrounded denominator.
+rank: Probability weights awaiting encoding.
+assumes:
+- name: pre_contract
+  statement: The selected approximation explicitly distinguishes unrounded softmax mass from block-scaled
+    quantized PV weights.
+- name: pre_support
+  statement: Every valid contribution appears once; masked lanes contribute zero and final mass is positive.
+- name: pre_frame
+  statement: The streaming reducer corrects both old numerator and old mass into the new frame before
+    adding this tile.
+- name: pre_numeric
+  statement: Exp/casts/range policy is explicit; a scale rounded to zero may erase PV weight while retaining
+    nonzero mass.
+- name: pre_pair
+  statement: Every K16 group decodes the scale belonging to its anchor span, row and generation.
+- name: pre_backend
+  statement: Native realization supports the selected span; V quantization/layout and final casting are
+    separate choices.
+guarantees: []
+models: []
+note: Source flashinfer/experimental/minimax_h3_varlen_attention/csrc/cake_minimax_h3_varlen_attention/cake_minimax_h3_varlen_attention_1f0285434cb51b016f42_kernel.cu:1044-1088
+  selects lag8 row reference, forms lambda with -log2(6), casts it to E4M3 and repeats its byte. :1090-1238
+  forms z with +log2(6), accumulates lambda*sum(z) before E2M1 conversion; :1391 and :1690 publish scale
+  words to the low/high TMEM scale regions. :1699-1700 updates unrounded mass. hierarchical_low_float_scaling@1
+  instead encodes data by dividing through a rounded local scale and coarse inverse; numerator_weight_gain@1
+  uses one constant gain with one output compensation. Neither supplies this local anchor, repeated scale
+  and unrounded-mass recipe. Logical checks cover cast order, shared-anchor grouping, reference transitions
+  and scale underflow. Native packed coordinates, FTZ/FMA/exp2, TMEM scale instructions and the accepted
+  approximation bound remain obligations.

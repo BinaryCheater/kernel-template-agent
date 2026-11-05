@@ -1,0 +1,15 @@
+{
+  "template": "iterative_state_residency@2",
+  "version": 2,
+  "relation": "At each transition, resident mutable state and the already emitted output tape equal the coarse materialized recurrence under identical arithmetic and random identity.",
+  "rank": "Remaining prescribed iteration/phase transitions.",
+  "assumes": [
+    {
+      "name": "locality",
+      "statement": "All recurrence inputs and dependencies fit the ownerCTA, with no intermediate external observation."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Initialization loads the same state. Assuming state equality, local phases preserve the same operation/cast order; cross-thread barriers establish completed inputs for each transition. Induction yields final equality including failure result. Locality and working-set fit must be checked per realization; abstract induction does not discharge native barrier/rounding. Source mhc.py:310\u2013383 and jit/csrc/lplb/ipm.cuh:129\u2013243. Sinkhorn numerical policy and IPM convergence are unchanged workload contracts. No GPU assurance claimed. Version2 adds induction on the output tape: equal state selects the same immutable input and random identity, so the same transition appends equal required outputs and produces equal next state. Tape writes cannot be omitted merely because state remains resident. Native proposal softmax/CDF/NaN behavior is not discharged by this structural induction. Witnesses in trace-speculative-navigation.md; host exact finite-state replay is checks/navigation.json."
+}

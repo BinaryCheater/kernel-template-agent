@@ -1,0 +1,108 @@
+{
+  "name": "enumerated_target_mass_sampling",
+  "version": 1,
+  "level_from": 2,
+  "level_to": 3,
+  "change": "vertical",
+  "refines": "reduce",
+  "produces": [
+    "map",
+    "reduce",
+    "store"
+  ],
+  "object": {
+    "type": "partial_categorical_enumeration",
+    "description": "Try useful candidate token intervals before scanning the complete remaining target support."
+  },
+  "variables": [
+    {
+      "name": "selection",
+      "kind": "structure",
+      "binding": "compile",
+      "role": "software",
+      "domain": [
+        "full_cdf",
+        "candidate_intervals_then_residual"
+      ],
+      "meaning": "Direct complete categorical CDF or the same target law via an ordered candidate interval prefix and an independent residual draw."
+    }
+  ],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_target",
+      "expr": "p.target_finite_nonnegative_normalized and p.tested_token_ids_distinct_and_valid",
+      "meaning": "One declared target categorical row; ordered candidate IDs are distinct support coordinates.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_uniform",
+      "expr": "p.fresh_test_and_fallback_uniforms_at_each_matched_history and p.tree_row_matches_selected_prefix",
+      "meaning": "Initial test uniform and independent fallback uniform have the declared conditional law and token-history identity.",
+      "cls": "implementation"
+    },
+    {
+      "id": "pre_exact",
+      "expr": "p.cumulative_threshold_scale == 1 and p.single_token_forcing_disabled_except_probability_one",
+      "meaning": "Threshold scaling or forced acceptance cannot alter target mass; source exact branch uses threshold_acc1,threshold_single1.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_residual",
+      "expr": "p.residual_workspace_initially_zero and p.only_tested_rejected_coordinates_removed and p.fallback_support_complete",
+      "meaning": "Residual subtracts exactly the masses of tested rejected IDs, once, from the same target row; no unrelated draft distribution is substituted.",
+      "cls": "implementation"
+    },
+    {
+      "id": "pre_native",
+      "expr": "p.native_prefix_sum_comparisons_cdf_endpoints_and_zero_residual_policy_admitted and p.output_generation_complete_before_read",
+      "meaning": "Finite comparisons/sums and final CDF have a matching endpoint/fallback policy, with coherent scratch and output visibility.",
+      "cls": "implementation"
+    }
+  ],
+  "program": {
+    "description": "For full_cdf sample from the complete target categorical row. In candidate_intervals_then_residual, draw u in[0,1) and traverse distinct candidate IDs in fixed order, accumulating their target probabilities. Accept the first positive-probability candidate whose cumulative interval exceeds u; no full vocabulary scan is needed on that path. If all tested intervals fail, sample independently from target probabilities with exactly those tested coordinates removed, normalized by the complete remaining mass. For a candidate tree, after acceptance move to the matching child-history target row and use its fresh test uniform; repeat until no useful child or output budget remains. Emit one residual/bonus token at the last matched history. The residual workspace is an exclusion mask times target mass, not the generating draft Q."
+  },
+  "backward_map": "A tested candidate i owns an interval of width P_i, so its direct emitted mass is P_i. The failure event has mass1-sum_tested(P); its independent normalized remaining-target sample contributes P_j for every untested j. Thus each history samples exactly the target categorical law under the stated ideal/native contract.",
+  "obligations": [
+    {
+      "name": "single_row_mass",
+      "statement": "Candidate intervals and conditional fallback partition the same target categorical mass without duplication.",
+      "method": "proof"
+    },
+    {
+      "name": "matched_tree_history",
+      "statement": "Every accepted child selects the target row for that emitted prefix with fresh conditional random identity.",
+      "method": "test"
+    },
+    {
+      "name": "scratch_and_endpoints",
+      "statement": "Fresh exclusions, unique IDs, numerical endpoints and complete fallback implement the declared native categorical contract.",
+      "method": "test"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "(p.target_finite_nonnegative_normalized and p.tested_token_ids_distinct_and_valid) and (p.fresh_test_and_fallback_uniforms_at_each_matched_history and p.tree_row_matches_selected_prefix) and (p.cumulative_threshold_scale == 1 and p.single_token_forcing_disabled_except_probability_one) and (p.residual_workspace_initially_zero and p.only_tested_rejected_coordinates_removed and p.fallback_support_complete) and (p.native_prefix_sum_comparisons_cdf_endpoints_and_zero_residual_policy_admitted and p.output_generation_complete_before_read)",
+    "text": "Local TreeSpeculativeSamplingTargetOnly in jit/include/sgl_kernel/speculative/sampling.cuh:39-209 with threshold_acc1,threshold_single1, distinct sibling token IDs and fresh zero draft_probs scratch. The source wrapper admits other thresholds, which are outside this exact-law binding. Independent draft probabilities are not used by this algorithm. Source vector loads, CUB reduction/scan, uniform control stores and zero-mass fallback retain native realization obligations."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "Enumerate useful target-mass intervals, then sample the untested target residual.",
+    "storage": "Tree navigation, target rows and fresh per-history exclusion scratch.",
+    "boundary": "Distinct candidate coordinates, matched history, fresh uniforms and complete residual support.",
+    "resources": [
+      "dram",
+      "smem",
+      "registers"
+    ]
+  },
+  "numeric_risk": "Threshold scales below1 or forced single-token acceptance alter target mass. Duplicate sibling IDs double-count it. Stale exclusion scratch or finite endpoint fallback can invalidate the exact conditional distribution.",
+  "summary": "When speculative candidates already identify useful target tokens, assign them their actual target-probability intervals before invoking a full categorical scan. If none wins, draw from the complete untested target mass; preserve distinct IDs, fresh exclusion state and matched tree histories."
+}

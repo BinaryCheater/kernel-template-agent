@@ -1,0 +1,15 @@
+{
+  "template": "reservation_rollback_retry@1",
+  "version": 1,
+  "relation": "Every successful fast batch appends its records once; every failed batch has no visible committed effect before its original input is retried exactly once. Compaction consumes the full declared logical input, so physical candidate capacity never causes silent loss.",
+  "rank": "Unprocessed row records and unresolved append batches.",
+  "assumes": [
+    {
+      "name": "premises",
+      "statement": "All stated rank witnesses, complete input and protocol premises hold."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Atomic allocation starts at the old count, so in-bounds speculative writes lie in the suffix and preserve the committed prefix. A collective wait rules out a late counter increment after rewind. Subtracting all claims restores c even when some writers succeeded. Retaining the ring allows exact replay after suffix discard; complete prefix+stage reads before compactor writes preserve aliases. Source v3_cluster/topk_select.cuh:791-881,510-588. Host reservation interleavings and retry witnesses are checks/sharded_selection.json. Native collective reachability, register lifetime and release ordering remain protocol obligations."
+}

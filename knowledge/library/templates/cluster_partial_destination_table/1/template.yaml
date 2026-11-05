@@ -1,0 +1,116 @@
+name: cluster_partial_destination_table
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: reduce
+produces:
+- reduce
+- store
+- sync
+object:
+  type: cluster_partial_destination_table
+  description: Sender-indexed scalar partial tables placed at either one cluster root
+    or every cluster CTA.
+variables:
+- name: destinations
+  kind: structure
+  binding: compile
+  role: software
+  domain:
+  - last_cta
+  - all_ctas
+  meaning: Deliver partials only to the last cluster rank or replicate to every rank.
+- name: peers
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 1
+    hi: 65536
+  meaning: Resident cluster CTA count, at most 32 in the lane-selected realization.
+- name: warps
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 1
+    hi: 65536
+  meaning: Contributing full warps per CTA.
+constraints:
+- id: c0
+  expr: peers <= 32 and p.scalar_bytes >= 4 and p.scalar_bytes <= 8
+  meaning: The lane-selected sender and float/double remote stores support the bound
+    type.
+  cls: semantic
+- id: c1
+  expr: p.sender_slot_count == peers * warps and p.partial_partition_exact
+  meaning: Sender table has one injective slot per warp partial.
+  cls: semantic
+preconditions:
+- id: pre0
+  expr: p.fresh_phase_zero_barrier and p.cluster_initialization_published and p.remote_store_supported
+  meaning: Destination barriers initialized once and published before remote stores.
+  cls: semantic
+- id: pre1
+  expr: p.transaction_completion_orders_reads and p.allocations_live_until_remote_access_retired
+  meaning: Waits publish payload and allocations survive every sender/reader.
+  cls: semantic
+- id: pre2
+  expr: p.combine_order_admitted and p.participants_match_launch
+  meaning: Numerical order and cluster participants match the requested operation.
+  cls: semantic
+program:
+  description: Each warp reduces its local values to a lane-uniform scalar. Sender
+    rank r,warp w owns slot r*warps+w. In all_ctas mode lane d sends that scalar to
+    destination d for d<peers; in last_cta mode one elected lane sends only to rank
+    peers-1. Each consuming CTA registers peers*warps*p.scalar_bytes expected bytes
+    against its fresh phase-zero barrier, waits for transaction completion, then folds
+    all sender slots with lane-strided reads and a warp reduction. Only designated
+    destinations expose final results.
+backward_map: Project each destination table fold to the complete reduction of the
+  disjoint sender warp partials; redundant copies expose the same admitted result.
+obligations:
+- name: delivery
+  statement: Each consuming destination receives every sender partial once in its
+    injective slot.
+  method: proof
+- name: byte_completion
+  statement: Each destination expects exactly the bytes actually sent before reading.
+  method: test
+- name: retirement
+  statement: No peer exits or reuses storage while remote accesses or consumer reads
+    remain.
+  method: test
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: peers <= 32 and p.scalar_bytes >= 4 and p.scalar_bytes <= 8 and p.sender_slot_count
+    == peers * warps and p.partial_partition_exact and p.fresh_phase_zero_barrier
+    and p.cluster_initialization_published and p.remote_store_supported and p.transaction_completion_orders_reads
+    and p.allocations_live_until_remote_access_retired and p.combine_order_admitted
+    and p.participants_match_launch
+  text: One-shot SM90+ resident cluster scalar float/double reductions. Tables have
+    peers*warps slots per destination. Repeated phase-zero use requires another generation
+    protocol. Source helper permits lane-strided folds of tables larger than one warp.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Sender-indexed scalar partial tables placed at either one cluster root
+    or every cluster CTA.
+  storage: Source-bound physical buffer; exact byte count and capacity supplied by
+    binding.
+  boundary: Coordinate identity and storage lifetime.
+  resources:
+  - smem
+  - reg
+numeric_risk: Address/storage transformation preserves values; arithmetic changes
+  require separate obligations.
+summary: 'When a cluster reduction needs its result at one CTA or all CTAs, choose
+  destination tables before selecting the final writer. Four warps in each of two
+  FP32 CTAs deliver eight scalars: 32 expected bytes per destination. Root mode sends
+  eight stores total; all mode sends sixteen. Reject mismatched byte counts, reused
+  phase-zero barriers and peers leaving before remote completion.'

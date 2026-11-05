@@ -1,0 +1,13 @@
+template: bitstream_packing@2
+version: 1
+relation: Extract code i from its code_bits consecutive bit positions; discard the
+  containers.
+rank: Unpacked logical bits remaining.
+assumes: []
+guarantees: []
+models: []
+note: Integer Euclidean division gives a unique container/offset for each bit i*code_bits+b;
+  disjoint i intervals prevent bit aliasing and inverse concatenation recovers all
+  codes. Native writers must own complete containers or use an ordered combine. Old32-code/int32
+  bindings keep their original ownership. New4-code/3-byte source has one exclusive
+  vector element writer; tested address algebra separately from device execution.

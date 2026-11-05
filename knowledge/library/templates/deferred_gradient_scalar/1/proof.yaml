@@ -1,0 +1,16 @@
+template: deferred_gradient_scalar@1
+version: 1
+relation: Scalar-normalized derivative checkpoints with source low-precision focal
+  gradient; no bitwise equivalence to early normalization and no guarantee when unnormalized
+  checkpoint overflows.
+rank: Number of input elements or state transitions still to consume.
+assumes:
+- name: source_contract
+  statement: Source binding and stated scope hold.
+guarantees: []
+models: []
+note: 'Source-derived candidate, not independently admitted. real_identity: Without
+  rounding, moving one common scalar across storage preserves each derivative. numeric_stage:
+  Actual store/reload/output casts meet the admitted error/range policy, including
+  near underflow. scalar_lifetime: Every checkpoint uses its own normalizer and upstream
+  scalar. Native lowering and numerical error remain open; see trace and checks.'

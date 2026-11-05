@@ -1,0 +1,93 @@
+{
+  "name": "iterative_state_residency",
+  "version": 1,
+  "level_from": 3,
+  "level_to": 4,
+  "change": "vertical",
+  "refines": "map",
+  "produces": [
+    "map",
+    "store",
+    "sync"
+  ],
+  "object": {
+    "type": "resident_iteration_state",
+    "description": "One independent small iterative solve retains its complete mutable state inside a CTA until the fixed recurrence finishes."
+  },
+  "variables": [
+    {
+      "name": "state_site",
+      "kind": "structure",
+      "binding": "compile",
+      "role": "software",
+      "domain": [
+        "registers",
+        "smem"
+      ],
+      "meaning": "Placement of the state; selected realization must support all access sharing and required barriers."
+    }
+  ],
+  "constraints": [
+    {
+      "id": "c_capacity",
+      "expr": "p.state_bytes + p.workspace_bytes <= p.selected_site_capacity_bytes",
+      "meaning": "All simultaneously live iterative state and operation workspace must fit.",
+      "cls": "resource"
+    }
+  ],
+  "preconditions": [
+    {
+      "id": "pre_local",
+      "expr": "p.iteration_dependencies_local_to_cta and p.independent_instances and p.iteration_count_and_numeric_policy_fixed",
+      "meaning": "One CTA owns every dependency of an instance, including full-row/global-within-instance reductions; iteration count and arithmetic/termination policy are workload inputs.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_liveness",
+      "expr": "p.no_external_intermediate_reader and p.all_local_sync_collectively_reachable",
+      "meaning": "No consumer requires intermediate states before final publication; every intra-CTA collective is reached by all declared participants.",
+      "cls": "implementation"
+    }
+  ],
+  "program": {
+    "description": "Load an independent instance initial state once. Execute the original fixed recurrence for its declared iteration budget or identical termination test, retaining state and temporaries at state_site. Synchronize every cross-thread producer/consumer transition before the next phase reads or overwrites values. Reuse workspace only after its last reader. Store the final state or the original explicit failure result once. Preserve all original casts, epsilons, pivot policies and update order; no change of solver or convergence criterion is implied."
+  },
+  "backward_map": "At each logical iteration boundary, materialize the resident state; this yields exactly the coarse sequence of states under the same recurrence and numerical policy.",
+  "obligations": [
+    {
+      "name": "step",
+      "statement": "Each local iteration consumes precisely the preceding complete state and implements the same numerical recurrence.",
+      "method": "test"
+    },
+    {
+      "name": "lifetime",
+      "statement": "Shared temporaries are not reused before all required reads and cross-thread values are synchronized.",
+      "method": "test"
+    },
+    {
+      "name": "completion",
+      "statement": "Termination/failure branches and final publication match the coarse contract; every collective remains reachable.",
+      "method": "test"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.iteration_dependencies_local_to_cta and p.independent_instances and p.iteration_count_and_numeric_policy_fixed",
+    "text": "Small independent iterative matrix normalization or solve whose full working set fits oneCTA. Sources: HCxHC Sinkhorn normalization with register state; NCxNV IPM with shared state and block Cholesky. This rule concerns residence and synchronization only; it does not prove convergence or optimality."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "Retain iterative state within one CTA across a fixed recurrence rather than materializing each phase globally.",
+    "storage": "Complete mutable state plus peak local workspace.",
+    "boundary": "Any external dependency or collective outside the owning CTA violates the refinement.",
+    "resources": []
+  },
+  "numeric_risk": "Fusing kernels may remove casts or change operation order; preserving the stated numerical recurrence is mandatory, otherwise a separate approximation binding is needed.",
+  "summary": "When every dependency of a small iterative solve belongs to one CTA, retain its full state in registers or shared memory across the prescribed recurrence. This removes repeated global state traffic and launches at the cost of peak resident storage and local synchronization. Keep iteration budget, arithmetic and failure semantics fixed; residency does not certify convergence."
+}

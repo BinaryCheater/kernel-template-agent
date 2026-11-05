@@ -1,0 +1,82 @@
+name: random_discarded_bit_rounding
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: convert
+produces:
+- convert
+object:
+  type: random_discarded_bit_rounding
+  description: When narrowing a binary format by discarding low significand bits,
+    use a declared random-bit carry to select the adjacent representable value and
+    keep exact per-element RNG identity across realizations.
+variables:
+- name: discarded_bits
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 16
+    hi: 16
+  meaning: Source BF16 narrowing discards16 FP32 low bits.
+constraints: []
+preconditions:
+- id: pre0
+  expr: p.finite_bf16_range_or_guarded_special and p.random_bits_match_element_map
+    and p.random_word_domain_defined
+  meaning: Normal range or exact special guard, fixed element RNG map, declared randomness
+    domain.
+  cls: semantic
+program:
+  description: For finite FP32 values within BF16 finite range, reinterpret sign-magnitude
+    bits as u32, add independent unsigned r16 to the low16-bit discarded field through
+    integer addition, then truncate low16 bits. The carry selects away-from-zero rather
+    than toward-zero with probability residual/65536 when r16 is uniform. Source packed
+    pair consumes distinct halves of one random word. Special values bypass perturbation
+    and use the declared saturating conversion; do not share one validity predicate
+    across a mixed-special/normal pair. Hardware and software realizations are bit-compatible
+    only if the same random bits reach the same element, including lane/subtile/tile
+    seed mapping.
+backward_map: BF16 stochastic rounding from FP32 with source16-bit random carry. FP16/FP8/FP4
+  grid rescaling uses different realization proofs and cannot inherit this bit-truncation
+  formula directly.
+obligations:
+- name: carry_threshold
+  statement: For residual d the carry occurs for exactly d of2^16 random words.
+  method: proof
+- name: special_guard
+  statement: No integer perturbation changes NaN/Inf/out-of-range classification before
+    special conversion.
+  method: proof
+- name: rng_identity
+  statement: Realization substitutions preserve every logical element random word
+    if bitwise replay is required.
+  method: proof
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: (p.finite_bf16_range_or_guarded_special and p.random_bits_match_element_map
+    and p.random_word_domain_defined)
+  text: BF16 stochastic rounding from FP32 with source16-bit random carry. FP16/FP8/FP4
+    grid rescaling uses different realization proofs and cannot inherit this bit-truncation
+    formula directly.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: When narrowing a binary format by discarding low significand bits, use
+    a declared random-bit carry to select the adjacent representable value and keep
+    exact per-element RNG identity across realizations.
+  boundary: BF16 stochastic rounding from FP32 with source16-bit random carry. FP16/FP8/FP4
+    grid rescaling uses different realization proofs and cannot inherit this bit-truncation
+    formula directly.
+  resources:
+  - registers
+numeric_risk: Floating-point reassociation, casts and approximate functions require
+  an admitted numerical contract.
+summary: When narrowing a binary format by discarding low significand bits, use a
+  declared random-bit carry to select the adjacent representable value and keep exact
+  per-element RNG identity across realizations.

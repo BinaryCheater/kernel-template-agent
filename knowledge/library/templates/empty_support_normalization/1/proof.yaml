@@ -1,0 +1,25 @@
+template: empty_support_normalization@1
+version: 1
+relation: Guarded finalization equals the operator's defined empty-support extension and its ordinary framed normalization on positive support.
+rank: Unfinalized logical rows.
+assumes:
+  - {name: valid_state, statement: "Empty support has L=O=0 and positive support has a valid common reference/gain with reliable nonzero mass."}
+  - {name: sink, statement: "The optional finite sink is bound to the correct logical row once and uses the same gain."}
+  - {name: domain, statement: "Inputs, range and numerical policy exclude NaN repair, false zero mass and nonfinite sink arithmetic."}
+guarantees: []
+models: []
+note: >-
+  Empty support has no weighted terms and uses the declared output convention.
+  Adding finite sink a creates one positive weight and zero numerator; choosing
+  r=a gives L=G, so LSE=a+log(G)-log(G)=a. Positive ordinary support keeps the
+  common-frame identities. A masked prefix may retain metadata max=-inf while
+  using finite safe reference0 for exponent arithmetic; it contributes zero
+  before the first finite tile establishes its frame. Source
+  flash_attn/cute/softmax.py:219-248 guards the maximum, :253-289 finalizes
+  empty/positive rows, :47-76 gives the gain-aware sink-only transition; forward
+  SM90 resets no-work sparse state at:1308-1312. SM100 correction at:2964-2974
+  assigns sink only to split0 and LSE at:3080-3087 subtracts max_offset. A finite
+  sink owned by an otherwise empty split is retained in that split's LSE and
+  must survive subsequent split combination. The retained logical check covers
+  masked prefixes, gain1/256, absent/finite sink and a duplicate-sink separating
+  witness. It does not validate CUDA rounding or concurrency.

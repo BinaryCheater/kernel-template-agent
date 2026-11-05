@@ -1,0 +1,145 @@
+name: atom_owned_cluster_multicast
+version: 1
+level_from: 5
+level_to: 6
+change: vertical
+refines: transfer
+produces:
+- transfer
+- sync
+object:
+  type: separate_cluster_payload_full_owner_and_empty_release_maps
+  description: Multicast into physical CTA payloads while projecting full barriers to two-CTA instruction
+    owners and independently deriving stage-release destinations/counts.
+variables:
+- name: dim_x
+  kind: numeric
+  binding: runtime
+  role: boundary
+  domain:
+    lo: 2
+    hi: 4
+    step: 2
+  meaning: Active physical cluster X dimension; adjacent pairs form independent2-CTA instruction atoms.
+- name: dim_y
+  kind: numeric
+  binding: runtime
+  role: boundary
+  domain:
+    lo: 1
+    hi: 4
+  meaning: Active physical Y dimension, fixed or selected from a prepared fallback.
+- name: payload_relation
+  kind: structure
+  binding: compile
+  role: boundary
+  domain:
+  - x_column
+  - x_parity_row
+  - whole_x_row
+  meaning: Source A/SFA share an X column, B shares issuer X parity across a row, SFB shares the whole
+    row. Select only when the workload has that operand identity.
+constraints:
+- id: c_cluster
+  expr: dim_x * dim_y <= 16 and dim_x * dim_y <= hw.max_cluster_size
+  meaning: Active ranks fit the native16-bit masks and hardware cluster limit.
+  cls: resource
+preconditions:
+- id: pre_topology
+  expr: p.active_dimensions_shared_by_task_election_payload_and_barrier_logic and p.two_adjacent_cta_instruction_atoms_supported
+  meaning: Every adjacent physical X pair is one instruction atom, with an even-rank barrier owner; all
+    participants use the same actual topology.
+  cls: implementation
+- id: pre_data
+  expr: p.selected_payload_relation_preserves_same_operand_tile_and_stage_identity
+  meaning: Payload recipients need the identical logical operand tile in the same pipeline generation;
+    operand roles determine the legal relation.
+  cls: semantic
+- id: pre_issuers
+  expr: p.elected_issuers_cover_each_needed_payload_once_with_declared_slice_ownership
+  meaning: CTA task election supplies each intended payload/slice once; task selection and payload masks
+    are separate decisions.
+  cls: implementation
+- id: pre_full
+  expr: p.full_owner_transaction_byte_accounting_matches_all_issued_payloads and p.full_barriers_armed_before_transfer
+  meaning: Projected owner barriers count every required TMA transaction/byte, including slices from both
+    parity issuers when present.
+  cls: implementation
+- id: pre_release
+  expr: p.one_release_event_per_consuming_instruction_atom_after_all_operand_reads and p.release_targets_and_expected_arrivals_agree
+  meaning: One logical atom completion contributes exactly once to each intended producer empty barrier
+    after every operand reader retires.
+  cls: implementation
+- id: pre_lifetime
+  expr: p.stage_generation_and_cluster_entry_exit_handshakes_valid and p.selected_multicast_and_remote_barriers_supported
+  meaning: Data/full/empty state advances in matching generations; no peer exits or overwrites a stage
+    while remotely addressed.
+  cls: implementation
+- id: pre_fallback
+  expr: p.fallback_dimensions_within_prepared_bounds_and_all_masks_counts_recomputed
+  meaning: A flexible fallback changes all topology-dependent masks, issue elections and arrival counts
+    together.
+  cls: implementation
+program:
+  description: 'Rank r=x+dim_x*y; instruction-atom owner(r)=r & ~1. For x_column, elected issuers lie
+    at y=0: payload P={x+dim_x*yy:0<=yy<dim_y}; release targets R={2*floor(x/2),2*floor(x/2)+1}; expected
+    arrivals E=dim_y. For x_parity_row, elected issuers lie in the first X atom of each row: P={(x%2)+2*a+dim_x*y:0<=a<dim_x/2};
+    R={dim_x*y,dim_x*y+1}; E=dim_x/2. For whole_x_row, issuer is x=0 in each row: P={xx+dim_x*y:0<=xx<dim_x};
+    R={dim_x*y}; E=dim_x/2. For every relation, full barrier owners O={owner(r):r in P}; bitmask form
+    O=(P|(P>>1)) & 0x5555. Arm only the intended full-owner barriers with complete transaction accounting,
+    issue payload to P, and let each consuming atom release R once after its readers retire. Producer
+    waits for E atom completions before stage reuse. Recompute P/O/R/E for the actual fallback dimensions;
+    do not replace O or R with P.'
+backward_map: Each receiving CTA sees the same operand bytes as an independent local load, while projected
+  owner barriers aggregate the instruction atom readiness and the separate release relation prevents reuse
+  until every consuming atom completes.
+obligations:
+- name: payload_owner_map
+  statement: Projection maps every payload rank to its adjacent atom owner without changing operand coordinates
+    or omitting required transfer accounting.
+  method: test
+- name: release_census
+  statement: Every acquired producer empty barrier receives exactly E logical atom completions and no
+    release occurs before all local/peer operand reads finish.
+  method: test
+- name: election_and_fallback
+  statement: Task election, payload/full/release masks and expected counts agree for both preferred and
+    active fallback shapes.
+  method: test
+- name: native_visibility
+  statement: TMA completion, remote barrier ownership, transaction bytes and exit/retirement satisfy the
+    native instruction protocol.
+  method: test
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: dim_x * dim_y <= 16 and dim_x * dim_y <= hw.max_cluster_size and (p.active_dimensions_shared_by_task_election_payload_and_barrier_logic
+    and p.two_adjacent_cta_instruction_atoms_supported) and (p.selected_payload_relation_preserves_same_operand_tile_and_stage_identity)
+    and (p.elected_issuers_cover_each_needed_payload_once_with_declared_slice_ownership) and (p.full_owner_transaction_byte_accounting_matches_all_issued_payloads
+    and p.full_barriers_armed_before_transfer) and (p.one_release_event_per_consuming_instruction_atom_after_all_operand_reads
+    and p.release_targets_and_expected_arrivals_agree) and (p.stage_generation_and_cluster_entry_exit_handshakes_valid
+    and p.selected_multicast_and_remote_barriers_supported) and (p.fallback_dimensions_within_prepared_bounds_and_all_masks_counts_recomputed)
+  text: Pinned PrimsTS batched GEMM wider/flexible CGAs on SM100-family block-scaled/tcgen05 paths, with
+    adjacent2-CTA UMMA atoms and16-bit masks. Source examples2x1/4x1/2x2/4x2/4x4; other admitted active
+    dimensions require native launch support. Relations are operand/workload constraints, not arbitrary
+    permutations. Combined A+B release, routed loads and compact local scale-copy variants require their
+    own binding.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Factor cluster multicast into payload delivery, atom-owned readiness and producer release
+    relations.
+  storage: Per-CTA payload stages and full/empty barrier state with independent rank maps.
+  boundary: Instruction atom versus physical cluster; actual fallback shape and complete byte/arrival
+    census.
+  resources:
+  - smem
+  - l2
+numeric_risk: null
+summary: When a physical cluster contains several cooperative matrix-instruction atoms, derive data destinations,
+  full-barrier owners and release targets separately. Payload fanout may exceed the readiness-owner count,
+  especially for scale operands. Match release counts to consuming atoms and adapt every map together
+  on fallback.

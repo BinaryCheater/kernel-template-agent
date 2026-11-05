@@ -1,0 +1,22 @@
+template: byte_arrival_completion_join@1
+version: 1
+relation: Each generation's outstanding byte count and copy-producer/registration arrivals equal its undelivered completion signals; consumers are blocked while either obligation remains.
+rank: Unregistered plus outstanding transaction bytes and undelivered registration/copy arrivals, then remaining stage generations.
+assumes:
+  - {name: registration, statement: One reserved owner atomically installs the byte expectation before consuming its arrival.}
+  - {name: completion, statement: Exact byte/copy signals target their generation and are delivered only after the corresponding writes become visible.}
+  - {name: lifetime, statement: Empty-slot ownership and all-reader retirement isolate generations and the delayed-arrival schedule can progress through its tail.}
+guarantees: []
+models: []
+note: >-
+  Before byte registration the reserved owner prevents the arrival count reaching
+  zero. Registration moves the same byte obligation from unregistered to registered
+  state while consuming exactly one arrival. Every later signal reduces only its
+  certified obligation. Thus both counters can reach zero only after all required
+  writes, and the consumer then reads the complete generation. Scalar interleavings
+  preserve a counterexample when the reserved arrival is omitted. The source's
+  two-group delayed-arrival replay covers short tails and a capacity deadlock when
+  insufficient slots prevent reaching the first signal-producing iteration.
+  Hardware visibility, atomic primitive lowering, cross-CTA arrival masks and
+  forward progress remain backend obligations. No registered checker model or
+  GPU execution is claimed.

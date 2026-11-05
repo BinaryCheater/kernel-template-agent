@@ -1,0 +1,83 @@
+name: persistent_value_rematerialization
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: store
+produces:
+- store
+- map
+object:
+  type: retained_producer_frontier
+  description: An immutable producer frontier retained across a phase boundary instead
+    of its derived persistent value.
+variables:
+- name: retention
+  kind: structure
+  binding: compile
+  role: software
+  domain:
+  - derived_value
+  - producer_frontier
+  meaning: Keep derived output or reconstruct it from a smaller retained frontier.
+constraints:
+- id: c_frontier
+  expr: p.frontier_covers_every_dependency and p.frontier_live_bytes <= p.storage_capacity_bytes
+  meaning: The retained frontier reconstructs every required value and fits storage.
+  cls: semantic
+preconditions:
+- id: pre_replay
+  expr: p.producer_slice_pure and p.frontier_immutable_until_last_replay and p.replay_numerical_contract_preserved
+    and p.no_rng_or_external_state
+  meaning: Repeated producer evaluation has the same inputs and numerical semantics
+    with no hidden state.
+  cls: semantic
+program:
+  description: For retention=derived_value compute v=F(frontier) once and retain v
+    through the last consumer. For producer_frontier retain all frontier values instead,
+    discard v after its early uses and reevaluate the same producer DAG F before each
+    later consumer. Keep each replay live through its local last use. Frontier may
+    be input registers or a shared-memory cache; all frontier data survive until the
+    last replay finishes.
+backward_map: Replace every replay by the same logical derived value F(frontier);
+  immutable inputs and preserved operations make consumer values equal.
+obligations:
+- name: replay_identity
+  statement: Every replay receives identical frontier coordinates/values and preserves
+    the admitted arithmetic semantics.
+  method: proof
+- name: lifetime
+  statement: Frontier values survive all replays and no derived replay is overwritten
+    before local consumption.
+  method: test
+- name: capacity
+  statement: Retained frontier plus each live replay fits the chosen resource capacity.
+  method: test
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: p.frontier_covers_every_dependency and p.producer_slice_pure and p.frontier_immutable_until_last_replay
+    and p.replay_numerical_contract_preserved and p.no_rng_or_external_state
+  text: Pure deterministic producer DAGs crossing a phase boundary. No mutation, RNG,
+    changed reductions or implicit extra precision. Saving storage is conditional
+    on the actual frontier/replay live set, not guaranteed by selecting the transformation.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Retain inputs of a pure producer slice and replay its output at later
+    uses.
+  storage: Producer frontier versus derived persistent tensor; replay-local temporaries.
+  boundary: Phase boundary, hidden state and numerical operation identity.
+  resources:
+  - reg
+  - smem
+numeric_risk: Different contraction, cast removal or fusion on replay needs its own
+  numerical premise; algebraic equality alone is insufficient.
+summary: When a derived tensor must survive a reduction but its immutable producer
+  inputs occupy fewer live bytes, choose whether to retain the tensor or retain its
+  producer frontier and reconstruct it. FP16 x may replace a persistent FP32 affine
+  output if the same cast/multiply/add sequence is replayed. Reject hidden RNG/state,
+  missing dependencies and frontiers overwritten before the last replay.

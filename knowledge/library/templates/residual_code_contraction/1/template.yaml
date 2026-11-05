@@ -1,0 +1,132 @@
+name: residual_code_contraction
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: contract
+produces:
+- reduce
+- map
+- contract
+- store
+object:
+  type: scaled_high_residual_codes_with_separate_contractions
+  description: Represent a scaled contraction weight by a narrow high code and optional signed residual
+    code, contract components separately, and combine their accumulator results before decoding once.
+variables:
+- name: encoding
+  kind: structure
+  binding: compile
+  role: software
+  domain:
+  - single_code
+  - high_and_residual
+  meaning: One E4M3 contraction or two component contractions. Source dense MLA uses paired codes; single-code
+    projection is an inferred accuracy/work alternative requiring its own backend binding.
+constraints:
+- id: c_shape
+  expr: p.key_rows >= 1 and p.value_features >= 1
+  meaning: Nonempty weight/value contraction domain.
+  cls: semantic
+preconditions:
+- id: pre_domain
+  expr: p.nonnegative_finite_weights_and_finite_values and p.complete_logical_weight_value_coordinates
+  meaning: The complete finite weight/value contraction is identified before encoding; low residual components
+    may be signed.
+  cls: semantic
+- id: pre_scale
+  expr: p.positive_finite_row_tile_scale_and_encode_reciprocal_policy_explicit and p.scale_code_and_value_generation_match
+  meaning: Each row/tile uses one decoder scale and its declared FP32 encode multiplier; every component
+    shares that scale and V generation.
+  cls: implementation
+- id: pre_encode
+  expr: p.high_code_is_rounded_scaled_weight and (encoding != 'high_and_residual' or (p.low_code_is_rounded_difference_from_actual_decoded_high
+    and p.signed_e4m3_residual_bits_preserved))
+  meaning: Compute residual before releasing the producer value, using the actual rounded high code; never
+    clamp low residuals to nonnegative probabilities.
+  cls: implementation
+- id: pre_contraction
+  expr: p.each_code_component_contracts_all_keys_against_same_values and p.component_results_added_in_fp32_before_one_decoder_scale
+  meaning: Separate MMAs cover identical key/value coordinates; sum high/low FP32 products and decode
+    scale once.
+  cls: semantic
+- id: pre_mass
+  expr: p.normalizer_uses_declared_unquantized_weight_mass_and_shared_online_frame
+  meaning: Probability encoding changes the PV numerator; it does not replace denominator mass by code
+    sums or add another copy of mass.
+  cls: semantic
+- id: pre_numeric
+  expr: p.encode_cast_mma_component_sum_scale_and_final_error_admitted and p.saturation_underflow_and_clamp_policy_explicit
+  meaning: Two-code arithmetic is an admitted approximation; scale reciprocals, signed low underflow,
+    saturation and MMA association are part of the recipe.
+  cls: implementation
+- id: pre_lifetime
+  expr: p.high_low_storage_published_and_alive_through_all_component_readers and p.selected_encoding_backend_and_resources_supported
+  meaning: Both component tiles retain coordinate/generation identity until every MMA reader finishes;
+    selected single/paired mode must be implemented.
+  cls: implementation
+program:
+  description: For row/tile weights w_j and positive decoder scale s, form x_j=fl_FP32(w_j*encode_multiplier)
+    under the explicit reciprocal policy, then apply declared finite-range clamp. Encode h_j=RN_E4M3(x_j).
+    With high_and_residual compute e_j=fl_FP32(x_j-decode(h_j)), clamp as declared, and encode signed
+    l_j=RN_E4M3(e_j). Keep h and l as separate narrow operand rows. Compute H_d=sum_j decode(h_j)*V_jd
+    and L_d=sum_j decode(l_j)*V_jd with independent FP32 MMA accumulation; single_code omits L. Add H_d+L_d
+    in FP32, multiply by s once and add to the current online numerator. Original mass sum_j w_j stays
+    independent and is corrected in the same online frame. Normalize once by that original mass; any V
+    decoder scale and final output cast are separate declared stages. Do not reconstruct h+l in E4M3 or
+    move reconstruction before the contractions without a numerical equivalence binding.
+backward_map: Distributivity identifies s*(H+L) with a contraction over reconstructed weights s*(decode(h)+decode(l))
+  in exact arithmetic. Native separate-MMA rounding and encoding error define the selected approximation
+  to the original numerator; the original denominator is unchanged.
+obligations:
+- name: residual_generation
+  statement: Low code is computed from the same scaled input and decoded high code, retaining its sign
+    and generation.
+  method: test
+- name: component_coverage
+  statement: Both components visit every intended key/value once and map their outputs to the same final
+    feature coordinates.
+  method: test
+- name: arithmetic_order
+  statement: Separate MMA accumulation, FP32 component addition and one scale implement the declared approximation.
+  method: test
+- name: mass_frame
+  statement: No code-derived or duplicate mass replaces the original denominator; online correction treats
+    old/new numerator terms in their intended frame.
+  method: test
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: p.key_rows >= 1 and p.value_features >= 1 and (p.nonnegative_finite_weights_and_finite_values
+    and p.complete_logical_weight_value_coordinates) and (p.positive_finite_row_tile_scale_and_encode_reciprocal_policy_explicit
+    and p.scale_code_and_value_generation_match) and (p.high_code_is_rounded_scaled_weight and (encoding
+    != 'high_and_residual' or (p.low_code_is_rounded_difference_from_actual_decoded_high and p.signed_e4m3_residual_bits_preserved)))
+    and (p.each_code_component_contracts_all_keys_against_same_values and p.component_results_added_in_fp32_before_one_decoder_scale)
+    and (p.normalizer_uses_declared_unquantized_weight_mass_and_shared_online_frame) and (p.encode_cast_mma_component_sum_scale_and_final_error_admitted
+    and p.saturation_underflow_and_clamp_policy_explicit) and (p.high_low_storage_published_and_alive_through_all_component_readers
+    and p.selected_encoding_backend_and_resources_supported)
+  text: "Pinned B12x dense MLA SM120/121 FP8 PV uses64-key score chunks, eight logical heads, high/low\
+    \ E4M3 operand rows and FP32 MMA. Source s=max(amax(w),1e-10)/448 with explicit FP32 reciprocal encoding,\
+    \ high clamp\xB1448 and signed residual clamp\xB1448. Other scale policies and single-code projection\
+    \ require their own native/numeric binding. This is not exact FP32 recovery and does not promise monotone\
+    \ final output error improvement."
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Trade an extra narrow contraction for a signed low-code correction to scaled weights.
+  storage: One or two E4M3 weight rows and one shared row/tile decoder scale.
+  boundary: Signed residual, separate-MMA association and original softmax denominator.
+  resources:
+  - tensor
+  - smem
+  - registers
+numeric_risk: Even if h+l reconstructs a weight more accurately, separate FP32 accumulation and cancellation
+  can change final error. Rounding h+l back to E4M3 can erase the entire correction; unsigned low codes
+  turn negative corrections into positive bias.
+summary: When a single narrow probability operand loses significant PV accuracy, encode its rounding residual
+  in a second signed operand row and run a second contraction. Add both FP32 results before applying their
+  shared scale. Keep original row mass and verify the actual MMA/cast order rather than assuming a checkpoint
+  reconstruction rule applies.

@@ -1,0 +1,15 @@
+{
+  "template": "warp_interleaved_code_append@1",
+  "version": 1,
+  "relation": "Each populated logical code bit occupies the producer/consumer-agreed block-feature-lane position; old prefix bits remain unchanged while newly reserved zero fields acquire only their own bits.",
+  "rank": "Remaining appended vector-block/feature fields.",
+  "assumes": [
+    {
+      "name": "source_contract",
+      "statement": "NVIDIA CUDA IVF interleaved Flat/SQ/PQ layout. 4/5/6-bit packers use OR, so this is append into clean new fields, not in-place replacement. Numerical scalar/PQ decoding is separate."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Source-derived proof outline; no formal proof result or GPU execution claimed. bit_identity: Logical (vector,feature,bit) maps injectively to the same physical bit in append and scan. preserve_prefix: Unaligned append changes no field of vectors before append start. no_shared_byte_race: One owner writes each byte for a list/block/feature and new bits are zero before OR. tail: Invalid last-block lanes contribute zero fields but never enter distance selection. The relation is a proposed source-level invariant; the stated finite-work rank depends on the explicit environment progress assumptions. Device ordering and numeric premises have not been discharged by schema validation."
+}

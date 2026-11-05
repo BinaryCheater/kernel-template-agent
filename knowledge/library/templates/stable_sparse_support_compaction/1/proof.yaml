@@ -1,0 +1,28 @@
+template: stable_sparse_support_compaction@1
+version: 1
+relation: Expand valid packed positions through their original-slot occurrence order, restoring the original
+  valid key/metadata sequence with holes ignored; identical key multiplicities and semantic support are
+  recovered.
+rank: Remaining original row slots.
+assumes:
+- name: validity
+  statement: Original-slot predicates and key translation are fixed before packing.
+- name: metadata
+  statement: Every surviving occurrence retains all consumer-relevant metadata.
+- name: consumers
+  statement: All consumers agree on transformed support and length semantics.
+- name: numeric
+  statement: Changed tiling/rounding and native prefix/write mapping satisfy their declared contract.
+guarantees: []
+models: []
+note: For valid positions s0<s1<...<s(c-1), rank(si)=i, giving a bijection onto [0,c). It preserves relative
+  order and multiplicity even when key IDs coincide. Invalid holes add no occurrence. keep_positions span
+  is max(si)+1, while packed span is c; each is correct only with its matching row. Prefix cuts use original
+  s and cannot be moved after rank without changing validity. Source experimental/cake_dsa_train/cake_backend.py:1188-1285
+  states and implements the stable validity sort; generated csrc/cake_dsa_h64_train/cake_dsa_h64_nope_train_db791110b21a91be1388_kernel.cu:80
+  onward scans original slot chunks after clamping the input position limit. The autograd wrapper at cake_backend.py:5190-5205
+  saves the rows/counts actually used in forward for backward. indexed_gather@1 translates an existing
+  list but does not compact its occurrence domain; shared_index_union@1 merges two sorted unique consumers
+  and cannot preserve arbitrary duplicate occurrence rows. Logical checks distinguish cut-before-pack,
+  last-valid span versus valid count, duplicate weighting, segment offsets and additive gradient multiplicities.
+  Native prefix scans, row metadata publication and tile rounding remain implementation obligations.

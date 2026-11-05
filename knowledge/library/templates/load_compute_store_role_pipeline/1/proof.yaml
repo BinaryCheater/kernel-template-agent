@@ -1,0 +1,14 @@
+template: load_compute_store_role_pipeline@1
+version: 1
+relation: Serialize each generation load, computation and output store while erasing
+  the two physical rings and three actor roles.
+rank: Unprocessed source items or unmerged partials.
+assumes:
+- name: contract
+  statement: The stated partition, comparator/count and publication premises hold.
+guarantees: []
+models: []
+note: Source python/tutorials/gluon/08-warp-specialization.py:96-123,:124-232,:234-307.
+  Per ring, ready(i) precedes read(i), empty(i) follows last read(i), and write(i+slots)
+  waits for that empty phase. Input capture lets computation outlive input slot lifetime;
+  output TMA source retirement is independent of input retirement.

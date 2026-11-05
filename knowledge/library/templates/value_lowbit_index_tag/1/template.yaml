@@ -1,0 +1,79 @@
+name: value_lowbit_index_tag
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: select
+produces:
+- select
+object:
+  type: value_lowbit_index_tag
+  description: When ranking values widened from a narrow floating format leaves unused
+    low mantissa bits, embed a stable source index in those bits so the comparison
+    network transports value and index together.
+variables:
+- name: index_bits
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 1
+    hi: 16
+  meaning: b derived from row extent; source N power-of-two<=4096.
+constraints:
+- id: c0
+  expr: index_bits <= p.widened_zero_low_bits
+  meaning: Tag replaces only provably unused bits.
+  cls: implementation
+preconditions:
+- id: pre0
+  expr: p.finite_nonzero_values and p.indices_fit and p.descending_float_comparator
+  meaning: Defined finite nonzero source domain and descending numerical compare.
+  cls: semantic
+program:
+  description: Let b=ceil(log2(N)), mask=2^b-1. Require each widened finite FP32 bit
+    pattern to have zero low b bits. For positive x tag=(~index)&mask; for negative
+    x tag=index&mask. Replace low bits by tag, rank encoded floats descending, then
+    clear the tag bits and recover index with the inverse sign-dependent transform.
+    Equal positive/negative nonzero values favor smaller indices. Restrict this version
+    to finite nonzero values; signed zeros, infinities and NaNs need an explicit total-order
+    extension. For source BF16 and N<=4096 b<=12 fits the16 zero low bits; FP16 leaves13.
+    General FP32 inputs can lose rank-relevant bits and are excluded.
+backward_map: Finite nonzero narrow-float values widened exactly to FP32 with enough
+  vacant mantissa bits. Ranking uses fewer register planes; this rule does not authorize
+  truncating meaningful FP32 mantissa bits.
+obligations:
+- name: value_restore
+  statement: Clearing tag bits exactly restores every input value.
+  method: proof
+- name: order_and_ties
+  statement: Encoded comparisons preserve unequal-value rank and select smaller index
+    for ties.
+  method: proof
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: (index_bits <= p.widened_zero_low_bits) and (p.finite_nonzero_values
+    and p.indices_fit and p.descending_float_comparator)
+  text: Finite nonzero narrow-float values widened exactly to FP32 with enough vacant
+    mantissa bits. Ranking uses fewer register planes; this rule does not authorize
+    truncating meaningful FP32 mantissa bits.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: When ranking values widened from a narrow floating format leaves unused
+    low mantissa bits, embed a stable source index in those bits so the comparison
+    network transports value and index together.
+  boundary: Finite nonzero narrow-float values widened exactly to FP32 with enough
+    vacant mantissa bits. Ranking uses fewer register planes; this rule does not authorize
+    truncating meaningful FP32 mantissa bits.
+  resources:
+  - registers
+numeric_risk: Floating-point reassociation, casts and approximate functions require
+  an admitted numerical contract.
+summary: When ranking values widened from a narrow floating format leaves unused low
+  mantissa bits, embed a stable source index in those bits so the comparison network
+  transports value and index together.

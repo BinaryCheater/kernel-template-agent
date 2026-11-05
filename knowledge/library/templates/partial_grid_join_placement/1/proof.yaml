@@ -1,0 +1,49 @@
+template: partial_grid_join_placement@1
+version: 1
+relation: Forget partial ownership and the chosen completion boundary after expanding every live partial
+  into its unique token terms. Both organizations recover the complete reduction under their admitted
+  finite-precision partition; holes are not terms and early scheduling is not an arrival.
+rank: Existing partial producers not yet published, then live partial rows not yet consumed by final channel/tap
+  reducers.
+assumes:
+- name: pre_partition
+  statement: For each channel tile, CTA b owns tile b mod T and partial row floor(b/T). Its actual producer
+    count is G_t=ceil((B-t)/T), not the global row capacity ceil(B/T). Token substreams use that tile-specific
+    count and cover each live output/reduction term once.
+- name: pre_slots
+  statement: Every existing CTA/channel/tap partial has one writer and is fully stored before the join.
+    Empty token streams publish zero. Nonexistent CTA rows for a channel tile are capacity holes and never
+    read.
+- name: pre_cooperative
+  statement: In-kernel global join is a real cooperative launch supported by the selected kernel/resource
+    configuration and grid size. All CTAs execute the grid join, including those with no live token work.
+    Ordinary oversubscribed grids cannot emulate it with a spinning barrier.
+- name: pre_separate
+  statement: A later reducer uses ordinary completion order or a supported programmatic dependent-launch
+    wait before any partial read. Early launch scheduling release alone is not payload visibility. The
+    ordinary producer contains no whole-grid wait.
+- name: pre_geometry
+  statement: Grid B is positive and covers every channel tile; source computes B=ctas_per_sm*(SM_count-reserved_sms).
+    This is a CTA-count budget, not physical SM affinity or guaranteed stream overlap. Producer, reducer,
+    workspace and main_ctas agree on the actual B.
+- name: pre_numeric
+  statement: Native rows merge per lane r=lane+32*k in ascending k, then a fixed halving16/8/4/2/1 tree.
+    Each launch geometry has its own deterministic token partition/partial order. Moving the join while
+    changing B does not promise identical floating-point bits.
+- name: pre_lifetime
+  statement: Partial buffers retain their allocation/generation through all reducer reads. Final channel/tap
+    elements have one owner, following computation reads only completed final gradients, and buffers are
+    not concurrently recycled.
+- name: pre_backend
+  statement: Source deterministic KCP depthwise-convolution backward on SM100/103/107, FP32 four-tap rank-local
+    gradients. Selected fallback/st8 resources, channel plan and launch attributes are actually supported;
+    graph/capture restrictions and collective readiness remain separate.
+guarantees: []
+models: []
+note: Conv kcp.py:163-190 subtracts reserved SM-equivalent CTA count;597-623 binds the following reducer;1209-1245
+  sizes partials and launches actual producer/reducer grids. Native cooperative5288d132a5cc927ae729:219-233
+  maps tile/rank to token streams and1560-1636 publishes partials, grid-syncs and reduces. Native splitfacdd7ca702cfb7d821a
+  ends after exclusive partial stores. Reducer86b5ecfbd90aca4b52e5:86-180 derives tile live rows, waits
+  griddepcontrol before reads, sums lane-strided rows then halves. Its binding enables programmatic stream
+  serialization. Focused coordinate/numeric checks establish exact coverage/hole/association distinctions,
+  not native cooperative residency or PDL execution.

@@ -1,0 +1,15 @@
+template: contraction_numeric_recipe@1
+version: 1
+relation: Erase layout and execution assignment while retaining the selected prepared-input
+  and accumulator recipe; this recovers the requested contraction, not an unrounded
+  real-valued sum.
+rank: Unprocessed source items or unmerged partials.
+assumes:
+- name: contract
+  statement: The stated partition, comparator/count and publication premises hold.
+guarantees: []
+models: []
+note: Source matmul_details/_common.py:16-48, _matmul.py:388-525 and _p_matmul.py:388-580.
+  compute_instruction_selection@2 selects instruction and operand bit compatibility
+  but has no preparation-rounding or imprecise-accumulation variable. The source policy
+  is recovered here without claiming which machine instruction the compiler emits.

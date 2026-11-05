@@ -1,0 +1,64 @@
+name: softmax_gradient_row_checkpoint
+version: 1
+level_from: 2
+level_to: 3
+change: vertical
+refines: reduce
+produces: [reduce, map, contract]
+object:
+  type: output_contracted_softmax_gradient_center
+  description: Replace the probability-domain softmax derivative row reduction by a dot product of the saved weighted output and its incoming gradient.
+variables:
+  - {name: lse_gradient, kind: structure, binding: compile, role: boundary, domain: [absent, present], meaning: Whether the natural-log row normalizer has an incoming gradient e; e is zero when absent.}
+  - {name: denominator_sink, kind: structure, binding: compile, role: boundary, domain: [absent, finite_zero_value], meaning: Whether normalization includes one finite trainable or constant sink logit with zero value vector.}
+constraints: []
+preconditions:
+  - {id: pre_normalization, expr: "p.positive_finite_row_normalizer and p.finite_values_and_incoming_gradients and p.probability_support_matches_forward", meaning: "The row has defined normalized probabilities over its original support, possibly including a finite zero-value sink.", cls: semantic}
+  - {id: pre_output, expr: "p.output_is_same_probability_weighted_value_sum and p.no_unreplayed_dropout_or_post_output_transform", meaning: "O is the matching sum of P_j*V_j before any unrelated transform; changed probability domains and unreplayed random masks are excluded.", cls: semantic}
+  - {id: pre_state, expr: "p.row_checkpoint_coordinates_generation_and_visibility_match and p.padded_rows_guarded", meaning: "O, dO, P, optional dLSE and metadata agree on row and generation, and only valid rows are observed.", cls: semantic}
+  - {id: pre_numeric, expr: "p.output_checkpoint_error_and_reduction_reassociation_admitted and p.probability_and_derivative_casts_admitted", meaning: "Checkpoint error, row-reduction reassociation, probability generation and gradient casts satisfy the numerical contract.", cls: implementation}
+program:
+  description: >-
+    For O_i=sum_j P_ij*V_j and incoming g_i=dO_i, set a_ij=dot(g_i,V_j).
+    Replace D_i=sum_j P_ij*a_ij with D_i=dot(g_i,O_i). Let e_i be the incoming
+    gradient of natural-log LSE when lse_gradient=present and zero otherwise;
+    save c_i=D_i-e_i. Each probability tile forms dZ_ij=P_ij*(a_ij-c_i).
+    A finite zero-value sink has a_sink=0 and P_sink=exp(sink-LSE), so its
+    per-row logit gradient is -P_sink*c_i; sum those terms over rows if the
+    sink parameter is shared. Keep the probability tile's support and row
+    identity unchanged. dV=P^T*g remains separate. Chain dZ through score
+    scale/modifier derivatives before Q/K gradient contractions; c is a row
+    statistic, not a replacement for those chain rules. A base2 LSE output's
+    incoming gradient e2 must first be converted to natural-LSE units as e=e2/ln(2).
+backward_map: Substitute O=sum(P*V), expand dot(g,O), and recover the full probability-domain Jacobian-vector product and optional natural-LSE gradient.
+obligations:
+  - {name: row_identity, statement: "The output contraction equals the probability-domain center in real arithmetic and includes the same support and optional sink.", method: proof}
+  - {name: gradient_units_and_chain, statement: "Optional LSE gradient has natural-log units and subsequent score derivatives, scales, grouped heads and shared sink reductions are complete.", method: test}
+  - {name: numeric_checkpoint, statement: "Actual saved O precision, reconstruction, probability generation and derivative reduction/casts satisfy the chosen numerical policy.", method: test}
+effects: {transactions: [], storage: [], overlap: []}
+scope:
+  predicate: "p.positive_finite_row_normalizer and p.finite_values_and_incoming_gradients and p.probability_support_matches_forward and p.output_is_same_probability_weighted_value_sum and p.no_unreplayed_dropout_or_post_output_transform and p.row_checkpoint_coordinates_generation_and_visibility_match and p.padded_rows_guarded and p.output_checkpoint_error_and_reduction_reassociation_admitted and p.probability_and_derivative_casts_admitted"
+  text: >-
+    Deterministic normalized weighted sums with finite values/gradients and a
+    positive finite normalization mass. A denominator-only finite sink contributes
+    a zero value and may own all mass when ordinary support is empty. Zero total
+    mass, arbitrary dropout replay, transformed O and gradients of the discrete
+    support-selection operation are outside this version. Native rounding need
+    not preserve the exact row-sum identities without numerical admission.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Contract the softmax Jacobian row center through the saved weighted output, then apply each probability tile locally.
+  reuse: One row statistic serves every derivative score tile and optional sink derivative.
+  storage: One center per query row replaces a separate probability-domain center reduction; P storage/recomputation is chosen independently.
+  boundary: Matching weighted output, positive mass, natural-LSE gradient units and explicit checkpoint error.
+  resources: [registers, dram, tensor]
+numeric_risk: A rounded O perturbs every centered dZ term by -P*dot(g,O_error); strongly peaked rows can amplify its relative effect near cancellation.
+summary: >-
+  When softmax backward would revisit all keys just to reduce P*dP, compute
+  the same row center as dot(O,dO) using the saved weighted output. Subtract
+  incoming natural-LSE gradient from that center, then each tile computes
+  P*(dP-center). A zero-value sink uses -P_sink*center. Match the original
+  support and checkpoint precision; a rounded or transformed O changes this
+  identity unless its error is admitted or repaired by a better checkpoint.

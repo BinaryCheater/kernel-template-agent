@@ -1,0 +1,15 @@
+template: opposite_order_topk_merge@1
+version: 1
+relation: Expand the stream into the union of all original candidates; retained state
+  is its top-capacity multiset and final prefix is the requested exact top-k.
+rank: Unprocessed source items or unmerged partials.
+assumes:
+- name: contract
+  statement: The stated partition, comparator/count and publication premises hold.
+guarantees: []
+models: []
+note: Source python/triton_kernels/triton_kernels/topk_details/_topk_forward.py:33-104
+  and topk.py:27-45. If A ascends and B descends, discarded min(A_i,B_i) cannot outrank
+  the kth retained maximum; crossing monotone order gives the standard bitonic top-half
+  partition. An induction over blocks retains global top-capacity. This differs from
+  sorted_run_topk@1 cursor consumption and streaming_topk_filter@1 threshold compaction.

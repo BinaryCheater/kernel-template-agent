@@ -1,0 +1,28 @@
+template: shifted_weight_checkpoint@1
+version: 1
+relation: Each saved exponent tile decodes into the original logical normalized probabilities under its explicit checkpoint numerical contract.
+rank: Saved weight tiles awaiting final row normalization.
+assumes:
+  - {name: frames, statement: "W and r are paired from the same actual exponent operation and L2 covers the same complete logical support."}
+  - {name: mass, statement: "Final row mass is positive finite; empty tiles use defined zero weights with finite references or an explicit zero branch."}
+  - {name: numeric, statement: "Exponent, checkpoint and decoding arithmetic/casts satisfy the declared range/error policy."}
+guarantees: []
+models: []
+note: >-
+  For a finite-frame tile, exp2(z-r)*exp2(r-L2)=exp2(z-L2), independent of
+  whether r is a local maximum or an inherited running reference. A tile's
+  r cannot be substituted without changing its W. Example logits z=(0,1,2),
+  separate tiles(0,1) and(2), references1 and2, and final L2=log2(7) give
+  weights(.5,1),(1), scales2/7 and4/7, and P=(1/7,2/7,4/7). Replacing the
+  first reference by2 while retaining its W gives the wrong first two values.
+  Source flash_fwd_mla_sm100.py:2897-2934 saves the reference returned by
+  update_row_max_from_local and the corresponding converted P. Preprocess
+  flash_bwd_preprocess.py:550-580 forms scaleP from that reference and LSE;
+  flash_bwd_mla_sm100.py:2906-2940 decodes saved BF16 P into FP32, retains it
+  for dS, and rounds separately for dV. oneCTA forward variants reject mP/
+  mRowMax and are not this implementation. online_rescaled_reduction@2
+  describes the live numerator/denominator frame but not persistence of every
+  tile's narrow W and reference. softmax_probability_recomputation@1 saves
+  only row LSE and recomputes scores, so cannot express this representation.
+  Native underflow, exponent approximation, paired publication and checkpoint
+  error remain implementation obligations; this is not an exact cast identity.

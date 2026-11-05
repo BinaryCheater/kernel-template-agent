@@ -1,0 +1,16 @@
+template: alternating_peer_flit@1
+version: 1
+relation: Matched NVIDIA peer-memory halo exchanges with two phase-tracked flits per
+  worker; source CC>=700 path. Native memory protocol remains an explicit backend
+  premise, not inferred from vector access alone.
+rank: Number of input elements or state transitions still to consume.
+assumes:
+- name: source_contract
+  statement: Source binding and stated scope hold.
+guarantees: []
+models: []
+note: 'Source-derived candidate, not independently admitted. phase_identity: Equality/difference
+  selection alternates slots and accepts exactly the current message. payload_visibility:
+  Observed ready tag implies the complete matching payload, at the native transport
+  granularity. reuse: Sender cannot overwrite data before receiver consumption/reset
+  permits reuse. Native lowering and numerical error remain open; see trace and checks.'

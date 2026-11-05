@@ -1,0 +1,27 @@
+template: count_certified_topk_filter@1
+version: 1
+relation: Every accepted candidate set contains all original top-want winners; rejected sets are replaced
+  by exact full-domain selection, so final membership and tie order match global exact top-k.
+rank: Remaining scan phases or unresolved rank digits.
+assumes:
+- name: domain
+  statement: The full valid original domain is scanned once with finite scores and unique IDs.
+- name: filter
+  statement: The inclusive predicate uses the same ranking score and one non-NaN threshold.
+- name: count
+  statement: Counts include every qualifier and accepted buffers contain them all.
+- name: fallback
+  statement: Failure uses exact unchanged full-domain selection and all phases publish safely.
+guarantees: []
+models: []
+note: For finite scores, every omitted score is strictly below tau. If at least want qualifiers exist,
+  every top-want score is >=tau, including all identities tied at the boundary score. Thus exact selection
+  inside the complete qualifier set has the same winners under any fixed tie order. c<=capacity proves
+  all records fit; c>=want proves none of the excluded scores is needed. On failure the complete original
+  selector supplies the result. Zero support has want=0 and an empty output. Source sm120_dsa_indexer.cuh:1068-1130
+  chooses tau from sample rank; :2467-2470 uses inclusive >=, :2310-2321 increments counts for all flush
+  entries but bounds writes, and :1181-1197 rejects c outside [want,capacity]. binding.cu:499-519 dispatches
+  the flagged rows to exact rescan. sorted_run_topk@1 has sorted-run merging, k<=32 and smallest-ID ties;
+  it supplies neither this certificate nor the source selector. The logical check varies threshold/capacity
+  and scan order, including signed zeros, underfull, empty and overflow rows. Native counter visibility,
+  bit-identical rescoring and phase lifetimes remain obligations.

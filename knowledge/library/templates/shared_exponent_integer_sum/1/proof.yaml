@@ -1,0 +1,43 @@
+template: shared_exponent_integer_sum@1
+version: 1
+relation: Collect all original occurrences of one shared-exponent bin, sum them exactly as real values,
+  then apply the requested one final nonnegative FP32 toward-zero rounding. Exact integer addition is
+  independent of producer order and grouping.
+rank: Uncombined occurrences in one shared-exponent bin.
+assumes:
+- name: pre_domain
+  statement: All inputs are nonnegative finite FP32, and every bin shares one exact biased exponent field
+    E, including a separate E0 domain for zeros/subnormals. Mixing adjacent exponents is not admitted.
+    Input sign bits are zero; negative zero needs a separate canonicalization policy.
+- name: pre_census
+  statement: For every occurrence retain N+=1 and M+=its23-bit fraction; N<=INT32_max and M fits uint64.
+    Zero mantissa still contributes count, even if its fraction atomic can be omitted.
+- name: pre_exponent
+  statement: The shared exponent is stored or recovered from a complete key prefix that identifies the
+    same bin/data generation. Sign bits or an unrelated bucket representative cannot replace it.
+- name: pre_merge
+  statement: CTA partials and global totals add exact nonoverflowing integers; both channels are complete
+    before reconstruction, so no atomic pairing is needed during accumulation.
+- name: pre_empty
+  statement: Empty bins emit zero explicitly. Normal-exponent reconstruction with N0/M0 would not represent
+    an empty sum.
+- name: pre_range
+  statement: The exact sum stays within FP32 finite range and count limits keep native shifts/exponent
+    carries defined.
+- name: pre_rounding
+  statement: Reconstruction discards excess low significand bits once, equivalent to rounding the nonnegative
+    exact sum toward zero, not necessarily nearest-even. Downstream cumulative boundaries must admit that
+    policy separately.
+- name: pre_lifetime
+  statement: Each bin epoch has zeroed exclusive counters, implemented native integer atomics/completion,
+    and no reset or reuse before readers retire.
+guarantees: []
+models: []
+note: include/flashinfer/air_top_p.cuh:137-194 extracts FP32 fraction/exponent, adds mantissas as uint64,
+  reconstructs carries from(M>>23)+count and discards excess low bits. :229-282 merges CTA fraction/count
+  histograms; :326-349 skips empty bins and reconstructs using bucket/prefix exponent. csrc/renorm.cu:49-56
+  registers deterministic/non-deterministic float routes. Exponent extraction from initial11-bit bins
+  and later retained prefixes is essential to this decoder. Logical rational/bit-oracle checks compare
+  reconstruction with the greatest finite FP32 value not exceeding the exact sum, including subnormal-to-normal
+  carries, zero mantissas, empty bypass, producer permutations and a nearest-even counterexample. Native
+  atomics/visibility and downstream boundary error remain obligations.

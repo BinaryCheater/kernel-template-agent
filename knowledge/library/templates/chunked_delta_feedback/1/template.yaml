@@ -1,0 +1,139 @@
+name: chunked_delta_feedback
+version: 1
+level_from: 2
+level_to: 3
+change: vertical
+refines: map
+produces:
+- map
+- contract
+object:
+  type: causal_delta_feedback_factorization
+  description: Replace token-serial rank-one feedback inside a short scalar-gated delta chunk with one
+    weighted unit-lower solve and matrix contractions. Choose whether to form value residuals first or
+    absorb feedback into query coefficients.
+variables:
+- name: chunk_tokens
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+  - 4
+  - 8
+  - 16
+  - 64
+  meaning: Short MTP native/staged widths4/8/16 or Hopper prefill width64. Other widths require a new
+    binding.
+- name: evaluation_order
+  kind: structure
+  binding: compile
+  role: software
+  domain:
+  - residual_first
+  - coefficient_first
+  meaning: Residual-first exposes corrected value rows and outgoing state; coefficient-first reuses state/value-independent
+    query coefficients and can omit state update in frozen verification.
+constraints:
+- id: c_shape
+  expr: p.logical_tokens >= 1 and p.logical_tokens <= chunk_tokens
+  meaning: One nonempty chunk with complete or neutral-padded valid-token extent.
+  cls: implementation
+preconditions:
+- id: pre_recurrence
+  expr: p.scalar_decay_delta_recurrence_and_after_update_readout
+  meaning: K-major state follows H_i=alpha_i*H_(i-1)+k_i*r_i with r_i=beta_i*(v_i-k_i^T*(alpha_i*H_(i-1))).
+    Output is q_i^T*H_i. Query scaling and key normalization are resolved consistently before this factorization.
+  cls: implementation
+- id: pre_frames
+  expr: p.positive_scalar_decays_and_complete_chunk_frames
+  meaning: Each alpha is positive; local E_i is the product through token i from this chunk boundary,
+    and D_ij is the product from j+1 through i. Chunks cannot mix sequences or head mappings.
+  cls: implementation
+- id: pre_solve
+  expr: p.unit_lower_weighted_solve_implemented_and_residual_admitted
+  meaning: A=I+L is unit lower triangular, L_ij=beta_i*D_ij*(k_i dot k_j) strictly below the diagonal.
+    T solves A*T=diag(beta), including zero beta without division. The selected solve/casts meet the declared
+    residual policy.
+  cls: implementation
+- id: pre_numeric
+  expr: p.gate_difference_and_all_contraction_rounding_stages_admitted
+  meaning: Compute decay ratios from local log-prefix differences where needed, without overflowing separate
+    reciprocals. KKT, QKT, T, residual/coefficient products, state and output casts have an explicit admitted
+    error policy; real equivalence does not imply bitwise equality.
+  cls: implementation
+- id: pre_boundary
+  expr: p.incoming_state_readers_complete_before_state_replacement
+  meaning: All outputs/residuals needing H_in capture that generation before H_out overwrites it. Optional
+    frozen output-only execution leaves H_in unchanged. The next chunk waits for complete H_out.
+  cls: implementation
+- id: pre_scope
+  expr: p.complete_chunks_or_neutral_padding_and_unique_output_ownership
+  meaning: Complete chunk coordinates, or a validated neutral extension alpha=1,beta=0,k=q=v=0 and masked
+    stores, preserve valid rows. Each output/state shard has one owner and reductions include every key
+    shard.
+  cls: implementation
+- id: pre_backend
+  expr: p.selected_order_shape_dtype_and_target_supported
+  meaning: The selected computation order, width, dtype, state layout and target have an implemented binding.
+    Output-only coefficient-first does not by itself produce an outgoing state.
+  cls: implementation
+program:
+  description: Use K-major H (transpose a V-major source state). For a chunk define E_i=product_(u=0..i)
+    alpha_u and D_ij=product_(u=j+1..i) alpha_u, so D_ii=1. Set L_ij=beta_i*D_ij*(k_i dot k_j) for j<i
+    and zero otherwise. Solve (I+L)*T=diag(beta). Define EK_i=E_i*k_i, EQ_i=E_i*q_i and causal C_ij=D_ij*(q_i
+    dot k_j) for j<=i. In residual_first form R=T*(V-EK*H_in), then Y=EQ*H_in+C*R. In coefficient_first
+    form P=C*T and A=EQ-P*EK, then Y=A*H_in+P*V; P and A depend on Q/K/gates but not V or H_in. If outgoing
+    state is requested, obtain R (also in coefficient_first) and form H_out=E_end*H_in+sum_j D_end,j*k_j
+    outer R_j after all H_in readers finish. Output-only mode omits this state work and retains the frozen
+    checkpoint. Apply resolved query scale consistently. Solve strategy, feature tiling, checkpoint retention
+    and matrix instruction layout are separate choices.
+backward_map: Expand each state contribution within the chunk. Residuals satisfy R_i+sum_(j<i) beta_i*D_ij*(k_i
+  dot k_j)*R_j=beta_i*(v_i-E_i*k_i^T*H_in); forward uniqueness gives the sequential delta residuals. Substitution
+  yields both output forms and the inclusive outgoing state.
+obligations:
+- name: feedback_system
+  statement: The strictly lower feedback system has the same unique residuals as the sequential recurrence,
+    including beta0 and nonzero incoming state.
+  method: proof
+- name: contraction_order
+  statement: Both output orders preserve causal support and after-update readout, and outgoing state includes
+    every residual once.
+  method: test
+- name: numeric_and_lifetime
+  statement: Native stage precision and decay arithmetic meet the selected error policy; incoming state
+    and aliased scratch remain live through their last reader.
+  method: test
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: p.logical_tokens >= 1 and p.logical_tokens <= chunk_tokens and (p.scalar_decay_delta_recurrence_and_after_update_readout)
+    and (p.positive_scalar_decays_and_complete_chunk_frames) and (p.unit_lower_weighted_solve_implemented_and_residual_admitted)
+    and (p.gate_difference_and_all_contraction_rounding_stages_admitted) and (p.incoming_state_readers_complete_before_state_replacement)
+    and (p.complete_chunks_or_neutral_padding_and_unique_output_ownership) and (p.selected_order_shape_dtype_and_target_supported)
+  text: Scalar positive-decay GDN chunks. Hopper SM90a prefill uses64 rows, FP16 inverse storage with
+    BF16/FP16 operands and FP32 accumulation/carried state options. Frozen BF16 no-prepack MTP uses a16-row
+    working tile with4/8/16 active specialization, K=V128 and mandatory in-kernel Q/K normalization on
+    SM90+ TMA-capable paths. Coefficient-first outgoing state is a composition requiring an implemented
+    residual/state path, not a claim about that output-only kernel. Featurewise gates, multiple Householder
+    substeps per token, generic nonlinear feedback and native bitwise equivalence are outside this version.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Weighted lower-triangular feedback solve followed by residual-first or query-coefficient-first
+    contractions.
+  storage: Chunk KKT/QKT/weighted solve and residual or query coefficients plus incoming recurrent state.
+  boundary: Decay before prediction; beta on equation row and solve RHS; causal diagonal included in readout;
+    inclusive outgoing state.
+  resources:
+  - registers
+  - smem
+  - tensor
+numeric_risk: Small triangular systems are always invertible in exact arithmetic but can be ill-conditioned.
+  Coefficient cancellation, BF16/FP16 solve storage, gate underflow and reassociation change native error.
+summary: When a scalar-gated recurrent update subtracts a key prediction before its rank-one insertion,
+  form the chunk feedback solve instead of treating inserts as independent. Choose corrected-value residuals
+  first, or fold feedback into query coefficients for frozen output computation. Keep beta placement,
+  decay frames and after-update readout explicit.

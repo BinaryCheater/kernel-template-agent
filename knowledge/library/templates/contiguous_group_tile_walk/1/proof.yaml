@@ -1,0 +1,27 @@
+template: contiguous_group_tile_walk@1
+version: 1
+relation: Unroll every CTA interval into its original group/tile coordinates; group intersections partition
+  each original reduction exactly once, and the declared state combiner reconstructs that group result.
+rank: Unprocessed flattened slots in each worker interval.
+assumes:
+- name: domain
+  statement: S=P*T slots enumerate each allocated group/tile once.
+- name: intervals
+  statement: Worker c visits exactly its floor-divided half-open interval.
+- name: state
+  statement: Each intersection begins with identity and yields one complete combinable state.
+- name: lifetime
+  statement: Partial slots, pipeline generations, publication and unused capacity obey the declared contract.
+guarantees: []
+models: []
+note: Boundaries b_c=floor(c*S/G) are monotone, b_0=0 and b_G=S. With G<=S each interval is nonempty.
+  The unique c satisfying b_c<=s<b_(c+1) is floor(((s+1)*G-1)/S), not floor(s*G/S). For group g, the owners
+  of its first/last slots delimit consecutive nonempty intersections; c-owner(g*T) bijects those owners
+  onto segment slots [0,count_g). Their tile intervals cover [0,T) once, so merging their complete states
+  reconstructs the original group. Source experimental/cake_qsa_nvfp4/cake_jit.py:1134-1168 implements
+  the same inverse and maximum split capacity; generated persistent kernel ending dfd8600d03040c9f808d
+  :310-347 decodes intervals, pair identity, local tile range and segment slot. persistent_tile_scheduler@1
+  exposes static stride or atomic fetch and does not emit variable per-group intersections; cost_partitioned_worklists@1
+  precomputes full descriptor lists with greedy costs rather than this arithmetic. Logical enumeration
+  checks every small rectangle/worker count, group partial identity and a floor-owner counterexample.
+  Native TMEM reset, ring phase continuity, partial LSE encoding and merge completion remain obligations.

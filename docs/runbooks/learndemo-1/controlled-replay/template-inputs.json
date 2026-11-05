@@ -1,0 +1,212 @@
+{
+  "status": "planned exposure inventory; source-version reconciliation and supplemental guides pending",
+  "canonical_subset": [
+    "output_tiling@2",
+    "reduction_partition@1",
+    "compute_instruction_selection@2",
+    "physical_storage@1",
+    "async_transfer@1",
+    "multi_buffer_rotation@2",
+    "operator_fusion@4",
+    "online_rescaled_reduction@2",
+    "masked_tile_pruning@2",
+    "shared_resource_binding@1"
+  ],
+  "proposal_subset": [
+    "operand_precision_conversion@1",
+    "approximate_math_rewrite@1",
+    "cross_lane_reduction@1",
+    "accumulator_operand_reuse@1",
+    "collective_fragment_load@1",
+    "staged_relayout@1",
+    "boundary_predication@1",
+    "vectorized_access@1"
+  ],
+  "prescribed_total": 18,
+  "self_selection_total": 320,
+  "self_selection_basis": "312 canonical entries plus the same eight explicitly labelled source proposals; source/answer traces excluded",
+  "entries": [
+    {
+      "identity": "output_tiling@2",
+      "status": "canonical_pair",
+      "source": "knowledge/seed/templates/output_tiling.yaml",
+      "canonical_destination": "templates/output_tiling/2",
+      "files": {
+        "GUIDE.md": "f8f0987708f370d5bd58a9e04c5fe86e652e7426b7c8481684f26f89e58a53d1",
+        "template.yaml": "ad92579f68a4dd5e44f594309b5908ac9f359623ad1ba750653f9cb2e2d8d5df",
+        "proof.yaml": "82171fdd2394ea4c352c7353b0f7020380a4f184c31e1dec782e75555bc190a5"
+      }
+    },
+    {
+      "identity": "reduction_partition@1",
+      "status": "canonical_pair",
+      "source": "knowledge/seed/templates/reduction_partition.yaml",
+      "canonical_destination": "templates/reduction_partition/1",
+      "files": {
+        "GUIDE.md": "3c91c6816c5cfda85260d7eb37403698e206f6e17b1f952d59566810c25eca9e",
+        "template.yaml": "ea271f8a220ed2d61111eeae5e09bfc84003659284f02de3f5ebb9986c98e1a1",
+        "proof.yaml": "460b9a718305616c5675cd832cecfce5d00c0f72379a14a1b5f51b2a3c049cc2"
+      }
+    },
+    {
+      "identity": "compute_instruction_selection@2",
+      "status": "canonical_pair",
+      "source": "knowledge/seed/templates/compute_instruction_selection.yaml",
+      "canonical_destination": "templates/compute_instruction_selection/2",
+      "files": {
+        "GUIDE.md": "023127018f7c8ed765e60ffa99c8145db94b5869c61085574d047d9c2f8addbf",
+        "template.yaml": "1a52bb800c7bc07ecbaf296515642945ed0b235f46d46c13a7dec23171231702",
+        "proof.yaml": "7bf0e49fad8e343dd6240909201040f04ed27efb81b6f30488ce033b2b6568d5"
+      }
+    },
+    {
+      "identity": "physical_storage@1",
+      "status": "canonical_pair",
+      "source": "knowledge/seed/templates/physical_storage.yaml",
+      "canonical_destination": "templates/physical_storage/1",
+      "files": {
+        "GUIDE.md": "777dce3a00615b4284318aec63d7f5c14f5b64a25d2a6744d3592bafb434988f",
+        "template.yaml": "c46f31490229ec6190b3f4ea7bc3eb2743fa6342b9a9dd07e18e32ebc28ef7e5",
+        "proof.yaml": "99c690e9ed17e275066ec74add319c4052a9b61e1d4e5cc90c2b5bf0de9d441d"
+      }
+    },
+    {
+      "identity": "async_transfer@1",
+      "status": "canonical_pair",
+      "source": "knowledge/seed/templates/async_transfer.yaml",
+      "canonical_destination": "templates/async_transfer/1",
+      "files": {
+        "GUIDE.md": "b8a7e371fec9e80bf5f6bcddec0628c564a05839e55e4d793ca3de2aa2268747",
+        "template.yaml": "045a919567514d9c674b3db100c84f62d5d869ce7821bfa5103ef6e339a94bef",
+        "proof.yaml": "fb1787f3bb7d0a6311801370ea1255283a3ff8bfe58f6fb9f41eda9064cabb07"
+      }
+    },
+    {
+      "identity": "multi_buffer_rotation@2",
+      "status": "canonical_pair",
+      "source": "knowledge/seed/templates/multi_buffer_rotation.yaml",
+      "canonical_destination": "templates/multi_buffer_rotation/2",
+      "files": {
+        "GUIDE.md": "262697e997ecf875fe9b9e417da738e9903bfe3c3d8f8cf464d2140a3b7831e1",
+        "template.yaml": "780351e331cc7a2152bf1386c92cf5dc17ff7c6e474b5b2e63687e6ac2c0ef6a",
+        "proof.yaml": "3bb1c12a2ba6f081d324cfd1de62a383cc0f474019e46639fde72c78da2cc9a5"
+      }
+    },
+    {
+      "identity": "operator_fusion@4",
+      "status": "canonical_pair",
+      "source": "knowledge/studies/sglang/delta/operator_fusion@4/template.yaml",
+      "canonical_destination": "templates/operator_fusion/4",
+      "files": {
+        "GUIDE.md": "56a2aa30d4e9fa863300f5b4c8ca926245dbf9ea2a0c08291b3588bec74e8025",
+        "template.yaml": "be7fda4e992c547c29dcb65365e33aea9499eca0dc29729e4087c212886a9f88",
+        "proof.yaml": "01cf95f2a38c7bbc92aabb6f9f3d730a92344bea47468a0a6f6a854d9ae0e1ec"
+      }
+    },
+    {
+      "identity": "online_rescaled_reduction@2",
+      "status": "canonical_pair",
+      "source": "knowledge/studies/cutlass/delta/online_rescaled_reduction@2/template.yaml",
+      "canonical_destination": "templates/online_rescaled_reduction/2",
+      "files": {
+        "GUIDE.md": "1b75f8959c6a876892b426a656d8cff57015b3d7fbee3454a48320f98a32dadd",
+        "template.yaml": "76bd7d2bcac3ce0dcead76b15ca0d0f692c5e6230cfb584360ec06f34dcb2828",
+        "proof.yaml": "fb72ef8b2aa37f2648bc6942e9f024208f9f077e284326feeede454195e09c42"
+      }
+    },
+    {
+      "identity": "masked_tile_pruning@2",
+      "status": "canonical_pair",
+      "source": "knowledge/studies/cutlass/delta/masked_tile_pruning@2/template.yaml",
+      "canonical_destination": "templates/masked_tile_pruning/2",
+      "files": {
+        "GUIDE.md": "a77656c59a5bb2826d8ad3c5137ca3cd629ea3a480723c28be51e3b2cc6c5ed7",
+        "template.yaml": "ab3811402f70f8cb78fb2fc74fb4624f8bab56f2aa81212974584b3bb362baef",
+        "proof.yaml": "3bbeb2f2df9c88d58718768a2ecbafe9e2b0243e7afadcaf71060835031341f4"
+      }
+    },
+    {
+      "identity": "shared_resource_binding@1",
+      "status": "canonical_pair",
+      "source": "knowledge/seed/templates/shared_resource_binding.yaml",
+      "canonical_destination": "templates/shared_resource_binding/1",
+      "files": {
+        "GUIDE.md": "0f107947412b8368b1bd4c8cee8b6683c5c9072a340ef29edc1c1bb4d33c2aa2",
+        "template.yaml": "d9b00f47a95549578419a3928d8b2b4691bdeece015e827d740e97abb51e31cf",
+        "proof.yaml": "a606b982ecddb53437dbd19a3ad4fbda1346fa1a5e599f9f37e4681c5edc868c"
+      }
+    },
+    {
+      "identity": "operand_precision_conversion@1",
+      "status": "source_proposal_missing_outline",
+      "source": "knowledge/seed/references/cutlass_ampere_tf32_gemm/templates/operand_precision_conversion.yaml",
+      "canonical_destination": null,
+      "files": {
+        "template.yaml": "0d5d440c291955398340e009ccd59c6d062d57b0de4b352a4ccb9cc850a0faaf"
+      }
+    },
+    {
+      "identity": "approximate_math_rewrite@1",
+      "status": "source_proposal_missing_outline",
+      "source": "knowledge/seed/references/flash_attention_2_fwd/templates/approximate_math_rewrite.yaml",
+      "canonical_destination": null,
+      "files": {
+        "template.yaml": "c8de6d84d9f50948187bb70cd2278c9d3781c87f109bbb650506031af88a08c9"
+      }
+    },
+    {
+      "identity": "cross_lane_reduction@1",
+      "status": "source_proposal_missing_outline",
+      "source": "knowledge/seed/references/flash_attention_2_fwd/templates/cross_lane_reduction.yaml",
+      "canonical_destination": null,
+      "files": {
+        "template.yaml": "18c636d93edbd6309f463090f80f0bf97fc40760a48a52999a42ee0c4fdd7730"
+      }
+    },
+    {
+      "identity": "accumulator_operand_reuse@1",
+      "status": "source_proposal_missing_outline",
+      "source": "knowledge/seed/references/flash_attention_2_fwd/templates/accumulator_operand_reuse.yaml",
+      "canonical_destination": null,
+      "files": {
+        "template.yaml": "53450cb0877b22e833327c5a2edc1cae1246a17e2309c049ec637de8b964601c"
+      }
+    },
+    {
+      "identity": "collective_fragment_load@1",
+      "status": "source_proposal_missing_outline",
+      "source": "knowledge/seed/references/cutlass_ampere_tf32_gemm/templates/collective_fragment_load.yaml",
+      "canonical_destination": null,
+      "files": {
+        "template.yaml": "7d70f738c882a559efc5d24ccce519ea31caec0ee60f7dbe1a10df98f31d0f36"
+      }
+    },
+    {
+      "identity": "staged_relayout@1",
+      "status": "source_proposal_missing_outline",
+      "source": "knowledge/seed/references/cutlass_ampere_tf32_gemm/templates/staged_relayout.yaml",
+      "canonical_destination": null,
+      "files": {
+        "template.yaml": "f7a340deabb5d061c6c5e588280f283cf545abceb6483ec755f02696c13d113a"
+      }
+    },
+    {
+      "identity": "boundary_predication@1",
+      "status": "source_proposal_missing_outline",
+      "source": "knowledge/seed/references/cutlass_ampere_tf32_gemm/templates/boundary_predication.yaml",
+      "canonical_destination": null,
+      "files": {
+        "template.yaml": "c47517344a2c472d3a9d5fede09fd48b377ef3e55b860f26ffab08f9d6b21d1c"
+      }
+    },
+    {
+      "identity": "vectorized_access@1",
+      "status": "source_proposal_missing_outline",
+      "source": "knowledge/seed/references/cutlass_ampere_tf32_gemm/templates/vectorized_access.yaml",
+      "canonical_destination": null,
+      "files": {
+        "template.yaml": "fd0583e7086fd09348d78438582d99eae7efaec78fa9399c2be87e736bb15fa8"
+      }
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "template": "affine_residual_metric_hoisting@1",
+  "version": 1,
+  "relation": "Shared query/probe terms denote the same affine-decoded vectors as the coarse metric, and each accumulator contains exactly the processed feature terms and required decoded norm terms.",
+  "rank": "Remaining probes, candidate rows and logical features; metadata phases have finite load work.",
+  "assumes": [
+    {
+      "name": "source_contract",
+      "statement": "NVIDIA IVF-SQ8 residual scan. Unlike Faiss midpoint SQ, this decoder has no implicit half-step; format conversion and metric normalization must not be conflated. Source cosine zero denominator returns zero."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Source-derived proof outline; no formal proof result or GPU execution claimed. algebra: Hoisted expression equals requested affine-decoded metric before admitted rounding. lifetime: Probe overwrite follows all previous readers; merge scratch aliases shared metadata only after last use. normalization: Cosine uses decoded-vector norm, not original/prequantized vector norm. tails: Padded code loads stay inside allocated padded storage and dimensions beyond the logical size do not accumulate. The relation is a proposed source-level invariant; the stated finite-work rank depends on the explicit environment progress assumptions. Device ordering and numeric premises have not been discharged by schema validation."
+}

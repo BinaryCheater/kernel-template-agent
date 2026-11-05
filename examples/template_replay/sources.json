@@ -1,0 +1,31 @@
+{
+  "scope": "reviewable exports of selected measured implementations; original session/source snapshots retained",
+  "exports": {
+    "gemm_codex.py": "gemm/self-selection-v1",
+    "attention_codex.py": "attention/self-selection-v1",
+    "attention_dsh.py": "attention/dsh-self-selection-protocol-v2"
+  },
+  "validation": {
+    "gemm_codex.py": {
+      "original": "/Users/dingyi/kta-data/dev/template-replay/gemm/self-selection-v1/selected/candidate.py",
+      "export_sha256": "2e57e96bd2096bcf5f0da95c3b4eddaf1c5f97ff66217ca49b0ae93cd65b04d7",
+      "result": "/Users/dingyi/kta-data/dev/template-replay/export-validation/gemm_codex/attempts/001/result.json",
+      "passed": true,
+      "changes": "style normalization, output argument naming and equivalent functools cache decorator; independently GPU validated"
+    },
+    "attention_codex.py": {
+      "original": "/Users/dingyi/kta-data/dev/template-replay/attention/self-selection-v1/selected/candidate.py",
+      "export_sha256": "12effadac3c7dc69a9bebb1ec57ac902dc40fa7d2daac467a475d05894c0279b",
+      "result": "/Users/dingyi/kta-data/dev/template-replay/export-validation/attention_codex/attempts/001/result.json",
+      "passed": true,
+      "changes": "style normalization, output argument naming and equivalent functools cache decorator; independently GPU validated"
+    },
+    "attention_dsh.py": {
+      "original": "/Users/dingyi/kta-data/dev/template-replay/attention/dsh-self-selection-protocol-v2/selected/candidate.py",
+      "export_sha256": "25005b2922324986b087edf503028817979f46a9c919b3dea9c9b2a6c34d21f1",
+      "result": "/Users/dingyi/kta-data/dev/template-replay/export-validation/attention_dsh/attempts/001/result.json",
+      "passed": true,
+      "changes": "style normalization, output argument naming and equivalent functools cache decorator; independently GPU validated"
+    }
+  }
+}

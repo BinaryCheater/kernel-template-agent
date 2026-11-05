@@ -1,0 +1,110 @@
+{
+  "name": "warp_interleaved_code_append",
+  "version": 1,
+  "level_from": 2,
+  "level_to": 3,
+  "change": "vertical",
+  "refines": "map",
+  "produces": [
+    "map",
+    "access"
+  ],
+  "object": {
+    "type": "warp_interleaved_code_append",
+    "description": "When warp lanes scan distinct database vectors at the same feature, store codes dimension-major within fixed warp-sized vector blocks and preserve old sub-byte fields on append."
+  },
+  "variables": [
+    {
+      "name": "vector_block",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": [
+        32
+      ],
+      "meaning": "NVIDIA warp vector grouping."
+    },
+    {
+      "name": "code_bits",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": [
+        4,
+        5,
+        6,
+        8,
+        16,
+        32
+      ],
+      "meaning": "Observed storage formats, independent of quantizer numerical policy."
+    }
+  ],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_0",
+      "expr": "p.codes_in_range and p.append_slots_disjoint",
+      "meaning": "Codes fit width and append reserves disjoint list positions.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_1",
+      "expr": "p.new_fields_zero and p.old_fields_immutable",
+      "meaning": "New bit fields begin zero; existing packed fields are preserved, with no concurrent writer to a shared byte.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_2",
+      "expr": "p.producer_consumer_mapping_equal and p.full_warp_participation",
+      "meaning": "Append and scan share dimension/block/bit mapping, all shuffle lanes participate.",
+      "cls": "semantic"
+    }
+  ],
+  "program": {
+    "description": "Let vector v have block floor(v/32) and lane v%32. For each feature d, store its 32 codes consecutively in code_bits*32/8 bytes; feature planes are contiguous within the vector block. On append starting inside an old block, align start down to32, make lanes before start invalid, pack their values as zero and OR only new fields into existing bytes. Consumer loads each dimension plane cooperatively, shuffles packed fields back to vector lanes and decodes each code for its feature before metric accumulation."
+  },
+  "backward_map": "Erase auxiliary organization and recover the visible results under the stated contract.",
+  "obligations": [
+    {
+      "name": "bit_identity",
+      "statement": "Logical (vector,feature,bit) maps injectively to the same physical bit in append and scan.",
+      "method": "proof"
+    },
+    {
+      "name": "preserve_prefix",
+      "statement": "Unaligned append changes no field of vectors before append start.",
+      "method": "proof"
+    },
+    {
+      "name": "no_shared_byte_race",
+      "statement": "One owner writes each byte for a list/block/feature and new bits are zero before OR.",
+      "method": "proof"
+    },
+    {
+      "name": "tail",
+      "statement": "Invalid last-block lanes contribute zero fields but never enter distance selection.",
+      "method": "proof"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.codes_in_range and p.append_slots_disjoint and p.new_fields_zero and p.old_fields_immutable and p.producer_consumer_mapping_equal and p.full_warp_participation",
+    "text": "NVIDIA CUDA IVF interleaved Flat/SQ/PQ layout. 4/5/6-bit packers use OR, so this is append into clean new fields, not in-place replacement. Numerical scalar/PQ decoding is separate. Resource effects: Stores vector_block*D*code_bits/8 bytes per complete block; cooperative lane rearrangement trades shuffle work for contiguous same-feature loads. Append may revisit a partial block without rewriting its existing fields."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "When warp lanes scan distinct database vectors at the same feature, store codes dimension-major within fixed warp-sized vector blocks and preserve old sub-byte fields on append.",
+    "storage": "Stores vector_block*D*code_bits/8 bytes per complete block; cooperative lane rearrangement trades shuffle work for contiguous same-feature loads. Append may revisit a partial block without rewriting its existing fields.",
+    "boundary": "4-bit vectors v0 and v1 share one byte. If old v0=3 and append v1=10, OR0xa0 gives0xa3; writing0xa0 directly destroys v0. Overwriting v1 later with2 by OR is invalid because old high bits remain.",
+    "resources": []
+  },
+  "numeric_risk": "Preserve the supplied arithmetic contract; reassociation, quantization and approximate search require separate permission.",
+  "summary": "When warp lanes scan distinct database vectors at the same feature, store codes dimension-major within fixed warp-sized vector blocks and preserve old sub-byte fields on append. 4-bit vectors v0 and v1 share one byte. If old v0=3 and append v1=10, OR0xa0 gives0xa3; writing0xa0 directly destroys v0. Overwriting v1 later with2 by OR is invalid because old high bits remain."
+}

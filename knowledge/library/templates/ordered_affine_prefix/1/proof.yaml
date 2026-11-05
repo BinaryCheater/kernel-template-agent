@@ -1,0 +1,17 @@
+template: ordered_affine_prefix@1
+version: 1
+relation: Ordered diagonal real/complex affine recurrences; each prefix pair denotes
+  the same function of initial state. General matrix transitions, state-dependent
+  coefficients and nonlinear recurrence are outside this version.
+rank: Number of input elements or state transitions still to consume.
+assumes:
+- name: source_contract
+  statement: Source binding and stated scope hold.
+guarantees: []
+models: []
+note: 'Source-derived candidate, not independently admitted. composition: Substitution
+  of s1=a0*s+b0 into s2=a1*s1+b1 gives composed coefficients; associative function
+  composition preserves chronological order. tail_and_reset: Identity padding leaves
+  final state unchanged; zero a at reset annihilates prior-state influence. chunk_carry:
+  Seed every chunk with its exact previous aggregate before exposing outputs. Native
+  lowering and numerical error remain open; see trace and checks.'

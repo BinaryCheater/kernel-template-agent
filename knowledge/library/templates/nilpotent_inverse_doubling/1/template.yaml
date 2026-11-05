@@ -1,0 +1,80 @@
+{
+  "name": "nilpotent_inverse_doubling",
+  "version": 1,
+  "level_from": 3,
+  "level_to": 4,
+  "change": "vertical",
+  "refines": "contract",
+  "produces": [
+    "contract",
+    "map"
+  ],
+  "object": {
+    "type": "doubling_unit_lower_inverse_iterate",
+    "description": "A polynomial inverse iterate forI+A with strictly lower-triangularA, doubling the represented nilpotent degree each step."
+  },
+  "variables": [],
+  "constraints": [
+    {
+      "id": "c_shape",
+      "expr": "p.order == 16 and p.doubling_steps == 3",
+      "meaning": "Pinned warp-local16x16 block, initialI-A then three doubling updates.",
+      "cls": "implementation"
+    }
+  ],
+  "preconditions": [
+    {
+      "id": "pre_matrix",
+      "expr": "p.strict_lower_A and p.unit_diagonal_system and p.operand_maps_preserve_matrix_orientation",
+      "meaning": "A^16=0, systemI+A and MMA transpose/fragment maps retain multiplication order.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_numeric",
+      "expr": "p.inverse_cast_mma_residual_policy_admitted and p.finite_products",
+      "meaning": "Source BF16 operand casts and FP32 products are an admitted approximate realization; exact finite polynomial does not certify rounded inverse accuracy.",
+      "cls": "implementation"
+    }
+  ],
+  "program": {
+    "description": "SetX0=I-A. Repeat exactlythree timesXnext=2X-X*(I+A)*X, retaining the source product order and storage casts. In exact arithmetic this doubles the included Neumann-polynomial terms from2 to4,8,16; becauseA^16=0, the finalX invertsI+A. Publish the completed16x16 inverse before dependent lower-block assembly. Source stores an initial negative systemM=-(I+A), computesX*M, rounds, then accumulates(X*M)*X+2X under the stated numerical policy."
+  },
+  "backward_map": "Erase intermediate iterates; after three exact updates(I+A)X=I=X(I+A) by nilpotence. Native implementation refines only an admitted approximate inverse contract.",
+  "obligations": [
+    {
+      "name": "polynomial",
+      "statement": "Each exact update squares the inverse error polynomial, giving degree16 after three steps fromI-A.",
+      "method": "proof"
+    },
+    {
+      "name": "orientation",
+      "statement": "MMA operand/transpose maps implement2X-X(I+A)X and not an incorrectly transposed/reordered product.",
+      "method": "test"
+    },
+    {
+      "name": "numeric_residual",
+      "statement": "Rounded BF16/FP32 source sequence meets the declared inverse residual/error policy.",
+      "method": "test"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.order == 16 and p.strict_lower_A and p.inverse_cast_mma_residual_policy_admitted",
+    "text": "Pinned16x16 unit-lower inverse building block, used inside four-block64-token feedback inverses. No norm-contraction assumption needed for exact nilpotent algebra; finite-precision error still requires admission. Not a general dense Newton-Schulz convergence rule."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "Three Newton-Schulz polynomial doublings invert a16-order unit-lower block in exact arithmetic.",
+    "storage": "Warp fragments plus shared transpose image; intermediate rounding is explicit.",
+    "boundary": "Strict lower triangle and implicit unit diagonal; upper entries must remain zero.",
+    "resources": []
+  },
+  "numeric_risk": "BF16 rounding after intermediate matrix products invalidates exact polynomial cancellation; small norm is not inferred and inverse residual must be checked for the source regime.",
+  "summary": "When a small unit-lower block is to be inverted on matrix hardware, initializeI-A and double the inverse polynomial with2X-X(I+A)X. For16 rows three updates suffice algebraically becauseA is nilpotent. This replaces serial row dependency with matrix products, while requiring explicit fragment orientation and a finite-precision inverse residual contract."
+}

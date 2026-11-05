@@ -1,0 +1,93 @@
+name: blocked_unit_lower_inverse
+version: 1
+level_from: 2
+level_to: 3
+change: vertical
+refines: map
+produces:
+- map
+- contract
+object:
+  type: block_lower_inverse
+  description: When a short unit lower-triangular solve lies between contractions, invert its small diagonal
+    blocks locally and form off-diagonal inverse blocks by ordered matrix products. This exposes GEMM
+    work while retaining the block dependency order. The pinned binding is four 16-token blocks; solving
+    arbitrary dense or ill-conditioned systems requires a different contract.
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+requires: []
+probed_on: []
+relations: []
+summary: When a short unit lower-triangular solve lies between contractions, invert its small diagonal
+  blocks locally and form off-diagonal inverse blocks by ordered matrix products. This exposes GEMM work
+  while retaining the block dependency order. The pinned binding is four 16-token blocks; solving arbitrary
+  dense or ill-conditioned systems requires a different contract.
+variables:
+- name: block_order
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+  - 16
+  meaning: Diagonal block order in the pinned four-block source binding; larger menus require new binding
+    evidence.
+constraints:
+- id: c_order
+  expr: p.order == 4 * block_order
+  meaning: This version instantiates the four-block lower-triangular decomposition.
+  cls: semantic
+preconditions:
+- id: pre_matrix
+  expr: p.unit_lower_matrix and p.complete_matrix_and_sequence_binding
+  meaning: The matrix is I plus a strictly lower-triangular part; sequence and chunk boundaries do not
+    mix rows.
+  cls: semantic
+- id: pre_numeric
+  expr: p.inverse_residual_policy_defined and p.products_and_casts_admitted and p.diagonal_solve_valid
+  meaning: The diagonal solves, products and stores satisfy the inverse residual and numerical contract.
+  cls: implementation
+- id: pre_order
+  expr: p.dependencies_completed_before_read and p.scratch_aliases_valid
+  meaning: Every inverse block is complete before dependent products read it; scratch lifetimes do not
+    overlap.
+  cls: implementation
+program:
+  description: Partition A into four-by-four equal blocks with zero upper blocks and unit lower-triangular
+    diagonal blocks. Compute D_ii=inverse(A_ii) by forward substitution. For each block column j and increasing
+    i>j compute D_ij = -D_ii * sum_(k=j..i-1) A_ik * D_kj. Set upper blocks to zero. Products may use
+    staged matrix contractions, but block dependencies and sum completeness are retained. The source forms
+    adjacent blocks 10,21,32 first, then 20,31, then 30 and stores the assembled lower inverse for its
+    later W/U contractions.
+backward_map: Multiply the assembled inverse by the original unit lower-triangular matrix; the block equations
+  recover the identity.
+obligations:
+- name: block_inverse
+  statement: Every diagonal block solves its local triangular system and each lower block satisfies the
+    identity block equation.
+  method: proof
+- name: dependency_order
+  statement: No product reads an unfinished D_kj and every k term is included once.
+  method: test
+- name: residual
+  statement: Native precision and cast choices meet the chosen inverse residual policy.
+  method: test
+scope:
+  predicate: p.order == 4 * block_order and p.unit_lower_matrix and p.complete_matrix_and_sequence_binding
+    and p.inverse_residual_policy_defined and p.products_and_casts_admitted and p.diagonal_solve_valid
+    and p.dependencies_completed_before_read and p.scratch_aliases_valid
+  text: Four-block unit lower-triangular inverse with source block order 16 and matrix order 64. TileLang
+    KDA computes gate-weighted off-diagonal blocks and combines them with diagonal blocks produced separately.
+    Tail, singular/general dense systems and a guarantee of numerical stability for arbitrary coefficients
+    are outside this version. Gate factorization and score construction are separate upstream transformations.
+signature:
+  algorithm: Block forward substitution to assemble a unit lower-triangular inverse.
+  storage: Diagonal inverses and completed lower blocks retained for dependent matrix products.
+  boundary: Unit triangular structure, block order and inverse residual policy.
+  resources:
+  - smem
+  - registers
+  - tensor
+numeric_risk: Triangular invertibility in exact arithmetic does not bound conditioning or low-precision
+  residuals.

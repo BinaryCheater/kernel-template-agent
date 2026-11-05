@@ -1,0 +1,26 @@
+template: affine_activation_rematerialization@1
+version: 1
+relation: Each retained boundary regenerates the omitted forward intermediates before all dependent backward operations under the declared numerical replay contract.
+rank: Backward-required intermediates not yet retained or regenerated.
+assumes:
+  - {name: deterministic_chain, statement: "A=affine(X,W,b), B=activation(A) is deterministic with explicit bias/casts and complete backward dependencies."}
+  - {name: immutable_boundary, statement: "Every selected retention boundary preserves original coordinates, generations and values through replay."}
+  - {name: numerical, statement: "The replayed backend arithmetic, activation and checkpoint precision meet the admitted value/gradient policy."}
+guarantees: []
+models: []
+note: >-
+  With both values retained there is no rematerialization. With A retained,
+  deterministic activation reconstructs B. With X,W,b retained, deterministic
+  affine reconstructs A and then B. Substituting those corresponding values
+  into downstream weight-gradient and activation-derivative consumers recovers
+  the same real backward graph; finite-precision correspondence remains an
+  explicit numerical premise. Source ops/fused_dense.py:249-344,347-395 and
+  ops/triton/mlp.py:15-92 expose levels0/1/2, and pin GELU-approx/ReLU/squared-ReLU
+  branches separately. Source csrc/fused_dense_lib/fused_dense.cpp:122-125 stores
+  a ReLU AUX as uint8 bitmask, unlike GELU's full preactivation. The main wrapper
+  therefore keeps ReLU output at level1 instead of trying to reconstruct it from
+  that AUX. Two positive affine values1 and2 have the same ReLU derivative bit
+  but outputs1 and2, proving that decoder insufficient. operator_fusion@2 can
+  retain an external checkpoint but has no earlier-boundary/replay choice;
+  softmax_probability_recomputation@1 reconstructs a different operator/state.
+  Native replay accuracy and communication/stream dependencies remain obligations.

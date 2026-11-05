@@ -1,0 +1,27 @@
+template: bounded_lattice_parameter_lookup@1
+version: 1
+relation: Table lookup and its accumulated gradient equal the logical lattice field parameterized by the selected coordinate map.
+rank: Unprocessed logical lookups and gradient contributions.
+assumes:
+  - {name: representation, statement: "The logical field factors through h, and every user binds the same level segment and coordinate arithmetic."}
+  - {name: accumulation, statement: "All preimage contributions are included once in an initialized gradient epoch and complete before parameter updates."}
+  - {name: numeric, statement: "Table casts and the chosen accumulation order/precision are admitted."}
+guarantees: []
+models: []
+note: >-
+  Substitute T(c,f)=theta[offset+h(c)*F+f] into each read. For a scalar parameter
+  theta[j,f], differentiating the shared representation gives the sum over all
+  coordinates c with h(c)=j of dL/dT(c,f); the same identity applies when a stencil
+  reaches j more than once. Modulo a positive table size gives an in-range entry;
+  segment offsets and feature extents establish allocation bounds. Source
+  include/tiny-cuda-nn/common_device.h:848-883 defines the conditional hash and
+  uint32 arithmetic; encodings/grid.h:94-118 and 246-254 bind it in both directions.
+  At R=4,H=8, CoherentPrime maps (1,0) and (0,1) to 1, so gradients 2 and 3 sum
+  to 5. At R=4,H=16 hashing is bypassed and these addresses are 1 and 4. Coordinate
+  (1,2) gives tiled linear 9 modulo8=1, but coherent hash modulo8=3, distinguishing
+  tiled addressing from per-axis wrap. Existing indexed_gather@1 consumes a runtime
+  index array for lossless operand materialization and does not express parameter
+  tying or its gradient pullback; shared_resource_binding@1 requires a permutation
+  and cannot substitute for this many-to-one map. Native atomic rounding/progress,
+  unsupported high-resolution address branches and initialization remain binding
+  obligations; this source identity is not a GPU execution claim.

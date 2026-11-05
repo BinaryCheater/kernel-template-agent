@@ -1,0 +1,16 @@
+template: tagged_peer_reduction_rounds@1
+version: 1
+relation: Small replicated statistics across source power-of-two peer groups. Raw
+  sums/counts may combine additively; centered moments require their own correct merge.
+  GPU transport/tag atomicity is a backend obligation.
+rank: Number of input elements or state transitions still to consume.
+assumes:
+- name: source_contract
+  statement: Source binding and stated scope hold.
+guarantees: []
+models: []
+note: 'Source-derived candidate, not independently admitted. peer_cover: Induction
+  on rounds gives exactly2^k distinct represented peers; final state includes every
+  peer once. tag_epoch: Every accepted payload belongs to the current round/channel/launch
+  epoch. publication: All data fragments are complete before their tags can be accepted
+  by consumers. Native lowering and numerical error remain open; see trace and checks.'

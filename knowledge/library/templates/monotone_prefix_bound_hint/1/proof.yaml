@@ -1,0 +1,15 @@
+{
+  "template": "monotone_prefix_bound_hint@1",
+  "version": 1,
+  "relation": "Each accepted unsaturated hint for batch b is a self-contained upper bound U on its true incoming transmittance. Packed atomic minimum preserves word integrity; only K<=b can be consumed, and a sound upstream saturated flag is sticky.",
+  "rank": "Finite batches remaining; this optimization never waits for another CTA hint.",
+  "assumes": [
+    {
+      "name": "source_contract",
+      "statement": "Monotone attenuation and conservative hints only. Source priming may be stale and forward-only full-batch fallback remains approximate."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Source-derived proof outline; no formal proof result or GPU execution claimed. conservatism: Admitted earlier prefix and upward quantization keep U>=true initial attenuation; rejection of K>b prevents downstream contamination. atomic_priority: Unsigned ordering implements sticky saturation and tighter nonnegative bounds without field tearing. hint_only: No output equivalence follows unless exact composition/replay independently recovers the accepted candidate prefix."
+}

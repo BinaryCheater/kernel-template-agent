@@ -1,0 +1,15 @@
+template: encoded_group_scale_recipe@1
+version: 1
+relation: The emitted code/metadata pair is the requested rounded quantizer result;
+  inverse decoding recovers represented values, not arbitrary original inputs.
+rank: Unprocessed source items or unmerged partials.
+assumes:
+- name: contract
+  statement: The stated partition, comparator/count and publication premises hold.
+guarantees: []
+models: []
+note: Source numerics_details/mxfp_details/_downcast_to_mxfp.py:9-150 and _upcast_from_mxfp.py:9-123.
+  This candidate preserves a finite normal-scale subset; it does not certify extreme
+  bit-rounding behavior. The decoder special-cases UE8M0 zero as2**-127 and255 asNaN,
+  and saturates decoded MXFP4 to destination finite range. NVFP4 global row/fiber
+  scales are applied once outside per-K tile decoding.

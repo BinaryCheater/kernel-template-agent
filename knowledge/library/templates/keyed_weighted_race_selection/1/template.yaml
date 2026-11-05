@@ -1,0 +1,116 @@
+{
+  "name": "keyed_weighted_race_selection",
+  "version": 1,
+  "level_from": 3,
+  "level_to": 4,
+  "change": "vertical",
+  "refines": "reduce",
+  "produces": [
+    "map",
+    "reduce"
+  ],
+  "object": {
+    "type": "deterministic_weighted_token_race",
+    "description": "When weighted token selection must repeat for the same key and context despite changed launch partition, derive each race score from original token identity, then reduce shard winners with the same score/ID order."
+  },
+  "variables": [
+    {
+      "name": "split_width",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": [
+        8192
+      ],
+      "meaning": "Token/rank entries per independently reduced shard."
+    },
+    {
+      "name": "key_mode",
+      "kind": "structure",
+      "binding": "compile",
+      "role": "boundary",
+      "domain": [
+        "single",
+        "context_mixture"
+      ],
+      "meaning": "Single key or a context-wide dual-key decision; the requested selector identity fixes this mode."
+    }
+  ],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_support",
+      "expr": "p.support_nonempty and p.active_weights_finite_positive and p.inactive_entries_excluded",
+      "meaning": "Only positive finite admitted weights compete; at least one finite score exists.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_identity",
+      "expr": "p.hash_recipe_fixed_by_key_context_token and p.hash_independent_of_shard_and_traversal",
+      "meaning": "Each original token gets the same 32-bit hash regardless of launch partition.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_mixture",
+      "expr": "key_mode != 'context_mixture' or p.one_key_choice_shared_by_entire_context",
+      "meaning": "Dual-key mixture chooses one key for a context, not a separate key for each token.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_score",
+      "expr": "p.same_admitted_log_divide_recipe_for_all_scores and p.score_ties_choose_smallest_original_token_id",
+      "meaning": "Map h to u=(h+0.5)/2^32, evaluate log(u)/weight by the declared endpoint-safe recipe; compare score then token identity.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_reduce",
+      "expr": "p.shards_partition_complete_support and p.local_and_global_comparator_identical",
+      "meaning": "No support entry omitted or duplicated; each summary retains both score and original token ID.",
+      "cls": "semantic"
+    }
+  ],
+  "program": {
+    "description": "For each supported token i, compute h=H(key,context,i), u=(h+0.5)/2^32 and score=log(u)/weight_i. Preserve strict negative log near u=1 by evaluating log1p(-((2^32-1-h)+0.5)/2^32) in the upper half. Reduce each shard by larger score, then smaller original token ID; reduce those summaries with the same comparator. In context_mixture mode hash the two keys and context once to choose the key shared by all tokens. Support filters (top-k, top-p, min-p) are fixed before this race. Logit clearing and one-hot forcing occur after the selected token is determined."
+  },
+  "backward_map": "Replace the two-stage comparator reduction by a single reduction over the same keyed score records; associative lexicographic max preserves the selected token.",
+  "obligations": [
+    {
+      "name": "partition_invariance",
+      "statement": "Every launch partition yields the same token for identical per-token scores and support.",
+      "method": "proof"
+    },
+    {
+      "name": "identity",
+      "statement": "Hash inputs use original token identity; reordering rank positions does not change scores.",
+      "method": "proof"
+    },
+    {
+      "name": "numeric_endpoint",
+      "statement": "Native conversion/log1p/division retains the admitted finite endpoint and tie policy.",
+      "method": "test"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "(p.support_nonempty and p.active_weights_finite_positive and p.inactive_entries_excluded) and (p.hash_recipe_fixed_by_key_context_token and p.hash_independent_of_shard_and_traversal) and (key_mode != 'context_mixture' or p.one_key_choice_shared_by_entire_context) and (p.same_admitted_log_divide_recipe_for_all_scores and p.score_ties_choose_smallest_original_token_id) and (p.shards_partition_complete_support and p.local_and_global_comparator_identical)",
+    "text": "TextSeal source ops/sampling/textseal_selector.py:33-40,297-377,786-907; split8192. The direct-token path uses leftmost ties because contiguous token-ID shards are ascending; sorted-rank path explicitly reduces token IDs. Empty/all-infinite scores need a separate caller policy. This is equivalence to the fixed hash selector; a categorical-law claim additionally requires independent continuous uniforms and is not implied by a finite Murmur hash."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "When weighted token selection must repeat for the same key and context despite changed launch partition, derive each race score from original token identity, then reduce shard winners with the same score/ID order.",
+    "storage": "Per-shard summaries and original row inputs.",
+    "boundary": "TextSeal source ops/sampling/textseal_selector.py:33-40,297-377,786-907; split8192. The direct-token path uses leftmost ties because contiguous token-ID shards are ascending; sorted-rank path explicitly reduces token IDs. Empty/all-infinite scores need a separate caller policy. This is equivalence to the fixed hash selector; a categorical-law claim additionally requires independent continuous uniforms and is not implied by a finite Murmur hash.",
+    "resources": [
+      "dram",
+      "registers"
+    ]
+  },
+  "numeric_risk": "Lexicographic maximum is associative and each shard winner dominates every record it replaces. Complement log1p avoids rounding the largest 32-bit hash to u=1. This proof preserves a declared finite-hash selector, not cryptographic quality or an exact categorical law. Native underflow/division may create score ties or infinities; source requires a matching policy. Host partition/endpoint witnesses are checks/keyed_race.json.",
+  "summary": "When weighted token selection must repeat for the same key and context despite changed launch partition, derive each race score from original token identity, then reduce shard winners with the same score/ID order."
+}

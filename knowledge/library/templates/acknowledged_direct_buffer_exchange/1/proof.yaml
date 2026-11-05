@@ -1,0 +1,15 @@
+{
+  "template": "acknowledged_direct_buffer_exchange@1",
+  "version": 1,
+  "relation": "Exchange slot alternates empty -> endpoint for one operation -> empty after capture; actual payload lifetime is tracked separately through peer retirement.",
+  "rank": "Finite descriptor/payload phases remaining; peer progress assumed.",
+  "assumes": [
+    {
+      "name": "source_contract",
+      "statement": "Registered accessible peer memory, transport-specific pointer visibility and matching direct mode. Not arbitrary host pointers."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Source-derived proof outline; no formal proof result or GPU execution claimed. descriptor: One provider value is consumed once before overwrite; matched roles select the same semantic buffer and offset. lifetime: Clearing exchange slot only frees descriptor slot, not payload; direct read waits peer retirement before source reuse. participation: Constructors of both peers participate even when individual operations select a buffered path."
+}

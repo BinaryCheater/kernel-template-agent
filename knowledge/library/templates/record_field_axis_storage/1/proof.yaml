@@ -1,0 +1,15 @@
+{
+  "template": "record_field_axis_storage@1",
+  "version": 1,
+  "relation": "Every logical (batch,record,field) is held at the offset prescribed by the selected bijection and read only from that matching offset while live.",
+  "rank": "Finite logical coordinates remaining to materialize or read.",
+  "assumes": [
+    {
+      "name": "source_contract",
+      "statement": "Uniform scalar field arrays, not heterogeneous structs or bitpacked records. Layout change and actual transaction coalescing are separate: bind worker-to-record order and target transaction rules."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Source-derived proof outline; no formal proof result or GPU execution claimed. bijection: Each layout maps all N*D logical coordinates onto unique offsets0..N*D-1. consumer_identity: All complete payload fields and delayed readers use the selected map and generation. materialization: Source buffer is retained until conversion readers finish; no unproved in-place overlap."
+}

@@ -1,0 +1,91 @@
+{
+  "name": "truncated_range_midpoint_quantization",
+  "version": 1,
+  "level_from": 2,
+  "level_to": 3,
+  "change": "vertical",
+  "refines": "map",
+  "produces": [
+    "map",
+    "access"
+  ],
+  "object": {
+    "type": "truncated_range_midpoint_quantization",
+    "description": "When the requested scalar format defines range-truncated codes with midpoint reconstruction, separate original encoding metadata from prepared decoder scale and offset."
+  },
+  "variables": [
+    {
+      "name": "code_bits",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": [
+        4,
+        6,
+        8
+      ],
+      "meaning": "Numerical format choice, not a free performance knob for an unchanged decoded vector."
+    }
+  ],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_0",
+      "expr": "p.finite_inputs_and_metadata and p.range_positive",
+      "meaning": "Original minimum and range are finite, range is positive, and normalized arithmetic is admitted.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_1",
+      "expr": "p.metadata_owner_matches_feature and p.numeric_policy_requested",
+      "meaning": "Uniform or per-feature range metadata agrees between encoder and decoder, with this truncation/midpoint policy requested.",
+      "cls": "semantic"
+    }
+  ],
+  "program": {
+    "description": "With original minimum a, range r>0 and Q=2**code_bits-1, encode q=truncate(clamp((x-a)/r,0,1)*Q). Prepare decoder scale s=r/Q and offset b=a+0.5*s, then decode b+q*s. Cache per-feature (b,s) in shared memory when ranges vary by dimension; uniform ranges use scalar metadata. Keep original (a,r) for encoding, since prepared (b,s) would implement a different quantizer. Pack codes separately."
+  },
+  "backward_map": "Erase auxiliary organization and recover the visible results under the stated contract.",
+  "obligations": [
+    {
+      "name": "numeric_policy",
+      "statement": "Clamp and truncate at all bucket boundaries according to the actual floating arithmetic.",
+      "method": "proof"
+    },
+    {
+      "name": "metadata_identity",
+      "statement": "Each feature uses its original encoder metadata and corresponding prepared decoder metadata.",
+      "method": "proof"
+    },
+    {
+      "name": "decode_boundary",
+      "statement": "Maximum code decodes to a+r+0.5*r/Q, which is the declared policy rather than an assumed clamp to a+r.",
+      "method": "proof"
+    },
+    {
+      "name": "publication",
+      "statement": "Per-feature shared decoder metadata is initialized and synchronized before use.",
+      "method": "proof"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.finite_inputs_and_metadata and p.range_positive and p.metadata_owner_matches_feature and p.numeric_policy_requested",
+    "text": "NVIDIA scalar quantizer QT4/QT6/QT8 and uniform4/uniform8 finite positive-range paths. FP16 and direct8 conversion have different policies and are separate realizations. This implements a requested lossy format; no original-vector error guarantee is implied. Resource effects: One scale/offset pair per dimension or one uniform pair; decoding replaces a division and half-step expression by prepared affine multiply/add. Low-bit storage handled independently."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "When the requested scalar format defines range-truncated codes with midpoint reconstruction, separate original encoding metadata from prepared decoder scale and offset.",
+    "storage": "One scale/offset pair per dimension or one uniform pair; decoding replaces a division and half-step expression by prepared affine multiply/add. Low-bit storage handled independently.",
+    "boundary": "a0,r15,bits4: x1.9 encodes1 and decodes1.5, while nearest-even gives2. x15 encodes15 and decodes15.5. Do not clamp the reconstructed endpoint or substitute nearest-even.",
+    "resources": []
+  },
+  "numeric_risk": "Preserve the supplied arithmetic contract; reassociation, quantization and approximate search require separate permission.",
+  "summary": "When the requested scalar format defines range-truncated codes with midpoint reconstruction, separate original encoding metadata from prepared decoder scale and offset. a0,r15,bits4: x1.9 encodes1 and decodes1.5, while nearest-even gives2. x15 encodes15 and decodes15.5. Do not clamp the reconstructed endpoint or substitute nearest-even."
+}

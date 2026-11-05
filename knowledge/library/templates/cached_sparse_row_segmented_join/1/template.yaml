@@ -1,0 +1,107 @@
+{
+  "name": "cached_sparse_row_segmented_join",
+  "version": 1,
+  "level_from": 2,
+  "level_to": 3,
+  "change": "vertical",
+  "refines": "map",
+  "produces": [
+    "map",
+    "access"
+  ],
+  "object": {
+    "type": "cached_sparse_row_segmented_join",
+    "description": "When sparse pairwise metrics repeatedly probe one source row, cache that row and stream coordinate-sorted nonzeros of the other matrix, reducing contributions by destination row."
+  },
+  "variables": [
+    {
+      "name": "chunk_nonzeros",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": {
+        "lo": 1,
+        "hi": 1048576
+      },
+      "meaning": "B-side nonzeros processed per CTA chunk; source binds a per-thread chunk with block width."
+    },
+    {
+      "name": "cache_capacity",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": {
+        "lo": 1,
+        "hi": 2147483647
+      },
+      "meaning": "Dense feature slots or hash slots for the cached A row; representation selected by dimensionality and occupancy."
+    }
+  ],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_0",
+      "expr": "p.sparse_rows_unique_columns and p.coo_rows_ordered",
+      "meaning": "Each cached row has unique columns and streamed COO rows group their nonzeros in order.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_1",
+      "expr": "p.cache_exact_and_capacity_valid and p.absence_zero_semantics",
+      "meaning": "Cache returns exact present values and zero for absence; hash row splits preserve column coverage.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_2",
+      "expr": "p.segment_combine_atomic_and_numeric_policy",
+      "meaning": "Partial segments across warps/chunks combine atomically under the specified semiring/reassociation contract.",
+      "cls": "semantic"
+    }
+  ],
+  "program": {
+    "description": "Choose dense shared array initialized to zero or a bounded shared hash map for one A row. Insert its nonzeros and synchronize. Partition B nonzeros into disjoint chunks; each thread probes cached A at B column and applies the metric product. Maintain a partial accumulator for its B row; when row identity changes within a warp, group lanes by row and segment-reduce. One leader atomically combines each completed segment into pairwise output(Arow,Brow). For metrics depending on support union, separately run the reverse direction only on coordinates absent from the first cached support, so intersection is not counted twice."
+  },
+  "backward_map": "Erase auxiliary organization and recover the visible results under the stated contract.",
+  "obligations": [
+    {
+      "name": "cache",
+      "statement": "Every cached column has its source value; absent columns are zero without confusing explicit zeros and structural absence where the metric distinguishes them.",
+      "method": "proof"
+    },
+    {
+      "name": "segments",
+      "statement": "Every streamed contribution belongs to its correct B row and exactly one emitted partial segment.",
+      "method": "proof"
+    },
+    {
+      "name": "chunk_cover",
+      "statement": "Source hash splits and B chunks cover the intended support exactly once.",
+      "method": "proof"
+    },
+    {
+      "name": "support_union",
+      "statement": "Forward/reverse metric passes include required intersection and symmetric-difference terms without duplication.",
+      "method": "proof"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.sparse_rows_unique_columns and p.coo_rows_ordered and p.cache_exact_and_capacity_valid and p.absence_zero_semantics and p.segment_combine_atomic_and_numeric_policy",
+    "text": "NVIDIA sparse COO/CSR pairwise distance backend. Dense and hash shared caches have different resource bounds. rev tests cached value==0, so callers requiring structural support distinction must additionally rule out semantically different explicit zeros. Warp participation at tails requires realization verification. Resource effects: Caches one sparse row per CTA, streams B nonzeros with segmented reductions and atomic output updates; dense cache costs dim*sizeof(value), hash cache scales with occupied slots and may split long rows."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "When sparse pairwise metrics repeatedly probe one source row, cache that row and stream coordinate-sorted nonzeros of the other matrix, reducing contributions by destination row.",
+    "storage": "Caches one sparse row per CTA, streams B nonzeros with segmented reductions and atomic output updates; dense cache costs dim*sizeof(value), hash cache scales with occupied slots and may split long rows.",
+    "boundary": "A has column2=value3, B row0 has col2=value4 and row1 has col5=value7. Product inner metric contributes12 to pair(A,0), zero to pair(A,1). Row0 split over chunks must combine its pieces atomically; relabeling a partial as row1 corrupts the pair matrix.",
+    "resources": []
+  },
+  "numeric_risk": "Preserve the supplied arithmetic contract; reassociation, quantization and approximate search require separate permission.",
+  "summary": "When sparse pairwise metrics repeatedly probe one source row, cache that row and stream coordinate-sorted nonzeros of the other matrix, reducing contributions by destination row. A has column2=value3, B row0 has col2=value4 and row1 has col5=value7. Product inner metric contributes12 to pair(A,0), zero to pair(A,1). Row0 split over chunks must combine its pieces atomically; relabeling a partial as row1 corrupts the pair matrix."
+}

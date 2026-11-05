@@ -1,0 +1,15 @@
+template: striped_locked_partial_accumulation@1
+version: 1
+relation: Expand each locked slot into the original row partial vectors in actual
+  acquisition order, then combine all slots once.
+rank: Unprocessed source items or unmerged partials.
+assumes:
+- name: contract
+  statement: The stated partition, comparator/count and publication premises hold.
+guarantees: []
+models: []
+note: Source python/tutorials/05-layer-norm.py:140-220. Modulo assignment partitions
+  rows; mutex serialization yields an ordered fold in each slot, and the post-kernel
+  combine joins those folds. Unlike first_writer_atomic_combine@1, there is no fixed
+  partial0 initializer and the numeric vector updates are ordinary stores under a
+  lock.

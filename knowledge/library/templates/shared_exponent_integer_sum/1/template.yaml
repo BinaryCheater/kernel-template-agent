@@ -1,0 +1,154 @@
+name: shared_exponent_integer_sum
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: reduce
+produces:
+- reduce
+- contract
+- store
+object:
+  type: count_and_fraction_sum_for_one_exponent
+  description: Replace order-dependent floating additions inside one FP32 exponent bin with exact integer
+    fraction/count accumulation and one explicit truncated reconstruction.
+variables:
+- name: aggregation
+  kind: structure
+  binding: compile
+  role: software
+  domain:
+  - direct_global
+  - cta_then_global
+  meaning: Accumulate exact integer channels directly in global bins or first in CTA-private bins then
+    merge globally. Source uses cta_then_global; direct_global is inferred with the same census/completion
+    premises.
+constraints:
+- id: c_bins
+  expr: p.bins >= 1 and p.fraction_bits == 23 and p.input_bits == 32
+  meaning: Nonempty bin table with FP32 fraction width and fixed integer counter representation.
+  cls: implementation
+preconditions:
+- id: pre_domain
+  expr: p.nonnegative_finite_fp32_inputs and p.each_bin_has_one_exact_fp32_exponent_field and p.input_sign_bits_zero
+  meaning: All inputs are nonnegative finite FP32, and every bin shares one exact biased exponent field
+    E, including a separate E0 domain for zeros/subnormals. Mixing adjacent exponents is not admitted.
+    Input sign bits are zero; negative zero needs a separate canonicalization policy.
+  cls: implementation
+- id: pre_census
+  expr: p.each_value_contributes_one_count_and_its_23_bit_fraction_once and p.count_fits_signed_int32_and_fraction_sum_fits_uint64
+  meaning: For every occurrence retain N+=1 and M+=its23-bit fraction; N<=INT32_max and M fits uint64.
+    Zero mantissa still contributes count, even if its fraction atomic can be omitted.
+  cls: implementation
+- id: pre_exponent
+  expr: p.reconstructed_exponent_matches_all_inputs_and_generation
+  meaning: The shared exponent is stored or recovered from a complete key prefix that identifies the same
+    bin/data generation. Sign bits or an unrelated bucket representative cannot replace it.
+  cls: implementation
+- id: pre_merge
+  expr: p.partial_integer_additions_exact_without_overflow and p.both_count_and_fraction_totals_publish_before_reconstruction
+  meaning: CTA partials and global totals add exact nonoverflowing integers; both channels are complete
+    before reconstruction, so no atomic pairing is needed during accumulation.
+  cls: implementation
+- id: pre_empty
+  expr: p.zero_count_bins_bypass_normal_reconstruction_and_emit_zero
+  meaning: Empty bins emit zero explicitly. Normal-exponent reconstruction with N0/M0 would not represent
+    an empty sum.
+  cls: implementation
+- id: pre_range
+  expr: p.exact_nonnegative_sum_within_finite_fp32_range and p.exponent_carry_and_shift_widths_valid
+  meaning: The exact sum stays within FP32 finite range and count limits keep native shifts/exponent carries
+    defined.
+  cls: implementation
+- id: pre_rounding
+  expr: p.one_final_toward_zero_reconstruction_requested and p.downstream_admits_truncated_bucket_sum
+  meaning: Reconstruction discards excess low significand bits once, equivalent to rounding the nonnegative
+    exact sum toward zero, not necessarily nearest-even. Downstream cumulative boundaries must admit that
+    policy separately.
+  cls: implementation
+- id: pre_lifetime
+  expr: p.private_bin_counters_initialized_and_reader_retirement_precedes_reuse and p.selected_integer_atomic_and_completion_backend_supported
+  meaning: Each bin epoch has zeroed exclusive counters, implemented native integer atomics/completion,
+    and no reset or reuse before readers retire.
+  cls: implementation
+program:
+  description: For each nonnegative FP32 value in a bin, extract its23-bit fraction m and shared exponent
+    E. Accumulate count N and fraction sum M as exact uint64/signed-safe32 integer channels, directly
+    or through CTA partials. For N0 emit zero. Otherwise form exact integer significand S=M+N*2**23 when
+    E>0, or S=M for E0. Exact real sum is S*2**(max(E,1)-150). If S0 emit zero. Reconstruct FP32 by normalizing
+    S, retaining its most significant24 bits when normal, and discarding lower bits without an increment;
+    a still-subnormal S fits its exact23-bit fraction. Include normal hidden-bit counts and carry into
+    the output exponent. This implements one nonnegative round-toward-zero reconstruction. A native implementation
+    may calculate carries from(M>>23)+N rather than materialize S; all equivalent shifts/ranges must match.
+    Bin mass then feeds separately refined scans/selection; integer determinism does not authorize changing
+    their numerical contract.
+backward_map: Collect all original occurrences of one shared-exponent bin, sum them exactly as real values,
+  then apply the requested one final nonnegative FP32 toward-zero rounding. Exact integer addition is
+  independent of producer order and grouping.
+obligations:
+- name: significand_identity
+  statement: N and M recover the exact shared-exponent real sum, including hidden leading bits, powers
+    of two and zero/subnormal bins.
+  method: proof
+- name: order_and_grouping
+  statement: Every nonoverflowing producer permutation and CTA partition yields the same N/M totals and
+    reconstructed bits.
+  method: test
+- name: reconstruction_policy
+  statement: Native exponent carries and discarded low bits implement the declared toward-zero result,
+    with empty bins bypassed and no overflow.
+  method: test
+- name: publication
+  statement: Both integer channels and the shared exponent describe one complete generation before reconstruction
+    and survive every reader.
+  method: test
+effects:
+  transactions: []
+  storage:
+  - id: global_integer_bins
+    level: dram
+    scope: kernel
+    bytes: 12 * p.bins
+  - id: cta_integer_bins
+    level: smem
+    scope: cta
+    bytes: 12 * p.bins
+    when: aggregation == 'cta_then_global'
+  overlap: []
+scope:
+  predicate: p.bins >= 1 and p.fraction_bits == 23 and p.input_bits == 32 and (p.nonnegative_finite_fp32_inputs
+    and p.each_bin_has_one_exact_fp32_exponent_field and p.input_sign_bits_zero) and (p.each_value_contributes_one_count_and_its_23_bit_fraction_once
+    and p.count_fits_signed_int32_and_fraction_sum_fits_uint64) and (p.reconstructed_exponent_matches_all_inputs_and_generation)
+    and (p.partial_integer_additions_exact_without_overflow and p.both_count_and_fraction_totals_publish_before_reconstruction)
+    and (p.zero_count_bins_bypass_normal_reconstruction_and_emit_zero) and (p.exact_nonnegative_sum_within_finite_fp32_range
+    and p.exponent_carry_and_shift_widths_valid) and (p.one_final_toward_zero_reconstruction_requested
+    and p.downstream_admits_truncated_bucket_sum) and (p.private_bin_counters_initialized_and_reader_retirement_precedes_reuse
+    and p.selected_integer_atomic_and_completion_backend_supported)
+  text: AIR deterministic FP32 histogram uses uint64 mantissa sums and Int32 counts per bin; initial11-bit
+    descending-key buckets fix the exponent, and later prefix passes retain it. Source empty bins bypass
+    calcFloatValue. This is one-exponent nonnegative summation, not a general superaccumulator, mixed-sign/mixed-exponent
+    sum or nearest-even reduction. Wider input formats/counters and output-overflow policy require their
+    own binding.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Exact fraction/count integer reduction for a shared exponent, followed by one explicit toward-zero
+    FP32 reconstruction.
+  storage: 8-byte fraction sum plus4-byte count per global/optional CTA bin; exponent may come from its
+    key prefix.
+  boundary: Shared exponent, occurrence census, nonoverflowing counters, completed two-channel publication
+    and admitted final truncation.
+  resources:
+  - dram
+  - smem
+  - registers
+  - issue
+numeric_risk: Reproducible reconstruction can differ from nearest-even and from sequential FP32 sums.
+  Dropping zero-mantissa counts loses hidden ones; mixing exponent fields corrupts the sum even when mantissa
+  atomics remain exact.
+summary: When many positive FP32 values in a histogram bin share one exponent, accumulate their integer
+  fraction bits and counts instead of racing floating additions. Reconstruct the exact significand once
+  with a declared toward-zero rounding. Keep powers-of-two counts, separate empty/subnormal bins and publish
+  both totals before use. This gives order-independent bucket bits, not automatic nearest-even accuracy
+  or unchanged downstream top-p boundaries.

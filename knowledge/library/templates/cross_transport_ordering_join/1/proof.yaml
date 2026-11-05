@@ -1,0 +1,15 @@
+{
+  "template": "cross_transport_ordering_join@1",
+  "version": 1,
+  "relation": "At the ordering boundary every prior operation is either ordered before its dependent action in one admitted queue or belongs to a completed joined domain; scoped visibility makes its effects available.",
+  "rank": "Finite active domains to drain; provider progress assumed.",
+  "assumes": [
+    {
+      "name": "source_contract",
+      "statement": "Source NIIN fence/quiet semantics and engine tracking. Exact backend domain contracts and collective thread scope must be supplied."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Source-derived proof outline; no formal proof result or GPU execution claimed. domain_cover: Every prior operation belongs to at least one joined domain; no outstanding source read is omitted. happens_before: Required local/remote completion plus scoped publication precedes dependent access. minimal_ordering: A single-queue shortcut is legal only under the same-peer in-order provider contract; multiple unordered queues invalidate it."
+}

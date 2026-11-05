@@ -1,0 +1,35 @@
+template: tile_value_center_restoration@1
+version: 1
+relation: For fixed common weights, sum_j w[j]*(R[j,d]+mu[t(j),d]) equals the original weighted value
+  sum. With quantized residuals/centers and native mass operands it becomes the explicitly admitted reconstructed-value
+  operator.
+rank: Value contributions awaiting compensation.
+assumes:
+- name: pre_center
+  statement: Residual V and the center have identical logical tile/head/feature identities after any common
+    permutation.
+- name: pre_probability
+  statement: A tile center multiplies the same rounded P used by its residual PV; final mass is the declared
+    rounded-P mass.
+- name: pre_frame
+  statement: Pending tile masses follow every reference change until their center products are added;
+    no contribution is lost or corrected twice.
+- name: pre_scale
+  statement: Centers are expressed in residual code units; one per-channel scale decodes both terms after
+    normalization.
+- name: pre_numeric
+  statement: BF16 centers, narrow residuals, rounded-P sums and BF16 hi/lo mass operands satisfy the selected
+    numerical policy.
+- name: pre_lifetime
+  statement: Mean and mass operand groups publish together in the intended frame and remain live through
+    the deferred MMA/tail flush.
+guarantees: []
+models: []
+note: Source flashinfer/attention/prims_ts/vc_attention/prepare.py:470-595 writes per-channel residuals
+  and BF16 center operands. kernels/fmha_context/fmha_resources.py:5666-5707 carries and rescales pending
+  tile masses; :5742-5763 flushes the tail; :6864-6904 issues group and final mean MMAs. vc_resources.py
+  defines16 tiles with two BF16 K16 operands, each tile mass split into hi/lo. helpers.py:130-185 ExpCast
+  stores E4M3 weights and sums their decoded values. online_rescaled_reduction@2 provides common-frame
+  algebra but does not allocate/retire pending tile means; softmax_key_centering@1 and query_center_residual_scores@1
+  repair score operands, not weighted values. Logical checks cover group tails, reference changes and
+  rounded-P mass; native BF16 split/UMMA, task rings and ExpCast error are separate obligations.

@@ -1,0 +1,85 @@
+{
+  "name": "record_field_axis_storage",
+  "version": 1,
+  "level_from": 2,
+  "level_to": 3,
+  "change": "vertical",
+  "refines": "map",
+  "produces": [
+    "map",
+    "access"
+  ],
+  "object": {
+    "type": "record_field_axis_storage",
+    "description": "When neighboring workers access the same field of independent records, choose field-major rather than record-major storage and rewrite every producer/consumer address consistently."
+  },
+  "variables": [
+    {
+      "name": "axis_order",
+      "kind": "structure",
+      "binding": "compile",
+      "role": "software",
+      "domain": [
+        "record_major",
+        "field_major"
+      ],
+      "meaning": "Choose record-contiguous fields or field-contiguous record coordinates."
+    }
+  ],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_0",
+      "expr": "p.record_count > 0 and p.field_count > 0 and p.uniform_scalar_field_width",
+      "meaning": "A rectangular record-by-field logical array with uniform scalar width.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_1",
+      "expr": "p.all_producers_consumers_share_axis_map and p.all_live_indices_in_bounds and p.buffer_lifetime_and_capacity_valid",
+      "meaning": "Changing layout is visible to every reader/writer and retained through deferred backward.",
+      "cls": "semantic"
+    }
+  ],
+  "program": {
+    "description": "Select record_major offset(r,f)=r*D+f or field_major offset(r,f)=f*N+r for N records and D fields. For batch b add b*N*D. Allocate N*D scalar slots, store and load every logical (b,r,f) through the same map. The maps are bijections and preserve values; if converting existing storage, copy through distinct storage or use a separately proved in-place permutation. Field-major places adjacent record IDs contiguously for a fixed field. It changes addresses, not mathematical record identity or reduction ordering."
+  },
+  "backward_map": "Erase auxiliary organization and recover the visible results under the stated contract.",
+  "obligations": [
+    {
+      "name": "bijection",
+      "statement": "Each layout maps all N*D logical coordinates onto unique offsets0..N*D-1.",
+      "method": "proof"
+    },
+    {
+      "name": "consumer_identity",
+      "statement": "All complete payload fields and delayed readers use the selected map and generation.",
+      "method": "proof"
+    },
+    {
+      "name": "materialization",
+      "statement": "Source buffer is retained until conversion readers finish; no unproved in-place overlap.",
+      "method": "proof"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.record_count > 0 and p.field_count > 0 and p.uniform_scalar_field_width and p.all_producers_consumers_share_axis_map and p.all_live_indices_in_bounds and p.buffer_lifetime_and_capacity_valid",
+    "text": "Uniform scalar field arrays, not heterogeneous structs or bitpacked records. Layout change and actual transaction coalescing are separate: bind worker-to-record order and target transaction rules. Resource effects: Same scalar capacity N*D, different adjacency/transaction pattern."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "When neighboring workers access the same field of independent records, choose field-major rather than record-major storage and rewrite every producer/consumer address consistently.",
+    "storage": "Same scalar capacity N*D, different adjacency/transaction pattern.",
+    "boundary": "RasterizeCSR.cuh:25-145 selects [batch][stateField][pixel], offset=(batch*D+field)*pixels+pixel. physical_storage@1 supplies occupancy/lifetime only, not axis order.",
+    "resources": []
+  },
+  "numeric_risk": "Preserve the supplied arithmetic contract; reassociation, quantization and approximate search require separate permission.",
+  "summary": "When neighboring workers access the same field of independent records, choose field-major rather than record-major storage and rewrite every producer/consumer address consistently. RasterizeCSR.cuh:25-145 selects [batch][stateField][pixel], offset=(batch*D+field)*pixels+pixel. physical_storage@1 supplies occupancy/lifetime only, not axis order."
+}

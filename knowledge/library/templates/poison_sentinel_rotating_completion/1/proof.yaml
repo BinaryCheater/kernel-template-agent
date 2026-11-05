@@ -1,0 +1,15 @@
+{
+  "template": "poison_sentinel_rotating_completion@1",
+  "version": 1,
+  "relation": "Each current receive vector begins poisoned and has exactly one current-generation writer. Non-sentinel acceptance identifies its complete vector under native visibility; clearing touches only a distinct retired bank and remains visible before that bank next becomes current.",
+  "rank": "Pending receive slots and retired-bank clear slots; peer progress assumed.",
+  "assumes": [
+    {
+      "name": "source_contract",
+      "statement": "Source custom NVLink alltoall and multicast AllReduce demos assume native128-bit arrival behavior and sentinel exclusion. Hardware visibility and steady-state barrier elision remain premises, not established by source comments."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Source-derived proof outline; no formal proof result or GPU execution claimed. arrival: Every accepted non-sentinel denotes exactly one complete vector of current generation, not legal sentinel-valued data or stale prior data. rotation: Clear bank is disjoint from all live producer/consumer banks under the declared skew and lifetime bound. retention: Current output is not cleared before its downstream readers finish."
+}

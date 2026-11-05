@@ -1,0 +1,15 @@
+{
+  "template": "cooperative_probe_atomic_claim@2",
+  "version": 1,
+  "relation": "Each occupied packed slot contains one complete claimed key/value; equal-key uniqueness follows identical probe/retry order and each successful CAS adds exactly one linearized insertion.",
+  "rank": "Unresolved input keys and remaining finite probe rounds/retries, under free-slot and bounded-interference premises.",
+  "assumes": [
+    {
+      "name": "source_contract",
+      "statement": "Unique-key whole-slot4/8-byte claim, or16-byte packable representation on sm90+ with supported native128-bit CAS; full-cycle probing, sentinel exclusion and declared publication premises hold."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Source-derived proof outline; no formal proof result or GPU execution claimed. linearization: Whole-slot CAS is the successful insertion linearization point and no observer can see a claimed key without its paired payload in this packed scope. unique_key: Equal-key insertions converge to one retained slot under the same probe and retry order. coverage: Cooperative probe buckets cover capacity without skipping an available earlier round. publication: A consuming phase starts after insertions complete; relaxed atomic claim alone does not publish unrelated memory. The relation is a proposed source-level invariant; the stated finite-work rank depends on the explicit environment progress assumptions. Device ordering and numeric premises have not been discharged by schema validation. Version2 preserves the claim relation for4/8-byte cases;16-byte realization requires native atomic128-bit CAS and a packable representation, not two64-bit stores."
+}

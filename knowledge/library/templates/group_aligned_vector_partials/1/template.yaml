@@ -1,0 +1,83 @@
+name: group_aligned_vector_partials
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: reduce
+produces:
+- reduce
+object:
+  type: group_aligned_vector_partials
+  description: When vector loads cross reduction-group boundaries, split each vector
+    into gcd(vector_width,group_width) microblocks so local partials never mix groups.
+variables:
+- name: vector_width
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 1
+    hi: 32
+  meaning: 'V: selected load width.'
+- name: group_width
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 1
+    hi: 4096
+  meaning: 'G: workload channels/group.'
+constraints: []
+preconditions:
+- id: pre0
+  expr: p.group_and_vector_origins_aligned and p.group_membership_by_channel and p.partial_route_preserves_group
+    and p.combine_complete
+  meaning: Aligned groups/vector origins, same-group combine and complete participation.
+  cls: semantic
+program:
+  description: For aligned contiguous channel groups of width G and vectors of width
+    V, set d=gcd(G,V). Since every group start and vector start is a multiple of d,
+    d-element microblocks lie within one group. Form V/d independent partial states
+    per loaded vector, then route each by its logical channel/group id to the group
+    reduction. Source V4,G10 gives d2 and two partial states per vector, rather than
+    one sum of4 that could cross a group boundary. Spatial-row and channel blocks
+    subsequently combine states for the same group. Reload inputs after statistics
+    or retain fragments; that storage choice does not change membership. A swizzled
+    scratch layout must preserve the microblock/group coordinate mapping.
+backward_map: Contiguous equally sized channel groups and aligned vectors. gcd determines
+  a safe local aggregation unit; backend tail and scratch layouts remain part of the
+  realization.
+obligations:
+- name: no_cross_group
+  statement: All boundaries are multiples of d, so no d-element microblock crosses
+    a group boundary.
+  method: proof
+- name: coverage
+  statement: Each channel occurs in exactly one vector microblock and one final group
+    state.
+  method: proof
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: (p.group_and_vector_origins_aligned and p.group_membership_by_channel
+    and p.partial_route_preserves_group and p.combine_complete)
+  text: Contiguous equally sized channel groups and aligned vectors. gcd determines
+    a safe local aggregation unit; backend tail and scratch layouts remain part of
+    the realization.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: When vector loads cross reduction-group boundaries, split each vector
+    into gcd(vector_width,group_width) microblocks so local partials never mix groups.
+  boundary: Contiguous equally sized channel groups and aligned vectors. gcd determines
+    a safe local aggregation unit; backend tail and scratch layouts remain part of
+    the realization.
+  resources:
+  - registers
+numeric_risk: Floating-point reassociation, casts and approximate functions require
+  an admitted numerical contract.
+summary: When vector loads cross reduction-group boundaries, split each vector into
+  gcd(vector_width,group_width) microblocks so local partials never mix groups.

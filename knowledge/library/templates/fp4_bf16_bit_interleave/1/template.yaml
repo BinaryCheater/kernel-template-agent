@@ -1,0 +1,69 @@
+name: fp4_bf16_bit_interleave
+version: 1
+level_from: 2
+level_to: 3
+change: vertical
+refines: store
+produces:
+- store
+- transfer
+- sync
+object:
+  type: fp4_bf16_bit_interleave
+  description: Eight FP4 payloads in four bytes are rearranged into one word optimized
+    for packed BF16 expansion.
+variables: []
+constraints: []
+preconditions:
+- id: pre0
+  expr: p.input_four_bytes_each_two_fp4 and p.complete_word_ownership
+  meaning: Each complete32-bit word owns exactly eight E2M1 codes.
+  cls: semantic
+- id: pre1
+  expr: p.little_endian_byte_view_and_unsigned_shifts and p.decoder_matches_bit_positions
+  meaning: Encoder and decoder agree on byte order and masked unsigned shifts.
+  cls: semantic
+program:
+  description: For each half h=0,1 take nibble q_j=(byte_j>>(4*h))&15 for j=0..3.
+    Let C(q)=((q&8)<<12)|((q&7)<<6), D(q)=((q&8)<<11)|((q&6)<<9)|((q&1)<<13). Place
+    C(q0), C(q1)>>3, C(q2)>>6, D(q3) in disjoint16-bit positions by OR, then place
+    half h at word bits16*h. Decode the first three nibbles from those disjoint fields
+    and the fourth from its separate positions, retaining signed zero and all payload
+    bits. Hopper consumer expands the prepared fields to BF16 representations; the
+    storage transform itself changes no FP4 codes.
+backward_map: Extract each source nibble using the inverse bit incidence map, restoring
+  its original byte and low/high position.
+obligations:
+- name: bit_incidence
+  statement: Every one of32 input bits maps to one distinct output bit, with inverse
+    recovering all256 possible source byte patterns in each position.
+  method: test
+- name: consumer_decode
+  statement: Native BF16 expansion interprets those positions as the original E2M1
+    values.
+  method: test
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: (p.input_four_bytes_each_two_fp4 and p.complete_word_ownership) and (p.little_endian_byte_view_and_unsigned_shifts
+    and p.decoder_matches_bit_positions)
+  text: Pinned Hopper MXFP4 four-byte bit layout before its matching BF16 decoder.
+    This is not contiguous bitstream packing or a per-byte payload shift. Complete
+    words and source little-endian representation are required.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Eight FP4 payloads in four bytes are rearranged into one word optimized
+    for packed BF16 expansion.
+  storage: Binding-specific counters, partials or output ranges.
+  boundary: Tile prefixes and logical membership.
+  resources: []
+numeric_risk: Integer counts must not overflow; ordering/rounding policy belongs to
+  the bound operation.
+summary: When software FP4 decoding dominates, pre-interleave payload bits to match
+  packed BF16 expansion. Preserve every code bit through an explicit bit permutation
+  and bind the matching decoder. This changes stored representation, not the quantizer
+  or the value/scale grouping.

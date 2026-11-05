@@ -1,0 +1,19 @@
+template: tensor_axis_permutation@1
+version: 1
+relation: Every output coordinate and its inverse-permuted source coordinate denote the same backing allocation element.
+rank: Number of axis-descriptor entries left to construct.
+assumes:
+  - {name: allocation_lifetime, statement: The source backing allocation and base offset remain live throughout all uses.}
+  - {name: consumer_layout, statement: Consumer indexing and layout validation use the permuted descriptors.}
+guarantees: []
+models: []
+note: >-
+  Initialization retains the allocation and constructs no output axis. Distinct axis_i in0..2
+  form a bijection. Copying each selected extent/stride establishes its coordinate range;
+  substituting source_j[axis_i]=output_j[i] in the address sum gives identical addresses.
+  Three copied descriptor entries terminate construction. No element arithmetic occurs.
+  checks/einsum_views.py enumerates all six permutations on an asymmetric strided view,
+  recovers the three FP8 einsum contractions through their canonical BMM coordinates,
+  and rejects a contiguous reshape that destroys prepacked scale strides. Consumer-specific
+  TMA descriptor legality and the compiled contraction remain separate. No proof model
+  or ProofResult is registered.

@@ -1,0 +1,77 @@
+name: shifted_innovation_recurrence
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: scan
+produces:
+- scan
+- contract
+object:
+  type: shifted_innovation_recurrence
+  description: When a decayed state update uses both previous and current innovations,
+    absorb the next-step previous-innovation coefficient into the current insertion
+    and correct the current output separately.
+variables: []
+constraints: []
+preconditions:
+- id: pre0
+  expr: p.linear_state_projection and p.coefficients_input_dependent_only and p.shifted_boundary_defined
+    and p.reassociation_admitted
+  meaning: Linear output projection, known coefficients, matching initial/final state
+    convention and numeric admission.
+  cls: semantic
+program:
+  description: Let U_t be an input-dependent innovation, alpha_t decay, eta_t previous-innovation
+    coefficient and gamma_t current coefficient. Original S_t=alpha_t*S_(t-1)+alpha_t*eta_t*U_(t-1)+gamma_t*U_t.
+    Define T_t=S_t+eta_(t+1)*U_t, so T_t=alpha_t*T_(t-1)+(gamma_t+eta_(t+1))*U_t.
+    Seed T_before=S_before+eta_first*U_before. Output L_t(S_t)=L_t(T_t)-eta_(t+1)*L_t(U_t),
+    for linear state projection L_t. Source computes strictly-past transformed contributions
+    plus gamma_t*L_t(U_t), avoiding subtractive correction of a rounded diagonal.
+    Last eta_after=0 returns original final S; continuing a chunk/call must preserve
+    the declared boundary convention or convert explicitly. For outer product U=v
+    outer k, fold gamma+eta_next into k before contraction. Store unscaled k and v
+    if needed by next call.
+backward_map: Linear decayed state with two adjacent innovation terms. Mamba3 eta=dt*(1-sigmoid(trap)),
+  gamma=dt*sigmoid(trap), alpha=exp(ADT). No state-dependent nonlinear gate can be
+  moved through this identity.
+obligations:
+- name: state_translation
+  statement: Substitute Tprev=Sprev+eta_current*Uprev to recover original recurrence
+    exactly in real arithmetic.
+  method: proof
+- name: output_correction
+  statement: Strict-past transformed history plus gamma_current*current projected
+    innovation equals original projected state.
+  method: proof
+- name: boundary_state
+  statement: Seed and returned state convert eta*U at invocation boundaries exactly
+    once.
+  method: proof
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: (p.linear_state_projection and p.coefficients_input_dependent_only and
+    p.shifted_boundary_defined and p.reassociation_admitted)
+  text: Linear decayed state with two adjacent innovation terms. Mamba3 eta=dt*(1-sigmoid(trap)),
+    gamma=dt*sigmoid(trap), alpha=exp(ADT). No state-dependent nonlinear gate can
+    be moved through this identity.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: When a decayed state update uses both previous and current innovations,
+    absorb the next-step previous-innovation coefficient into the current insertion
+    and correct the current output separately.
+  boundary: Linear decayed state with two adjacent innovation terms. Mamba3 eta=dt*(1-sigmoid(trap)),
+    gamma=dt*sigmoid(trap), alpha=exp(ADT). No state-dependent nonlinear gate can
+    be moved through this identity.
+  resources:
+  - registers
+numeric_risk: Floating-point reassociation, casts and approximate functions require
+  an admitted numerical contract.
+summary: When a decayed state update uses both previous and current innovations, absorb
+  the next-step previous-innovation coefficient into the current insertion and correct
+  the current output separately.

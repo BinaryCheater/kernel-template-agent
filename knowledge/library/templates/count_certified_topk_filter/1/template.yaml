@@ -1,0 +1,143 @@
+name: count_certified_topk_filter
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: reduce
+produces:
+- map
+- store
+- reduce
+object:
+  type: bounded_threshold_candidates_with_exact_fallback
+  description: Use a heuristic score threshold to bound top-k candidates, accept only a complete candidate
+    count certificate, otherwise rescan the original domain exactly.
+variables:
+- name: capacity
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 1
+    hi: 1048576
+  meaning: Maximum candidate records retained per row; actual count continues past this limit.
+- name: k
+  kind: numeric
+  binding: runtime
+  role: boundary
+  domain:
+    lo: 1
+    hi: 4096
+  meaning: Requested exact top-k slot count, fixed by the workload.
+constraints:
+- id: c_capacity
+  expr: capacity >= k and p.allocated_candidate_capacity >= capacity
+  meaning: Candidate storage can retain at least the requested winners.
+  cls: resource
+- id: c_count
+  expr: p.valid_count >= 0 and p.valid_count <= p.max_safe_count
+  meaning: All qualifier counts fit the counter type, including a fully qualifying row.
+  cls: implementation
+preconditions:
+- id: pre_order
+  expr: p.finite_scores_unique_ids_and_defined_tie_order and p.invalid_slots_excluded_before_scan
+  meaning: Original valid identities have finite scores and one deterministic total score/identity order.
+  cls: semantic
+- id: pre_filter
+  expr: p.full_valid_domain_scanned_once_and_filter_is_score_ge_threshold and p.threshold_not_nan
+  meaning: Retain every valid score greater than or equal to one row threshold; no winning equality or
+    valid region is silently omitted.
+  cls: semantic
+- id: pre_append
+  expr: p.count_includes_all_qualifiers_without_overflow and p.atomic_append_slots_unique and p.writes_bounded_by_capacity
+  meaning: Count all qualifying identities even beyond the storage bound, with unique append slots and
+    bounded writes.
+  cls: implementation
+- id: pre_score
+  expr: p.score_bits_and_identity_match_between_scan_and_exact_fallback
+  meaning: The complete fallback evaluates or reads exactly the same logical score bits and identity order
+    as the first scan.
+  cls: semantic
+- id: pre_select
+  expr: p.candidate_and_fallback_selectors_exact_for_same_requested_order and p.output_presentation_and_padding_preserve_identity
+  meaning: Both selectors implement exact requested membership/ties; result ordering and padding follow
+    the caller contract.
+  cls: semantic
+- id: pre_lifetime
+  expr: p.scan_and_count_complete_visible_before_acceptance and p.fallback_flags_complete_before_rescan
+    and p.scratch_not_reused_until_all_readers_retire
+  meaning: Acceptance sees final counts and payloads; fallback flags publish before their consumer, and
+    scratch survives all phases.
+  cls: implementation
+program:
+  description: Choose any non-NaN row score threshold tau, for example from a sample. Scan the entire
+    original valid domain exactly once. For each score >= tau atomically reserve a unique append position
+    and increment the total qualifier count; write the score/identity only when that position is below
+    capacity. After all scan writes and counts complete, let want=min(k,valid_count) and c be the full
+    count, not the number of stored records. If want<=c<=capacity, select the exact top want records from
+    the complete candidate list using the original total order. Otherwise discard this list, flag the
+    row and run an exact selector over the entire original valid domain. Do not select from truncated
+    overflow records or pad an underfull candidate set without fallback. For zero valid inputs emit the
+    defined empty result; initialize all unused output slots according to the caller contract. Reuse candidate
+    storage as fallback histograms only after every old candidate reader retires.
+backward_map: Every accepted candidate set contains all original top-want winners; rejected sets are replaced
+  by exact full-domain selection, so final membership and tie order match global exact top-k.
+obligations:
+- name: filter_certificate
+  statement: A complete threshold-qualified set with at least want entries contains every top-want winner.
+  method: proof
+- name: count_and_storage
+  statement: Qualifier count is complete and untruncated; every accepted candidate record is stored exactly
+    once and overflow writes are suppressed.
+  method: test
+- name: fallback_identity
+  statement: Underfull or overflowing rows execute exact full-domain fallback with unchanged scores, IDs,
+    masks and ties.
+  method: test
+- name: phase_and_output
+  statement: Acceptance/fallback decisions observe completed generations and produce the requested ordering/padding
+    without scratch reuse races.
+  method: test
+effects:
+  transactions: []
+  storage:
+  - id: candidate_records
+    level: dram
+    scope: kernel
+    bytes: p.row_count * capacity * (p.score_bytes + p.id_bytes)
+  - id: counts_and_flags
+    level: dram
+    scope: kernel
+    bytes: p.row_count * (p.counter_bytes + p.flag_record_bytes)
+  overlap: []
+scope:
+  predicate: p.finite_scores_unique_ids_and_defined_tie_order and p.invalid_slots_excluded_before_scan
+    and p.full_valid_domain_scanned_once_and_filter_is_score_ge_threshold and p.threshold_not_nan and
+    p.count_includes_all_qualifiers_without_overflow and p.atomic_append_slots_unique and p.writes_bounded_by_capacity
+    and p.score_bits_and_identity_match_between_scan_and_exact_fallback and p.candidate_and_fallback_selectors_exact_for_same_requested_order
+    and p.output_presentation_and_padding_preserve_identity and p.scan_and_count_complete_visible_before_acceptance
+    and p.fallback_flags_complete_before_rescan and p.scratch_not_reused_until_all_readers_retire
+  text: Exact finite-score top-k with unique identities and a complete inclusive scalar-threshold filter.
+    Sampling changes work only, not accepted membership. Source SM120 long ragged DSA uses capacity 8192,
+    requested k<=4096 and a sample-derived threshold. Threshold estimation, exact fallback implementation
+    and native publication are separate bindings. Approximate top-k, hidden count saturation, changed
+    fallback arithmetic and predicates unrelated to the ranking score are excluded.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Threshold scan with full-count acceptance certificate and exact full-domain fallback.
+  reuse: Most rows may finalize a bounded candidate list; unfavorable thresholds affect rescans rather
+    than correctness.
+  storage: Bounded score/ID candidates, untruncated counts and fallback row flags.
+  boundary: Inclusive threshold, complete scan/count and identical fallback score/order.
+  resources:
+  - dram
+  - smem
+numeric_risk: Any changed upstream rounding between scan and fallback can alter membership/ties even if
+  both local selectors are exact.
+summary: 'When exact top-k scans have a cheap threshold estimate, retain scores at or above it in a bounded
+  candidate buffer. Accept only after the full qualifier count is at least the requested winner count
+  and fits the buffer. This certificate makes threshold quality a cost question: too few or too many candidates
+  trigger exact full-domain selection. Continue counting after storage fills; selecting a truncated buffer
+  is not exact.'

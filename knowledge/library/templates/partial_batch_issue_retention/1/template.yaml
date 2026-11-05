@@ -1,0 +1,80 @@
+{
+  "name": "partial_batch_issue_retention",
+  "version": 1,
+  "level_from": 3,
+  "level_to": 4,
+  "change": "vertical",
+  "refines": "transfer",
+  "produces": [
+    "map",
+    "transfer"
+  ],
+  "object": {
+    "type": "pending_request_batch",
+    "description": "When aggregating sparse remote requests and a final nonempty issue must ring a doorbell, retain one batch instead of eagerly draining exact multiples."
+  },
+  "variables": [
+    {
+      "name": "batch_width",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": {
+        "lo": 1,
+        "hi": 32
+      },
+      "meaning": "Requests per full issue batch; source binds32 lanes. A different backend needs a matching realization."
+    }
+  ],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_contract",
+      "expr": "p.requests_independent and p.queue_capacity >= 2 * batch_width and p.transport_requires_final_doorbell",
+      "meaning": "Independent gather requests, rounds add at most batch_width requests, issue leaves at most batch_width pending. Empty streams issue nothing. Transport supports aggregation and explicit final issue. No generic claim that ringing equals remote completion.",
+      "cls": "semantic"
+    }
+  ],
+  "program": {
+    "description": "Compact matching requests in stable lane order into a circular queue of capacity 2*batch_width. After adding at most batch_width requests, issue a full batch only when pending > batch_width. At end issue all remaining pending requests as a final batch that explicitly rings the transport doorbell. Keep each original destination address with its request."
+  },
+  "backward_map": "Expand the intermediate records back to the original logical deliveries, retaining their identity and multiplicity.",
+  "obligations": [
+    {
+      "name": "queue",
+      "statement": "No insertion overwrites a pending request and every original request is issued once.",
+      "method": "exhaustive"
+    },
+    {
+      "name": "final",
+      "statement": "If any request exists, the final issue is nonempty, at most batch_width wide, and rings a doorbell before flush.",
+      "method": "exhaustive"
+    },
+    {
+      "name": "completion",
+      "statement": "Flush covers every issued request before consumers read destinations.",
+      "method": "exhaustive"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.requests_independent and p.queue_capacity >= 2 * batch_width and p.transport_requires_final_doorbell",
+    "text": "Independent gather requests, rounds add at most batch_width requests, issue leaves at most batch_width pending. Empty streams issue nothing. Transport supports aggregation and explicit final issue. No generic claim that ringing equals remote completion."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "When aggregating sparse remote requests and a final nonempty issue must ring a doorbell, retain one batch instead of eagerly draining exact multiples.",
+    "reuse": null,
+    "storage": "pending_request_batch",
+    "boundary": "Invalid destinations are excluded; short final groups retain exact identities.",
+    "resources": []
+  },
+  "numeric_risk": null,
+  "summary": "When aggregating sparse remote requests and a final nonempty issue must ring a doorbell, retain one batch instead of eagerly draining exact multiples."
+}

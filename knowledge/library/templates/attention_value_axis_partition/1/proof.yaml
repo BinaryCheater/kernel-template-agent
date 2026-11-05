@@ -1,0 +1,31 @@
+template: attention_value_axis_partition@1
+version: 1
+relation: Common-frame probability exchange and complete-key disjoint-feature contractions recover the same normalized weighted output as merging full-feature key-shard partials under the admitted numerical policy.
+rank: Weighted key/feature terms not yet included in their unique output owner.
+assumes:
+  - {name: partition, statement: "Four disjoint score key shards cover each key tile; four feature slices cover every output feature once."}
+  - {name: normalization, statement: "All owners agree on each row's running reference, mass and old-output correction before consuming the exchanged probability tile."}
+  - {name: exchange, statement: "Probability/statistic generations publish complete matching coordinates and remain live through every feature owner's read."}
+  - {name: numerical, statement: "FP16/BF16 probability conversion, FP32 accumulation and the reassociated contraction satisfy the numerical contract."}
+guarantees: []
+models: []
+note: >-
+  For each feature d, sum over the disjoint key shards equals the full key sum.
+  Partitioning d merely assigns that same sum to one owner. With common r,
+  both numerator and denominator scale by exp(r_old-r_new) before new terms,
+  preserving the streamed invariant. A common denominator normalizes every
+  feature slice once. Scores(0,ln2,ln3,ln4) and V rows with feature d equal
+  (key+1)*100+d give O[d]=300+d; four feature owners must each read all four
+  keys. Taking only the same-numbered key yields100*(owner+1)+d instead.
+  Source include/flashinfer/attention/prefill.cuh:3879-4004 exchanges row maxima,
+  writes each key-shard P in a common reference and combines row sums;
+  :4007-4052 applies old-output correction and loads every key block for a
+  disjoint value slice; :4216-4264 normalizes and writes that slice. KernelTraits
+  :366-379 enables the value split, and :4774-4824 chooses it in paged prefill.
+  online_rescaled_reduction@2 supplies the frame recurrence, smem_partial_combine@1
+  can combine row scalars, and output_tiling@2 can tile features, but none alone
+  represents switching the intermediate's key-shard owners into complete-key
+  feature owners with a required full P exchange. scatter_reduce_output_shards@1
+  instead sends already-computed output partials to their owners, a different
+  object and communication volume. Native fragment layouts, barriers and
+  numerical precision remain implementation obligations.

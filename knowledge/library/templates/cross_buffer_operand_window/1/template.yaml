@@ -1,0 +1,53 @@
+name: cross_buffer_operand_window
+version: 1
+level_from: 4
+level_to: 5
+change: vertical
+refines: transfer
+produces: [transfer]
+object:
+  type: two_chunk_operand_window
+  description: A contiguous logical operand window addressed through a current storage chunk and its successor when the window crosses their boundary.
+variables:
+  - {name: chunk_extent, kind: numeric, binding: compile, role: software, domain: {lo: 1, hi: 2147483647}, unit: elements, meaning: Logical elements represented by each producer/storage chunk; independent of the consumer instruction extent.}
+constraints:
+  - {id: c_two_chunks, expr: "p.window_extent > 0 and p.window_extent <= chunk_extent", meaning: Each consumer window touches at most its current chunk and one successor., cls: semantic}
+  - {id: c_backend, expr: "p.two_chunk_descriptor_supported and p.chunk_layout_legal", meaning: The target consumer represents both addresses and the chosen chunk shape/alignment legally., cls: implementation}
+preconditions:
+  - {id: pre_two_chunks, expr: "p.window_extent > 0 and p.window_extent <= chunk_extent", meaning: The two-address representation covers the whole window., cls: semantic, same_as: c_two_chunks}
+  - {id: pre_backend, expr: "p.two_chunk_descriptor_supported and p.chunk_layout_legal", meaning: Encoding and target restrictions are established separately for this instance., cls: implementation, same_as: c_backend}
+  - {id: pre_lifetime, expr: "p.chunks_ready_and_live and p.tail_padding_valid", meaning: Every accessed chunk is ready before consumer use and remains live through completion; logical tail padding follows the original operation., cls: semantic}
+program:
+  description: >-
+    A consumer window i begins at logical offset i*W and spans W elements. With
+    chunk extent C, derive current=floor(i*W/C) and offset=(i*W)%C. Address the
+    prefix through current at offset and any remainder through successor=current+1
+    at zero. Supply both addresses to the consumer without concatenating the chunks
+    into a new buffer. Retain readiness and asynchronous completion dependencies;
+    retire a chunk only after the last window touching it has completed.
+backward_map: Resolve each window element to its unique logical stream coordinate i*W+k and erase the physical chunk descriptors.
+obligations:
+  - {name: coordinate_identity, statement: Each consumer element k maps to exactly logical offset i*W+k through the current or next chunk., method: exhaustive}
+  - {name: last_use, statement: A chunk is not overwritten or released before every consumer window touching it has completed., method: test}
+  - {name: descriptor_encoding, statement: "The selected backend encodes current offset and successor with the required alignment, address spaces and target gates.", method: unspecified}
+effects: {transactions: [], storage: [], overlap: []}
+scope:
+  predicate: "p.window_extent > 0 and p.window_extent <= chunk_extent and p.two_chunk_descriptor_supported and p.chunk_layout_legal and p.chunks_ready_and_live and p.tail_padding_valid"
+  text: >-
+    Uniform contiguous consumer windows with extent W over equal-sized logical
+    producer chunks C, W<=C. Physical chunk addresses may be noncontiguous, including
+    distinct shared-ring slots. Producer ring rotation, chunk layout, scale metadata
+    and completion events remain separate refinements. No new buffer or extra copy
+    is introduced by this address mapping; target instruction traffic is not priced here.
+requires: []
+probed_on: []
+relations:
+  - {type: requires, target: physical_storage, note: Chunk lifetimes must include every crossing consumer window.}
+signature:
+  algorithm: Resolve a contiguous consumer window through a current chunk plus an optional successor.
+  storage: Existing producer chunks; no concatenation buffer.
+  boundary: This version admits W<=C; wider consumer windows are outside its declared domain.
+  resources: []
+numeric_risk: Address-only transformation on the stated domain; consumer arithmetic and rounding are unchanged.
+summary: >-
+  When a fixed consumer instruction window does not divide the producer's storage chunks, consider addressing the window through current and successor chunks. Preserve each logical stream coordinate and keep both chunks live through any crossing read; this version requires W<=C and a legal two-address backend. The pinned SM103 implementation binds W96,C256 with crossing windows2/5; changing C requires matching descriptor, chunk-layout and retirement code rather than a source parameter override.

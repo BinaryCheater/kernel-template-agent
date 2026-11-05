@@ -1,0 +1,15 @@
+{
+  "template": "codebook_operand_decode@1",
+  "version": 1,
+  "relation": "Every consumed logical operand component equals the declared table/sign/group-metadata expansion at its original coordinate under the selected arithmetic recipe.",
+  "rank": "Remaining encoded vectors and their unconsumed components.",
+  "assumes": [
+    {
+      "name": "format",
+      "statement": "Codebook, sign expansion, scales/offsets and component ordering are fixed immutable format inputs with valid indices."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "A table lookup defines each nonuniform vector. Exact coordinate coverage and matching metadata establish decoding identity; fused arithmetic additionally needs its stated accumulation/scaling contract. Source GGUF dequantize.cuh:295\u2013468 and vecdotq.cuh:1759\u20131780. IQ2_XXS sign index1 expands to0x81 (components0 and7 negative), while grid index1 has little-endian components[43,8,8,8,8,8,8,8]. IQ4_NL codes0/15 map-127/113, not affine endpoints. Related bitstream_packing@1 covers storage extraction but not these nonlinear table values. Native sign/layout and numerical recipes remain open. Witness retained in trace-matrix-quantization.md."
+}

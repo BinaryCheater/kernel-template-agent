@@ -1,0 +1,62 @@
+name: structured_zero_compression
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: contract
+produces: [map, contract]
+object:
+  type: compressed_structured_zero_operand
+  description: Each aligned four-value group is represented by two retained values and a position nibble for a sparse MMA consumer.
+variables:
+  - {name: metadata_word_bits, kind: numeric, binding: compile, role: software, domain: [16, 32], meaning: Pack four or eight position nibbles into one metadata word; encoder and consumer must select the same format.}
+constraints:
+  - {id: c_group, expr: "p.K % 4 == 0 and p.k_origin % 4 == 0", meaning: Compression groups are complete and aligned to their logical K origin., cls: semantic}
+  - {id: c_format, expr: "metadata_word_bits == p.metadata_word_bits", meaning: The selected packed metadata word matches the consumer format., cls: implementation}
+preconditions:
+  - {id: pre_support, expr: "p.at_most_two_nonzeros_per_group and p.input_values_finite and p.zero_products_are_neutral", meaning: Only known zero contributions may be omitted under the contraction's numerical policy., cls: semantic}
+  - {id: pre_encoding, expr: "p.position_order_preserved and p.encoder_decoder_match and p.metadata_shape_matches and p.value_type_supported", meaning: Retained values and position nibbles identify the same logical coordinates and use a supported value/metadata format., cls: implementation}
+  - {id: pre_backend, expr: "p.sparse_mma_backend_supported and p.compressed_load_layout_supported and p.padding_and_tail_policy_valid", meaning: The selected native sparse operand and copy layouts realize this logical representation., cls: implementation}
+program:
+  description: >-
+    For each row and aligned K quartet, find the positions of its at most two
+    nonzero values in increasing order. With two nonzeros retain those positions.
+    With one nonzero at0 choose positions(0,1); with one atj>0 choose(0,j).
+    With no nonzeros choose(0,1). Store both selected values, including any selected
+    zero, and nibble i0|(i1<<2). Pack consecutive nibbles at bit offsets4*j in the
+    selected metadata word. The sparse MMA interprets missing positions as zero
+    and contracts retained values with the corresponding coordinates of the other
+    operand. This is exact compression of existing structured zeros, not an
+    algorithm for pruning arbitrary nonzero dense weights.
+backward_map: Decode each position pair and scatter its two values into a zero-initialized quartet; the original finite logical operand and admitted contraction are recovered.
+obligations:
+  - {name: support_preserved, statement: Every original nonzero is retained once and all omitted positions are zero., method: proof}
+  - {name: format_identity, statement: Nibble packing and consumer decoding recover the same ordered coordinate/value pairs., method: test}
+  - {name: contraction_identity, statement: Omitted zero products are neutral under the declared sparse contraction policy., method: proof}
+  - {name: native_mapping, statement: Physical metadata/value layouts and target sparse MMA implement the declared logical decoder., method: test}
+effects: {transactions: [], storage: [], overlap: []}
+scope:
+  predicate: "p.at_most_two_nonzeros_per_group and p.input_values_finite and p.zero_products_are_neutral and p.position_order_preserved and p.encoder_decoder_match and p.metadata_shape_matches and p.value_type_supported and p.sparse_mma_backend_supported and p.compressed_load_layout_supported and p.padding_and_tail_policy_valid"
+  text: >-
+    Exact2:4 structured-zero operand encoding, with a paired position nibble and
+    supported16/32-bit metadata words. Source representative uses FP16 operands.
+    Other value types need an explicit supported backend binding. TF32's1:2 form,
+    unaligned groups, arbitrary nonzero pruning, NaN/Inf propagation and observed
+    signed-zero payloads are outside this version. Native encoding/layout assurance
+    is separate from the logical compression identity.
+requires: []
+probed_on: []
+relations:
+  - {type: enables, target: bitstream_packing, note: The ordered position nibbles can be packed without changing their logical support.}
+signature:
+  algorithm: Remove only structured zeros and encode retained positions for sparse contraction.
+  storage: Two values plus a position nibble for each logical quartet.
+  boundary: Support quota and paired encoder/native metadata interpretation.
+  resources: [gmem, tensor]
+numeric_risk: Exact finite logical compression does not authorize lossy upstream sparsification or dense IEEE zero-times-NaN equivalence.
+summary: >-
+  When an operand already has at most two nonzeros in every aligned quartet,
+  consider value/position compression for sparse MMA. Preserve every nonzero,
+  fill unused retained slots with known zeros and pair the position nibble format
+  with its native consumer. Upstream weight selection and unsupported sparse
+  layouts require separate rules or bindings.

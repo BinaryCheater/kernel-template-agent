@@ -1,0 +1,94 @@
+name: power_of_two_scale_encoding
+version: 2
+level_from: 3
+level_to: 4
+change: vertical
+refines: store
+produces:
+- map
+- store
+object:
+  type: exponent_scale_code
+  description: An unsigned biased-exponent byte representing a positive finite FP32
+    power-of-two scale down to the native UE8M0 minimum2^-127.
+variables:
+- name: site
+  kind: structure
+  binding: compile
+  role: software
+  domain:
+  - producer
+  - layout_transform
+  meaning: Encode when producing metadata or in a separate layout transform before
+    consumption.
+constraints:
+- id: c_exact_domain
+  expr: p.min_scale_exponent >= -127 and p.max_scale_exponent <= 127 and p.scales_positive_pow2_and_representable
+  meaning: Positive finite FP32 powers of two with exponent-127..127; exactly2^-127
+    maps to live code0, normal scales use exponent byte1..254.
+  cls: semantic
+- id: c_consumer
+  expr: p.consumer_supports_ue8m0
+  meaning: The consuming scale decoder interprets byte e as 2**(e-127).
+  cls: implementation
+preconditions:
+- id: pre_exact
+  expr: p.min_scale_exponent >= -127 and p.max_scale_exponent <= 127 and p.scales_positive_pow2_and_representable
+  meaning: Positive finite FP32 powers of two with exponent-127..127; exactly2^-127
+    maps to live code0, normal scales use exponent byte1..254.
+  cls: semantic
+  same_as: c_exact_domain
+- id: pre_padding
+  expr: p.padding_not_substituted_for_live_scale
+  meaning: Any padding byte, including0, stays outside required logical coordinates;
+    a live byte0 is allowed only when its actual scale is2^-127.
+  cls: semantic
+program:
+  description: For each live positive finite power-of-two scale s in[2^-127,2^127],
+    emit code0 when s==2^-127; otherwise reinterpret its normal FP32 bits and emit(u>>23)&255.
+    Decode e as2**(e-127) at the same logical metadata coordinate. Code0 therefore
+    represents a positive minimum, not numerical zero. Preserve padding identity separately;
+    code255 remains excluded. Upward rounding arbitrary scales into this domain is
+    a separate numerical step; byte packing and metadata layout are independent.
+backward_map: Decode each live byte with the declared biased-exponent representation
+  at its original logical metadata coordinate.
+obligations:
+- name: value_identity
+  statement: Decoding each live exponent byte recovers the original FP32 scale exactly
+    over the admitted domain.
+  method: exhaustive
+- name: metadata_identity
+  statement: Every live scale keeps its logical owner through encoding and any separately
+    composed physical layout.
+  method: exhaustive
+- name: padding_exclusion
+  statement: Padding bytes are not substituted for required live coordinates; reserved255
+    is never a live scale. Live0 is admitted only for exactly2^-127.
+  method: test
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: p.min_scale_exponent >= -127 and p.max_scale_exponent <= 127 and p.scales_positive_pow2_and_representable
+    and p.consumer_supports_ue8m0 and p.padding_not_substituted_for_live_scale
+  text: Version1 positive normal exponent-126..127 storage domain retained. Version2
+    adds exactly2^-127, a representable subnormal FP32 scale requiring special code0
+    handling. Other subnormals, zero,negative scales,infinity,non-powers and reserved255
+    remain outside. E8M0 native conversion may produce live0 for tiny/zero raw scales;
+    only its resulting positive scale, not the raw zero, is encoded by this rule.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Extract the biased exponent of an already-normalized power-of-two scale.
+  storage: One byte per live scale before independent word packing and layout.
+  boundary: Positive exact powers2^-127..2^127; explicit minimum encoding and separate
+    padding identity.
+  resources: []
+numeric_risk: No change on the admitted domain; applying the extraction to zero or
+  infinity changes values and is outside the contract.
+summary: When an already-defined positive power-of-two scale feeds UE8M0 consumers,
+  emit its biased exponent. Normal scales use FP32 exponent bits; the minimum2^-127
+  needs explicit live code0. Keep padding separate and leave rounding/clamping raw
+  scales to the numerical quantizer.

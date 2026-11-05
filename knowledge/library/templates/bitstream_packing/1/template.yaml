@@ -1,0 +1,67 @@
+name: bitstream_packing
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: store
+produces: [store, map]
+object:
+  type: contiguous_code_bitstream
+  description: Fixed-width unsigned codes stored consecutively across word boundaries, with an inverse extractor.
+variables:
+  - name: code_bits
+    kind: numeric
+    binding: compile
+    role: software
+    domain: {lo: 1, hi: 8}
+    meaning: Independent stored width of one code; interpretation as signed or floating point belongs to its consumer.
+  - name: word_bits
+    kind: numeric
+    binding: compile
+    role: software
+    domain: [32]
+    meaning: Container width fixed by this version's source witness and shift arithmetic.
+constraints:
+  - {id: c_width, expr: "code_bits >= 1 and code_bits <= 8 and word_bits == 32", meaning: The observed width domain fits the two-word extractor., cls: implementation}
+  - {id: c_whole_groups, expr: "p.length >= 32 and p.length % 32 == 0", meaning: Complete groups of 32 codes; callers exclude a partial code group., cls: implementation}
+preconditions:
+  - {id: pre_code_range, expr: "p.min_code >= 0 and p.max_code < 2 ** code_bits", meaning: Codes fit without loss; outside this premise the implementation retains only their low bits., cls: semantic}
+program:
+  description: >-
+    Initialize code_bits words to zero for each group of 32 codes. For code i set
+    j=(i*code_bits)//32 and r=(i*code_bits)%32. OR its low bits at word j offset r,
+    and, when r+code_bits>32, its remaining bits into word j+1. Unpack extracts
+    min(32-r,code_bits) bits from j and the rest from j+1. Thread t in block b
+    owns codes [1024*b+32*t,1024*b+32*t+32); store only groups within length.
+backward_map: Extract code i from its code_bits consecutive bit positions; discard the containers.
+obligations:
+  - {name: bit_identity, statement: "Each logical bit (i,b) maps to physical bit i*code_bits+b, injectively and with the same value after unpacking.", method: exhaustive}
+  - {name: group_ownership, statement: Each complete 32-code group has exactly one writer; an inactive thread in the final CTA writes no word., method: exhaustive}
+  - {name: memory_safety, statement: All visible reads and writes are in range; final-CTA inactive local arrays require separate CUDA language and sanitizer review., method: test}
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: "p.length >= 32 and p.length % 32 == 0"
+  text: >-
+    Lossless storage refinement of already-defined 1..8-bit codes in contiguous int32 tensors.
+    Source witness is Humming pack/unpack on NVIDIA, independent of a matrix fragment layout.
+    Matrix prepacking and quantization are separate refinements. Traffic is owned by the
+    surrounding transfer chain, so this record introduces no duplicate DRAM transaction.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Fixed-width code concatenation and inverse extraction across 32-bit words.
+  reuse: null
+  storage: Packed contiguous global-memory words, register-local groups during conversion.
+  boundary: Only complete 32-code groups; a CTA may contain inactive threads.
+  resources: []
+numeric_risk: None for in-range codes; truncating out-of-range input is outside the lossless premise.
+summary: >-
+  Consider packing when many fixed-width integer codes leave unused bits in byte-sized
+  storage and the consumer can extract bit fields. Assign each code a disjoint interval
+  and use the same bit offsets on readback. Humming binds the width to the input encoding:
+  32 three-bit codes occupy three 32-bit words. This implementation supports widths 1..8
+  and complete 32-code groups. A short final group needs a separate tail path.

@@ -1,0 +1,132 @@
+{
+  "name": "symmetric_absmax_quantization",
+  "version": 1,
+  "level_from": 3,
+  "level_to": 4,
+  "change": "vertical",
+  "refines": "map",
+  "produces": [
+    "reduce",
+    "map",
+    "store"
+  ],
+  "object": {
+    "type": "zero_centered_absmax_code_group",
+    "description": "One symmetric code group sharing an absmax-derived scale, with explicit scale rounding and zero policy."
+  },
+  "variables": [
+    {
+      "name": "group_size",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "boundary",
+      "domain": {
+        "lo": 1,
+        "hi": 65536
+      },
+      "meaning": "Values sharing one numerical scale, fixed by representation; source FP8 group128 or entire INT8 row."
+    },
+    {
+      "name": "code_format",
+      "kind": "structure",
+      "binding": "compile",
+      "role": "boundary",
+      "domain": [
+        "int8",
+        "e4m3"
+      ],
+      "meaning": "Signed INT8 range[-127,127] or NVIDIA E4M3 finite range[-448,448]."
+    },
+    {
+      "name": "scale_policy",
+      "kind": "structure",
+      "binding": "compile",
+      "role": "boundary",
+      "domain": [
+        "fp32_ratio",
+        "ceil_pow2"
+      ],
+      "meaning": "Numerical contract chooses FP32 absmax/maxcode ratio or an upward power-of-two scale."
+    },
+    {
+      "name": "zero_policy",
+      "kind": "structure",
+      "binding": "compile",
+      "role": "boundary",
+      "domain": [
+        "amax_floor",
+        "unit_scale"
+      ],
+      "meaning": "Floor the group maximum by caller epsilon before scale selection, or explicitly use scale1 for a zero group."
+    }
+  ],
+  "constraints": [
+    {
+      "id": "c_group",
+      "expr": "p.length % group_size == 0 and p.complete_groups",
+      "meaning": "Every group consists of exactly the declared valid values.",
+      "cls": "implementation"
+    }
+  ],
+  "preconditions": [
+    {
+      "id": "pre_numeric",
+      "expr": "p.symmetric_quantizer_requested and p.finite_values and p.scale_reciprocal_and_conversion_recipe_explicit",
+      "meaning": "Scale/clipping/conversion order and INT8 nearest-even or E4M3 rounding are part of the requested numerical contract.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_scale",
+      "expr": "p.scales_positive_finite and p.ceil_pow2_domain_supported and p.epsilon_policy_matches",
+      "meaning": "Scale/reciprocal ranges and epsilon/zero behavior are supported by the chosen realization.",
+      "cls": "implementation"
+    },
+    {
+      "id": "pre_owner",
+      "expr": "p.logical_groups_match_metadata and p.code_scale_generation_coherent",
+      "meaning": "One scale per logical group is published with exactly its corresponding code values.",
+      "cls": "semantic"
+    }
+  ],
+  "program": {
+    "description": "For each group reducea=max(abs(x)). With amax_floor replacea bymax(a,epsilon); with unit_scale use scale1 whena==0. Otherwise set raw_scale=a/max_code where max_code127 forint8 or448 fore4m3. Store FP32 raw_scale for fp32_ratio, or select the least admitted power of two not below raw_scale for ceil_pow2. Encode eachx using that same stored scale through the explicitly bound division/reciprocal, clipping and format conversion. Emit one scale and complete codes; code packing and metadata layout are separate."
+  },
+  "backward_map": "Read code and shared scale as the requested symmetric quantizer result; decoded scale*code approximates original values under the specified quantization contract.",
+  "obligations": [
+    {
+      "name": "group_max",
+      "statement": "Maximum includes every logical group value once, plus only neutral padding if a future variant admits it.",
+      "method": "exhaustive"
+    },
+    {
+      "name": "scale_code",
+      "statement": "Codes use the actual stored scale under the stated arithmetic and zero/epsilon policy.",
+      "method": "test"
+    },
+    {
+      "name": "range_rounding",
+      "statement": "Scale and payload rounding/clipping implement the requested code format and supported range.",
+      "method": "test"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.symmetric_quantizer_requested and p.finite_values and p.scales_positive_finite",
+    "text": "Source signed symmetric INT8 or E4M3 quantizers with complete groups, positive finite scales and explicit epsilon/zero policy. Group128 FP8 AOT/TileLang and full-row INT8 ConvRot are concrete bindings; E8M0 minimum exponent, NVFP4 encoded E4M3 scales and arbitrary unsigned zero points are separate rules."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "Per-group absmax then symmetric scale and payload conversion.",
+    "storage": "One FP32 scale per group plus signed integer or FP8 payload.",
+    "boundary": "Zero groups, scale floors, power-of-two boundaries and format saturation.",
+    "resources": []
+  },
+  "numeric_risk": "Multiplication by reciprocal differs from division; upward scale rounding changes payloads. This is a lossy numerical contract, not an exact storage permutation.",
+  "summary": "When the requested low-precision representation is zero-centered with a shared group scale, reduce absmax and generate signed INT8 or E4M3 codes using that stored scale. Bind grouping, scale rounding and zero policy from the numerical contract; then choose ownership/fusion independently. Unsigned range-derived zero-point quantization is a different rule."
+}

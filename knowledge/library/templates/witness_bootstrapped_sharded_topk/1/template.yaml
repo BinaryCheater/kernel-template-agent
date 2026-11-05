@@ -1,0 +1,114 @@
+{
+  "name": "witness_bootstrapped_sharded_topk",
+  "version": 1,
+  "level_from": 3,
+  "level_to": 4,
+  "change": "vertical",
+  "refines": "reduce",
+  "produces": [
+    "map",
+    "reduce"
+  ],
+  "object": {
+    "type": "witness_bootstrapped_sharded_topk",
+    "description": "When one row is split among workers that initially hold fewer than k local winners, obtain k global rank witnesses from a shared bootstrap sample before filtering each shard. Raise a local threshold only after that worker has its own k retained witnesses."
+  },
+  "variables": [
+    {
+      "name": "workers",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": [
+        2,
+        3,
+        4,
+        8,
+        16
+      ],
+      "meaning": "Disjoint workers cooperate on one row."
+    },
+    {
+      "name": "bootstrap_per_worker",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": [
+        32768
+      ],
+      "meaning": "Maximum initial sample records per worker; a shorter slice contributes its complete contents."
+    }
+  ],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_0",
+      "expr": "p.k > 0 and p.k <= p.length and p.shards_partition_valid_row and p.bootstrap_records_distinct_and_part_of_row",
+      "meaning": "The requested rank exists; bootstrap records are not duplicated or invented.",
+      "cls": "implementation"
+    },
+    {
+      "id": "pre_1",
+      "expr": "p.bootstrap_contains_at_least_k_valid_records and p.bootstrap_global_topk_exact",
+      "meaning": "Initial global selection supplies actual k witnesses and exact kth threshold.",
+      "cls": "implementation"
+    },
+    {
+      "id": "pre_2",
+      "expr": "p.bootstrap_winners_retained_with_exact_tie_quota and p.all_later_inputs_scanned",
+      "meaning": "At least one allowed bootstrap top-k remains represented; each later valid record is considered once.",
+      "cls": "implementation"
+    },
+    {
+      "id": "pre_3",
+      "expr": "p.local_threshold_raises_only_after_exact_local_topk and p.local_topk_inputs_complete",
+      "meaning": "A worker may replace its retained records by exact local top-k only after at least k actual records are available.",
+      "cls": "implementation"
+    },
+    {
+      "id": "pre_4",
+      "expr": "p.final_selection_covers_all_retained_workers and p.arbitrary_tie_identity_admitted and p.nan_inputs_excluded",
+      "meaning": "Final global top-k is exact over the complete retained union; arbitrary tied identities are legal.",
+      "cls": "implementation"
+    }
+  ],
+  "program": {
+    "description": "Select exact global top-k from the union of initial per-worker windows and distribute those winner records to their original workers. Let b be its kth value. For the rest of each disjoint shard retain records strictly greater than b; discarded ties are permitted because the retained bootstrap winners already supply k witnesses. A worker can compact its complete local candidates to k once at least k exist; thereafter it may raise its filter threshold to the least local winner. Discarding below either threshold is safe: the bootstrap threshold has k global witnesses, and any raised local threshold has k local witnesses. Finally select exact global top-k over every retained worker candidate, including workers that never reached k locally."
+  },
+  "backward_map": "Reinsert each discarded record: its discard had k distinct actually retained-or-dominating witnesses in the global union. Local exact top-k substitution preserves the global top-k value multiset, so final selection returns an allowed full-row top-k.",
+  "obligations": [
+    {
+      "name": "logical_equivalence",
+      "statement": "Reinsert each discarded record: its discard had k distinct actually retained-or-dominating witnesses in the global union. Local exact top-k substitution preserves the global top-k value multiset, so final selection returns an allowed full-row top-k.",
+      "method": "proof"
+    },
+    {
+      "name": "protocol",
+      "statement": "Native participants, counters, visibility and scratch lifetimes implement the declared complete dataflow.",
+      "method": "test"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "(p.k > 0 and p.k <= p.length and p.shards_partition_valid_row and p.bootstrap_records_distinct_and_part_of_row) and (p.bootstrap_contains_at_least_k_valid_records and p.bootstrap_global_topk_exact) and (p.bootstrap_winners_retained_with_exact_tie_quota and p.all_later_inputs_scanned) and (p.local_threshold_raises_only_after_exact_local_topk and p.local_topk_inputs_complete) and (p.final_selection_covers_all_retained_workers and p.arbitrary_tie_identity_admitted and p.nan_inputs_excluded)",
+    "text": "Pinned DeepSelect BF16 cluster2/3/4/8/16, initial window32768 per CTA, k<=MAX_TOPK512/1024, arbitrary ties and complete disjoint slices. Source NaN handling is separate. Bootstrap windows visit the only partial tail first; short slices use the direct complete-window branch. Local candidate buffer4096 and input stages8192 use reservation rollback before exact compaction; that independent storage choice is reservation_rollback_retry@1."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "When one row is split among workers that initially hold fewer than k local winners, obtain k global rank witnesses from a shared bootstrap sample before filtering each shard. Raise a local threshold only after that worker has its own k retained witnesses.",
+    "storage": "Candidate records, input stages and per-worker summaries with explicit live intervals.",
+    "boundary": "Pinned DeepSelect BF16 cluster2/3/4/8/16, initial window32768 per CTA, k<=MAX_TOPK512/1024, arbitrary ties and complete disjoint slices. Source NaN handling is separate. Bootstrap windows visit the only partial tail first; short slices use the direct complete-window branch. Local candidate buffer4096 and input stages8192 use reservation rollback before exact compaction; that independent storage choice is reservation_rollback_retry@1.",
+    "resources": [
+      "smem",
+      "registers"
+    ]
+  },
+  "numeric_risk": "Ordered comparisons must agree across thresholds, local compaction and final selection; finite ties use the declared arbitrary-identity policy.",
+  "summary": "When one row is split among workers that initially hold fewer than k local winners, obtain k global rank witnesses from a shared bootstrap sample before filtering each shard. Raise a local threshold only after that worker has its own k retained witnesses."
+}

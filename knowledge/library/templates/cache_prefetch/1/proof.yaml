@@ -1,0 +1,23 @@
+template: cache_prefetch@1
+version: 1
+relation: Erasing hint events leaves the same original demand-copy/synchronization/arithmetic prefix and the same application-visible values; cache contents are outside this relation.
+rank: Number of remaining demand-copy iterations plus pending bounded hint events in the finite source stream.
+assumes:
+  - {name: neutral_backend, statement: The selected L2 hint is value-neutral and non-faulting on all selected descriptors/addresses.}
+  - {name: source_lifetime, statement: Source data and metadata are immutable and remain live for all demand accesses and hint uses.}
+  - {name: original_program, statement: The original demand-copy program already satisfies its destination readiness and buffer-release obligations; hints grant no such permissions.}
+guarantees: []
+models: []
+note: >-
+  Initialization adds only min(D,T) hints when D>0, all in0..T-1. Each iteration
+  retains original demand-copy k and its existing ordering; its optional hint k+D
+  is guarded by k<T-D, hence0<=k+D<T. Erasure removes the added events and
+  preserves the original trace. Positive D partitions the hinted domain into
+  [0,min(D,T)) and [D,T), each exactly once; D=0 yields no hint events. Finite
+  demand iterations and finite hint sets give a decreasing rank. The source replay
+  checks T0..64, distance0..16 or the default stage count, and persistent stream resets.
+  The source frontend also disables negative inputs; normalize those to D0 rather
+  than extending the Template's nonnegative domain. PTX ISA describes tensor
+  prefetch as a non-blocking possible transfer into L2; exact emitted CuTe lowering,
+  backend legality/lifetime and hardware behavior remain separate obligations.
+  No registered checker model or whole-subject ProofSummary is claimed.

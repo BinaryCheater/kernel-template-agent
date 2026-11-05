@@ -1,0 +1,102 @@
+{
+  "name": "generation_tagged_payload_lines",
+  "version": 1,
+  "level_from": 2,
+  "level_to": 3,
+  "change": "vertical",
+  "refines": "map",
+  "produces": [
+    "map",
+    "access"
+  ],
+  "object": {
+    "type": "generation_tagged_payload_lines",
+    "description": "When a small-message transport embeds readiness with payload, tag every physical line with its FIFO generation and accept data only after all corresponding tags match."
+  },
+  "variables": [
+    {
+      "name": "line_bytes",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": {
+        "lo": 16,
+        "hi": 128
+      },
+      "meaning": "Transport line size; source LL16 and LL128128 have distinct layouts."
+    },
+    {
+      "name": "tag_bits",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": {
+        "lo": 32,
+        "hi": 64
+      },
+      "meaning": "Generation tag width; finite reuse needs cleanup/epoch separation."
+    }
+  ],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_0",
+      "expr": "p.line_payload_tag_mapping_complete and p.tagged_store_load_visibility_contract",
+      "meaning": "Expected flags imply visibility of matching payload only under the selected hardware transport ordering contract.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_1",
+      "expr": "p.sender_credit_prevents_live_slot_overwrite and p.generation_alias_prevented",
+      "meaning": "Consumer retires before reuse; stale tags cannot match future live generation.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_2",
+      "expr": "p.collective_flag_poll_participation_and_abort_contract",
+      "meaning": "All required flag lanes participate; abort is failure, never successful data.",
+      "cls": "semantic"
+    }
+  ],
+  "program": {
+    "description": "Map step g to circular slot g%S. Wait for retired credit before writing. Emit payload with expected generation g+1 in every designated tag field. Receiver repeatedly loads line and tests all expected tags; cooperative variants vote across flag lanes and reload payload after successful vote. Reduce/copy only matching payload. Retire slot after all readers finish. On finite tag rollover, clean every stale line tag including unused tail lines before allowing alias; otherwise require nonwrapping generation epoch."
+  },
+  "backward_map": "Erase auxiliary organization and recover the visible results under the stated contract.",
+  "obligations": [
+    {
+      "name": "ready",
+      "statement": "No payload from an older generation may be accepted for g; the hardware visibility premise connects matching tags to data.",
+      "method": "proof"
+    },
+    {
+      "name": "reuse",
+      "statement": "Credits prevent overwrite while any reader holds the old slot.",
+      "method": "proof"
+    },
+    {
+      "name": "rollover",
+      "statement": "Unused lines cannot retain a tag that aliases a later live generation.",
+      "method": "proof"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.line_payload_tag_mapping_complete and p.tagged_store_load_visibility_contract and p.sender_credit_prevents_live_slot_overwrite and p.generation_alias_prevented and p.collective_flag_poll_participation_and_abort_contract",
+    "text": "Source-derived conditional transport protocol. Volatile vector operations alone are not a portable release/acquire proof. LL/LL128 are distinct hardware realizations. Resource effects: LL carries8 payload bytes in16; LL128 reserves flag words in128-byte warp lines."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "When a small-message transport embeds readiness with payload, tag every physical line with its FIFO generation and accept data only after all corresponding tags match.",
+    "storage": "LL carries8 payload bytes in16; LL128 reserves flag words in128-byte warp lines.",
+    "boundary": "prims_ll.h:49-165 clean-mask rollover; prims_ll128.h:190-280 warp vote+reload and target-specific completion fence.",
+    "resources": []
+  },
+  "numeric_risk": "Preserve the supplied arithmetic contract; reassociation, quantization and approximate search require separate permission.",
+  "summary": "When a small-message transport embeds readiness with payload, tag every physical line with its FIFO generation and accept data only after all corresponding tags match. prims_ll.h:49-165 clean-mask rollover; prims_ll128.h:190-280 warp vote+reload and target-specific completion fence."
+}

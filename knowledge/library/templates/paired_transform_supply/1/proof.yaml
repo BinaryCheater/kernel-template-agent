@@ -1,0 +1,42 @@
+template: paired_transform_supply@1
+version: 1
+relation: Erase operand transport and evaluate the declared two-input transform at each original pair
+  coordinate with the same checkpoints, coefficients and finite-precision order. Suffix coordinates map
+  identically.
+rank: Unsupplied original pair operands.
+assumes:
+- name: pre_pairs
+  statement: Within each vector an even active prefix is partitioned into the requested adjacent or split-half
+    pairs; the unrotated suffix keeps its original values.
+- name: pre_coefficients
+  statement: Each pair has the requested coefficients and position/frequency recipe, whether computed
+    or table-loaded. Position IDs are not inferred from output/cache addresses.
+- name: pre_layout
+  statement: Each output owner receives its own and its original partner value under the selected actual
+    vector/load/shuffle map.
+- name: pre_local
+  statement: Local-vector mode captures both pair members before modifying either; pair boundaries do
+    not straddle unrelated vector loads.
+- name: pre_exchange
+  statement: Lane exchange supplies the matching peer register with complete convergence/mask; cross-warp
+    partners need an explicit different transport.
+- name: pre_alias
+  statement: All reads of an original pair precede any write that could destroy it, including redundant
+    partner loads by another thread. Out-of-place output must not overlap other live input.
+- name: pre_numeric
+  statement: Preserve pre-transform BF16/FP16 checkpoints, coefficient approximation, FP32 multiply/add
+    or FMA order, and final conversion under the numerical contract.
+- name: pre_publication
+  statement: Pair values and coefficients are from one visible generation and complete outputs precede
+    their downstream consumers.
+guarantees: []
+models: []
+note: include/flashinfer/pos_enc.cuh:105-199 shows split-half duplicate loads and adjacent local-vector
+  pair capture; :692-808 shows position-ID frequency construction and two-head load-before-store scheduling.
+  include/flashinfer/norm/fused_qk_rmsnorm_rope.cuh:445-528 preserves a BF16 norm checkpoint on non-FP8
+  output and exchanges split-half partners with shuffle XOR16. Source FP8 specialization omits that checkpoint;
+  any bitwise-equivalence interpretation requires independent evidence and is not supplied by the coarser
+  destination. Existing indexed_gather@1 can express physical partner addresses and operator_fusion@2
+  preserves stages, but neither introduces the pairing/supply choice or its alias-reader obligation. Logical
+  checks compare all maps, demonstrate early in-place overwrite and a BF16-before-rotation/FP8 counterexample.
+  Native math, compiler load order and warp convergence remain realization obligations.

@@ -1,0 +1,14 @@
+template: output_tiling@2
+version: 1
+relation: "the union of the tiles' outputs placed at their origins equals the coarse output"
+rank: "tiles not yet written"
+assumes: []
+guarantees: []
+models:
+  - {obligation: coverage_exact_once, condition: completion, model: tile_index,
+     params: {dims: [{tile: tile_m}, {tile: tile_n}], properties: [coverage, exact_once, no_phantom],
+              grid: ceil, guard: true, only_when: [{var: index_map, values: [identity]}]}}
+  - {obligation: index_map_bijective, condition: initialisation, model: tile_index,
+     params: {dims: [{tile: tile_m}, {tile: tile_n}], properties: [injective_origin, coverage],
+              grid: ceil, guard: true, only_when: [{var: index_map, values: [identity]}]}}
+note: "batched, grouped_heads and custom index maps have no index model yet."

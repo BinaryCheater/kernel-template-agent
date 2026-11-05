@@ -1,0 +1,128 @@
+name: encoded_group_scale_recipe
+version: 1
+level_from: 2
+level_to: 3
+change: vertical
+refines: map
+produces:
+- map
+- store
+object:
+  type: encoded_group_scale_recipe
+  description: A low-float group selects a scale-format and rounding recipe and quantizes
+    using that exact encoded scale.
+variables:
+- name: code_format
+  kind: structure
+  binding: compile
+  role: software
+  domain:
+  - e2m1
+  - e4m3
+  - e5m2
+  meaning: E2M1 codes pack two per byte.
+- name: scale_format
+  kind: structure
+  binding: compile
+  role: software
+  domain:
+  - ue8m0
+  - e4m3
+  meaning: Power-of-two unsigned exponent or direct floating scale.
+- name: rounding
+  kind: structure
+  binding: compile
+  role: software
+  domain:
+  - up
+  - down
+  - nearest
+  meaning: Scale rounding; not value-code rounding.
+- name: group_size
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 1
+    hi: 65536
+  meaning: 32 for OCP MX,16 for NVFP4.
+constraints: []
+preconditions:
+- id: pre0
+  expr: (scale_format == 'e4m3' and code_format == 'e2m1' and group_size == 16 and
+    rounding in ['up','nearest']) or (scale_format == 'ue8m0' and group_size == 32
+    and rounding in ['up','down'])
+  meaning: Pinned code/scale/group/rounding pairs are coupled, not a Cartesian product.
+  cls: semantic
+- id: pre1
+  expr: p.requested_recipe and p.finite_valid_values and p.groups_have_valid_elements
+  meaning: The caller requests this lossy quantizer and invalid lanes are excluded
+    from amax.
+  cls: semantic
+- id: pre2
+  expr: p.nonzero_scales_normal_and_representable and p.no_scale_encoding_overflow
+  meaning: Nonzero group scales fit the declared normal metadata domain; extreme underflow/overflow
+    is outside this binding.
+  cls: semantic
+- id: pre3
+  expr: p.format_rounding_pair_supported and p.cast_reciprocal_and_saturation_admitted
+  meaning: UE8M0 supports up/down, direct E4M3 supports up/nearest. Code rounding/saturation
+    is an explicit numeric contract.
+  cls: semantic
+program:
+  description: Reduce max(abs(valid values)) in each logical group, excluding invalid
+    positions. UE8M0 up divides by the code finite maximum (6,448,57344) and rounds
+    scale up to a power of two by exponent/mantissa bits. UE8M0 down divides by the
+    maximum code power of two (4,256,32768) and rounds scale down to a power of two.
+    Direct E4M3 divides by the finite maximum and casts nearest-even; up additionally
+    increments a positive encoding if it undershoots, saturating scale encoding at448.
+    Use the rounded FP32 scale represented by that encoding for reciprocal and value
+    conversion. Zero groups use zero reciprocal and emit zero codes; UE8M0 metadata
+    byte0 decodes to2**-127. Invalid codes become zero. FP4 values use satfinite nearest-even
+    code conversion and even-index nibble low, odd high. Decode with the same metadata;
+    do not claim lossless recovery of original values.
+backward_map: The emitted code/metadata pair is the requested rounded quantizer result;
+  inverse decoding recovers represented values, not arbitrary original inputs.
+obligations:
+- name: scale_recipe
+  statement: Selected divisor, scale rounding and zero-group policy match the requested
+    format recipe.
+  method: test
+- name: code_scale_identity
+  statement: Each code was computed with the rounded stored scale belonging to its
+    own group and logical coordinate.
+  method: proof
+- name: native_conversion
+  statement: Hardware/software FP4 and FP8 conversion, reciprocal and saturation implement
+    the admitted numeric policy.
+  method: test
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: ((scale_format == 'e4m3' and code_format == 'e2m1' and group_size ==
+    16 and rounding in ['up','nearest']) or (scale_format == 'ue8m0' and group_size
+    == 32 and rounding in ['up','down'])) and (p.requested_recipe and p.finite_valid_values
+    and p.groups_have_valid_elements) and (p.nonzero_scales_normal_and_representable
+    and p.no_scale_encoding_overflow) and (p.format_rounding_pair_supported and p.cast_reciprocal_and_saturation_admitted)
+  text: Finite groups within supported normal scale ranges. E4M3 scale groups16 bind
+    NVFP4; UE8M0 groups32 bind MXFP4/MXFP8. This adds MXFP4/E5M2 and explicit down/up
+    scale variants absent from groupwise_low_float_quantization@1; exceptional groups
+    and subnormal scale construction remain outside the candidate domain.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: A low-float group selects a scale-format and rounding recipe and quantizes
+    using that exact encoded scale.
+  storage: Binding-specific counters, partials or output ranges.
+  boundary: Tile prefixes and logical membership.
+  resources: []
+numeric_risk: Integer counts must not overflow; ordering/rounding policy belongs to
+  the bound operation.
+summary: When a block-scaled output needs a different format or scale-rounding recipe,
+  select both explicitly and use the decoded stored scale to form codes. Upward and
+  downward exponent recipes use different divisors; substituting one for the other
+  changes the quantizer. Keep group identity, packed-code order and zero-group behavior
+  visible.

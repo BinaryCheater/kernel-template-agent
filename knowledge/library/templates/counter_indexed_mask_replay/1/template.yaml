@@ -1,0 +1,68 @@
+name: counter_indexed_mask_replay
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: store
+produces: [store, map]
+object:
+  type: coordinate_indexed_random_replay_checkpoint
+  description: Save one immutable random invocation descriptor and regenerate each logical mask element by its counter coordinates instead of saving the full mask.
+variables: []
+constraints: []
+preconditions:
+  - {id: pre_generator, expr: "p.counter_generator_identity_rounds_and_integer_arithmetic_fixed and p.random_word_byte_order_and_comparison_fixed", meaning: "Generator family, round count, integer width/wrap rules, byte extraction, threshold quantization and comparison are identical in production and replay.", cls: semantic}
+  - {id: pre_coordinates, expr: "p.every_logical_element_has_stable_counter_and_component and p.forward_replay_coordinate_maps_equal and p.counter_coordinates_in_range", meaning: "Each logical element has the same counter/subsequence/component identity across passes and tilings, with no unintended coordinate truncation or overlap.", cls: semantic}
+  - {id: pre_invocation, expr: "p.invocation_random_subspace_reserved_once and p.invocation_descriptor_published_before_any_early_exit and p.descriptor_immutable_and_alive_until_replay", meaning: "Reserve a distinct invocation subspace once, publish its descriptor on every supported control-flow path, and retain it for every replay.", cls: implementation}
+  - {id: pre_semantics, expr: "p.consumer_uses_same_mask_scaling_and_normalization_domain and p.discrete_mask_law_and_numeric_policy_admitted", meaning: "Replaying a mask preserves its exact discrete law and the consuming computation's scaling/support; replay does not itself establish unbiasedness or a softmax derivative.", cls: semantic}
+program:
+  description: >-
+    Replace a full stored random mask with an immutable descriptor containing the
+    invocation key/base offset, generator identity, integer/byte convention,
+    threshold/comparison and logical coordinate map. For element x, decode
+    address(x)=(counter,subsequence,component), evaluate the fixed counter generator,
+    select its fixed random component and apply the fixed comparison to obtain
+    mask(x). Later consumers repeat that function from the saved descriptor.
+    Thread/CTA traversal order may change only when their coordinate map still
+    gives each original element the same address/component. Skipped work must not
+    advance a shared sequential RNG cursor. Reserve a new invocation subspace
+    once rather than reacquiring random state for the replay; publish the saved
+    descriptor before any branch that could skip its designated writer.
+backward_map: Materialize the regenerated mask at every original logical coordinate; descriptor equality and equal coordinate/component maps recover the original mask exactly.
+obligations:
+  - {name: bitwise_replay, statement: "Forward and replay select the same random word/component and comparison result for each logical element, including tile/lane remappings and tails.", method: test}
+  - {name: invocation_separation, statement: "Invocations reserve nonoverlapping intended random addresses without counter overflow or double reservation, including graph-capture behavior when supported.", method: test}
+  - {name: checkpoint_control_flow, statement: "A valid immutable descriptor is published even when ordinary work exits early, and every replay waits for it and retains its lifetime.", method: test}
+  - {name: mask_semantics, statement: "Threshold quantization, keep scaling, normalization and any derivative replay preserve the declared discrete stochastic operation.", method: test}
+effects:
+  transactions: []
+  storage:
+    - {id: replay_descriptor, level: dram, scope: kernel, bytes: "p.replay_descriptor_bytes"}
+  overlap: []
+scope:
+  predicate: "p.counter_generator_identity_rounds_and_integer_arithmetic_fixed and p.random_word_byte_order_and_comparison_fixed and p.every_logical_element_has_stable_counter_and_component and p.forward_replay_coordinate_maps_equal and p.counter_coordinates_in_range and p.invocation_random_subspace_reserved_once and p.invocation_descriptor_published_before_any_early_exit and p.descriptor_immutable_and_alive_until_replay and p.consumer_uses_same_mask_scaling_and_normalization_domain and p.discrete_mask_law_and_numeric_policy_admitted"
+  text: >-
+    Stateless counter-addressed masks with a retained invocation descriptor and
+    equal element-address maps. Source FA2 retains seed/base offset and derives
+    batch/head/lane and 16x32 tile counters using its seven-round Philox-like
+    implementation and byte threshold. Changing the generator round count,
+    comparison, lane/component map or random law needs another binding. Native
+    stochastic quality, arbitrary RNG compatibility and dropout derivatives are
+    not implied by exact replay.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Regenerate random mask values from a stable logical-coordinate counter and a saved invocation descriptor.
+  reuse: The same random address serves forward and every later replay, independent of work traversal order.
+  storage: One invocation descriptor instead of one mask value per logical element; random arithmetic is repeated.
+  boundary: Exact generator/comparison identity, per-element counter mapping and descriptor publication.
+  resources: [registers, dram]
+numeric_risk: Identical mask replay does not imply the requested real-valued keep probability is exactly represented by a discrete byte threshold or that scaling is unbiased for that law.
+summary: >-
+  When backward needs a forward random mask but storing the full mask is costly,
+  save the invocation descriptor and regenerate each bit from its original logical
+  coordinates. Preserve the generator rounds, counter/component map and threshold
+  comparison exactly. A different tile traversal can replay the same mask; a
+  sequential cursor or fresh generator reservation cannot. Save state before
+  early exits so an empty leading work tile cannot suppress the checkpoint.

@@ -1,0 +1,97 @@
+{
+  "name": "poison_sentinel_rotating_completion",
+  "version": 1,
+  "level_from": 2,
+  "level_to": 3,
+  "change": "vertical",
+  "refines": "map",
+  "produces": [
+    "map",
+    "access"
+  ],
+  "object": {
+    "type": "poison_sentinel_rotating_completion",
+    "description": "When a transport guarantees whole-vector payload visibility and valid output excludes a sentinel word, detect arrival from a payload sentinel and rotate separate receive/clear buffers to retain returned output."
+  },
+  "variables": [
+    {
+      "name": "buffer_count",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": {
+        "lo": 3,
+        "hi": 16
+      },
+      "meaning": "At least enough buffers for proved peer skew plus live output and clear generation; source3."
+    }
+  ],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_0",
+      "expr": "p.valid_payload_excludes_sentinel and p.vector_payload_sentinel_visibility_atomic",
+      "meaning": "A non-sentinel observed word certifies the complete matching vector only under the native transport contract.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_1",
+      "expr": "p.all_receive_slots_poisoned_before_generation and p.matched_launch_order_and_bounded_peer_skew",
+      "meaning": "No stale non-sentinel data can be accepted; skew bound excludes concurrent write to clear buffer.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_2",
+      "expr": "p.output_readers_retired_before_clear and p.clear_visible_before_reuse",
+      "meaning": "Returned output stays readable until caller consumers retire; rotating clear cannot erase live output.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_3",
+      "expr": "p.input_publication_and_peer_progress",
+      "meaning": "Sentinel arrival does not establish source input readiness; caller publishes it separately.",
+      "cls": "semantic"
+    }
+  ],
+  "program": {
+    "description": "Initialize all rotating receive buffers with sentinel in chosen word. At generation k receive into bank k%B while clearing a different bank protected by the proved peer-skew and output lifetime. Each unique producer writes full vectors with valid data; each receiver polls its local vector sentinel word until changed. Complete all required slots before returning. Clear only the assigned disjoint old-bank range back to sentinel. Warmup entry barriers establish initial clean state; skipping later entry barriers requires a proof of launch-order/skew and clear visibility, not merely buffer rotation arithmetic."
+  },
+  "backward_map": "Erase auxiliary organization and recover the visible results under the stated contract.",
+  "obligations": [
+    {
+      "name": "arrival",
+      "statement": "Every accepted non-sentinel denotes exactly one complete vector of current generation, not legal sentinel-valued data or stale prior data.",
+      "method": "proof"
+    },
+    {
+      "name": "rotation",
+      "statement": "Clear bank is disjoint from all live producer/consumer banks under the declared skew and lifetime bound.",
+      "method": "proof"
+    },
+    {
+      "name": "retention",
+      "statement": "Current output is not cleared before its downstream readers finish.",
+      "method": "proof"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.valid_payload_excludes_sentinel and p.vector_payload_sentinel_visibility_atomic and p.all_receive_slots_poisoned_before_generation and p.matched_launch_order_and_bounded_peer_skew and p.output_readers_retired_before_clear and p.clear_visible_before_reuse and p.input_publication_and_peer_progress",
+    "text": "Source custom NVLink alltoall and multicast AllReduce demos assume native128-bit arrival behavior and sentinel exclusion. Hardware visibility and steady-state barrier elision remain premises, not established by source comments. Resource effects: Avoids separate ready array/exit barrier but consumes sentinel domain and rotating full output buffers."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "When a transport guarantees whole-vector payload visibility and valid output excludes a sentinel word, detect arrival from a payload sentinel and rotate separate receive/clear buffers to retain returned output.",
+    "storage": "Avoids separate ready array/exit barrier but consumes sentinel domain and rotating full output buffers.",
+    "boundary": "contrib/custom_algos/alltoall/lsa_poison_alltoall_kernel.cuh and allreduce/twoshot_mc_poison_allreduce_kernel.cuh:80-180; current k%3, clear(k+2)%3. Warmup policy comments differ: bind actual host choice before use.",
+    "resources": []
+  },
+  "numeric_risk": "Preserve the supplied arithmetic contract; reassociation, quantization and approximate search require separate permission.",
+  "summary": "When a transport guarantees whole-vector payload visibility and valid output excludes a sentinel word, detect arrival from a payload sentinel and rotate separate receive/clear buffers to retain returned output. contrib/custom_algos/alltoall/lsa_poison_alltoall_kernel.cuh and allreduce/twoshot_mc_poison_allreduce_kernel.cuh:80-180; current k%3, clear(k+2)%3. Warmup policy comments differ: bind actual host choice before use."
+}

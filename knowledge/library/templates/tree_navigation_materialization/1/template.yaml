@@ -1,0 +1,104 @@
+{
+  "name": "tree_navigation_materialization",
+  "version": 1,
+  "level_from": 2,
+  "level_to": 3,
+  "change": "vertical",
+  "refines": "map",
+  "produces": [
+    "map",
+    "store"
+  ],
+  "object": {
+    "type": "tree_navigation_materialization",
+    "description": "When the same rooted candidate tree drives ancestor visibility and child traversal, materialize exact ancestry rows or first-child/sibling links while preserving node identity and sibling order."
+  },
+  "variables": [
+    {
+      "name": "input_view",
+      "kind": "structure",
+      "binding": "compile",
+      "role": "boundary",
+      "domain": [
+        "parent_indices",
+        "ancestor_rows"
+      ],
+      "meaning": "Input topology representation supplied by the workload."
+    },
+    {
+      "name": "output_view",
+      "kind": "structure",
+      "binding": "compile",
+      "role": "software",
+      "domain": [
+        "ancestor_rows",
+        "child_sibling",
+        "both"
+      ],
+      "meaning": "Which exact topology views downstream consumers require materialized."
+    }
+  ],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_0",
+      "expr": "p.finite_rooted_tree and p.root_index == 0 and p.every_parent_precedes_child and p.node_count <= 1024",
+      "meaning": "One acyclic rooted tree with fixed topological node indices; every nonroot has one valid earlier parent.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_1",
+      "expr": "p.parent_lookup_or_ancestor_input_exact and p.selected_nodes_ancestor_closed",
+      "meaning": "External candidate IDs resolve to the same local parent map, or input ancestor rows encode precisely that tree; ancestors are never omitted.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_2",
+      "expr": "p.sibling_order_ascending_local_index and p.local_and_flattened_ids_distinctly_mapped",
+      "meaning": "Children/siblings use increasing local slots; retrieval IDs separately map to flattened original identities.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_3",
+      "expr": "p.output_rows_and_links_have_exclusive_writers and p.initial_zero_and_absent_sentinels_correct",
+      "meaning": "Mask storage starts clear where OR is used; links use an unambiguous absent sentinel, with safe row ownership and capacity.",
+      "cls": "semantic"
+    }
+  ],
+  "program": {
+    "description": "Resolve each local node parent. For ancestor_rows, walk each node to the root and mark exactly self plus ancestors in its own output row; optional immutable verified-prefix columns are separate caller-owned visibility. For child_sibling, set first_child[parent] to its smallest local child and next_sibling[node] to the next larger local child of the same parent, else absent. Reverse-node insertion prepending to each parent gives this order. If input is ancestor_rows in topological order, the greatest earlier marked index is the immediate parent; the first later row containing a node is its first child, and later rows whose immediate parent matches are its siblings. Position is prefix_length+ancestor_count_excluding_self; retrieval identity remains the specified local-to-flat map. Physical boolean packing is a separate refinement."
+  },
+  "backward_map": "Reconstruct parent from child/sibling membership or the greatest earlier ancestor. Exact tree edges and ancestry are unchanged, so both navigation and visibility observe the same rooted histories and original identities.",
+  "obligations": [
+    {
+      "name": "representation_identity",
+      "statement": "Reconstruct parent from child/sibling membership or the greatest earlier ancestor. Exact tree edges and ancestry are unchanged, so both navigation and visibility observe the same rooted histories and original identities.",
+      "method": "proof"
+    },
+    {
+      "name": "native_mapping",
+      "statement": "Indices, padding, sentinels and output ownership implement the logical mapping.",
+      "method": "test"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "(p.finite_rooted_tree and p.root_index == 0 and p.every_parent_precedes_child and p.node_count <= 1024) and (p.parent_lookup_or_ancestor_input_exact and p.selected_nodes_ancestor_closed) and (p.sibling_order_ascending_local_index and p.local_and_flattened_ids_distinctly_mapped) and (p.output_rows_and_links_have_exclusive_writers and p.initial_zero_and_absent_sentinels_correct)",
+    "text": "Source EAGLE eagle.cuh:36-239 derives masks and ordered child/sibling links from selected-parent IDs; ngram.cuh:26-105 reconstructs links/depth from a dense ancestor mask. N<=1024, topological ancestor-closed selections, exclusive request/node writes. Non-topological IDs, arbitrary graph reachability, missing parents and concurrent topology updates are outside this version."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "When the same rooted candidate tree drives ancestor visibility and child traversal, materialize exact ancestry rows or first-child/sibling links while preserving node identity and sibling order.",
+    "storage": "Per-instance records and optional materialized view.",
+    "boundary": "Source EAGLE eagle.cuh:36-239 derives masks and ordered child/sibling links from selected-parent IDs; ngram.cuh:26-105 reconstructs links/depth from a dense ancestor mask. N<=1024, topological ancestor-closed selections, exclusive request/node writes. Non-topological IDs, arbitrary graph reachability, missing parents and concurrent topology updates are outside this version.",
+    "resources": []
+  },
+  "numeric_risk": "No arithmetic approximation; original predicate or topology and identity must be preserved.",
+  "summary": "When the same rooted candidate tree drives ancestor visibility and child traversal, materialize exact ancestry rows or first-child/sibling links while preserving node identity and sibling order."
+}

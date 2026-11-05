@@ -1,0 +1,57 @@
+template: locality_matched_state_shards@1
+version: 1
+relation: Erase domain/stream labels and place each shard row at64*d+r. The two disjoint row sets cover
+  the full original state/output, each using every key term and original inputs. Fork/join makes their
+  completion equivalent to one completed full-row update under the admitted per-row numerical recipe.
+rank: Original value rows not yet related to their unique domain shard.
+assumes:
+- name: pre_independence
+  statement: A scalar-gated delta decode updates each value/state row independently once shared key/query/gate
+    inputs are fixed. Each domain owns half the value rows and all128 key columns; no inter-domain key
+    partial reduction is omitted.
+- name: pre_allocation
+  statement: Two physical locality-domain allocations hold state rows0..63 and64..127 for every slot/head.
+    Domain stride includes allocator-granularity padding. Permuted/select views retain actual strides
+    and allocation owner; reshaping as a dense ordinary pool is not equivalent.
+- name: pre_mapping
+  statement: Domain d local row r maps to original value row64*d+r for state,V and output; request slot
+    indices and every head mapping remain identical across the two launches. Local domain0 must not accidentally
+    consume the first half for both domains.
+- name: pre_shared_inputs
+  statement: Shared inputs are read-only or coherently supplied until both domains finish. Each launch
+    independently normalizes/loads the complete key/query data under the same declared recipe; replicated
+    setup is not a cross-domain state dependency.
+- name: pre_execution
+  statement: Matched mode uses supported green-context SM groups with the same locality-domain IDs as
+    allocation; source backfill policy is part of the admitted target resource contract. Current-stream
+    fallback preserves functional ownership but does not imply domain-local state traffic.
+- name: pre_order
+  statement: In matched mode main stream records a fork event, each domain stream waits, each records
+    done, and main waits every done before later consumers. Current-stream mode orders both launches directly.
+    No half-complete checkpoint/output may publish as a complete state.
+- name: pre_slots
+  statement: Live mutable state slices have unique request ownership. A write must not overwrite another
+    concurrent request seed; same-request in-place update is allowed only after its own row seed readers
+    finish.
+- name: pre_lifetime
+  statement: State contents are initialized; allocation/green contexts stay alive through stream and CUDA-graph
+    users. Releasing/mapping reuse waits for readers, including deferred release around capture. Required
+    context/kernel warmup precedes capture.
+- name: pre_numeric
+  statement: Value-row partition does not alter each row complete key reduction, scalar decay/prediction/correction
+    order or declared state/output rounding. Bitwise equality additionally requires the exact per-row
+    input and arithmetic tree, not just real row independence.
+- name: pre_backend
+  statement: Target/driver exposes two compatible memory/execution locality domains and the actual V64,K128
+    T1 BF16 kernel path. Generic memory placement APIs, other architectures, more domains and arbitrary
+    recurrent feature dependencies are not inferred.
+guarantees: []
+models: []
+note: gdn_decode.py:117-152 allocates per-domain[slots,HV,V/2,K] parts and permutes to logical5D;154-205
+  selects the matching state/V/output halves, current-stream fallback or domain fork/join and per-domain
+  prefetch-distance policy. green_ctx.py:349-402 binds green-context groups to localityDomainId;445-546
+  allocates matching CU_MEM_LOCATION_TYPE_DEVICE_LOCALITY_DOMAIN chunks with aligned part stride and retained
+  owner. Actual gdn_decode_bf16_state_rubin.py row kernel loads complete128-key rows, supports tile_v32/64/128
+  and uses _xreduce4 over four row reductions in16-lane groups. Logical checks cover padded domain addresses,
+  shuffled request slots, complete row-coordinate coverage, four-row FP32 reduction tree and event ordering;
+  actual locality/capture/lifetime/hardware traffic remains a target/source implementation obligation.

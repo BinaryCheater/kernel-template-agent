@@ -1,0 +1,17 @@
+template: random_discarded_bit_rounding@1
+version: 1
+relation: BF16 stochastic rounding from FP32 with source16-bit random carry. FP16/FP8/FP4
+  grid rescaling uses different realization proofs and cannot inherit this bit-truncation
+  formula directly.
+rank: Number of input elements or state transitions still to consume.
+assumes:
+- name: source_contract
+  statement: Source binding and stated scope hold.
+guarantees: []
+models: []
+note: 'Source-derived candidate, not independently admitted. carry_threshold: For
+  residual d the carry occurs for exactly d of2^16 random words. special_guard: No
+  integer perturbation changes NaN/Inf/out-of-range classification before special
+  conversion. rng_identity: Realization substitutions preserve every logical element
+  random word if bitwise replay is required. Native lowering and numerical error remain
+  open; see trace and checks.'

@@ -1,0 +1,26 @@
+template: chunk_ready_collective_pipeline@1
+version: 1
+relation: The overlapped schedule computes the same admitted chunked collective/contraction composition
+  as its serialized dependency order.
+rank: Unconsumed logical chunks and unjoined stage completions.
+assumes:
+- name: partition
+  statement: Chunk maps cover the operator domain once and collective ownership/dependencies are correct.
+- name: publication
+  statement: Ready publication means complete visible payload/metadata and generation ownership prevents
+    stale signals.
+- name: lifetime
+  statement: Readers retire before storage reuse and the execution arrangement guarantees forward progress.
+guarantees: []
+models: []
+note: Order each producer before its dependent consumer; independent stages commute under disjoint ownership
+  and the admitted collective numerical policy. Each complete chunk is placed by its original identity,
+  so cyclic arrival order does not permute the output. For all-gather at rank 1 of 4, source ring order
+  is 1,0,3,2; GEMM outputs remain in slots 1,0,3,2 respectively, recovering canonical concatenation after
+  all chunks finish. For reduce-scatter, producer i must precede communication i even when GEMM i+1 is
+  already running. Source common/comm_gemm_overlap/comm_gemm_overlap.cpp:666-765 uses events and final
+  stream joins, :550-611 uses atomic GEMM publication, and :1169-1223 maps cyclic gathered chunks and
+  joins streams. Native counter readiness, cross-device payload publication and resource/progress constraints
+  remain executable obligations. Existing cross_iteration_software_pipelining@1 only exposes softmax/MMA
+  intra-loop skew and cannot encode these inter-kernel collective stages; no source-level timing or custom
+  checker is added for this dependency argument.

@@ -1,0 +1,41 @@
+template: chunked_delta_feedback@1
+version: 1
+relation: Expand each state contribution within the chunk. Residuals satisfy R_i+sum_(j<i) beta_i*D_ij*(k_i
+  dot k_j)*R_j=beta_i*(v_i-E_i*k_i^T*H_in); forward uniqueness gives the sequential delta residuals. Substitution
+  yields both output forms and the inclusive outgoing state.
+rank: Unexpanded token positions in the ordered feedback system.
+assumes:
+- name: pre_recurrence
+  statement: K-major state follows H_i=alpha_i*H_(i-1)+k_i*r_i with r_i=beta_i*(v_i-k_i^T*(alpha_i*H_(i-1))).
+    Output is q_i^T*H_i. Query scaling and key normalization are resolved consistently before this factorization.
+- name: pre_frames
+  statement: Each alpha is positive; local E_i is the product through token i from this chunk boundary,
+    and D_ij is the product from j+1 through i. Chunks cannot mix sequences or head mappings.
+- name: pre_solve
+  statement: A=I+L is unit lower triangular, L_ij=beta_i*D_ij*(k_i dot k_j) strictly below the diagonal.
+    T solves A*T=diag(beta), including zero beta without division. The selected solve/casts meet the declared
+    residual policy.
+- name: pre_numeric
+  statement: Compute decay ratios from local log-prefix differences where needed, without overflowing
+    separate reciprocals. KKT, QKT, T, residual/coefficient products, state and output casts have an explicit
+    admitted error policy; real equivalence does not imply bitwise equality.
+- name: pre_boundary
+  statement: All outputs/residuals needing H_in capture that generation before H_out overwrites it. Optional
+    frozen output-only execution leaves H_in unchanged. The next chunk waits for complete H_out.
+- name: pre_scope
+  statement: Complete chunk coordinates, or a validated neutral extension alpha=1,beta=0,k=q=v=0 and masked
+    stores, preserve valid rows. Each output/state shard has one owner and reductions include every key
+    shard.
+- name: pre_backend
+  statement: The selected computation order, width, dtype, state layout and target have an implemented
+    binding. Output-only coefficient-first does not by itself produce an outgoing state.
+guarantees: []
+models: []
+note: 'Source: gdn_kernels/gdn_decode_bf16_wy_output_only.py:1260-1285 constructs M=-L and causal C,1298-1489
+  solves (I-M)T=diag(beta) with two8-row forward substitutions,1493-1567 forms P=C*T and A=EQ-P*EK,1860-1880
+  combines A*H+P*V. This path is frozen/output-only. delta_rule_dsl/delta_rule_sm90.py:300-343 builds
+  inverse then scales its columns by beta,1095-1190 forms incoming-state readout and R=T*(V-EK*H) in transposed
+  V-major orientation,1203-1235 decays state and inserts weighted residuals. Native intermediate casts
+  differ. Exact rational checks compare independent sequential recurrence, both orders, outgoing state,
+  zero-beta and padded extents; block-solve checks cover the two8-row schedule. The older four16-row full-inverse
+  rule is not overwritten.'

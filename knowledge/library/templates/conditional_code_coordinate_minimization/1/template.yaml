@@ -1,0 +1,107 @@
+{
+  "name": "conditional_code_coordinate_minimization",
+  "version": 1,
+  "level_from": 2,
+  "level_to": 3,
+  "change": "vertical",
+  "refines": "map",
+  "produces": [
+    "map",
+    "access"
+  ],
+  "object": {
+    "type": "conditional_code_coordinate_minimization",
+    "description": "When additive codebook encodings have coupled code choices, update one coordinate against fixed other codes using unary/binary tables, then retain the best complete reconstruction after perturbation."
+  },
+  "variables": [
+    {
+      "name": "sweeps",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": {
+        "lo": 1,
+        "hi": 2147483647
+      },
+      "meaning": "Number of coordinate sweeps per perturbation; heuristic budget, not convergence guarantee."
+    },
+    {
+      "name": "perturbations",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": {
+        "lo": 1,
+        "hi": 2147483647
+      },
+      "meaning": "Outer attempts; caller-selected search budget."
+    }
+  ],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_0",
+      "expr": "p.tables_match_codebooks and p.codes_valid",
+      "meaning": "Unary and pairwise terms are derived from the same codebooks and every code index is valid.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_1",
+      "expr": "p.coordinate_updates_ordered and p.candidate_evaluation_complete",
+      "meaning": "Each coordinate sees prior updates in the sweep, and full error evaluation precedes best-state selection.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_2",
+      "expr": "p.launch_capacity_valid and p.random_state_defined",
+      "meaning": "K candidate threads and dimension evaluation fit launch limits; perturbation RNG ownership is defined.",
+      "cls": "semantic"
+    }
+  ],
+  "program": {
+    "description": "Build unary query/codebook terms and binary codeword interaction tables. For each vector and coordinate m, assign one thread to each candidate code k and compute unary[m,k]+sum over m2!=m of binary[m,m2,k,current_code[m2]]. Block-reduce to the minimizing code and update only coordinate m. Stream-order coordinates and sweeps. Perturb selected codes between attempts; evaluate full reconstruction error and replace best codes only on strictly smaller error, then restore the best state before the next attempt."
+  },
+  "backward_map": "Erase auxiliary organization and recover the visible results under the stated contract.",
+  "obligations": [
+    {
+      "name": "conditional_objective",
+      "statement": "For fixed other coordinates, the tabulated objective differs from full error only by a k-independent constant.",
+      "method": "proof"
+    },
+    {
+      "name": "update_order",
+      "statement": "No coordinate consumes partially updated state of another coordinate kernel.",
+      "method": "proof"
+    },
+    {
+      "name": "best_retention",
+      "statement": "Best error does not increase across attempts under the actual evaluated arithmetic and its matching code snapshot.",
+      "method": "proof"
+    },
+    {
+      "name": "budget",
+      "statement": "Finite sweep/attempt counts terminate without claiming a global optimum.",
+      "method": "proof"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.tables_match_codebooks and p.codes_valid and p.coordinate_updates_ordered and p.candidate_evaluation_complete and p.launch_capacity_valid and p.random_state_defined",
+    "text": "NVIDIA additive quantizer ICM/iterated-local-search encoding. Not an exact global encoding optimizer; floating comparison and tie behavior follow block minimum and strict best selection. Resource effects: Precompute unary M*N*K and binary M*M*K*K terms; each coordinate evaluates K candidates with M-1 lookups rather than reconstructing D-dimensional vectors. Adds kernel ordering and code/error snapshots."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "When additive codebook encodings have coupled code choices, update one coordinate against fixed other codes using unary/binary tables, then retain the best complete reconstruction after perturbation.",
+    "storage": "Precompute unary M*N*K and binary M*M*K*K terms; each coordinate evaluates K candidates with M-1 lookups rather than reconstructing D-dimensional vectors. Adds kernel ordering and code/error snapshots.",
+    "boundary": "For M2, changing code0 reads the old code1; subsequent code1 update sees the new code0. Updating both coordinates from stale state in parallel is a different search algorithm. A worse perturbation must not overwrite retained best codes.",
+    "resources": []
+  },
+  "numeric_risk": "Preserve the supplied arithmetic contract; reassociation, quantization and approximate search require separate permission.",
+  "summary": "When additive codebook encodings have coupled code choices, update one coordinate against fixed other codes using unary/binary tables, then retain the best complete reconstruction after perturbation. For M2, changing code0 reads the old code1; subsequent code1 update sees the new code0. Updating both coordinates from stale state in parallel is a different search algorithm. A worse perturbation must not overwrite retained best codes."
+}

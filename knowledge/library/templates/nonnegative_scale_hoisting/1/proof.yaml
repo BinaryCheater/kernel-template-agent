@@ -1,0 +1,18 @@
+template: nonnegative_scale_hoisting@1
+version: 1
+relation: Each factored group's output equals its coarse scaled-ReLU weighted sum in exact arithmetic,and the caller admits the selected floating-point evaluation order.
+rank: Remaining terms in each group's finite reduction.
+assumes:
+  - {name: finite_shared_scale, statement: "Scores,weights and a common nonnegative scale are finite."}
+  - {name: rounding_contract, statement: The requested tolerance admits this scale placement and reduction order.}
+guarantees: []
+models: []
+note: >-
+  For x>=0 and s>=0 both ReLU(s*x) and s*ReLU(x) equal s*x; for x<0 both equal0,
+  including s=0 under exact-real semantics. Distributivity then moves a common s through
+  the finite weighted sum even with signed weights. One consumed term decreases the rank.
+  checks/attention_values.py checks exact rational witnesses,negative-scale and wrong-owner
+  counterexamples,and source-shaped BF16 head-reduction rounding witnesses separately.
+  Exact homogeneity does not certify FP32 product overflow,signed zero or arbitrary
+  finite-precision tolerance. Next: source-pinned GPU numerical comparisons for cancellation,
+  underflow,overflow and scale boundaries; no proof model or ProofResult is registered.

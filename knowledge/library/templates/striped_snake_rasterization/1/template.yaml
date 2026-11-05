@@ -1,0 +1,80 @@
+name: striped_snake_rasterization
+version: 1
+level_from: 2
+level_to: 3
+change: vertical
+refines: work_assign
+produces:
+- work_assign
+- map
+- store
+- sync
+object:
+  type: striped_snake_rasterization
+  description: A rectangular tile grid is traversed in minor-axis strips while alternating
+    major-axis direction.
+variables:
+- name: minor_axis
+  kind: structure
+  binding: compile
+  role: software
+  domain:
+  - m
+  - n
+  meaning: Axis grouped into strips.
+- name: strip_width
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 1
+    hi: 65536
+  meaning: Minor-axis tile width, with a short final strip.
+constraints: []
+preconditions:
+- id: pre0
+  expr: p.independent_tiles and p.tile_rows >= 1 and p.tile_cols >= 1
+  meaning: Traversal permutes independent output tiles.
+  cls: semantic
+- id: pre1
+  expr: p.linear_work_ids_cover_exact_grid
+  meaning: Work scheduler supplies every tile ID exactly once.
+  cls: semantic
+program:
+  description: Let minor extent be tile_rows for minor_axis=m, otherwise tile_cols;
+    major is the other extent. For strip b with start=b*strip_width, actual width
+    w=min(strip_width,minor-start), its IDs start after all prior full strips. Decode
+    local ID q as minor=start+q%w, major=q//w for even b and major_extent-1-q//w for
+    odd b. Swap axes back if needed. The final short strip uses its actual width in
+    both division and modulo.
+backward_map: Erase strip order and alternating direction; Euclidean strip/local decoding
+  yields every original tile exactly once.
+obligations:
+- name: bijection
+  statement: Full and short strips partition the minor domain and alternating major
+    traversal is a permutation.
+  method: proof
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: (p.independent_tiles and p.tile_rows >= 1 and p.tile_cols >= 1) and (p.linear_work_ids_cover_exact_grid)
+  text: Independent rectangular tiles, positive strip width and actual-width decoding
+    at the final strip. This adds alternating direction beyond block_rasterization@1
+    grouped_m.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: A rectangular tile grid is traversed in minor-axis strips while alternating
+    major-axis direction.
+  storage: Binding-specific counters, partials or output ranges.
+  boundary: Tile prefixes and logical membership.
+  resources: []
+numeric_risk: Integer counts must not overflow; ordering/rounding policy belongs to
+  the bound operation.
+summary: When persistent/CLC tile traversal should remain near the previous strip
+  endpoint, alternate the major-axis direction between narrow strips. Choose strip
+  width and minor axis; preserve actual final width. For five minor tiles,width2 the
+  final one-tile strip uses width1, not2.

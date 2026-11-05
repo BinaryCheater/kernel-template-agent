@@ -1,0 +1,17 @@
+template: causal_window_state@1
+version: 1
+relation: "Depthwise NVIDIA causal convolution widths2\u20134 with linear or circular\
+  \ per-channel state. This is a boundary-state realization of the same full-sequence\
+  \ stencil, not a different convolution or a commutative reduction over time."
+rank: Number of input elements or state transitions still to consume.
+assumes:
+- name: source_contract
+  statement: Source binding and stated scope hold.
+guarantees: []
+models: []
+note: 'Source-derived candidate, not independently admitted. window: Before output
+  i the register window contains exactly x[p+i-W+1..p+i]. state_commit: After the
+  call the ring decodes the trailing H samples at next position p+advance, including
+  wraparound. ownership: State row indirection must not cause concurrent writers to
+  the same channel. Native lowering and numerical error remain open; see trace and
+  checks.'

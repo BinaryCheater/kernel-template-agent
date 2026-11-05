@@ -1,0 +1,150 @@
+name: paired_transform_supply
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: map
+produces:
+- map
+- transfer
+- contract
+object:
+  type: paired_rotation_operand_supply
+  description: Apply the same declared pair transform with thread-local pairs, redundant partner loads
+    or converged lane exchange.
+variables:
+- name: pairing
+  kind: structure
+  binding: compile
+  role: boundary
+  domain:
+  - adjacent
+  - split_halves
+  meaning: 'Requested representation: pair(2j,2j+1) or(j,j+R/2) in the active prefix. Changing it changes
+    the operation unless surrounding coordinates are remapped.'
+- name: partner_supply
+  kind: structure
+  binding: compile
+  role: software
+  domain:
+  - local_vector
+  - duplicate_load
+  - warp_exchange
+  meaning: Choose the actual mechanism supplying the unchanged partner operand; legality follows the selected
+    thread/fragment map and alias policy.
+constraints:
+- id: c_shape
+  expr: p.vector_width >= 2 and p.active_prefix >= 2 and p.active_prefix <= p.vector_width and p.active_prefix
+    % 2 == 0
+  meaning: Nonempty even pair domain inside each vector.
+  cls: semantic
+preconditions:
+- id: pre_pairs
+  expr: p.even_active_prefix_and_disjoint_complete_pair_map and p.untouched_suffix_preserved
+  meaning: Within each vector an even active prefix is partitioned into the requested adjacent or split-half
+    pairs; the unrotated suffix keeps its original values.
+  cls: implementation
+- id: pre_coefficients
+  expr: p.position_frequency_and_pair_coefficients_explicit_and_same_generation
+  meaning: Each pair has the requested coefficients and position/frequency recipe, whether computed or
+    table-loaded. Position IDs are not inferred from output/cache addresses.
+  cls: implementation
+- id: pre_layout
+  expr: p.output_owner_and_partner_coordinate_maps_exact and p.selected_supply_implemented
+  meaning: Each output owner receives its own and its original partner value under the selected actual
+    vector/load/shuffle map.
+  cls: implementation
+- id: pre_local
+  expr: partner_supply != 'local_vector' or p.both_pair_components_captured_by_same_thread
+  meaning: Local-vector mode captures both pair members before modifying either; pair boundaries do not
+    straddle unrelated vector loads.
+  cls: implementation
+- id: pre_exchange
+  expr: partner_supply != 'warp_exchange' or (p.partner_in_same_warp_and_fragment_slot and p.exchange_lanes_converged_and_mask_complete
+    and p.native_shuffle_supported)
+  meaning: Lane exchange supplies the matching peer register with complete convergence/mask; cross-warp
+    partners need an explicit different transport.
+  cls: implementation
+- id: pre_alias
+  expr: p.original_pair_reads_complete_before_overlapping_writes and p.source_destination_aliases_declared_safe
+  meaning: All reads of an original pair precede any write that could destroy it, including redundant
+    partner loads by another thread. Out-of-place output must not overlap other live input.
+  cls: implementation
+- id: pre_numeric
+  expr: p.input_checkpoint_coefficient_math_fma_policy_and_output_cast_explicit and p.pair_transform_error_admitted
+  meaning: Preserve pre-transform BF16/FP16 checkpoints, coefficient approximation, FP32 multiply/add
+    or FMA order, and final conversion under the numerical contract.
+  cls: implementation
+- id: pre_publication
+  expr: p.input_and_coefficients_published_before_reads and p.outputs_publish_before_dependent_consumers
+  meaning: Pair values and coefficients are from one visible generation and complete outputs precede their
+    downstream consumers.
+  cls: implementation
+program:
+  description: For each pair j in the active prefix R, define (a,b)=(2*j,2*j+1) for adjacent or(j,j+R/2)
+    for split_halves. Capture original x[a],x[b] and the declared common pair coefficients c[j],s[j].
+    local_vector captures both in one thread; duplicate_load gives each output owner its own value and
+    an additional original-partner load; warp_exchange supplies the peer register through the exact converged
+    lane/slot map. Form y[a]=x[a]*c[j]-x[b]*s[j], y[b]=x[b]*c[j]+x[a]*s[j] in the declared native arithmetic
+    and cast policy. Preserve x outside R. Keep any required norm/activation cast before the transform,
+    and treat later scaling/quantization as separate refinements. In-place execution requires all original-pair
+    readers, including other threads, to finish before destructive writes; locally loading a partner does
+    not establish that global ordering.
+backward_map: Erase operand transport and evaluate the declared two-input transform at each original pair
+  coordinate with the same checkpoints, coefficients and finite-precision order. Suffix coordinates map
+  identically.
+obligations:
+- name: pair_partition
+  statement: Each active coordinate has exactly one partner and output owner under the requested pairing;
+    inactive suffix values are unchanged.
+  method: exhaustive
+- name: supply_identity
+  statement: Every local/load/shuffle partner is the original value at that coordinate and not a different
+    pair or generation.
+  method: test
+- name: read_before_write
+  statement: All aliased pair readers finish before any destructive write; warp exchange masks and native
+    ordering are valid.
+  method: test
+- name: numeric_checkpoint
+  statement: Coefficient law, pre-transform rounding, multiply/FMA order and output conversion match the
+    requested transform.
+  method: test
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: p.vector_width >= 2 and p.active_prefix >= 2 and p.active_prefix <= p.vector_width and p.active_prefix
+    % 2 == 0 and (p.even_active_prefix_and_disjoint_complete_pair_map and p.untouched_suffix_preserved)
+    and (p.position_frequency_and_pair_coefficients_explicit_and_same_generation) and (p.output_owner_and_partner_coordinate_maps_exact
+    and p.selected_supply_implemented) and (partner_supply != 'local_vector' or p.both_pair_components_captured_by_same_thread)
+    and (partner_supply != 'warp_exchange' or (p.partner_in_same_warp_and_fragment_slot and p.exchange_lanes_converged_and_mask_complete
+    and p.native_shuffle_supported)) and (p.original_pair_reads_complete_before_overlapping_writes and
+    p.source_destination_aliases_declared_safe) and (p.input_checkpoint_coefficient_math_fma_policy_and_output_cast_explicit
+    and p.pair_transform_error_admitted) and (p.input_and_coefficients_published_before_reads and p.outputs_publish_before_dependent_consumers)
+  text: FlashInfer pos_enc.cuh uses adjacent pairs within even local vectors or split-half partner loads.
+    fused_qk_rmsnorm_rope.cuh uses split-half lane XOR16 for64/128/256-style head layouts with one head
+    per warp and matching fragment slots. Pairing is a consumer contract; partner supply is an implementation
+    choice. Native in-place load ordering, coefficient special values, quantized casts and cross-warp
+    exchange need explicit bindings; no unconditional orthogonality or norm-preservation claim is made
+    for rounded/scaled coefficients.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Supply complete original pairs to a coordinate-preserving two-component rotation map.
+  storage: Thread-local pair registers, duplicate original loads or peer registers.
+  boundary: Pair map, coefficient/position generation, local or converged peer access and read-before-overwrite
+    ordering.
+  resources:
+  - registers
+  - dram
+  - issue
+numeric_risk: Removing an input checkpoint, using the other pair convention, moving a nonuniform weight
+  through the transform or reading an overwritten partner changes values. Coarser final FP8 quantization
+  does not make an earlier BF16 rounding point redundant in general.
+summary: 'When a rotation needs two feature components per output, choose how to obtain the original partner:
+  co-own both in a vector, reload the other half, or exchange a matching register with a warp peer. Keep
+  adjacent/split pairing and position coefficients fixed, preserve the inactive suffix and all required
+  input casts, and prove original-pair reads precede any aliased write.'

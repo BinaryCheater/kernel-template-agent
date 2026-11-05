@@ -1,0 +1,60 @@
+name: block_scaled_partial_accumulation
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: contract
+produces: [contract, map, reduce]
+object:
+  type: scaled_dot_partial
+  description: A dot-product partial over a K interval where both operand scales are constant, promoted into a separate final accumulator.
+variables:
+  - {name: partial_k, kind: numeric, binding: compile, role: software, domain: {lo: 1, hi: 65536}, meaning: Reduction extent before each scale promotion; it may vary only within the admitted numerical grouping contract.}
+  - {name: gran_k_a, kind: numeric, binding: compile, role: boundary, domain: {lo: 1, hi: 65536}, meaning: A scale extent along K fixed by the input representation.}
+  - {name: gran_k_b, kind: numeric, binding: compile, role: boundary, domain: {lo: 1, hi: 65536}, meaning: B scale extent along K fixed by the input representation.}
+  - {name: gran_m, kind: numeric, binding: compile, role: boundary, domain: {lo: 1, hi: 65536}, meaning: Number of A rows sharing one scale fixed by the workload.}
+  - {name: gran_n, kind: numeric, binding: compile, role: boundary, domain: {lo: 1, hi: 65536}, meaning: Number of B output columns sharing one scale fixed by the workload.}
+constraints:
+  - {id: c_scale_constant, expr: "gran_k_a % partial_k == 0 and gran_k_b % partial_k == 0", meaning: Origin-aligned K partials cannot straddle either operand's scale boundary., cls: semantic}
+  - {id: c_format, expr: "gran_k_a == p.gran_k_a and gran_k_b == p.gran_k_b and gran_m == p.gran_m and gran_n == p.gran_n", meaning: Metadata belongs to the requested input representation., cls: semantic}
+preconditions:
+  - {id: pre_origin, expr: "p.k_origin % gran_k_a == 0 and p.k_origin % gran_k_b == 0", meaning: Each independently scheduled contraction begins at the scale-group origin., cls: semantic}
+  - {id: pre_scale_contract, expr: "p.block_scaled_inputs and p.numeric_contract_allows_partial_scaling", meaning: The requested decoded contraction admits this accumulation and rounding policy., cls: semantic}
+  - {id: pre_tail, expr: "p.K % partial_k == 0 or p.neutral_tail_padding", meaning: A short final K partial has zero padded operands and valid metadata., cls: semantic}
+program:
+  description: >-
+    For each output (m,n), set final=0. For t from 0 to ceil_div(K,partial_k)-1,
+    reset raw=0 and accumulate qA[m,k]*qB[n,k] over this partial's valid k indices.
+    Look up sA[floor(m/gran_m),floor(t*partial_k/gran_k_a)] and
+    sB[floor(n/gran_n),floor(t*partial_k/gran_k_b)]. Promote
+    final += (sA*sB)*raw. Convert final to the requested output type after all partials.
+    Select metadata separately for each output even when the physical output tile spans
+    multiple MN scale groups. Instruction-specific raw and final rounding belong to the Realisation.
+backward_map: Sum the scaled partials to recover the contraction of decoded operands, under the declared numerical contract.
+obligations:
+  - {name: partition, statement: Each valid K index belongs to exactly one partial; tail fills contribute zero., method: exhaustive}
+  - {name: scale_owner, statement: "Each raw partial uses the same A and B scale as every decoded product it represents, including MN boundaries.", method: exhaustive}
+  - {name: reset_and_promote, statement: The raw accumulator is reset for every partial and each completed partial is promoted once before reuse., method: test}
+  - {name: numerical_policy, statement: "Raw dot rounding, scale product, final accumulation and output conversion satisfy the requested tolerance for the admitted data range.", method: test}
+effects: {transactions: [], storage: [], overlap: []}
+scope:
+  predicate: "p.block_scaled_inputs and p.numeric_contract_allows_partial_scaling"
+  text: >-
+    Separable multiplicative operand scales, no affine zero point. Scale groups start at
+    k_origin and partial_k divides both K granularities. Metadata layout is a separate
+    refinement. The SM90 source witness uses FP8 operands, FP32 raw/final accumulators,
+    per-row A scales, per-128-column B scales, and partial_k=128. Broader divisors are
+    algebraic choices whose numerical admission and backend support need separate checks.
+    Transaction/resource amounts remain unpriced until a Realisation specifies sharing.
+requires: []
+probed_on: []
+relations:
+  - {type: requires, target: reduction_partition, note: Scaling can move outside a partial only because its K indices form a partition with constant scales.}
+signature:
+  algorithm: Unscaled dot partial followed by multiplicative scale promotion into the final sum.
+  storage: Separate raw and final accumulators; scale metadata consumed by logical ownership.
+  boundary: K scale changes and MN scale boundaries must remain distinguishable.
+  resources: []
+numeric_risk: Moving scales after a dot and restarting raw accumulators changes floating-point rounding; unequal scales, cancellation and large_dynamic_range are required numerical witnesses.
+summary: >-
+  Use for block-scaled contractions when both scales are constant within a dot partial; bind the input scale granularities and choose partial_k dividing both. Reset and compute an unscaled partial, multiply by that partial's A/B scales, then add it once to the final accumulator; for K=256 with per-128 scales, promote two 128-product partials with their own scales. Varying partial_k requires numerical admission, while changing the input scale format changes the workload.

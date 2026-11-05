@@ -1,0 +1,122 @@
+name: tile_anchor_probability_encoding
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: map
+produces:
+- reduce
+- map
+- store
+object:
+  type: local_anchor_probability_code_scale_factorization
+  description: Normalize exponential probability codes to a local score maximum and broadcast its low-float
+    scale across K16 groups while keeping unrounded row mass.
+variables:
+- name: anchor_span
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 16
+    hi: 128
+  meaning: Number of same-row keys sharing one anchor and E4M3 scale; source selects128. Other divisible
+    spans are algebraic alternatives requiring their own backend binding.
+constraints:
+- id: c_span
+  expr: anchor_span % 16 == 0 and p.key_tile >= anchor_span and p.key_tile % anchor_span == 0
+  meaning: Anchor spans partition the physical key tile into complete K16 scale groups; mask the logical
+    tail.
+  cls: implementation
+preconditions:
+- id: pre_contract
+  expr: p.factorized_quantized_probability_operator_requested_and_error_admitted
+  meaning: The selected approximation explicitly distinguishes unrounded softmax mass from block-scaled
+    quantized PV weights.
+  cls: semantic
+- id: pre_support
+  expr: p.complete_disjoint_key_tiles_and_exact_support_mask and p.valid_logits_finite_and_final_mass_positive
+  meaning: Every valid contribution appears once; masked lanes contribute zero and final mass is positive.
+  cls: semantic
+- id: pre_frame
+  expr: p.finite_shared_reference_and_old_mass_numerator_corrected_once
+  meaning: The streaming reducer corrects both old numerator and old mass into the new frame before adding
+    this tile.
+  cls: semantic
+- id: pre_numeric
+  expr: p.anchor_exponent_scale_cast_code_cast_and_accumulation_policy_explicit and p.scale_underflow_saturation_and_zero_anchor_policy_admitted
+  meaning: Exp/casts/range policy is explicit; a scale rounded to zero may erase PV weight while retaining
+    nonzero mass.
+  cls: implementation
+- id: pre_pair
+  expr: p.code_and_scale_coordinates_generation_and_consumer_match and p.scale_broadcast_retained_through_all_k16_consumers
+  meaning: Every K16 group decodes the scale belonging to its anchor span, row and generation.
+  cls: implementation
+- id: pre_backend
+  expr: p.selected_anchor_span_implemented_and_resources_fit and p.value_decoder_and_final_output_cast_separately_bound
+  meaning: Native realization supports the selected span; V quantization/layout and final casting are
+    separate choices.
+  cls: implementation
+program:
+  description: For each row and anchor span, use scaled base2 logits x and a=max(valid x). With finite
+    running reference r, form lambda=2**(a-r)/6 and z_j=6*2**(x_j-a), with masked z_j=0. Compute tile
+    mass as lambda*sum(z_j) before code or scale conversion. Encode c_j=RN_sat_E2M1(z_j) and s=RN_sat_E4M3(lambda).
+    Replicate s to each of anchor_span/16 K16 scale groups in that span. The PV consumer uses c_j*s, not
+    z_j*lambda and not c_j*lambda. A fully masked span produces zero mass, codes and scale without subtracting
+    two infinities. Correct the old mass and numerator by 2**(r_old-r) once, add the unrounded mass and
+    decoded-code PV, and normalize by the accumulated unrounded mass. Scale rounding can erase or distort
+    numerator weights without the same denominator change. Keep V decoding and final output cast explicit;
+    no reciprocal of the rounded s is used to generate z.
+backward_map: Before casts, z_j*lambda=2**(x_j-r). After casts, recover the requested approximate PV operator
+  using c_j*s and the separately preserved unrounded mass. This does not assert exact unquantized softmax.
+obligations:
+- name: factorization
+  statement: Every unmasked z*lambda equals the intended weight in the common frame; empty spans have
+    a defined zero branch.
+  method: proof
+- name: mass_convention
+  statement: Denominator sums unrounded z*lambda, while PV consumes rounded c*s; these conventions are
+    not silently interchanged.
+  method: test
+- name: scale_group_mapping
+  statement: Every code and K16 scale has the intended row/span, physical coordinate and publication generation.
+  method: test
+- name: range_and_error
+  statement: Scale underflow/saturation, exponent approximation, E2M1 conversion and output errors meet
+    the admitted contract.
+  method: test
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: anchor_span % 16 == 0 and p.key_tile >= anchor_span and p.key_tile % anchor_span == 0 and
+    (p.factorized_quantized_probability_operator_requested_and_error_admitted) and (p.complete_disjoint_key_tiles_and_exact_support_mask
+    and p.valid_logits_finite_and_final_mass_positive) and (p.finite_shared_reference_and_old_mass_numerator_corrected_once)
+    and (p.anchor_exponent_scale_cast_code_cast_and_accumulation_policy_explicit and p.scale_underflow_saturation_and_zero_anchor_policy_admitted)
+    and (p.code_and_scale_coordinates_generation_and_consumer_match and p.scale_broadcast_retained_through_all_k16_consumers)
+    and (p.selected_anchor_span_implemented_and_resources_fit and p.value_decoder_and_final_output_cast_separately_bound)
+  text: Pinned source MiniMax-H3 NVFP4 FP4-PV on SM100/103, key tile128 and one anchor per row/tile, repeated
+    across eight K16 groups. Ideal span alternatives are inferred, not native source menu entries. Source
+    uses lag8 online reference, FP32 mass and accumulators, E2M1 codes/E4M3 scales. Fully masked spans,
+    scale rounding and FP16 partial-output checkpoints need their declared realization. No common gain
+    or hierarchical reciprocal-scale quantizer is implied.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Factor probability weights through local score maxima before block-scaled low-bit PV.
+  storage: One logical E4M3 scale per row/anchor, replicated into the K16 operand metadata, plus E2M1
+    codes.
+  boundary: Unrounded mass versus rounded-code/scale numerator; anchor span and online frame are distinct.
+  resources:
+  - sfu
+  - tensor
+  - registers
+numeric_risk: Even constant V can cease to return that constant because numerator and denominator quantize
+  differently. Very small tile scales can round to zero; normalizing by reconstructed mass defines another
+  operator.
+summary: When narrow P codes lose small weights in a running row frame, encode them relative to a tile-local
+  score maximum and carry a shared block scale to PV. Sharing an anchor across K16 groups saves local
+  maxima/scale choices but couples their precision. Preserve unrounded softmax mass separately and admit
+  the resulting approximation, including scale underflow.

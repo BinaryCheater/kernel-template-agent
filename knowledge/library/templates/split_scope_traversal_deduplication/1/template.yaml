@@ -1,0 +1,117 @@
+{
+  "name": "split_scope_traversal_deduplication",
+  "version": 1,
+  "level_from": 2,
+  "level_to": 3,
+  "change": "vertical",
+  "refines": "map",
+  "produces": [
+    "map",
+    "access"
+  ],
+  "object": {
+    "type": "split_scope_traversal_deduplication",
+    "description": "When multiple CTAs explore one query graph, separate short-lived local candidate deduplication from query-wide atomic ownership of expanded parents."
+  },
+  "variables": [
+    {
+      "name": "local_topk",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": [
+        32
+      ],
+      "meaning": "Fixed multi-CTA retained candidates per CTA in the source."
+    },
+    {
+      "name": "local_hash_bits",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": {
+        "lo": 8,
+        "hi": 14
+      },
+      "meaning": "Compiled/shared-memory hash capacity exponent, sized from frontier and degree."
+    },
+    {
+      "name": "global_hash_bits",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": {
+        "lo": 11,
+        "hi": 25
+      },
+      "meaning": "Query-wide traversed-table exponent; planner may impose a higher minimum."
+    }
+  ],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_0",
+      "expr": "p.valid_graph and p.ids_fit_without_marker_bit",
+      "meaning": "Graph neighbor IDs are valid and leave the high bit available as a used marker.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_1",
+      "expr": "p.hash_capacity_sufficient and p.atomic_insert_linearizable",
+      "meaning": "Hash insertion terminates and elects exactly one successful new owner per query/key.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_2",
+      "expr": "p.query_tables_disjoint and p.initialization_precedes_search",
+      "meaning": "Each query has its own initialized global table and local tables have CTA ownership.",
+      "cls": "semantic"
+    }
+  ],
+  "program": {
+    "description": "Give each CTA a local visited table for candidate duplicates, reset/repopulate it as required by the current frontier. Give the query a separate global traversed table retained across iterations. Walk ranked unused candidates; atomically insert a parent ID into the global table. Only the successful inserter marks and expands that parent; a failed claimant invalidates its local copy and considers another. Merge per-CTA retained outputs after search. Local candidate revisit and globally unique parent expansion have distinct lifetimes."
+  },
+  "backward_map": "Erase auxiliary organization and recover the visible results under the stated contract.",
+  "obligations": [
+    {
+      "name": "ownership",
+      "statement": "At most one CTA expands a given parent per query.",
+      "method": "proof"
+    },
+    {
+      "name": "local_reset",
+      "statement": "Reset local visited state only after its users finish and rebuild retained entries before next insertion.",
+      "method": "proof"
+    },
+    {
+      "name": "identity",
+      "statement": "Strip marker bits before dataset access and preserve invalid sentinel distinction.",
+      "method": "proof"
+    },
+    {
+      "name": "termination",
+      "statement": "Finite iteration bounds and sufficient hash space prevent unbounded search/insertion.",
+      "method": "proof"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.valid_graph and p.ids_fit_without_marker_bit and p.hash_capacity_sufficient and p.atomic_insert_linearizable and p.query_tables_disjoint and p.initialization_precedes_search",
+    "text": "Approximate NVIDIA graph search: this preserves selected traversal ownership, not exact global nearest-neighbor recall or deterministic exploration order. Search width, retained size, iteration budget and random seeds change explored candidates and are separate algorithm parameters. Resource effects: Per-CTA shared local hash plus per-query global atomic hash and num_cta*32 intermediate results. Local reset saves persistent visitation storage at the cost of repeated inserts."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "When multiple CTAs explore one query graph, separate short-lived local candidate deduplication from query-wide atomic ownership of expanded parents.",
+    "storage": "Per-CTA shared local hash plus per-query global atomic hash and num_cta*32 intermediate results. Local reset saves persistent visitation storage at the cost of repeated inserts.",
+    "boundary": "With desired internal topk=96 and search_width=2, num_cta=max(2,ceil(96/32))=3. Two CTAs discovering node 17 may retain local copies, but only one wins global parent insertion. Replacing the global table with per-CTA tables permits duplicate expansion.",
+    "resources": []
+  },
+  "numeric_risk": "Preserve the supplied arithmetic contract; reassociation, quantization and approximate search require separate permission.",
+  "summary": "When multiple CTAs explore one query graph, separate short-lived local candidate deduplication from query-wide atomic ownership of expanded parents. With desired internal topk=96 and search_width=2, num_cta=max(2,ceil(96/32))=3. Two CTAs discovering node 17 may retain local copies, but only one wins global parent insertion. Replacing the global table with per-CTA tables permits duplicate expansion."
+}

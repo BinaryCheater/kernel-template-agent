@@ -1,0 +1,15 @@
+{
+  "template": "paired_regular_hadamard_rotation@1",
+  "version": 1,
+  "relation": "Before native rounding/quantization, each transformed activation-weight group dot equals its original group dot.",
+  "rank": "Remaining butterfly stages then contraction coordinates.",
+  "assumes": [
+    {
+      "name": "pair",
+      "statement": "Both operands use identical group boundaries, regular4 factors and optional top-bit2 factor, normalized by1/sqrt(H)."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "B4=J-2P whereP reverses quartet indices; B4B4^T=4I. H2H2^T=2I. Tensor products giveTT^T=H*I, soU=T/sqrt(H) preserves paired dots. Source convrot_int8_entry.cuh:113\u2013218. Coordinate mapping and actual FP32 order remain realization obligations. Existing butterfly_linear_transform@1 is explicitly Sylvester; its matrix_identity cannot certify this transform. checks/regular_rotation.py distinguishes constant-vector behavior for even/odd bit counts and checks exact integer dot identity before normalization."
+}

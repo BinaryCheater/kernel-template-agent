@@ -1,0 +1,48 @@
+name: row_column_rescaling
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: map
+produces: [map, reduce]
+object:
+  type: iteratively_rescaled_matrix
+  description: A four-by-four coefficient matrix evolved by the requested finite sequence of row and column normalizations.
+variables:
+  - {name: iterations, kind: numeric, binding: runtime, role: boundary, domain: {lo: 1, hi: 65536}, meaning: Requested number of column-normalization rounds; changing it changes the coarse numerical policy.}
+constraints:
+  - {id: c_policy, expr: "iterations == p.requested_iterations and p.extent == 4", meaning: Preserve the requested iteration count and this version's square4x4 geometry., cls: semantic}
+preconditions:
+  - {id: pre_domain, expr: "p.finite_logits and p.epsilon >= 0 and p.positive_finite_denominators", meaning: Row softmax and every requested normalization have finite positive denominators., cls: semantic}
+  - {id: pre_contract, expr: "p.finite_rescaling_policy_requested and p.numeric_contract_admits_realisation", meaning: The caller requests this finite policy and admits the selected exponential/reciprocal/reduction arithmetic., cls: semantic}
+program:
+  description: >-
+    Start from4x4 logits. For each row subtract its maximum, exponentiate and divide
+    by that row's exponential sum, then add epsilon to every entry. Normalize each
+    column by its sum plus epsilon. For rounds1 through iterations-1 normalize rows
+    by row sum plus epsilon and columns by column sum plus epsilon. Return this finite
+    state; do not replace it with an assumed converged doubly-stochastic matrix.
+backward_map: Read the final matrix as the requested finite row/column rescaling policy applied to the original logits.
+obligations:
+  - {name: group_identity, statement: Every row and column reduction uses exactly that row or column's four matrix entries with no inactive-lane contamination., method: exhaustive}
+  - {name: stage_order, statement: The first softmax-plus-epsilon stage and all subsequent row/column stages occur in the requested order and count., method: test}
+  - {name: finite_arithmetic, statement: Exponential and reciprocal implementations and reduction rounding satisfy the requested numerical contract over the admitted input range., method: test}
+effects: {transactions: [], storage: [], overlap: []}
+scope:
+  predicate: "p.extent == 4 and p.finite_rescaling_policy_requested"
+  text: >-
+    A caller-defined finite rescaling policy on4x4 coefficient logits. The first row
+    operation differs from later row operations and epsilon placement is part of the
+    workload. This record makes no convergence or exact unit-row/unit-column-sum claim.
+    A collective Realisation must preserve row and column lane groups independently.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Stable row softmax plus epsilon then finite alternating column and row rescaling.
+  storage: One evolving4x4 coefficient matrix.
+  boundary: First row stage differs from subsequent stages and finite epsilon changes sums.
+  resources: []
+numeric_risk: Fast exponential/reciprocal and finite-precision reductions affect coefficients; extreme logits and small denominators need numerical checks.
+summary: >-
+  Use when a caller requests finite row/column rescaling of4x4 logits; bind iterations and preserve its epsilon policy. Apply stable row softmax plus epsilon, one column normalization and then the remaining row/column rounds. For iterations1 return immediately after the first column normalization; this output need not have exact unit row or column sums.

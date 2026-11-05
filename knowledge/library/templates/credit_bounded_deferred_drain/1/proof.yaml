@@ -1,0 +1,15 @@
+{
+  "template": "credit_bounded_deferred_drain@1",
+  "version": 1,
+  "relation": "At producer iteration n, all drains below max(0,n-lag+1) are enqueued and no slot is reused before its returned credit. lag<R puts drain0 before waitProducerR on each matched stream.",
+  "rank": "Remaining producer slots plus finite pending drain tail.",
+  "assumes": [
+    {
+      "name": "source_contract",
+      "statement": "Matched copy-stream/network coordinator pipeline with finite ready and credit progress; this breaks a specific queue-order cycle, not a general deadlock theorem."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Source-derived proof outline; no formal proof result or GPU execution claimed. liveness: The earliest mandatory producer reuse wait has the required remote drain queued before its blocking position on every matched stream. cover: Each producer slot and each drain executes once, including final lag tail. ready: Drain reads only after network ready and returns credit only after all corresponding copies complete."
+}

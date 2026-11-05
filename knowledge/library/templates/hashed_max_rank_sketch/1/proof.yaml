@@ -1,0 +1,15 @@
+{
+  "template": "hashed_max_rank_sketch@1",
+  "version": 1,
+  "relation": "Register r equals the maximum policy rank of all processed item hashes with prefix r; estimator inputs z and zero-count describe those same completed registers.",
+  "rank": "Remaining item hashes, register merges and final estimator scan entries.",
+  "assumes": [
+    {
+      "name": "source_contract",
+      "statement": "NVIDIA HLL register-state refinement. Precision changes the approximation contract/storage; constructor limits and hash width must be checked before choosing precision. Standard-error claims are outside this source extraction."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Source-derived proof outline; no formal proof result or GPU execution claimed. register_identity: Prefix bits choose the correct register, suffix rank excludes those prefix bits and remains representable. merge_equivalence: Registerwise max equals processing the union of item streams with the same policy. estimator_contract: Estimate finalizer and precision-specific constants match declared policy; register equivalence does not prove statistical accuracy. concurrency: Every max update and merge is atomic at the required scope and reads follow completed producers."
+}

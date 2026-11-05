@@ -1,0 +1,107 @@
+{
+  "name": "capacity_bounded_bucket_append",
+  "version": 1,
+  "level_from": 2,
+  "level_to": 3,
+  "change": "vertical",
+  "refines": "map",
+  "produces": [
+    "map",
+    "access"
+  ],
+  "object": {
+    "type": "capacity_bounded_bucket_append",
+    "description": "When grouping points into bounded voxels, separate bucket identity assignment from point reservation, and expose the retained extent rather than the unsaturated reservation counter."
+  },
+  "variables": [
+    {
+      "name": "bucket_capacity",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": {
+        "lo": 1,
+        "hi": 2147483647
+      },
+      "meaning": "Maximum retained buckets."
+    },
+    {
+      "name": "items_per_bucket",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": {
+        "lo": 1,
+        "hi": 2147483647
+      },
+      "meaning": "Maximum stored points in each retained bucket."
+    }
+  ],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_0",
+      "expr": "p.bucket_keys_valid and p.hash_deduplicates_keys",
+      "meaning": "Each valid point has one discretized bucket key and the table contains one entry per key.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_1",
+      "expr": "p.unordered_subset_admitted and p.counters_initialized",
+      "meaning": "Caller accepts arbitrary retained buckets/points on overflow; counters start at zero.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_2",
+      "expr": "p.phases_ordered and p.counter_no_overflow",
+      "meaning": "Hash build, bucket assignment, append and final clamp are ordered, and reservation counters do not wrap.",
+      "cls": "semantic"
+    }
+  ],
+  "program": {
+    "description": "First hash each valid discretized point coordinate. Enumerate occupied table entries; atomically reserve a bucket ID and materialize coordinates only for IDs<bucket_capacity. For each point whose bucket ID fits, atomically fetch-add its point count; write features only when old_count<items_per_bucket. After append completes, clamp each visible count to items_per_bucket. Optionally fill remaining initialized padding with the mean of retained points, using the clamped count. Point-to-bucket IDs name the assigned bucket even when that point lost the per-bucket reservation."
+  },
+  "backward_map": "Erase auxiliary organization and recover the visible results under the stated contract.",
+  "obligations": [
+    {
+      "name": "bounds",
+      "statement": "No rejected bucket or point reservation writes outside retained storage.",
+      "method": "proof"
+    },
+    {
+      "name": "retained_extent",
+      "statement": "Visible count equals number of initialized payload rows, not number of attempted reservations.",
+      "method": "proof"
+    },
+    {
+      "name": "subset_contract",
+      "statement": "Every stored point belongs to its bucket; overflow output is an admitted schedule-dependent subset, not stable input order.",
+      "method": "proof"
+    },
+    {
+      "name": "phase_lifetime",
+      "statement": "All writers finish before clamp/mean fill or consumers inspect count and payload.",
+      "method": "proof"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.bucket_keys_valid and p.hash_deduplicates_keys and p.unordered_subset_admitted and p.counters_initialized and p.phases_ordered and p.counter_no_overflow",
+    "text": "Generated NVIDIA point-to-voxel CUDA, arbitrary-order bounded output. Spatial floor transform and key hash are separate bindings. Empty mean-fill buckets are excluded because assigned buckets arise from at least one valid point. Resource effects: One hash record per distinct valid coordinate, two reservation phases, bounded bucket_capacity*items_per_bucket feature storage; raw counters can exceed capacity until clamp."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "When grouping points into bounded voxels, separate bucket identity assignment from point reservation, and expose the retained extent rather than the unsaturated reservation counter.",
+    "storage": "One hash record per distinct valid coordinate, two reservation phases, bounded bucket_capacity*items_per_bucket feature storage; raw counters can exceed capacity until clamp.",
+    "boundary": "Three points in one bucket with capacity2 reserve0,1,2: two payloads exist and count must clamp3 to2. The third point can still report that bucket ID; it is not a retained-slot identifier.",
+    "resources": []
+  },
+  "numeric_risk": "Preserve the supplied arithmetic contract; reassociation, quantization and approximate search require separate permission.",
+  "summary": "When grouping points into bounded voxels, separate bucket identity assignment from point reservation, and expose the retained extent rather than the unsaturated reservation counter. Three points in one bucket with capacity2 reserve0,1,2: two payloads exist and count must clamp3 to2. The third point can still report that bucket ID; it is not a retained-slot identifier."
+}

@@ -1,0 +1,15 @@
+{
+  "template": "predicate_stable_record_compaction@1",
+  "version": 1,
+  "relation": "After block b, block prefix equals the count of valid original records through b; every emitted field uses global rank=prior-block count+exclusive local valid count.",
+  "rank": "Blocks and lanes remaining in each of two bounded passes.",
+  "assumes": [
+    {
+      "name": "source_contract",
+      "statement": "NVIDIA packed EWA/2DGS projection output. Distinct from prefix-only whole-work filtering and from first-occurrence duplicate election; arbitrary per-record validity becomes a stable compact sequence."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Source-derived proof outline; no formal proof result or GPU execution claimed. survivor_identity: Each admitted source record emits once and rejected records emit none. record_atomicity: All fields share one source owner and compact index; no projection field is paired with another primitive ID. stable_offsets: Block/global scan composition yields disjoint source-order survivor indices and correct row boundaries. validity_replay: Floating validity decisions agree in both passes for unchanged inputs and selected specialization."
+}

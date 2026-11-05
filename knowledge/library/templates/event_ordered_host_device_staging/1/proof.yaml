@@ -1,0 +1,15 @@
+{
+  "template": "event_ordered_host_device_staging@1",
+  "version": 1,
+  "relation": "A compute-acquired device slot holds its requested batch until its last consumer completes; a host staging slot remains unchanged until its H2D source read completes.",
+  "rank": "Unprocessed batches and in-flight copy/compute events for a finite pass, under stream progress.",
+  "assumes": [
+    {
+      "name": "source_contract",
+      "statement": "NVIDIA CUDA out-of-core KMeans batch loader. This host/device stream protocol is not the CTA barrier semantics of seed multi_buffer_rotation@2 or global-to-shared scope of async_transfer@1. Exception teardown drains both streams before storage/events are destroyed."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Source-derived proof outline; no formal proof result or GPU execution claimed. generation: Each compute consumer sees the batch matching its position, not another generation of the slot. separate_retirement: Host staging waits for H2D reads; device destination waits for compute reads. event_capture: Every wait captures the intended record before an event is re-recorded for another generation. submission_progress: Host submission cannot block on a device reuse event that needs not-yet-submitted compute to finish. The relation is a proposed source-level invariant; the stated finite-work rank depends on the explicit environment progress assumptions. Device ordering and numeric premises have not been discharged by schema validation."
+}

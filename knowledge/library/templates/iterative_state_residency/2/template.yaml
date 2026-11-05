@@ -1,0 +1,115 @@
+{
+  "name": "iterative_state_residency",
+  "version": 2,
+  "level_from": 3,
+  "level_to": 4,
+  "change": "vertical",
+  "refines": "map",
+  "produces": [
+    "map",
+    "store",
+    "sync"
+  ],
+  "object": {
+    "type": "resident_local_recurrence_state",
+    "description": "One owner CTA retains a complete bounded mutable recurrence state through iterative solves or dependent finite-state walks; required per-step outputs are preserved."
+  },
+  "variables": [
+    {
+      "name": "state_site",
+      "kind": "structure",
+      "binding": "compile",
+      "role": "software",
+      "domain": [
+        "registers",
+        "smem"
+      ],
+      "meaning": "Placement of the state; selected realization must support all access sharing and required barriers."
+    },
+    {
+      "name": "output_retention",
+      "kind": "structure",
+      "binding": "compile",
+      "role": "boundary",
+      "domain": [
+        "final_only",
+        "per_step"
+      ],
+      "meaning": "Whether the workload requires only the final state/failure or also an output tape from each transition; this is fixed by consumers, not a tuning freedom."
+    }
+  ],
+  "constraints": [
+    {
+      "id": "c_capacity",
+      "expr": "p.state_bytes + p.workspace_bytes <= p.selected_site_capacity_bytes",
+      "meaning": "All simultaneously live iterative state and operation workspace must fit.",
+      "cls": "resource"
+    }
+  ],
+  "preconditions": [
+    {
+      "id": "pre_local",
+      "expr": "p.iteration_dependencies_local_to_cta and p.independent_instances and p.iteration_count_and_numeric_policy_fixed",
+      "meaning": "One CTA owns every dependency of an instance, including full-row/global-within-instance reductions; iteration count and arithmetic/termination policy are workload inputs.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_liveness",
+      "expr": "p.no_external_intermediate_reader and p.all_local_sync_collectively_reachable",
+      "meaning": "No consumer requires intermediate states before final publication; every intra-CTA collective is reached by all declared participants.",
+      "cls": "implementation"
+    },
+    {
+      "id": "pre_outputs",
+      "expr": "output_retention == 'final_only' or (p.required_step_outputs_written_exactly_once and p.step_output_generation_visible_before_external_read)",
+      "meaning": "Retain every required transition output at the specified stage and identity; consumers wait for the completed generation.",
+      "cls": "implementation"
+    }
+  ],
+  "program": {
+    "description": "Load the independent instance initial mutable state once. Execute the same prescribed recurrence, fixed iteration budget or identical termination test, keeping state and current-step temporaries at state_site. A dependent walk may load the next immutable input row selected by its resident state; not all immutable rows need reside simultaneously. Synchronize each cross-thread producer/consumer transition before its reads or overwrite, and reuse workspace after its last reader. In final_only mode store the final state or original explicit failure result once, as in version1. In per_step mode additionally store every required transition output exactly once, with original indices, numerical stage and random identity; external readers wait for its generation. Preserve casts, epsilons, pivot/tie/endpoint policies and update order. No change of solver, path, stopping criterion or proposal law is implied."
+  },
+  "backward_map": "At each logical iteration boundary, materialize the resident state; this yields exactly the coarse sequence of states under the same recurrence and numerical policy.",
+  "obligations": [
+    {
+      "name": "step",
+      "statement": "Each local iteration consumes precisely the preceding complete state and implements the same numerical recurrence.",
+      "method": "test"
+    },
+    {
+      "name": "lifetime",
+      "statement": "Shared temporaries are not reused before all required reads and cross-thread values are synchronized.",
+      "method": "test"
+    },
+    {
+      "name": "completion",
+      "statement": "Termination/failure branches and final publication match the coarse contract; every collective remains reachable.",
+      "method": "test"
+    },
+    {
+      "name": "step_outputs",
+      "statement": "Every required transition output and its stage, index, random identity and visibility are preserved.",
+      "method": "test"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.iteration_dependencies_local_to_cta and p.independent_instances and p.iteration_count_and_numeric_policy_fixed and (output_retention == 'final_only' or (p.required_step_outputs_written_exactly_once and p.step_output_generation_visible_before_external_read))",
+    "text": "Version1 independent bounded matrix normalization/solve scope retained with output_retention=final_only. Version2 adds bounded dependent finite-state walks under the same local state/capacity/termination premises, optionally preserving per-step outputs. DFlash selector uses one warp/request, K<=16, register previous-index/current-K-score state, immutable next-row loads and a Q/token tape. EAGLE greedy verifier uses one thread/request and child/sibling links with an accepted-index tape. External intermediate readers before generation completion remain excluded."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "Retain bounded recurrence state within one CTA through the same transitions, preserving any required output tape.",
+    "storage": "Mutable state plus peak current-step workspace; immutable inputs and per-step output tape may remain global.",
+    "boundary": "Any external dependency or collective outside the owning CTA violates the refinement.",
+    "resources": []
+  },
+  "numeric_risk": "Fusing kernels may remove casts or change operation order; preserving the stated numerical recurrence is mandatory, otherwise a separate approximation binding is needed. Dependent-walk random draws, NaN/tie selection and CDF endpoints retain their original per-step identity.",
+  "summary": "When a small solve or dependent walk repeatedly materializes its mutable state between steps, keep that state within its owner CTA. Choose registers or shared memory subject to peak live storage; preserve every required per-step output tape and the same transitions, termination and random identity."
+}

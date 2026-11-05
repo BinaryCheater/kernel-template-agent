@@ -1,0 +1,80 @@
+name: merge_path_partition
+version: 1
+level_from: 2
+level_to: 3
+change: vertical
+refines: map
+produces:
+- map
+- store
+object:
+  type: merge_path_partition
+  description: Output-diagonal partitions of a stable merge of two sorted sequences.
+variables:
+- name: tile_items
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 1
+    hi: 65536
+  meaning: Merged outputs per parallel tile.
+constraints: []
+preconditions:
+- id: pre0
+  expr: p.inputs_sorted_same_strict_weak_order and p.comparator_consistent
+  meaning: Inputs are sorted using the same comparator.
+  cls: semantic
+- id: pre1
+  expr: p.diagonals_cover_output and p.partition_and_consumer_tile_sizes_equal
+  meaning: Partition launch and consumer agree on diagonal spacing including final
+    tail.
+  cls: semantic
+- id: pre2
+  expr: p.first_input_wins_equivalent_ties and p.output_ranges_disjoint
+  meaning: Tie rule is consistent across binary partition and serial merge.
+  cls: semantic
+program:
+  description: For output diagonal d search i in [max(0,d-B_length),min(d,A_length)]
+    with j=d-i. Binary search advances i when B[j-1] is not strictly less than A[i],
+    giving first-input priority for equivalent keys. Neighboring diagonals d,d+tile_items
+    determine disjoint A/B slices. Each tile merges only those slices into its matching
+    output interval; optionally partition each tile again by per-thread diagonals
+    and serial merge short ranges. Clamp last diagonals to total length and move associated
+    values with their key source indices.
+backward_map: Concatenate output intervals in diagonal order to obtain the stable
+  global merge of the original two sequences.
+obligations:
+- name: stable_partition
+  statement: Each diagonal identifies the unique stable-merge prefix and adjacent
+    intervals contain every source once.
+  method: proof
+- name: tie_and_payload
+  statement: Equivalent-key priority and associated value identity agree between search
+    and local merge.
+  method: test
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: (p.inputs_sorted_same_strict_weak_order and p.comparator_consistent)
+    and (p.diagonals_cover_output and p.partition_and_consumer_tile_sizes_equal) and
+    (p.first_input_wins_equivalent_ties and p.output_ranges_disjoint)
+  text: Two sorted random-access sequences, strict weak comparator, first-input-before-second
+    equivalent ties, exact output-length arithmetic. Partition tile size must match
+    any selected fallback consumer agent.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Output-diagonal partitions of a stable merge of two sorted sequences.
+  storage: Binding-specific counters, partials or output ranges.
+  boundary: Tile prefixes and logical membership.
+  resources: []
+numeric_risk: Integer counts must not overflow; ordering/rounding policy belongs to
+  the bound operation.
+summary: When merging long sorted runs, partition by output diagonals so each executor
+  receives a bounded amount of merged output even if one run dominates. Choose tile_items;
+  search both input coordinates at each diagonal and preserve the same tie priority
+  during local merge. Reject a partition computed for a different fallback tile size.

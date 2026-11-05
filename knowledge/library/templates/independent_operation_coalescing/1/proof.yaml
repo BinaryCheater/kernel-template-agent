@@ -1,0 +1,15 @@
+{
+  "template": "independent_operation_coalescing@1",
+  "version": 1,
+  "relation": "Split each coalesced task instance back into its original kernel/CTA domain. Independence permits the observed interleaving or per-row order without changing any required output; exact task coverage recovers the two original operations.",
+  "rank": "Remaining output coordinates or independent task instances.",
+  "assumes": [
+    {
+      "name": "premises",
+      "statement": "All stated common-input, independence, precision and completion premises hold."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "The range maps index\u2192(kind,row) are bijections; paired mode instead executes exactly two independent bodies per row. Disjoint outputs and immutable common inputs allow interleaving without dataflow changes. Full block uniform branches retain barriers. Native common-shape register/shared-memory occupancy and PDL memory ordering must be checked separately; source reuse of a body does not alone certify those resource or early-publication conditions."
+}

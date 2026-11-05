@@ -1,0 +1,96 @@
+{
+  "name": "hierarchical_centroid_budget_seeding",
+  "version": 1,
+  "level_from": 2,
+  "level_to": 3,
+  "change": "vertical",
+  "refines": "map",
+  "produces": [
+    "map",
+    "access"
+  ],
+  "object": {
+    "type": "hierarchical_centroid_budget_seeding",
+    "description": "When training many centers is expensive, allocate a fixed fine-center budget across coarse partitions, train each partition separately and use the concatenated centers to seed a global refinement."
+  },
+  "variables": [
+    {
+      "name": "coarse_centers",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": {
+        "lo": 1,
+        "hi": 65536
+      },
+      "meaning": "Number of coarse mesoclusters; source chooses min(K,round(sqrt(K))) as a heuristic."
+    }
+  ],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_0",
+      "expr": "p.coarse_sizes_partition_rows and p.fine_budget_feasible",
+      "meaning": "Coarse populations sum to all rows and total fine budget covers every nonempty coarse group.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_1",
+      "expr": "p.quota_sum_exact_and_offsets_disjoint and p.training_samples_available",
+      "meaning": "Nonempty quotas are positive, quotas sum to requested K, their prefix intervals are disjoint, and selected train samples cover each requested local center count.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_2",
+      "expr": "p.global_refinement_contract_defined",
+      "meaning": "Local center concatenation is initialization; optional global refinement and final assignment semantics are explicit.",
+      "cls": "semantic"
+    }
+  ],
+  "program": {
+    "description": "Train coarse groups, count their populations and allocate fine-center quotas proportional to remaining population and remaining budget, reserving at least one center for each remaining nonempty group. Prefix-sum quotas to assign disjoint fine-center output intervals. Gather each group training rows, optionally cap its training population as an explicit quality approximation, train its local centers and write into its assigned interval. Concatenate exactly K centers, then refine globally under the declared iteration policy. Empty coarse groups receive zero quota; no partition-local assignment is mistaken for final global nearest-center membership."
+  },
+  "backward_map": "Erase auxiliary organization and recover the visible results under the stated contract.",
+  "obligations": [
+    {
+      "name": "budget",
+      "statement": "Every nonempty group receives a positive quota and all quotas sum exactly to K.",
+      "method": "proof"
+    },
+    {
+      "name": "output_ownership",
+      "statement": "Each local training group writes only its assigned center interval.",
+      "method": "proof"
+    },
+    {
+      "name": "sample_scope",
+      "statement": "Training caps and subsampling are recorded as approximation choices, not coverage of all rows.",
+      "method": "proof"
+    },
+    {
+      "name": "refinement_boundary",
+      "statement": "Global prediction/refinement consumes the complete center seed only after every local trainer finishes.",
+      "method": "proof"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.coarse_sizes_partition_rows and p.fine_budget_feasible and p.quota_sum_exact_and_offsets_disjoint and p.training_samples_available and p.global_refinement_contract_defined",
+    "text": "NVIDIA hierarchical balanced KMeans center initialization. Source rounds quota sequentially with remaining budgets, so na\u00efvely rounding independent proportional quotas is not equivalent. Does not guarantee exact Lloyd optimum or strict population balance. Resource effects: Reduces all-center training into smaller local problems plus coarse training and global refinement; adds gather buffers and quota metadata. Resource bound depends on largest retained training group."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "When training many centers is expensive, allocate a fixed fine-center budget across coarse partitions, train each partition separately and use the concatenated centers to seed a global refinement.",
+    "storage": "Reduces all-center training into smaller local problems plus coarse training and global refinement; adds gather buffers and quota metadata. Resource bound depends on largest retained training group.",
+    "boundary": "Populations[8,0,2] and fine budget5 allocate[4,0,1] with prefix[0,4,4,5]. Independently rounding fractions without reserving remaining nonempty groups can exhaust the budget early.",
+    "resources": []
+  },
+  "numeric_risk": "Preserve the supplied arithmetic contract; reassociation, quantization and approximate search require separate permission.",
+  "summary": "When training many centers is expensive, allocate a fixed fine-center budget across coarse partitions, train each partition separately and use the concatenated centers to seed a global refinement. Populations[8,0,2] and fine budget5 allocate[4,0,1] with prefix[0,4,4,5]. Independently rounding fractions without reserving remaining nonempty groups can exhaust the budget early."
+}

@@ -1,0 +1,62 @@
+{
+  "name": "ordered_pair_distance_prefix_moments",
+  "version": 1,
+  "level_from": 2,
+  "level_to": 3,
+  "change": "vertical",
+  "refines": "map",
+  "produces": [
+    "map",
+    "access"
+  ],
+  "object": {
+    "type": "ordered_pair_distance_prefix_moments",
+    "description": "When weighted samples are ordered by nondecreasing scalar depth, replace quadratic pairwise absolute-distance accumulation by prefix weight and weighted-depth moments."
+  },
+  "variables": [],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_0",
+      "expr": "p.depths_nondecreasing and p.weights_nonnegative and p.rounding_admitted",
+      "meaning": "Absolute depth difference can be replaced by ordered subtraction; ordering is semantic.",
+      "cls": "semantic"
+    }
+  ],
+  "program": {
+    "description": "Maintain A=sum previous weights and B=sum previous weight*depth, initially zero. For current (w,z), accumulate D+=2*w*(z*A-B), then A+=w,B+=w*z. This is sum over both orientations of all distinct sample pairs w_i*w_j*abs(z_i-z_j). For alpha compositing w=alpha*T_before and A=1-T_before only when initial T=1 and no inconsistent skipped-T updates."
+  },
+  "backward_map": "Erase auxiliary organization and recover the visible results under the stated contract.",
+  "obligations": [
+    {
+      "name": "pair_expansion",
+      "statement": "At prefix j, D equals twice sum_i<k<=j w_i*w_k*(z_k-z_i); A,B are prefix moments.",
+      "method": "proof"
+    },
+    {
+      "name": "ordering",
+      "statement": "Without sorted evaluated depth, signed subtraction cannot replace absolute difference.",
+      "method": "proof"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.depths_nondecreasing and p.weights_nonnegative and p.rounding_admitted",
+    "text": "Sorted scalar depths, finite admitted arithmetic, no diagonal self-interval term. Source 2DGS stores last color channel as depth and uses A=1-T. Resource effects: O(1) state and O(n) work instead of pair enumeration."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "When weighted samples are ordered by nondecreasing scalar depth, replace quadratic pairwise absolute-distance accumulation by prefix weight and weighted-depth moments.",
+    "storage": "O(1) state and O(n) work instead of pair enumeration.",
+    "boundary": "RasterizeToPixels2DGSSerialBatchFwd.cu:411-422. Tile sort by primitive depth does not automatically prove the last color channel is nondecreasing: require caller binding.",
+    "resources": []
+  },
+  "numeric_risk": "Preserve the supplied arithmetic contract; reassociation, quantization and approximate search require separate permission.",
+  "summary": "When weighted samples are ordered by nondecreasing scalar depth, replace quadratic pairwise absolute-distance accumulation by prefix weight and weighted-depth moments. RasterizeToPixels2DGSSerialBatchFwd.cu:411-422. Tile sort by primitive depth does not automatically prove the last color channel is nondecreasing: require caller binding."
+}

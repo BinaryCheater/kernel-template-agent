@@ -1,0 +1,14 @@
+template: size_class_cooperative_assignment@1
+version: 1
+relation: Erase class queues and executor grouping to recover the original independent
+  per-task computations over all assigned item offsets.
+rank: Unprocessed source items or unmerged partials.
+assumes:
+- name: contract
+  statement: The stated partition, comparator/count and publication premises hold.
+guarantees: []
+models: []
+note: Source agent_batch_memcpy.cuh:595-650,:1030-1123; kernels/kernel_segmented_reduce.cuh:130-227.
+  Class intervals partition sizes; modular lane assignment partitions task offsets.
+  Exact prefix queue allocation gives distinct slots. Each body retains its own value
+  and synchronization obligations.

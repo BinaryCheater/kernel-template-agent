@@ -1,0 +1,61 @@
+name: operand_bitfield_placement
+version: 1
+level_from: 5
+level_to: 6
+change: vertical
+refines: map
+produces: [map]
+object:
+  type: instruction_operand_payload_position
+  description: An already-unpacked four-bit floating code moves within its eight-bit register container to match the consuming instruction's payload position.
+variables:
+  - {name: destination_lsb, kind: numeric, binding: compile, role: boundary, domain: {lo: 0, hi: 4}, meaning: "Least-significant bit expected by the consumer; the selected mixed-FP4 MMA binding fixes2, not a source tuning knob."}
+constraints:
+  - {id: c_consumer, expr: "destination_lsb == p.consumer_payload_lsb and p.code_bits == 4 and p.container_bits == 8", meaning: Four payload bits fit one byte and match the exact consumer interpretation., cls: implementation}
+preconditions:
+  - {id: pre_input, expr: "p.input_code_e2m1 and p.input_payload_in_low_bits and p.unused_source_bits_zero", meaning: The load produced an unsigned four-bit E2M1 payload in the low bits of a zero-extended byte., cls: semantic}
+  - {id: pre_identity, expr: "p.coordinate_order_preserved and p.exactly_once_after_unpack", meaning: Each newly unpacked code is shifted once without changing its logical coordinate or re-shifting a prepared fragment., cls: semantic}
+  - {id: pre_backend, expr: "p.unpack_backend_supported and p.consumer_payload_decode_supported", meaning: The selected load and MMA agree on the code identity and register-byte layout., cls: implementation}
+program:
+  description: >-
+    Consume each zero-extended E2M1 code q in register bits0..3 of one byte.
+    Replace that byte by q<<destination_lsb, retaining its coordinate and applying
+    the transformation exactly once after unpacking and before the matching MMA.
+    The consumer extracts four bits at destination_lsb and interprets the original
+    E2M1 code, preserving all code bits including sign and signed-zero encoding.
+    No numerical conversion, scale multiplication, quantization or global-memory
+    repacking occurs. A different code format, nonzero unused bits or another
+    load/consumer layout needs a verified binding or variant.
+backward_map: Extract (prepared_byte>>destination_lsb)&15 to recover the exact original floating code and coordinate.
+obligations:
+  - {name: code_identity, statement: All16 E2M1 code patterns and every coordinate survive placement and extraction exactly., method: exhaustive}
+  - {name: fragment_identity, statement: No code is shifted twice and no neighboring register-byte payload or padding bit is consumed as data., method: test}
+  - {name: backend_agreement, statement: The selected unpack operation and consumer instruction implement the stated byte positions and coordinate order., method: test}
+effects: {transactions: [], storage: [], overlap: []}
+scope:
+  predicate: "p.input_code_e2m1 and p.input_payload_in_low_bits and p.unused_source_bits_zero and p.coordinate_order_preserved and p.exactly_once_after_unpack and p.unpack_backend_supported and p.consumer_payload_decode_supported"
+  text: >-
+    Code-preserving register reencoding of four-bit E2M1 payloads in eight-bit
+    containers. SM120 mixed FP4xFP8 uses b4x16_p64 unpack then destination_lsb2;
+    same-type FP4 and FP8 operands do not receive this shift. Source code uses
+    Int8 views but the payload is floating encoding, not signed integer value.
+    Native lane/register layout and exact-once load/shift ordering remain backend
+    obligations. Other positions describe the logical map only until a consumer
+    binding establishes support; placement does not authorize another source tile.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Preserve floating code bits while relocating them to the instruction payload field.
+  storage: Existing per-byte register containers after unpack.
+  boundary: Zero extension, exact-once preparation and load/consumer coordinate agreement.
+  resources: [reg, issue]
+numeric_risk: No code change under the premises; omitting or repeating the shift changes the consumed floating code.
+summary: >-
+  When an unpacking load and its arithmetic consumer use different bit positions
+  for the same floating payload, consider an explicit register bitfield placement.
+  Preserve each coordinate and all code bits, and apply the placement once to
+  newly unpacked bytes. The mixed SM120 FP4 operand moves low E2M1 bits to bits2..5;
+  the FP8 side and same-type FP4 path stay unchanged. This is not integer widening
+  or quantization. Destination position is dictated by the consumer and native
+  layout/exact-once preparation must be verified separately.

@@ -1,0 +1,55 @@
+name: softmax_probability_recomputation
+version: 1
+level_from: 2
+level_to: 3
+change: vertical
+refines: map
+produces: [map, contract]
+object:
+  type: row_normalization_checkpoint
+  description: Reconstruct softmax probability tiles from unchanged score operands and a saved row log-normalizer instead of retaining a full probability matrix.
+variables: []
+constraints: []
+preconditions:
+  - {id: pre_checkpoint, expr: "p.checkpoint_matches_forward and p.operands_unchanged and p.mask_and_scale_match", meaning: "Recomputed rows use the same forward operands, score scale, logical support and saved normalization domain.", cls: semantic}
+  - {id: pre_mass, expr: "p.valid_rows_have_positive_finite_mass and p.checkpoint_log_base_known and p.tail_rows_guarded", meaning: "Every reconstructed valid row has a defined finite log-normalizer and padded rows cannot affect results.", cls: semantic}
+  - {id: pre_numeric, expr: "p.recomputed_logits_match and p.recompute_math_and_casts_admitted and p.checkpoint_precision_admitted", meaning: "The numerical policy explicitly admits score recomputation, saved-statistic precision and probability conversion.", cls: implementation}
+program:
+  description: >-
+    Replace storage and later reads of the full normalized probability matrix
+    with a saved log-normalizer per logical row. For a tile, recompute its scaled
+    logits x from the unchanged operands. With a natural-log checkpoint L use
+    P=exp(x-L); with base2 checkpoint L2 use P=exp2(x*log2(e)-L2).
+    Explicitly set excluded logical positions to zero, apply admitted probability
+    casts, and feed the reconstructed tile to its consumer before releasing it.
+    Tile traversal must use the same row normalization domain as forward, even
+    when the backward kernel owns a transposed key/query tile.
+backward_map: Materialize each reconstructed tile in its logical row/column position; under the checkpoint and numerical premises it is the probability matrix that the original consumer would read.
+obligations:
+  - {name: normalization_identity, statement: "The checkpoint and recomputed scaled logits reconstruct the same normalized logical row.", method: proof}
+  - {name: checkpoint_binding, statement: "Forward saved statistics and backward operand/mask/scale bindings refer to the same logical rows and normalization support.", method: test}
+  - {name: numerical_reconstruction, statement: "Checkpoint rounding, score replay, exponent approximation and consumer casts satisfy the declared numerical policy.", method: test}
+effects: {transactions: [], storage: [], overlap: []}
+scope:
+  predicate: "p.checkpoint_matches_forward and p.operands_unchanged and p.mask_and_scale_match and p.valid_rows_have_positive_finite_mass and p.checkpoint_log_base_known and p.tail_rows_guarded and p.recomputed_logits_match and p.recompute_math_and_casts_admitted and p.checkpoint_precision_admitted"
+  text: >-
+    Deterministic softmax score reconstruction with per-row finite log-normalizers.
+    The TileLang representative saves FP32 base2 LSE and recomputes FP16 QK into
+    FP32 fragments. Random dropout, changed operands, unsupported empty rows and
+    bitwise identity across arbitrary MMA/cast orders are outside this version.
+requires: []
+probed_on: []
+relations:
+  - {type: enables, target: operator_fusion, note: Reconstructed probability tiles may feed their consumer on chip without a global probability matrix.}
+signature:
+  algorithm: Recompute normalized probability tiles from compact row checkpoints.
+  storage: One log-normalizer per row plus the currently consumed tile replaces a full probability matrix.
+  boundary: Checkpoint domain and numerical replay agreement.
+  resources: [dram, registers, tensor]
+numeric_risk: Recomputed probabilities need not be bitwise equal to probabilities rounded or generated in a different forward MMA order.
+summary: >-
+  When a later consumer needs softmax probabilities but retaining the full matrix
+  is expensive, save a row log-normalizer and reconstruct score tiles on demand.
+  Trade repeated score arithmetic for matrix storage and traffic. Match the
+  forward mask, scale and log base, keep operands unchanged, and admit the actual
+  checkpoint, exponent and cast errors in the numerical policy.

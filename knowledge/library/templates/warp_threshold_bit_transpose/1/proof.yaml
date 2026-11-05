@@ -1,0 +1,15 @@
+{
+  "template": "warp_threshold_bit_transpose@1",
+  "version": 1,
+  "relation": "Each written output bit at logical coordinate j equals strict-positive(input[j]-threshold[j]); lane-local scratch is only a temporary permutation of these same bits.",
+  "rank": "Unprocessed32-by8 input bit tiles and unwritten valid bytes.",
+  "assumes": [
+    {
+      "name": "source_contract",
+      "statement": "NVIDIA binary quantization kernel uint8 pack. Source cross-lane shared-memory synchronization must be established for the target; the abstract mapping does not itself prove independent-thread scheduling safety. Threshold fitting is separate."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Source-derived proof outline; no formal proof result or GPU execution claimed. bit_mapping: Input coordinate J+l+32*b lands at output bit J+l+32*b exactly, with no swaps. strict_threshold: Equality to threshold produces0 and threshold metadata belongs to the same input feature. tail: Coordinates beyond dim do not set output bits or access input/threshold out of bounds. scratch_lifetime: All participating lanes observe current tile scratch and finish before next overwrite. The relation is a proposed source-level invariant; the stated finite-work rank depends on the explicit environment progress assumptions. Device ordering and numeric premises have not been discharged by schema validation."
+}

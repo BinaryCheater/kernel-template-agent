@@ -1,0 +1,79 @@
+{
+  "name": "cross_transport_ordering_join",
+  "version": 1,
+  "level_from": 2,
+  "level_to": 3,
+  "change": "vertical",
+  "refines": "map",
+  "produces": [
+    "map",
+    "access"
+  ],
+  "object": {
+    "type": "cross_transport_ordering_join",
+    "description": "When one logical communication stream uses independent transport queues or engines, establish ordering by joining every active completion domain before a dependent operation crosses domains."
+  },
+  "variables": [],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_0",
+      "expr": "p.operation_domain_membership_recorded and p.completion_primitive_covers_prior_operations",
+      "meaning": "Track every queue/engine that may carry prior communication, including work issued by cooperating threads when required.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_1",
+      "expr": "p.same_queue_order_contract_or_all_domains_joined and p.consumer_visibility_fence_matches_scope",
+      "meaning": "Same ordered queue may need only a visibility fence; independent queues require completion joins.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_2",
+      "expr": "p.pending_state_cleared_only_after_successful_completion and p.no_untracked_async_source_reads",
+      "meaning": "Pending flags cannot discard unfinished operations.",
+      "cls": "semantic"
+    }
+  ],
+  "program": {
+    "description": "Choose ordering or completion contract per operation. One ordered reliable queue to the same peer can preserve put order without draining; when operations rotate across multiple contexts or a separate atomic sidecar, drain every relevant context before crossing to dependent action. Independently drain TMA bulk operations and publish pending peer stores with system fence. Quiet completes all active domains even where fence only needs ordering. Clear pending indicators only after their work is covered. Do not interpret a GIN flush as completing unrelated TMA or atomic-sidecar operations."
+  },
+  "backward_map": "Erase auxiliary organization and recover the visible results under the stated contract.",
+  "obligations": [
+    {
+      "name": "domain_cover",
+      "statement": "Every prior operation belongs to at least one joined domain; no outstanding source read is omitted.",
+      "method": "proof"
+    },
+    {
+      "name": "happens_before",
+      "statement": "Required local/remote completion plus scoped publication precedes dependent access.",
+      "method": "proof"
+    },
+    {
+      "name": "minimal_ordering",
+      "statement": "A single-queue shortcut is legal only under the same-peer in-order provider contract; multiple unordered queues invalidate it.",
+      "method": "proof"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.operation_domain_membership_recorded and p.completion_primitive_covers_prior_operations and p.same_queue_order_contract_or_all_domains_joined and p.consumer_visibility_fence_matches_scope and p.pending_state_cleared_only_after_successful_completion and p.no_untracked_async_source_reads",
+    "text": "Source NIIN fence/quiet semantics and engine tracking. Exact backend domain contracts and collective thread scope must be supplied. Resource effects: May avoid all-context drain for single ordered queue; multi-context load balancing trades ordering overhead."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "When one logical communication stream uses independent transport queues or engines, establish ordering by joining every active completion domain before a dependent operation crosses domains.",
+    "storage": "May avoid all-context drain for single ordered queue; multi-context load balancing trades ordering overhead.",
+    "boundary": "contrib/niin/include/niin/sync.h:20-100 drains GIN contexts, TMA, peer-store state; GpuNetIO atomic sidecar is separate domain.",
+    "resources": []
+  },
+  "numeric_risk": "Preserve the supplied arithmetic contract; reassociation, quantization and approximate search require separate permission.",
+  "summary": "When one logical communication stream uses independent transport queues or engines, establish ordering by joining every active completion domain before a dependent operation crosses domains. contrib/niin/include/niin/sync.h:20-100 drains GIN contexts, TMA, peer-store state; GpuNetIO atomic sidecar is separate domain."
+}

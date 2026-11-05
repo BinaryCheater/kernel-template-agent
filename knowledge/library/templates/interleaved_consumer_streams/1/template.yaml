@@ -1,0 +1,65 @@
+name: interleaved_consumer_streams
+version: 1
+level_from: 4
+level_to: 5
+change: vertical
+refines: work_assign
+produces: [work_assign, sync]
+object:
+  type: striped_work_stage_cursor
+  description: Two consumer groups own alternating items in one producer stream while each tracks the original global ring generations across unowned items.
+variables:
+  - {name: groups, kind: numeric, binding: compile, role: software, domain: [2], meaning: Number of alternating consumer groups in the pinned implementation.}
+  - {name: steps_per_item, kind: numeric, binding: runtime, role: boundary, domain: {lo: 1, hi: 1048576}, meaning: Uniform positive producer-stage count per item; source binds the fixed K tile count.}
+constraints:
+  - {id: c_ring, expr: "p.stages >= 1 and p.cursor_arithmetic_fits and steps_per_item == p.producer_steps_per_item", meaning: Consumers use the same positive uniform item extent and representable ring cursor as the producer., cls: implementation}
+preconditions:
+  - {id: pre_stream, expr: "p.producer_item_order_immutable and p.item_steps_uniform and p.group_partition_exact", meaning: Group g owns item ordinals g+2*j in the shared producer's item order., cls: semantic}
+  - {id: pre_protocol, expr: "p.active_consumer_count_matches and p.skipped_steps_not_released and p.owned_steps_consumed_once", meaning: Only the owning group consumes/releases an item's stages; barrier arrival count describes that group rather than both groups., cls: semantic}
+  - {id: pre_order, expr: "p.order_protocol_valid and p.shared_output_lifetime_valid and p.progress_admitted", meaning: External execution order and shared output storage protocol are correctly allocated and preserve progress/lifetimes., cls: implementation}
+program:
+  description: >-
+    Number each physical producer stream step q=item*steps_per_item+k.
+    Group g initially advances its consumer cursor by g*steps_per_item without
+    waiting or releasing skipped generations. Consume/release each step of its
+    owned item once. Before its next item advance over (groups-1)*steps_per_item
+    unowned steps without releasing them; advance its work scheduler groups times.
+    Preserve ring index q mod stages and phase floor(q/stages) mod2 across these
+    jumps. Resetting a tile-local count never resets index or phase. Handle an
+    empty/short final stripe by checking item validity before any stage wait.
+    Uniform positive item length is required; variable-length items need a different map.
+backward_map: Merge the disjoint consumer stripes by original item ordinal and reinsert their stage events into the producer's one global stream.
+obligations:
+  - {name: ownership, statement: Every valid item and all its producer steps belong to exactly one consumer group., method: exhaustive}
+  - {name: generation, statement: Owned waits/releases use the exact global slot generation across initial skips and repeated phase wraps., method: exhaustive}
+  - {name: protocol, statement: Skipped generations receive no release and active-group arrivals match the barrier; external ordering preserves progress and shared output lifetime., method: test}
+effects: {transactions: [], storage: [], overlap: []}
+scope:
+  predicate: "p.producer_item_order_immutable and p.item_steps_uniform and p.group_partition_exact and p.active_consumer_count_matches and p.skipped_steps_not_released and p.owned_steps_consumed_once and p.order_protocol_valid and p.shared_output_lifetime_valid and p.progress_admitted"
+  text: >-
+    Two alternating groups consuming a common fixed-positive-length stage stream.
+    SM120 pingpong uses one four-warp group per tile, advances the other tile's
+    K-stage count without release and skips two scheduler positions between owned
+    items. Its PipelineOrder depth2/length2 requires four barrier slots but the
+    retained source declares only two: that declaration alone does not establish order_protocol_valid. Physical
+    alignment padding may back extra slots and requires a separate layout argument. This candidate does not supply the
+    external MMA/epilogue arbitration or its cost and does not admit K0.
+requires: []
+probed_on: []
+relations:
+  - {type: requires, target: per_slot_handshake, note: The owning consumer group alone must satisfy each stage's readiness/release protocol.}
+signature:
+  algorithm: Alternate fixed-size work items and jump a global ring cursor over the other group's stripe.
+  storage: Separate consumer cursors over an existing shared producer ring.
+  boundary: Exact wrap phase, positive uniform item length and final stripe validity.
+  resources: [reg, issue]
+numeric_risk: Work/stage ownership only; a wrong phase or release count can consume stale values or overwrite live inputs.
+summary: >-
+  When independent consumer groups alternate tiles from one input producer,
+  consider striped item ownership with a cursor tied to the producer's global
+  stage sequence. Skip unowned items by advancing their stage extent without
+  releasing them, preserve wrap phases and count only the active group's arrivals.
+  The pinned two-group source uses uniform K stages per tile; K0 or variable
+  lengths are excluded. Native order arbitration and shared output lifetime are
+  separate premises, and the source's two-slot declaration versus four-slot use is an explicit storage
+  obligation rather than proof of native failure or a working implementation.

@@ -1,0 +1,20 @@
+template: shared_index_union@1
+version: 1
+relation: The emitted union prefix covers the consumed prefixes of both input lists, with one key per union position and an exact original-slot incidence map for each row.
+rank: Sum of unconsumed entries in the two rows, followed by unfilled tail-padding entries.
+assumes:
+  - {name: sorted_unique, statement: "Each row's keys are strictly increasing,valid and have the same payload interpretation across rows."}
+  - {name: storage_lifetime, statement: Published union descriptors remain visible and allocated until all consumers finish.}
+guarantees: []
+models: []
+note: >-
+  Initialization consumes/emits nothing. Choose the smaller next key; consume one row or both
+  for an equal pair. Strict row uniqueness prevents a second equal key later in the same row,
+  so the union remains unique and sorted. The stored original slot increases only with that
+  row's cursor; subtracting a split base and adding it back preserves the slot. An absent
+  slot is never scattered. Consuming at least one input decreases the rank; after exhaustion
+  fill only absent padding. The source's parallel merge-path realization additionally drops
+  a carried duplicate at partition boundaries. checks/attention_metadata.py replays its
+  binary searches and duplicate carry over1024 input pairs at256 partitions, compares with
+  independent set union and checks scatter at multiple split widths. Last-CTA publication,
+  real gather execution and layout/proxy visibility remain open device obligations.

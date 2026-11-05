@@ -1,0 +1,15 @@
+{
+  "template": "statistic_dependent_rematerialization@1",
+  "version": 1,
+  "relation": "The completed statistic equals reduceh(f(x)); each pending output can recover exactly its original transformed value either from retained registers or pure replay.",
+  "rank": "First-pass values plus statistic join plus remaining output values.",
+  "assumes": [
+    {
+      "name": "purity",
+      "statement": "Transform reads immutable generation-matched inputs/parameters and uses the same numerical recipe on each evaluation."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Both modes reduce the same first-pass values. After the join, resident reads storedz; recompute evaluates the identical deterministic recipe, so g consumes the samez,s. Liveness prevents destructive aliasing between passes. Source convrot_int8_entry.cuh:278\u2013357 has subgroup transform followed by full-row absmax, a CTA barrier and second pass only for nonresident mode. This is not affine_activation_rematerialization@1 backward checkpointing: the controlling dependency is a current group statistic, with no backward graph. Native register capacity/rounding and alias behavior remain realization obligations."
+}

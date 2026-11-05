@@ -1,0 +1,14 @@
+template: monotone_first_match_pruning@1
+version: 1
+relation: Erase skipped ranges whose indices exceed a witnessed matching index; remaining
+  atomic minima equal the earliest matching original input.
+rank: Unprocessed source items or unmerged partials.
+assumes:
+- name: contract
+  statement: The stated partition, comparator/count and publication premises hold.
+guarantees: []
+models: []
+note: Source agent_find.cuh:150-220. Best monotonically decreases through actual predicate
+  matches. If best<L all future worker indices>=L are worse; otherwise search local
+  tile and contribute its minimum. Atomic linearization plus complete worker coverage
+  yields the global minimum.

@@ -1,0 +1,14 @@
+template: resident_overflow_repeated_scan@1
+version: 1
+relation: Forget resident/stream slot placement and traverse each original occurrence
+  once under the pass predicate; the same histogram or selected set is obtained.
+rank: Unprocessed source items or unmerged partials.
+assumes:
+- name: contract
+  statement: The stated partition, comparator/count and publication premises hold.
+guarantees: []
+models: []
+note: Source agent_batched_topk_cluster.cuh:253-290,:879-922,:2895-2907,:2919-2984,:3137-3217.
+  Resident and overflow chunk sets partition original coordinates. Predicate equality
+  makes their union histogram identical to a full scan; stream generations and final
+  index order are separate obligations.

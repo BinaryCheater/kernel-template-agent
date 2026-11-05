@@ -1,0 +1,30 @@
+template: radix_threshold_selection@2
+version: 2
+relation: The threshold and quota select exactly k largest admitted values with the declared tied-identity
+  policy.
+rank: Unprocessed key digits.
+assumes:
+- name: order
+  statement: Complete keys preserve the admitted value ordering and the candidate set is complete.
+- name: counts
+  statement: Visible histogram counts and remaining ranks are exact integers.
+- name: ties
+  statement: For smallest-index value ties, complete-key tie classes match value ties and emission chooses
+    ascending logical identities.
+guarantees: []
+models: []
+note: At each digit, every key in a higher bucket outranks every key in the boundary bucket, and every
+  lower bucket loses to it. Subtracting the higher count makes r the rank within the boundary bucket.
+  For radix B=2**digit_bits, the same ordering partition holds at every four- or eight-bit digit. Induction
+  over digits identifies the kth complete key. With values (9,7,7,2) and k=2, threshold 7 retains 9 and
+  one of the two 7s; retaining all equal keys would violate cardinality. Early whole-bucket exit is valid
+  only when the entire selected bucket fills the remaining rank. TileLang deep_select/example_deep_select.py:35-128
+  performs byte refinement and :147-186 enforces greater/equal quotas; deepseek_v32/topk_selector.py:69-189
+  retains the coarse boundary bucket for full-key refinement. Native key conversion, counter range and
+  scatter visibility remain executable obligations. No custom checker is added for this rank induction.
+  For equal-threshold values, taking the lowest identities strengthens arbitrary-tie top-k to the smallest-index
+  contract without changing the selected multiset of values. TransformerEngine common/fused_router/utils.h:236-296
+  supplies four-bit FP32 refinement and a bounded packed-counter realization. Version 1 maps to digit_bits=8,tie_policy=any;
+  its key_bits, rank invariant and all other premises are retained. Existing version-1 evidence remains
+  addressed by that version. Native packed-bin extraction and deterministic tie emission need binding
+  validation; no new checker is required for this radix-independent rank proof.

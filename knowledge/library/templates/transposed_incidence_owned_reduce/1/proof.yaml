@@ -1,0 +1,15 @@
+{
+  "template": "transposed_incidence_owned_reduce@1",
+  "version": 1,
+  "relation": "The destination accumulator equals the ordered coarse sum of precisely the already visited inverse-incidence contributions with their original predicates and weights.",
+  "rank": "Remaining inverse slots of each destination, then unwritten destination features.",
+  "assumes": [
+    {
+      "name": "source_contract",
+      "statement": "Sparse NVIDIA stencil reductions where inverse incidence can be built once and reused across channels. The construction changes ownership, not the operator or its gradient convention; max tie-all and argmax-only gradients are different contracts."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Source-derived proof outline; no formal proof result or GPU execution claimed. transpose: Each forward edge corresponds to exactly one inverse edge and neither duplicates nor disappears. edge_values: Each gathered contribution uses original source feature, predicate and weight. exclusive_write: No other executor writes the same destination feature, so the final store needs no atomic. boundaries: Absent neighbors contribute the reduction identity; empty neighborhoods follow the declared initial-value contract. The relation is a proposed source-level invariant; the stated finite-work rank depends on the explicit environment progress assumptions. Device ordering and numeric premises have not been discharged by schema validation."
+}

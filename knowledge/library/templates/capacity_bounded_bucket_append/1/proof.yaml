@@ -1,0 +1,15 @@
+{
+  "template": "capacity_bounded_bucket_append@1",
+  "version": 1,
+  "relation": "Every retained slot below min(reservations,capacity) contains one admitted point of that bucket; rejected reservations write no payload, and the final visible count equals the initialized retained extent.",
+  "rank": "Unprocessed occupied buckets and points, then unclamped/padding rows.",
+  "assumes": [
+    {
+      "name": "source_contract",
+      "statement": "Generated NVIDIA point-to-voxel CUDA, arbitrary-order bounded output. Spatial floor transform and key hash are separate bindings. Empty mean-fill buckets are excluded because assigned buckets arise from at least one valid point."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Source-derived proof outline; no formal proof result or GPU execution claimed. bounds: No rejected bucket or point reservation writes outside retained storage. retained_extent: Visible count equals number of initialized payload rows, not number of attempted reservations. subset_contract: Every stored point belongs to its bucket; overflow output is an admitted schedule-dependent subset, not stable input order. phase_lifetime: All writers finish before clamp/mean fill or consumers inspect count and payload. The relation is a proposed source-level invariant; the stated finite-work rank depends on the explicit environment progress assumptions. Device ordering and numeric premises have not been discharged by schema validation."
+}

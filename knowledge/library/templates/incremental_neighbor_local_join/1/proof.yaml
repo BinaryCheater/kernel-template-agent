@@ -1,0 +1,15 @@
+{
+  "template": "incremental_neighbor_local_join@1",
+  "version": 1,
+  "relation": "Processed new-new/new-old pairs supply the declared candidate scores; every graph segment update preserves its sorted unique admitted list under exclusive ownership.",
+  "rank": "Unprocessed sampled join pairs and finite merge attempts, under lock-owner progress.",
+  "assumes": [
+    {
+      "name": "source_contract",
+      "statement": "NVIDIA NN-descent graph construction with bounded samples. SIMT retains input dtype then float arithmetic; FP16 WMMA converts operands and accumulates float; quantized bitwise/dp4a/u4 paths require their own decoder/factor mapping. These are score-policy variants, not automatically numerically equivalent."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Source-derived proof outline; no formal proof result or GPU execution claimed. candidate_pairs: Visited join pairs match new-new/new-old sampled sets, preserving pair identities and excluding self edges. distance: Every score matches the declared precision/quantized metric, with padding excluded. merge: Concurrent updates cannot lose an accepted edge or violate destination list ordering/duplicate policy. coverage_scope: Sampling/aging omissions are admitted graph-construction approximation, not exact kNN proof. The relation is a proposed source-level invariant; the stated finite-work rank depends on the explicit environment progress assumptions. Device ordering and numeric premises have not been discharged by schema validation."
+}

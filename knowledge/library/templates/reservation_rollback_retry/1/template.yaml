@@ -1,0 +1,107 @@
+{
+  "name": "reservation_rollback_retry",
+  "version": 1,
+  "level_from": 3,
+  "level_to": 4,
+  "change": "vertical",
+  "refines": "map",
+  "produces": [
+    "map",
+    "store",
+    "sync"
+  ],
+  "object": {
+    "type": "reservation_rollback_retry",
+    "description": "When parallel workers append a variable number of records to bounded storage, reserve a whole batch speculatively, and on overflow roll back all reservations before retrying smaller units or compacting the complete still-live input."
+  },
+  "variables": [
+    {
+      "name": "batch_stages",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": [
+        4
+      ],
+      "meaning": "Input stages attempted together before a collective overflow decision."
+    }
+  ],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_0",
+      "expr": "p.reservation_counter_exact and p.reserved_ranges_disjoint and p.counter_cannot_wrap",
+      "meaning": "Atomic reservations allocate paired nonoverlapping ranges; the counter can temporarily exceed capacity but cannot overflow its integer range.",
+      "cls": "implementation"
+    },
+    {
+      "id": "pre_1",
+      "expr": "p.only_in_bounds_reservations_write and p.no_external_reader_before_batch_commit",
+      "meaning": "Successful writers touch only in-bounds speculative slots; no consumer observes an unresolved batch.",
+      "cls": "implementation"
+    },
+    {
+      "id": "pre_2",
+      "expr": "p.collective_wait_covers_all_reservations_and_writes and p.rollback_subtracts_every_batch_reservation",
+      "meaning": "After collective synchronization, subtract the entire batch reservation count, including successful writes, restoring the previous committed length.",
+      "cls": "implementation"
+    },
+    {
+      "id": "pre_3",
+      "expr": "p.original_batch_inputs_retained_until_retry_finished and p.retry_replays_each_stage_exact_once",
+      "meaning": "Original stage data remains available and immutable until retry/compaction is complete.",
+      "cls": "implementation"
+    },
+    {
+      "id": "pre_4",
+      "expr": "p.compactor_consumes_complete_committed_prefix_and_current_stage and p.all_input_reads_finish_before_overwrite",
+      "meaning": "If even one stage does not fit, rollback it and compact from the prior committed records plus complete current stage; no input is silently truncated.",
+      "cls": "implementation"
+    },
+    {
+      "id": "pre_5",
+      "expr": "p.commit_or_compaction_publishes_count_after_records and p.retry_protocol_terminates",
+      "meaning": "Only complete record sets publish a new count; compaction/commit progresses and all collectives have the same participants.",
+      "cls": "implementation"
+    }
+  ],
+  "program": {
+    "description": "Snapshot the conceptual committed prefix length c. Each participant reserves a disjoint range for its batch hits and only writes when that range fits the physical candidate buffer. Collectively wait until all claims and writes are complete. If every range fits, publish the appended count and release input stages. Otherwise sum every batch reservation, restore count=c, discard speculative suffix writes and retry each still-live stage. A stage that fits commits; a stage that does not fit has its reservations rolled back and is processed directly with the complete committed prefix by a semantics-preserving compactor. Only after the whole retry finishes may the input ring be refilled. Speculative writes beyond c are dead after rollback; they cannot overwrite the old prefix."
+  },
+  "backward_map": "Every successful fast batch appends its records once; every failed batch has no visible committed effect before its original input is retried exactly once. Compaction consumes the full declared logical input, so physical candidate capacity never causes silent loss.",
+  "obligations": [
+    {
+      "name": "logical_equivalence",
+      "statement": "Every successful fast batch appends its records once; every failed batch has no visible committed effect before its original input is retried exactly once. Compaction consumes the full declared logical input, so physical candidate capacity never causes silent loss.",
+      "method": "proof"
+    },
+    {
+      "name": "protocol",
+      "statement": "Native participants, counters, visibility and scratch lifetimes implement the declared complete dataflow.",
+      "method": "test"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "(p.reservation_counter_exact and p.reserved_ranges_disjoint and p.counter_cannot_wrap) and (p.only_in_bounds_reservations_write and p.no_external_reader_before_batch_commit) and (p.collective_wait_covers_all_reservations_and_writes and p.rollback_subtracts_every_batch_reservation) and (p.original_batch_inputs_retained_until_retry_finished and p.retry_replays_each_stage_exact_once) and (p.compactor_consumes_complete_committed_prefix_and_current_stage and p.all_input_reads_finish_before_overwrite) and (p.commit_or_compaction_publishes_count_after_records and p.retry_protocol_terminates)",
+    "text": "Concrete source has512 threads, one atomic per warp plus lane prefixes, four8192-value stages per batch,4096 packed candidate slots and exact top-k fallback. Failed batch retries stages; failed stage compaction loads old candidates and the full8192 stage into registers before writing back k records, with a census barrier covering all old reads. This is bounded storage protocol, not a substitute for a valid compaction algorithm."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "When parallel workers append a variable number of records to bounded storage, reserve a whole batch speculatively, and on overflow roll back all reservations before retrying smaller units or compacting the complete still-live input.",
+    "storage": "Candidate records, input stages and per-worker summaries with explicit live intervals.",
+    "boundary": "Concrete source has512 threads, one atomic per warp plus lane prefixes, four8192-value stages per batch,4096 packed candidate slots and exact top-k fallback. Failed batch retries stages; failed stage compaction loads old candidates and the full8192 stage into registers before writing back k records, with a census barrier covering all old reads. This is bounded storage protocol, not a substitute for a valid compaction algorithm.",
+    "resources": [
+      "smem",
+      "registers"
+    ]
+  },
+  "numeric_risk": "Ordered comparisons must agree across thresholds, local compaction and final selection; finite ties use the declared arbitrary-identity policy.",
+  "summary": "When parallel workers append a variable number of records to bounded storage, reserve a whole batch speculatively, and on overflow roll back all reservations before retrying smaller units or compacting the complete still-live input."
+}

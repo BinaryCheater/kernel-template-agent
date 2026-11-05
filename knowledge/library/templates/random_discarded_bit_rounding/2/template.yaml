@@ -1,0 +1,135 @@
+name: random_discarded_bit_rounding
+version: 2
+level_from: 3
+level_to: 4
+change: vertical
+refines: convert
+produces:
+- convert
+object:
+  type: random_discarded_bit_rounding
+  description: When narrowing a binary format by discarding low significand bits, use a declared random-bit
+    carry to select the adjacent representable value and keep exact per-element RNG identity across realizations.
+variables:
+- name: discarded_bits
+  kind: numeric
+  binding: compile
+  role: boundary
+  domain:
+  - 13
+  - 16
+  meaning: Discarded normal-significand bits, derived from destination:16 for BF16,13 for FP16. Not an
+    independent accuracy setting.
+- name: destination
+  kind: structure
+  binding: compile
+  role: boundary
+  domain:
+  - bf16
+  - fp16
+  meaning: Bound output format. FP16 changes exponent/subnormal handling; it is not a direct16-bit BF16
+    truncation.
+constraints:
+- id: c_format
+  expr: (destination == 'bf16' and discarded_bits == 16) or (destination == 'fp16' and discarded_bits
+    == 13)
+  meaning: Format fixes the normal mantissa carry width.
+  cls: implementation
+preconditions:
+- id: pre_format
+  expr: (destination == 'bf16' and p.bf16_finite_range_or_guarded_special_recipe) or (destination == 'fp16'
+    and p.fp16_normal_subnormal_overflow_and_special_recipe_declared)
+  meaning: BF16 retains the original finite-range/guarded-special recipe. FP16 uses explicit exponent
+    rebasing, fixed-grid subnormal preparation and per-element Inf/NaN/overflow policy. Native/software
+    substitutions must match the selected domain, not assume all exponents truncate identically.
+  cls: implementation
+- id: pre_rng
+  expr: p.random_word_domain_joint_law_and_element_field_map_declared
+  meaning: Declare per-element random field, generator family/rounds, key/counter/pair component and invocation
+    epoch. Uniform-field mean claims require uniformity under the relevant conditioning; joint independence
+    and fresh-epoch claims are separate. Shared seed reuse or row LCG correlations are not erased by the
+    scalar rounding rule.
+  cls: implementation
+- id: pre_input
+  expr: p.narrowing_input_bits_and_all_prior_rounding_stages_fixed
+  meaning: Compare conversion realizations at identical FP32 input bits. A changed state accumulation
+    or fold does not become bitwise equivalent merely by using the same random bits.
+  cls: implementation
+- id: pre_pair
+  expr: p.low_high_operand_random_field_and_special_guards_match
+  meaning: Packed low/high elements use their own validity and random fields. Source FP16 low uses random
+    bits12:0, high uses28:16, with unused bits ignored and PTX source operands deliberately reversed for
+    low/high packing.
+  cls: implementation
+- id: pre_backend
+  expr: p.selected_format_conversion_implemented_and_native_domain_match_proven
+  meaning: Supported target implements the chosen conversion. Native/software bit identity, especially
+    FP16 subnormals/specials, is a separate obligation; source software tests do not establish GPU equality.
+  cls: implementation
+program:
+  description: 'For destination=bf16, retain version1: on the finite admitted range, reinterpret FP32
+    sign-magnitude bits, add uniform-or-declared r16 to the discarded low16 field, then truncate; use
+    the per-element guarded special recipe outside that range. For destination=fp16 use13 random bits.
+    Let b be absolute FP32 bits, E=b>>23, M=(b&0x7fffff)|0x800000. Source software forms z=b-(112<<23)
+    for E>=113; z=M>>(113-E) for90<=E<113; z=0 for E<90. Add r13, set unsigned output magnitude=min((z+r13)>>13,0x7c00),
+    then restore sign. Original Inf maps to Inf and original NaN to declared quiet NaN rather than perturbing
+    classification. Normal finite nonoverflow inputs have away-from-zero probability equal to the13-bit
+    residual/8192 if r13 is uniform. In FP16 subnormal range the software prepares a magnitude quantized
+    down to units2^-37 before random carry; its mean equals that prepared value, with magnitude loss<2^-37,
+    not arbitrary original FP32 x. Overflow has its declared Inf/saturation behavior and no finite unbiasedness
+    guarantee. Packed FP16 low/high elements consume fields rbits[12:0]/[28:16] respectively. Preserve
+    every element field/address/epoch for bitwise conversion replay; a different declared random law can
+    preserve a scalar mean without preserving correlations or exact outputs.'
+backward_map: Erase packing/generator realization and retain the exact declared random-carry conversion
+  for each original FP32 bit pattern and random field. Uniform-field carry counts recover normal finite
+  stochastic means; exponent rebasing and quantized subnormal preparation determine the separate FP16
+  law. The BF16 branch with discarded_bits16 recovers version1.
+obligations:
+- name: carry_threshold
+  statement: A prepared residual d produces exactly d carries among2^discarded_bits uniform fields, including
+    exponent carry boundaries.
+  method: proof
+- name: fp16_exponent_recipe
+  statement: Normal exponent rebasing and subnormal fixed-grid preparation match the selected FP16 conversion;
+    input values below2^-37 and finite overflow use their explicit laws.
+  method: test
+- name: special_guard
+  statement: Original per-element NaN/Inf/out-of-range classification cannot be changed by random perturbation
+    or a sibling pair validity predicate.
+  method: test
+- name: rng_identity
+  statement: Logical element low/high fields and invocation identity remain stable under supported traversal/load
+    regrouping when exact conversion replay is required.
+  method: test
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: ((destination == 'bf16' and discarded_bits == 16) or (destination == 'fp16' and discarded_bits
+    == 13)) and ((destination == 'bf16' and p.bf16_finite_range_or_guarded_special_recipe) or (destination
+    == 'fp16' and p.fp16_normal_subnormal_overflow_and_special_recipe_declared)) and (p.random_word_domain_joint_law_and_element_field_map_declared)
+    and (p.narrowing_input_bits_and_all_prior_rounding_stages_fixed) and (p.low_high_operand_random_field_and_special_guards_match)
+    and (p.selected_format_conversion_implemented_and_native_domain_match_proven)
+  text: Retains QuACK BF1616-bit carry input rule. Added FlashInfer FP16 software recipe from include/flashinfer/mamba/conversion.cuh:184-251
+    and GDN UMMA cvt.rs.f16x2 source operand/field mapping. Native UMMA supports the source enumerated
+    SM100a/103a/107a .rs menu; fallback software is separately bound. Exact native subnormal/special equivalence
+    remains an obligation. No generic FP8/FP4 scaling law, unconditional all-input unbiasedness, joint
+    RNG independence or whole-kernel bitwise equivalence is inferred.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: When narrowing a binary format by discarding low significand bits, use a declared random-bit
+    carry to select the adjacent representable value and keep exact per-element RNG identity across realizations.
+  boundary: Destination exponent/subnormal recipe, fixed preconversion bits, per-element random field/epoch
+    and guarded special/overflow handling.
+  resources:
+  - registers
+numeric_risk: FP16 subnormal preparation discards information below2^-37 in the source software law; overflow
+  can create Inf. A finite-normal mean statement cannot justify arbitrary subnormals, reused RNG epochs,
+  LCG joint independence or changed state-fold arithmetic.
+summary: When narrowing binary formats with stochastic carry, preserve the destination-specific exponent
+  recipe and the exact random bits assigned to each element. FP16 needs13-bit carry plus a distinct subnormal
+  grid; BF16 keeps16-bit truncation. Scalar mean, random correlations and bitwise replay are separate
+  contracts.

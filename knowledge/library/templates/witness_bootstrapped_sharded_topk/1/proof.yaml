@@ -1,0 +1,15 @@
+{
+  "template": "witness_bootstrapped_sharded_topk@1",
+  "version": 1,
+  "relation": "Reinsert each discarded record: its discard had k distinct actually retained-or-dominating witnesses in the global union. Local exact top-k substitution preserves the global top-k value multiset, so final selection returns an allowed full-row top-k.",
+  "rank": "Unprocessed row records and unresolved append batches.",
+  "assumes": [
+    {
+      "name": "premises",
+      "statement": "All stated rank witnesses, complete input and protocol premises hold."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Global bootstrap permits local candidate counts below k without assuming a local rank exists. Later local compaction preserves every possible global strict winner because any locally discarded value already has k local dominators. Repeated substitution preserves this certificate even if original witnesses are replaced by larger values. Source v3_cluster/topk_select.cuh:688-758,824-914. Host integer shard/tie/overflow replay is checks/sharded_selection.json; native histogram exchange and ring release require separate protocol checks."
+}

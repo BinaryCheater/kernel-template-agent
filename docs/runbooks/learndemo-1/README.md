@@ -1,5 +1,10 @@
 # LEARNDEMO-1: the learn loop in a clean, separate instance
 
+For the Template reconstruction campaign and the next predictive search pilot,
+start with the [research brief](research-brief.md), [experiment state](STATE.md),
+and [handoff prompt](claude-handoff.md). The original frontend demonstration is
+documented below.
+
 Purpose: show the user, through the frontend, how the knowledge-accumulation (expand) loop
 learns from a newly introduced repository. Branch `learndemo/1` (from `sysdebug/2`), worktree
 `.claude/worktrees/learndemo-1`. It runs beside the SYSDEBUG instances and shares nothing with

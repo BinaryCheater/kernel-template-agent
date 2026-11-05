@@ -1,0 +1,84 @@
+{
+  "name": "reverse_transmittance_replay",
+  "version": 1,
+  "level_from": 2,
+  "level_to": 3,
+  "change": "vertical",
+  "refines": "map",
+  "produces": [
+    "map",
+    "access"
+  ],
+  "object": {
+    "type": "reverse_transmittance_replay",
+    "description": "When ordered alpha compositing needs gradients without saving every prefix, save the final transmittance and last accepted contributor, then reconstruct prefixes in reverse under the identical acceptance policy."
+  },
+  "variables": [],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_0",
+      "expr": "p.forward_backward_order_and_predicates_identical and p.last_id_is_last_accepted",
+      "meaning": "Reverse traversal reproduces the exact forward contributor order and skip/saturation decisions.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_1",
+      "expr": "p.alpha_bounded_below_one and p.inverse_clamp_inactive",
+      "meaning": "Every accepted alpha leaves positive1-alpha and any denominator floor is inactive or explicitly admitted.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_2",
+      "expr": "p.final_transmittance_and_background_match and p.gradient_accumulation_safe",
+      "meaning": "Saved finalT/background reflect the forward generation and shared primitive gradients combine without lost contributions.",
+      "cls": "semantic"
+    }
+  ],
+  "program": {
+    "description": "Forward accumulates C+=T_before*alpha*c and T_after=T_before*(1-alpha), storing finalT and last accepted intersection. Reverse from that intersection with T_after=finalT and suffix_color=0. At layer i restore T_before=T_after/(1-alpha_i). With incoming color gradient gC and opacity-output gradient gA, compute dcolor_i=alpha_i*T_before*gC and dalpha_i=dot(T_before*c_i-suffix_color/(1-alpha_i),gC)+finalT/(1-alpha_i)*gA; background adds -finalT/(1-alpha_i)*dot(background,gC). Then suffix_color+=alpha_i*T_before*c_i and continue with T_after=T_before. Apply the local Gaussian/cap derivative branch and reduce/atomically accumulate primitive gradients. A forward-exclusive saturating contributor is omitted in reverse too."
+  },
+  "backward_map": "Erase auxiliary organization and recover the visible results under the stated contract.",
+  "obligations": [
+    {
+      "name": "prefix_recovery",
+      "statement": "Restored prefix matches the saved forward recurrence under admitted finite-precision inversion.",
+      "method": "proof"
+    },
+    {
+      "name": "suffix_invariant",
+      "statement": "Suffix color equals contributions strictly after the current layer, scaled in the original forward frame.",
+      "method": "proof"
+    },
+    {
+      "name": "acceptance_replay",
+      "statement": "Skipped/capped/last/saturating cases use the same branch and identity convention as forward.",
+      "method": "proof"
+    },
+    {
+      "name": "gradient_ownership",
+      "statement": "Per-pixel contributions to shared primitive attributes are all retained through warp grouping and atomic accumulation.",
+      "method": "proof"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.forward_backward_order_and_predicates_identical and p.last_id_is_last_accepted and p.alpha_bounded_below_one and p.inverse_clamp_inactive and p.final_transmittance_and_background_match and p.gradient_accumulation_safe",
+    "text": "NVIDIA3DGS serial/sparse conic backward paths. MAX_ALPHA0.99 makes1-alpha>=0.01 while source denominator floor1e-6 is inactive. World-space saturation policies that store post-saturationT require separate checkpoint bindings; this version follows serial exclusive saturation. Resource effects: Saves finalT plus one last-ID per pixel rather than all per-layer prefixes; reverse recomputation loads/evaluates contributors again and reduces gradient traffic through warp sums."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "When ordered alpha compositing needs gradients without saving every prefix, save the final transmittance and last accepted contributor, then reconstruct prefixes in reverse under the identical acceptance policy.",
+    "storage": "Saves finalT plus one last-ID per pixel rather than all per-layer prefixes; reverse recomputation loads/evaluates contributors again and reduces gradient traffic through warp sums.",
+    "boundary": "Alphas0.2,0.5 give finalT0.4; reverse recovers prefixes0.8 then1.0. Including a forward-excluded saturating layer would divide by an extra1-alpha and corrupt all earlier gradients.",
+    "resources": []
+  },
+  "numeric_risk": "Preserve the supplied arithmetic contract; reassociation, quantization and approximate search require separate permission.",
+  "summary": "When ordered alpha compositing needs gradients without saving every prefix, save the final transmittance and last accepted contributor, then reconstruct prefixes in reverse under the identical acceptance policy. Alphas0.2,0.5 give finalT0.4; reverse recovers prefixes0.8 then1.0. Including a forward-excluded saturating layer would divide by an extra1-alpha and corrupt all earlier gradients."
+}

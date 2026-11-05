@@ -115,3 +115,39 @@ Thresholds that the code already used and that govern the loops, plus the D325 d
 ### Performance-model controls (2026-11-04)
 
 The WP28-era proposals for calibration and architecture-discovery controls (manifest-based, never activated) are recorded in [26 §12](26-gb10-calibration-method.md); the rules now in force for the performance-model work are [28 §2](28-gb10-programme.md) (R1–R7): an error budget, a front-end check and a residual-term rule. No registry knob is added here.
+
+### Source-reconstruction experiment controls (2026-11-05)
+
+These settings govern only the next manual research campaign, not product runtime loops. They live in the frozen experiment [campaign manifest](../runbooks/learndemo-1/controlled-replay/campaign.json) and [protocol](../runbooks/learndemo-1/controlled-replay/plan.md); no controls registry/API/accessor is added. Status is design specified, execution not ready. D924–D927 record the defaults.
+
+| Knob | Fixed experiment value | Failure prevented | Evidence before activation |
+|---|---|---|---|
+| Comparator | Pinned studied FA2 causal FP16 D128 original device kernel, release build, no backend fallback | Comparing against an unrelated or weakened implementation | Source/build/host-parameter/oracle/kernel-trace receipts |
+| Information arms | 18-rule prescribed subset / pooled 320-entry full library / no Template; common task/tools/model | Extra guidance or information leakage mistaken for Template benefit | Actual package/prompt diff and access review |
+| Repetitions/order | Three fresh persistent sessions per arm, nine-slot balanced frozen order | Best-run selection, order confounds or optional stopping | Sealed schedule and all terminal slots |
+| Discovery budget | 1,800 active seconds / 20 submissions per slot; live verified GPU queue excluded | Unequal tuning opportunity and hidden extensions | Queue-adjusted timeout test and runtime accounting |
+| Confirmation | Fixed coordinator-only 300 worker-active seconds per slot, hidden O/LSE tests and three timing windows | Development overfit, feedback after selection or undefined audit overhead | Frozen selected source plus hidden/replay/measurement receipts |
+| Performance target | Original time / candidate time >=0.90 on every shape in all three accepted final windows | Aggregate wins hiding a bad shape | Per-shape raw paired timing windows |
+| Timing settings | Graph replay, 20 warmups, 30 paired blocks x100 replays, balanced order; eager diagnostic separate | Wrapper/launch effects or changed timing mode steering the result | Original-vs-original and graph-path correctness checks |
+| Measurement validity/retries | Original IQR/median <=10%; half/final drift <=5% by max/min−1; two additional attempts/window and total/slot | Noisy or selectively repeated favorable samples | All accepted/rejected window records; no budget reset |
+| Protocol changes | A new campaign revision; old runs retained and not pooled | Fixing only an unfavorable treatment or moving criteria | Explicit revised manifest and full matched comparison |
+
+### Offline model-search pilot controls (proposal, 2026-11-05)
+
+These are proposed settings for a future versioned experiment manifest, not live
+runtime controls. D929 and `docs/runbooks/learndemo-1/model-search-pilot.md` define
+the scope. Numeric limits remain unset; no experiment starts from these rows.
+
+| Knob | Controls | Proposed value | Prevents | Where | Status | set_by |
+| --- | --- | --- | --- | --- | --- | --- |
+| Pilot search scope | Template/Realisation versions, chain, domains and bindings | Restricted explicit family first; bounded composition later | A catalog presented as an executable space without supported mappings | Pilot manifest | proposal, inactive | D929 |
+| Pilot solver method | Actual projection/MIP/outer-enumeration path | Record actual export, status, bound and gap; fallback is a distinct outcome | Enumeration silently reported as MIP | Pilot manifest and solve evidence | proposal, inactive | D929 |
+| Pilot generation boundary | When model-authored code may change | Freeze emitters before selection; no model calls per candidate | Agent rewriting each selected kernel | Pilot manifest and generator evidence | proposal, inactive | D929 |
+| Pilot cost model | Pricing version and calibration/evaluation split | Freeze each evaluated version; declare development adaptation; keep final evaluation separate; expose unmodelled work | Evaluation measurements secretly used as the objective | Pilot manifest and prediction evidence | proposal, inactive | D929, D931 |
+| Pilot effort and validation | CPU/solver, preparation, compile/GPU budgets and selected candidate count | Unset until the concrete run is designed; compare selection methods under equal GPU budgets | Unlimited tuning and unequal evaluation effort | Pilot manifest | proposal, inactive | D929 |
+| Pilot execution abstraction | Input mapping for precompile L2 | Parameterized dependencies, loops, buffers, addressing and placement, with versioned lowering profiles and a shared hardware-mechanism lineage | Old phase/count summaries silently treated as the current calibrated model | Pilot manifest and bridge evidence | proposal, inactive | D930 |
+| Pilot projection claim | Whether a solver score is an optimistic bound or an estimate | Label the claim and its domain; empirical corrections do not automatically qualify as bounds | Approximate rankings presented as hardware lower bounds | Projection evidence | proposal, inactive | D930 |
+| Pilot screening coverage | Distinct schedules retained through coarse selection | Declare structural regimes and report recall on validation spaces; counts remain unset | Good candidates discarded before detailed reranking | Pilot manifest and selection evidence | proposal, inactive | D930 |
+| Pilot implementation conformance | Explicit and compiler-inferred choices and their evidence | Link model/code bindings; inspect sparse compiled witnesses and resource transitions | Reproducible source mistaken for known machine execution | Generator/profile versions and pilot manifest | proposal, inactive | D931 |
+| Pilot empirical correction | Domain and evidence role of software/compiler residual terms | Label separately from hardware constants and bounds; train on declared development data | Compensating fits presented as hardware knowledge | Profile records and model evidence | proposal, inactive | D931 |
+| Pilot refinement economics | Adaptation, holdout separation and complete search cost | Version each refinement; budgets unset; compare cold-start and reuse cost with empirical tuning | Solver speed concealing exhaustive preparation or validation leakage | Pilot manifest and cost report | proposal, inactive | D931 |

@@ -1,0 +1,26 @@
+template: scatter_reduce_output_shards@1
+version: 1
+relation: Each owner shard contains its own defined partial plus exactly the received defined partials of the already-combined sender prefix; nonowned elements are not stored by that peer.
+rank: Unreceived or uncombined sender contributions followed by unacknowledged mailbox generations in the finite work stream.
+assumes:
+  - {name: partial_domain, statement: All S FP32 partials are defined at equal injective fragment coordinates and any empty upstream partition supplies the additive identity.}
+  - {name: numeric_order, statement: The accepted numerical contract permits owner-first then ascending-other-sender accumulation in the chosen type.}
+  - {name: remote_visibility, statement: Each peer store contributes its byte count after the payload reaches the receiver and FULL waits cover all expected bytes.}
+  - {name: reuse_order, statement: Reader synchronization precedes EMPTY acknowledgements and no sender begins its next mailbox generation before all S-1 acknowledgements.}
+guarantees: []
+models: []
+note: >-
+  For fixed receiver r, compression s-(s>r) is a bijection from senders other
+  than r to slots0..S-2. Its mailbox address keeps thread index innermost and
+  separates element and sender strides, so no two contributions collide. Each
+  receiver combines its own shard and every other sender once, then owns the only
+  final store for those E/S per-thread coordinates. Receive FULL bytes equal
+  (S-1)*threads*(E/S)*element_bytes. Reader completion before acknowledgements
+  protects the next mailbox generation; target synchronization remains an explicit
+  assumption. The source replay checks S2/4/8, E8/16/32,128 threads and K-tile
+  counts0..16, retaining153 incidence domains and empty-partition counterexamples.
+  In the source T5/S4 partition, the last range is empty and the MMA loop has no
+  observed identity write. That source branch requires an additional defined-partial
+  guard or initialization before admission. Physical lane maps, remote ordering,
+  numerical tolerance and GPU execution are not proved by the incidence replay.
+  No registered checker model or whole-subject ProofSummary is claimed.

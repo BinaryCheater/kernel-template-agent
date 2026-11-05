@@ -1,0 +1,111 @@
+{
+  "name": "selective_parameter_state_update",
+  "version": 2,
+  "level_from": 3,
+  "level_to": 4,
+  "change": "vertical",
+  "refines": "map",
+  "produces": [
+    "map"
+  ],
+  "object": {
+    "type": "activity_gated_parameter_state",
+    "description": "A parameter-owned state transition whose inactive branch preserves the parameter, optimizer moments and local update clock together."
+  },
+  "variables": [
+    {
+      "name": "activity",
+      "kind": "structure",
+      "binding": "compile",
+      "role": "software",
+      "domain": [
+        "enabled",
+        "enabled_and_nonzero"
+      ],
+      "meaning": "Within a declared parameter group, gate only on enablement or additionally on zero incoming gradient."
+    },
+    {
+      "name": "clock_policy",
+      "kind": "structure",
+      "binding": "compile",
+      "role": "software",
+      "domain": [
+        "active_count",
+        "none"
+      ],
+      "meaning": "Active-count local bias correction or an explicitly clockless optimizer transition."
+    }
+  ],
+  "preconditions": [
+    {
+      "id": "pre_identity",
+      "expr": "p.inactive_transition_is_identity_for_complete_state",
+      "meaning": "The requested optimizer semantics explicitly freeze every inactive parameter state component; dense zero-gradient Adam semantics do not satisfy this premise.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_gate",
+      "expr": "p.gate_uses_declared_gradient_stage and p.group_membership_consistent and p.gradient_values_finite",
+      "meaning": "Enable flags and gradient stage match the declared sparse activity contract; regularization or clipping cannot silently change the zero test.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_clock",
+      "expr": "p.no_omitted_state_or_side_effects and ((clock_policy == active_count and p.bias_correction_uses_parameter_active_clock) or (clock_policy == none and p.optimizer_has_no_local_clock_or_bias_correction))",
+      "meaning": "Keep every requested state component. Clockless means no local debiasing transition is requested, not permission to drop one.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_owner",
+      "expr": "p.parameter_state_exclusively_owned and p.gradient_epoch_ready and p.active_update_rounding_admitted",
+      "meaning": "A single owner reads complete gradients and updates each parameter's full state with the admitted arithmetic.",
+      "cls": "implementation"
+    }
+  ],
+  "constraints": [],
+  "program": {
+    "description": "Give each parameter an exclusive update owner. Evaluate its group enablement and, for activity=enabled_and_nonzero, incoming gradient zero test at the declared stage. Inactive owners return before modifying any parameter-owned state. Active owners apply the complete declared optimizer transition exactly once. With clock_policy=active_count, increment that parameter local counter once and use it for bias correction; with clock_policy=none, the declared transition has no local counter or bias correction and neither is introduced. Publish parameter and any execution-precision copy after the complete update. Retain independently owned global schedules. Do not move activity testing across regularization or clipping."
+  },
+  "backward_map": "Expand the selected sparse optimizer map into active original transitions and inactive identity transitions. The state for every parameter and each independently retained global clock matches the declared coarse program.",
+  "obligations": [
+    {
+      "name": "complete_state_gating",
+      "statement": "The inactive branch preserves all parameter-owned state, and the active branch executes its transition exactly once.",
+      "method": "proof"
+    },
+    {
+      "name": "activity_clock",
+      "statement": "For active_count, local counter counts active transitions and supplies debiasing. For none, the declared optimizer transition has no omitted clock or bias correction.",
+      "method": "proof"
+    },
+    {
+      "name": "update_publication",
+      "statement": "Gradient readiness, state ownership and full/execution-precision parameter publication are correctly ordered.",
+      "method": "test"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "(p.inactive_transition_is_identity_for_complete_state) and (p.gate_uses_declared_gradient_stage and p.group_membership_consistent and p.gradient_values_finite) and (p.no_omitted_state_or_side_effects and ((clock_policy == active_count and p.bias_correction_uses_parameter_active_clock) or (clock_policy == none and p.optimizer_has_no_local_clock_or_bias_correction))) and (p.parameter_state_exclusively_owned and p.gradient_epoch_ready and p.active_update_rounding_admitted)",
+    "text": "Sparse per-parameter optimizers whose inactive semantics freeze moments, weights and local clocks. Does not justify skipping a dense zero-gradient update with moment decay, weight decay or global-clock bias correction. Source gates non-matrix Adam parameters before L2 regularization and clipping; matrix parameters may instead use enablement without the nonzero predicate. Version 2 also accepts a clockless complete transition, such as gsplat masked uncorrected Adam. It does not skip any caller-owned global schedule."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "Gate a complete parameter state transition and its local clock as one unit.",
+    "reuse": "Inactive parameters avoid optimizer state traffic and arithmetic.",
+    "storage": "Optional local step counter per parameter in addition to optimizer moments.",
+    "boundary": "Activity predicate stage and independent global versus local clocks.",
+    "resources": [
+      "dram",
+      "compute"
+    ]
+  },
+  "numeric_risk": "Moving the zero test past regularization or using a global step in local debiasing changes sparse optimizer semantics.",
+  "summary": "When sparse learned parameters are meant to stay untouched on inactive steps, gate their entire optimizer state transition, including moments and the local bias-correction clock. Source non-matrix Adam tests the incoming unscaled gradient before regularization. After one gradient2 update with beta=.5, moments(1,2) and clock1 remain unchanged on an inactive zero step; dense Adam would decay them to(.5,1) and advance to2. Only the declared freeze semantics permits that skipped work. Version 2 adds clock_policy=none for masked clockless state transitions."
+}

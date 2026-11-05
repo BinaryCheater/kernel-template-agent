@@ -1,0 +1,19 @@
+template: groupwise_affine_quantization@1
+version: 1
+relation: Completed groups hold the same integer codes and metadata as the requested affine quantization policy; unprocessed groups retain their source values.
+rank: Unprocessed groups, then unprocessed elements of the active group.
+assumes:
+  - {name: numerical_policy, statement: The requested policy matches the selected group extent and target width and zero-point kind.}
+  - {name: representable_scale, statement: Extrema subtraction and reciprocal produce a finite nonzero scale in the chosen arithmetic.}
+guarantees: []
+models: []
+note: >-
+  Declared outline. Initialization has no completed groups. Exact group ownership makes
+  each extrema reduction local; code generation applies the policy to every value and writes
+  the same group's metadata. Completion follows after every finite group is processed.
+  checks/mechanisms.py recovers a 128-value INT4 group with scale=1,z=8 and six halfway
+  nearest-even cases. These selected values do not certify arbitrary FP32 division, CUDA
+  conversion, floating-zero-point ranges or error against the original real matrix. Next
+  evidence: a source-pinned GPU comparison for integer/floating zero points at halfway and
+  range boundaries, then formal group-index coverage and an explicit caller error contract.
+  No proof checker model is registered.

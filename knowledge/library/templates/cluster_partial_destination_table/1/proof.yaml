@@ -1,0 +1,15 @@
+template: cluster_partial_destination_table@1
+version: 1
+relation: Project each destination table fold to the complete reduction of the disjoint
+  sender warp partials; redundant copies expose the same admitted result.
+rank: Unmapped coordinates or unretired readers.
+assumes:
+- name: binding
+  statement: Declared source layout and lifetime premises hold.
+guarantees: []
+models: []
+note: 'Source runtime/cluster.cu:140-319 and tests/cpp/cluster_runtime_test/cluster_test_kernels.cu:82-112.
+  Slot r*warps+w is injective; the destination selection changes replication but not
+  contributor membership. Each final lane visits indices lane+32*j, which partition
+  the table. Compare CUTLASS replicated_partial_reduce@1: this rule adds last-CTA
+  destinations and 8-byte scalar realization explicitly, not a silent binding.'

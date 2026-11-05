@@ -1,0 +1,113 @@
+# Guide-only explanations. Structured source contracts remain unchanged.
+output_tiling@2:
+  when: |
+    Independent outputs share inputs, and one executor can reuse a rectangular neighborhood; choose output ownership and tile dimensions before allocating its working set.
+  binding: |
+    1. Caller fixes M, N, batch/head indices, output strides and dtypes. The optimizer chooses tile_m, tile_n and executor; index_map must preserve the caller's indexing.
+    2. Derive grid_m=ceil(M/tile_m), grid_n=ceil(N/tile_n). Map executor (bi,bj) to origin (bi*tile_m,bj*tile_n); batch/head coordinates are additional fixed axes.
+    3. Constrain the tile against instruction shape, accumulator storage and staged input bytes. These are composition constraints, not permission to change M or N.
+    4. Mask output coordinates i>=M or j>=N and all corresponding loads. Distinguish output ownership from the separate reduction partition.
+  example: |
+    Local GEMM output map: M=127, N=1000, tile_m=32, tile_n=64, executor=cta, index_map=identity gives grid 4 by 16. CTA (3,15) owns rows 96..126 and columns 960..999; padded rows 127 and columns 1000..1023 are never stored. This binding only partitions outputs; it does not choose K blocking or an instruction. A rectangular logical tile does not imply row-major shared-memory fragments.
+  tradeoff: |
+    Larger tiles reuse more input elements per CTA but increase accumulator and shared-memory demand. Small M can leave padded rows idle and reduce available CTAs. Check actual occupancy and the number of useful tiles; this rule alone supplies no latency prediction.
+compute_instruction_selection@2:
+  when: |
+    A tiled contraction has known operand types and layout, and hardware matrix instructions can replace scalar products without violating its numerical contract.
+  binding: |
+    1. Caller fixes FP16 A/B, FP32 accumulation, FP16 output and physical strides for the replay GEMM. The output cast is outside this instruction-selection rule.
+    2. Select a target-supported instruction family and its operand-source ABI. For mma_sync_m16n8k16_f16 bind instruction accordingly, operand_source=rr, accum_dtype=f32, macs_per_instruction=16*8*16=2048.
+    3. Bind p.operand_bits=p.instr_operand_bits=16 and p.operand_exp_bits=p.instr_exp_bits=5, and establish p.operand_dtype_supported from the actual instruction contract. Filter by target capability even though requires is empty.
+    4. Make executor extents multiples of instruction extents using zero-filled padded loads, and map each lane/register operand and accumulator coordinate. Establish exact-once coverage; inspect lowering when a compiler supplies that mapping.
+  example: |
+    A local 32x64x32 executor contraction contains (32/16)*(64/8)*(32/16)=32 m16n8k16 instructions. Their 32*2048 products equal 32*64*32. The instruction's B fragment convention must consume the row-major caller's B through a legal layout mapping; changing the caller ABI to make a fragment convenient is invalid. The logical binding is illustrative and does not assert compilation on the replay target.
+  implementation: |
+    The seed mentions TileLang T.gemm, mma.sync, WGMMA and tcgen05 families, but these have different target and collective requirements. The concrete m16n8k16 example is an ISA-level binding; a TileLang implementation may choose a different supported atom. Validate compiler support and fragment layouts separately. A newly authored outline accompanies this unchanged seed contract; it contains no solver results or GPU assurance.
+  tradeoff: |
+    Matrix instructions increase product throughput and operand reuse while fixing fragment shapes and collective participation. Padding, conversion, register pressure and layout exchange can outweigh the benefit on narrow or tail-heavy tiles. FP16 accumulation is excluded by the replay task even though it is in the generic domain.
+reduction_partition@1:
+  when: |
+    A long reduction can be consumed in smaller groups while preserving exact-once input ownership and an admitted floating-point summation order.
+  binding: |
+    1. Caller fixes p.length and the operator; p.assoc/p.comm describe its admitted exact-arithmetic algebra, not bitwise floating-point equivalence.
+    2. Choose group_size and assignment. Derive num_groups=ceil(p.length/group_size) for contiguous groups, then check c_cover and c_no_empty.
+    3. For contiguous_sequential accumulate successive groups into the same owned output. For parallel groups supply a separate correctly synchronized combine and storage for the partials.
+    4. Guard the last group's loads at p.length and supply the operator's identity for padded positions.
+  example: |
+    K=769, group_size=32, num_groups=25, assignment=contiguous_sequential. Group 24 contains k=768 only; its other 31 slots contribute zero. A split-K implementation cannot reuse this binding unchanged because partial-output ownership and the combine are different.
+physical_storage@1:
+  when: |
+    A logical intermediate needs a physical home or two intermediates may share storage because their live intervals do not overlap.
+  binding: |
+    1. Derive size, alignment and each value's producer, last read and next destructive write from the actual schedule.
+    2. Select level only where the target and consumers support it. Choose dedicated storage first, or shared only after proving the declared lifetime inequality.
+    3. Bind share_order to the selected lifetime order. Convert byte capacity and alignment to the concrete layout; logical capacity does not establish a legal fragment layout.
+    4. Include all consumers and asynchronous reads before declaring a value dead.
+    5. Bind reuse to the backend loop schedule as well as source order. A CTA barrier by itself does not establish that a compiler-pipelined alias has the declared lifetime; begin with dedicated storage or a validated serial reuse schedule.
+  example: |
+    Stage one FP16 GEMM A tile of 32x32 and B tile of 32x64 in dedicated shared memory: logical bytes are 2048 and 4096 before padding/alignment. For aliasing, a last read at event 5, next write at event 6 and delta=1 meets 5+1<=6; moving the next write to event 5 violates it. An issued asynchronous operation may extend last_read until completion.
+  implementation: |
+    Replay evidence TR-A2 on GB10 with TileLang 0.1.15 exposed a concrete reuse boundary: two attention operand roles assigned to one shared tile under T.Pipelined produced incorrect results; adding CTA barriers still failed. A serial key loop with barriers and the same shared operand role passed normal, magnitude, cancellation, causal-mask and negative-logit checks. The abstract contract is unchanged: map p.last_read and p.next_write to actual completion events, including compiler scheduling and the consumers' layouts. Validate a serial realization before adding compiler pipelining; keep separate buffers when the mapping is unestablished. This observation is scoped to that recorded realization and does not supply an instruction schedule or complete attention implementation.
+async_transfer@1:
+  when: |
+    A future on-chip consumer has enough independent work to hide a global-to-on-chip transfer, and its read can be ordered after copy completion.
+  binding: |
+    1. Caller fixes source/destination, size and alignment. Choose software, instruction or controller only when the backend implements it; software does not imply asynchronous hardware.
+    2. Choose issue_point and complete_point jointly with the buffer generation schedule. Record which completion event covers which bytes and participating threads.
+    3. Bind granularity_bytes from a legal copy transaction and verify the declared alignment constraint plus the instruction's stricter native requirements, valid addresses and tail predicates.
+    4. Wait for readiness before reads, and for all consumers before buffer reuse. A copy wait and CTA publication barrier may be separate events.
+  example: |
+    For an aligned full 32x32 FP16 A tile, size_bytes=2048, align_bytes=16, granularity_bytes=16 meets pre_aligned. An instruction copy issued ahead of use can use wait_group_then_barrier before reading, if that backend provides the promised semantics. On K=769 the last tile's invalid elements must be zero-filled with legal predicated transactions; a true tile-level alignment predicate does not make an out-of-bounds vector load legal.
+  tradeoff: |
+    Earlier issue can hide transfer latency but increases live storage and outstanding operations. More stages consume capacity and may reduce residency. Readiness and reuse ordering are correctness constraints, not performance knobs.
+multi_buffer_rotation@2:
+  when: |
+    Successive loop generations reuse a buffer, and prefetching or delayed refills must avoid overwriting values still read by another participant.
+  binding: |
+    1. Caller supplies p.iterations and actual shared/private ownership. Choose S slots and P generations of lookahead; beta selects a trailing CTA barrier, late changes refill placement, private describes thread-private storage.
+    2. Check P <= S-2+beta+private-beta*private+late and late<=P. These formulas assume this rule's leading barrier and event schedule; they are not universal asynchronous-pipeline formulas.
+    3. Generation g lives at g%S. Define prologue loads, every readiness wait, last read and refill, plus a drain with no out-of-range future generation.
+    4. Apply a separate legal transfer implementation when P>=1 should overlap. Do not set private=1 merely to pass an inequality for shared storage.
+  example: |
+    S=2,P=1,beta=1,late=0,private=0 satisfies 1<=1. For three iterations, prologue loads generation0; the main loop can issue generation1 into slot1, wait before reading generation0 in slot0, then use the trailing barrier before any destructive refill of slot0. Generation2 reuses slot0. Omitting beta without another contract gives 1<=0, so this binding rejects the schedule. With a long K tail, slot generation and valid-element count are separate facts.
+  tradeoff: |
+    Prefetching may hide latency but S multiplies staged storage; beta adds synchronization. A compiler's pipeline or mbarrier protocol is supported only after its events are matched to this schedule; do not copy the inequality onto an unrelated pipeline.
+shared_memory_tiling@1:
+  when: |
+    Consider this coupled teaching contract when staging a symbolic GEMM through rotating shared-memory slots with its fixed 4-byte element and CTA-barrier model; use separate storage/instruction rules for a different numerical or hardware contract.
+  example: |
+    Tm=32,Tn=64,Tk=32,S=2,P=1,beta=1 gives shared storage 2*4*(32*32+32*64)=24576 bytes and 2048 accumulators, meeting the fixed budgets and 1<=2-2+1. K=769 has 25 tiles, with only k=768 valid in the last tile. The proof counts symbolic products; this binding does not establish FP16 tensor-core arithmetic. Changing its element-size constant from 4 to 2 would change the contract and is not a consolidation edit.
+  implementation: |
+    This rule intentionally couples output/reduction tiles, storage, rotation and barrier placement around the paper's model. Its fixed chip constants and symbolic product arithmetic are part of its scope. The replay FP16 GEMM should prefer separate rules unless it explicitly supplies a justified implementation refinement. It is retained as an alternative, not merged with the general pipeline rules.
+shared_resource_binding@1:
+  when: |
+    A correct shared-memory layout creates bank contention, and a bijective swizzle or padding can change the bank mapping without changing logical values.
+  example: |
+    For a local shared tile, keep the logical coordinate (i,j) fixed while comparing identity and xor_swizzle physical address functions. Use distinct coordinate tags to verify the inverse mapping for every consumer. queue_depth is a hardware fact on a fixed target, not a tunable capacity that can be increased to hide a conflict. Swizzling storage without changing the matrix-load descriptor can return incorrect operands even though the bank pattern improves.
+online_rescaled_reduction@2:
+  when: |
+    Stream a softmax-weighted sum without materializing its full score/probability matrix; carry a common normalization frame for the denominator and output numerator.
+  binding: |
+    1. Caller fixes score x=dot(Q,K)/sqrt(D), valid key domain, FP32 statistics and accumulation, FP16 output. Partition keys exactly once. Causal masking changes validity, never the normalization formula.
+    2. For the ordinary bounded replay choose state=max_sum_acc, reference_policy=running_max, threshold_log2=0, weight_gain_log2=0, rescale_point=per_tile, finalize=deferred_divide, traversal=ascending and inf_guard=true. These are choices; the causal mask and scale are caller-fixed.
+    3. Initialize L=O=0 with no active reference. Skip all-masked prefix tiles without evaluating an exponent or correction. The first nonempty valid tile establishes r=max_valid_score from its actual finite scaled logits; initialize L=sum(exp(x-r)) and O=sum(exp(x-r)*V) directly, without an old-state correction. An arbitrary seed such as r=0 is invalid for uniformly large negative logits: FP32 exponentials may all underflow. For each later nonempty tile choose r_new=max(r,max_valid_score), c=exp(r-r_new), then update L=c*L+sum(exp(x-r_new)) and O=c*O+sum(exp(x-r_new)*V). Invalid scores contribute zero. Keep old-state correction before adding new-frame terms.
+    4. With gain=1, return O/L once all valid keys are consumed and cast to FP16. Establish positive finite final mass; equal-length causal rows include their diagonal key, but padded rows must not finalize. Any probability cast to FP16 for a matrix multiply is a separate admitted numerical implementation.
+    5. Bind all scope booleans from this partition, initialization, mask, frame and actual arithmetic. Exact algebra does not prove a fast exponential or reduced-precision matrix multiplication meets tolerance.
+  example: |
+    Local one-row recurrence: scores [0,ln(2)] and scalar values [2,4], one key per tile. Initialize r=0,L=O=0. Tile0 gives r=0,L=1,O=2. Tile1 gives r=ln(2), c=1/2,L=1.5,O=5; O/L=10/3. Multiplying the entire newly updated O by c would incorrectly rescale the new value. Shift both scores by -1000: the first tile establishes r=-1000, then the second advances r to -1000+ln(2). L, O and output are unchanged within FP32 rounding. Seeding r=0 instead would underflow both weights and create a zero denominator. For a masked prefix, preserve the uninitialized reference and zero state until the first valid tile. These are scalar invariant witnesses, not an attention implementation.
+  implementation: |
+    The unchanged CUTLASS study contract also exposes lagged references and weight gains; they are optional refinements, not required for FP16 attention. The simplest binding uses running_max and gain1. Source FMHA witnesses do not certify a TileLang implementation or every source-menu point. Exp2 lowering must transform scaled logits consistently by log2(e); never mix natural scores with an unconverted base2 exponent.
+  tradeoff: |
+    Saves full S-by-S score/probability traffic at the cost of per-tile maxima, exponentials and accumulator correction. Larger key tiles reduce update frequency but increase working state. Large query tiles increase the live output numerator. Underflow, score range, cancellation in V and probability rounding need measured numerical acceptance.
+masked_tile_pruning@2:
+  when: |
+    A structural causal/window mask leaves whole key tiles with zero contribution, and the remaining tiles can be classified without changing any valid score.
+  binding: |
+    1. Caller fixes sequence length S, causal relation j<=i and any window. Choose query/key tile dimensions elsewhere. Derive interval metadata from the actual visible query rows, not the padded tile extent.
+    2. For a query tile with rows [q0,q1) intersected with [0,S), causal equal-length attention keeps key tiles [0,ceil(q1/BN)). Thus total_tiles=ceil(S/BN), start=0 and end=ceil(q1/BN). Every j>=q1 is masked for all visible rows.
+    3. A tile is core only if all its key coordinates satisfy j<=q0 and j<S. Compute leading/core/trailing counts from actual intervals, and check c_counts. All other kept tiles require the exact element predicate j<S and j<=i; invalid query rows are never stored.
+    4. Start with masking=mask_all_kept and traversal=ascending. Choose peel_boundaries only after proving every visible core element valid. Both producers and consumers must use the same end and visit no empty segments.
+  example: |
+    S=513, BM=32, BN=64, query tile rows [64,96): total_tiles=9, start=0,end=2,leading=0,core=1,trailing=1. Key tile0 (j=0..63) is valid for every row; tile1 needs j<=i; tiles2..8 are skipped. The last query tile has one visible row i=512: end=9,core=8,trailing=1, and its final key tile admits only j=512. A classification using padded q1=544 without clipping is incorrect.
+  tradeoff: |
+    Skipping fully masked tiles reduces both score and value work; peeling avoids per-element mask instructions in the core. Classification and role synchronization add complexity. Mask-all-kept is the simple legal starting point; it still skips certified outside tiles and preserves tail checks.

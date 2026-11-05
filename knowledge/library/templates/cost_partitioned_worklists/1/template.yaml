@@ -1,0 +1,138 @@
+name: cost_partitioned_worklists
+version: 1
+level_from: 4
+level_to: 4
+change: vertical
+refines: work_assign
+produces:
+- work_assign
+- map
+- store
+object:
+  type: cost_planned_per_worker_descriptor_lists
+  description: Preassign independent tasks to least-loaded workers using estimated costs, flatten their
+    lists, and let each worker traverse its own immutable range.
+variables:
+- name: workers
+  kind: numeric
+  binding: runtime
+  role: software
+  domain:
+    lo: 1
+    hi: 4096
+  meaning: Number of planned worker lists and CTA workers per grid slice; explicit head replication may
+    launch several slices sharing the same lists.
+constraints:
+- id: c_workers
+  expr: workers >= 1 and workers <= p.max_legal_worker_ctas
+  meaning: Launch one CTA per planned worker within the supported grid/resource bound.
+  cls: implementation
+- id: c_capacity
+  expr: p.task_count >= 0 and p.descriptor_capacity >= p.task_count and p.offset_capacity >= workers +
+    1
+  meaning: The plan has space for every task and all worker prefix offsets.
+  cls: resource
+preconditions:
+- id: pre_tasks
+  expr: p.ordered_tasks_exact_cover_original_work and p.tasks_independent_or_dependencies_preserved
+  meaning: The ordered task list covers original work once; assigning different workers preserves dependencies
+    and output ownership.
+  cls: semantic
+- id: pre_cost
+  expr: p.task_costs_finite_nonnegative_and_heap_comparison_defined
+  meaning: Each estimated cost is finite and nonnegative; all heap comparisons and tie choices are defined.
+  cls: implementation
+- id: pre_descriptors
+  expr: p.descriptors_retain_all_original_task_coordinates_and_generations and p.parallel_descriptor_fields_permuted_together
+  meaning: Every descriptor carries complete task identity and all parallel metadata arrays move together.
+  cls: semantic
+- id: pre_ranges
+  expr: p.flattened_lists_fit_descriptor_capacity_and_index_type and p.work_indptr_monotone_with_correct_endpoints
+  meaning: The flattened lists and worker prefix offsets fit their allocated buffers and integer types.
+  cls: implementation
+- id: pre_replay
+  expr: p.shared_plan_replication_preserves_distinct_task_identity_and_coverage
+  meaning: Any head or other grid-axis replication restores that axis in task identity; it neither repeats
+    nor drops original jobs.
+  cls: semantic
+- id: pre_lifetime
+  expr: p.complete_plan_published_before_grid_and_immutable_until_all_readers_retire
+  meaning: Descriptor generations publish before consumption and survive every worker iteration.
+  cls: implementation
+- id: pre_body
+  expr: p.worker_roles_advance_same_list_position_and_finish_old_task_before_state_reuse and p.selected_body_and_grid_resources_legal
+  meaning: All roles agree on each task and safely reset or retire per-task state; launch and body resources
+    are legal.
+  cls: implementation
+program:
+  description: Given an ordered immutable task enumeration, initialize each worker load to zero and a
+    min-heap of (estimated accumulated load, worker identity). For each task, remove a least-loaded worker,
+    append the complete task descriptor to that worker list, add the task estimated cost, and reinsert
+    the worker. Keep the chosen tie policy defined; exact ties need not have a source-independent order.
+    Flatten worker lists in worker-ID order, permuting all metadata fields together, and emit work_indptr[0..workers].
+    Launch one CTA per worker. CTA b executes descriptor positions work_indptr[b] through work_indptr[b+1]-1
+    in order; every role advances to the same next descriptor only after old task state is safe to reuse.
+    Empty ranges execute no task. Optional replicated-head schedules add the actual grid head to each
+    descriptor identity. Cost affects assignment, never task semantics or coverage; changing costs requires
+    rebuilding the plan before its consumers launch.
+backward_map: Unroll each worker range into its original complete task descriptors and discard worker
+  assignment/costs; this reconstructs the original task multiset exactly once.
+obligations:
+- name: partition_cover
+  statement: Appending every original task once and flattening disjoint worker lists preserves exact task
+    coverage.
+  method: proof
+- name: metadata_and_replication
+  statement: All descriptor fields retain matching task identities and generations; any grid replication
+    restores the omitted axis exactly once.
+  method: test
+- name: range_and_lifetime
+  statement: Prefix endpoints and validity tests prevent out-of-range reads; plan publication and storage
+    outlive all iterations.
+  method: test
+- name: worker_iteration
+  statement: All roles consume the same task and retire/reset its pipeline and accumulator state before
+    advancing.
+  method: test
+effects:
+  transactions: []
+  storage:
+  - id: worklists
+    level: dram
+    scope: kernel
+    bytes: p.task_count * p.descriptor_bytes + (workers + 1) * p.index_bytes
+  overlap: []
+scope:
+  predicate: p.ordered_tasks_exact_cover_original_work and p.tasks_independent_or_dependencies_preserved
+    and p.task_costs_finite_nonnegative_and_heap_comparison_defined and p.descriptors_retain_all_original_task_coordinates_and_generations
+    and p.parallel_descriptor_fields_permuted_together and p.flattened_lists_fit_descriptor_capacity_and_index_type
+    and p.work_indptr_monotone_with_correct_endpoints and p.shared_plan_replication_preserves_distinct_task_identity_and_coverage
+    and p.complete_plan_published_before_grid_and_immutable_until_all_readers_retire and p.worker_roles_advance_same_list_position_and_finish_old_task_before_state_reuse
+    and p.selected_body_and_grid_resources_legal
+  text: Host-preplanned immutable lists of independent CTA tasks, with finite nonnegative estimated costs.
+    Source SM90 prefill sorts requests by decreasing KV length and visits query tiles in reverse before
+    least-load assignment. The task-order and cost functions are caller bindings, not guarantees of optimal
+    load or measured speedup. No runtime stealing, splitting of individual tasks, or cross-CTA dependency
+    repair is supplied.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Greedy least-estimated-load task partition followed by per-CTA contiguous descriptor-list
+    traversal.
+  reuse: A plan can be reused only while workload identities, sizes, shape and launch bindings remain
+    valid.
+  storage: Full task descriptors plus worker prefix offsets in global memory; temporary planner lists
+    and heap.
+  boundary: Exact enumeration, complete descriptor permutation, replicated-axis identity and task-state
+    retirement.
+  resources:
+  - launch
+  - dram
+numeric_risk: Independent task arithmetic is unchanged only when per-task accumulators and pipeline state
+  are reset and no hidden order-dependent cross-task side effects exist.
+summary: When independent ragged tasks have unequal estimated costs and their sizes are known before launch,
+  preassign them to least-loaded CTA lists. Flatten complete descriptors and have each CTA walk only its
+  prefix-offset range. This replaces global fetch/stride scheduling with an immutable plan, trading planning
+  and metadata traffic for controlled assignment. Costs select placement; exact cover and complete metadata
+  preserve semantics, with no promise that the estimate predicts runtime.

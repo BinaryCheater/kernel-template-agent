@@ -1,0 +1,15 @@
+{
+  "template": "lagged_state_log_materialization@1",
+  "version": 1,
+  "relation": "Logical committed state equals decode(checkpoint, accepted records0..n-1); tentative suffix is invisible.",
+  "rank": "Pending readout/fold products plus remaining accepted records for the current operation.",
+  "assumes": [
+    {
+      "name": "records",
+      "statement": "Every record contains the corrected update for the matching recurrence generation; scalar gate and key/update precision policy is fixed."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Induct onS_j=a_j*S_prev+d_j*k_j^T: multiply every earlier term bya_j and append the new term, obtaining the weighted sum. Distribute final projection over that sum. Fold replaces the representation by its decoded checkpoint, an identity at the representation level under admitted rounding. Cursor advancement commits only a prefix; separate finish stage must follow all layer/shard writes. Source gdn_replayssm_spec_decode.py:390\u2013479,640\u2013770,830\u2013883. Readout projection, exact-raw and compact fold differ numerically. Duplicate commit, stale record generations, capacity overflow and native publication remain explicit obligations. Logical witness in checks/lagged_log.py."
+}

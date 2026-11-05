@@ -1,0 +1,57 @@
+template: bounded_history_warmup@1
+version: 1
+relation: For two histories with identical inputs, delta after one correction is alpha*delta*(I-beta*k*k^T).
+  Product norm bounds transport the omitted warm-up seed to each observation; adding declared rounding
+  error yields the state/output budget. Active-cut half-open intervals partition the full sequence exactly,
+  with overlap contributing only recomputation.
+rank: Owned output observations not yet related to their original history under the admitted error budget.
+assumes:
+- name: pre_dynamics
+  statement: V-major H evolves by scalar decay then ordered beta*(v-H*k) outer k corrections. Exact and
+    reset histories see identical inputs/parameters, including gate stage, key normalization and beta;
+    only their starting state differs.
+- name: pre_transport
+  statement: A declared transport bound covers the difference map from actual warm-up start b through
+    each written state/readout. Each update contributes alpha*(I-beta*k*k^T); bounding only alpha is valid
+    only if every relevant correction is nonexpansive in the chosen norm. Finite, correctly rounded upper
+    bounds refer to actual executed gate/normalization arithmetic, not an unqualified approximate-log
+    test.
+- name: pre_state
+  statement: For each zero reset, M bounds the norm of the exact state at its actual warm-up start, including
+    any extra leading chunk for native alignment. Input value/state magnitude and prior carried error
+    cannot be ignored.
+- name: pre_budget
+  statement: A reset is admitted only when its transported omitted-state error plus replay rounding budget
+    fits the declared state and output tolerances. Query norm includes output scale. Gate threshold alone
+    is not an absolute error certificate.
+- name: pre_partition
+  statement: Planned cuts are ordered/unique, align complete real-token groups and native chunk-pair requirements,
+    and begin at0 with the true initial state. The first anchor is always active; exact-only suppresses
+    all nonzero cuts.
+- name: pre_ownership
+  statement: An active cut writes from its cut through the next active cut or sequence end; inactive cuts
+    write nothing. Warm-up may overlap other items reads but never publishes their outputs/checkpoints.
+    Only the last active interval writes final state.
+- name: pre_probe
+  statement: Candidate admission and predecessor endpoint scans use the same gate/input generation and
+    deterministic threshold/certificate predicate. Scan capacity covers every later planned cut; a rejected
+    cut cannot leave a hole or create overlapping ownership.
+- name: pre_lifetime
+  statement: Replay records stay valid through all independent items. Original seed readers finish before
+    any final-state alias write. Publication flags/dependencies and workspace epochs are real source obligations,
+    not supplied by the numerical bound.
+- name: pre_backend
+  statement: Exact-only or bounded-reset execution, chunk size, target, snapshot and state-slot contracts
+    are implemented. This first version covers scalar-gated GDP/GDN-compatible transitions, not arbitrary
+    nonlinear or feature-channel gate bounds.
+guarantees: []
+models: []
+note: cake_gdp_backend/cake_jit.py:3890-4000 defines64-row chunks,8-chunk gate scan,-24 threshold,48-cut
+  capacity, alignment and host span cost policy. Concrete SM90 split body cake_gdp_245414df8449fb1825a1_kernel.cu:5550-5914
+  reads(seq,head,cut,span), scans gates only at first substeps and admits cut0 or a saturated overlap;5915-6296
+  scans forward to next admitted cut, pair-aligns compute_start and emits no work for unsaturated candidates.
+  :1849-1850 seeds only the first interval from original state;2869,3642,4417,5190 suppress warm-up writes;5207-5224
+  orders final-state write after original seed-reader flag, and5368 clears that flag. Source admission
+  only checks the gate threshold, so raw noncontractive K and unbounded seed/readout magnitude remain
+  explicit applicability gaps. Exact rational tests verify transport under contraction assumptions, provide
+  two gate-only counterexamples and enumerate active-cut ownership.

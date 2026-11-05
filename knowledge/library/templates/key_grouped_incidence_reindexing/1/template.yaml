@@ -1,0 +1,123 @@
+{
+  "name": "key_grouped_incidence_reindexing",
+  "version": 1,
+  "level_from": 3,
+  "level_to": 4,
+  "change": "vertical",
+  "refines": "map",
+  "produces": [
+    "map",
+    "store"
+  ],
+  "object": {
+    "type": "grouped_route_permutation_with_inverse",
+    "description": "Group token-route incidences by expert/key while retaining route multiplicity, original-token gather identity and inverse destination mapping."
+  },
+  "variables": [
+    {
+      "name": "construction",
+      "kind": "structure",
+      "binding": "compile",
+      "role": "software",
+      "domain": [
+        "count_prefix_scatter",
+        "sorted_key_bounds"
+      ],
+      "meaning": "Build counts/prefixes and scatter route records, or derive interval boundaries from already sorted keys and invert the original-ID permutation."
+    },
+    {
+      "name": "within_group_order",
+      "kind": "structure",
+      "binding": "compile",
+      "role": "boundary",
+      "domain": [
+        "arbitrary",
+        "source_order"
+      ],
+      "meaning": "Whether consumers require source route order; this determines stable-sort/scatter obligations."
+    }
+  ],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_records",
+      "expr": "p.route_ids_unique and p.token_identity_may_repeat and p.group_keys_valid_or_inactive",
+      "meaning": "Each incidence/route has one original identity even when several routes share a token; keys identify valid groups or inactive records.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_intervals",
+      "expr": "p.group_counts_exact and p.group_intervals_disjoint_and_complete and p.interval_capacity_sufficient",
+      "meaning": "Counts and offsets allocate one nonoverlapping interval for every active route; any independent padding is supplied by its own declared storage map.",
+      "cls": "implementation"
+    },
+    {
+      "id": "pre_order",
+      "expr": "within_group_order != 'source_order' or p.group_emission_preserves_original_route_order",
+      "meaning": "An ordered request needs stable input sorting or a stable within-group scatter; atomic cursor order alone cannot satisfy it.",
+      "cls": "implementation"
+    },
+    {
+      "id": "pre_sorted",
+      "expr": "construction != 'sorted_key_bounds' or (p.sorted_keys_nondecreasing_and_reorder_ids_permutation and p.nonnegative_sorted_keys_below_group_count)",
+      "meaning": "Sorted-bound construction has a complete original-ID permutation; negative records form only an inactive prefix, with no out-of-range positive IDs.",
+      "cls": "implementation"
+    },
+    {
+      "id": "pre_maps",
+      "expr": "p.each_active_route_placed_once and p.inverse_route_map_matches_placement and p.route_auxiliary_metadata_matches_original_identity",
+      "meaning": "Destination\u2192token and original-route\u2192destination maps agree; weights and scales retain the same route/token generation.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_inactive",
+      "expr": "p.inactive_inverse_entries_negative and p.unused_capacity_safe_and_not_published_live and p.maps_ready_before_consumers",
+      "meaning": "Inactive routes never turn into live nonnegative addresses; full-capacity gathers have safe tail entries and readers wait for complete maps.",
+      "cls": "implementation"
+    }
+  ],
+  "program": {
+    "description": "For each active original route r with token t(r) and key e(r), assign a distinct destination inside group e's interval. Count-prefix-scatter computes exact group counts and prefixes, then reserves a disjoint local cursor or stable rank for each route. Sorted-key-bounds finds lower_bound(key,e) boundaries and uses the sorting permutation to recover original route identity; subtract only the known inactive negative-prefix length. Write destination_to_token[d]=t(r), route_to_destination[r]=d, and retain any weights/scales by the same original route/token map. Inactive routes receive negative inverse entries. Preserve source_order only with a demonstrated stable implementation. Initialize safe unused gather capacity without increasing any group's live extent. Physical per-group padding and data/scale origins remain separate refinements."
+  },
+  "backward_map": "For each active original route r, read its unique destination through route_to_destination and recover its original token and associated metadata. This restores every incidence once, including repeated token identities; inactive routes remain excluded.",
+  "obligations": [
+    {
+      "name": "incidence_bijection",
+      "statement": "Active original route IDs and packed live destinations are a bijection within their declared groups.",
+      "method": "proof"
+    },
+    {
+      "name": "identity_and_order",
+      "statement": "Token identity, auxiliary metadata and any required source order survive forward/inverse mapping.",
+      "method": "test"
+    },
+    {
+      "name": "inactive_capacity",
+      "statement": "Inactive routes and safe gather tails cannot publish extra work or become live addresses.",
+      "method": "test"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "(p.route_ids_unique and p.token_identity_may_repeat and p.group_keys_valid_or_inactive) and (p.group_counts_exact and p.group_intervals_disjoint_and_complete and p.interval_capacity_sufficient) and (within_group_order != 'source_order' or p.group_emission_preserves_original_route_order) and (construction != 'sorted_key_bounds' or (p.sorted_keys_nondecreasing_and_reorder_ids_permutation and p.nonnegative_sorted_keys_below_group_count)) and (p.each_active_route_placed_once and p.inverse_route_map_matches_placement and p.route_auxiliary_metadata_matches_original_identity) and (p.inactive_inverse_entries_negative and p.unused_capacity_safe_and_not_published_live and p.maps_ready_before_consumers)",
+    "text": "cutlass_prepare_moe_input.cuh count/prefix/block-local atomic scatter uses construction=count_prefix_scatter,within_group_order=arbitrary, token=r/topk. moe_permute_prepare.cu uses sorted_key_bounds and original reorder IDs, excluding an inactive negative prefix. Atomic order is not a stable source-order guarantee. Separate aligned scale regions use segmented_aligned_storage@1; invalid positive keys are excluded from the sorted-bound source binding."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "Key-grouped incidence permutation with token gather and original-route inverse.",
+    "storage": "Counts/offsets, one destination\u2192token map and one route\u2192destination map.",
+    "boundary": "Route identity differs from token identity; order, inactive prefix and scale origins must remain explicit.",
+    "resources": [
+      "gmem",
+      "smem"
+    ]
+  },
+  "numeric_risk": "Permutation alone changes no per-route values. Dropping duplicate token incidences, mismatching weights/scales or folding output routes in a different floating-point order changes results.",
+  "summary": "When expert work needs contiguous token routes, group incidences by key and retain an inverse for every original route. Choose count/prefix scatter or sorted-key bounds; keep token multiplicity and route-specific metadata, and require stable order only when its consumer needs it."
+}

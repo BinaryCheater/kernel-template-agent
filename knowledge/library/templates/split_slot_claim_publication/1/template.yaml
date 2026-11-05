@@ -1,0 +1,84 @@
+{
+  "name": "split_slot_claim_publication",
+  "version": 1,
+  "level_from": 2,
+  "level_to": 3,
+  "change": "vertical",
+  "refines": "map",
+  "produces": [
+    "map",
+    "access"
+  ],
+  "object": {
+    "type": "split_slot_claim_publication",
+    "description": "When a key/value slot cannot be claimed in one atomic operation, separate key ownership from payload readiness and constrain which readers may observe the intermediate state."
+  },
+  "variables": [],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_0",
+      "expr": "p.payload_excludes_empty_sentinel and p.no_concurrent_erase",
+      "meaning": "A real payload is distinguishable from empty and erase/reuse cannot create ABA during insertion.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_1",
+      "expr": "p.key_claim_atomic and p.writer_eventually_completes",
+      "meaning": "Atomic key claim elects one writer and that writer can complete payload publication.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_2",
+      "expr": "p.reader_policy_matches_protocol",
+      "meaning": "Stable key-then-payload readers wait for nonempty payload; speculative back-to-back insertion has no concurrent readers until quiescence.",
+      "cls": "semantic"
+    }
+  ],
+  "program": {
+    "description": "Stable path: atomically CAS empty key to desired key; only the successful claimant stores its payload. A reader finding the key must wait until payload differs from its empty sentinel before consuming it. In insertion-only speculative path, perform key CAS and payload CAS back-to-back: key winner retries payload CAS from sentinel until it succeeds; a key loser that speculatively acquired payload clears it back to sentinel, letting rightful winner complete. The speculative path cannot publish a complete key/value snapshot until all insertion participants finish. Whole-slot packed CAS is a separate realization with no split readiness wait."
+  },
+  "backward_map": "Erase auxiliary organization and recover the visible results under the stated contract.",
+  "obligations": [
+    {
+      "name": "ownership",
+      "statement": "Only the successful key claimant determines the final payload for that key.",
+      "method": "proof"
+    },
+    {
+      "name": "reader_readiness",
+      "statement": "Observing key alone never suffices to expose an uninitialized or speculative payload.",
+      "method": "proof"
+    },
+    {
+      "name": "cleanup",
+      "statement": "A losing speculative payload claim is retired without erasing a completed rightful payload under the admitted insertion-only state machine.",
+      "method": "proof"
+    },
+    {
+      "name": "progress",
+      "statement": "Key winner and all speculative cleanup participants can run, and valid payload never equals the wait sentinel.",
+      "method": "proof"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.payload_excludes_empty_sentinel and p.no_concurrent_erase and p.key_claim_atomic and p.writer_eventually_completes and p.reader_policy_matches_protocol",
+    "text": "NVIDIA nonpacked wide map slots. Source gates ordinary insertion back-to-back CAS at sm70+, older and stable mixed-operator paths use dependent payload write; packable16-byte slots at sm90 can use atomic whole-slot CAS instead. No erase or arbitrary mixed-operation guarantee added. Resource effects: Avoids requiring a native wide CAS but adds payload polling or speculative retry/cleanup, with two atomic locations per slot."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "When a key/value slot cannot be claimed in one atomic operation, separate key ownership from payload readiness and constrain which readers may observe the intermediate state.",
+    "storage": "Avoids requiring a native wide CAS but adds payload polling or speculative retry/cleanup, with two atomic locations per slot.",
+    "boundary": "ThreadA wins keyK,threadB loses key but temporarily wins payload CAS: B must clear its speculative payload, then A publishes its own value. A find returning merely because keyK exists can expose the wrong value.",
+    "resources": []
+  },
+  "numeric_risk": "Preserve the supplied arithmetic contract; reassociation, quantization and approximate search require separate permission.",
+  "summary": "When a key/value slot cannot be claimed in one atomic operation, separate key ownership from payload readiness and constrain which readers may observe the intermediate state. ThreadA wins keyK,threadB loses key but temporarily wins payload CAS: B must clear its speculative payload, then A publishes its own value. A find returning merely because keyK exists can expose the wrong value."
+}

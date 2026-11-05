@@ -1,0 +1,15 @@
+{
+  "template": "collective_triggered_candidate_queue@1",
+  "version": 1,
+  "relation": "All potentially winning seen candidates occur in a lane staging queue or retained queue; each discarded candidate is dominated by k retained candidates under the declared tie order.",
+  "rank": "Unscanned inputs, then pending lane entries and unmerged warp queues; a triggered merge empties finite lane queues.",
+  "assumes": [
+    {
+      "name": "source_contract",
+      "statement": "NVIDIA CUDA warp size 32; source float WarpSelect menu. k=1 is a separate direct reduction. Default Comparator ignores candidate IDs on equal keys; deterministic tie selection requires a compatible comparator and padding discipline."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Source-derived proof outline; no formal proof result or GPU execution claimed. no_overflow: Vote and merge happen before another append to any full lane queue. discard_safe: Rejected candidates cannot displace the k retained winners under the comparator. collective_complete: Every admitted candidate participates in the next merge and final flush; full warp participation is maintained even for input tails. The relation is a proposed source-level invariant; the stated finite-work rank depends on the explicit environment progress assumptions. Device ordering and numeric premises have not been discharged by schema validation."
+}

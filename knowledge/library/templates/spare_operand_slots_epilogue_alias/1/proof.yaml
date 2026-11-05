@@ -1,0 +1,15 @@
+template: spare_operand_slots_epilogue_alias@1
+version: 1
+relation: Give output its own temporary buffer and retain the same input generations;
+  disjoint live slots and completion order preserve all input/output values.
+rank: Unprocessed source items or unmerged partials.
+assumes:
+- name: contract
+  statement: The stated partition, comparator/count and publication premises hold.
+guarantees: []
+models: []
+note: Source python/tutorials/gluon/07-persistence.py:627-724. In a cycle of S+1 slots,
+  the S-1 preceding residues and two next residues partition all slots. MMA wait retires
+  old reads; store_wait before the next load retires output source reads. Byte equality
+  for BM=2*BK follows (BM*BN/2)=BK*BN. This resolves the earlier named alias gap without
+  claiming arbitrary async scheduling.

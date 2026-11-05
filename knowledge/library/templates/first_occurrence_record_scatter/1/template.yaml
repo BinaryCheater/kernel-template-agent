@@ -1,0 +1,140 @@
+name: first_occurrence_record_scatter
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: store
+produces:
+- work_assign
+- store
+- sync
+object:
+  type: unique_first_input_owner_of_scattered_records
+  description: Resolve duplicate slot destinations before any payload write so one lowest-index input
+    owns the complete multi-field record.
+variables:
+- name: election
+  kind: structure
+  binding: compile
+  role: software
+  domain:
+  - earlier_scan
+  - atomic_min_passes
+  meaning: Scan earlier input destinations in one writer launch or elect per-slot minimum input IDs across
+    ordered passes.
+constraints:
+- id: c_index
+  expr: p.input_count >= 0 and p.input_count < 4294967295
+  meaning: Unsigned 32-bit owner IDs reserve all-ones as the reset sentinel.
+  cls: implementation
+- id: c_owner
+  expr: election != 'atomic_min_passes' or p.owner_word_bytes == 4
+  meaning: Atomic-min election uses an aligned 32-bit owner word.
+  cls: implementation
+preconditions:
+- id: pre_contract
+  expr: p.lowest_input_index_wins_requested and p.slot_map_immutable_through_all_passes
+  meaning: Repeated destinations request first input occurrence, not addition or last-writer timing.
+  cls: semantic
+- id: pre_records
+  expr: p.same_slot_means_same_complete_record and p.winner_owns_all_payload_metadata_fields
+  meaning: One elected input owns every code, scale and side field of a destination record.
+  cls: semantic
+- id: pre_bounds
+  expr: p.invalid_slots_predicated_before_record_addressing and p.record_address_map_injective_for_distinct_valid_slots
+  meaning: Invalid slots do not form payload addresses; distinct destinations have nonoverlapping complete
+    records.
+  cls: implementation
+- id: pre_scan
+  expr: election != 'earlier_scan' or p.all_writer_lanes_agree_on_earlier_duplicate_result
+  meaning: The earlier-occurrence scan produces one uniform write/no-write decision for all lanes of a
+    record.
+  cls: implementation
+- id: pre_atomic
+  expr: election != 'atomic_min_passes' or (p.owner_words_aligned_and_exclusive and p.reset_complete_before_claims
+    and p.atomic_min_claims_complete_before_winner_reads and p.owner_restore_cannot_create_another_winner)
+  meaning: Ordered reset/claim/write passes share exclusive aligned owner words and restoration cannot
+    let another candidate qualify.
+  cls: implementation
+- id: pre_lifetime
+  expr: p.previous_readers_retired_before_owner_scratch_or_payload_writes and p.complete_writer_grid_before_record_consumers
+    and p.all_scratch_readers_retired_before_scratch_reuse
+  meaning: Readers see only completed records; temporary owner bits are not published as valid cache metadata.
+  cls: implementation
+- id: pre_encode
+  expr: p.selected_record_encoder_and_capacity_supported and p.record_numeric_policy_admitted
+  meaning: The winning input uses the declared complete record encoder and numerical contract.
+  cls: implementation
+program:
+  description: Input row i proposes destination slot[i]. Predicate invalid destinations before address
+    calculation. For earlier_scan, cooperatively compare this slot with every earlier input row and uniformly
+    skip the record if an equal destination exists. Otherwise encode/write every payload and metadata
+    field of row i. For atomic_min_passes, first reset touched valid slots owner words to UINT32_MAX;
+    complete reset before any claim. Atomically minimize each slot owner with its input index; complete
+    all claims before any writer checks ownership. Only i==owner[slot[i]] may encode/write that entire
+    record. Owner storage may use ABI padding only if previous readers retired, restoration cannot create
+    a false later winner, and required padding bits are restored before any consumer. Unmapped records
+    stay unchanged. Wait for all record writers before consumers, since one elected writer does not make
+    multiple field stores transactionally atomic.
+backward_map: For each valid destination choose its lowest-index proposing input once and apply the original
+  complete record encoder; all other proposals and invalid mappings have no output effect.
+obligations:
+- name: unique_first_owner
+  statement: Both election methods select exactly the minimum proposing input ID for every touched valid
+    destination.
+  method: proof
+- name: complete_record
+  statement: All payload and metadata fields come from that elected input; distinct destinations do not
+    overlap.
+  method: test
+- name: pass_and_scratch_order
+  statement: Reset, all claims, winner reads, optional owner restoration and later consumers have the
+    declared order and exclusivity.
+  method: test
+- name: invalid_and_unmapped
+  statement: Invalid inputs never address records and untouched destinations retain their previous contents.
+  method: test
+effects:
+  transactions: []
+  storage:
+  - id: owner_words
+    level: dram
+    scope: kernel
+    bytes: 4 * p.owner_slot_capacity
+    when: election == 'atomic_min_passes'
+  overlap: []
+scope:
+  predicate: (p.lowest_input_index_wins_requested and p.slot_map_immutable_through_all_passes) and (p.same_slot_means_same_complete_record
+    and p.winner_owns_all_payload_metadata_fields) and (p.invalid_slots_predicated_before_record_addressing
+    and p.record_address_map_injective_for_distinct_valid_slots) and (election != 'earlier_scan' or p.all_writer_lanes_agree_on_earlier_duplicate_result)
+    and (election != 'atomic_min_passes' or (p.owner_words_aligned_and_exclusive and p.reset_complete_before_claims
+    and p.atomic_min_claims_complete_before_winner_reads and p.owner_restore_cannot_create_another_winner))
+    and (p.previous_readers_retired_before_owner_scratch_or_payload_writes and p.complete_writer_grid_before_record_consumers
+    and p.all_scratch_readers_retired_before_scratch_reuse) and (p.selected_record_encoder_and_capacity_supported
+    and p.record_numeric_policy_admitted)
+  text: Deterministic first-input-wins scatter of independent complete records, with nonnegative valid
+    destination slots and invalid-slot predication. Source SM120 quantized MLA cache append has warp-parallel
+    duplicate scans; DSV4 NVFP4 additionally uses uint32 owner election in four reserved zero-padding
+    bytes. The owner storage expression is logical capacity, possibly aliased with padding. Atomic visibility,
+    encoder precision, overlapping invocations and concurrent record readers require explicit bindings.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Elect a lowest-index input per destination before writing a multi-field record.
+  reuse: Use a one-pass earlier scan for small appends or ordered atomic-min election to avoid quadratic
+    comparisons.
+  storage: Earlier scan needs only local duplicate flags; atomic path needs one exclusive 32-bit owner
+    per addressable slot, possibly existing padding.
+  boundary: First-occurrence semantics, complete-record ownership, pass ordering and post-grid consumer
+    publication.
+  resources:
+  - dram
+  - launch
+numeric_risk: The encoder is unchanged; selecting a different occurrence would change the data and scales.
+  Interleaving multiple writers can tear a record even if each individual field store is atomic.
+summary: When duplicate destination indices append multi-field records, elect the earliest input before
+  writing any field. Scan prior indices for small batches or reset/atomic-min owners before the writer
+  pass. This keeps one input responsible for codes, scales and metadata together. It supplies deterministic
+  first-occurrence semantics, not additive scatter or atomic publication to concurrent readers; consumers
+  still wait for the complete writer grid.

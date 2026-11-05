@@ -1,0 +1,15 @@
+template: bounded_chunk_launch_table@1
+version: 1
+relation: Host-built descriptor batches preserve the concatenation of independent
+  per-tensor element operations; no cross-tensor reduction or alias-dependent update
+  order is implied.
+rank: Number of input elements or state transitions still to consume.
+assumes:
+- name: source_contract
+  statement: Source binding and stated scope hold.
+guarantees: []
+models: []
+note: 'Source-derived candidate, not independently admitted. coverage: Every tensor/chunk
+  pair appears once across flushes; carried metadata does not reset chunk index. addressing:
+  Local slot rebasing preserves original tensor and every guarded element address.
+  Native lowering and numerical error remain open; see trace and checks.'

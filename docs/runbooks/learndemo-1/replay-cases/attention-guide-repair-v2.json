@@ -1,0 +1,58 @@
+{
+  "schema": 1,
+  "case": "attention",
+  "shapes": [
+    [
+      1,
+      8,
+      512,
+      64
+    ],
+    [
+      1,
+      8,
+      2048,
+      128
+    ],
+    [
+      1,
+      8,
+      514,
+      64
+    ]
+  ],
+  "environment": {
+    "target": "NVIDIA GB10 sm_121",
+    "container": "sha256:2113ccfeef398e3adc4c7750bcd28342c839bf5cb843d16eeab5efade9926f0c",
+    "requires": {
+      "gpu": "sm_121"
+    },
+    "language": "TileLang 0.1.15",
+    "smoke_record": "/Users/dingyi/kta-data/dev/template-replay/environment/language-smoke.json",
+    "agent_environment_md": "# Environment\n\nNVIDIA GB10 sm_121 on spark-hk, host CUDA toolkit 13.0; pinned Docker image provides torch 2.11.0a0 (CUDA 13.2), TileLang 0.1.15 and Triton 3.6.0. TileLang GEMM compile/execution smoke passed. Use the supplied remote evaluation command. Temporary SSH compilation and experiments are authorized. All GPU work must hold ~/kta/hostlock/intent.lock then ~/kta/hostlock/rw.lock exclusive. Do not read production/reference implementations or source studies. No web/source search for answer implementations.\n"
+  },
+  "dtype": "float16",
+  "accumulation": "float32",
+  "output": "float16",
+  "rtol": 0.01,
+  "atol": 0.01,
+  "validation_seed_policy": "private base seeds, sha256(base:attempt) for fresh batches",
+  "patterns": [
+    "normal",
+    "magnitude",
+    "cancellation",
+    "mask",
+    "negative_logits"
+  ],
+  "warmup": 10,
+  "repetitions": 50,
+  "cache_policy": "warm-input-reuse",
+  "timing_boundary": "entry(inputs)->new_output; includes packing and dispatch",
+  "max_batches": 20,
+  "max_shapes_per_batch": 3,
+  "active_budget_s": 3600,
+  "performance_aim": 0.9,
+  "language": "TileLang 0.1.15",
+  "isolation": "instruction-only; read-only package files are not an OS sandbox",
+  "revision_reason": "fresh session after TR-A2 guide repair; adjacent tail S=514 replaces S=513"
+}

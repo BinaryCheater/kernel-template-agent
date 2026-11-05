@@ -1,0 +1,31 @@
+template: consumer_complete_scratch_chunking@1
+version: 1
+relation: Per-chunk production and complete consumption recover the original full-intermediate dataflow with bounded transient storage and preserved semantic coordinates.
+rank: Original producer rows not yet consumed by all dependent stages.
+assumes:
+  - {name: partition, statement: "Rows are independent producer instances, partitioned once into bounded chunks, with a complete consumer set."}
+  - {name: identity, statement: "Each consumer retains the original logical row, sequence and mask identity through local views or an equivalent mapping."}
+  - {name: lifetime, statement: "Each producer precedes its consumers, and all chunk consumers finish before scratch reuse."}
+  - {name: outputs, statement: "Disjoint outputs or complete reductions compose all chunks with one defined initial state and admitted numerical order."}
+guarantees: []
+models: []
+note: >-
+  Intervals[a,min(a+C,rows)) partition the nonempty domain for C>0. On each
+  interval, row independence and coordinate agreement produce the same logical
+  intermediate as the full computation. Complete consumer edges and read-before-
+  overwrite preserve those values until their final use. Concatenating disjoint
+  outputs and combining every reduced contribution once recovers the full result.
+  Source interface.py:2823-2859,3000-3110 reuses one query-token dS scratch for
+  main backward, dQ/dQv and optional dK kernels. K/V gradient accumulators are
+  initialized outside the chunk loop, while dQ/dQv use original token slices.
+  For bottom-right causal attention Q5,K7, chunk[a,b)=[1,3), local row u has
+  original key upper bound u+a+K-Q=u+3. Passing local Q length2 and original
+  K length7 would give u+5, incorrectly adding keys. Shrinking the main-kernel
+  K view to K-Q+b=5 gives u+5-2=u+3, while gather-GEMM and scatter stages keep
+  original K storage/offsets. Varlen clipped offsets require the source's extra
+  sequence-start invariant; arbitrary slicing is not certified by this example.
+  physical_storage@1 expresses read-before-overwrite for one occupancy, not
+  this row partition, complete consumer traversal and global-coordinate mapping.
+  operator_fusion@2's dense on-chip stage chains do not express separate kernel
+  launches through reused global scratch. Native stream dependencies, tail views,
+  cross-chunk reductions and alternative batch layouts remain binding obligations.

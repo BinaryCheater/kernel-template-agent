@@ -1,0 +1,15 @@
+{
+  "template": "iterative_state_residency@1",
+  "version": 1,
+  "relation": "Resident state after iteration j equals coarse materialized state after iteration j under identical arithmetic.",
+  "rank": "Remaining prescribed iteration/phase transitions.",
+  "assumes": [
+    {
+      "name": "locality",
+      "statement": "All recurrence inputs and dependencies fit the ownerCTA, with no intermediate external observation."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Initialization loads the same state. Assuming state equality, local phases preserve the same operation/cast order; cross-thread barriers establish completed inputs for each transition. Induction yields final equality including failure result. Locality and working-set fit must be checked per realization; abstract induction does not discharge native barrier/rounding. Source mhc.py:310\u2013383 and jit/csrc/lplb/ipm.cuh:129\u2013243. Sinkhorn numerical policy and IPM convergence are unchanged workload contracts. No GPU assurance claimed."
+}

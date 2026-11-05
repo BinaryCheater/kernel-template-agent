@@ -1,0 +1,87 @@
+name: carry_compensated_parameter_split
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: store
+produces:
+- store
+- map
+- contract
+object:
+  type: split_master_parameter_bits
+  description: Share the high word of an FP32 optimizer master value with the BF16 model parameter, retaining
+    its signed low word and an implicit rounding carry.
+variables: []
+constraints: []
+preconditions:
+- id: pre_format
+  expr: p.fp32_master_bf16_model and p.word_order_matches and p.signed_low_word_semantics_match
+  meaning: The target exposes the FP32 high/low sixteen-bit words with the expected BF16 and signed-low
+    interpretation.
+  cls: implementation
+- id: pre_codec
+  expr: p.initial_pair_uses_same_codec and p.model_rounding_policy_admitted and p.high_word_arithmetic_in_range
+  meaning: Initial and updated pairs use this carry codec; the model-view rounding and signed-word arithmetic
+    are admitted.
+  cls: semantic
+- id: pre_ownership
+  expr: p.model_and_remainder_paired and p.optimizer_has_exclusive_update and p.no_partial_pair_visible
+  meaning: A parameter and its low word remain paired and readers see a completed update.
+  cls: implementation
+- id: pre_values
+  expr: p.master_and_rounded_model_finite and p.fp32_update_arithmetic_preserved
+  meaning: The finite-domain master update retains its requested FP32 arithmetic before splitting.
+  cls: semantic
+program:
+  description: View finite FP32 master bits as high word H and low word L. Store the BF16 model bit word
+    P=H+c where c is one exactly when L interpreted as signed int16 is negative (its top bit is set);
+    store L unchanged as the sixteen-bit remainder. To reconstruct, subtract c from P and concatenate
+    that corrected high word with the unchanged low word. Run the optimizer update on the reconstructed
+    FP32 value, then split its result with the same codec. The remainder is raw low bits, not an arithmetic
+    residual that may be added numerically. This source uses an increment at exact midpoint L=0x8000,
+    including when H is even; it is not nearest-even BF16 conversion.
+backward_map: Undo the implicit high-word carry and concatenate the retained low word; the exact admitted
+  FP32 master bit pattern is recovered.
+obligations:
+- name: bit_identity
+  statement: Subtracting the carry and concatenating L recovers every admitted master word exactly.
+  method: proof
+- name: view_rounding
+  statement: The model BF16 view and initialization obey the required carry/tie codec rather than a different
+    rounding rule.
+  method: test
+- name: pair_visibility
+  statement: Model/remainder ownership and publication preserve the pair across optimizer updates.
+  method: test
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: p.fp32_master_bf16_model and p.word_order_matches and p.signed_low_word_semantics_match and
+    p.initial_pair_uses_same_codec and p.model_rounding_policy_admitted and p.high_word_arithmetic_in_range
+    and p.model_and_remainder_paired and p.optimizer_has_exclusive_update and p.no_partial_pair_visible
+    and p.master_and_rounded_model_finite and p.fp32_update_arithmetic_preserved
+  text: Finite FP32 master and BF16 model parameters with signed sixteen-bit low-word remainder and carry-aware
+    initialization. Source AdamFunctorMasterParamRemainder in common/multi_tensor/adam.cu reconstructs
+    and updates this pair. High-word arithmetic must remain representable and rounded model finite. Arbitrary
+    BF16 nearest-even initialization, FP16 model formats, NaN/Inf handling and a float-valued residual
+    representation require another binding.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Lossless FP32 master bit reconstruction from a carry-adjusted BF16 model word and signed
+    low word.
+  storage: Four bytes total for model plus remainder instead of BF16 model plus a separate four-byte master.
+  boundary: Paired bit codec, model rounding tie policy and atomic visibility of logical updates.
+  resources:
+  - dram
+  - registers
+numeric_risk: Master reconstruction is bit-exact within the codec; the model view follows a source-specific
+  midpoint increment and is not automatically interchangeable with nearest-even BF16.
+summary: When a mixed-precision optimizer retains both an FP32 master and a BF16 model view, share the
+  master high word with the model and keep only the low word as a remainder. Undo the signed-low carry
+  before reconstructing the FP32 update value. This saves the separate master allocation only if initialization,
+  rounding and every update use the same paired bit codec.

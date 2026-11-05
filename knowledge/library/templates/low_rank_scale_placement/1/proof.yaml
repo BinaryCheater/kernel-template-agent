@@ -1,0 +1,40 @@
+template: low_rank_scale_placement@1
+version: 1
+relation: Without factor rounding, distributivity gives alpha*(R+D*(lambda/alpha*U)^T)=alpha*R+lambda*D*U^T
+  for nonzero alpha. With stored BF16 Uf, retain the explicit factor error and native accumulation policy;
+  do not assert bitwise equality to raw scaling.
+rank: Uncombined base and low-rank terms.
+assumes:
+- name: pre_components
+  statement: R is the requested decoded base product, D the declared down result and U its matching BF16
+    up factor; no quantized activation silently replaces the down input.
+- name: pre_scale
+  statement: Base alpha and adapter lambda have declared FP32/native range policy, including zero/subnormal
+    behavior.
+- name: pre_fold
+  statement: Prepared mode admits RN_FP32(lambda/alpha), one BF16 up-factor re-round and its effect on
+    the low-rank correction; alpha0 stays on the raw path.
+- name: pre_order
+  statement: Base/correction accumulation and scaling order are bound; bias is not multiplied by the common
+    base scale.
+- name: pre_snapshot
+  statement: Folded U, alpha and lambda describe one immutable prepared snapshot; any changed weights/scalars
+    refold before use, including writes outside framework version tracking.
+- name: pre_lifetime
+  statement: Prepared writes publish before consumers, adapter switching waits for old readers, and backend/rank
+    geometry is supported.
+- name: pre_numeric
+  statement: Down BF16 checkpoints, decoded base quantization and separate/fused corrections satisfy the
+    numerical contract.
+guarantees: []
+models: []
+note: Source flashinfer/gemm/cake_quant_lora_gemm.py:759-947 pins source tensor state and prepares Uf
+  with one BF16 rounding after FP32 lambda/alpha. jit/cake_quant_lora_gemm.py selects the prepared NVFP4140e35bb5ecf92090cf9
+  program, whose kernel accumulates the prepared correction and uses common alpha before bias/output.
+  gemm_svdquant.py:792-865 supplies L1/alpha; :1076-1198 keeps original x for down=x@smoothed_L2T while
+  the residual branch quantizes smoothed x. dense_blockscaled_gemm_sm120_b12x.py:1836-1877 reuses released
+  mainloop storage for BF16 rank tiles accumulated into the same FP32 residual accumulator. operator_fusion@2
+  covers local correction epilogue placement but not independent versus common scales, factor re-round
+  or prepared-parameter coherence. Logical checks distinguish raw/folded outputs, alpha0, stale factors,
+  smoothing channels and bias scaling. Native MMA order, prepared-copy publication and total-chain accuracy
+  remain obligations.

@@ -1,0 +1,73 @@
+name: bounded_normalized_weight_pruning
+version: 1
+level_from: 3
+level_to: 4
+change: restriction
+refines: reduce
+produces: [reduce, map]
+object:
+  type: normalized_weight_pruning_certificate
+  description: A per-row certificate permits dropping nonnegative weighted terms only when their total mass and value range bound normalized output and optional log-normalizer error.
+variables:
+  - {name: ratio_threshold, kind: numeric, binding: runtime, role: software, domain: {lo: 0, hi: 1}, meaning: Propose a tile skip when its maximum weight relative to the current reference is below this positive threshold; a certificate is still required.}
+  - {name: output_error_budget, kind: numeric, binding: runtime, role: boundary, domain: {lo: 0, hi: 1000000000}, meaning: Allowed absolute infinity-norm output error including additional admitted arithmetic and conversion error.}
+  - {name: require_lse, kind: structure, binding: compile, role: boundary, domain: [false, true], meaning: Whether natural-log normalizer error also has to satisfy the declared budget.}
+  - {name: lse_error_budget, kind: numeric, binding: runtime, role: boundary, domain: {lo: 0, hi: 16}, meaning: Absolute natural-log normalizer error budget; convert explicitly if the interface reports base2 LSE.}
+constraints:
+  - {id: c_positive, expr: "ratio_threshold > 0 and p.kept_mass_lower > 0 and p.dropped_mass_upper >= 0 and p.value_diameter >= 0 and p.output_abs_scale >= 0 and p.additional_output_error_upper >= 0", meaning: Certificate masses and error allowances are valid with positive retained mass., cls: semantic}
+  - {id: c_output, expr: "p.output_abs_scale * p.value_diameter * p.dropped_mass_upper / (p.kept_mass_lower + p.dropped_mass_upper) + p.additional_output_error_upper <= output_error_budget", meaning: Worst-case normalized output movement plus arithmetic error fits the absolute budget., cls: semantic}
+  - {id: c_lse, expr: "not require_lse or (p.lse_error_upper >= 0 and p.lse_error_upper <= lse_error_budget)", meaning: A certified natural-log bound including additional LSE arithmetic error fits the requested budget., cls: semantic}
+preconditions:
+  - {id: pre_partition, expr: "p.nonnegative_finite_weights and p.kept_dropped_partition_exact and p.certificate_covers_all_skips", meaning: Every ordinary or extra term is kept or dropped once and the accumulated bound covers every dropped term., cls: semantic}
+  - {id: pre_bounds, expr: "p.kept_mass_lower_valid and p.dropped_mass_upper_valid and p.coordinate_value_ranges_valid and p.bounds_outward_rounded", meaning: Retained mass lower bound and dropped mass upper bound are conservative; all value coordinates lie in intervals of at most the declared diameter., cls: semantic}
+  - {id: pre_frame, expr: "p.all_mass_bounds_share_frame and p.extra_denominator_terms_accounted and p.kept_output_is_normalized", meaning: Rescale retained mass and discarded-mass bounds together; denominator-only terms use zero values included in the ranges., cls: semantic}
+  - {id: pre_contract, expr: "p.absolute_error_contract and p.additional_error_bounds_valid and p.lse_bound_valid", meaning: The contract requests these absolute bounds; LSE upper bound is at least log1p(B/K_lower) plus admitted LSE arithmetic error when requested., cls: semantic}
+  - {id: pre_protocol, expr: "p.collective_skip_uniform and p.skipped_work_protocol_retired and p.initial_kept_state_valid", meaning: One collective decision applies to its whole work unit and bypassed arithmetic still retires the right pipeline generation without reading uninitialized accumulators., cls: implementation}
+program:
+  description: >-
+    For each output row let kept nonnegative weights sum to K>0 and dropped weights
+    sum to D>=0. Maintain conservative K_lower<=K and B>=D in one positive common
+    weight frame. A tile with n live terms and maximum scaled logit u at reference r
+    contributes at most n*exp(u-r) to B; if exp(u-r)<ratio_threshold then n*threshold
+    is also a valid strict upper bound. Accumulate all dropped-tile bounds, not just
+    the latest tile. When r or common gain changes, rescale B and K_lower identically.
+    Propose skips collectively but admit the completed dropped set only if
+    output_abs_scale*value_diameter*B/(K_lower+B) plus additional output error fits
+    output_error_budget. If LSE is requested certify log1p(B/K_lower) plus its
+    arithmetic error in natural-log units. Otherwise retain the proposed terms or
+    choose a different kernel. Compute the normalized output over kept terms;
+    neither the unnormalized denominator nor gradients are claimed unchanged.
+backward_map: Reinsert the dropped terms and use the convex-combination identity between kept and dropped weighted means to bound the complete operator's output and log-normalizer difference.
+obligations:
+  - {name: mass_certificate, statement: The bounds conservatively cover the complete kept/dropped partition through every reference-frame change., method: exhaustive}
+  - {name: output_bound, statement: Each complete mean differs from the kept mean by at most diameter*D/(K+D) before output scaling and additional numerical error., method: proof}
+  - {name: lse_bound, statement: The complete natural LSE exceeds kept LSE by log1p(D/K) and this is bounded by the certificate., method: test}
+  - {name: collective_protocol, statement: Every row in a skipped collective satisfies its certificate and bypassing arithmetic preserves storage initialization and pipeline ownership., method: test}
+effects: {transactions: [], storage: [], overlap: []}
+scope:
+  predicate: "p.nonnegative_finite_weights and p.kept_dropped_partition_exact and p.certificate_covers_all_skips and p.kept_mass_lower_valid and p.dropped_mass_upper_valid and p.coordinate_value_ranges_valid and p.bounds_outward_rounded and p.all_mass_bounds_share_frame and p.extra_denominator_terms_accounted and p.kept_output_is_normalized and p.absolute_error_contract and p.additional_error_bounds_valid and p.lse_bound_valid and p.collective_skip_uniform and p.skipped_work_protocol_retired and p.initial_kept_state_valid"
+  text: >-
+    Normalized finite nonnegative weighted sums with positive retained mass and an
+    absolute output-error contract; optional LSE budget is in natural units. Source
+    FMHA supplies a collective maximum-ratio proposal but no accumulated mass/value
+    range certificate, so its threshold alone is not an admitted implementation of
+    this rule. Finite source examples can be certified separately; generic native
+    skipping, reference parity with the host, accumulator initialization and backward
+    require further evidence. Relative error, signed weights, zero kept mass and
+    unchanged gradients are excluded.
+requires: []
+probed_on: []
+relations:
+  - {type: enables, target: online_rescaled_reduction, note: The certified kept operator can be streamed in a common frame; any frame change must also correct its discarded-mass certificate.}
+signature:
+  algorithm: Certify normalized weighted error before accepting nonidentity tile pruning.
+  storage: Per-row conservative retained/dropped mass and value-range bounds.
+  boundary: Accumulated discarded mass and absolute output/LSE budgets.
+  resources: [tensor, issue]
+numeric_risk: A small maximum individual weight alone gives no global mass or output bound; rounding of certificates and additional native numerical error must be conservative.
+summary: >-
+  When small-score attention tiles are candidates for omission, use their maxima
+  only to propose skips. Accumulate a discarded-mass bound in the same frame as
+  retained mass, include value ranges and enforce absolute output and optional LSE
+  budgets. Keep collective protocol retirement independent of skipped arithmetic.
+  Source threshold heuristics without those certificates remain conditional instances.

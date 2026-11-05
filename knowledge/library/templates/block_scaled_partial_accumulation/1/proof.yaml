@@ -1,0 +1,23 @@
+template: block_scaled_partial_accumulation@1
+version: 1
+relation: The final accumulator equals the admitted ordered sum of scaled completed K partials; the raw accumulator equals the active partial's unscaled dot prefix.
+rank: Remaining partials, then remaining products in the active partial.
+assumes:
+  - {name: input_contract, statement: Input codes and multiplicative scale metadata define the coarse decoded operands.}
+  - {name: admitted_arithmetic, statement: The caller admits the selected raw-dot precision and reassociation of scale application; exact-real algebra alone does not establish floating-point tolerance.}
+  - {name: initialized_tail, statement: Every consumed padded element and its scale metadata are initialized and allocated.}
+guarantees: []
+models: []
+note: >-
+  Initialization sets final and raw to zero. Since partial_k divides each gran_k and the
+  K origin is aligned, the scale lookup is constant over each partial. Distributivity
+  allows factoring that pair of scales from its exact-real sum. Resetting raw, completing
+  the dot, and promoting once preserves the relation; the finite remaining-products rank
+  decreases. Completion covers every valid product exactly once. MN lookups are per
+  output, including a tile crossing a B scale boundary. checks/scaled_partials.py compares
+  an independent decoded-product sum with source-grouped promotion for unequal adjacent
+  scales and rejects one final scale, stale raw accumulators and an illegal partial extent.
+  Its exact rational witnesses cover partition/ownership/reset algebra, not arbitrary
+  FP32/WGMMA rounding or the BF16 conversion. Next: run pinned CUDA numerical comparisons
+  for cancellation, wide scale range, long K and boundary columns; encode the ownership
+  argument in the proof checker. No registered proof model or ProofResult is claimed.

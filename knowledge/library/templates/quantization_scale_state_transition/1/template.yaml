@@ -1,0 +1,105 @@
+name: quantization_scale_state_transition
+version: 1
+level_from: 2
+level_to: 3
+change: vertical
+refines: contract
+produces:
+- map
+- contract
+object:
+  type: quantization_scale_epoch
+  description: When quantization consumes a mutable per-tensor scale, make the producing data epoch and
+    update barrier explicit. A requested current-tensor recipe reduces the whole tensor before casting;
+    a requested delayed recipe consumes history and preserves its roll/reset invariant. These recipes
+    change numerical values and are boundary choices, not freely interchangeable implementations.
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+requires: []
+probed_on: []
+relations: []
+summary: When quantization consumes a mutable per-tensor scale, make the producing data epoch and update
+  barrier explicit. A requested current-tensor recipe reduces the whole tensor before casting; a requested
+  delayed recipe consumes history and preserves its roll/reset invariant. These recipes change numerical
+  values and are boundary choices, not freely interchangeable implementations.
+variables:
+- name: amax_policy
+  kind: structure
+  binding: compile
+  role: boundary
+  domain:
+  - current_tensor
+  - history_max
+  - history_recent
+  meaning: Requested source of the scale maximum. Current consumes this tensor; delayed uses the recorded
+    history window or its current slot.
+constraints:
+- id: c_recipe
+  expr: p.requested_policy_matches
+  meaning: Bind the requested quantization recipe rather than silently substituting another epoch.
+  cls: semantic
+- id: c_history
+  expr: amax_policy == 'current_tensor' or p.history_length > 0
+  meaning: Delayed recipes require a nonempty history window.
+  cls: semantic
+preconditions:
+- id: pre_state
+  expr: p.scale_state_exclusive and p.history_snapshot_before_overwrite and p.consumer_epoch_matches
+  meaning: Scale/history ownership and all producing/consuming launches refer to the same tensor epoch.
+  cls: semantic
+- id: pre_complete
+  expr: p.maximum_domain_complete and p.scale_update_visible_before_consumer
+  meaning: The selected tensor/window maximum is complete and the scale is visible before its consumer.
+  cls: semantic
+- id: pre_values
+  expr: p.amax_values_finite_nonnegative and p.previous_scale_positive_finite and p.scale_arithmetic_policy_matches
+  meaning: The finite amax domain and previous scale satisfy the requested division, overflow and exceptional-zero
+    policy.
+  cls: implementation
+program:
+  description: For current_tensor, reset amax, reduce absmax over every element of this logical tensor,
+    then produce its FP32 multiplier with the requested epsilon and optional downward power-of-two rounding.
+    A zero selected maximum returns multiplier 1 in the pinned current recipe. For a delayed recipe, snapshot
+    history[0]; select max of the old window for history_max or that snapshot for history_recent. Produce
+    multiplier scaled_max/selected_amax for positive maxima, clamping overflow to the requested finite
+    cap; zero maximum retains the previous scale. Independently roll the old history left, wrap the snapshot
+    to its last slot, and clear output slot 0 for the next producer. Capture reads before an in-place
+    roll overwrites them. Only the matching scale epoch may quantize the consumer tensor; its reciprocal
+    metadata must be paired with the scale actually consumed. Graph-noop behavior must preserve the recipe-specific
+    state promised by its actual implementation.
+backward_map: 'Project the stateful implementation onto the requested quantization recipe: each cast consumes
+  the specified epoch maximum and each history update has the specified next-producer slot.'
+obligations:
+- name: epoch_binding
+  statement: Selected maximum, scale and output codes belong to the requested data epoch and complete
+    domain.
+  method: test
+- name: history_transition
+  statement: In-place roll preserves the old window needed for selection and clears only the next producer
+    slot.
+  method: proof
+- name: visibility
+  statement: Reset/reduction/update/consumer ordering and metadata ownership implement the stated state
+    transition.
+  method: test
+scope:
+  predicate: p.requested_policy_matches and (amax_policy == 'current_tensor' or p.history_length > 0)
+    and p.scale_state_exclusive and p.history_snapshot_before_overwrite and p.consumer_epoch_matches and
+    p.maximum_domain_complete and p.scale_update_visible_before_consumer and p.amax_values_finite_nonnegative
+    and p.previous_scale_positive_finite and p.scale_arithmetic_policy_matches
+  text: Per-tensor FP32 multiplier recipes with finite nonnegative amax/history values and a positive
+    finite previous scale. Source current recipe and delayed max/most-recent recipes have different zero
+    and update policies; actual scale arithmetic, margin and epsilon are caller bindings. NaN/Inf amax
+    propagation, cross-rank history aggregation and changes of scale granularity require separate bindings.
+    No claim that delayed and current quantization are equal is made.
+signature:
+  algorithm: Refine requested quantization into an epoch-specific maximum/scale/history state transition.
+  storage: One tensor multiplier and its optional amax history; reciprocal accompanies the consumed multiplier.
+  boundary: Scale epoch, maximum domain and history reset/visibility.
+  resources:
+  - dram
+  - registers
+numeric_risk: Changing the amax epoch or window changes the quantizer, saturation and error; zero behavior
+  also differs between current and delayed recipes.

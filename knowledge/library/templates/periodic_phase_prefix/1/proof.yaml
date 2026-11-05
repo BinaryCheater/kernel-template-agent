@@ -1,0 +1,17 @@
+template: periodic_phase_prefix@1
+version: 1
+relation: "Periodic phase state, source rotary2\u03C0 with masked padded increments0.\
+  \ This is quotient-state equivalence, not equality of floating-point cumsum algorithms\
+  \ or raw phase arrays."
+rank: Number of input elements or state transitions still to consume.
+assumes:
+- name: source_contract
+  statement: Source binding and stated scope hold.
+guarantees: []
+models: []
+note: 'Source-derived candidate, not independently admitted. quotient_prefix: Adding
+  any integer multiple of P to the carried phase leaves the next emitted phase equivalent.
+  pair_layout: Rotation maps the intended coordinate pairs and leaves unrotated coordinates
+  unchanged. numeric_seam: Range reduction, trig approximation and backward derivative
+  are admitted around modulo seams. Native lowering and numerical error remain open;
+  see trace and checks.'

@@ -1,0 +1,92 @@
+{
+  "name": "shared_input_contraction_concatenation",
+  "version": 1,
+  "level_from": 2,
+  "level_to": 3,
+  "change": "vertical",
+  "refines": "contract",
+  "produces": [
+    "map",
+    "contract"
+  ],
+  "object": {
+    "type": "shared_input_contraction_concatenation",
+    "description": "When several contractions consume the same complete input matrix and reduction axis, concatenate their weight output axes and compute one larger contraction, then expose the original output slices with their required casts and layouts."
+  },
+  "variables": [
+    {
+      "name": "slice_storage",
+      "kind": "structure",
+      "binding": "compile",
+      "role": "software",
+      "domain": [
+        "views",
+        "dense_outputs"
+      ],
+      "meaning": "Consumers accept strided slices of the merged output, or each required slice is materialized densely."
+    }
+  ],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_0",
+      "expr": "p.same_input_generation_reduction_axis_and_weight_dtype and p.weight_output_axes_disjointly_concatenated",
+      "meaning": "All branches use the same input/reduction coordinates; the concatenated weight ranges preserve every branch coordinate.",
+      "cls": "implementation"
+    },
+    {
+      "id": "pre_1",
+      "expr": "p.merged_accumulation_and_output_precision_admitted_for_every_branch and p.branch_casts_occur_at_declared_stages",
+      "meaning": "A common merged intermediate satisfies the strictest consumer precision; later per-branch casts do not round a precision-sensitive branch early.",
+      "cls": "implementation"
+    },
+    {
+      "id": "pre_2",
+      "expr": "p.consumers_use_matching_slice_boundaries_and_layout and p.required_dense_outputs_materialized",
+      "meaning": "Every downstream consumer sees the correct slice, stride and dense-layout requirement.",
+      "cls": "implementation"
+    },
+    {
+      "id": "pre_3",
+      "expr": "p.merged_shape_supported_and_storage_fits and p.weight_concatenation_lifetime_valid",
+      "meaning": "The target supports the merged shape and its temporary; prepacked/concatenated weights retain matching generation.",
+      "cls": "implementation"
+    }
+  ],
+  "program": {
+    "description": "Given branches Y_j=X*W_j^T with equal X,K and compatible arithmetic, concatenate W_j along output features to Wcat. Compute Z=X*Wcat^T at the admitted common intermediate precision. The output column intervals partition Z and map back to the original Y_j. Expose each as a view only if its consumer accepts that stride; otherwise materialize the declared dense result, applying only its original dtype conversion/epilogue. A consumer may directly read its slice without saving a separate full matrix. Changing GEMM dimensions can select a different accumulation algorithm, so exact or error-bounded numerical admission is required independently of the real-arithmetic identity."
+  },
+  "backward_map": "Restrict merged output columns to each original weight interval. Every reduction term then has the same input and weight coordinates as its separate contraction, recovering the branch output under the admitted numerical policy.",
+  "obligations": [
+    {
+      "name": "logical_equivalence",
+      "statement": "Restrict merged output columns to each original weight interval. Every reduction term then has the same input and weight coordinates as its separate contraction, recovering the branch output under the admitted numerical policy.",
+      "method": "proof"
+    },
+    {
+      "name": "native_admission",
+      "statement": "The selected native resource, arithmetic and publication recipe preserves all declared inputs/outputs.",
+      "method": "test"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "(p.same_input_generation_reduction_axis_and_weight_dtype and p.weight_output_axes_disjointly_concatenated) and (p.merged_accumulation_and_output_precision_admitted_for_every_branch and p.branch_casts_occur_at_declared_stages) and (p.consumers_use_matching_slice_boundaries_and_layout and p.required_dense_outputs_materialized) and (p.merged_shape_supported_and_storage_fits and p.weight_concatenation_lifetime_valid)",
+    "text": "SGLang ops/moe/moe_front.py merges BF16 weights[896+3584,7168] over shared hidden input, uses FP32 Z, routes only its896-column gate slice and casts/materializes the3584-column latent slice to dense BF16. Source timings and bit-identity comments are not native validation here. Different inputs/K axes or unsupported mixed arithmetic are excluded."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "When several contractions consume the same complete input matrix and reduction axis, concatenate their weight output axes and compute one larger contraction, then expose the original output slices with their required casts and layouts.",
+    "storage": "Shared input with separate logical output regions and explicit temporary lifetimes.",
+    "boundary": "SGLang ops/moe/moe_front.py merges BF16 weights[896+3584,7168] over shared hidden input, uses FP32 Z, routes only its896-column gate slice and casts/materializes the3584-column latent slice to dense BF16. Source timings and bit-identity comments are not native validation here. Different inputs/K axes or unsupported mixed arithmetic are excluded.",
+    "resources": []
+  },
+  "numeric_risk": "Coordinate restriction proves the real-arithmetic identity because output feature intervals are disjoint and do not change K terms. It does not prove that a larger cuBLAS shape chooses the same reduction order. The MoE gate must retain FP32 through ranking; materializing all Z as BF16 first can change selected experts. Native GEMM-shape rounding remains the paired admission obligation; no GPU run is claimed.",
+  "summary": "When several contractions consume the same complete input matrix and reduction axis, concatenate their weight output axes and compute one larger contraction, then expose the original output slices with their required casts and layouts."
+}

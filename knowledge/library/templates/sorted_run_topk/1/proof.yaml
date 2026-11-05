@@ -1,0 +1,18 @@
+template: sorted_run_topk@1
+version: 1
+relation: The emitted identity sequence equals the first k identities of a global sort by descending score and ascending identity.
+rank: Requested output count minus emitted count.
+assumes:
+  - {name: partition, statement: Valid candidates have unique identities and occur exactly once in finite sorted runs.}
+  - {name: order, statement: Local sorts and global head comparisons use the same total order and exclude invalid candidates.}
+guarantees: []
+models: []
+note: >-
+  Initially every run cursor points to its maximum. The best head dominates all other
+  heads and every tail element, so it is the best globally remaining candidate. Emit
+  it and advance its unique run. Sorting preserves the head invariant; disjointness
+  prevents duplicate consumption. Each round decreases the rank until k emissions.
+  checks/mega_gate.py compares the source's four-element sorting network and packed
+  three-bit cursor protocol with a global-sort oracle, including ties and padding.
+  These bounded replays do not certify the device collective or instruction lowering;
+  resolve that obligation before implementation admission. No proof model is registered.

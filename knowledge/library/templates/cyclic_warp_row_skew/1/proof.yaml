@@ -1,0 +1,14 @@
+template: cyclic_warp_row_skew@1
+version: 1
+relation: Invert the cyclic shift for each warp and recover the original logical shared
+  tile.
+rank: Unmapped coordinates or unretired readers.
+assumes:
+- name: binding
+  statement: Declared source layout and lifetime premises hold.
+guarantees: []
+models: []
+note: Source runtime/block_welford_outer.cu:157-195. For fixed chunk/warp, modular
+  addition has a unique inverse, proving coordinate identity. Bank benefit depends
+  on the consumer transaction and remains an explicit check, not part of the permutation
+  proof.

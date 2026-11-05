@@ -1,0 +1,96 @@
+{
+  "name": "ring_reduce_scatter_allgather",
+  "version": 1,
+  "level_from": 2,
+  "level_to": 3,
+  "change": "vertical",
+  "refines": "map",
+  "produces": [
+    "map",
+    "access"
+  ],
+  "object": {
+    "type": "ring_reduce_scatter_allgather",
+    "description": "When all ranks need the same reduced vector, circulate disjoint chunks through a reduce-scatter ring, then forward completed chunks without reducing them again."
+  },
+  "variables": [
+    {
+      "name": "chunk_elements",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": {
+        "lo": 1,
+        "hi": 1073741824
+      },
+      "meaning": "Elements per rank chunk; channel/loop partition and protocol determine source binding."
+    }
+  ],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_0",
+      "expr": "p.ranks >= 2 and p.ring_permutation_valid",
+      "meaning": "Each rank has one predecessor and successor in a single complete ring.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_1",
+      "expr": "p.channels_partition_elements and p.tail_masked",
+      "meaning": "Channels and chunk loops partition the vector and invalid tail elements do not access storage.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_2",
+      "expr": "p.reduction_reassociation_permitted and p.transport_correct",
+      "meaning": "Transport preserves values and numerical contract permits the ring reduction order.",
+      "cls": "semantic"
+    }
+  ],
+  "program": {
+    "description": "At ring index r, first send chunk (r+P-1)%P. For j=2..P-1 receive/reduce/send chunk (r+P-j)%P. Then receive/reduce/store/send chunk r, applying the reduction post-operation exactly once. Forward completed chunks (r+P-j)%P for j=1..P-2 with no new arithmetic, and finally receive chunk (r+1)%P. Repeat disjoint loops and channels. Forget chunk partition to obtain the all-reduced vector at every rank."
+  },
+  "backward_map": "Erase auxiliary organization and recover the visible results under the stated contract.",
+  "obligations": [
+    {
+      "name": "contributions",
+      "statement": "Before a chunk completes, it accumulates exactly one original contribution per rank.",
+      "method": "proof"
+    },
+    {
+      "name": "completed_owner",
+      "statement": "Chunk r completes at ring index r before allgather forwarding begins for that chunk.",
+      "method": "proof"
+    },
+    {
+      "name": "coverage",
+      "statement": "Every valid vector element belongs to exactly one channel/loop/chunk and reaches every output rank.",
+      "method": "proof"
+    },
+    {
+      "name": "post_operation",
+      "statement": "Final normalization/post-op occurs once after all contributions, never at each hop.",
+      "method": "proof"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.ranks >= 2 and p.ring_permutation_valid and p.channels_partition_elements and p.tail_masked and p.reduction_reassociation_permitted and p.transport_correct",
+    "text": "NVIDIA CUDA NCCL ring AllReduce with at least two ranks. Protocol SIMPLE/LL/LL128 has a separate transport realization. Noncommutative reductions require an explicitly compatible rank order; floating sums follow source ordering and rounding. Resource effects: Per channel and full loop, 2*(P-1) communication steps per rank, each moving at most chunk_elements. Reduction arithmetic occurs only during first P-1 stages, forwarding second stage requires no additional reductions."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "When all ranks need the same reduced vector, circulate disjoint chunks through a reduce-scatter ring, then forward completed chunks without reducing them again.",
+    "storage": "Per channel and full loop, 2*(P-1) communication steps per rank, each moving at most chunk_elements. Reduction arithmetic occurs only during first P-1 stages, forwarding second stage requires no additional reductions.",
+    "boundary": "P=4, ring index0 sends chunk3, reduces/forwards chunks2 then1, finishes chunk0, forwards chunks3 then2 and receives chunk1. Reapplying sum during the forwarding phase double-counts contributions.",
+    "resources": []
+  },
+  "numeric_risk": "Preserve the supplied arithmetic contract; reassociation, quantization and approximate search require separate permission.",
+  "summary": "When all ranks need the same reduced vector, circulate disjoint chunks through a reduce-scatter ring, then forward completed chunks without reducing them again. P=4, ring index0 sends chunk3, reduces/forwards chunks2 then1, finishes chunk0, forwards chunks3 then2 and receives chunk1. Reapplying sum during the forwarding phase double-counts contributions."
+}

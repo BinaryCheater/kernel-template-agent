@@ -1,0 +1,100 @@
+name: block_scaled_instruction_operands
+version: 1
+level_from: 2
+level_to: 3
+change: vertical
+refines: contract
+produces:
+- contract
+- transfer
+object:
+  type: block_scaled_instruction_operands
+  description: A scaled MMA consumes quantized operands plus independently indexed
+    scale tensors instead of software-dequantized operands.
+variables:
+- name: format
+  kind: structure
+  binding: compile
+  role: software
+  domain:
+  - nvfp4
+  - mxfp4
+  - mxfp8
+  - mixed_e4m3_e2m1
+  meaning: Requested operand/code format pair from the source instruction menu.
+- name: scale_group_k
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 1
+    hi: 65536
+  meaning: Logical consecutive K values sharing each operand scale, source16 or32.
+constraints: []
+preconditions:
+- id: pre0
+  expr: p.code_and_scale_formats_match_instruction and p.group_membership_and_scale_coordinates_exact
+  meaning: Code format, scale format and K grouping match both operands and the instruction.
+  cls: semantic
+- id: pre1
+  expr: p.packed_byte_offsets_match_logical_K and p.scale_storage_layout_legal
+  meaning: Sub-byte operand descriptors and TMEM scale layouts preserve logical coordinates.
+  cls: semantic
+- id: pre2
+  expr: p.input_and_scale_transfers_complete_before_mma and p.accumulation_rounding_admitted
+  meaning: Operands/scales are ready and hardware accumulation meets the requested
+    numerical contract.
+  cls: semantic
+program:
+  description: Keep encoded A/B values and scale tensors separate through transfer.
+    For logical product (m,n,k), select A scale at (m,k//scale_group_k) and B scale
+    at (n,k//scale_group_k), independent of each operand packed-byte coordinate. Feed
+    those scale fragments to the scaled MMA instruction with the encoded operands
+    and the admitted accumulator. NVFP4 uses E2M1 data/E4M3 scale and groups16; MX
+    formats use E8M0 scales/groups32. Convert packed element K to descriptor bytes
+    using each operand own elements_per_byte; scales use logical K/group, never byte
+    K/group. Scale TMEM has its own TensorMemoryScalesLayout, distinct from accumulator
+    TMEM.
+backward_map: Replace the intrinsic by its specified contraction over decoded scaled
+  operand values at each logical (m,n,k), retaining the admitted native rounding contract.
+obligations:
+- name: scale_identity
+  statement: Every encoded operand product receives the corresponding logical scale
+    pair.
+  method: proof
+- name: packing_and_layout
+  statement: Packed bytes and physical scale fragments decode to the same logical
+    K coordinates.
+  method: test
+- name: native_numeric
+  statement: Scaled instruction, accumulator and output casts meet the declared numerical
+    recipe.
+  method: test
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: (p.code_and_scale_formats_match_instruction and p.group_membership_and_scale_coordinates_exact)
+    and (p.packed_byte_offsets_match_logical_K and p.scale_storage_layout_legal) and
+    (p.input_and_scale_transfers_complete_before_mma and p.accumulation_rounding_admitted)
+  text: NVIDIA Blackwell supported scaled-MMA format menu with explicit16/32 K scale
+    groups and matching scale layout. Does not assert that hardware internally forms
+    raw partial sums and promotes them exactly as block_scaled_partial_accumulation@1.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: A scaled MMA consumes quantized operands plus independently indexed scale
+    tensors instead of software-dequantized operands.
+  storage: Binding-specific counters, partials or output ranges.
+  boundary: Tile prefixes and logical membership.
+  resources: []
+numeric_risk: Integer counts must not overflow; ordering/rounding policy belongs to
+  the bound operation.
+summary: When hardware accepts block-scaled operands directly, preserve code and scale
+  as separate instruction operands. Bind format/group size and logical scale coordinates
+  before packing. E2M1 byte offset k//2 and scale offset k//16 are different maps;
+  using byte offsets for scales silently doubles scale coverage. Native scaled MMA
+  is an alternative realization to software dequantization or explicit raw-partial
+  promotion.

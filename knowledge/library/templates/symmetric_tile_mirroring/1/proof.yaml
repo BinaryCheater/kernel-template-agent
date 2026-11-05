@@ -1,0 +1,16 @@
+template: symmetric_tile_mirroring@1
+version: 1
+relation: Symmetric output maps, not arbitrary GEMM. Erasing triangular scheduling
+  and mirrored stores recovers a full symmetric matrix under the complete epilogue
+  contract.
+rank: Number of input elements or state transitions still to consume.
+assumes:
+- name: source_contract
+  statement: Source binding and stated scope hold.
+guarantees: []
+models: []
+note: 'Source-derived candidate, not independently admitted. triangle_bijection: Triangular
+  decode hits each lower triangle group exactly once. mirror_coverage: Off-diagonal
+  transpose stores fill the other half once; diagonal is written once. numeric_symmetry:
+  Reusing one computed value for its partner is admitted by the numeric contract.
+  Native lowering and numerical error remain open; see trace and checks.'

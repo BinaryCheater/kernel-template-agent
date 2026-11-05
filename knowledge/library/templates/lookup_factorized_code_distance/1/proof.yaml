@@ -1,0 +1,15 @@
+{
+  "template": "lookup_factorized_code_distance@1",
+  "version": 1,
+  "relation": "Lookup rows encode the declared metric terms for this query/list/subquantizer; each partial score equals the supplied constant plus terms for the candidate codes already consumed.",
+  "rank": "Unbuilt lookup rows plus unread candidate/subquantizer codes and unwritten scores.",
+  "assumes": [
+    {
+      "name": "source_contract",
+      "statement": "NVIDIA PQ distance scan; approximate distance means distance to the quantized representation, not exact original input vectors. Precomputed residual and no-precomputed tables are distinct factorization bindings, with float/half lookup rounding explicit."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Source-derived proof outline; no formal proof result or GPU execution claimed. factorization: Expanded lookup expression equals the specified decoded-vector metric before admitted rounding. code_table_alignment: Each code reads its own subquantizer row and query/list binding, never another row. publication: Shared rows finish loading before any candidate lookup; no overwrite during use. identity_recovery: Prefix/list offsets recover the exact original candidate identity from each emitted distance slot. The relation is a proposed source-level invariant; the stated finite-work rank depends on the explicit environment progress assumptions. Device ordering and numeric premises have not been discharged by schema validation."
+}

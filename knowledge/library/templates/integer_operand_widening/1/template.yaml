@@ -1,0 +1,56 @@
+name: integer_operand_widening
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: map
+produces: [map]
+object:
+  type: exactly_widened_integer_tile
+  description: An integer operand fragment is widened to the floating compute dtype with unchanged logical coordinates and exact integer values.
+variables:
+  - {name: input_format, kind: structure, binding: compile, role: boundary, domain: [s4, s8, u8], meaning: Stored integer interpretation; s4/s8 use two's-complement and u8 is unsigned.}
+  - {name: compute_format, kind: structure, binding: compile, role: boundary, domain: [f16, bf16], meaning: Floating compute representation; all source-format integers are exactly representable.}
+  - {name: conversion_path, kind: structure, binding: compile, role: software, domain: [typed, paired_shuffle], meaning: Ordinary typed conversion or the paired eight-value Int4/BF16 prepack-and-convert path.}
+constraints:
+  - {id: c_pair, expr: "conversion_path != 'paired_shuffle' or (input_format == 's4' and compute_format == 'bf16' and p.full_eight_value_chunks)", meaning: The pinned shuffled path requires signed Int4 to BF16 and complete eight-value chunks., cls: implementation}
+preconditions:
+  - {id: pre_format, expr: "p.input_format_matches_storage and p.fragment_coordinate_map_exact", meaning: Raw integer bits and fragment coordinates match the requested signed/unsigned operand., cls: semantic}
+  - {id: pre_pair, expr: "p.storage_order_matches_path and p.converter_path_available", meaning: Encoder and converter agree on byte/value order and the target/compiler supports the selected path., cls: implementation}
+program:
+  description: >-
+    Extract each raw b-bit value u at its logical coordinate. For s4/s8 decode
+    q=u when u<2**(b-1), otherwise q=u-2**b; for u8 decode q=u. Convert q exactly
+    to f16 or bf16. The typed path consumes natural fragment order. The paired
+    Int4/BF16 path consumes eight-value blocks already stored in order[0,2,1,3,4,6,5,7] and uses
+    the matching converter to restore natural logical order while widening.
+    Scaling, zero-point subtraction, accumulator grouping and wide-slot placement
+    are separate transformations; this rule does not move a scale through an MMA.
+backward_map: Interpret the same stored integer values directly at each logical coordinate; the widened floating values are numerically identical integers.
+obligations:
+  - {name: integer_identity, statement: Every admitted raw code becomes exactly its signed or unsigned integer value in the chosen floating dtype., method: exhaustive}
+  - {name: order_identity, statement: Prepack order composed with the selected conversion path preserves every logical coordinate exactly once., method: exhaustive}
+  - {name: backend_conversion, statement: Selected conversion and fragment loading implement the stated decode/order mapping for full chunks without unsupported target paths., method: test}
+effects: {transactions: [], storage: [], overlap: []}
+scope:
+  predicate: "p.input_format_matches_storage and p.fragment_coordinate_map_exact and p.storage_order_matches_path and p.converter_path_available"
+  text: >-
+    Exact widening of signed4/signed8/unsigned8 integer operands to f16/bf16.
+    The shuffled implementation is limited to complete eight-value Int4/BF16 blocks;
+    the pinned helper enables it for K-major Int4 with K divisible by8 and scale K
+    at least8 on CUDA target version>=13.1. Typed conversion has natural ordering.
+    New integer widths, zero-point semantics, mixed tails, packing permutations or
+    target conversion policies require an explicit variant/binding. Register values
+    are produced; wide shared/TMEM stage lifetime and all scale arithmetic remain
+    outside this rule. No global pre-converted tensor allocation is implied.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Signed/unsigned integer decode and exact floating widening with preserved logical order.
+  storage: Narrow source representation plus register-valued widened fragment.
+  boundary: Two's-complement versus offset-binary codes and paired prepack/decoder order.
+  resources: [issue]
+numeric_risk: Conversion is exact for the declared formats; subsequent scale multiplication and reduction order have independent rounding obligations.
+summary: >-
+  When an MMA consumes a wider floating type than a stored integer operand, consider widening that operand's tile immediately before use. Preserve the stored signedness and every logical coordinate; select typed conversion or a matching paired prepack/converter. The pinned optimized path binds signed Int4 to BF16 with eight-value[0,2,1,3,4,6,5,7] storage order and CUDA>=13.1; raw code0 remains0, so an offset-binary q-8 decoder is not interchangeable. Scaling, tails and wide-buffer placement need their own supported bindings.

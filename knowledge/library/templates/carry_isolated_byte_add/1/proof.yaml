@@ -1,0 +1,15 @@
+{
+  "template": "carry_isolated_byte_add@1",
+  "version": 1,
+  "relation": "For each byte i, extracted output equals (a_i+b_i) mod256; every carry lies outside the retained field.",
+  "rank": "Four byte lanes remaining in a fixed finite pack.",
+  "assumes": [
+    {
+      "name": "source_contract",
+      "statement": "Unsigned byte pack addition, source signed byte dispatch may reinterpret bits with its declared modular semantics. No inference to wide accumulation or averages before widening."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Source-derived proof outline; no formal proof result or GPU execution claimed. carry: Even-byte additions occupy16-bit fields; odd-byte carries fall only into discarded even positions or wrap outside word. lane_identity: Reinterleaving returns (a_i+b_i) mod256 independently for each of four original byte coordinates."
+}

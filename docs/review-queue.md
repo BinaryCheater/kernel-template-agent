@@ -1,5 +1,29 @@
 # Review queue
 
+## D931 — Link parameterized implementations to costed predictive models (proposal)
+
+- **Question:** Build L2 and code from a shared bounded implementation contract, with sparse compiler witnesses and declared empirical corrections where needed?
+- **Choice:** Proposed joint generation/model bindings, exact export of a restricted symbolic cost fragment, and explicit mapping/aggregation/projection error checks. Permit budgeted versioned development calibration; reserve independent final evaluation.
+- **Rationale:** Deterministic source generation does not establish compiler conformance or timing accuracy. Concrete L3 cannot generally recover the original parameterized family. Sparse profiling is useful only if it avoids evaluating most of the search space.
+- **Cost of changing later:** Local generator/profile changes initially; new versions require corresponding validation. Compare authoring, tokens, compilation, simulation, measurement and solving cost with empirical tuning before expanding. No numerical budget, schema or runtime setting changes here.
+- **Details:** docs/runbooks/learndemo-1/model-search-pilot.md, implementation contract, accuracy and bounded construction loop.
+
+## D929 — Offline Template modelling and search pilot (proposal)
+
+- **Question:** Start with a restricted executable Template chain and parameter search before bounded composition and complete runtime integration?
+- **Choice:** Proposed thin offline driver over existing formulation, projection and generator interfaces, using frozen knowledge/model inputs and direct remote measurement. No new experiment has started.
+- **Rationale:** The file catalog is useful textual knowledge, but model coverage and executable realisations require explicit bindings. This isolates legal search, solver/model quality and deterministic generation from runtime debugging and unconstrained model coding.
+- **Cost of changing later:** Low for the driver/adapter; larger domains and more backends require additional declared realisations. No schema or live budget change is proposed. Concrete menus and budgets remain to be designed before launch.
+- **Details:** docs/runbooks/learndemo-1/model-search-pilot.md.
+
+## D930 — Bridge the current calibrated L3 into precompile L2 and solver models (proposal)
+
+- **Question:** Use a shared parameterized execution description and compiler-lowering profiles to connect the current detailed simulator to fast precompile selection?
+- **Choice:** Proposed controlled compression plus separately validated symbolic lowering; derive the solver projection from the same costs, dependencies and constraints. Keep optimistic bounds distinct from ranking estimates and retain structurally different candidates during coarse screening.
+- **Rationale:** The old fixed-phase L2 and resource projection do not automatically inherit the detailed model's new scheduling, cache and lowering behavior. Updating rate constants cannot restore discarded structure.
+- **Cost of changing later:** Prototype adapters and profiles first; a core schema or engine refactor is a separate decision. No new experiment, runtime change or numerical acceptance setting is introduced here.
+- **Details:** docs/runbooks/learndemo-1/model-search-pilot.md, bridge section.
+
 ## D653 — Evaluation recovery and truthful failure state
 
 - **Question:** Is a completed candidate check the right cooperative pause boundary for supervised debugging?

@@ -1,0 +1,128 @@
+name: low_rank_scale_placement
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: contract
+produces:
+- map
+- contract
+- store
+object:
+  type: raw_dual_scale_or_prepared_low_rank_up_factor
+  description: Keep base and low-rank correction scales independent at runtime, or fold their ratio once
+    into a BF16 up factor and use a common final scale.
+variables:
+- name: placement
+  kind: structure
+  binding: compile
+  role: software
+  domain:
+  - runtime_dual_scale
+  - prepared_up_fold
+  meaning: Trade runtime independent scaling and pointer-only adapter switching for a prepared BF16 factor
+    with common final alpha and explicit snapshot/rounding semantics.
+constraints:
+- id: c_shape
+  expr: p.rows >= 1 and p.outputs >= 1 and p.rank >= 1
+  meaning: Nonempty base output and low-rank factor domains.
+  cls: semantic
+preconditions:
+- id: pre_components
+  expr: p.quantized_base_decoder_and_low_rank_components_explicit and p.base_down_up_coordinates_and_input_generation_match
+  meaning: R is the requested decoded base product, D the declared down result and U its matching BF16
+    up factor; no quantized activation silently replaces the down input.
+  cls: semantic
+- id: pre_scale
+  expr: p.alpha_lambda_finite_and_backend_scalar_range_admitted
+  meaning: Base alpha and adapter lambda have declared FP32/native range policy, including zero/subnormal
+    behavior.
+  cls: implementation
+- id: pre_fold
+  expr: placement != 'prepared_up_fold' or (p.alpha_nonzero_and_fold_ratio_finite and p.single_bf16_fold_rounding_error_admitted)
+  meaning: Prepared mode admits RN_FP32(lambda/alpha), one BF16 up-factor re-round and its effect on the
+    low-rank correction; alpha0 stays on the raw path.
+  cls: implementation
+- id: pre_order
+  expr: p.base_low_rank_accumulation_order_and_single_final_cast_explicit and p.bias_added_after_required_scaling
+  meaning: Base/correction accumulation and scaling order are bound; bias is not multiplied by the common
+    base scale.
+  cls: implementation
+- id: pre_snapshot
+  expr: placement != 'prepared_up_fold' or (p.folded_up_alpha_lambda_same_prepared_generation and p.parameter_changes_refold_before_any_consumer)
+  meaning: Folded U, alpha and lambda describe one immutable prepared snapshot; any changed weights/scalars
+    refold before use, including writes outside framework version tracking.
+  cls: implementation
+- id: pre_lifetime
+  expr: p.preparation_completes_before_gemm_and_no_refold_overlaps_live_readers and p.selected_mode_rank_target_and_resources_supported
+  meaning: Prepared writes publish before consumers, adapter switching waits for old readers, and backend/rank
+    geometry is supported.
+  cls: implementation
+- id: pre_numeric
+  expr: p.down_cast_base_quantization_correction_and_output_error_admitted
+  meaning: Down BF16 checkpoints, decoded base quantization and separate/fused corrections satisfy the
+    numerical contract.
+  cls: implementation
+program:
+  description: 'Let R be the base residual matrix product, D the down result and U the BF16[N,rank] up
+    factor. runtime_dual_scale computes Y=alpha*R+lambda*(D*U^T)+bias under the declared FP32 accumulation/scaling
+    order, followed by the single output cast. prepared_up_fold requires alpha!=0: compute rho=RN_FP32(lambda/alpha),
+    Uf=RN_BF16(FP32(U)*rho) once at preparation, retain its parameter snapshot, then compute Y=alpha*(R+D*Uf^T)+bias
+    with the declared base-first correction order and final output cast. The extra BF16 fold defines a
+    different admitted approximation. Refold Uf after every relevant U/lambda/alpha change; publication
+    and exclusive buffer lifetimes apply to in-place graph refolds too. Lambda0 may use a backend-defined
+    adapter-off branch. Alpha0 with a nonzero adapter is a raw dual-scale case, never a division-based
+    fold.'
+backward_map: Without factor rounding, distributivity gives alpha*(R+D*(lambda/alpha*U)^T)=alpha*R+lambda*D*U^T
+  for nonzero alpha. With stored BF16 Uf, retain the explicit factor error and native accumulation policy;
+  do not assert bitwise equality to raw scaling.
+obligations:
+- name: scale_identity
+  statement: The real nonzero-alpha identity and exactly-once common scaling preserve the intended low-rank
+    contribution and unscaled bias.
+  method: proof
+- name: fold_error
+  statement: FP32 ratio/product and one BF16 fold satisfy the admitted correction/output error, including
+    tiny/zero scalars.
+  method: test
+- name: snapshot_coherence
+  statement: The prepared factor matches the current parameter snapshot and is never refolded while consumers
+    read it.
+  method: test
+- name: input_channels
+  statement: The down path retains its declared original/smoothed activation and BF16 checkpoint rather
+    than the residual quantizer output.
+  method: test
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: p.rows >= 1 and p.outputs >= 1 and p.rank >= 1 and (p.quantized_base_decoder_and_low_rank_components_explicit
+    and p.base_down_up_coordinates_and_input_generation_match) and (p.alpha_lambda_finite_and_backend_scalar_range_admitted)
+    and (placement != 'prepared_up_fold' or (p.alpha_nonzero_and_fold_ratio_finite and p.single_bf16_fold_rounding_error_admitted))
+    and (p.base_low_rank_accumulation_order_and_single_final_cast_explicit and p.bias_added_after_required_scaling)
+    and (placement != 'prepared_up_fold' or (p.folded_up_alpha_lambda_same_prepared_generation and p.parameter_changes_refold_before_any_consumer))
+    and (p.preparation_completes_before_gemm_and_no_refold_overlaps_live_readers and p.selected_mode_rank_target_and_resources_supported)
+    and (p.down_cast_base_quantization_correction_and_output_error_admitted)
+  text: Source NVFP4 Cake prepared adapter on SM100/103 with ranks32/64/128; raw NVFP4/FP8 routes have
+    separate target menus. SVDQuant shares the folded L1/alpha epilogue on SM100 and SM120-family backends,
+    but full-chain preprocessing has its own numerical policy. FP8 prepared-adapter support is not implied.
+    Snapshot object/version checks do not detect arbitrary external writes; explicit refold is required.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Place low-rank adapter scale at runtime or pre-fold it relative to a common base-output scale.
+  storage: Raw BF16 factor or retained folded BF16 factor plus parameter generation.
+  boundary: Nonzero alpha for folding, new factor rounding, bias placement and snapshot coherence.
+  resources:
+  - tensor
+  - dram
+  - registers
+numeric_risk: Folding a ratio into a BF16 factor re-rounds every element and changes correction error/association.
+  A stale prepared factor can produce plausible but wrong outputs even with unchanged shapes/pointers.
+summary: When many GEMMs reuse one low-rank adapter and base scale, pre-fold lambda/alpha into its up
+  factor to share one final scale. Preserve raw independent scaling when factors change every call, alpha
+  may be zero, or the added BF16 fold is outside the admitted error policy. Bind preparation generation
+  and refold ordering explicitly.

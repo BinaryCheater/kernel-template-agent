@@ -1,0 +1,14 @@
+template: descriptor_union_completion_count@1
+version: 1
+relation: Replace the barrier arrival count by the number of actual unique issuing
+  CTA atoms whose engine completion the receiver joins.
+rank: Unprocessed source items or unmerged partials.
+assumes:
+- name: contract
+  statement: The stated partition, comparator/count and publication premises hold.
+guarantees: []
+models: []
+note: Source python/triton/experimental/gluon/language/nvidia/blackwell/__init__.py:665-700;
+  selected caller gluon/14-multicta.py:972-1028. The helper enumerates a finite set
+  and increments once after the first admitting descriptor, proving set-union cardinality.
+  Native commit routing is the separate incidence obligation.

@@ -1,0 +1,78 @@
+name: expected_observed_scale_pair
+version: 1
+level_from: 2
+level_to: 3
+change: vertical
+refines: store
+produces:
+- store
+- transfer
+- sync
+object:
+  type: expected_observed_scale_pair
+  description: Quantization consumes one immutable expected scale while separately
+    reducing an observed output scale.
+variables: []
+constraints: []
+preconditions:
+- id: pre0
+  expr: p.expected_scale_positive_finite_and_immutable and p.expected_scale_matches_decode
+  meaning: Current encoded values and decoder use the same retained expected scale.
+  cls: semantic
+- id: pre1
+  expr: p.observed_scale_initialized_and_domain_complete and p.observed_consumed_after_all_producers
+  meaning: Observed maximum has fresh state and is not consumed before all producing
+    CTAs complete.
+  cls: semantic
+- id: pre2
+  expr: p.exception_and_saturation_policy_explicit
+  meaning: NaN/Inf, epsilon, cast and optional saturation follow the requested recipe.
+  cls: semantic
+program:
+  description: Load expected scale once for the invocation and quantize each computed
+    value as value/expected_scale with the declared optional finite saturation/cast.
+    Independently track absmax of the unscaled computed values, map NaN to the source
+    exceptional statistic (+infinity), normalize that observed maximum by the format
+    finite maximum and source epsilon, and atomically maximize the observed-scale
+    destination. Never reinterpret a partial observed scale as the current encoding
+    scale. Future expected scale choice is an external policy after producer completion;
+    no history roll or same-invocation feedback is invented.
+backward_map: Decode current values with the immutable expected scale and expose a
+  separate complete statistic about their unscaled source values.
+obligations:
+- name: epoch_separation
+  statement: All values in this invocation use the same expected scale and observed
+    updates cannot change their encoding.
+  method: proof
+- name: statistic_complete
+  statement: Observed scale includes every valid source value once under the requested
+    exception/max policy before consumption.
+  method: test
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: (p.expected_scale_positive_finite_and_immutable and p.expected_scale_matches_decode)
+    and (p.observed_scale_initialized_and_domain_complete and p.observed_consumed_after_all_producers)
+    and (p.exception_and_saturation_policy_explicit)
+  text: Per-invocation expected scale plus independent observed max-statistic channel.
+    Source flexpoint supports optional scale pointers; finite input subgroup suffices
+    for ordinary numeric binding, exceptional policy is explicitly source-defined.
+    This is not quantization_scale_state_transition@1 history roll/reset.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Quantization consumes one immutable expected scale while separately reducing
+    an observed output scale.
+  storage: Binding-specific counters, partials or output ranges.
+  boundary: Tile prefixes and logical membership.
+  resources: []
+numeric_risk: Integer counts must not overflow; ordering/rounding policy belongs to
+  the bound operation.
+summary: When scaling predictions and measured dynamic range are separate, retain
+  the expected scale for current encoding and reduce an observed scale for later policy.
+  Producer CTAs may atomically update observations, but current values must not divide
+  by those partial updates. A future controller may choose another expected scale
+  only after the whole observation domain completes.

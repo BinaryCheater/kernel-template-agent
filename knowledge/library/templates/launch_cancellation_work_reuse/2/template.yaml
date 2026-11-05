@@ -1,0 +1,138 @@
+name: launch_cancellation_work_reuse
+version: 2
+level_from: 4
+level_to: 5
+change: vertical
+refines: work_assign
+produces:
+- work_assign
+- sync
+object:
+  type: cancelled_launch_work_owner
+  description: An active cooperative worker group takes exclusive ownership of a launch
+    group atomically cancelled before hardware dispatch.
+variables:
+- name: participants
+  kind: numeric
+  binding: compile
+  role: boundary
+  domain:
+    lo: 1
+    hi: 4096
+  meaning: Number of response-reader arrivals protecting the single shared cancellation
+    response before reuse.
+- name: coordinate_decode
+  kind: structure
+  binding: compile
+  role: software
+  domain:
+  - guarded
+  - speculative_nontrapping
+  meaning: Guard coordinate extraction or permit unobservable nontrapping extraction
+    while success still guards work.
+constraints:
+- id: c_readers
+  expr: participants == p.response_readers and p.response_slots == 1
+  meaning: This single-slot version waits for exactly the actual reader arrivals.
+  cls: semantic
+- id: c_backend
+  expr: p.cancel_removes_launch and p.success_ids_unique
+  meaning: A successful cancellation removes one not-yet-dispatched group and returns
+    an exclusively owned work identity.
+  cls: implementation
+preconditions:
+- id: pre_response
+  expr: p.stop_after_observed_failure and ((coordinate_decode == 'guarded' and p.success_checked_before_coordinates)
+    or (coordinate_decode == 'speculative_nontrapping' and p.failed_coordinate_extract_nontrapping
+    and p.success_guards_all_coordinate_uses))
+  meaning: Failed responses cannot cause work, address formation, another request
+    or traps; speculative extraction must be effect-free.
+  cls: implementation
+- id: pre_slot
+  expr: p.slot_published_before_read and p.slot_reused_after_all_readers
+  meaning: All participating roles see the same response before the producer can overwrite
+    it.
+  cls: semantic
+- id: pre_work
+  expr: p.independent_groups and p.group_decode_bijective and p.group_launch_fair
+  meaning: Independent native launch identities decode to the intended work groups
+    and remaining uncancelled groups eventually dispatch.
+  cls: semantic
+program:
+  description: 'A natively dispatched worker first processes its own launch group''s
+    work. Its controller acquires the one response slot and submits a cancellation
+    request for a not-yet-dispatched group. After asynchronous response completion,
+    readers first inspect success. On success only, decode the cancelled launch identity,
+    translate it to the cooperative group''s work and retain all local-role offsets;
+    release the response after every reader has finished and process that work. On
+    failure, terminate this worker''s reuse loop without decoding coordinates or issuing
+    another request after that failure is observed. Uncancelled pending groups retain
+    their native launch ownership. Version2: speculative_nontrapping may extract coordinates
+    from the completed response before the success branch only when that extraction
+    is nontrapping and has no observable effect. The success result must dominate
+    every coordinate-dependent work/address use; on failure exit without using those
+    values. Otherwise preserve the guarded version1 sequence.'
+backward_map: Replace each successfully cancelled identity's reused iteration by the
+  native launch group it removed; preserve each logical group's work and erase responses
+  and worker reuse.
+obligations:
+- name: exclusive_owner
+  statement: Every launch identity is either natively dispatched or successfully cancelled
+    once and assigned to exactly one active worker group.
+  method: exhaustive
+- name: response_lifetime
+  statement: Every required role observes the same completed response before its shared
+    slot is overwritten.
+  method: test
+- name: failure_guard
+  statement: No failed response triggers coordinate-dependent work or another cancellation;
+    any speculative coordinate extraction is nontrapping and unobservable.
+  method: exhaustive
+- name: target_progress
+  statement: Backend cancellation and native dispatch implement the stated ownership
+    and fairness premises for the selected launch.
+  method: unspecified
+effects:
+  transactions: []
+  storage:
+  - id: response
+    level: smem
+    scope: cta
+    bytes: p.response_bytes
+  overlap: []
+scope:
+  predicate: (participants == p.response_readers and p.response_slots == 1) and (p.cancel_removes_launch
+    and p.success_ids_unique) and (p.stop_after_observed_failure and ((coordinate_decode
+    == 'guarded' and p.success_checked_before_coordinates) or (coordinate_decode ==
+    'speculative_nontrapping' and p.failed_coordinate_extract_nontrapping and p.success_guards_all_coordinate_uses)))
+    and (p.slot_published_before_read and p.slot_reused_after_all_readers) and (p.independent_groups
+    and p.group_decode_bijective and p.group_launch_fair)
+  text: 'Finite launches of cooperative work groups that may reuse an active worker
+    to process a group cancelled before native dispatch. Cancellation ownership differs
+    from a software atomic-counter queue: failed cancellation need not imply that
+    every pending group is absent. Native launch remains responsible for uncancelled
+    work. This version has one response slot, all-reader release and no speculative
+    queries following an observed failure. Physical launch count and latency are unpriced.
+    Version2 retains version1 by coordinate_decode=guarded and adds only effect-free
+    nontrapping extraction whose coordinate uses remain success-guarded. Native accessor
+    behavior must establish that premise; source syntax alone does not.'
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Reuse an active worker for an exclusively cancelled not-yet-dispatched
+    launch group.
+  reuse: Active group resources survive across multiple logical launch identities.
+  storage: One shared response protected until all readers release it.
+  boundary: Requires successful-response coordinate guards and target cancellation
+    semantics.
+  resources:
+  - issue
+  - smem
+numeric_risk: Reassigns independent cooperative groups; within-group reduction and
+  arithmetic ordering remain separate.
+summary: When cancellation response extraction is separable from work dispatch, keep
+  successful ownership as the only permission to use returned coordinates. Version2
+  allows speculative extraction only if it cannot trap or affect observations and
+  the success flag guards all coordinate uses. Version1 maps to coordinate_decode=guarded;
+  failure still terminates the reuse loop.

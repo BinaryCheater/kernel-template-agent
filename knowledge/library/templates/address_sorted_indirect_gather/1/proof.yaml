@@ -1,0 +1,15 @@
+{
+  "template": "address_sorted_indirect_gather@1",
+  "version": 1,
+  "relation": "After every completed request j, output[perm[j]] equals decode(source[ids[perm[j]]]); all pending slots remain distinct.",
+  "rank": "Number of pending original request slots.",
+  "assumes": [
+    {
+      "name": "immutable",
+      "statement": "Reads use one immutable source generation and per-row decode is unchanged; each original output slot is distinct."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "A sort returns a permutation even with equal IDs. Uniqueness of original positions makes output scatter conflict-free. Substituting sorted_ids[j]=ids[perm[j]] recovers original outputs. Sorting does not prove hardware CTA execution order, fewer page walks or speed. Source ops/embeddings/engram_gather.py:23\u201352,55\u2013101. Closest block_rasterization@1 has a fixed rectangular swizzle menu and no data-dependent inverse request map. Bounded duplicate/tie replay recorded in checks/gather_order.json; pointer accessibility/native decode remain open."
+}

@@ -1,0 +1,32 @@
+template: score_replication_or_exchange@1
+version: 1
+relation: Both score-supply organizations produce complete-key normalized contractions for the same two
+  disjoint output-feature slices under the declared arithmetic policy.
+rank: Remaining key tiles.
+assumes:
+- name: scores
+  statement: All latent/rope score terms and masks are identical and complete before exponentiation.
+- name: frames
+  statement: Replicas have matching complete row states; sharded states agree on the common reference
+    before forming or exchanging P.
+- name: weights
+  statement: Both paths use the declared T cast and rounded-weight mass policy with admitted association.
+- name: ownership
+  statement: Each output feature has one owner and every owner contracts all keys; exchange and aliased
+    storage lifetimes are legal.
+guarantees: []
+models: []
+note: For one common frame let P_j=cast_T(exp(score_j-reference)). The key halves partition sum(P_j) and
+  sum(P_j*V_jf), so their mass sum equals either replica full mass. Both output owners already contract
+  the full key range, hence feature concatenation reconstructs the same complete output. On a reference
+  change each prior numerator and mass receives c before new terms, preserving this relation inductively
+  up to admitted rounding. Combining two full replica masses instead gives twice the denominator; consuming
+  only the owner former key half loses terms. Source attention/mla.cuh:77-133 defines two groups, :497-578
+  updates replicated/common maxima and old states, :615-747 casts P, accumulates rounded-weight mass,
+  exchanges only sharded P and combines only sharded masses. :1216-1277 derives stage/key/shard choices
+  from the memory regime and forces FP8 KV to 32 keys with unsharded QK. attention_value_axis_partition@1
+  fixes four owners and chooses full-value key partials versus disjoint value outputs; it has no complete-score
+  replication alternative and cannot supply this choice. softmax_probability_recomputation@1 recreates
+  weights in backward from a saved normalization checkpoint, not concurrent duplicate forward score production.
+  The logical witness checks feature coverage, common-frame streamed mass, duplicate replica denominator
+  and incomplete key reads; native fragment/barrier/alias and rounded-P error evidence remain open.

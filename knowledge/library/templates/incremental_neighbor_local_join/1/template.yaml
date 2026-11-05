@@ -1,0 +1,96 @@
+{
+  "name": "incremental_neighbor_local_join",
+  "version": 1,
+  "level_from": 2,
+  "level_to": 3,
+  "change": "vertical",
+  "refines": "map",
+  "produces": [
+    "map",
+    "access"
+  ],
+  "object": {
+    "type": "incremental_neighbor_local_join",
+    "description": "When a neighbor graph changes incrementally, compare new-new and new-old neighborhoods while avoiding repeated old-old joins, then merge candidate updates under destination ownership."
+  },
+  "variables": [
+    {
+      "name": "sample_capacity",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": [
+        32,
+        64
+      ],
+      "meaning": "Bounded sampled forward/reverse neighborhood per source binding; limits search coverage, not merely storage."
+    }
+  ],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_0",
+      "expr": "p.new_old_partition_defined and p.sample_ids_unique",
+      "meaning": "New and old sampled candidates have defined provenance and duplicates are removed before joining.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_1",
+      "expr": "p.old_old_revisit_not_required and p.approximate_graph_contract",
+      "meaning": "Graph-construction algorithm permits omitting previously processed old-old candidate pairs.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_2",
+      "expr": "p.distance_policy_defined and p.graph_merge_serialized",
+      "meaning": "SIMT/tensor or quantized score contract is explicit; competing destination neighbor updates use required exclusion/publication.",
+      "cls": "semantic"
+    }
+  ],
+  "program": {
+    "description": "For each pivot gather forward/reverse sampled new and old neighbors into separate shared lists and remove duplicates. Tile source features or codes once, compute new-new pair distances and new-old pair distances, exclude self edges, then offer improving neighbors to destination graph lists. Mark/age newly processed entries for future iterations. Reuse existing old-old work rather than rebuilding all pairs. A destination segment lock serializes loads, sorted insertion/deduplication and stores of competing candidate updates; release only after publication."
+  },
+  "backward_map": "Erase auxiliary organization and recover the visible results under the stated contract.",
+  "obligations": [
+    {
+      "name": "candidate_pairs",
+      "statement": "Visited join pairs match new-new/new-old sampled sets, preserving pair identities and excluding self edges.",
+      "method": "proof"
+    },
+    {
+      "name": "distance",
+      "statement": "Every score matches the declared precision/quantized metric, with padding excluded.",
+      "method": "proof"
+    },
+    {
+      "name": "merge",
+      "statement": "Concurrent updates cannot lose an accepted edge or violate destination list ordering/duplicate policy.",
+      "method": "proof"
+    },
+    {
+      "name": "coverage_scope",
+      "statement": "Sampling/aging omissions are admitted graph-construction approximation, not exact kNN proof.",
+      "method": "proof"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.new_old_partition_defined and p.sample_ids_unique and p.old_old_revisit_not_required and p.approximate_graph_contract and p.distance_policy_defined and p.graph_merge_serialized",
+    "text": "NVIDIA NN-descent graph construction with bounded samples. SIMT retains input dtype then float arithmetic; FP16 WMMA converts operands and accumulates float; quantized bitwise/dp4a/u4 paths require their own decoder/factor mapping. These are score-policy variants, not automatically numerically equivalent. Resource effects: Gathered sample tile shared across O(sample_capacity^2) comparisons, avoiding old-old repeated pair work; segment locks and sampled graph state add storage/synchronization. No convergence/recall guarantee from local join alone."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "When a neighbor graph changes incrementally, compare new-new and new-old neighborhoods while avoiding repeated old-old joins, then merge candidate updates under destination ownership.",
+    "storage": "Gathered sample tile shared across O(sample_capacity^2) comparisons, avoiding old-old repeated pair work; segment locks and sampled graph state add storage/synchronization. No convergence/recall guarantee from local join alone.",
+    "boundary": "New{2,5},old{7} examines pair(2,5),(2,7),(5,7) and excludes pivot/self. Dropping(5,7) misses a new-old opportunity; reusing old-old is valid only under the algorithm provenance premise.",
+    "resources": []
+  },
+  "numeric_risk": "Preserve the supplied arithmetic contract; reassociation, quantization and approximate search require separate permission.",
+  "summary": "When a neighbor graph changes incrementally, compare new-new and new-old neighborhoods while avoiding repeated old-old joins, then merge candidate updates under destination ownership. New{2,5},old{7} examines pair(2,5),(2,7),(5,7) and excludes pivot/self. Dropping(5,7) misses a new-old opportunity; reusing old-old is valid only under the algorithm provenance premise."
+}

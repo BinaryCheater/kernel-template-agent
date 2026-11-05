@@ -1,0 +1,156 @@
+name: reverse_affine_boundary_transport
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: scan
+produces:
+- map
+- contract
+- sync
+object:
+  type: distributed_affine_recurrence_adjoint_boundaries
+  description: Resolve the future boundary adjoint of each fragment through reverse affine summaries,
+    using head-owner exchange or bounded neighbor hops.
+variables:
+- name: boundary_transport
+  kind: structure
+  binding: compile
+  role: software
+  domain:
+  - head_owner_exchange
+  - neighbor_hops
+  meaning: Gather summaries to a head owner for reverse ordered chains and scatter boundaries, or propagate
+    completed adjoints along document predecessor hops.
+- name: transfer_source
+  kind: structure
+  binding: compile
+  role: software
+  domain:
+  - saved_forward_map
+  - resent_local_map
+  meaning: Owners reuse matching forward transfer tiles, or local fragments reconstruct and send maps
+    with their backward offsets. Neighbor hops require the local-map form.
+constraints:
+- id: c_hops
+  expr: p.max_document_rank_hops >= 0
+  meaning: Maximum predecessor links in a document chain is nonnegative.
+  cls: implementation
+preconditions:
+- id: pre_affine
+  expr: p.fragment_forward_map_and_zero_exit_adjoint_offset_explicit
+  meaning: Each fragment has S_out=M_f*S_in+B_f in column-state convention. Its local backward with zero
+    exit adjoint gives d_f, so its entry adjoint is M_f^T*lambda_out+d_f. The source document terminal
+    adjoint is zero.
+  cls: semantic
+- id: pre_order
+  expr: p.document_fragment_order_head_ownership_and_predecessor_maps_complete
+  meaning: Chronological fragment chains and their reverse predecessor maps are complete, disjoint per
+    document/head and independent of rank numbering. Owner capacity padding is never a live head.
+  cls: implementation
+- id: pre_maps
+  expr: p.transfer_orientation_and_generation_match_backward_fragment
+  meaning: Saved forward M_f^T or resent backward M_f storage must resolve the same mathematical M_f^T
+    operator, with explicit load orientation, matching local inputs and numeric generation.
+  cls: implementation
+- id: pre_numeric
+  expr: p.summary_and_transposed_chain_numeric_contract_admitted
+  meaning: Zero-seed local reverse summaries and native FP32/TF32 stages implement the declared adjoint
+    approximation. Exact affine algebra does not establish bitwise agreement with a reassociated sequential
+    backward.
+  cls: implementation
+- id: pre_owner
+  expr: boundary_transport != 'head_owner_exchange' or p.owner_collective_splits_order_and_progress_valid
+  meaning: Owner mode sends local adjoint summaries to head owners, waits before merging, then returns
+    the exclusive exit adjoint to each preceding fragment. All ranks including empty head owners use matching
+    collective order and compact split sizes.
+  cls: implementation
+- id: pre_ring
+  expr: boundary_transport != 'neighbor_hops' or (p.max_document_rank_hops <= 2 and transfer_source ==
+    'resent_local_map' and p.document_neighbor_hop_tables_and_p2p_progress_valid)
+  meaning: Source neighbor-hop mode is restricted to documents spanning at most three ranks, with local
+    maps available for each hop and save_transfer disabled. Hop count follows document neighbors, not
+    a cyclic rank permutation.
+  cls: implementation
+- id: pre_lifetime
+  expr: p.summary_reads_and_exit_adjoint_consumers_ordered_before_storage_reuse
+  meaning: Wait before consuming received data, publish each boundary before local tape walks and retire
+    transport/map storage after its last reader. Overlapped document-end walks run exactly once; their
+    aliased value-adjoint updates are not idempotent.
+  cls: implementation
+- id: pre_scope
+  expr: p.selected_target_partition_and_transport_paths_implemented
+  meaning: Selected backend implements the partition, local segment carries, head groups, exchange and
+    summary layout. No crossing fragments requires no boundary exchange; it still performs local backward.
+  cls: implementation
+program:
+  description: For each document/head, form d_f by running local reverse recurrence with zero exit adjoint.
+    The actual entry adjoint is M_f^T*lambda_out+d_f. With head_owner_exchange, send d_f and, unless already
+    saved at that owner, matching transfer maps. Wait before reads. Starting at the final fragment offset
+    d_last (terminal exit adjoint zero), walk fragments in reverse chronological order, publishing the
+    current accumulated adjoint as the exit adjoint of each predecessor before applying that predecessor
+    map/offset. Scatter those boundaries back and wait before local seeded reverse walks. A two-fragment
+    document needs only the last offset, not its unused transfer. With neighbor_hops, the last fragment
+    sends d_last to its document predecessor; at each later hop the receiving fragment applies its own
+    M_f^T*lambda_out+d_f and sends to its predecessor. Enforce the supported hop bound and local map availability.
+    Fragments at document ends use zero exit seeds and can execute their tape walks while transport runs,
+    exactly once. Interior local subsegment adjoints are reconstructed in reverse order from their boundary,
+    with the same map orientation. Preserve document/head identity and matching generation through every
+    pool offset; holes and padded heads are not consumed.
+backward_map: Substitute each fragment affine adjoint map into the reverse document chain. The returned
+  boundary for fragment f is exactly the adjoint produced by all fragments strictly after f; applying
+  its own local seeded reverse walk then recovers its full contribution. Both transport organizations
+  preserve this noncommutative order.
+obligations:
+- name: transpose_chain
+  statement: Reverse summary composition is the transpose pullback of chronological forward maps, with
+    local d_f injection and exclusive future boundary seeds.
+  method: proof
+- name: boundary_placement
+  statement: Every returned boundary reaches the correct predecessor/document/head and no padded owner
+    slot is consumed.
+  method: test
+- name: transport_progress
+  statement: Owner collectives or bounded document-neighbor hops have matching sends/receives, supported
+    progress and waits before reads.
+  method: test
+- name: numeric_and_lifetime
+  statement: Map orientation, FP32/TF32 stages, generation and once-only aliased tape walks satisfy the
+    native numeric and last-reader contract.
+  method: test
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: (p.max_document_rank_hops >= 0) and (p.fragment_forward_map_and_zero_exit_adjoint_offset_explicit)
+    and (p.document_fragment_order_head_ownership_and_predecessor_maps_complete) and (p.transfer_orientation_and_generation_match_backward_fragment)
+    and (p.summary_and_transposed_chain_numeric_contract_admitted) and (boundary_transport != 'head_owner_exchange'
+    or p.owner_collective_splits_order_and_progress_valid) and (boundary_transport != 'neighbor_hops'
+    or (p.max_document_rank_hops <= 2 and transfer_source == 'resent_local_map' and p.document_neighbor_hop_tables_and_p2p_progress_valid))
+    and (p.summary_reads_and_exit_adjoint_consumers_ordered_before_storage_reuse) and (p.selected_target_partition_and_transport_paths_implemented)
+  text: FlashInfer deterministic KCP GDN SM100/103/107, 128-key/value state and grouped Q/K heads, with
+    zero document terminal adjoint. Head-owner all-to-all supports saved or reconstructed maps; source
+    ring requires n_d_max-1<=2 and save_transfer=False. This rule describes distributed boundary propagation,
+    not arbitrary network collectives or a hardware performance claim. Exact tests establish affine/order
+    identities; native transport progress and numerical equality remain implementation obligations.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Resolve recurrent training exit adjoints by a reverse affine chain of transposed forward
+    maps and zero-exit local offsets.
+  storage: Owner summary/return pools or hop staging, with saved transposed forward maps or resent local
+    maps.
+  boundary: Document predecessor order, exclusive future adjoints, head owner padding, orientation and
+    last-reader lifetime.
+  resources:
+  - dram
+  - registers
+  - tensor
+numeric_risk: A missing transpose, chronological rather than reverse map order, stale transfer or wrong
+  predecessor produces incorrect gradients. FP32 affine chains are not automatically bitwise equivalent
+  to sequential local backward.
+summary: When recurrent training spans rank fragments, summarize each local backward with zero future
+  adjoint and use transposed forward maps to transport future contributions backward. Choose owner gather/chain/scatter
+  or a supported short neighbor chain; preserve predecessor identity, exclusive seeds and map generations.

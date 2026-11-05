@@ -1,0 +1,19 @@
+template: ordered_slot_wait_coalescing@1
+version: 1
+relation: A successful latest-credit wait certifies every slot in the pending batch is free, while each produced item keeps its own readiness/generation event.
+rank: Remaining batches, then remaining item publications.
+assumes:
+  - {name: prefix, statement: Returned later credits imply all earlier old readers retired and one producer owns consecutive indices.}
+  - {name: ring, statement: "Batch width fits capacity, initial slots are empty and waits identify exact wrap generations."}
+  - {name: protocol, statement: Consumer readiness/release is unchanged and partial tails wait only for the last actual item.}
+guarantees: []
+models: []
+note: >-
+  For batch indices a..q, each old slot user has index i-stages<=q-stages. Waiting
+  on q's old user therefore retires them all by the prefix premise. Distinct batch
+  slots follow from width<=stages. Publishing each item separately preserves the
+  original consumer trace; reinserting the earlier waits changes nothing. Replay
+  covers paired/odd streams across wrap capacities and preserves a counterexample
+  with a later old reader retired while an earlier one remains live. Source clone/
+  advance and tail structure is retained, but native tcgen05/empty-credit ordering
+  must still discharge the premise. No native progress or timing claim is made.

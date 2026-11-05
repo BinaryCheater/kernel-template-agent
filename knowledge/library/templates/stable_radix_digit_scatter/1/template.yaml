@@ -1,0 +1,97 @@
+name: stable_radix_digit_scatter
+version: 1
+level_from: 2
+level_to: 3
+change: vertical
+refines: map
+produces:
+- map
+- store
+object:
+  type: stable_radix_digit_scatter
+  description: One stable digit partition using global bin bases, per-tile count prefixes
+    and local stable ranks.
+variables:
+- name: digit_bits
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 1
+    hi: 65536
+  meaning: Bits in one digit pass; legal source menu is backend-specific.
+- name: count_schedule
+  kind: structure
+  binding: compile
+  role: software
+  domain:
+  - separate_upsweep
+  - onesweep_lookback
+  meaning: Precompute per-tile digit prefixes or publish them with online lookback.
+constraints: []
+preconditions:
+- id: pre0
+  expr: p.key_twiddle_order_preserving and p.local_digit_ranks_stable and p.payload_follows_key
+  meaning: Ordered key transform and stable local ranks preserve key/payload identity.
+  cls: semantic
+- id: pre1
+  expr: p.bin_totals_exact and p.tile_digit_prefix_exact and p.counts_fit
+  meaning: Global bin bases and earlier-tile bin counts are exact.
+  cls: semantic
+- id: pre2
+  expr: p.output_capacity_sufficient and p.tail_items_excluded and p.count_publication_visible
+  meaning: All destinations exist and invalid tile items cannot appear as real keys.
+  cls: semantic
+program:
+  description: For each digit bin b compute global base(b)=sum counts of smaller bins.
+    Each tile computes its stable rank within bin and bin count. Destination of item
+    x in tile t is base(b)+sum_{u<t} count(u,b)+rank_within_bin(x). Source may sort
+    into shared memory by full local rank then subtract the tile-local digit base
+    from the global offset. Separate upsweep materializes count prefixes; onesweep
+    publishes PARTIAL digit counts, looks back to a COMPLETE prefix and then scatters
+    within the same pass. The onesweep full-tile all-one-bin shortcut skips local
+    ranking/scatter rearrangement but still completes count-prefix publication. Repeating
+    stable passes from least to most significant digit sorts the complete transformed
+    key.
+backward_map: 'Erase count tables and scatter order: outputs are a stable partition
+  by this digit, and repeated LSD passes give full transformed-key order.'
+obligations:
+- name: position_bijection
+  statement: Per-bin output intervals and stable within-bin ranks give unique complete
+    destinations.
+  method: proof
+- name: prefix_visibility
+  statement: Online prefixes read completed matching counts and keep tile order.
+  method: test
+- name: payload_stability
+  statement: Equal digits preserve original logical order and values follow the same
+    key permutation.
+  method: test
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: (p.key_twiddle_order_preserving and p.local_digit_ranks_stable and p.payload_follows_key)
+    and (p.bin_totals_exact and p.tile_digit_prefix_exact and p.counts_fit) and (p.output_capacity_sufficient
+    and p.tail_items_excluded and p.count_publication_visible)
+  text: Fixed-width ordered keys, stable digit ranks, bounded counters and initialized
+    output. Onesweep lookback progress/publication is a separate backend obligation;
+    availability is not a speed claim.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: One stable digit partition using global bin bases, per-tile count prefixes
+    and local stable ranks.
+  storage: Binding-specific counters, partials or output ranges.
+  boundary: Tile prefixes and logical membership.
+  resources: []
+numeric_risk: Integer counts must not overflow; ordering/rounding policy belongs to
+  the bound operation.
+summary: When integer or transformed scalar keys can be sorted by digits, scatter
+  through bin base plus earlier-tile count plus local rank. Choose separate count/scatter
+  launches or online onesweep publication. For digits [1,0,1] in tile0 and [0,1] in
+  tile1, digit0 owns output positions0,1 and digit1 owns2,3,4 in original within-bin
+  order. A homogeneous full tile can copy directly only after preserving its count-prefix
+  effects.

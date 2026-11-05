@@ -1,0 +1,15 @@
+{
+  "template": "tree_navigation_materialization@1",
+  "version": 1,
+  "relation": "Reconstruct parent from child/sibling membership or the greatest earlier ancestor. Exact tree edges and ancestry are unchanged, so both navigation and visibility observe the same rooted histories and original identities.",
+  "rank": "Unprocessed valid positions or nodes.",
+  "assumes": [
+    {
+      "name": "input",
+      "statement": "All stated domain, index and ownership premises hold."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "A valid parent chain has a unique finite root path. With parents before children, its greatest proper ancestor is its immediate parent. The first later descendant must be a child because that descendants own child-ancestor would otherwise appear earlier. Reverse prepending lists each parents children in increasing index. Thus parent, ancestry and child/sibling projections invert on this domain. Host exhaustive topological trees through8 nodes are in checks/navigation.json; native candidate-ID lookup and initialized mask bytes remain realization obligations."
+}

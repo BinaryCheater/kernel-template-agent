@@ -1,0 +1,14 @@
+template: indexed_descriptor_row_transfer@1
+version: 1
+relation: Resolve every row index and column offset to the original logical global
+  coordinate; dense result rows retain their occurrence identity.
+rank: Unprocessed source items or unmerged partials.
+assumes:
+- name: contract
+  statement: The stated partition, comparator/count and publication premises hold.
+guarantees: []
+models: []
+note: Source python/tutorials/gluon/09-tma-gather-scatter.py:190-238,:245-277,:355
+  onward. The coordinate equation is direct; the source explicitly distinguishes zero-filled
+  gather from negative-coordinate illegal scatter. Row-layout and native completion
+  remain device obligations.

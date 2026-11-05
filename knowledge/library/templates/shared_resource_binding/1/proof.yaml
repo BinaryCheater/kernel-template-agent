@@ -1,0 +1,15 @@
+template: shared_resource_binding@1
+version: 1
+relation: "a location read through the inverse bank map holds the logical element; arbitration order does not change values"
+rank: "requests not yet served"
+assumes:
+  - {name: bounded_arbitration, statement: "the bank arbiter grants every waiting request within a bounded number of cycles"}
+  - {name: queue_exists, statement: "the hardware request queue has at least one entry", expr: "hw.smem_queue_depth >= 1"}
+guarantees: []
+models:
+  - {obligation: bijective_binding, condition: step, model: bank_map,
+     params: {binding: binding, maps: {identity: identity, xor_swizzle: xor, padding: pad},
+              property: permutation, chunks: [2, 4, 8], rows: 16}}
+  - {obligation: no_deadlock_progress, condition: progress, model: queue_progress,
+     params: {depth: queue_depth, max_depth: 4, requesters: 3, requests: 2}}
+note: "conflict_freedom is a performance assumption checked by tests and SASS, not a correctness proof."

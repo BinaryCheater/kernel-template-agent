@@ -1,0 +1,30 @@
+template: numerator_weight_gain@1
+version: 1
+relation: The final value is the original normalized weighted contraction plus admitted quantization and
+  arithmetic errors, with unchanged denominator/LSE semantics.
+rank: Remaining contracted weights.
+assumes:
+- name: frame
+  statement: The actual row reference, zero masks and positive/empty mass cases are defined.
+- name: gain
+  statement: One positive finite G applies to all live numerator terms and is compensated once.
+- name: mass
+  statement: d sums ungained weights before quantization.
+- name: numeric
+  statement: The caller admits the selected quantization, reference corrections and finite-precision error
+    budget.
+guarantees: []
+models: []
+note: Write Q(G*w_j)=G*w_j+delta_j. In one frame, A/(G*d)=sum(w_j*V_j)/d + sum(delta_j*V_j)/(G*d), plus
+  accumulation/division error. A constant value scale multiplies both contributions; a varying scale cannot
+  be taken outside the key sum. On each frame change old A and d receive the same correction, while fresh
+  P alone receives G. Induction preserves the gained-numerator and ungained-mass relation, transporting
+  previous rounding residuals with the old state. G is absent from LSE because d was never gained. online_rescaled_reduction@2
+  instead applies a common gain to numerator and denominator and subtracts log(G) from its LSE; binding
+  that field here would change the normalizer. shifted_weight_checkpoint@1 saves tile references/weights
+  for later decoding and has no gained-PV accumulator or inverse-gain finalization choice. Source hopper/variants.cuh:129-166
+  sets G=format maximum and final Vscale/G; quantization/mainloop_mma.cuh:120-130 updates row state before
+  PQuantize and :264-276 finalizes with scale_pv. attention_updater.cuh:180-243 retains ungained row sums.
+  Classic prefill.cuh:3952-3965,4231 binds 256 and its reciprocal. Logical checks distinguish original-mass
+  normalization from quantized-mass renormalization, missing/double compensation and frame changes. Native
+  FP8 casts, exponent approximations, permutations and error bounds remain implementation obligations.

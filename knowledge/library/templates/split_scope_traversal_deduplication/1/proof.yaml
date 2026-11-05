@@ -1,0 +1,15 @@
+{
+  "template": "split_scope_traversal_deduplication@1",
+  "version": 1,
+  "relation": "Every globally claimed parent has at most one expanding CTA for this query; local candidate visitation can be reset only under its declared frontier-reseed policy and is not a global ownership set.",
+  "rank": "Remaining bounded search iterations and finite candidate claims within each iteration; no unbounded hash insertion is admitted.",
+  "assumes": [
+    {
+      "name": "source_contract",
+      "statement": "Approximate NVIDIA graph search: this preserves selected traversal ownership, not exact global nearest-neighbor recall or deterministic exploration order. Search width, retained size, iteration budget and random seeds change explored candidates and are separate algorithm parameters."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Source-derived proof outline; no formal proof result or GPU execution claimed. ownership: At most one CTA expands a given parent per query. local_reset: Reset local visited state only after its users finish and rebuild retained entries before next insertion. identity: Strip marker bits before dataset access and preserve invalid sentinel distinction. termination: Finite iteration bounds and sufficient hash space prevent unbounded search/insertion. The relation is a proposed source-level invariant; the stated finite-work rank depends on the explicit environment progress assumptions. Device ordering and numeric premises have not been discharged by schema validation."
+}

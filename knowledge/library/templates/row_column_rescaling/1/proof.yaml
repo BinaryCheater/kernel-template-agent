@@ -1,0 +1,18 @@
+template: row_column_rescaling@1
+version: 1
+relation: The fine matrix at each stage equals the requested finite policy's matrix after the same completed row/column stages under the admitted arithmetic.
+rank: Remaining normalization stages then remaining row or column entries in the active stage.
+assumes:
+  - {name: numerical_domain, statement: Initial logits and all requested denominators are finite and every denominator is positive.}
+  - {name: admitted_arithmetic, statement: The caller admits the selected exponential and reciprocal approximations and sum order.}
+guarantees: []
+models: []
+note: >-
+  Initialization retains the logits. Exact row/column membership gives each reduction the
+  required four entries. Applying the specified stage preserves the relation; subtracting
+  the row maximum implements the initial stable softmax. A positive finite denominator
+  makes each division defined. The stage count decreases and after the last column stage
+  completion returns the requested finite state. checks/mhc_values.py compares the source's
+  lane8..23 layout and XOR4/24 column tree with an independent4x4 matrix interpreter,
+  including first-stage epsilon and iteration-count counterexamples. This scalar replay
+  does not certify CUDA fast math or prove convergence. No proof model is registered.

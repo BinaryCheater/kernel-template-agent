@@ -1,0 +1,15 @@
+{
+  "template": "donor_seeded_centroid_reinitialization@1",
+  "version": 1,
+  "relation": "Each reseeded receiver center equals its selected donor perturbation while labels/counts remain the previous complete assignment until prediction replaces them.",
+  "rank": "Unprocessed receivers and finite donor searches, then remaining capped assignment iterations.",
+  "assumes": [
+    {
+      "name": "source_contract",
+      "statement": "NVIDIA balanced KMeans reseed heuristic, including random above-average and sorted-extreme donor policies. Lower/upper tolerances and offset affect cluster quality; they do not establish a hard per-cluster capacity invariant."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Source-derived proof outline; no formal proof result or GPU execution claimed. generation: Selection counts and donor labels describe the same assignment generation. write_ownership: One receiver update does not race a read of its center as a donor in the selected policy. membership: Center reseeding is never reported as an immediate transfer of assigned points. termination: Finite donor attempts and clustering iteration cap terminate without a strict-balance guarantee."
+}

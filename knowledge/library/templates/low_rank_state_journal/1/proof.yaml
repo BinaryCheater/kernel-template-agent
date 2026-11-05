@@ -1,0 +1,56 @@
+template: low_rank_state_journal@1
+version: 1
+relation: Expand the journal projection and checkpoint fold; distributivity yields the same declared virtual
+  state before and after rebase. Current correction prefixes are causal and independent of later draft
+  suffixes, so publishing only a entries gives the accepted state. Folding is a representation change
+  of old accepted history, not acceptance of current drafts.
+rank: Journal terms not yet related to their declared virtual checkpoint state.
+assumes:
+- name: pre_state
+  statement: A V-major represented state is a base checkpoint plus ordered scalar-decayed rank-one corrections.
+    Each u_j was computed against the same preceding virtual state from its matching generation; u is
+    not raw V and cannot be recomputed from another checkpoint without replaying feedback.
+- name: pre_frames
+  statement: Store normalized keys k, correction vectors u and cumulative log gates G relative to the
+    current checkpoint. G_j includes decay through insertion j. Empty history has G_anchor0 and no live
+    contributions; invalid slots are masked before exponentiation, not by multiplying stale data by zero
+    afterward. Inactive K/U lanes must remain finite (for example from zero-initialized finite ring records)
+    or be explicitly zeroed before MMA; a zero weight does not sanitize NaN/Inf payloads.
+- name: pre_retention
+  statement: P entries are previously accepted history. T draft corrections append speculatively; accepting
+    a consecutive a in[0,T] publishes only that prefix, leaving stale suffix entries outside the live
+    window. Diagnostic acceptance counts cannot replace a.
+- name: pre_ring
+  statement: A shared32-slot physical ring has live length0..16, base0..31, and logical row j maps to(base+j)%32.
+    Appends target(base+P+s)%32 for0<=s<T, always after the old window and disjoint from all old-window
+    readers across grouped value heads.
+- name: pre_ownership
+  statement: Per-request mutable slots are unique, value-head u/G/checkpoint slices are disjoint, shared
+    normalized-key rows have one elected writer, and all readers agree on the same key-group/head mapping
+    and generation.
+- name: pre_flush
+  statement: When P>=flush_min, fold exactly old P entries into the checkpoint, not current drafts. New
+    draft entries still append after old P, but their G values restart from zero relative to the folded
+    checkpoint. Without flush, new G includes old anchor G_P.
+- name: pre_cursor
+  statement: 'Kernel bodies observe unchanged old base/P. After every layer/head completes, commit cursors
+    once: flushed base becomes(base+P)%32 and len=a; nonflushed base stays and len=P+a. No layer commits
+    shared cursors early; future verify waits for complete checkpoint/journal publication.'
+- name: pre_numeric
+  statement: Normalization stage, stored k/u/G precision, exp differences, scalar weighting, MMA products,
+    checkpoint rounding and optional stochastic state rounding have an explicit admitted recipe. Mathematical
+    representation equivalence is not native bitwise equality across folds/backends.
+- name: pre_backend
+  statement: Selected target supports T and chosen ring/state dtypes and rounding mode. This first binding
+    is T4/8, logical window16 and physical32, with flush_min<=17-T. UMMA broader T/mixed-u/stochastic-rounding
+    menus require their own numeric/RNG binding.
+guarantees: []
+models: []
+note: gdn_decode_bf16_wy_ucache_flush.py:1412-1458 reads immutable cursor snapshot and actual pool strides;1788-1846
+  computes masked weights/bdec and flush-local draft gate frame;1892-1940 appends normalized keys after
+  old window with one key-group writer;2358-2394 snapshots old keys before shared-buffer reuse;2985-3060
+  forms weighted-u fold and checkpoint epilogue. :3298-3348 defines caller-owned accepted cursor semantics
+  and backend numeric menu;3855-3865 standalone convenience moves base/resets old length only and does
+  not perform accepted-prefix advancement. Source comments copied from16-slot sibling are not current32-slot
+  layout evidence. Logical tests cover all bases/live lengths/legal thresholds/acceptance prefixes and
+  virtual-state/fold identities; native mixed-precision and publication remain separate obligations.

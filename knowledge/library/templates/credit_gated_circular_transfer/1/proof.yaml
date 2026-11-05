@@ -1,0 +1,15 @@
+{
+  "template": "credit_gated_circular_transfer@1",
+  "version": 1,
+  "relation": "For every circular slot, ready names its published generation and consumed names the retired generation; producer/consumer credits prevent overwrite of live data and acceptance of stale payload.",
+  "rank": "Remaining finite slices and uncompleted peer copy/retirement events, under peer progress.",
+  "assumes": [
+    {
+      "name": "source_contract",
+      "statement": "NVIDIA CUDA NCCL SIMPLE buffered point-to-point slice protocol. Direct registered buffers, network FIFO offsets and multimem polling need their own pointer/ordering bindings. Source volatile polling is not promoted to a generic C++ acquire proof."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Source-derived proof outline; no formal proof result or GPU execution claimed. no_overwrite: A sender cannot reuse a circular slot while its previous receiver still reads it. no_stale_read: A receiver does not accept a previous generation of the same slot as the current slice. visibility: Transport-specific polling and payload loads observe publication across the actual peer memory domain. progress: Credit dependencies and participant scheduling admit progress or terminate on abort. The relation is a proposed source-level invariant; the stated finite-work rank depends on the explicit environment progress assumptions. Device ordering and numeric premises have not been discharged by schema validation."
+}

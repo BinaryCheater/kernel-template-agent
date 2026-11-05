@@ -1,0 +1,96 @@
+{
+  "name": "credit_bounded_deferred_drain",
+  "version": 1,
+  "level_from": 2,
+  "level_to": 3,
+  "change": "vertical",
+  "refines": "map",
+  "produces": [
+    "map",
+    "access"
+  ],
+  "object": {
+    "type": "credit_bounded_deferred_drain",
+    "description": "When producer copies and remote-result drain share one ordered execution stream, delay drain for overlap only while the delay stays below the producer credit-ring depth."
+  },
+  "variables": [
+    {
+      "name": "ring_depth",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": {
+        "lo": 1,
+        "hi": 1024
+      },
+      "meaning": "Producer slot reuse distance."
+    },
+    {
+      "name": "drain_lag",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": {
+        "lo": 0,
+        "hi": 1023
+      },
+      "meaning": "Number of later producer slots emitted before draining an earlier remote result."
+    }
+  ],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_0",
+      "expr": "p.same_ordered_stream and p.return_credit_requires_remote_drain and p.rank_schedule_matched",
+      "meaning": "A producer stall can block later commands in its own stream; peer credit comes only after their drain.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_1",
+      "expr": "p.drain_lag < p.ring_depth and p.tail_drain_complete and p.ready_wait_before_each_drain",
+      "meaning": "Delayed consumer remains before first reuse wait that depends on it; readiness and complete tail retained.",
+      "cls": "semantic"
+    }
+  ],
+  "program": {
+    "description": "For slot n emit input/send copies and local fanout after its producer-slot credit wait. If n>=lag, then emit ready wait, remote-result copies and returned credit for slot n-lag. After final producer slot drain every remaining lagged slot in order. Require lag<ring_depth for matched symmetric schedules so drain0 is enqueued before producer ring_depth stalls awaiting the credit that drain0 returns remotely. Capacity of a different receive ring is not a substitute for this producer-ring bound."
+  },
+  "backward_map": "Erase auxiliary organization and recover the visible results under the stated contract.",
+  "obligations": [
+    {
+      "name": "liveness",
+      "statement": "The earliest mandatory producer reuse wait has the required remote drain queued before its blocking position on every matched stream.",
+      "method": "proof"
+    },
+    {
+      "name": "cover",
+      "statement": "Each producer slot and each drain executes once, including final lag tail.",
+      "method": "proof"
+    },
+    {
+      "name": "ready",
+      "statement": "Drain reads only after network ready and returns credit only after all corresponding copies complete.",
+      "method": "proof"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.same_ordered_stream and p.return_credit_requires_remote_drain and p.rank_schedule_matched and p.drain_lag < p.ring_depth and p.tail_drain_complete and p.ready_wait_before_each_drain",
+    "text": "Matched copy-stream/network coordinator pipeline with finite ready and credit progress; this breaks a specific queue-order cycle, not a general deadlock theorem. Resource effects: Allows preceding copies to overlap remote latency; lag is coupled to credit capacity."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "When producer copies and remote-result drain share one ordered execution stream, delay drain for overlap only while the delay stays below the producer credit-ring depth.",
+    "storage": "Allows preceding copies to overlap remote latency; lag is coupled to credit capacity.",
+    "boundary": "contrib/pace/csrc/collective/ag/ag_zero_sm.cu:842-935 sets lag=min(send_times,nvl_ring)-1, not rdma_ring-1.",
+    "resources": []
+  },
+  "numeric_risk": "Preserve the supplied arithmetic contract; reassociation, quantization and approximate search require separate permission.",
+  "summary": "When producer copies and remote-result drain share one ordered execution stream, delay drain for overlap only while the delay stays below the producer credit-ring depth. contrib/pace/csrc/collective/ag/ag_zero_sm.cu:842-935 sets lag=min(send_times,nvl_ring)-1, not rdma_ring-1."
+}

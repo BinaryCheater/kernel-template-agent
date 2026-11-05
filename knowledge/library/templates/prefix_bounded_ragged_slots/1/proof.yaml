@@ -1,0 +1,38 @@
+template: prefix_bounded_ragged_slots@1
+version: 1
+relation: Remove unused capacity slots and concatenate the live local records of each segment. Each valid
+  segment/chunk retains its original identity. The next bound prefix is at least the current start plus
+  ceil(L_i/C), so record intervals cannot overlap and all fit final capacity.
+rank: Valid ragged chunk records not yet mapped to their reserved interval.
+assumes:
+- name: pre_segments
+  statement: N ordered segment lengths L_i>=0 have exact token prefixes S_i and total S_N=T. Segment count
+    and total are host-known; device metadata and host totals refer to the same immutable invocation.
+- name: pre_index
+  statement: For chunk size C, slot start for segment i is B(i,S_i,C), not a dense prefix of ceil(L_j/C).
+    Local chunk j maps to B+j. Every descriptor/index reader uses this same conservative storage map.
+- name: pre_holes
+  statement: Segment i has ceil(L_i/C) live chunks; zero-length segments have none. Allocation gaps may
+    remain stale because they are never read as states, summaries or outputs. A previous-chunk read occurs
+    only for local j>0, not merely global slot>0.
+- name: pre_capacity
+  statement: Reserve B(N,T,C) slots of the declared payload size. All index/stride products fit actual
+    host/device integer types. Chunk extent and slot capacity remain coherent through replay.
+- name: pre_publish
+  statement: Token prefixes publish before slot calculations; payload producers finish before valid consumers
+    read them. This map avoids scanning derived chunk counts but does not remove the original token-prefix
+    or payload publication dependencies.
+- name: pre_backend
+  statement: Backend accepts this noncompact storage map and supported C. Dense logical task enumeration
+    remains separate from storage addresses; kernels cannot infer live count from capacity or assume gaps
+    are neutral records.
+guarantees: []
+models: []
+note: 'gdn_kernels/delta_rule_dsl/varlen_helper.py:133-147 gives host capacity B(N,T,C),321-329 matching
+  device bound and361-381 maps segment/local chunks and valid lengths. cp_delta_rule_sm90.py:1749-1752
+  allocates local M/N under that bound;2846 allocates fixed states;3945-3965 computes segment-local base
+  and only uses base+j-1 for nonfirst local chunks. The source uses gaps as unobserved storage, not zero
+  summaries. Proof: with m nonempty segments each ceil(L/C)<=1+floor((L-1)/C), summing gives at most m+floor((T-m)/C);
+  this bound is nondecreasing in allowed m<=min(N,T), and prefix extension reserves at least the current
+  ceil(L/C). Exhaustive small partitions and native64-aligned coordinates check no overlap, capacity,
+  holes and predecessor guards.'

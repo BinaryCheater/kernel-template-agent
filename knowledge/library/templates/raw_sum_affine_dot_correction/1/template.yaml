@@ -1,0 +1,100 @@
+{
+  "name": "raw_sum_affine_dot_correction",
+  "version": 1,
+  "level_from": 3,
+  "level_to": 4,
+  "change": "vertical",
+  "refines": "contract",
+  "produces": [
+    "reduce",
+    "map",
+    "contract",
+    "store"
+  ],
+  "object": {
+    "type": "raw_activation_sum_for_affine_weight_offset",
+    "description": "One raw activation group sum reused to apply the affine weight offset alongside a quantized integer-dot approximation."
+  },
+  "variables": [
+    {
+      "name": "correction_owners",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": {
+        "lo": 1,
+        "hi": 32
+      },
+      "meaning": "Number of contributing partial-dot owners that share one offset correction equally; source derives this fromVDR/QI/QR."
+    }
+  ],
+  "constraints": [
+    {
+      "id": "c_group",
+      "expr": "p.activation_group_length == 32 and p.affine_offset_constant_on_group",
+      "meaning": "Pinned32-value activation statistic and a constant weight offset over that group.",
+      "cls": "implementation"
+    }
+  ],
+  "preconditions": [
+    {
+      "id": "pre_inputs",
+      "expr": "p.weight_decode_is_gain_times_code_plus_offset and p.quantized_activation_and_raw_sum_same_group_generation",
+      "meaning": "Weight representsd*q+m; activation quantizer also retains sum of original input values for the same32 coordinates.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_numeric",
+      "expr": "p.raw_sum_metadata_cast_and_integer_dot_policy_admitted and p.integer_dot_no_overflow",
+      "meaning": "The hybrid approximation uses stored activation scale and rounded raw sum explicitly; it is not assumed equal to a dot of two decoded quantized operands.",
+      "cls": "implementation"
+    },
+    {
+      "id": "pre_distribution",
+      "expr": "p.correction_contributors_exact and p.final_combine_includes_each_partial_once",
+      "meaning": "Exactlycorrection_owners partials add1/correction_owners of the same correction, with an admitted rounding order.",
+      "cls": "semantic"
+    }
+  ],
+  "program": {
+    "description": "While quantizing a32-value activation groupx to signedq with scaledx, also reduces_raw=sum(x) before quantization and store it in its declared metadata dtype. For affine weight groupw=d_w*q_w+m_w compute the code termd_w*d_x*integer_dot(q_w,q_x) under the source scale-product arithmetic. Addm_w*stored(s_raw), either once or equally across exactlycorrection_owners final partials. For centered weight formd_w*(q_w-z), use offsetm_w=-d_w*z. Reuse the same raw activation sum for every weight row sharing this activation group; retain scale/sum generation pairing."
+  },
+  "backward_map": "The original affine weight dot splits exactly into d_w*sum(q_w*x)+m_w*sum(x). Only the first term is approximated by the declared activation quantizer; the offset term uses the retained raw sum with its explicit metadata rounding.",
+  "obligations": [
+    {
+      "name": "sum_domain",
+      "statement": "Retained statistic sums original activation values of the exact group, including only neutral padded zeros.",
+      "method": "exhaustive"
+    },
+    {
+      "name": "correction_once",
+      "statement": "Distributed correction coefficients sum toone and every required partial is combined exactly once.",
+      "method": "test"
+    },
+    {
+      "name": "hybrid_numeric",
+      "statement": "Scale products, raw-sum metadata cast and correction distribution meet the declared hybrid-dot error policy.",
+      "method": "test"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.weight_decode_is_gain_times_code_plus_offset and p.affine_offset_constant_on_group and p.quantized_activation_and_raw_sum_same_group_generation",
+    "text": "Pinned GGUF Q4_0/Q4_1/Q5 affine weights withQ8_1 activation groups32, stored half scale and half raw sum. Numerical recipe includes source half2 scale products and per-owner division. Different superblock/subgroup intersections need an explicit binding; this does not certify arbitrary codebook offsets."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "Separate affine weight offset using a reusable sum of raw activations while quantizing only the code-dependent dot term.",
+    "storage": "One raw sum alongside activation scale per32-element group.",
+    "boundary": "Raw sum versus decoded-code sum, constant offset interval, correction multiplicity and metadata rounding.",
+    "resources": []
+  },
+  "numeric_risk": "Half raw-sum storage, half2 scale products and divided correction parts add rounding. Replacing raw sum byscale*sum(q) changes the approximation, especially at rounding boundaries.",
+  "summary": "When weights have a group-constant affine offset, save the raw activation group sum during activation quantization and apply the offset through that statistic. Reuse it across weight rows; distribute the correction only across a known exact contributor count. This preserves a higher-fidelity offset term than recomputing it from quantized activation codes, while the code-dependent term remains an admitted integer-dot approximation."
+}

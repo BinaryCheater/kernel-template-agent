@@ -1,0 +1,15 @@
+template: group_aligned_vector_partials@1
+version: 1
+relation: Contiguous equally sized channel groups and aligned vectors. gcd determines
+  a safe local aggregation unit; backend tail and scratch layouts remain part of the
+  realization.
+rank: Number of input elements or state transitions still to consume.
+assumes:
+- name: source_contract
+  statement: Source binding and stated scope hold.
+guarantees: []
+models: []
+note: 'Source-derived candidate, not independently admitted. no_cross_group: All boundaries
+  are multiples of d, so no d-element microblock crosses a group boundary. coverage:
+  Each channel occurs in exactly one vector microblock and one final group state.
+  Native lowering and numerical error remain open; see trace and checks.'

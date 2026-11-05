@@ -1,0 +1,39 @@
+template: stream_pair_boundary_state@1
+version: 1
+relation: Replace every accepted carry by its tagged original even token. Every emitted odd row then has
+  exactly the adjacent absolute even/odd pair that an unsplit stream processor would consume; forgetting
+  chunk boundaries recovers that pair stream. Missing/discontinuous predecessors intentionally do not
+  emit.
+rank: Unprocessed absolute odd endpoints.
+assumes:
+- name: pre_segments
+  statement: Packed request ranges have exact starts/ends and absolute consecutive positions; empty ranges
+    remain empty.
+- name: pre_identity
+  statement: Carry is keyed by one stable logical stream; a recycled ID cannot inherit another stream
+    even if position tags match.
+- name: pre_tag
+  statement: Pending value/gate belongs to its recorded absolute even position; an odd boundary accepts
+    only tag=position-1.
+- name: pre_processor
+  statement: The same declared pair operator consumes adjacent values/gates regardless of whether the
+    first comes from carry or current rows.
+- name: pre_read_commit
+  statement: Old carry is an immutable read snapshot until every current reader finishes; ordered commit
+    publishes the next payload/tag before reuse.
+- name: pre_output
+  statement: Emitted outputs remain at the odd token row with its destination metadata; absent/invalid
+    pairs have the declared zero/invalid emission representation.
+- name: pre_backend
+  statement: Execution supports the selected serial or parallel protocol and has disjoint live mutable
+    storage.
+guarantees: []
+models: []
+note: Source flashinfer/experimental/b12x/attention/mla_compress/_cute.py:40-89 launches output computation
+  then commit. :110-145 resolves packed request and exact carry tag; :155-193 does per-channel two-way
+  gate softmax, BF16 pooled rounding before RMSNorm, then output; :203-237 commits only the final even
+  payload or invalidates an odd tail. Existing adjacent_boundary_reuse@1 reuses common sampled finite-difference
+  boundaries inside one operation; it does not supply persistent stream identity, absolute pair positions
+  or cross-grid carry overwrite ordering. Logical checks cover chunk partitions, discontinuity, state
+  reuse and an early-commit counterexample. Native CuTe reduction/fast-math, metadata validation and stream
+  ordering remain obligations.

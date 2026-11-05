@@ -1,0 +1,96 @@
+{
+  "name": "donor_seeded_centroid_reinitialization",
+  "version": 1,
+  "level_from": 2,
+  "level_to": 3,
+  "change": "vertical",
+  "refines": "map",
+  "produces": [
+    "map",
+    "access"
+  ],
+  "object": {
+    "type": "donor_seeded_centroid_reinitialization",
+    "description": "When clustering leaves empty or undersized groups, reseed their centers near selected donor clusters and rerun assignment instead of treating a center change as moving existing labels."
+  },
+  "variables": [
+    {
+      "name": "donor_selection",
+      "kind": "structure",
+      "binding": "compile",
+      "role": "software",
+      "domain": [
+        "random_above_average",
+        "sorted_extreme_pair"
+      ],
+      "meaning": "Source donor policy; upper tolerance applies to paired selection, while random path chooses at-least-average clusters."
+    }
+  ],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_0",
+      "expr": "p.labels_and_sizes_same_generation and p.rebalance_policy_defined",
+      "meaning": "Cluster sizes match current labels; lower/upper tolerance, donor selection and perturbation offset are explicit.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_1",
+      "expr": "p.receivers_unique_and_donors_readable and p.data_finite",
+      "meaning": "Each receiver has one writer and donor center/point reads remain valid during the reseed phase.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_2",
+      "expr": "p.reassignment_after_reseed and p.finite_iteration_budget",
+      "meaning": "Fresh prediction recomputes labels before claiming new balance, within a finite algorithm budget.",
+      "cls": "semantic"
+    }
+  ],
+  "program": {
+    "description": "Identify undersized receiver clusters from average population times the lower tolerance. Either search a donor point from a cluster at least average size or pair sorted-small receivers with sorted-large donors under the upper/lower threshold policy. Set receiver center=donor_center+offset*(donor_point-donor_center). Do not alter labels/counts in the reseed kernel; the next prediction and centroid recomputation establish the new membership. An unsuccessful finite donor search leaves that receiver unchanged."
+  },
+  "backward_map": "Erase auxiliary organization and recover the visible results under the stated contract.",
+  "obligations": [
+    {
+      "name": "generation",
+      "statement": "Selection counts and donor labels describe the same assignment generation.",
+      "method": "proof"
+    },
+    {
+      "name": "write_ownership",
+      "statement": "One receiver update does not race a read of its center as a donor in the selected policy.",
+      "method": "proof"
+    },
+    {
+      "name": "membership",
+      "statement": "Center reseeding is never reported as an immediate transfer of assigned points.",
+      "method": "proof"
+    },
+    {
+      "name": "termination",
+      "statement": "Finite donor attempts and clustering iteration cap terminate without a strict-balance guarantee.",
+      "method": "proof"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.labels_and_sizes_same_generation and p.rebalance_policy_defined and p.receivers_unique_and_donors_readable and p.data_finite and p.reassignment_after_reseed and p.finite_iteration_budget",
+    "text": "NVIDIA balanced KMeans reseed heuristic, including random above-average and sorted-extreme donor policies. Lower/upper tolerances and offset affect cluster quality; they do not establish a hard per-cluster capacity invariant. Resource effects: One warp per receiver/pair reads a donor point and writes a center; adds reassign/recompute iterations while avoiding full data repartition inside the reseed kernel."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "When clustering leaves empty or undersized groups, reseed their centers near selected donor clusters and rerun assignment instead of treating a center change as moving existing labels.",
+    "storage": "One warp per receiver/pair reads a donor point and writes a center; adds reassign/recompute iterations while avoiding full data repartition inside the reseed kernel.",
+    "boundary": "With donor center10,point14,offset0.1,receiver becomes10.4. Its previous count remains stale until prediction. Declaring it balanced merely from the new center is invalid.",
+    "resources": []
+  },
+  "numeric_risk": "Preserve the supplied arithmetic contract; reassociation, quantization and approximate search require separate permission.",
+  "summary": "When clustering leaves empty or undersized groups, reseed their centers near selected donor clusters and rerun assignment instead of treating a center change as moving existing labels. With donor center10,point14,offset0.1,receiver becomes10.4. Its previous count remains stale until prediction. Declaring it balanced merely from the new center is invalid."
+}

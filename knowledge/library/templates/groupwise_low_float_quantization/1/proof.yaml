@@ -1,0 +1,21 @@
+template: groupwise_low_float_quantization@1
+version: 1
+relation: Each emitted code/scale pair equals the requested finite low-float group quantizer applied to exactly its logical pre-quantization values.
+rank: Remaining groups, then remaining values in the current group.
+assumes:
+  - {name: numeric_contract, statement: The caller requests the stated16/32-element quantizer with normalization1 and admits the selected reciprocal/conversion arithmetic.}
+  - {name: range, statement: Values are finite and nonzero scales/normalized values stay in the supported finite domain; zero groups follow the explicit separate policy.}
+  - {name: ownership, statement: Physical fragments and metadata stores preserve logical groups and only initialized neutral values pad a short group.}
+guarantees: []
+models: []
+note: >-
+  The group maximum determines raw_scale by the selected maximum finite code.
+  Encoding and decoding fixes the metadata actually emitted; using that decoded
+  value in the multiplier preserves agreement between stored codes and scales.
+  Converting each normalized value once gives the specified group quantizer. A
+  zero group emits zero values under either explicit scale policy. Rational scalar
+  replay uses enumerated finite E2M1/E4M3 values, nearest-even metadata/code rounding
+  and upward E8M0 powers, preserving a counterexample for unrounded-scale code
+  generation. This does not prove arbitrary FP32 error, approximate reciprocal,
+  overflow/underflow conversion behavior, physical fragment mapping or native
+  stores. No registered checker model, ProofSummary or GPU run is claimed.

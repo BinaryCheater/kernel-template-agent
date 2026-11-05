@@ -1,0 +1,25 @@
+template: compute_instruction_selection@2
+version: 1
+relation: Each accumulator coordinate equals the sum of the logical products assigned to completed instruction tiles, interpreted under the admitted instruction arithmetic.
+rank: Number of logical instruction tiles not yet issued and completed.
+assumes:
+  - name: legal_instruction
+    statement: The target supports the selected instruction, operand source, operand type, accumulator type and collective execution mode.
+  - name: fragment_abi
+    statement: Operand and accumulator lane/register coordinates match the selected instruction ABI, including transpose and stride conventions.
+  - name: partition
+    statement: Instruction tiles partition the padded executor contraction; loads replace out-of-domain products with zero and stores exclude padded outputs.
+  - name: numerical_contract
+    statement: Instruction multiplication precision, accumulation order and final conversion are accepted by the caller's numerical contract.
+guarantees: []
+models: []
+note: >-
+  Authored during file-library consolidation for the unchanged seed version2 contract.
+  Initialization assigns zero (or the caller's declared seed) to every accumulator.
+  One completed instruction adds its ABI-defined product tile. Disjoint coverage
+  gives exact-once logical products; erasing instruction boundaries gives the
+  executor contraction in exact arithmetic. Native rounding and fragment ABI
+  correctness require independent implementation checks. Obligation fragment_layout:
+  replay unique coordinate tags through each operand and output mapping, including
+  transposes. Obligation exact_once: enumerate (m,n,k) ownership for the chosen tile
+  and padded tail. No solver model, GPU run, ProofResult or ProofSummary is added.

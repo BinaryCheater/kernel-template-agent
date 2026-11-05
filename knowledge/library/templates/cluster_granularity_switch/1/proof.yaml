@@ -1,0 +1,48 @@
+template: cluster_granularity_switch@1
+version: 1
+relation: Erase the prepared order and physical grouping. Every original request/local-row pair occurs
+  exactly once as either one cooperative body call or one independent body call, with unchanged row coordinates
+  and the same requested result.
+rank: Unassigned live request/local-row pairs.
+assumes:
+- name: pre_keys
+  statement: One bounded nonnegative key per request describes the intended scan/work units. Source uses
+    floor(seq_len/compress_ratio), not raw token length.
+- name: pre_classify
+  statement: Prepare a stable partition of request IDs into key>threshold then remaining requests; counters
+    contain complete request counts, not expanded row counts. Preparation threads cover live request slots
+    and inactive scan lanes contribute zero. Class flags equal the declared scan-key>threshold predicate.
+- name: pre_expansion
+  statement: Every request expands to the same declared number of semantic rows at unchanged original
+    coordinates. Expansion is a consumer/layout binding; the prepared request partition itself is independent
+    of it.
+- name: pre_bodies
+  statement: Both bodies implement the requested row operation, including masks, exactness/ties, values
+    and output padding, on supported native bindings.
+- name: pre_cluster
+  statement: A cooperating row is assigned to all physical ranks of one cluster; its collective participation
+    and retirement are complete.
+- name: pre_independent
+  statement: Independent mode has CTA-local synchronization only. Tail/inactive sibling CTAs can skip
+    work without leaving a cluster dependency unsatisfied.
+- name: pre_metadata
+  statement: Prepared list/counts match request order/population, classification keys and threshold. Reuse
+    across layers requires that generation; a changed row expansion selects a matching consumer/layout
+    but does not inherently require recomputing the request partition.
+- name: pre_resources
+  statement: Physical launch cluster width/grid and the compiled combined branch resource allocation are
+    legal; per-row scratch/output ownership prevents cross-row races.
+- name: pre_lifetime
+  statement: Every row is processed exactly once at the body level, and prepared tables/scratch stay alive
+    until all readers retire.
+guarantees: []
+models: []
+note: flashinfer/topk_varlen/kernels/gvr_topk_decode_lb.py:110-165 classifies floor(seq_len/compress_ratio)>long_threshold
+  and stably partitions request IDs. :269-348 maps cooperative clusters to one expanded long row and independent
+  CTA ranks to expanded short rows, with partial short-cluster lanes skipped. :350-389 publishes the fixed
+  max_batch_size*next_n*cluster_size grid and documents prepare-per-step reuse across layers. two_family_cta_pool@1
+  uses ticket claims by a single CTA, and cost_partitioned_worklists@1 preassigns estimated tasks; neither
+  expresses uniform cooperative cluster roles versus packed independent ranks. Logical checks enumerate
+  class patterns, expansions, widths and empty/tail/capacity cases, and distinguish raw-length classification
+  and stale request metadata. Native DSM/body exactness, progress and compiled resource budgets remain
+  obligations.

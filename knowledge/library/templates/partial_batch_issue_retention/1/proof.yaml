@@ -1,0 +1,15 @@
+{
+  "template": "partial_batch_issue_retention@1",
+  "version": 1,
+  "relation": "The pending and delivered records partition the required logical deliveries under the declared expansion map.",
+  "rank": "Number of undelivered logical records plus remaining intermediate batches.",
+  "assumes": [
+    {
+      "name": "transport",
+      "statement": "Transport completes and payload is visible before publication; buffers remain live until consumers complete."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "After each round pending<=B; insertion fits2B, and issuing when pending>B leaves1..B. Thus a nonempty stream retains a final batch even for exact multiples of B. Strict > is essential: >= would empty a32-request stream before the final doorbell. Source engram_fetch.cuh:109\u2013178 bindsB=32 and64 queue entries. Publication is a separate flush/wait obligation. Native transport ordering and forward progress remain open. See ../../trace.md and ../../checks/replay.json."
+}

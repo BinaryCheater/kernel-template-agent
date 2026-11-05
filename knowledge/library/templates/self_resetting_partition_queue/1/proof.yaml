@@ -1,0 +1,49 @@
+template: self_resetting_partition_queue@1
+version: 1
+relation: Order successful in-range ticket claims by their atomic sequence. They give a bijection to tasks0..N-1,
+  with each task produced once from unchanged inputs. Erase out-of-range claims and retirement/reset operations
+  after their final use; completed kernel leaves both banks at the original zero state for the next ordered
+  invocation.
+rank: Unclaimed or privately prefetched valid tasks, followed by claimers not yet retired and a ticket
+  counter not yet restored to zero.
+assumes:
+- name: pre_items
+  statement: Each partition has independent uniquely indexed tasks; one successful ticket owns a complete
+    output task. Task arithmetic and inputs are independent of which worker claims it, so dynamic completion
+    order does not define a floating reduction order.
+- name: pre_counter
+  statement: Each active partition has an atomic next-ticket word and a retirement word, both zero before
+    its first launch. With P claimers and N valid tasks, source two-lookahead policy performs N+2P total
+    fetch-add claims, which must fit its nonnegative signed ticket range and address arithmetic.
+- name: pre_members
+  statement: Actual grid has P_t=ceil((B-t)/T) claimers for partition t. Exactly one leader per claimer
+    takes tickets and retires once; zero-work claimers still retire. Retirement wraps at P_t, not at a
+    uniform capacity count or number of live tasks.
+- name: pre_retire
+  statement: A worker retires only after issuing its last fetch-add claim and will never use the ticket
+    counter again in this invocation. In-flight prefetched valid tasks remain its responsibility before
+    local completion. Retirement is not a promise that every output store by every CTA thread has completed.
+- name: pre_reset
+  statement: Device-scope acquire-release wrapping increment serializes retirement; the leader observing
+    the last previous count resets next-ticket to zero after all claimers have left that counter. Only
+    that leader resets it, and the wrapping retirement word itself returns to zero.
+- name: pre_epoch
+  statement: Counters and tensor inputs stay owned through the whole kernel. Reuse is ordered after complete
+    kernel execution on the same stream or an equivalent event dependency, not merely after the retirement
+    count wraps. Concurrent streams/graphs use separate counter storage or explicit serialization.
+- name: pre_geometry
+  statement: Ticket bank offset t and retirement bank offset T+t match the same active partition count
+    and actual grid. A later geometry may reuse the buffer only after prior completion, with sufficient
+    all-zero active capacity. Captured launches retain their own valid counter epoch.
+- name: pre_backend
+  statement: Concrete source is SM100/103/107 deterministic Cake width4 depthwise-convolution forward,
+    using one CTA leader and two claimed lookahead tasks per CTA. Native memory scopes, double-buffer
+    input transfers, task tails and release ordering need the selected backend implementation.
+guarantees: []
+models: []
+note: Native conv forward f5497330bfd286211643_kernel.cu:211-257 derives tile-specific g_ct, claims two
+  initial tickets;301-320 consumes tickets and claims lookahead;587-599 performs atom.acq_rel.gpu.global.inc.u32
+  with limit g_ct-1 and last leader resets work[ct]. Host backend __init__.py:515-563 allocates/validates
+  zero int32 banks, uses device+stream cache and fresh captured buffers, requiring separate workspaces
+  for overlapping calls. Interleaving checks cover claim uniqueness/draining/reset and repeated epochs;
+  native atomics and transfer/CTA pipeline remain target obligations.

@@ -1,0 +1,16 @@
+template: ordered_prefix_lookback@1
+version: 1
+relation: Lookback accumulator is the ordered aggregate of the contiguous predecessor
+  suffix visited so far.
+rank: Unvisited predecessor tiles before the nearest inclusive anchor.
+assumes:
+- name: ordered
+  statement: Local aggregates preserve input order; operator reassociation is admitted.
+- name: publication
+  statement: Each observed status and payload is consistent and predecessors progress.
+guarantees: []
+models: []
+note: Prepending an older window extends the represented suffix without permutation.
+  At an inclusive prefix, the suffix joins [0..anchor] and [anchor+1..tile-1] with
+  no overlap. Native memory ordering and stable reduction-tree implementation remain
+  separate executable obligations. See checks/results.md.

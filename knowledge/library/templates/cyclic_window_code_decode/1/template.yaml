@@ -1,0 +1,112 @@
+name: cyclic_window_code_decode
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: decode
+produces:
+- decode
+- map
+object:
+  type: cyclic_window_code_decode
+  description: When adjacent quantized values share code bits and a consumer fragment
+    must decode without a lookup table, assign one cyclic bitstream per consumer sequence
+    and decode overlapping state windows.
+variables:
+- name: stream_bits
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 32
+    hi: 256
+  meaning: B fixed by consumer fragment grouping.
+- name: window_bits
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 1
+    hi: 32
+  meaning: 'w: decoder state width.'
+- name: step_bits
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 1
+    hi: 16
+  meaning: 'step: newly introduced bits per state.'
+- name: values_per_state
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 1
+    hi: 2
+  meaning: 'v: decoder output arity.'
+constraints:
+- id: c0
+  expr: stream_bits % 32 == 0 and stream_bits % step_bits == 0 and window_bits <=
+    stream_bits
+  meaning: Word-addressable complete cyclic stream.
+  cls: implementation
+preconditions:
+- id: pre0
+  expr: p.coordinate_map_bijective and p.decoder_matches_encoder and p.decoder_rounding_admitted
+    and p.stream_allocated
+  meaning: Decoder, layout and stream representation are shared by producer and consumer.
+  cls: semantic
+program:
+  description: Partition logical coordinates into disjoint sequences with a declared
+    bijection F(sequence,j). Stream length B bits is a multiple of32. State j is the
+    w-bit cyclic window starting at j*step mod B, interpreted little endian. Apply
+    the declared deterministic decoder D(state) yielding v consecutive values and
+    place them at F(sequence,v*j+e). For source QTIP B128,w16,step4,v1; D hashes s
+    by (89226354*s+64248484) mod2^32, forms two BF16 halves using (h & 0x81FF81FF)
+    xor0x3E003E00, and adds the halves with BF16 rounding. QTIP2 B256 or128,w16,step8,v2
+    uses duplicated byte windows and a different hash, so it is a separate decoder
+    binding. Tail-biting makes the final window consume the beginning of its own stream,
+    never another lane. Packing/quantization must solve the overlapping-state constraints;
+    concatenating independent codes is invalid.
+backward_map: Correlated cyclic codes with fixed encoder/decoder and coordinate map;
+  this preserves a quantized representation and does not assert equivalence to unquantized
+  weights.
+obligations:
+- name: window_wrap
+  statement: Each state consumes exactly w bits modulo B within its own sequence.
+  method: proof
+- name: coordinate_agreement
+  statement: Each decoded value reaches the same logical coordinate used by the encoder.
+  method: proof
+- name: decoder_identity
+  statement: Integer hash and BF16 rounding match the declared D, not another codebook.
+  method: proof
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: (stream_bits % 32 == 0 and stream_bits % step_bits == 0 and window_bits
+    <= stream_bits) and (p.coordinate_map_bijective and p.decoder_matches_encoder
+    and p.decoder_rounding_admitted and p.stream_allocated)
+  text: Correlated cyclic codes with fixed encoder/decoder and coordinate map; this
+    preserves a quantized representation and does not assert equivalence to unquantized
+    weights.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: When adjacent quantized values share code bits and a consumer fragment
+    must decode without a lookup table, assign one cyclic bitstream per consumer sequence
+    and decode overlapping state windows.
+  boundary: Correlated cyclic codes with fixed encoder/decoder and coordinate map;
+    this preserves a quantized representation and does not assert equivalence to unquantized
+    weights.
+  resources:
+  - registers
+numeric_risk: Floating-point reassociation, casts and approximate functions require
+  an admitted numerical contract.
+summary: When adjacent quantized values share code bits and a consumer fragment must
+  decode without a lookup table, assign one cyclic bitstream per consumer sequence
+  and decode overlapping state windows.

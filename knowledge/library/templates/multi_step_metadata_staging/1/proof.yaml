@@ -1,0 +1,36 @@
+template: multi_step_metadata_staging@1
+version: 1
+relation: Expand each vector metadata copy into G scalar-step copies and replace each slice reference
+  by the corresponding original metadata element. The arithmetic steps, scale ownership and outputs are
+  unchanged; only transfer grouping and metadata lifetime differ.
+rank: Unstaged metadata windows and unfinished slice readers.
+assumes:
+- name: pre_layout
+  statement: Each row has consecutive metadata for the grouped steps, with true vector alignment and exact
+    row/expert identity.
+- name: pre_consumption
+  statement: Grouping transfers never combines differently scaled raw arithmetic partials or substitutes
+    one step scale for another.
+- name: pre_publication
+  statement: Every grouped copy completes before the first slice is read; full completion covers all metadata
+    bytes.
+- name: pre_retire
+  statement: The empty signal occurs only after the last of G step consumers and all feature owners are
+    done, not after the first scalar load.
+- name: pre_ring
+  statement: Ring state advances once per window, with matching generation across tile transitions and
+    final drain.
+- name: pre_backend
+  statement: The target supports4*G-byte copies and the allocated ring; immutable inputs survive asynchronous
+    reads.
+guarantees: []
+models: []
+note: Source flashinfer/gemm/kernels/grouped_gemm_contiguous_blackwell.py:203-210 distinguishes metadata
+  grouping from arithmetic steps; :931-955 lays out row-major G-wide shared windows; :1334-1392 copies
+  G scales per row and commits once; :2050-2110 reads j-specific SFA*SFB for each separate raw128 partial
+  and releases metadata only after the inner loop. :3301 selects G4 only when complete, otherwiseG1. vectorized_access@1
+  supplies aligned4/16-byte copy mechanics; per_slot_handshake@1 supplies the general full/empty idea
+  but its stage menu stops8, while this source uses10 atG1. Neither candidate expresses multiple independent
+  step slices within one slot lifetime. Logical checks cover unique scale coordinates, unequal-scale promotion,
+  partial-group fallback and cross-tile ring wrap. Native cp.async byte/alignment and multi-owner retirement
+  remain obligations.

@@ -1,0 +1,61 @@
+name: implicit_patch_contraction
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: contract
+produces: [contract, map, transfer]
+object:
+  type: spatial_patch_matrix_view
+  description: A channel-last spatial cross-correlation becomes a matrix contraction over a virtual zero-padded patch matrix, materialized or generated on load.
+variables:
+  - {name: patch_storage, kind: structure, binding: compile, role: software, domain: [materialize, on_load], meaning: Whether to allocate the full patch matrix or form its tiles when loading; the pinned source selects on_load with im2col TMA.}
+constraints:
+  - {id: c_geometry, expr: "p.extents_positive and p.strides_positive and p.dilations_positive and p.padding_nonnegative and p.output_extents_match", meaning: Spatial output extents follow the cross-correlation geometry with positive strides and dilations., cls: semantic}
+preconditions:
+  - {id: pre_mapping, expr: "p.input_filter_metadata_immutable and p.zero_fill_matches_contract and p.matrix_arithmetic_admitted", meaning: The input and filter mapping is stable; padding zero and matrix accumulation implement the requested numerical policy., cls: semantic}
+  - {id: pre_backend, expr: "p.patch_mapping_supported and p.tail_accesses_safe and p.output_mapping_exact", meaning: The selected patch implementation realizes the coordinate map with safe tails and exact output ownership., cls: implementation}
+program:
+  description: >-
+    For input A[b,d,h,w,c] and filter B[o,t,r,s,c], let the output spatial shape
+    be (Z,P,Q), with each dimension floor((input+pad_low+pad_high-
+    dilation*(filter-1)-1)/stride)+1. Flatten m=q+Q*(p+P*(z+Z*b)) and
+    k=c+C*(s+S*(r+R*t)). Decode each (m,k) into those coordinates and define
+    Patch[m,k]=A[b,z*stride_d-pad_low_d+t*dil_d,
+    p*stride_h-pad_low_h+r*dil_h,q*stride_w-pad_low_w+s*dil_w,c], using zero
+    when a spatial coordinate is outside the input. Define Weight[o,k]=B[o,t,r,s,c].
+    Materialize Patch or generate each requested tile on load. Contract
+    Y[m,o]=sum_k Patch[m,k]*Weight[o,k], then map m back to (b,z,p,q).
+    Bias, activation, quantization and physical transfer scheduling are separate.
+backward_map: Expand the matrix reduction into t/r/s/c and substitute the patch coordinates to recover the requested spatial cross-correlation without reversing filter taps.
+obligations:
+  - {name: coordinate_bijections, statement: Flattened output and reduction indices each invert their full logical coordinate domain exactly once., method: exhaustive}
+  - {name: patch_identity, statement: Every patch element selects the intended input coordinate or the padding identity with the correct leading-side padding., method: exhaustive}
+  - {name: contraction_identity, statement: The admitted matrix reduction and output map implement the same cross-correlation and numerical grouping contract., method: test}
+  - {name: implementation_bounds, statement: Descriptor fields or software coordinates encode every admitted parameter without truncation and all full/tail transfers are safe., method: test}
+effects:
+  transactions: []
+  storage:
+    - {id: materialized_patch, level: gmem, scope: device, bytes: "p.output_rows * p.reduction_elements * p.element_bytes", when: "patch_storage == 'materialize'", note: Full logical patch allocation only; tiled on-load shared staging belongs to transfer rules.}
+  overlap: []
+scope:
+  predicate: "p.extents_positive and p.strides_positive and p.dilations_positive and p.padding_nonnegative and p.output_extents_match and p.input_filter_metadata_immutable and p.zero_fill_matches_contract and p.matrix_arithmetic_admitted and p.patch_mapping_supported and p.tail_accesses_safe and p.output_mapping_exact"
+  text: >-
+    Three spatial axes, channel-last inputs and filters, independent batches,
+    multiplicative contraction and zero padding. This is cross-correlation, not a
+    filter reversal or transposed convolution. Pinned on-load binding is SM100 im2col
+    TMA with source guards for signed corners[-16,15], tap offsets[0,31], stride1..8,
+    tensor alignment and cluster geometry. The materialized branch is an algebraic
+    alternative, not an executed source backend. Grouped channels, a different tap
+    order, nonzero padding or another encoding needs an explicit variant or binding.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Virtual spatial patch matrix contracted with a channel/filter matrix.
+  storage: Full patch allocation or tile-local generation on load.
+  boundary: Asymmetric padding, stride/dilation and channel-fast tap order.
+  resources: [gmem, issue]
+numeric_risk: The coordinate identity is exact; matrix instruction precision and reduction regrouping must satisfy the caller's numerical contract.
+summary: >-
+  When a spatial cross-correlation needs repeated overlapping input windows, consider a virtual patch matrix so a GEMM path can consume those windows on load. Preserve channel-fast tap order and the leading-side padding in every coordinate, and choose patch_storage separately from the workload geometry. The pinned SM100 path uses im2col TMA rather than allocating the full matrix; stride/dilation/corners must fit its guarded descriptor fields, while grouped channels or nonzero padding need another binding or variant.

@@ -1,0 +1,149 @@
+name: radix_threshold_selection
+version: 3
+level_from: 2
+level_to: 3
+change: vertical
+refines: reduce
+produces:
+- map
+- contract
+object:
+  type: rank_threshold
+  description: When unsorted top-k is needed from ordered scalar keys, select the
+    kth threshold by most-significant-byte histograms instead of sorting every pair.
+    Refine only the boundary bucket and preserve the remaining rank. Emit all greater
+    keys plus a quota of equal keys; output order and tie stability are separate contracts.
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+requires: []
+probed_on: []
+relations: []
+summary: When a radix top-k contract requires a particular original-index tie set,
+  choose any, smallest_index or largest_index and bind the matching ordered boundary
+  emission. Preserve threshold rank and exact tie quota; normalizing signed zero may
+  be required for the value equality class. Version2 bindings remain unchanged; the
+  added largest-index case needs descending original-coordinate filtering.
+variables:
+- name: key_bits
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+  - 16
+  - 32
+  meaning: 'Width of the complete monotone key: 16 or 32 bits.'
+- name: digit_bits
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+  - 4
+  - 8
+  meaning: Bits refined per pass; four bits use sixteen histogram bins and eight bits
+    use 256 bins.
+- name: tie_policy
+  kind: structure
+  binding: compile
+  role: boundary
+  domain:
+  - any
+  - smallest_index
+  - largest_index
+  meaning: Arbitrary ties, smallest original index, or largest original index.
+constraints:
+- id: c_rank
+  expr: p.k > 0 and p.k <= p.length
+  meaning: The requested rank exists in the valid candidate set.
+  cls: semantic
+- id: c_digits
+  expr: key_bits % digit_bits == 0
+  meaning: Refinement covers the complete key with whole radix digits.
+  cls: implementation
+- id: c_tie
+  expr: tie_policy == 'any' or ((tie_policy == 'smallest_index' and p.threshold_ties_by_ascending_index)
+    or (tie_policy == 'largest_index' and p.threshold_ties_by_descending_index)) and
+    p.equal_value_ties_match_keys
+  meaning: Ordered tie identity follows the requested original-index direction.
+  cls: implementation
+preconditions:
+- id: pre_keys
+  expr: p.key_order_matches_values and p.nan_policy_excludes_inputs and p.valid_candidates_exact_once
+  meaning: The complete key preserves the value ordering; this version excludes NaNs
+    and ignores padding.
+  cls: semantic
+- id: pre_hist
+  expr: p.histogram_counts_do_not_overflow and p.histogram_visible_before_rank_search
+    and p.candidate_storage_sufficient
+  meaning: Histograms and boundary-bucket compaction preserve every candidate and
+    are visible before consumption.
+  cls: implementation
+- id: pre_ties
+  expr: p.equal_key_quota_enforced and p.tie_emission_matches_requested_policy and
+    p.output_positions_disjoint
+  meaning: Emit the exact threshold quota using the requested tie policy into disjoint
+    output positions.
+  cls: implementation
+program:
+  description: 'For an active key prefix and remaining rank r, count the next digit_bits-bit
+    digit. Let C_ge(b) count digits at least b and C_gt(b) count digits strictly above
+    b. Choose the boundary digit satisfying C_gt(b)<r<=C_ge(b). Append that digit
+    to the prefix, subtract C_gt(b) from r, and refine only matching keys at the next
+    digit. After the full key the threshold q satisfies count(key>q)<k<=count(key>=q).
+    An early lower-edge threshold is permitted only when its complete bucket accounts
+    for exactly the remaining rank; then count(key>q)<=k<=count(key>=q) still holds.
+    Select every key>q and exactly k-count(key>q) keys equal to q. A preliminary coarse
+    monotone histogram may discard whole worse buckets before complete-key refinement,
+    but cannot decide ordering inside the boundary bucket. With tie_policy=smallest_index,
+    choose the lowest logical candidate indices among equal-threshold keys; output
+    need not be value-sorted. Packed histogram counters must not carry between fields
+    before extraction and warp reduction. Version3: tie_policy=largest_index chooses
+    the highest original candidate indices among equal threshold keys, requiring descending
+    original-index tie emission. Normalize signed zero into the same key tie class
+    when explicit index policy treats -0 and +0 as equal. Reversed histogram traversal
+    alone does not establish tie order.'
+backward_map: Forget histograms and prefixes; output is a size-k subset with no excluded
+  key strictly greater than any selected key.
+obligations:
+- name: rank_invariant
+  statement: Discarded better buckets reduce the rank exactly and discarded worse
+    buckets cannot contain a required key.
+  method: proof
+- name: quota_and_placement
+  statement: All greater keys and exactly the necessary threshold ties are emitted
+    once without collisions.
+  method: test
+- name: key_binding
+  statement: Value/key conversion and padding satisfy the declared total ordering
+    and exceptional-value policy.
+  method: test
+scope:
+  predicate: (p.k > 0 and p.k <= p.length) and (key_bits % digit_bits == 0) and (tie_policy
+    == 'any' or ((tie_policy == 'smallest_index' and p.threshold_ties_by_ascending_index)
+    or (tie_policy == 'largest_index' and p.threshold_ties_by_descending_index)) and
+    p.equal_value_ties_match_keys) and (p.key_order_matches_values and p.nan_policy_excludes_inputs
+    and p.valid_candidates_exact_once) and (p.histogram_counts_do_not_overflow and
+    p.histogram_visible_before_rank_search and p.candidate_storage_sufficient) and
+    (p.equal_key_quota_enforced and p.tie_emission_matches_requested_policy and p.output_positions_disjoint)
+  text: Exact unsorted top-k over complete monotone 16/32-bit keys with four- or eight-bit
+    radix digits and explicit arbitrary/smallest-index threshold ties. No NaNs. TransformerEngine
+    fused_router/utils.h uses four-bit digits for FP32, packed eight-bit per-thread
+    bucket counters and at most 8160 experts to keep each local count <=255 before
+    extracting and reducing bins. TileLang bindings remain eight-bit/any-tie instances.
+    Counter widths, packing, subgroup ownership and complete-key conversion remain
+    realization obligations; stable output ordering across unequal values is not supplied.
+    If distinct signed-zero encodings share a numerical tie, a smallest-index value
+    policy needs key canonicalization or a domain excluding that ambiguity; raw total-key
+    order alone is insufficient. Version3 adds largest-index tie preference with a
+    descending original-index tie-emission premise; all version2 bindings retain their
+    values and semantics.
+signature:
+  algorithm: MSB-first radix rank refinement plus policy-bound threshold-tie quota.
+  storage: Digit histograms and the active prefix or boundary candidates.
+  boundary: Key ordering, rank preservation, tie quota and histogram capacity.
+  resources:
+  - smem
+  - registers
+numeric_risk: A nonmonotone compressed key or unhandled NaN can discard a true winner;
+  coarse keys require complete-key refinement of the boundary bucket.

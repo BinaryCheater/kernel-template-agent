@@ -1,0 +1,91 @@
+{
+  "name": "monotone_prefix_bound_hint",
+  "version": 1,
+  "level_from": 2,
+  "level_to": 3,
+  "change": "vertical",
+  "refines": "map",
+  "produces": [
+    "map",
+    "access"
+  ],
+  "object": {
+    "type": "monotone_prefix_bound_hint",
+    "description": "When independent ordered batches can use conservative prefix attenuation to skip work, publish an atomic packed bound and ignore hints from a future batch."
+  },
+  "variables": [
+    {
+      "name": "key_bits",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": {
+        "lo": 1,
+        "hi": 16
+      },
+      "meaning": "Bounded positive next-batch index field; source uint16 with reserved states."
+    }
+  ],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_0",
+      "expr": "p.prefix_attenuation_nonincreasing and p.every_published_bound_conservative and p.finite_unit_bounds",
+      "meaning": "Each preceding-batch value upper-bounds true attenuation at later batches.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_1",
+      "expr": "p.atomic_word_covers_all_fields and p.rounding_toward_upper_bound and p.key_range_legal",
+      "meaning": "No torn state; finite nonnegative float encoding preserves numeric order; quantization rounds upward.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_2",
+      "expr": "p.saturation_flag_is_sound and p.consumer_rejects_future_index",
+      "meaning": "Only an established preceding saturation can suppress work.",
+      "cls": "semantic"
+    }
+  ],
+  "program": {
+    "description": "Encode one word ordered by (!saturated, upward-rounded positive-half bound, wrapped negative next-batch index). atomicMin makes established saturation sticky and prefers tighter bounds. Publish at batch b with K=b+1. Consumer at b accepts only stored K<=b; otherwise use bound 1 and no saturation. For accepted unsaturated upper bound U, local attenuation stopping threshold is global_threshold/U; U must be positive. An upstream saturated flag permits skipping. Treat packed state as a self-contained hint: relaxed atomic access does not publish unrelated payload. Init K=0,U=1; zero sentinel reserved for invalid ray. Equal-U initial K=0 may remain preferred, losing only optimization."
+  },
+  "backward_map": "Erase auxiliary organization and recover the visible results under the stated contract.",
+  "obligations": [
+    {
+      "name": "conservatism",
+      "statement": "Admitted earlier prefix and upward quantization keep U>=true initial attenuation; rejection of K>b prevents downstream contamination.",
+      "method": "proof"
+    },
+    {
+      "name": "atomic_priority",
+      "statement": "Unsigned ordering implements sticky saturation and tighter nonnegative bounds without field tearing.",
+      "method": "proof"
+    },
+    {
+      "name": "hint_only",
+      "statement": "No output equivalence follows unless exact composition/replay independently recovers the accepted candidate prefix.",
+      "method": "proof"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.prefix_attenuation_nonincreasing and p.every_published_bound_conservative and p.finite_unit_bounds and p.atomic_word_covers_all_fields and p.rounding_toward_upper_bound and p.key_range_legal and p.saturation_flag_is_sound and p.consumer_rejects_future_index",
+    "text": "Monotone attenuation and conservative hints only. Source priming may be stale and forward-only full-batch fallback remains approximate. Resource effects: One packed 32-bit atomic word per pixel, no payload publication implied."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "When independent ordered batches can use conservative prefix attenuation to skip work, publish an atomic packed bound and ignore hints from a future batch.",
+    "storage": "One packed 32-bit atomic word per pixel, no payload publication implied.",
+    "boundary": "PrimingChainEncoding.cuh:14-190; ParallelBatchFwd.cu:520-564,675-696. Positive batch keys below65535; reserved sentinels excluded.",
+    "resources": []
+  },
+  "numeric_risk": "Preserve the supplied arithmetic contract; reassociation, quantization and approximate search require separate permission.",
+  "summary": "When independent ordered batches can use conservative prefix attenuation to skip work, publish an atomic packed bound and ignore hints from a future batch. PrimingChainEncoding.cuh:14-190; ParallelBatchFwd.cu:520-564,675-696. Positive batch keys below65535; reserved sentinels excluded."
+}

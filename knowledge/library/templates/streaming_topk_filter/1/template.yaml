@@ -1,0 +1,109 @@
+name: streaming_topk_filter
+version: 1
+level_from: 2
+level_to: 3
+change: vertical
+refines: reduce
+produces:
+- map
+- contract
+object:
+  type: bounded_topk_candidates
+  description: When a row is too long to retain all selection candidates on chip, scan tiles and keep
+    only candidates above a proven lower threshold for the running kth value. Periodically compact to
+    exact top-k. Bound scratch for the entire next tile before appending, and discard ties only under
+    an arbitrary-identity unsorted top-k contract.
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+requires: []
+probed_on: []
+relations: []
+summary: When a row is too long to retain all selection candidates on chip, scan tiles and keep only candidates
+  above a proven lower threshold for the running kth value. Periodically compact to exact top-k. Bound
+  scratch for the entire next tile before appending, and discard ties only under an arbitrary-identity
+  unsorted top-k contract.
+variables:
+- name: scan_tile
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+  - 4096
+  meaning: Candidate input tile width in the representative; source configuration has other menus requiring
+    their own resource binding.
+- name: compact_multiple
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+  - 2
+  meaning: Compact when candidate count reaches twice k, or on the final scan tile when it exceeds k.
+constraints:
+- id: c_rank
+  expr: p.k > 0 and p.k <= p.length
+  meaning: At least k valid inputs exist.
+  cls: semantic
+- id: c_capacity
+  expr: p.capacity >= compact_multiple * p.k + scan_tile
+  meaning: The candidate buffer holds the pre-compaction count plus one all-hit tile.
+  cls: resource
+preconditions:
+- id: pre_traversal
+  expr: p.scan_visits_each_input_once and p.valid_tail_masked
+  meaning: Scan order is a bijection over the valid input tiles and excludes padded lanes.
+  cls: semantic
+- id: pre_threshold
+  expr: p.compactor_exact_topk and p.threshold_not_above_retained_min and p.value_key_filter_order_compatible
+  meaning: Compaction retains exactly k best candidates and the subsequent filter threshold never exceeds
+    the least retained value.
+  cls: semantic
+- id: pre_ties
+  expr: p.arbitrary_tie_identity_admitted and p.unsorted_output_admitted and p.nan_inputs_excluded
+  meaning: The result is unsorted top-k with arbitrary tie identities and no NaNs.
+  cls: semantic
+- id: pre_storage
+  expr: p.append_reservations_disjoint and p.append_and_compaction_synchronized and p.alias_lifetimes_valid
+  meaning: Candidates and identities stay paired across atomic reservation, compaction and scratch aliasing.
+  cls: implementation
+program:
+  description: Initially retain every valid candidate until at least k exist. After each exact compaction
+    retain k winners and a value threshold no greater than the least winner. Later input values at or
+    below that threshold may be ignored because k retained values already dominate or tie them. Append
+    all surviving value/index pairs; if count reaches 2*k, or final count exceeds k, compact the complete
+    candidates back to k using an exact selector. The count before an append is below 2*k, so capacity
+    >= 2*k+scan_tile admits an all-hit input tile. At end expose k winners. For sharded scans, merging
+    each shard top-k into a final top-k is separate and must include every nonempty shard.
+backward_map: Restore discarded inputs; each has at least k already retained values no smaller than it,
+  so some allowed global top-k is unchanged.
+obligations:
+- name: winner_preservation
+  statement: Every discarded value is dominated by k retained candidates under the tie policy.
+  method: proof
+- name: capacity
+  statement: Appending an all-hit tile never exceeds capacity and compaction keeps at least k winners.
+  method: proof
+- name: storage
+  statement: Reservations and compaction preserve disjoint paired value/index records.
+  method: test
+scope:
+  predicate: p.k > 0 and p.k <= p.length and p.capacity >= compact_multiple * p.k + scan_tile and p.scan_visits_each_input_once
+    and p.valid_tail_masked and p.compactor_exact_topk and p.threshold_not_above_retained_min and p.value_key_filter_order_compatible
+    and p.arbitrary_tie_identity_admitted and p.unsorted_output_admitted and p.nan_inputs_excluded and
+    p.append_reservations_disjoint and p.append_and_compaction_synchronized and p.alias_lifetimes_valid
+  text: One complete scalar-value row, scan tile 4096, compaction at 2*k, exact unsorted selection and
+    arbitrary tied identities. The representative uses radix_threshold_selection as its compactor. Native
+    resource menus, packed comparisons, TMA initialization, smaller-than-k shards and stable index order
+    require explicit bindings. The source affine tile permutation is valid because its stride is coprime
+    to tile count, not because it is statistically random.
+signature:
+  algorithm: Threshold-filtered tile scan with bounded exact top-k compaction.
+  storage: O(k+scan_tile) candidate value/index pairs per worker.
+  boundary: Conservative threshold, all-hit capacity and exact scan coverage.
+  resources:
+  - smem
+  - registers
+  - dram
+numeric_risk: The comparison threshold must be conservative after dtype conversion; a rounded-up threshold
+  can drop a winner.

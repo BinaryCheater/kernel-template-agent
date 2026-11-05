@@ -1,0 +1,102 @@
+name: spare_operand_slots_epilogue_alias
+version: 1
+level_from: 2
+level_to: 3
+change: vertical
+refines: store
+produces:
+- store
+- transfer
+- sync
+object:
+  type: spare_operand_slots_epilogue_alias
+  description: Output staging borrows one or two free slots in an operand ring after
+    the previous MMA retires.
+variables:
+- name: S
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 1
+    hi: 65536
+  meaning: Input prefetch ring slots; source uses at least three.
+- name: output_slices
+  kind: structure
+  binding: compile
+  role: software
+  domain:
+  - one
+  - two
+  meaning: One B-sized output tile or two N-half slices sharing the spare slots.
+constraints: []
+preconditions:
+- id: pre0
+  expr: S >= 3 and p.B_ring_slots == S + 1 and p.next_tile_live_B_slots == S - 1
+  meaning: B ring has exactly two spare slots after the next prologue.
+  cls: semantic
+- id: pre1
+  expr: p.previous_mma_reads_retired and p.next_tile_prefetch_occupies_preceding_sequence_slots
+  meaning: Old operand reads are complete and next inputs occupy the preceding S-1
+    slots.
+  cls: semantic
+- id: pre2
+  expr: ((output_slices == 'one' and p.BM == p.BK) or (output_slices == 'two' and
+    p.BM == 2 * p.BK and p.BN % 2 == 0)) and p.output_slice_bytes_fit_B_slot and p.output_slice_layout_legal
+    and p.next_load_waits_output_source_reads
+  meaning: Each slice fits its borrowed slot and no following load overwrites a pending
+    store source.
+  cls: semantic
+program:
+  description: After draining old MMA reads and issuing S-1 next-tile input generations,
+    let producer be the next input sequence. B ring has S+1 slots; live next-tile
+    operands occupy producer-(S-1) through producer-1 modulo S+1. Borrow producer
+    modulo S+1 and optionally producer+1 modulo S+1 for finalized output. One-slice
+    mode uses BM=BK; two-slice mode uses BM=2*BK and splits output along N into two
+    byte-equivalent B-slot shapes. Fence shared output writes and issue asynchronous
+    stores. The next compute may consume a ready old-prefetched input, but must wait
+    output source reads before the next destructive TMA load. Producer and consumer
+    sequence counters continue across tile boundaries.
+backward_map: Give output its own temporary buffer and retain the same input generations;
+  disjoint live slots and completion order preserve all input/output values.
+obligations:
+- name: live_slot_disjointness
+  statement: The two future sequence slots do not overlap the S-1 live preceding B
+    slots modulo S+1.
+  method: proof
+- name: output_coordinates
+  statement: Split slices preserve each original output coordinate and fit borrowed
+    allocation/layout.
+  method: test
+- name: retirement
+  statement: Previous MMA and subsequent TMA/store events obey alias lifetime.
+  method: test
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: (S >= 3 and p.B_ring_slots == S + 1 and p.next_tile_live_B_slots == S
+    - 1) and (p.previous_mma_reads_retired and p.next_tile_prefetch_occupies_preceding_sequence_slots)
+    and (((output_slices == 'one' and p.BM == p.BK) or (output_slices == 'two' and
+    p.BM == 2 * p.BK and p.BN % 2 == 0)) and p.output_slice_bytes_fit_B_slot and p.output_slice_layout_legal
+    and p.next_load_waits_output_source_reads)
+  text: The source cross-tile Gluon matmul pipeline with B ring S+1 and next prologue
+    S-1, retired old MMA reads, output BM=BK or BM=2*BK. Not an arbitrary ring alias
+    independent of schedule.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Output staging borrows one or two free slots in an operand ring after
+    the previous MMA retires.
+  storage: Binding-specific counters, partials or output ranges.
+  boundary: Tile prefixes and logical membership.
+  resources: []
+numeric_risk: Integer counts must not overflow; ordering/rounding policy belongs to
+  the bound operation.
+summary: When an operand ring has two spare slots after next-tile prefetch, borrow
+  them for output staging instead of a separate C allocation. For S=4, three next
+  B tiles occupy a five-slot ring and the next two slots are free; a 128x256 output
+  can split into two 128x128 slices fitting 64x256 B slots. Reject a different prefetch
+  count or refill before output stores finish reading.

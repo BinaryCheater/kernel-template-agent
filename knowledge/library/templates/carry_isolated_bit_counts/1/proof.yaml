@@ -1,0 +1,14 @@
+template: carry_isolated_bit_counts@1
+version: 1
+relation: Expand each packed field count into the sum of its original input bits,
+  one independent reduction per column.
+rank: Unprocessed source items or unmerged partials.
+assumes:
+- name: contract
+  statement: The stated partition, comparator/count and publication premises hold.
+guarantees: []
+models: []
+note: Source tensor_details/bitmatrix_details/sum_bitmatrix_rows.py:9-80. N=128 gives
+  fan-ins8,16,1 and counts8<16 then128<256; source masks rows beyond the dynamic shape
+  to zero. Native int atomic lifetime and bounds are separate from the packed-field
+  identity.

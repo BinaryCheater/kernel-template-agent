@@ -1,0 +1,62 @@
+{
+  "name": "carry_isolated_byte_add",
+  "version": 1,
+  "level_from": 2,
+  "level_to": 3,
+  "change": "vertical",
+  "refines": "map",
+  "produces": [
+    "map",
+    "access"
+  ],
+  "object": {
+    "type": "carry_isolated_byte_add",
+    "description": "When reducing packed bytes modulo256, isolate alternating byte lanes before wide addition so carry cannot corrupt neighboring results."
+  },
+  "variables": [],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_0",
+      "expr": "p.four_unsigned_bytes_per_word and p.result_is_per_byte_modulo_256",
+      "meaning": "Widened exact integer sum or saturating sum is a different workload.",
+      "cls": "semantic"
+    }
+  ],
+  "program": {
+    "description": "Let mask=0x00ff00ff. Compute x=(a&mask)+(b&mask), y=(a&~mask)+(b&~mask) in unsigned32 arithmetic. Extract low8 bits of each9-bit lane and interleave them in original byte order (source __byte_perm selector0x7250). Equivalent to ((x&mask)|(y&~mask)), since masking removes carry bits. Repeat binary reduction only under modulo256 byte semantics."
+  },
+  "backward_map": "Erase auxiliary organization and recover the visible results under the stated contract.",
+  "obligations": [
+    {
+      "name": "carry",
+      "statement": "Even-byte additions occupy16-bit fields; odd-byte carries fall only into discarded even positions or wrap outside word.",
+      "method": "proof"
+    },
+    {
+      "name": "lane_identity",
+      "statement": "Reinterleaving returns (a_i+b_i) mod256 independently for each of four original byte coordinates.",
+      "method": "proof"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.four_unsigned_bytes_per_word and p.result_is_per_byte_modulo_256",
+    "text": "Unsigned byte pack addition, source signed byte dispatch may reinterpret bits with its declared modular semantics. No inference to wide accumulation or averages before widening. Resource effects: Two masked word additions and permutation instead of four scalar byte additions."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "When reducing packed bytes modulo256, isolate alternating byte lanes before wide addition so carry cannot corrupt neighboring results.",
+    "storage": "Two masked word additions and permutation instead of four scalar byte additions.",
+    "boundary": "reduce_kernel.h:361-370. triton carry_isolated_bit_counts@1 instead widens exact boolean counts; cannot bind modulo wrap unchanged.",
+    "resources": []
+  },
+  "numeric_risk": "Preserve the supplied arithmetic contract; reassociation, quantization and approximate search require separate permission.",
+  "summary": "When reducing packed bytes modulo256, isolate alternating byte lanes before wide addition so carry cannot corrupt neighboring results. reduce_kernel.h:361-370. triton carry_isolated_bit_counts@1 instead widens exact boolean counts; cannot bind modulo wrap unchanged."
+}

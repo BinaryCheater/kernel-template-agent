@@ -1,0 +1,28 @@
+template: prefix_ready_contraction@1
+version: 1
+relation: The partially overlapped contraction has the same admitted atom sequence and accumulator result as waiting for the entire operand first.
+rank: Unissued reduction atoms and unretired async operand readers.
+assumes:
+  - {name: partition, statement: "Prefix and suffix are disjoint, complete and aligned with every consumer instruction's actual footprint."}
+  - {name: readiness, statement: "Prefix/suffix signals order visible payload for the correct generation; initial accumulator correction precedes prefix MMA."}
+  - {name: lifetime, statement: "Other operands stay stable and no fragment is reused until all async readers retire; suffix producers can progress."}
+guarantees: []
+models: []
+note: >-
+  Keep the contraction atom order unchanged. Prefix atoms see their complete
+  payload and valid initial accumulator. After the tail wait, suffix atoms see
+  their complete payload and continue the same accumulator, so induction over
+  atoms gives the serialized result under the numerical contract. Source
+  flash_attn/cute/flash_fwd_sm100.py:184-191 rounds the frontier to32 columns;
+  :2734-2748 publishes TMEM prefix and suffix; :1998-2019 also waits for corrected
+  O before prefix execution. blackwell_helpers.py:540-611 emits prefix MMA atoms,
+  then a parity wait, then suffix MMA atoms. Source helper boundaries alone do
+  not prove native proxy ordering: PTX tcgen05 fence/execution-order composition
+  must be checked for this inline wait and all pipeline wrappers. At K128 the
+  partition is[0,96),[96,128); at K192 it is[0,128),[128,192), demonstrating that
+  the frontier is not exactly a fixed fraction for every shape. A consumer whose
+  first instruction spans a column96 value in the K128 binding is rejected until
+  suffix publication. The existing fragment_parity_publication@1 is a 64-bit
+  release-XOR protocol with equal read groups, not this asymmetric mbarrier/TMEM
+  frontier; no name-only realization reuse is claimed. Two-CTA publication,
+  native fence lowering and numerical performance remain unverified.

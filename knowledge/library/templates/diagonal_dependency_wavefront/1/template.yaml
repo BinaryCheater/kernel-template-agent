@@ -1,0 +1,82 @@
+name: diagonal_dependency_wavefront
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: scan
+produces:
+- scan
+- sync
+object:
+  type: diagonal_dependency_wavefront
+  description: When each grid state depends only on its north and west neighbors,
+    expose anti-diagonal parallelism and retain the predecessor frontier rather than
+    serializing the whole grid.
+variables:
+- name: prefetch_steps
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 1
+    hi: 32
+  meaning: Independent edge prefetch batch K; not a simultaneous DP advance.
+constraints: []
+preconditions:
+- id: pre0
+  expr: p.dependencies_in_previous_diagonal and p.boundary_states_defined and p.frontier_visibility_and_lifetime
+    and p.logaddexp_domain_admitted
+  meaning: Acyclic north/west dependencies, correct boundary/terminal states, complete
+    frontier synchronization and numerical domain.
+  cls: semantic
+program:
+  description: For grid(T,U), initialize required boundary state. At step d evaluate
+    all valid cells(t,u) with t+u=d, using only frontier d-1. A CTA assigns u=tid+k*threads,
+    t=d-u and synchronizes after every diagonal. For source log-probability DP, state=logaddexp(north+blank_edge,west+label_edge);
+    first row/column have one predecessor. Reverse DP initializes final blank transition
+    and traverses decreasing diagonals. A batched-load realization prefetches K edge
+    values per thread but advances dependent states one diagonal at a time. Store
+    frontier in two shared buffers or retain same-u predecessor in a register and
+    read neighbor-u from prior shared frontier; do not overwrite a frontier while
+    a peer can still read it. Packed inputs alter edge addresses only, not the recurrence.
+backward_map: Two-neighbor acyclic rectangular dynamic programs with declared boundary/terminal
+  rules; source one CTA per sequence and direction. All-negative-infinity logaddexp
+  needs a separately guarded implementation.
+obligations:
+- name: topology
+  statement: Both parents have diagonal d-1, so all current-diagonal cells are independent.
+  method: proof
+- name: frontier_lifetime
+  statement: All reads of previous frontier complete before its next overwrite.
+  method: proof
+- name: boundary
+  statement: Single-parent boundaries and terminal blank contribution recover the
+    requested path sum.
+  method: proof
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: (p.dependencies_in_previous_diagonal and p.boundary_states_defined and
+    p.frontier_visibility_and_lifetime and p.logaddexp_domain_admitted)
+  text: Two-neighbor acyclic rectangular dynamic programs with declared boundary/terminal
+    rules; source one CTA per sequence and direction. All-negative-infinity logaddexp
+    needs a separately guarded implementation.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: When each grid state depends only on its north and west neighbors, expose
+    anti-diagonal parallelism and retain the predecessor frontier rather than serializing
+    the whole grid.
+  boundary: Two-neighbor acyclic rectangular dynamic programs with declared boundary/terminal
+    rules; source one CTA per sequence and direction. All-negative-infinity logaddexp
+    needs a separately guarded implementation.
+  resources:
+  - registers
+numeric_risk: Floating-point reassociation, casts and approximate functions require
+  an admitted numerical contract.
+summary: When each grid state depends only on its north and west neighbors, expose
+  anti-diagonal parallelism and retain the predecessor frontier rather than serializing
+  the whole grid.

@@ -1,0 +1,85 @@
+{
+  "name": "ordered_transmittance_batch_summary",
+  "version": 1,
+  "level_from": 2,
+  "level_to": 3,
+  "change": "vertical",
+  "refines": "map",
+  "produces": [
+    "map",
+    "access"
+  ],
+  "object": {
+    "type": "ordered_transmittance_batch_summary",
+    "description": "When front-to-back compositing has long candidate lists, compute independent consecutive batch summaries and compose them in depth order, replaying the first threshold-crossing batch for exact stopping."
+  },
+  "variables": [
+    {
+      "name": "batch_size",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": {
+        "lo": 1,
+        "hi": 65533
+      },
+      "meaning": "Free consecutive candidate count per batch; source logical batch is tile area."
+    }
+  ],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_0",
+      "expr": "p.ordered_candidates and p.alpha_in_unit_interval and p.same_acceptance_predicates",
+      "meaning": "Candidate order and per-candidate alpha are independent of accumulated color.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_1",
+      "expr": "p.rounding_admitted and p.threshold_policy_bound and p.summary_publication_ordered",
+      "meaning": "Arithmetic regrouping and exact include/exclude saturation policy are explicit.",
+      "cls": "semantic"
+    }
+  ],
+  "program": {
+    "description": "For a batch from fresh T=1 compute local C=sum_i alpha_i*product_before_i*c_i and Q=product_i(1-alpha_i). Fold earlier (C0,Q0) then later (C1,Q1) as (C0+Q0*C1,Q0*Q1). Never permute batches. If cumulative Q times next batch Q exceeds threshold, fold directly. Otherwise preserve batch-start C,Q and replay that batch candidate-by-candidate with the original threshold include/exclude policy; discard later batches. Store cumulative batch checkpoints for independent reverse processing and atomic gradient combination. A full-batch fallback is a separate approximate contract."
+  },
+  "backward_map": "Erase auxiliary organization and recover the visible results under the stated contract.",
+  "obligations": [
+    {
+      "name": "summary",
+      "statement": "Each batch summary denotes the same affine color/throughput action on any incoming C,T.",
+      "method": "proof"
+    },
+    {
+      "name": "crossing",
+      "statement": "First crossing batch replay recovers exact accepted prefix; threshold equality follows policy.",
+      "method": "proof"
+    },
+    {
+      "name": "checkpoint",
+      "statement": "All checkpoints are published before backward; gradients of shared inputs are combined without loss.",
+      "method": "proof"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.ordered_candidates and p.alpha_in_unit_interval and p.same_acceptance_predicates and p.rounding_admitted and p.threshold_policy_bound and p.summary_publication_ordered",
+    "text": "Real affine compositing or explicitly admitted floating regrouping; nonnegative alpha below one for inverse replay. Exact stopping requires replay, not full crossing-batch fold. Resource effects: Parallel CTA per batch and O(batches*pixels*(channels+1)) checkpoint storage."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "When front-to-back compositing has long candidate lists, compute independent consecutive batch summaries and compose them in depth order, replaying the first threshold-crossing batch for exact stopping.",
+    "storage": "Parallel CTA per batch and O(batches*pixels*(channels+1)) checkpoint storage.",
+    "boundary": "World3DGS parallel source uses partials, batch-scan, then replay; forward-only fallback has a different stopping approximation.",
+    "resources": []
+  },
+  "numeric_risk": "Preserve the supplied arithmetic contract; reassociation, quantization and approximate search require separate permission.",
+  "summary": "When front-to-back compositing has long candidate lists, compute independent consecutive batch summaries and compose them in depth order, replaying the first threshold-crossing batch for exact stopping. World3DGS parallel source uses partials, batch-scan, then replay; forward-only fallback has a different stopping approximation."
+}

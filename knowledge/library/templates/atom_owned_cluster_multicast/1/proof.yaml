@@ -1,0 +1,38 @@
+template: atom_owned_cluster_multicast@1
+version: 1
+relation: Each receiving CTA sees the same operand bytes as an independent local load, while projected
+  owner barriers aggregate the instruction atom readiness and the separate release relation prevents reuse
+  until every consuming atom completes.
+rank: Unpublished operand stages and unretired instruction-atom readers.
+assumes:
+- name: pre_topology
+  statement: Every adjacent physical X pair is one instruction atom, with an even-rank barrier owner;
+    all participants use the same actual topology.
+- name: pre_data
+  statement: Payload recipients need the identical logical operand tile in the same pipeline generation;
+    operand roles determine the legal relation.
+- name: pre_issuers
+  statement: CTA task election supplies each intended payload/slice once; task selection and payload masks
+    are separate decisions.
+- name: pre_full
+  statement: Projected owner barriers count every required TMA transaction/byte, including slices from
+    both parity issuers when present.
+- name: pre_release
+  statement: One logical atom completion contributes exactly once to each intended producer empty barrier
+    after every operand reader retires.
+- name: pre_lifetime
+  statement: Data/full/empty state advances in matching generations; no peer exits or overwrites a stage
+    while remotely addressed.
+- name: pre_fallback
+  statement: A flexible fallback changes all topology-dependent masks, issue elections and arrival counts
+    together.
+guarantees: []
+models: []
+note: Source flashinfer/prims_ts/batched_gemm/batched_gemm_cga.py:448-583 defines column/parity-row/whole-row
+  payload masks, even-owner projection, distinct empty release masks and arrival counts. mixed_cga_ts.py
+  separates task election from payload destinations and atom-relative barrier routing. cluster_multicast@1
+  expresses shared-tile multicast with a size1/2/4 menu but not this physical wider-cluster/2CTA-atom
+  distinction or three independent masks. Logical checks enumerate every elected issuer for source shapes
+  and fallback, verify projected owners and per-producer atom-release counts, and expose conflated-mask
+  counterexamples. Native TMA byte accounting, UMMA commit/remote-barrier semantics and cluster lifetime
+  remain realization obligations.

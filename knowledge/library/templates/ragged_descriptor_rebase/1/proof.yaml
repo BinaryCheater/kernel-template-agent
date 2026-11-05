@@ -1,0 +1,17 @@
+template: ragged_descriptor_rebase@1
+version: 1
+relation: NVIDIA TMA ragged sequence views, one extra axis for selected store paths
+  or two extra axes preserving a mapped base. Source original rank<=4 or<=3 respectively;
+  no arbitrary pointer-wrap legality is implied.
+rank: Number of input elements or state transitions still to consume.
+assumes:
+- name: source_contract
+  statement: Source binding and stated scope hold.
+guarantees: []
+models: []
+note: 'Source-derived candidate, not independently admitted. address_identity: Auxiliary
+  coordinates cancel synthetic offset for every valid q. bound_identity: Upper bound
+  comparison accepts exactly0<=q<L under nonnegative local coordinates. native_descriptor:
+  Descriptor rank, byte stride conversion and base pointer mapping are accepted by
+  selected backend. Native lowering and numerical error remain open; see trace and
+  checks.'

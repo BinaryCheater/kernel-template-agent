@@ -1,0 +1,14 @@
+template: stable_radix_digit_scatter@1
+version: 1
+relation: 'Erase count tables and scatter order: outputs are a stable partition by
+  this digit, and repeated LSD passes give full transformed-key order.'
+rank: Unprocessed source items or unmerged partials.
+assumes:
+- name: contract
+  statement: The stated partition, comparator/count and publication premises hold.
+guarantees: []
+models: []
+note: Source agent_radix_sort_onesweep.cuh:321-356,:399-459,:514-570,:690-713. Within
+  each bin, tile prefixes partition the bin interval and stable local ranks partition
+  each tile interval. Across bins the global bases partition output; LSD induction
+  preserves lower-digit ordering inside equal higher-digit bins.

@@ -1,0 +1,21 @@
+template: segmented_axis_work_decode@1
+version: 1
+relation: A valid query identifies one separately rounded segment work unit; its member coordinate maps into the original physical segment iff its local coordinate passes the signed remaining-distance guard.
+rank: Remaining groups scanned, then remaining valid work queries.
+assumes:
+  - {name: prefix, statement: "Prefix metadata starts at zero, is complete/immutable/nondecreasing and physical/work totals fit the chosen integer width."}
+  - {name: order, statement: Queries are nonnegative and monotone and unit layout/width are legal.}
+  - {name: consumers, statement: Consumers use per-group masks and safe inactive loads while preserving required cooperative participation.}
+guarantees: []
+models: []
+note: >-
+  Each nonempty segment partitions into ceil(length/unit_extent) units, each into
+  cooperating tiles; restricting local coordinates by remaining distance gives
+  exactly the original half-open segment. Zero-length segments have no unit.
+  Forward scalar prefix search agrees with independent enumeration for monotone
+  queries. The source's last sentinel boundary is read at index group_count, never
+  beyond it, and caller validity guards exclude terminal group metadata. Replay
+  executes the retained integer cursor and checks segment origins/coverage, including
+  empty groups and negative remaining distance in extra peers. Native warp/layout,
+  output clipping, load safety and pipeline progress remain backend obligations.
+  No registered model, ProofSummary or device execution is claimed.

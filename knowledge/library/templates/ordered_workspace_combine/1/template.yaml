@@ -1,0 +1,136 @@
+name: ordered_workspace_combine
+version: 1
+level_from: 4
+level_to: 5
+change: vertical
+refines: reduce
+produces:
+- store
+- transfer
+- reduce
+- sync
+object:
+  type: exclusive_partial_workspace_followed_by_ordered_linear_merge
+  description: Decouple producer completion order from floating addition order by storing disjoint FP32
+    partials and reducing only useful slots in ascending logical split order.
+variables:
+- name: split_count
+  kind: numeric
+  binding: runtime
+  role: software
+  domain:
+    lo: 2
+    hi: 2147483647
+  meaning: Number of nominal floor-partition slots; useful slots may be scattered rather than a prefix.
+- name: load_elements
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+  - 1
+  - 4
+  meaning: Scalar or aligned FP32x4 workspace loads; source loads four vectors per16-element output fragment.
+    Scalar is an inferred compatible lowering.
+constraints:
+- id: c_shape
+  expr: p.reduction_steps >= 2 and p.output_elements >= 1
+  meaning: This multi-contributor projection has at least two live reduction steps and two nominal splits;
+    singleton/empty direct output is separate.
+  cls: semantic
+preconditions:
+- id: pre_partition
+  expr: p.partial_inner_order_and_output_coordinates_fixed and p.tail_products_neutral_and_all_steps_covered_once
+  meaning: Each partial has a fixed arithmetic order and output identity; masks preserve the complete
+    reduction including its ragged tail.
+  cls: semantic
+- id: pre_slots
+  expr: p.partial_slots_exclusive_fp32_and_capacity_strides_exact and p.all_read_partials_published_before_reducer
+    and p.partition_and_workspace_integer_arithmetic_no_overflow
+  meaning: No atomic shared accumulation occurs between producers; each useful slot contains complete
+    FP32 state before the separate merge starts. Floor-range products and workspace address arithmetic
+    must not overflow.
+  cls: implementation
+- id: pre_presence
+  expr: p.producer_and_reducer_use_same_ranges_and_generation and p.inactive_slots_never_loaded
+  meaning: Live-slot predicates come from the same partition metadata; inactive slots can remain uninitialized.
+  cls: implementation
+- id: pre_owner
+  expr: p.final_output_elements_owned_once_and_padding_untouched and p.direct_main_tiles_disjoint_from_split_tail_outputs
+  meaning: Each final element has one merge owner, with no conflicting direct main-kernel writes and no
+    stores into row padding.
+  cls: implementation
+- id: pre_numeric
+  expr: p.finite_fp32_partials_and_intermediate_sums and p.linear_ascending_fp32_add_order_and_final_cast_admitted
+  meaning: Linear ascending slot order and one final cast define reproducibility; comparison against other
+    partitions/trees requires a separate rounding contract.
+  cls: implementation
+- id: pre_backend
+  expr: p.selected_load_width_alignment_and_resources_supported and p.merge_completion_before_scratch_reuse
+  meaning: Vector loads respect alignment; workspace remains immutable through all reducer readers and
+    is exclusive across concurrent launches.
+  cls: implementation
+program:
+  description: Let T=p.reduction_steps and S=split_count. Producer s owns steps[floor(s*T/S),floor((s+1)*T/S));
+    s is useful exactly when hi>lo. It computes its partial in the fixed inner order and writes a unique
+    FP32 slot[tile*S+s,element]. After all producers finish under the declared dependency, one reducer
+    owner per output element initializes FP32 acc=0 and scans s=0..S-1 ascending. For hi>lo, load the
+    complete partial and add in FP32; never load inactive slots even when their addresses are allocated.
+    Cast once after the ordered sum, then store only the logical output region. Different elements may
+    reduce in parallel; no producer completion schedule can change one element addition sequence. Preserve
+    workspace until all readers finish. Direct unsplit/single-contributor and empty-group output branches
+    must use disjoint ownership and are outside this version.
+backward_map: Concatenate the useful floor-partition ranges to recover every reduction step once. The
+  final value is the explicitly ordered FP32 sum of those fixed partials; changing producer completion
+  order leaves that sequence unchanged.
+obligations:
+- name: range_and_presence
+  statement: Useful ranges cover[0,T) once, and holes in nominal slots never trigger stale loads.
+  method: test
+- name: reproducible_sequence
+  statement: Fixed partial values plus ascending split-index addition produce the same result across producer
+    completion permutations.
+  method: test
+- name: exclusive_ownership
+  statement: Producer slots and final element owners are disjoint, including main versus tail outputs
+    and row padding.
+  method: test
+- name: publication_and_precision
+  statement: Publication precedes loads, every accumulated state stays FP32, one final cast is preserved
+    and scratch is not recycled early.
+  method: test
+effects:
+  transactions: []
+  storage:
+  - id: partial_workspace
+    level: dram
+    scope: kernel
+    bytes: 4 * split_count * p.output_elements
+  overlap: []
+scope:
+  predicate: p.reduction_steps >= 2 and p.output_elements >= 1 and (p.partial_inner_order_and_output_coordinates_fixed
+    and p.tail_products_neutral_and_all_steps_covered_once) and (p.partial_slots_exclusive_fp32_and_capacity_strides_exact
+    and p.all_read_partials_published_before_reducer) and (p.producer_and_reducer_use_same_ranges_and_generation
+    and p.inactive_slots_never_loaded) and (p.final_output_elements_owned_once_and_padding_untouched and
+    p.direct_main_tiles_disjoint_from_split_tail_outputs) and (p.finite_fp32_partials_and_intermediate_sums
+    and p.linear_ascending_fp32_add_order_and_final_cast_admitted) and (p.selected_load_width_alignment_and_resources_supported
+    and p.merge_completion_before_scratch_reuse) and p.partition_and_workspace_integer_arithmetic_no_overflow
+  text: Pinned SM100/103/107 deterministic grouped BF16 weight-gradient multi-contributor tail. Floor
+    partitions can have holes when split_count exceeds the row-step count. Native partials are FP32 and
+    reducer output is BF16 or FP32. Fixed-plan reproducibility does not imply equality across split counts,
+    native MMA shapes or low-precision intermediate reductions. Singleton/empty output policies are separately
+    bound.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Unique FP32 producer slots plus a dependency-separated ascending-index merge.
+  storage: One FP32 partial per nominal split and output element.
+  boundary: Scattered inactive slots, fixed inner/outer association and exclusive main/tail ownership.
+  resources:
+  - dram
+  - registers
+numeric_risk: A fixed addition order is reproducible but can differ from unsplit or tree reductions. Replacing
+  FP32 workspace with BF16, adding in arrival order or changing the partition changes the numerical operator.
+summary: When parallel reduction producers must finish freely but output addition order must stay fixed,
+  materialize their exclusive FP32 partials and merge by logical split index in another kernel. Compute
+  liveness from exact ranges rather than assuming a live prefix, and retain one final output cast.

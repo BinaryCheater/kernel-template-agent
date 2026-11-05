@@ -1,0 +1,111 @@
+{
+  "name": "blocked_hash_membership_filter",
+  "version": 1,
+  "level_from": 2,
+  "level_to": 3,
+  "change": "vertical",
+  "refines": "map",
+  "produces": [
+    "map",
+    "access"
+  ],
+  "object": {
+    "type": "blocked_hash_membership_filter",
+    "description": "When approximate set membership is acceptable, map each key to one small bit block and test or atomically OR its deterministic word patterns under a shared policy."
+  },
+  "variables": [
+    {
+      "name": "words_per_block",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": [
+        1,
+        2,
+        4,
+        8,
+        16,
+        32
+      ],
+      "meaning": "Power-of-two block words, bounded by source layout."
+    },
+    {
+      "name": "word_bits",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": [
+        32,
+        64
+      ],
+      "meaning": "Native atomic-OR word format; policy and target must agree."
+    }
+  ],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_0",
+      "expr": "p.hash_pattern_policy_identical and p.filter_initialized_zero",
+      "meaning": "Insert and query use the same split hash, block mapping and bit-pattern policy from zero state.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_1",
+      "expr": "p.insert_or_atomic_and_visible and p.concurrent_clear_excluded",
+      "meaning": "All competing insertions preserve every bit through correct-scope OR and complete before absence is interpreted.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_2",
+      "expr": "p.false_positive_membership_contract",
+      "meaning": "Caller accepts collisions producing present for absent keys; no false-negative contract applies only after admitted insertions finish.",
+      "cls": "semantic"
+    }
+  ],
+  "program": {
+    "description": "Split a key hash into block-selection and lower pattern bits. Map the upper part to a filter block; derive required word patterns from the lower part. Insertion atomically ORs those patterns into their designated words. Query checks (stored_word & required_pattern)==required_pattern for every required word and ANDs the results across its cooperative layout. Merge equal-policy filters by wordwise OR. Intersection/clear are separate operations with separate concurrency/semantic contracts. Conditional no-op OR may skip already set bits only under a valid memory-access model."
+  },
+  "backward_map": "Erase auxiliary organization and recover the visible results under the stated contract.",
+  "obligations": [
+    {
+      "name": "same_pattern",
+      "statement": "A key maps to identical block and required patterns in every insertion/query layout.",
+      "method": "proof"
+    },
+    {
+      "name": "monotone_bits",
+      "statement": "Concurrent insertion cannot lose previously set required bits.",
+      "method": "proof"
+    },
+    {
+      "name": "query_complete",
+      "statement": "All required words/lanes participate and are visible before a definitive absent result.",
+      "method": "proof"
+    },
+    {
+      "name": "policy_merge",
+      "statement": "Merged filters have matching block extents and pattern/hash policy.",
+      "method": "proof"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.hash_pattern_policy_identical and p.filter_initialized_zero and p.insert_or_atomic_and_visible and p.concurrent_clear_excluded and p.false_positive_membership_contract",
+    "text": "NVIDIA blocked Bloom filter exact state representation with approximate membership. Native block/device/system atomic scope must encompass all writers. Source conditional non-atomic read optimization is not itself a portable race-free proof. Resource effects: One hashed block bounds scattered-word footprint; block width and pattern density trade memory/atomic traffic against false-positive rate. Statistical error needs separate analysis, no speed or FPR measured here."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "When approximate set membership is acceptable, map each key to one small bit block and test or atomically OR its deterministic word patterns under a shared policy.",
+    "storage": "One hashed block bounds scattered-word footprint; block width and pattern density trade memory/atomic traffic against false-positive rate. Statistical error needs separate analysis, no speed or FPR measured here.",
+    "boundary": "Two keys setting bits0 and3 in the same word must leave0b1001; non-atomic load/OR/store can leave only one bit. An absent key requiring those same bits is a permitted false positive; a completed inserted key returning absent is not.",
+    "resources": []
+  },
+  "numeric_risk": "Preserve the supplied arithmetic contract; reassociation, quantization and approximate search require separate permission.",
+  "summary": "When approximate set membership is acceptable, map each key to one small bit block and test or atomically OR its deterministic word patterns under a shared policy. Two keys setting bits0 and3 in the same word must leave0b1001; non-atomic load/OR/store can leave only one bit. An absent key requiring those same bits is a permitted false positive; a completed inserted key returning absent is not."
+}

@@ -1,0 +1,22 @@
+template: masked_tile_pruning@2
+version: 1
+relation: The visible reduction is unchanged when omitted all-identity tiles are restored and exact masks are reinserted in the certified core.
+rank: Remaining indices of the normalized kept interval.
+assumes:
+  - {name: boundaries, statement: Integral nonnegative counts fit and cover one bounded kept interval exactly.}
+  - {name: semantics, statement: Every omitted contribution is identity and every unmasked core coordinate is valid for every visible row.}
+  - {name: implementation, statement: Element masks implement the complete predicate and producer/consumer ranges agree.}
+  - {name: order_and_empty, statement: The traversal and initialized empty-result/downstream policies are admitted.}
+guarantees: []
+models: []
+note: >-
+  Let a=start+leading and b=a+core=end-trailing. Nonnegative counts give
+  start<=a<=b<=end, so [start,a),[a,b),[b,end) are disjoint and cover the kept
+  interval exactly. Reversal changes visit order but not ownership; numerical
+  reordering remains a premise. Omitted tiles are all identity. Applying the
+  mask inside a certified valid core is a no-op. Both edges retain exact masks.
+  Source checks recover a two-edge 2/2/2 witness and replay selected metadata
+  alongside scalar element predicates. Negative raw counts, source empty-row
+  guard gaps and unproved cross-role/native coordinates are excluded rather than
+  clamped. Version1 intent projections and changed fields are documented separately;
+  no old source proof or native execution assurance is inherited automatically.

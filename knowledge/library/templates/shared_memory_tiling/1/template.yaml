@@ -1,0 +1,81 @@
+# Paper Listing 1 (the shared-memory tiling template as a contract), Appendix A. Added by
+# WP24 (D637) so the checker has the template the paper already reports results for.
+# Chip parameters are fixed by the scope as in the listing (96 KiB, 32768 accumulators,
+# 4 bytes per element); they become decisions when a chip-level template is active.
+name: shared_memory_tiling
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: contract
+produces: [contract, transfer, store, sync]
+object:
+  type: smem_slot
+  description: >-
+    A shared-memory slot: a thread block stages A[Tm x Tk] and B[Tk x Tn] into one of S slots;
+    loads of k-tile p+P overlap the computation on k-tile p.
+variables:
+  - {name: Tm, kind: numeric, binding: compile, role: software, domain: [16, 32, 64, 128, 256], meaning: "output tile rows"}
+  - {name: Tn, kind: numeric, binding: compile, role: software, domain: [16, 32, 64, 128, 256], meaning: "output tile columns"}
+  - {name: Tk, kind: numeric, binding: compile, role: software, domain: [8, 16, 32, 64], meaning: "reduction tile"}
+  - {name: S, kind: numeric, binding: compile, role: software, domain: [1, 2, 3], meaning: "slots per block"}
+  - {name: P, kind: numeric, binding: compile, role: software, domain: [0, 1, 2], meaning: "prefetch distance in k-tiles"}
+  - {name: beta, kind: numeric, binding: compile, role: software, domain: [0, 1], meaning: "1 with a trailing barrier"}
+constraints:
+  - {id: c1_capacity, expr: "S * 4 * (Tm * Tk + Tk * Tn) <= 98304", meaning: "shared-memory capacity M_s = 96 KiB, e = 4 bytes", cls: resource}
+  - {id: c2_accumulators, expr: "256 <= Tm * Tn and Tm * Tn <= 32768", meaning: "accumulator budget R_acc = 32768 per block, 256 threads", cls: resource}
+  - {id: c3_lifetime, expr: "P <= S - 2 + beta", meaning: "a slot is refilled only after every warp finished the tile it held", cls: semantic}
+preconditions:
+  - {id: pre_lifetime, expr: "P <= S - 2 + beta", meaning: "lifetime; exact on the paper's 24 checked (S, P, beta)", cls: semantic, same_as: c3_lifetime}
+program:
+  description: >-
+    for each block (i, j): for u in 0..min(P, KT)-1: load k-tile u -> slot u mod S;
+    for p in 0..KT-1 (KT = ceil(K/Tk)): if p+P < KT: load k-tile p+P -> slot (p+P) mod S;
+    barrier (leading); C[i,j] += slot (p mod S); if beta: barrier (trailing).
+    Grid ceil(M/Tm) x ceil(N/Tn); tails guarded by index < extent: loads fill 0, stores skip.
+backward_map: "Forget the grid, the slots and the schedule: C = A B over (M, N, K)."
+obligations:
+  - {name: coverage, statement: "Every output index and every reduction index is reached by some tile (index conditions, any extent).", method: smt}
+  - {name: exact_once, statement: "No index is reached by two tiles.", method: smt}
+  - {name: no_phantom, statement: "No admitted tile point lies beyond the extent (guarded tails).", method: smt}
+  - {name: readiness, statement: "Every read of slot p mod S follows the load of k-tile p, on every interleaving.", method: smt}
+  - {name: lifetime, statement: "Slot (u mod S) holds k-tile u from the completion of its load until its last read.", method: smt}
+  - {name: agreement, statement: "A complete run exists and its replay gives exactly the terms A[i,k] B[k,j] for each output.", method: smt}
+effects:
+  transactions:
+    - {id: ctas, pattern: launch, kind: cta_launch, count: "ceil_div(p.M, Tm) * ceil_div(p.N, Tn)"}
+    - {id: kernel, pattern: launch, kind: kernel_launch, count: "1"}
+    - {id: tiles, pattern: transfer, kind: global_load,
+       count: "ceil_div(p.M, Tm) * ceil_div(p.N, Tn) * ceil_div(p.K, Tk) * (Tm * Tk + Tk * Tn) * 4 / 16",
+       amounts: {bytes: "16", vector_bytes: "16"}, src: global, dst: smem}
+    - {id: fma, pattern: contract, kind: ffma,
+       count: "ceil_div(p.M, Tm) * ceil_div(p.N, Tn) * ceil_div(p.K, Tk) * Tm * Tn * Tk / 32",
+       amounts: {flops: "64"}}
+    - {id: barrier, pattern: sync, kind: cta_barrier,
+       count: "ceil_div(p.M, Tm) * ceil_div(p.N, Tn) * ceil_div(p.K, Tk) * (1 + beta)", amounts: {warps: "8"}}
+  storage:
+    - {id: slots, level: smem, bytes: "S * 4 * (Tm * Tk + Tk * Tn)"}
+  overlap:
+    - {between: ["pattern:transfer", "pattern:contract"], when: "P >= 1"}
+scope:
+  predicate: "p.M >= 1 and p.N >= 1 and p.K >= 1"
+  text: >-
+    C[M,N] = A[M,K] * B[K,N], C starts at 0, any M, N, K >= 1; each product is a symbolic term
+    (the proof shows every C[i,j] gets exactly its K terms, not FP32 rounding). Chip: 96 KiB
+    shared memory per block, 256 threads per block, 32768 accumulators per block, 4 bytes per
+    element. Leading barrier; tiles disjoint.
+requires: []
+probed_on: []
+relations:
+  - {type: alternative_of, target: multi_buffer_rotation, note: "one-step form of output tiling, storage, rotation and the barrier choice (paper Listing 1)"}
+signature:
+  algorithm: "stage operand tiles through S shared-memory slots, prefetching P ahead"
+  reuse: "each A tile is reused Tn times and each B tile Tm times from shared memory"
+  storage: "S slots of A and B tiles in shared memory"
+  boundary: "tails guarded by index < extent: loads fill 0, stores skip"
+  resources: [smem, dram, fma, issue]
+numeric_risk: "the summation order over k differs from a sequential sum (FP32 rounding is out of the proof's scope)"
+summary: >-
+  The paper's shared-memory tiling template (Listing 1): tiles, S slots, prefetch P and an
+  optional trailing barrier; its lifetime precondition P <= S - 2 + beta is constraint C3 (K1).
+example_code: null

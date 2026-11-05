@@ -1,0 +1,15 @@
+{
+  "template": "blocked_hash_membership_filter@1",
+  "version": 1,
+  "relation": "Every completed inserted key has all its required policy bits set in its selected block; query returns the conjunction of those stored-bit tests.",
+  "rank": "Unprocessed input keys and required word patterns, then unfinished queries.",
+  "assumes": [
+    {
+      "name": "source_contract",
+      "statement": "NVIDIA blocked Bloom filter exact state representation with approximate membership. Native block/device/system atomic scope must encompass all writers. Source conditional non-atomic read optimization is not itself a portable race-free proof."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Source-derived proof outline; no formal proof result or GPU execution claimed. same_pattern: A key maps to identical block and required patterns in every insertion/query layout. monotone_bits: Concurrent insertion cannot lose previously set required bits. query_complete: All required words/lanes participate and are visible before a definitive absent result. policy_merge: Merged filters have matching block extents and pattern/hash policy."
+}

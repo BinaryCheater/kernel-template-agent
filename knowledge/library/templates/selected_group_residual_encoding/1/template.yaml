@@ -1,0 +1,92 @@
+{
+  "name": "selected_group_residual_encoding",
+  "version": 1,
+  "level_from": 3,
+  "level_to": 4,
+  "change": "vertical",
+  "refines": "store",
+  "produces": [
+    "map",
+    "store"
+  ],
+  "object": {
+    "type": "base_residual_group_pair",
+    "description": "Selected quantization groups own a base code group and an independently scaled residual code group."
+  },
+  "variables": [
+    {
+      "name": "repair_groups",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": {
+        "lo": 0,
+        "hi": 4096
+      },
+      "meaning": "Number of trailing groups after a fixed reorder that receive a residual; source KE/16."
+    }
+  ],
+  "constraints": [
+    {
+      "id": "c_budget",
+      "expr": "repair_groups <= p.groups",
+      "meaning": "Each selected group is unique and already has a base group.",
+      "cls": "semantic"
+    }
+  ],
+  "preconditions": [
+    {
+      "id": "pre_format",
+      "expr": "p.group_size == 16 and p.reorder_is_valid_permutation and p.quantizer_decoder_policy_explicit",
+      "meaning": "NVIDIA source uses16 elements/group, BF16-rounded reordered values, rounded E4M3 scales and E2M1 payloads.",
+      "cls": "implementation"
+    },
+    {
+      "id": "pre_decode",
+      "expr": "p.base_and_residual_scales_positive_finite and p.consumer_understands_pair_layout and p.approximation_admitted",
+      "meaning": "Consumer distinguishes base and repair groups and pairs both scales with the correct generation.",
+      "cls": "semantic"
+    }
+  ],
+  "program": {
+    "description": "Reorder the input and round to the declared intermediate type. For group g compute a base scale from max absolute value, round/store that scale, encode base codes using its decoded value and declared approximate reciprocal. Form residuals from the same rounded input minus the actual decoded base code times the stored base scale, then round residuals to the intermediate type. For the last repair_groups groups independently choose/store a residual scale and encode residual codes. Map unselected group g to physical group g. Selected group g maps to base position2*g-(groups-repair_groups) and residual positionbase+1. Reconstruction decodes base and residual with their own scales and adds them; unselected groups decode base only."
+  },
+  "backward_map": "Erase representation groups by decoding one base and optional independently scaled residual per original reordered group under the declared approximation.",
+  "obligations": [
+    {
+      "name": "mapping",
+      "statement": "Each original group owns one base and selected groups exactly one adjacent residual, without collisions.",
+      "method": "exhaustive"
+    },
+    {
+      "name": "residual_generation",
+      "statement": "Residual uses actual decoded stored base code and scale after intermediate rounding; independent residual scale stays paired.",
+      "method": "test"
+    },
+    {
+      "name": "numeric",
+      "statement": "Scale conversion, reciprocal, saturation and both payload conversions satisfy the admitted approximation and range.",
+      "method": "test"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.group_size == 16 and p.reorder_is_valid_permutation and p.approximation_admitted",
+    "text": "Encoding-stage refinement only. Selected suffix groups after a fixed reorder; independently scaled E2M1 residual. Source ACT path on SM100+. WEIGHT duplication is a distinct consumer-facing representation and is not covered by residual reconstruction. No claim of exact recovery or downstream GEMM speed."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "Selected suffix groups get independently scaled residual codes after base quantization.",
+    "storage": "groups+repair_groups physical code groups and scale entries",
+    "boundary": "Suffix begins at groups-repair_groups; residual is not another original input.",
+    "resources": []
+  },
+  "numeric_risk": "Two BF16 rounding steps, E4M3 scales, approximate reciprocal and E2M1 saturation contribute error; zero/subnormal scales require explicit guards.",
+  "summary": "When a low-bit representation spends extra storage on selected reordered groups, retain actual base quantization error in independently scaled residual groups. Choose repair_groups; base/residual scales and coordinate identities must stay paired. Bind16-element groups and the ACT suffix layout; do not substitute the WEIGHT duplicate path."
+}

@@ -1,0 +1,175 @@
+name: paged_recurrent_boundary_state
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: store
+produces:
+- store
+- map
+- contract
+object:
+  type: page_boundary_recurrent_state_with_shared_immutable_prefix
+  description: Store one recurrent boundary state per token page, reuse complete prefix pages read-only,
+    and derive split read/checkpoint/final rows from current page metadata.
+variables:
+- name: page_tokens
+  kind: numeric
+  binding: runtime
+  role: software
+  domain:
+    lo: 64
+    hi: 2147483584
+    step: 64
+  meaning: Positive64-aligned logical tokens per page. Controls checkpoint granularity and prefix-sharing/state
+    storage; not the64-token internal compute block itself.
+- name: operation
+  kind: structure
+  binding: compile
+  role: boundary
+  domain:
+  - prefill_append
+  - decode_one
+  meaning: 'Bound input operation: multiple new tokens with page-boundary checkpoints, or one token following
+    a nonempty prior prefix.'
+- name: slot_preparation
+  kind: structure
+  binding: compile
+  role: software
+  domain:
+  - per_layer
+  - per_step
+  meaning: Derive small pool-row records within each layer call, or prepare once and reuse across all
+    layers of the same immutable step.
+constraints:
+- id: c_domain
+  expr: p.sequences >= 1 and page_tokens % 64 == 0
+  meaning: Nonempty sequence batch and native checkpoint-aligned page size; zero new-token sequences remain
+    valid.
+  cls: implementation
+- id: c_slot_bytes
+  expr: (operation == 'prefill_append' and p.slot_record_bytes == 16) or (operation == 'decode_one' and
+    p.slot_record_bytes == 8)
+  meaning: Source uses four or two int32 row/prefix records per sequence.
+  cls: implementation
+preconditions:
+- id: pre_table
+  expr: p.page_table_complete_ids_valid_and_after_step_lengths_coherent
+  meaning: Each sequence has at least one valid page ID in CSR order, final last-page length1..P, total
+    T=(page_count-1)*P+last_len, and nonnegative new length L<=T. Tables, host page size and token-prefix
+    metadata describe the same after-step sequence.
+  cls: implementation
+- id: pre_generation
+  expr: p.cached_prefix_state_matches_sequence_layer_parameters_and_recipe
+  meaning: The read page contains exactly the state after the prior prefix p=T-L for this layer/parameter/numeric
+    generation. Shared complete-prefix pages have the same valid state meaning for every sharing sequence;
+    shape equality or page ID reuse alone does not certify it.
+  cls: implementation
+- id: pre_ownership
+  expr: p.every_written_page_private_and_no_other_sequence_reads_it_this_step
+  meaning: Complete prefix pages may be shared read-only. A partial prefix/tail page and all newly written/checkpoint
+    pages are private. Written page destinations are unambiguous; no other sequence in this call reads
+    or writes them. Own read/write alias is allowed only after its original seed readers retire.
+  cls: implementation
+- id: pre_boundaries
+  expr: p.checkpoints_are_after_absolute_page_boundary_tokens_and_virtual_padding_neutral
+  meaning: Checkpoint at absolute token count q*P is the inclusive state through that token, not a page-start
+    state. Unaligned p may be virtually left-padded to the64-token compute boundary using identity transitions
+    and masked outputs, without replaying old prefix tokens.
+  cls: implementation
+- id: pre_slots
+  expr: p.slot_records_derived_from_same_immutable_step_metadata_and_published_before_layers
+  meaning: Prepared read/write/checkpoint-prefix records match the current page table and new-token counts.
+    They may be reused across layers of this step, never implicitly across changed decode/page metadata.
+    Caller-supplied records are not source-validated against table values.
+  cls: implementation
+- id: pre_mode
+  expr: operation == 'prefill_append' or p.single_token_decode_has_nonempty_prior_prefix
+  meaning: Decode mode requires at least one token before the new token; if it opens a page, at least
+    two page entries exist. The first token is handled by the prefill zero-seed path, not by reading an
+    absent previous page.
+  cls: implementation
+- id: pre_lifetime
+  expr: p.all_seed_checkpoint_and_layer_readers_complete_before_page_reuse_or_mutation
+  meaning: Page/slot generations remain live through every layer and stream user. Page allocator or subsequent
+    steps cannot recycle/remap a page early, and published checkpoint states complete before prefix reuse.
+  cls: implementation
+- id: pre_backend
+  expr: p.selected_paged_mode_state_dtype_stride_and_checkpoint_kernel_supported
+  meaning: Actual backend supports split read/write pool rows, absolute checkpoint destinations and unaligned-prefix
+    identity masking at64-token compute granularity. This first binding uses NVIDIA GDN routes; it does
+    not infer support for every provider/CP combination.
+  cls: implementation
+program:
+  description: For prefill_append sequence i let first/end be its CSR entries, T=(end-first-1)*P+last_len
+    and p=T-L. If p0 initialize zero; otherwise read page[first+floor((p-1)/P)], which must already hold
+    the exact prefix state. Process only new tokens. For every absolute boundary q*P with p<q*P<=T, write
+    the inclusive state to page[first+q-1]. First checkpoint entry is first+floor(p/P). If L>0 and T%P!=0,
+    also write final state to last page[end-1]; otherwise suppress this separate final write because zero-new
+    work changes nothing or the boundary checkpoint already owns it. Prefix may end inside a page; its
+    private state is loaded before in-place continuation/checkpoint writes, with any virtual compute padding
+    neutral. For decode_one always write last page; when last_len1 read the preceding page, otherwise
+    read/write the last page. Require nonempty old prefix so that preceding page exists when needed. Derive
+    these row records per layer or once per step, publish them before all users, and retain matching metadata/state
+    generations until all layer/stream readers retire. Complete shared prefix pages are never written;
+    allocator copy-on-write of partial shared pages is a separate prerequisite, not performed here.
+backward_map: Follow each sequence original token recurrence from its cached state after p tokens. Every
+  checkpoint/final destination stores exactly the after-token state for its absolute page position. Split
+  read/write rows preserve complete shared prefix states, and suppressing the duplicate full-page final
+  store retains the same boundary state.
+obligations:
+- name: absolute_state_positions
+  statement: Read page, crossed checkpoints and final tail correspond to the correct absolute token counts,
+    including unaligned prefixes, full final pages and zero new tokens.
+  method: test
+- name: shared_prefix_ownership
+  statement: All complete shared prefix pages remain immutable; mutable pages cannot overlap another sequence
+    read/write set, and own read aliases retire before overwrite.
+  method: test
+- name: slot_generation_reuse
+  statement: Prepared records remain identical across layers of the same step and are regenerated before
+    any page/length generation change.
+  method: test
+- name: native_checkpoint_recipe
+  statement: Virtual left padding, numerical state storage and actual device checkpoint publication implement
+    the declared absolute boundaries.
+  method: test
+effects:
+  transactions: []
+  storage:
+  - id: prepared_step_slots
+    level: dram
+    scope: kernel
+    bytes: p.sequences * p.slot_record_bytes
+    when: slot_preparation == 'per_step'
+    note: Small shared read/write/checkpoint-prefix records only; recurrent page pool and page table are
+      separate.
+  overlap: []
+scope:
+  predicate: (p.sequences >= 1 and page_tokens % 64 == 0) and ((operation == 'prefill_append' and p.slot_record_bytes
+    == 16) or (operation == 'decode_one' and p.slot_record_bytes == 8)) and (p.page_table_complete_ids_valid_and_after_step_lengths_coherent)
+    and (p.cached_prefix_state_matches_sequence_layer_parameters_and_recipe) and (p.every_written_page_private_and_no_other_sequence_reads_it_this_step)
+    and (p.checkpoints_are_after_absolute_page_boundary_tokens_and_virtual_padding_neutral) and (p.slot_records_derived_from_same_immutable_step_metadata_and_published_before_layers)
+    and (operation == 'prefill_append' or p.single_token_decode_has_nonempty_prior_prefix) and (p.all_seed_checkpoint_and_layer_readers_complete_before_page_reuse_or_mutation)
+    and (p.selected_paged_mode_state_dtype_stride_and_checkpoint_kernel_supported)
+  text: FlashInfer gdn_paged.py and Triton row preparation feed NVIDIA GDN split pool/checkpoint kernels
+    with page_size a positive multiple64. Prefill accepts zero new length and unaligned prefix; decode_one
+    excludes an empty old prefix. Pool row stride may be padded but each[H,V,K] row is dense. Page allocator/COW,
+    prefix identity lookup, all-layer readiness and source GPU metadata value validation are caller/system
+    boundaries. This rule stores recurrent states at page positions, not per-token KV payloads.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Map current paged sequence lengths to recurrent prefix/checkpoint/final-state rows.
+  storage: One state per page boundary or private partial tail plus optional per-step row records.
+  boundary: After-step table generation, immutable full-prefix sharing, private partial tails and absolute
+    checkpoint counts.
+  resources:
+  - dram
+numeric_risk: A page can have the correct shape and wrong prefix/parameter generation. Reusing stale prepared
+  rows, treating first-token decode as previous-page read, or mutating a shared partial page changes sequence
+  state.
+summary: When recurrent prefixes are reused, store page-end states and share only immutable complete pages.
+  Continue private partial tails in place, checkpoint every crossed absolute page boundary and derive
+  slot records once per immutable step if layers reuse them.

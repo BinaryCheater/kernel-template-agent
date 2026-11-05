@@ -1,0 +1,51 @@
+template: document_stencil_halo_pullback@1
+version: 1
+relation: Expand each history and future-adjoint route to its absolute document token. Every forward stencil
+  edge t<-t-lag has one original input value; its transpose edge returns dpre[t]*tap[3-lag] exactly once
+  to that input owner. Copying one dpre to multiple predecessor fragments represents distinct input edges,
+  not duplicate contributions to one dx. Channel packing preserves each operand edge identity.
+rank: Forward history edges not yet supplied, then backward stencil-transpose edges not yet applied to
+  their owning input.
+assumes:
+- name: pre_partition
+  statement: Nonempty fragments partition each document in chronological token coordinates, independent
+    of rank/local ordering. Every halo token has one owning fragment; document boundaries denote zeros
+    rather than tokens in adjacent packed documents.
+- name: pre_stencil
+  statement: The width4 depthwise stencil uses tap0 on t-3 through tap3 on t. Forward BF16 input/history
+    and FP32 taps form the declared FP32 preactivation and SiLU recipe. Backward differentiates that FP32
+    preactivation, not a BF16-rounded checkpoint.
+- name: pre_routes
+  statement: History row k for fragment start a resolves a-3+k; future dpre row m for its end b resolves
+    b+m, for k,m=0..2. Missing before/after-document rows use sentinels. Short fragments may source three
+    rows from several nonadjacent fragment/rank owners.
+- name: pre_slots
+  statement: Destination-major sends and source-major receives agree in row order and split counts, including
+    same-rank peers. A head dpre row is replicated once per distinct predecessor-fragment consumer, up
+    to3 consumers in this source. Slots have unique writers and no uninitialized sentinel read.
+- name: pre_backward
+  statement: Backward returns FP32 dpre at boundary output positions, not already-rounded dx. Each input
+    owner applies the appropriate FP32 tap to every future dpre contribution in its admitted local order,
+    combines local contributions and performs one final BF16 dx cast. dweight is this rank fragment outputs
+    partial, not a hidden global reduction.
+- name: pre_packing
+  statement: Packed operands share document partition, row routing and collective order. Concatenate operand
+    channel columns with exact prefix widths, exchange once per direction and unpack contiguous views/copies
+    without changing operand numeric stages. Different row plans cannot be co-packed by shape alone.
+- name: pre_lifetime
+  statement: Wait for forward history before local stencil reads and reverse dpre before input-gradient
+    folds. Preserve original input/tap/context generations through recompute; a retained history handle
+    removes forward exchange replay only, not reverse exchange.
+- name: pre_backend
+  statement: Concrete backend supports SM100/103/107, contiguous BF16 packed rows, channels multiple8,
+    FP32 width4 taps and no bias. Empty ranks still participate in matching exchange and emit zero dweight;
+    source graph/capture context readiness remains required.
+guarantees: []
+models: []
+note: GDN/KDA KCP plan _halo_sources/_halo_plan at cake_kcp_plan.py:1310-1428 resolves global-token owners
+  and builds hist/tail/head slots, with up to3 distinct predecessor consumers per output dpre row. Deterministic
+  conv kcp.py:1098-1245 launches head dpre, exchanges FP32 return rows, waits then computes owner dx;1828-1890
+  channel-packs multi-operand reverse messages. Native head17cd42fb05079bbbf840:221-240 differentiates
+  FP32 preactivation and replicates send slots; main5288d132a5cc927ae729:540-650 folds weighted dpre into
+  pending FP32 dx. Exact stencil transpose tests cover short-fragment routing and packing; no native exchange
+  or activation-approximation validation is claimed.

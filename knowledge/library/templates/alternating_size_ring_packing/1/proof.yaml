@@ -1,0 +1,25 @@
+template: alternating_size_ring_packing@1
+version: 1
+relation: Every logical operand read obtains the same generation and values as the maximum-sized dedicated-slot layout.
+rank: Unconsumed logical generations and unretired overlapping occupancies.
+assumes:
+  - {name: sizes, statement: "L>=S>0, exactly three slots alternate operand sizes, and native footprints/alignments are known."}
+  - {name: phase, statement: "Both sides translate native phase to the same logical wrap parity and address."}
+  - {name: lifetime, statement: "A writer waits until all prior occupancies overlapping its full native footprint have retired, and payload readiness precedes reads."}
+guarantees: []
+models: []
+note: >-
+  In parity0 the intervals are[0,L),[L,L+S),[L+S,2L+S); in parity1 they are
+  [0,S),[S,L+S),[L+S,L+2S). They are disjoint in each frame and fit2L+S because
+  S<=L. Transition safety is not implied by those frame bounds: parity0 slot0
+  newly large occupies[0,L), overlapping a prior parity1 middle[ S,L+S) byL-S.
+  The lifetime premise removes every such earlier reader before replacement.
+  Source flash_attn/cute/config.py:870-887 limits the layout to oneCTA hd192/128,
+  kv_stage3; flash_fwd_sm100.py:546-562 adjusts stage stride, :3553-3565 shifts
+  the middle pointer, and producer load_KV passes phase^1 while consumer access
+  uses its direct phase. Existing multi_buffer_rotation@2 assumes fixed disjoint
+  slot addresses and S*p.size_bytes capacity; it does not supply this mapping or
+  the extra cross-slot lifetime requirement. The retained logical check verifies
+  both frames and exposes why per-slot-only retirement is insufficient. Native
+  last-read/commit ordering of the source schedule remains an unverified binding
+  premise, not a source bug investigation or a proved safe schedule claim.

@@ -1,0 +1,15 @@
+{
+  "template": "predicate_keyed_output_permutation@1",
+  "version": 1,
+  "relation": "The schedule permutation is bijective and maps each row mask and partial output back to its original identity; combined partitions cover exactly the admitted support bits.",
+  "rank": "Unscheduled rows and uncombined offset partitions, then pending checkpoint writes.",
+  "assumes": [
+    {
+      "name": "source_contract",
+      "statement": "NVIDIA sparse convolution mask sorting. Sorting is a schedule choice; stable tie order is unnecessary for independent outputs. Source compiled tile menus and actual benefit are separate from this semantic permutation."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Source-derived proof outline; no formal proof result or GPU execution claimed. row_identity: Every scheduled row maps to exactly one original output and all outputs are covered. support: Pruned bits exclude only absent or other-pass offsets, never present contributions of this pass. combine: All offset partitions contribute once and bias/activation is applied at the correct complete-result boundary. checkpoint_shape: A backward tile mask is consumed with compatible forward mask width and argsort mapping. The relation is a proposed source-level invariant; the stated finite-work rank depends on the explicit environment progress assumptions. Device ordering and numeric premises have not been discharged by schema validation."
+}

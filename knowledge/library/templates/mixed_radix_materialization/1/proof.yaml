@@ -1,0 +1,15 @@
+template: mixed_radix_materialization@1
+version: 1
+relation: Apply the inverse digit permutation and flatten original logical coordinates,
+  preserving each element or packed-code identity.
+rank: Unprocessed source items or unmerged partials.
+assumes:
+- name: contract
+  statement: The stated partition, comparator/count and publication premises hold.
+guarantees: []
+models: []
+note: Source layout_details/tiled.py:27-55, hopper_value.py:145-230, hopper_scale.py:110-143,
+  blackwell_value_shuffled.py:_swizzle_data_torch and _convert_shuffled_mxfp4. Digit
+  permutation is invertible under full factorization. Native conversion kernels and
+  selected consumers still need address/layout assurance. Blackwell scale128x4 uses
+  existing blocked_scale_digit_layout@1 rather than this new profile.

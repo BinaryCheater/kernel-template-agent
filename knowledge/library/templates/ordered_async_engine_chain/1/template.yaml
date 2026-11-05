@@ -1,0 +1,77 @@
+name: ordered_async_engine_chain
+version: 1
+level_from: 2
+level_to: 3
+change: vertical
+refines: sync
+produces:
+- sync
+- work_assign
+object:
+  type: ordered_async_engine_chain
+  description: Operations on one ordered asynchronous engine reuse intermediate storage
+    without an intervening SM-side completion wait.
+variables: []
+constraints: []
+preconditions:
+- id: pre0
+  expr: p.same_ordered_engine_and_scope and p.engine_operations_preserve_issue_order
+  meaning: All chained operations have the same engine/group scope and required engine
+    execution order.
+  cls: semantic
+- id: pre1
+  expr: p.shared_inputs_proxy_published and p.external_accesses_ordered_at_chain_boundaries
+  meaning: SM generic writes/reads and other engines synchronize at the chain boundaries.
+  cls: semantic
+- id: pre2
+  expr: p.intermediate_storage_live_through_chain and p.commit_wait_before_external_result_use
+  meaning: Storage remains allocated and external consumers wait actual committed
+    completion.
+  cls: semantic
+program:
+  description: Issue shared-to-tensor copy, tensor-core MMA consuming that tensor
+    data, and optionally a later tensor copy overwriting the same intermediate. The
+    common engine executes them in issue order, so the later overwrite cannot precede
+    the earlier MMA read. Track completion for the whole sequence with one engine
+    commit to a barrier and wait only before SM-side consumption or incompatible external
+    access. Generic shared writes before the engine copy require proxy fencing; an
+    mbarrier wait after completion may supply the source retirement boundary before
+    generic reuse.
+backward_map: Insert a completion wait after each engine operation; ordered engine
+  semantics and final wait make the same values visible at all external observations.
+obligations:
+- name: engine_dependency
+  statement: Every chained consumer executes after its engine producer and before
+    a later destructive engine write.
+  method: proof
+- name: external_visibility
+  statement: Non-engine accesses observe only completed/proxy-published values at
+    chain boundaries.
+  method: test
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: (p.same_ordered_engine_and_scope and p.engine_operations_preserve_issue_order)
+    and (p.shared_inputs_proxy_published and p.external_accesses_ordered_at_chain_boundaries)
+    and (p.intermediate_storage_live_through_chain and p.commit_wait_before_external_result_use)
+  text: Blackwell tcgen05 copy/MMA/commit sequence with matching engine execution
+    scope and legal shared/tensor layouts. Does not order arbitrary TMA, SM arithmetic
+    or other CTAs merely because the operations are asynchronous.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Operations on one ordered asynchronous engine reuse intermediate storage
+    without an intervening SM-side completion wait.
+  storage: Binding-specific counters, partials or output ranges.
+  boundary: Tile prefixes and logical membership.
+  resources: []
+numeric_risk: Integer counts must not overflow; ordering/rounding policy belongs to
+  the bound operation.
+summary: "When a tensor-core engine can consume a prior engine copy in issue order,\
+  \ chain copy\u2192MMA\u2192next copy and wait once at the external observation boundary.\
+  \ This can reuse tensor operand storage without an SM wait between operations. Preserve\
+  \ proxy fences and final commit/wait; a TMA transfer from another engine needs its\
+  \ own readiness join."

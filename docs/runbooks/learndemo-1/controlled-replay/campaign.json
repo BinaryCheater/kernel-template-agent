@@ -1,0 +1,305 @@
+{
+  "campaign": "source-attention-control-v1",
+  "status": "design only; not launchable until prelaunch receipts pass",
+  "research_question": "Can the current accumulated pooled Template library support independent reconstruction against a named studied production kernel, and improve outcomes versus direct implementation without Templates?",
+  "source": {
+    "library": "Dao-AILab/flash-attention",
+    "revision": "1dc8232fe209e2c48b1d3e677f26d68e4b856212",
+    "retention_record": "knowledge/studies/flash-attention/inputs/sources.json",
+    "study_trace": "knowledge/studies/flash-attention/trace-cuda-fa2.md",
+    "historical_trace": "knowledge/seed/references/flash_attention_2_fwd/decomposition.md",
+    "historical_trace_revision": "a3a9dfa9bf10b52e55e8507b16ab0fe0dc1f38a0",
+    "version_mapping": "targeted reconciliation required; revisions are not assumed identical",
+    "translation_unit": "csrc/flash_attn/src/flash_fwd_hdim128_fp16_causal_sm80.cu",
+    "launcher": "run_mha_fwd_hdim128<cutlass::half_t,true>",
+    "device_body": "compute_attn_1rowblock",
+    "expected_traits": "Flash_fwd_kernel_traits<128,128,64,4,false,false,cutlass::half_t>",
+    "baseline_build": "compile unchanged pinned forward specialization with a declared thin host binding; no full-library rebuild required",
+    "backend_fallback": "forbidden",
+    "preflight_receipt": null,
+    "required_optimization": {
+      "host": "-O3",
+      "device": [
+        "-O3",
+        "--use_fast_math",
+        "upstream-relevant constexpr/lambda/half flags",
+        "explicit sm_121 architecture"
+      ],
+      "forbidden": [
+        "-G",
+        "-O0"
+      ],
+      "reference": "retained setup.py:357-376; any compatibility deviation reviewed before sealing"
+    },
+    "host_normalization": {
+      "public_window": [
+        -1,
+        -1
+      ],
+      "causal_setter_window": [
+        -1,
+        0
+      ],
+      "params_is_causal": true,
+      "stored_window": [
+        "S",
+        0
+      ],
+      "public_dropout_probability": 0.0,
+      "params_keep_probability": 1.0,
+      "params_inverse_keep_probability": 1.0,
+      "params_keep_threshold_uint8": 255,
+      "num_splits": 1,
+      "scale": "FP32(1/sqrt(128))",
+      "rounding": "sequence lengths up to128; d_rounded128; original element strides"
+    }
+  },
+  "task": {
+    "input_layout": "contiguous B,S,H,D",
+    "shapes": [
+      [
+        1,
+        512,
+        8,
+        128
+      ],
+      [
+        1,
+        2048,
+        8,
+        128
+      ],
+      [
+        1,
+        513,
+        8,
+        128
+      ]
+    ],
+    "input_dtype": "float16",
+    "accumulation": "float32",
+    "qkv_heads_equal": true,
+    "scale": "1/sqrt(128)",
+    "causal": true,
+    "dropout": 0.0,
+    "alibi": false,
+    "softcap": 0.0,
+    "window": [
+      -1,
+      -1
+    ],
+    "split_kv": false,
+    "entry": "entry(q,k,v) -> (O,LSE)",
+    "O": {
+      "shape": "B,S,H,D",
+      "dtype": "float16",
+      "layout": "contiguous",
+      "atol": 0.01,
+      "rtol": 0.01
+    },
+    "LSE": {
+      "shape": "B,H,S",
+      "dtype": "float32",
+      "log_base": "e",
+      "layout": "contiguous",
+      "atol": 0.001,
+      "rtol": 0.001
+    },
+    "forbidden": [
+      "input mutation",
+      "host tensor arithmetic",
+      "input/output caching",
+      "prebuilt attention delegation",
+      "answer/source reads",
+      "untracked target checks/timing"
+    ],
+    "language": "TileLang 0.1.15",
+    "window_semantics": "public upstream window input; apply source.host_normalization before kernel launch"
+  },
+  "model": {
+    "provider": "codex",
+    "model": "gpt-6.1-sol",
+    "reasoning_effort": "high",
+    "fast_service": false,
+    "persistent_fresh_per_slot": true
+  },
+  "arms": [
+    "prescribed",
+    "self-selection",
+    "no-template"
+  ],
+  "repetitions_per_arm": 3,
+  "schedule_seed": 20261105,
+  "schedule": [
+    {
+      "slot": "run-01",
+      "block": 1,
+      "position": 1,
+      "arm": "self-selection"
+    },
+    {
+      "slot": "run-02",
+      "block": 1,
+      "position": 2,
+      "arm": "prescribed"
+    },
+    {
+      "slot": "run-03",
+      "block": 1,
+      "position": 3,
+      "arm": "no-template"
+    },
+    {
+      "slot": "run-04",
+      "block": 2,
+      "position": 1,
+      "arm": "prescribed"
+    },
+    {
+      "slot": "run-05",
+      "block": 2,
+      "position": 2,
+      "arm": "no-template"
+    },
+    {
+      "slot": "run-06",
+      "block": 2,
+      "position": 3,
+      "arm": "self-selection"
+    },
+    {
+      "slot": "run-07",
+      "block": 3,
+      "position": 1,
+      "arm": "no-template"
+    },
+    {
+      "slot": "run-08",
+      "block": 3,
+      "position": 2,
+      "arm": "self-selection"
+    },
+    {
+      "slot": "run-09",
+      "block": 3,
+      "position": 3,
+      "arm": "prescribed"
+    }
+  ],
+  "implementation_concurrency": 9,
+  "budget": {
+    "active_seconds": 1800,
+    "target_evaluation_submissions": 20,
+    "max_shapes_per_submission": 3,
+    "queue_excluded": true,
+    "early_stop": "two consecutive correct unchanged-source submissions with original_latency/candidate_latency >= 0.90 on every shape; otherwise budget or voluntary finish",
+    "confirmation_worker_active_s": 300,
+    "confirmation_scope": "fixed coordinator-only hidden validation and three final timing windows after model closure; outside discovery caps; no model feedback or repair",
+    "enforcement": "live elapsed wall minus completed/open verified queue intervals while blocked; watchdog preserves session, worker timeout starts after lock; verify before launch"
+  },
+  "validation": {
+    "reference": "explicit FP64 attention O and natural-log LSE",
+    "patterns": [
+      "normal",
+      "magnitude",
+      "cancellation",
+      "mask",
+      "negative_logits"
+    ],
+    "development_seeds_per_pattern": 2,
+    "final_unseen_seeds_per_pattern": 8,
+    "seeds": "evaluator-only, generated/frozen before launch; matched by block/submission/pattern",
+    "fault_canaries": [
+      "zeros",
+      "NaN",
+      "wrong LSE",
+      "input mutation",
+      "stale captured graph output"
+    ],
+    "sequence_axis": 1,
+    "oracle_output": "einsum('bhij,bjhd->bihd',softmax(masked_scores,dim=-1),V.double()).half()",
+    "oracle_LSE": "logsumexp(masked_scores,dim=-1).float()",
+    "pattern_definitions": {
+      "normal": "independent FP32 Gaussian draws converted to FP16",
+      "magnitude": "Q*=4,V*=0.25",
+      "cancellation": "pair V[:,2j+1,:,:]=-V[:,2j,:,:], leave odd tail random",
+      "mask": "V[:,-1,:,:]=100",
+      "negative_logits": "Q=4,K=-4,V random"
+    },
+    "execution_paths": [
+      "ordinary entry",
+      "captured graph replay after copying fresh input values to the captured addresses"
+    ],
+    "graph_input_and_output_check": "verify O/LSE and no mutation for every validation input after replay, and after timed/warmup blocks",
+    "oracle_raw_scores": "einsum('bihd,bjhd->bhij',Q.double(),K.double())*float32_scale",
+    "oracle_masked_scores": "where(key_j<=query_i, raw_scores, -inf)",
+    "oracle_probabilities": "softmax(masked_scores,dim=-1)"
+  },
+  "timing": {
+    "primary": "CUDA graph replay of complete GPU entry, including O/LSE and all required GPU preparation",
+    "cache": "warm same input tensors",
+    "warmup_replays": 20,
+    "paired_blocks": 30,
+    "replays_per_block": 100,
+    "order": "15 original-candidate and 15 candidate-original blocks, shuffled by predeclared seed",
+    "profiler": "separate identity trace only, never timed",
+    "secondary": "eager entry GPU events: 10 warmups,50 samples; diagnostic only",
+    "final_independent_windows": 3,
+    "final_selection": "freeze one candidate before final hidden validation/timing; no post-result reselection",
+    "validity": {
+      "other_GPU_workload": "reject",
+      "original_IQR_over_median_max": 0.1,
+      "original_half_window_median_drift_max": 0.05,
+      "final_original_cross_window_median_drift_max": 0.05
+    },
+    "measurement_seed": 2026110501,
+    "estimator": "median original block times / median candidate block times; not median paired ratios",
+    "quartiles": "inclusive",
+    "drift_formula": "max(values)/min(values)-1",
+    "human_time_difference_percent": "100*(T_candidate/T_original-1); positive slower",
+    "final_windows": "three separately launched windows; do not assume statistical independence"
+  },
+  "outcome": {
+    "primary": "number of all-shape correct final candidates at >=0.90 original performance within budget, all three slots per arm retained",
+    "secondary": [
+      "time/token/cost to first correct candidate",
+      "time/token/cost to performance target",
+      "final per-shape original and candidate latency, time difference percent and measurement spread"
+    ],
+    "failure": "not attained; do not omit or average only successful runs",
+    "uncertainty": "report all three independent session outcomes and measurement variation; no universal superiority claim",
+    "milestone_validation": "development first-correct/first-target are provisional; separately report effort to first measured appearance of final independently confirmed source"
+  },
+  "infrastructure": {
+    "worker": "spark-hk GB10 sm_121",
+    "base_container": "sha256:2113ccfeef398e3adc4c7750bcd28342c839bf5cb843d16eeab5efade9926f0c",
+    "locks": [
+      "~/kta/hostlock/intent.lock exclusive",
+      "~/kta/hostlock/rw.lock exclusive"
+    ],
+    "measurement_retry_limit": 2,
+    "build_preparation_active_work_limit_s": 7200,
+    "system_changes": false,
+    "commits_pushes": false,
+    "measurement_retry_scope": "maximum two additional attempts per window and two total per slot across discovery/confirmation; at most18 campaign-wide; no budget reset; exhausted external failures halt further paid slots",
+    "compiler_caches": "empty verified slot-specific roots; no old/other-arm candidate artifacts; retain after run",
+    "public_docs": "frozen equal allowlist of local language/JIT/primitive, allocation/metadata/graph APIs and non-target examples"
+  },
+  "scope_changes": "new version before launch; changes after first implementation launch require separate complete campaign, all old runs retained",
+  "prelaunch": {
+    "source_and_build": false,
+    "O_LSE_oracle_and_fault_tests": false,
+    "measurement_repeatability": false,
+    "source_template_map_and_library_freeze": false,
+    "three_packages_and_prompt_diff": false,
+    "fresh_session_resume_and_access_checks": false,
+    "independent_review": false
+  },
+  "launch_allowed": false,
+  "knowledge_provenance": "Pooled canonical/shared rules and explicitly labelled source proposals, including prior guide repair; not an extraction solely from this FA2 revision",
+  "design_review": {
+    "status": "passed for preparation only",
+    "record": "design-review.md"
+  },
+  "schedule_policy": "User-authorized parallel implementation sessions; listed order identifies slots/blocks, not serial execution; all GPU work exclusive under shared locks."
+}

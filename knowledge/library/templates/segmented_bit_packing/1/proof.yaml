@@ -1,0 +1,33 @@
+template: segmented_bit_packing@1
+version: 1
+relation: For every segment/local coordinate read its selected bit from the matching byte prefix; discard
+  zero tail positions and recover the original boolean array exactly.
+rank: Unpacked segment-local boolean coordinates.
+assumes:
+- name: pre_segments
+  statement: Input segments are disjoint slices of one boolean array; their exact nonnegative lengths
+    and prefixes are fixed throughout packing.
+- name: pre_prefix
+  statement: Output starts sum independently rounded byte lengths, not global input bit offsets; input/packed
+    prefixes, lengths+7 and loop counters cannot overflow.
+- name: pre_ownership
+  statement: Every required byte has one exclusive producer and fits its output allocation; empty segments
+    issue no payload store. The selected segment grid fits native launch limits and every segment loop
+    terminates.
+- name: pre_tail
+  statement: Inactive final-byte positions are zero; every reader uses the same bit order and original
+    semantic lengths instead of treating padding as input.
+- name: pre_lifetime
+  statement: Input and metadata generations remain valid through packing, buffers do not overwrite live
+    input, and consumers see matching output bytes/prefixes.
+guarantees: []
+models: []
+note: flashinfer/quantization/packbits.py:130-143 constructs packed_len=(seglen+7)//8, prefix cumsum,
+  and Int32 dispatch tables. include/flashinfer/quantization.cuh:215-265 implements global/segment packing
+  with zero-default CUB block loads, explicit big/little bit positions and exclusive per-byte stores.
+  Native witness256 threads,8 values/thread, segment CTA loop2048 values. bitstream_packing@1 supports32-bit
+  words and complete32-code groups with low-bit-first placement, so it cannot express byte containers,
+  independent segment padding, big order or short tails. The new object is a separate segment storage
+  contract, retaining the old rule/version unchanged. Logical checks cover short/empty segments, both
+  bit orders, complete byte bit patterns and all tail positions; native CUB lowering and metadata publication
+  remain realization obligations.

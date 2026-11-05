@@ -1,0 +1,15 @@
+{
+  "template": "bitplane_integer_dot_reconstruction@1",
+  "version": 1,
+  "relation": "The integer partial equals the sum of exactly the processed logical coordinate code products, irrespective of plane/nibble storage; row metadata remains paired with its operand identity.",
+  "rank": "Unprocessed code words/plane pairs, then final metric conversion.",
+  "assumes": [
+    {
+      "name": "source_contract",
+      "statement": "NVIDIA BBQ local-join code inner products, binary/packed4b/bit-sliced representations. Integer dot exactness does not imply original-vector distance exactness; quantization corrections and original norm metadata define the final approximate metric."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Source-derived proof outline; no formal proof result or GPU execution claimed. integer_dot: Every original coordinate product contributes exactly once with its correct bit weight, independent of storage path. promotion: Packed1b to4b preserves0/1 values and source coordinate order, never maps bits to +/-1 implicitly. metadata: Affine cross terms use document/query row metadata and retained code sums from the same rows. range: All plane shifts, integer sums and tail reads remain within declared bounds. The relation is a proposed source-level invariant; the stated finite-work rank depends on the explicit environment progress assumptions. Device ordering and numeric premises have not been discharged by schema validation."
+}

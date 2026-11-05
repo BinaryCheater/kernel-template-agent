@@ -1,0 +1,25 @@
+template: rebind_transfer_descriptors@2
+version: 1
+relation: Every issued transfer uses the same coordinate-to-address mapping and bounds as an immutable
+  descriptor for its problem; unretired older uses retain their original generation.
+rank: Remaining consumed problem-key transitions plus finite retirement/publication/acquire phases.
+assumes:
+- name: metadata
+  statement: Problem keys identify immutable legal metadata and fixed transfer format/layout fields stay
+    compatible.
+- name: ownership
+  statement: Each publisher exclusively owns its shadow/global descriptor slots and old descriptor readers
+    retire before overwrite.
+- name: proxy_order
+  statement: Release publication exposes a complete tuple and each issuing reader acquires the matching
+    generation before transfer issue.
+guarantees: []
+models: []
+note: Version1 projects exactly to update_site=shared_shadow, preserving descriptor_count, old constraints/premises
+  and all four obligations. Shared shadows may change before old published readers retire, but release
+  publication waits for retirement. For direct_global, retirement must precede the first field mutation;
+  after the complete tuple update, release plus reader acquire establishes the same immutable-descriptor
+  relation. Per-worker transition replay compares both modes to immutable current metadata and blocks
+  direct mutation with a live old reader. The source includes the initialization handshake in both nonzero
+  and zero-K branches. Native retirement/proxy ordering, initialization progress and descriptor encoding
+  remain backend obligations. No admitted Realisation, registered model or ProofSummary is claimed.

@@ -1,0 +1,15 @@
+{
+  "template": "nilpotent_inverse_doubling@1",
+  "version": 1,
+  "relation": "Exact iterateX has residualI-(I+A)X=A^(2^(j+1)) afterj updates; native iterate follows a separately admitted numerical recipe.",
+  "rank": "Three minus completed doubling updates.",
+  "assumes": [
+    {
+      "name": "nilpotent",
+      "statement": "A is strictly lower-triangular16x16, soA^16=0; all exact products have the declared orientation."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "X0=I-A gives residualA\u00b2. Newton update2X-X(I+A)X squares that residual, so three updates giveA^16=0. Same right residual follows since each exactX is a polynomial inA. Source kda_blackwell/kernel_kkt_inv_uw.py:407\u2013462 computes viaM=-(I+A), with BF16 product recast between two MMA products; that recast is outside exact proof. checks/nilpotent_inverse.py verifies exact matrices with nonzero subdiagonals; native layout and residual error remain open. This adds a diagonal inverse realization to blocked_unit_lower_inverse@1 without changing that rule."
+}

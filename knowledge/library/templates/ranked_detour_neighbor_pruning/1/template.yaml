@@ -1,0 +1,96 @@
+{
+  "name": "ranked_detour_neighbor_pruning",
+  "version": 1,
+  "level_from": 2,
+  "level_to": 3,
+  "change": "vertical",
+  "refines": "map",
+  "produces": [
+    "map",
+    "access"
+  ],
+  "object": {
+    "type": "ranked_detour_neighbor_pruning",
+    "description": "When a ranked neighbor row must shrink, count two-hop alternatives through earlier neighbors and retain low-detour edges before adding reverse or protected connectivity edges."
+  },
+  "variables": [
+    {
+      "name": "output_degree",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": {
+        "lo": 1,
+        "hi": 65534
+      },
+      "meaning": "Output route budget; source packs candidate position into 16 bits, so input degree must also fit."
+    }
+  ],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_0",
+      "expr": "p.ranked_graph_rows and p.valid_or_marked_neighbors",
+      "meaning": "Input neighbor order is defined and invalid IDs are distinguished from real graph nodes.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_1",
+      "expr": "p.input_degree_fits_16bit and p.enough_unique_valid_neighbors",
+      "meaning": "Tagged minimum representation is valid and enough distinct candidates exist for requested degree.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_2",
+      "expr": "p.approximate_route_contract and p.protected_edges_fit",
+      "meaning": "Detour pruning is an admitted graph quality heuristic; any protected connectivity edges fit the degree cap.",
+      "cls": "semantic"
+    }
+  ],
+  "program": {
+    "description": "For each source A cache its ranked neighbors B. For each earlier neighbor D, inspect D outgoing neighbors and increment the count of any matching later A->B edge. Penalize self edges, saturate counts and mark invalid IDs losing. Repeatedly choose minimum (detour_count,original_rank), emit its node and invalidate every duplicate occurrence. Optional graph composition first reserves explicitly protected edges, then fills remaining slots with nonduplicate pruned and reverse edges without evicting protected edges."
+  },
+  "backward_map": "Erase auxiliary organization and recover the visible results under the stated contract.",
+  "obligations": [
+    {
+      "name": "detour_count",
+      "statement": "Each admitted A->D->B match increments the intended later direct-edge counter exactly once under input duplicate policy.",
+      "method": "proof"
+    },
+    {
+      "name": "selection",
+      "statement": "Tagged minimum preserves count priority then source rank and rejects invalid/self entries under declared policy.",
+      "method": "proof"
+    },
+    {
+      "name": "unique_output",
+      "statement": "Repeated output contains no duplicate node and has the requested degree or explicit insufficient-candidate failure.",
+      "method": "proof"
+    },
+    {
+      "name": "protected_capacity",
+      "statement": "Connectivity-preserving composition retains every designated protected edge and cannot overflow the degree budget.",
+      "method": "proof"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.ranked_graph_rows and p.valid_or_marked_neighbors and p.input_degree_fits_16bit and p.enough_unique_valid_neighbors and p.approximate_route_contract and p.protected_edges_fit",
+    "text": "NVIDIA CAGRA graph optimization. This is a route-selection heuristic, not proof of nearest-neighbor recall or global connectivity unless the protected-edge mechanism establishes that separately. Resource effects: One cached neighbor row plus counters per warp and two-hop adjacency scans; outputs fewer edges. Reverse graph construction requires atomic per-destination reservations and its own capacity/merge premises."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "When a ranked neighbor row must shrink, count two-hop alternatives through earlier neighbors and retain low-detour edges before adding reverse or protected connectivity edges.",
+    "storage": "One cached neighbor row plus counters per warp and two-hop adjacency scans; outputs fewer edges. Reverse graph construction requires atomic per-destination reservations and its own capacity/merge premises.",
+    "boundary": "Ranked candidates B0,B1 where an earlier D also reaches B1 give counts0,1, favoring B0. Equal counts choose earlier rank. A protected edge must survive even if its detour count would otherwise rank poorly.",
+    "resources": []
+  },
+  "numeric_risk": "Preserve the supplied arithmetic contract; reassociation, quantization and approximate search require separate permission.",
+  "summary": "When a ranked neighbor row must shrink, count two-hop alternatives through earlier neighbors and retain low-detour edges before adding reverse or protected connectivity edges. Ranked candidates B0,B1 where an earlier D also reaches B1 give counts0,1, favoring B0. Equal counts choose earlier rank. A protected edge must survive even if its detour count would otherwise rank poorly."
+}

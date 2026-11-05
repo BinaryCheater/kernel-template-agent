@@ -1,0 +1,15 @@
+{
+  "template": "raw_sum_affine_dot_correction@1",
+  "version": 1,
+  "relation": "The declared hybrid dot equals quantized code-dependent term plus affine offset times the retained raw input sum, counted once.",
+  "rank": "Remaining code-dot contributors and correction shares.",
+  "assumes": [
+    {
+      "name": "affine",
+      "statement": "Weight offset is constant across the same activation statistic group; raw sum and quantized codes share one generation."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Distribute(d*q+m)*x=d*q*x+m*x and sum the second term by its constantm. Q8_1 source quantize_q8_1.cuh:22\u201349 sumsxi before quantization, storeshalf(sum), notd*sum(q). Q4_1 vecdotq.cuh:80\u2013103 multipliesdm4*ds8 inhalf2 and divides offset correction to compensate contributing partials; Q4_0 subtracts centered8 through the same statistic. Exact algebra identifies the approximation boundary, not an exact decoded-quantized dot. checks/raw_sum_correction.py distinguishes raw and code-reconstructed sums and verifies correction multiplicity; native half arithmetic remains open."
+}

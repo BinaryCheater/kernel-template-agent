@@ -1,0 +1,33 @@
+template: streaming_topk_filter@2
+version: 1
+relation: The candidate state contains an allowed top-k of every processed prefix.
+rank: Remaining input scan tiles.
+assumes:
+- name: select
+  statement: Compaction is exact and its threshold is no greater than the least retained
+    value.
+- name: ties
+  statement: Any size-k selection among tied values is allowed.
+- name: scan
+  statement: Every valid input is visited once and appends fit the candidate buffer.
+guarantees: []
+models: []
+note: "After compaction k retained values dominate every discarded old value. Any\
+  \ new value <= threshold is dominated by those same k values; later better values\
+  \ can only raise the kth order statistic. Appending survivors and exact compaction\
+  \ therefore preserve the running top-k invariant. Before appending, candidate count\
+  \ is <2*k; one tile contributes at most scan_tile values, proving the capacity bound\
+  \ independently of input distribution. At the final tile compact any surplus. TileLang\
+  \ deep_select/example_deep_select.py:262-268 chooses a coprime scan stride and capacity\
+  \ rounded above 2*k+block, :343-391 filters, and :432-459 compacts. Constant/all-hit\
+  \ data do not permit smaller scratch. Native comparison/counter/alias behavior and\
+  \ hierarchical shard merge remain separate obligations; no custom checker is added\
+  \ for the order-statistic induction. Version2 replaces the literal2*k reconstruction\
+  \ threshold bycompact_multiple*k and expands scan_tile to4096/8192. Winner proof\
+  \ is unchanged; capacity becomescompact_multiple*k+scan_tile. Every@1 binding maps\
+  \ identically withmultiple2,tile4096. SourceDeepSelect common_parts.cuh:485\u2013\
+  506,1461\u20131529,1639\u20131648 has separate survivor/incoming storage and reconstructs\
+  \ after whole rounds. For actualk=MAX_TOPK512, trigger4096 givesmultiple9,total\
+  \ capacity8704 forround4096; long-rowtrigger1024 givesmultiple3 within that allocation.\
+  \ Native packed comparison, permutation and append synchronization remain realization\
+  \ obligations."

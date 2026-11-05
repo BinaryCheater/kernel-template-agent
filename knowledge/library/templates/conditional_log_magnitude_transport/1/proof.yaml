@@ -1,0 +1,15 @@
+{
+  "template": "conditional_log_magnitude_transport@1",
+  "version": 1,
+  "relation": "For every segment, mode prefix denotes exactly the cumulative bytes of earlier raw/coded segments. Each decoded coordinate is the bound raw BF16 or its declared signed log codebook value and supplied weight; no claim of lossless quantization.",
+  "rank": "Finite segments, packed words and contributors remaining.",
+  "assumes": [
+    {
+      "name": "source_contract",
+      "statement": "Concrete LogFMT-10 source, not FP8 E4M3 or affine scale quantization. Conditional lossy transport; no error bound or equality to uncompressed arithmetic is inferred."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Source-derived proof outline; no formal proof result or GPU execution claimed. code_identity: Packed bit positions and sign bits invert without coordinate mixing; raw blocks are byte-preserving. quantization: Decoded values equal declared lossy codebook; rounding threshold and approximate function error satisfy admitted policy. range_mode: All participants choose same range/mode and prefix lengths so raw/coded boundaries remain synchronized."
+}

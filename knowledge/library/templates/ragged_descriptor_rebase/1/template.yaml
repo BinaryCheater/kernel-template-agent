@@ -1,0 +1,76 @@
+name: ragged_descriptor_rebase
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: transfer
+produces:
+- transfer
+- map
+object:
+  type: ragged_descriptor_rebase
+  description: When a fixed-shape transfer descriptor must enforce a per-sequence
+    upper bound, translate the sequence to the end of a large descriptor axis and
+    cancel the address translation through auxiliary coordinates.
+variables: []
+constraints: []
+preconditions:
+- id: pre0
+  expr: p.nonnegative_length_and_offset_in_i32 and p.length_le_big_axis and p.descriptor_rank_supported
+    and p.native_address_wrap_contract and p.actual_valid_addresses_allocated and
+    p.tail_zero_fill_or_store_skip_defined
+  meaning: Descriptor extents, native wrap semantics, valid physical allocation and
+    tail transfer behavior.
+  cls: semantic
+program:
+  description: Choose B=2^30 and logical stride s. A valid sequence of length L at
+    offset O starts at descriptor coordinate B-L; local q is valid iff B-L+q<B, equivalently
+    q<L. One-extra-axis store realization shifts pointer by -B*s and uses auxiliary
+    coordinate O+L with stride s, so address is base+(O+q)*s. Two-extra-axis realization
+    keeps base mapped, adds axis coordinates B and O+L with strides2^34-s and s; base+(B-L+q)*s+B*(2^34-s)+(O+L)*s
+    equals base+(O+q)*s modulo2^64. Lower bounds and all nonragged axes still need
+    caller validity. Use one-axis only on native paths accepting the shifted pointer;
+    source excludes large backward-shifted base for TMA loads.
+backward_map: NVIDIA TMA ragged sequence views, one extra axis for selected store
+  paths or two extra axes preserving a mapped base. Source original rank<=4 or<=3
+  respectively; no arbitrary pointer-wrap legality is implied.
+obligations:
+- name: address_identity
+  statement: Auxiliary coordinates cancel synthetic offset for every valid q.
+  method: proof
+- name: bound_identity
+  statement: Upper bound comparison accepts exactly0<=q<L under nonnegative local
+    coordinates.
+  method: proof
+- name: native_descriptor
+  statement: Descriptor rank, byte stride conversion and base pointer mapping are
+    accepted by selected backend.
+  method: proof
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: (p.nonnegative_length_and_offset_in_i32 and p.length_le_big_axis and
+    p.descriptor_rank_supported and p.native_address_wrap_contract and p.actual_valid_addresses_allocated
+    and p.tail_zero_fill_or_store_skip_defined)
+  text: NVIDIA TMA ragged sequence views, one extra axis for selected store paths
+    or two extra axes preserving a mapped base. Source original rank<=4 or<=3 respectively;
+    no arbitrary pointer-wrap legality is implied.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: When a fixed-shape transfer descriptor must enforce a per-sequence upper
+    bound, translate the sequence to the end of a large descriptor axis and cancel
+    the address translation through auxiliary coordinates.
+  boundary: NVIDIA TMA ragged sequence views, one extra axis for selected store paths
+    or two extra axes preserving a mapped base. Source original rank<=4 or<=3 respectively;
+    no arbitrary pointer-wrap legality is implied.
+  resources:
+  - registers
+numeric_risk: Floating-point reassociation, casts and approximate functions require
+  an admitted numerical contract.
+summary: When a fixed-shape transfer descriptor must enforce a per-sequence upper
+  bound, translate the sequence to the end of a large descriptor axis and cancel the
+  address translation through auxiliary coordinates.

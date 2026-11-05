@@ -1,0 +1,15 @@
+{
+  "template": "zero_operand_gated_transfer@1",
+  "version": 1,
+  "relation": "For every gatedK coordinate, original and zero-filled weight values produce the same admitted neutral product; other coordinates are unchanged.",
+  "rank": "Remaining pair transfers plus dense contraction tiles.",
+  "assumes": [
+    {
+      "name": "finite_zero",
+      "statement": "Decoder identifies exact zeros, operands/scales are finite and signed-zero differences are outside observable output contract."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "TwoE2M1 codes occupy one byte;0x77 masks both magnitude fields and excludes both sign bits. Exactlyfour sign combinations represent twozero magnitudes. Every suppressed transfer must correspond to only thatK pair. Source sm120_nvfp4_moe_mtp_mma.cuh:262\u2013328 uses cp.async source-bytecount0 for full destination zero-fill and keeps commit/wait and MMA. Structured_zero_compression@1 requires2:4 sparsity/metadata and changes operand representation; masked_tile_pruning@2 is a kept-interval omission. Neither describes data-dependent zero-fill traffic gating with unchanged dense compute. Native layout and asynchronous completion remain open; logical byte predicate check in checks/zero_pair.py."
+}

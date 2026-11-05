@@ -1,0 +1,97 @@
+name: radix_threshold_selection
+version: 1
+level_from: 2
+level_to: 3
+change: vertical
+refines: reduce
+produces:
+- map
+- contract
+object:
+  type: rank_threshold
+  description: When unsorted top-k is needed from ordered scalar keys, select the kth threshold by most-significant-byte
+    histograms instead of sorting every pair. Refine only the boundary bucket and preserve the remaining
+    rank. Emit all greater keys plus a quota of equal keys; output order and tie stability are separate
+    contracts.
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+requires: []
+probed_on: []
+relations: []
+summary: When unsorted top-k is needed from ordered scalar keys, select the kth threshold by most-significant-byte
+  histograms instead of sorting every pair. Refine only the boundary bucket and preserve the remaining
+  rank. Emit all greater keys plus a quota of equal keys; output order and tie stability are separate
+  contracts.
+variables:
+- name: key_bits
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+  - 16
+  - 32
+  meaning: Width of the complete monotone key; source BF16 uses 16 and FP32 uses 32. The radix digit width
+    is fixed at eight bits.
+constraints:
+- id: c_rank
+  expr: p.k > 0 and p.k <= p.length
+  meaning: The requested rank exists in the valid candidate set.
+  cls: semantic
+preconditions:
+- id: pre_keys
+  expr: p.key_order_matches_values and p.nan_policy_excludes_inputs and p.valid_candidates_exact_once
+  meaning: The complete key preserves the value ordering; this version excludes NaNs and ignores padding.
+  cls: semantic
+- id: pre_hist
+  expr: p.histogram_counts_do_not_overflow and p.histogram_visible_before_rank_search and p.candidate_storage_sufficient
+  meaning: Histograms and boundary-bucket compaction preserve every candidate and are visible before consumption.
+  cls: implementation
+- id: pre_ties
+  expr: p.equal_key_quota_enforced and p.output_tie_policy_admits_any and p.output_positions_disjoint
+  meaning: Emit exactly the remaining number of threshold ties into disjoint positions; any tied identities
+    are acceptable.
+  cls: implementation
+program:
+  description: For an active key prefix and remaining rank r, count the next eight-bit digit. Let C_ge(b)
+    count digits at least b and C_gt(b) count digits strictly above b. Choose the boundary digit satisfying
+    C_gt(b)<r<=C_ge(b). Append that digit to the prefix, subtract C_gt(b) from r, and refine only matching
+    keys at the next digit. After the full key the threshold q satisfies count(key>q)<k<=count(key>=q).
+    An early lower-edge threshold is permitted only when its complete bucket accounts for exactly the
+    remaining rank; then count(key>q)<=k<=count(key>=q) still holds. Select every key>q and exactly k-count(key>q)
+    keys equal to q. A preliminary coarse monotone histogram may discard whole worse buckets before complete-key
+    refinement, but cannot decide ordering inside the boundary bucket.
+backward_map: Forget histograms and prefixes; output is a size-k subset with no excluded key strictly
+  greater than any selected key.
+obligations:
+- name: rank_invariant
+  statement: Discarded better buckets reduce the rank exactly and discarded worse buckets cannot contain
+    a required key.
+  method: proof
+- name: quota_and_placement
+  statement: All greater keys and exactly the necessary threshold ties are emitted once without collisions.
+  method: test
+- name: key_binding
+  statement: Value/key conversion and padding satisfy the declared total ordering and exceptional-value
+    policy.
+  method: test
+scope:
+  predicate: p.k > 0 and p.k <= p.length and p.key_order_matches_values and p.nan_policy_excludes_inputs
+    and p.valid_candidates_exact_once and p.histogram_counts_do_not_overflow and p.histogram_visible_before_rank_search
+    and p.candidate_storage_sufficient and p.equal_key_quota_enforced and p.output_tie_policy_admits_any
+    and p.output_positions_disjoint
+  text: Exact unsorted top-k over complete 16/32-bit monotone keys, with eight-bit radix digits and arbitrary
+    tie identity. TileLang deep_select supports BF16/FP32 and no NaNs; source deepseek_v32 uses a coarse
+    FP16 high byte before refining a full FP32 key. Packed greater/equal prefix counters require each
+    field below 65536; that limit belongs to the specific output-offset realization, not to every radix
+    selector. Sorted or stable output needs another refinement.
+signature:
+  algorithm: MSB-first rank refinement plus greater/equal quota selection.
+  storage: Digit histograms and the active prefix or boundary candidates.
+  boundary: Key ordering, rank preservation, tie quota and histogram capacity.
+  resources:
+  - smem
+  - registers
+numeric_risk: A nonmonotone compressed key or unhandled NaN can discard a true winner; coarse keys require
+  complete-key refinement of the boundary bucket.

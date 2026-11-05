@@ -1,0 +1,34 @@
+template: affine_piece_prefix_state@2
+version: 1
+relation: Expand each ordered summary into constituent chunk maps. Both prefix supplies give piece r exactly
+  maps0..r-1 applied to its matching S0; shared storage F_r includes piece r and is therefore consumed
+  by r+1. Local execution then recovers the original recurrence under the admitted summary/fixup rounding
+  policy.
+rank: Ordered piece boundaries not yet related to the original token recurrence.
+assumes:
+- name: pre_affine
+  statement: Chunk j has state updateS_next=S*L_j+c_j; local outputs may depend on the entry state, and
+    summaries use the same ordered factors.
+- name: pre_numeric
+  statement: Summary representation and matrix arithmetic have an explicit error contract; waiting consumers
+    cannot prevent producers from running.
+- name: pre_prefix_supply
+  statement: Shared fixup stores after-piece states; each local consumer selects its preceding valid piece
+    within the same sequence, with piece0 using original seed. Storage holes and prior-sequence records
+    are never consumed as prefix states.
+- name: pre_boundary_lifetime
+  statement: Summary and fixed-boundary inputs retain one generation. All required producers complete
+    before local replay and live through every consumer. Separate ordered launches may provide publication;
+    no generic cross-CTA progress guarantee is inferred.
+guarantees: []
+models: []
+note: Retained version1 and outline under inputs/reuse-additions/affine_piece_prefix_state@1 preserve
+  the SGLang proposal unchanged. New prefix_supply=piece_replay recovers its program; shared_fixup adds
+  FlashInfer cp_delta_rule_sm90.py:4894-4945 pipeline, FP32 local M/N artifacts, ordered SIMT/HMMA inclusive
+  fixup and3945-3965 previous-piece boundary loads. Preconditions pre_affine/pre_numeric and obligations
+  compose/entry_state/publication_progress/numerical keep their owners; pre_prefix_supply/pre_boundary_lifetime
+  and exclusive_boundary_map add shared inclusive-storage/exclusive-entry/lifetime requirements. piece_chunks
+  retains its extent meaning; version2 permits runtime binding for the CP source, with constant specialization
+  recovering version1 extent choices. Exact matrix-state and ragged-address checks compare summary application
+  with independent sequential delta recurrence, noncommuting order, first/last/ragged piece entry and
+  source gap indexing. Native summary/fixup errors and publication remain obligations.

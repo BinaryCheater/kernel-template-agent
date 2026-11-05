@@ -1,0 +1,64 @@
+name: empty_support_normalization
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: map
+produces: [map]
+object:
+  type: empty_or_positive_exponential_row
+  description: A final normalization branch that distinguishes truly empty exponential support from a valid positive-mass framed state, including an optional finite denominator-only logit.
+variables:
+  - {name: sink, kind: structure, binding: runtime, role: boundary, domain: [absent, finite_logit], meaning: "Whether the workload includes a finite zero-valued denominator-only contribution; not a tunable change to the attention contract."}
+constraints: []
+preconditions:
+  - {id: pre_state, expr: "p.empty_state_has_zero_denominator_and_numerator and p.positive_state_common_frame_valid and p.zero_mass_iff_support_empty", meaning: "The numerator is zero on an empty row; positive rows share one reference/gain; underflow or cancellation cannot masquerade as empty support.", cls: semantic}
+  - {id: pre_domain, expr: "p.valid_logits_and_values_finite and p.masked_logits_are_negative_infinity and p.no_nan_or_positive_infinity", meaning: "The branch handles semantic emptiness, not NaN repair or arbitrary infinite input.", cls: implementation}
+  - {id: pre_sink, expr: "p.sink_binding_matches_row and p.sink_owned_exactly_once and p.sink_and_ordinary_mass_share_gain", meaning: "Any finite sink belongs to this logical row once, including across split reductions, and its weight uses the ordinary common gain.", cls: semantic}
+  - {id: pre_contract, expr: "p.empty_output_zero_and_lse_negative_infinity_admitted and p.guarded_math_and_output_rounding_admitted", meaning: "The operator explicitly defines empty support as zero output and negative-infinite LSE, with guarded arithmetic and admitted output precision.", cls: semantic}
+program:
+  description: >-
+    Consume framed state (r,L,O,G) with G>0 and a reliable empty-support signal,
+    implemented by L==0 under the range premise. For an empty row without sink,
+    emit zero output and negative-infinite natural LSE without dividing by zero
+    or forming r+log(0) with an undefined frame. For an empty row with finite
+    sink a, adopt reference r=a, set L=G and O=0; emit zero output and LSE=a.
+    For positive ordinary support retain its reference, optionally add
+    G*exp(a-r) once to L, then emit O/L and r+log(L)-log(G), admitting all range
+    and arithmetic effects. A sentinel stored maximum of negative infinity is
+    metadata for empty support, never an operand in negative-infinity minus
+    negative-infinity. Safe finite working references for masked prefixes must
+    have produced zero weights/numerator before this final branch.
+backward_map: Expand the ordinary framed sums plus the optional zero-valued sink. Nonempty ratios recover the normalized weighted sum; empty support follows the explicitly defined zero-output and negative-infinite-LSE extension.
+obligations:
+  - {name: empty_detection, statement: "The zero denominator branch identifies semantic empty support and its numerator is exactly zero under the admitted implementation.", method: test}
+  - {name: guarded_arithmetic, statement: "Empty prefixes/final rows never require undefined infinity subtraction or zero division, and finite sink insertion establishes a valid common frame.", method: proof}
+  - {name: sink_ownership, statement: "The finite sink is assigned to the correct logical row and included once across all split states.", method: test}
+  - {name: nonempty_projection, statement: "Positive-state normalization and gain compensation preserve the existing framed reduction contract.", method: proof}
+effects: {transactions: [], storage: [], overlap: []}
+scope:
+  predicate: "p.empty_state_has_zero_denominator_and_numerator and p.positive_state_common_frame_valid and p.zero_mass_iff_support_empty and p.valid_logits_and_values_finite and p.masked_logits_are_negative_infinity and p.no_nan_or_positive_infinity and p.sink_binding_matches_row and p.sink_owned_exactly_once and p.sink_and_ordinary_mass_share_gain and p.empty_output_zero_and_lse_negative_infinity_admitted and p.guarded_math_and_output_rounding_admitted"
+  text: >-
+    Masked/sparse exponential rows whose support may be empty, with absent or
+    finite denominator-only sink and constant common positive gain. Sink overflow,
+    finite weights underflowing to a false empty signal, nonfinite values,
+    negative-infinite padded-head sinks and generic NaN repair are outside scope.
+    Numerator/denominator casts and the output/LSE conventions must be admitted.
+requires: []
+probed_on: []
+relations:
+  - {type: alternative_of, target: online_rescaled_reduction, note: "The empty final-row branch complements the positive-final-mass contract of version2; its positive projection uses that same common frame, without changing the streamed recurrence."}
+signature:
+  algorithm: Guard normalization by semantic support and adopt a finite sink frame for otherwise empty rows.
+  storage: Empty-support signal or a range-certified zero denominator.
+  boundary: Empty ordinary support, finite sink ownership and gain compensation.
+  resources: [compute]
+numeric_risk: A zero or NaN machine denominator is not sufficient evidence of empty semantic support without the stated range/domain premises.
+summary: >-
+  When masking or split attention can leave a row with no keys, handle that
+  support boundary before normalization. Emit zero output and negative-infinite
+  LSE without a sink; with a finite zero-valued sink a, emit zero and LSE=a.
+  Include the sink once across splits, use the same weight gain as ordinary
+  mass, and exclude NaN/underflow failures from the empty-support interpretation.
+  Existing online_rescaled_reduction@2 requires positive final mass and cannot
+  by itself admit the empty branch.

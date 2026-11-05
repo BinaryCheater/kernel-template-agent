@@ -1,0 +1,105 @@
+{
+  "name": "lagged_state_log_materialization",
+  "version": 1,
+  "level_from": 3,
+  "level_to": 4,
+  "change": "vertical",
+  "refines": "store",
+  "produces": [
+    "map",
+    "reduce",
+    "contract",
+    "store"
+  ],
+  "object": {
+    "type": "checkpoint_with_committed_update_log",
+    "description": "Logical current matrix state represented by an older checkpoint plus an ordered accepted update log, with optional projection-only readout."
+  },
+  "variables": [
+    {
+      "name": "log_capacity",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": {
+        "lo": 2,
+        "hi": 65536
+      },
+      "meaning": "Retained update slots; source uses power-of-two circular allocation and reserves space for the full next speculative window."
+    }
+  ],
+  "constraints": [
+    {
+      "id": "c_capacity",
+      "expr": "log_capacity >= 2 * p.max_window and p.retained_count + p.next_window <= log_capacity",
+      "meaning": "Every verify position fits and produces output before acceptance; a full unconsumed log is never overwritten.",
+      "cls": "resource"
+    }
+  ],
+  "preconditions": [
+    {
+      "id": "pre_update",
+      "expr": "p.state_updates_are_scalar_decay_rank_one and p.corrected_update_records_complete",
+      "meaning": "Recorded transitionS_j=exp(g_j)*S_prev+d_j*k_j^T; d is the actual feedback-corrected update, not raw value.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_epoch",
+      "expr": "p.checkpoint_generation_matches_log and p.acceptance_is_consecutive_prefix and p.unique_live_mutable_slots",
+      "meaning": "Checkpoint, committed count, circular base and appended speculative records share one epoch and ownership.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_numeric",
+      "expr": "p.record_rounding_and_projection_fold_error_admitted and p.readers_retire_before_reuse",
+      "meaning": "Narrow records, reassociation and fold precision have an explicit contract; records stay live until readout/fold completes.",
+      "cls": "implementation"
+    }
+  ],
+  "program": {
+    "description": "Keep checkpointS0 and accepted log records(g_j,d_j,k_j),j<n. Logical stateS_n=exp(G_n)S0+sum_j exp(G_n-G_j)*d_j*k_j^T, G_j=sum_i<=j g_i. To read S_n*q, project the checkpoint and key rows first, then combine update-weighted dot products without materializingS_n. Speculative verify may append tentative records beyondn, but only accepted prefix length advancesn. Before capacity/next-window overlap, materialize the accepted log into a new checkpoint, then advance circular base and reset retained count only after every state shard/layer finishes. Optional tracking materializes an earlier accepted prefix to a distinct slot without advancing the active checkpoint. Rejected suffix records are logically discarded and may be overwritten only when no reader retains them."
+  },
+  "backward_map": "Decode checkpoint plus accepted log using the scalar-decay expansion. Ignore tentative suffix records and cursor mechanics; each accepted transition contributes once to the current logical state.",
+  "obligations": [
+    {
+      "name": "state_identity",
+      "statement": "The weighted-log expansion equals the ordered recurrence in exact arithmetic, using corrected updates from matching state generation.",
+      "method": "proof"
+    },
+    {
+      "name": "prefix_cursor",
+      "statement": "Accepted count includes exactly the consecutive committed prefix; rejected/tentative suffix never contributes to readout or fold.",
+      "method": "test"
+    },
+    {
+      "name": "capacity_epoch",
+      "statement": "The full next verify window fits; folds finish before cursor reset and no live record is overwritten.",
+      "method": "test"
+    },
+    {
+      "name": "precision",
+      "statement": "Projected readout and folded checkpoint satisfy the declared record/accumulation error policy.",
+      "method": "test"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.state_updates_are_scalar_decay_rank_one and p.corrected_update_records_complete and p.record_rounding_and_projection_fold_error_admitted",
+    "text": "Linear chains of scalar-decay matrix updates with immutable accepted-log records and explicit state generation. Source GDN supports exact-raw fold and compact high/low update/key records; their numerical contracts differ. Feature-dependent KDA decay and draft trees need separate factorization. The checkpoint may lag logical current state, unlike per-window immediate prefix commit."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "Defer full state writes by retaining accepted low-rank update records and projecting from checkpoint plus log.",
+    "storage": "One checkpoint plus bounded decay/key/update log, cursor and circular base.",
+    "boundary": "Next-window capacity, accepted prefix, fold generation and optional track boundary.",
+    "resources": []
+  },
+  "numeric_risk": "Scalar-decay expansion changes association; high/low compact records need signed residual reconstruction. Exact-raw replay and compact MMA fold are different numerical realizations.",
+  "summary": "When full recurrent state writes dominate but accepted transitions have small scalar-decay low-rank records, let the checkpoint lag and retain a committed update log. Read projected outputs from checkpoint plus log, materializing only for capacity or tracking. Choose log capacity with room for every next verify position, preserve accepted-prefix cursors and publish all fold shards before resetting storage."
+}

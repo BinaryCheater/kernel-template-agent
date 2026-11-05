@@ -1,0 +1,56 @@
+name: piecewise_affine_hessian_elision
+version: 1
+level_from: 2
+level_to: 3
+change: vertical
+refines: map
+produces: [map, contract]
+object:
+  type: fixed_region_derivative_graph
+  description: A second-derivative graph restricted to one affine interpolation region, with the pure-coordinate Hessian removed and mixed derivatives retained.
+variables: []
+constraints: []
+preconditions:
+  - {id: pre_affine, expr: "p.field_affine_in_coordinates_within_region and p.region_selection_frozen", meaning: "At fixed parameters, the selected field is A(theta)*x+b(theta) locally; support, ranks, level mask and shifts are frozen during differentiation.", cls: semantic}
+  - {id: pre_boundary, expr: "p.interior_query_or_selected_piece_derivative_contract", meaning: "Queries are interior to a region or the workload explicitly requests its selected-piece derivative; no distributional boundary Hessian is claimed.", cls: semantic}
+  - {id: pre_graph, expr: "p.upstream_gradient_held_independent and p.mixed_parameter_and_upstream_paths_retained", meaning: "This local derivative treats the incoming gradient as independent, while later chain-rule terms and requested mixed derivatives remain in the graph.", cls: semantic}
+  - {id: pre_numeric, expr: "p.affine_model_and_derivative_rounding_admitted", meaning: "The differentiation contract admits the affine real model and its actual cast/MMA/interpolation arithmetic.", cls: implementation}
+program:
+  description: >-
+    For y(x,theta)=A(theta)*x+b(theta) inside the selected region, the first
+    reverse input derivative is g_x=A(theta)^T*g_y. When differentiating this
+    expression with incoming vector v, emit zero for its pure-coordinate path
+    d(g_x)/dx. Still compute dL/dg_y=A(theta)*v and the requested parameter path
+    obtained by contracting v and g_y with dA/dtheta. Do not zero the Hessian of
+    an enclosing nonlinear loss or eliminate the derivatives of moving support,
+    masks, coordinate transforms or region boundaries without a separate contract.
+backward_map: Reinsert the omitted zero pure-coordinate Hessian contraction. The retained mixed and upstream paths reproduce the full local second reverse derivative graph.
+obligations:
+  - {name: local_affineness, statement: "On the declared region the Jacobian is independent of coordinates at fixed parameters, including all coordinate transforms differentiated here.", method: proof}
+  - {name: derivative_graph_partition, statement: "Only the pure-coordinate path is removed; requested upstream and mixed-parameter contractions remain and their ownership is correct.", method: proof}
+  - {name: region_and_numerics, statement: "Support/rank ties, masks, casts and rounding satisfy the selected-piece derivative and numerical contract.", method: test}
+effects: {transactions: [], storage: [], overlap: []}
+scope:
+  predicate: "p.field_affine_in_coordinates_within_region and p.region_selection_frozen and p.interior_query_or_selected_piece_derivative_contract and p.upstream_gradient_held_independent and p.mixed_parameter_and_upstream_paths_retained and p.affine_model_and_derivative_rounding_admitted"
+  text: >-
+    Local differentiation of affine pieces such as simplex barycentric fields.
+    Multilinear Cartesian interpolation is not jointly affine in several
+    coordinates, even when each coordinate separately enters linearly. Changed
+    support, soft level weights differentiated as inputs, nonlinear coordinate
+    maps and the Hessian of an enclosing nonlinear objective are outside scope.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Elide only the pure-coordinate second derivative of a fixed affine piece.
+  storage: No pure-coordinate Hessian tensor or vertex reads for that zero path.
+  boundary: Region selection and full derivative graph ownership.
+  resources: [compute, dram]
+numeric_risk: Differentiating an admitted affine real model is distinct from differentiating quantized or rounded machine arithmetic as a discontinuous function.
+summary: >-
+  When a second reverse pass enters a field that is affine in all differentiated
+  coordinates within its fixed support region, skip the zero pure-coordinate
+  Hessian. Keep the upstream-gradient and parameter-mixed paths. Simplex
+  interpolation has this property; bilinear f(x,y)=x*y does not, since its mixed
+  coordinate derivative is1. Even y=theta*x has zero pure-input Hessian but a
+  nonzero parameter/input derivative, so zeroing all second-pass outputs is invalid.

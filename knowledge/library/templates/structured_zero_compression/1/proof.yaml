@@ -1,0 +1,22 @@
+template: structured_zero_compression@1
+version: 1
+relation: Decoding the retained values into their recorded positions and zero-filling the remainder recovers the logical operand.
+rank: Remaining aligned quartets.
+assumes:
+  - {name: support, statement: Each quartet contains at most two nonzeros and zero products are neutral under the admitted contraction policy.}
+  - {name: metadata, statement: The packed position nibble and native decoder agree on coordinate order.}
+  - {name: backend, statement: Supported target layouts realize the value/metadata pairing without a group-origin or tail mismatch.}
+guarantees: []
+models: []
+note: >-
+  Two nonzeros are retained directly. One nonzero is retained with one distinct
+  known-zero position; an all-zero quartet stores two zeros. All omitted entries
+  are zero, so reinserting them recovers the finite logical operand. The two
+  indices are distinct and in0..3; i0|(i1<<2) stores them in separate2-bit fields,
+  and consecutive4-bit fields do not overlap in16/32-bit words. For(1,0,-2,0),
+  positions(0,2), values(1,-2) and nibble8 recover the same two dot-product terms.
+  Source sparse_utils.py supplies this logical filler/packing policy and
+  example_gemm_sp.py supplies its FP16 sparse MMA consumer. No new checker is
+  needed for this elementary identity; native layout/ISA lowering remains an
+  explicit obligation. Random top-k sparsification in input generators is not
+  proved lossless for a different dense operand.

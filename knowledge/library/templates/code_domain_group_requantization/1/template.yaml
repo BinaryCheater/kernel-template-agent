@@ -1,0 +1,83 @@
+name: code_domain_group_requantization
+version: 1
+level_from: 2
+level_to: 3
+change: vertical
+refines: map
+produces:
+- map
+- store
+object:
+  type: code_domain_group_requantization
+  description: Requantize adjacent scaled low-float groups using code-domain maxima
+    before expanding values.
+variables: []
+constraints: []
+preconditions:
+- id: pre0
+  expr: p.e2m1_codes_and_direct_e4m3_group16_scales and p.outer_scale_immutable
+  meaning: Input scale metadata describes the actual input codes and optional outer
+    row scale is fixed.
+  cls: semantic
+- id: pre1
+  expr: p.output_mxfp8_group32_requested and p.groups_pair_without_crossing_rows
+  meaning: Two adjacent16-value groups form each requested32-value group.
+  cls: semantic
+- id: pre2
+  expr: p.finite_scales_and_values and p.new_scale_normal_representable and p.power_two_fold_rounding_admitted
+  meaning: The finite-range contract admits FP32 scale arithmetic and folding an inverse
+    power-of-two scale; underflow/overflow is excluded.
+  cls: semantic
+program:
+  description: Clear each E2M1 sign bit and reduce its ordered3-bit magnitude codes
+    within each16-value input group, using packed max.u16x2 fields or an equivalent
+    exact max. Decode only that maximum code, multiply by abs(input_group_scale*outer_row_scale),
+    and max the adjacent two groups. Divide by448 and round upward to an encoded E8M0
+    power-of-two output scale. Multiply each original signed input scale by the inverse
+    output power of two once per group, decode FP4 exactly through FP16 then promote
+    to FP32, multiply by the folded scale and cast to E4M3. Emit one output scale
+    per32 values. No separate NVFP4 or outer scale remains in the result. Zero groups
+    produce zero codes under the stated zero-reciprocal policy.
+backward_map: Interpret output codes with their new E8M0 metadata as the requested
+  MXFP8 quantization of the original decoded NVFP4 values including the outer row
+  scale.
+obligations:
+- name: code_maximum
+  statement: Ordered magnitude-code max equals max(abs(decoded E2M1)) in the same
+    logical16-value group.
+  method: test
+- name: pair_grouping
+  statement: Adjacent maxima and per-value source scales are paired into exactly the
+    same32-value output group.
+  method: test
+- name: scale_fold
+  statement: Folding the inverse power-of-two scale preserves the admitted FP32 rounding
+    domain and native conversions.
+  method: test
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: (p.e2m1_codes_and_direct_e4m3_group16_scales and p.outer_scale_immutable)
+    and (p.output_mxfp8_group32_requested and p.groups_pair_without_crossing_rows)
+    and (p.finite_scales_and_values and p.new_scale_normal_representable and p.power_two_fold_rounding_admitted)
+  text: Pinned finite normal-scale NVFP4-to-MXFP8 conversion. Does not reuse a generic
+    raw-product promotion rule or infer exactness for subnormal/extreme scales. Packed
+    maxima require explicit logical groups, not reliance on inline-assembly pack order.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Requantize adjacent scaled low-float groups using code-domain maxima
+    before expanding values.
+  storage: Binding-specific counters, partials or output ranges.
+  boundary: Tile prefixes and logical membership.
+  resources: []
+numeric_risk: Integer counts must not overflow; ordering/rounding policy belongs to
+  the bound operation.
+summary: When converting block-scaled FP4 into MXFP8, find maxima in the ordered magnitude-code
+  domain before expanding every value. Pair the two16-value source groups, absorb
+  the outer scale, and fold the new inverse power-of-two scale into each old group
+  scale. This removes duplicated full decoding for scale selection while preserving
+  code/group identity.

@@ -1,0 +1,13 @@
+template: rectangular_section_rasterization@1
+version: 1
+relation: Forget traversal order and padding; every valid output tile has one section
+  and one intra-section coordinate.
+rank: Unmapped coordinates or unretired readers.
+assumes:
+- name: binding
+  statement: Declared source layout and lifetime premises hold.
+guarantees: []
+models: []
+note: For a valid (m,n), section=(m//section_m,n//section_n), local=(m%section_m,n%section_n)
+  uniquely invert the construction. Source csrc/scheduler/matmul_hopper+.cpp:220-290.
+  Native scheduling follows split/reorder/merge with independent tail predication.

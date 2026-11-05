@@ -1,0 +1,15 @@
+{
+  "template": "async_store_source_release@1",
+  "version": 1,
+  "relation": "Associate every store with the source generation it fully read before reuse and with its later complete destination generation. Collapsing the transfer at actual destination completion recovers one correct metadata store; source release only shortens source occupancy.",
+  "rank": "Unresolved required pages or pending transfer generations.",
+  "assumes": [
+    {
+      "name": "premises",
+      "statement": "All stated generation, capacity, memory and completion premises hold."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "The store engine reads a fixed source generation until its read-release event. A refill ordered after that event cannot change transferred bytes; a CTA barrier makes the issuer's wait govern every writer. Proxy visibility precedes issue. Independently waiting for actual destination completion prevents exposing a partially stored generation. No abstract source-release proof discharges the source kernel's final pending-store or partial-padding native contract."
+}

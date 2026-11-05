@@ -1,0 +1,15 @@
+{
+  "template": "adaptive_key_partition_membership@1",
+  "version": 1,
+  "relation": "Every high-prefix container denotes exactly its low-key set, independently of array/bitset/run representation; lookup reconstructs the original full integer identity.",
+  "rank": "Unbuilt container metadata/payloads, then remaining prefix/member search iterations.",
+  "assumes": [
+    {
+      "name": "source_contract",
+      "statement": "NVIDIA Roaring bitmap32/64 membership. Native builder emits arrays/bitsets; run membership consumes imported serialized format rather than assuming this builder emits runs. Container search threshold8 is policy, array cutoff4096 is format-sensitive."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Source-derived proof outline; no formal proof result or GPU execution claimed. partition_identity: Recombining high prefix and low member recovers exactly the original integer without signed/truncation changes. representation: Every container type denotes the same exact local set its metadata describes. search_order: High keys/arrays/runs are ordered as required, with inclusive run ends and card-minus-one decoded correctly. serialization: Aligned/misaligned loads and computed/stored offsets remain within the immutable payload and agree with format."
+}

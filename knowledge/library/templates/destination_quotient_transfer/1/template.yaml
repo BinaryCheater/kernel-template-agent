@@ -1,0 +1,68 @@
+{
+  "name": "destination_quotient_transfer",
+  "version": 1,
+  "level_from": 3,
+  "level_to": 4,
+  "change": "vertical",
+  "refines": "transfer",
+  "produces": [
+    "map",
+    "transfer"
+  ],
+  "object": {
+    "type": "destination_class_payload",
+    "description": "When several sparse recipients share a transport locality, choose one payload per locality and expand it after arrival while retaining recipient metadata."
+  },
+  "variables": [],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_contract",
+      "expr": "p.payload_identical_within_class and p.expansion_metadata_complete and p.destination_map_immutable",
+      "meaning": "Sparse fanout whose recipients share identical source payload within a transport locality class; logical recipients are unique per source in this version. Class mapping is fixed by topology. Does not combine distinct expert results.",
+      "cls": "semantic"
+    }
+  ],
+  "program": {
+    "description": "For each source record with logical destinations d, map d to a transport class c(d). Emit one payload per distinct valid class, preserving all logical destination IDs and weights in metadata. At class arrival expand that payload to each original logical recipient. Preserve source ID for the inverse combine; never deduplicate numerical contributions merely because transport was deduplicated."
+  },
+  "backward_map": "Expand the intermediate records back to the original logical deliveries, retaining their identity and multiplicity.",
+  "obligations": [
+    {
+      "name": "class_once",
+      "statement": "Exactly one transport payload exists for each source/class pair.",
+      "method": "exhaustive"
+    },
+    {
+      "name": "expand_exact",
+      "statement": "Expansion recovers each original source/destination delivery exactly once, including its weight.",
+      "method": "exhaustive"
+    },
+    {
+      "name": "publish",
+      "statement": "Payload and metadata arrive before any forwarded read or buffer reuse.",
+      "method": "exhaustive"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.payload_identical_within_class and p.expansion_metadata_complete and p.destination_map_immutable",
+    "text": "Sparse fanout whose recipients share identical source payload within a transport locality class; logical recipients are unique per source in this version. Class mapping is fixed by topology. Does not combine distinct expert results."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "When several sparse recipients share a transport locality, choose one payload per locality and expand it after arrival while retaining recipient metadata.",
+    "reuse": null,
+    "storage": "destination_class_payload",
+    "boundary": "Invalid destinations are excluded; short final groups retain exact identities.",
+    "resources": []
+  },
+  "numeric_risk": null,
+  "summary": "When several sparse recipients share a transport locality, choose one payload per locality and expand it after arrival while retaining recipient metadata."
+}

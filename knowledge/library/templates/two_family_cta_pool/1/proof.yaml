@@ -1,0 +1,30 @@
+template: two_family_cta_pool@1
+version: 1
+relation: Successful family tickets execute the same disjoint jobs as the original two grids exactly once, under the counter, launch and body-participation premises.
+rank: Unclaimed valid family tickets.
+assumes:
+  - {name: ownership, statement: "Each family's valid ticket maps to one immutable original job and atomic increments return distinct ticket values."}
+  - {name: coverage, statement: "At least N0+N1 CTAs each attempt one preferred family and then the other if needed."}
+  - {name: lifecycle, statement: "Invocation counters are zeroed, exclusive, in range and retained until the full grid completes."}
+  - {name: bodies, statement: "Uniform broadcast, barrier participation and resource envelopes are valid for either selected body."}
+guarantees: []
+models: []
+note: >-
+  Atomic increments make valid tickets unique within each family. A CTA fails
+  both attempts only after both counters have passed their valid ranges, which
+  implies every valid ticket was already claimed. Therefore before all N0+N1
+  valid tickets are claimed, every completed dispatch attempt claims a new job;
+  the grid-size bound supplies enough attempts. An interleaving can delay a
+  successful ticket's computation, so exhaustion does not prove completion.
+  Source include/flashinfer/attention/pod.cuh:39-122 selects an SM-local ratio
+  and claims/falls back; :123-170 maps the final ticket to prefill/decode
+  coordinates. :395-418 launches the sum of both grid sizes with maximum threads
+  and shared storage. batch_pod.cuh shares the ticket principle. Source counter
+  allocation is static and reset per call; concurrent streams need an external
+  exclusion/lifetime binding not established by that allocation alone. The source
+  warns about nsmid/active-SM equality. persistent_tile_scheduler@1 gives one
+  homogeneous tile stream and repeated worker fetches, not this family selector,
+  maximum-resource body envelope or one-fallback one-shot coverage argument.
+  The logical check enumerates all preference sequences for small jobs and
+  separates too-small grids and counter reuse. Native atomic publication,
+  SM-ID allocation and unified-body barriers remain explicit obligations.

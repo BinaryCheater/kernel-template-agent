@@ -1,0 +1,70 @@
+name: head_reset_scan_state
+version: 1
+level_from: 2
+level_to: 3
+change: vertical
+refines: scan
+produces:
+- map
+- store
+object:
+  type: head_reset_scan_state
+  description: An ordered scan state carries head count and aggregate of the suffix
+    after the most recent head.
+variables: []
+constraints: []
+preconditions:
+- id: pre0
+  expr: p.associative_value_operator and p.head_flags_match_segments
+  meaning: Value combine admits reassociation and head flags identify exact logical
+    segment starts.
+  cls: semantic
+- id: pre1
+  expr: p.scan_order_preserved and p.cross_tile_neighbors_match and p.counts_fit
+  meaning: Ordered scan and boundary context do not invent/split segments.
+  cls: semantic
+program:
+  description: Lift value operator op to pair (h,v), where h counts segment starts
+    and v is the suffix aggregate since the last start. Combine A then B as h=A.h+B.h
+    and v=B.v if B.h>0, otherwise op(A.v,B.v). Scan in original item order, carrying
+    the same state across tile boundaries. A nontrivial-run encoder derives head/tail
+    flags from neighboring values, feeds h=head&&!tail and v=!head||!tail, then uses
+    head-prefix counts to compact offsets and the previous suffix aggregate as completed
+    length. Explicitly flush the final suffix and run count at end of input.
+backward_map: Project each prefix state to its number of segment starts and the value
+  aggregate of its final open segment.
+obligations:
+- name: lift_associativity
+  statement: The lifted operator is associative but generally noncommutative.
+  method: proof
+- name: boundaries_and_flush
+  statement: Tile neighbors and final suffix handling preserve each original segment
+    exactly once.
+  method: test
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: (p.associative_value_operator and p.head_flags_match_segments) and (p.scan_order_preserved
+    and p.cross_tile_neighbors_match and p.counts_fit)
+  text: Ordered segmented scans with an associative value operator and exact head
+    markers. Nontrivial RLE binding ignores singleton runs via paired head/tail predicates;
+    ordinary scan-by-key uses all segment heads instead.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: An ordered scan state carries head count and aggregate of the suffix
+    after the most recent head.
+  storage: Binding-specific counters, partials or output ranges.
+  boundary: Tile prefixes and logical membership.
+  resources: []
+numeric_risk: Integer counts must not overflow; ordering/rounding policy belongs to
+  the bound operation.
+summary: When a scan must reset accumulated values at segment starts, lift the value
+  to head-count plus suffix aggregate. The right state replaces the left suffix exactly
+  when it contains a new head; otherwise extend it. This permits parallel ordered
+  scans and cross-tile carry without treating resets as commutative reduction. A run
+  crossing a tile boundary must remain one run, and the final suffix needs an explicit
+  flush.

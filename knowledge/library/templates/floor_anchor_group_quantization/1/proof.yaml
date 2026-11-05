@@ -1,0 +1,40 @@
+template: floor_anchor_group_quantization@1
+version: 1
+relation: Decode each group scale and destination code at the same semantic coordinate. Reconstructed
+  s*decode(q) satisfies the admitted quantization/saturation contract for g*x; no equality to a ceiling-scale
+  recipe is asserted.
+rank: Unencoded complete output groups.
+assumes:
+- name: pre_groups
+  statement: Every group contains32 semantic output coordinates on the declared axis; partial owners combine
+    before scale selection, with neutral padding and identical scale/code ownership.
+- name: pre_values
+  statement: Group values are finite and the optional global multiplier g is positive finite (otherwise
+    g=1); all FP32 max-times-g intermediates are finite. The composed code multiplier and scaled code
+    inputs are finite too.
+- name: pre_range
+  statement: Each live group has nonzero maximum and its selected power-of-two scale and reciprocal are
+    normal FP32. Zero, underflow and reserved metadata behavior require a separate extension.
+- name: pre_cast
+  statement: Bind RN finite-saturating destination conversion and source FP32 multiplication/FTZ behavior.
+    Do not silently replace source multiplier composition by real-number division.
+- name: pre_metadata
+  statement: UE8M0 exponent encoding decodes to the same selected positive normal scale at each group
+    coordinate; physical packing/transpose remains separate.
+- name: pre_lifetime
+  statement: All partial maxima publish before readers; scratch is not reused until readers finish; consumer
+    sees matching payload and scale generations.
+- name: pre_error
+  statement: The numerical contract admits floor-anchor rounding and saturation, which may clip the maximum
+    even though a larger power-of-two scale could avoid it.
+guarantees: []
+models: []
+note: Runtime source flashinfer/prims_ts/batched_gemm/gmem_c_resources.py:2465-2472 masks exponent bits
+  and synthesizes reciprocal; :3170-3201 selects anchor1/256 or1/4, gates zero reciprocal and converts
+  scale to E8M0; :3203-3221 places positive global scale before maximum reduction. :3603-3700 provides
+  batched scratch phases; :2719-2745 shows publication/read-complete barriers for paired M16 owners. :74-91
+  and :2812-2815 bind the explicit RN-SATFINITE packed E4M3 TMA cast. Existing groupwise_low_float_quantization@1
+  uses a ceiling MXFP8 scale and has no MXFP4 format; power_of_two_scale_encoding@1 preserves already-defined
+  normal scales and supplies metadata encoding, not scale selection. Logical checks exhaust admitted maximum
+  exponents and mantissa witnesses, reveal reciprocal failure for subnormal scales and distinguish clipped
+  floor/ceiling codes. No native lowering, execution or performance claim.

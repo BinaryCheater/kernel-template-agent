@@ -1,0 +1,15 @@
+{
+  "template": "tile_argmin_pair_combine@1",
+  "version": 1,
+  "relation": "Every local/global winner is a complete score/ID pair from the processed candidate union under the same comparator; locked stores cannot create mixed pairs.",
+  "rank": "Unprocessed candidate tiles and unpublished local winners, under lock-owner progress.",
+  "assumes": [
+    {
+      "name": "source_contract",
+      "statement": "NVIDIA fused distance-NN SIMT and CUTLASS epilogues. Comparator tie and metric convention are workload-bound. A scalar atomicMin on score alone cannot publish a consistent separate ID."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Source-derived proof outline; no formal proof result or GPU execution claimed. tile_cover: Every valid candidate is represented by exactly one producer tile before local reduction. pair_identity: Winning score and ID always come from the same candidate, including ties. atomic_combine: Competing CTAs cannot interleave scalar stores into a mixed score/ID pair. fusion_boundary: All norm/metric transforms required for ranking occur before local argmin, not after pruning changes winners. The relation is a proposed source-level invariant; the stated finite-work rank depends on the explicit environment progress assumptions. Device ordering and numeric premises have not been discharged by schema validation."
+}

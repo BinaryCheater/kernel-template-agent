@@ -1,0 +1,15 @@
+template: head_reset_scan_state@1
+version: 1
+relation: Project each prefix state to its number of segment starts and the value
+  aggregate of its final open segment.
+rank: Unprocessed source items or unmerged partials.
+assumes:
+- name: contract
+  statement: The stated partition, comparator/count and publication premises hold.
+guarantees: []
+models: []
+note: 'Source thread/thread_operators.cuh:312-380; agent/agent_rle.cuh:353-434,:448-515,:1026-1078.
+  Three-state associativity: if C has a head both parenthesizations choose C.v; else
+  if B has a head both choose op(B.v,C.v); else both choose op(op(A.v,B.v),C.v), equal
+  by value associativity. Head counts add independently. Reverse order changes the
+  suffix.'

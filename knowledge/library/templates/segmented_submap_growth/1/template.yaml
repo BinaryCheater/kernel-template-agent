@@ -1,0 +1,95 @@
+{
+  "name": "segmented_submap_growth",
+  "version": 1,
+  "level_from": 2,
+  "level_to": 3,
+  "change": "vertical",
+  "refines": "map",
+  "produces": [
+    "map",
+    "access"
+  ],
+  "object": {
+    "type": "segmented_submap_growth",
+    "description": "When a hash container grows without rehashing existing entries, add bounded-load submaps and search existing segments before inserting into one designated target segment."
+  },
+  "variables": [
+    {
+      "name": "minimum_insert_batch",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": [
+        10000
+      ],
+      "meaning": "Source insertion headroom threshold; a policy, not a uniqueness condition."
+    }
+  ],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_0",
+      "expr": "p.submap_mutation_phases_ordered and p.target_submap_unique",
+      "meaning": "Each insertion phase has one target submap and no competing phase inserts the same key into another target concurrently.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_1",
+      "expr": "p.all_submaps_searched and p.local_insert_unique",
+      "meaning": "Every non-target map is checked for an existing key and target insertion enforces local uniqueness.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_2",
+      "expr": "p.references_live_and_capacity_sufficient",
+      "meaning": "Submap/ref-array storage remains live during device kernels and enough target capacity is reserved.",
+      "cls": "semantic"
+    }
+  ],
+  "program": {
+    "description": "Reserve usable capacity by appending fixed-capacity maps, source doubling aggregate capacity while respecting load/headroom policy. For a batch assigned to target t, query all other submaps for each key; if found, report existing or update its payload under requested operation. Otherwise atomically insert into t, using its local duplicate rule for same-phase contenders. Search/retrieve traverses all segments. Old entries remain at their original addresses, so growth adds search work rather than migrating old payloads."
+  },
+  "backward_map": "Erase auxiliary organization and recover the visible results under the stated contract.",
+  "obligations": [
+    {
+      "name": "global_uniqueness",
+      "statement": "No valid key can be newly inserted into two different submaps under the phase restriction.",
+      "method": "proof"
+    },
+    {
+      "name": "coverage",
+      "statement": "Find/contains/erase/retrieve accounts for every live submap as required by its operation contract.",
+      "method": "proof"
+    },
+    {
+      "name": "ref_lifetime",
+      "statement": "Copied device refs remain valid until every kernel using them completes.",
+      "method": "proof"
+    },
+    {
+      "name": "capacity",
+      "statement": "Load/headroom accounting covers requested insertions; duplicate suppression must not be mistaken for guaranteed free space without allocation.",
+      "method": "proof"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.submap_mutation_phases_ordered and p.target_submap_unique and p.all_submaps_searched and p.local_insert_unique and p.references_live_and_capacity_sufficient",
+    "text": "NVIDIA dynamic_map with stream-ordered host growth and designated insertion submap. Source max_load_factor0.60 and min_insert_size10000 are policy constants. Concurrent independent target phases are outside this version. Resource effects: Retains old payloads without rehash traffic; adds multiple contains probes and a device ref-array upload, with memory reserved in growing segments."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "When a hash container grows without rehashing existing entries, add bounded-load submaps and search existing segments before inserting into one designated target segment.",
+    "storage": "Retains old payloads without rehash traffic; adds multiple contains probes and a device ref-array upload, with memory reserved in growing segments.",
+    "boundary": "Key7 already lives in segment0: inserting it while target1 is active must check0 first. Two concurrent batches targeting different segments can both miss7 then each insert it; local map CAS alone cannot prevent that cross-segment race.",
+    "resources": []
+  },
+  "numeric_risk": "Preserve the supplied arithmetic contract; reassociation, quantization and approximate search require separate permission.",
+  "summary": "When a hash container grows without rehashing existing entries, add bounded-load submaps and search existing segments before inserting into one designated target segment. Key7 already lives in segment0: inserting it while target1 is active must check0 first. Two concurrent batches targeting different segments can both miss7 then each insert it; local map CAS alone cannot prevent that cross-segment race."
+}

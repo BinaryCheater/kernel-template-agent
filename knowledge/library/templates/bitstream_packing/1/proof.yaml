@@ -1,0 +1,22 @@
+template: bitstream_packing@1
+version: 1
+relation: For every complete group and code bit b, logical code[i] bit b equals packed bit i*code_bits+b.
+rank: Number of unprocessed complete groups, then remaining code bits in a group.
+assumes:
+  - {name: complete_groups, statement: Input contains a whole positive number of 32-code groups., expr: "p.length >= 32 and p.length % 32 == 0"}
+  - {name: unsigned_word_semantics, statement: Shifts and OR follow 32-bit unsigned arithmetic; valid code bits are within the selected width.}
+guarantees: []
+models: []
+note: >-
+  Proposed outline, declared assurance. Initialisation: zero words satisfy the relation for
+  no processed bits. Step: Euclidean division maps each logical bit to a unique word and
+  offset; distinct codes own disjoint intervals. The carry uses the complement of the
+  first-word extent and cannot overlap another code. Progress: the finite loop advances
+  one code at a time. Completion: inverse extraction recovers the same interval. Group
+  ownership follows divmod(group_id,32) for block and thread. checks/bitstream.py enumerates
+  every one-hot bit for every width and checks nearby CTA boundary lengths, against an
+  independent big-integer concatenation oracle. This is a mathematical replay, not a
+  ProofResult or GPU run. No checker model is registered by this study. memory_safety
+  remains open for inactive CUDA threads: pack_weight.cuh computes from uninitialized
+  local arrays in inactive groups even though global stores are guarded. Next evidence:
+  compile the exact specialization and run compute-sanitizer initcheck/memcheck remotely.

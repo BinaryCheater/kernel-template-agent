@@ -1,0 +1,15 @@
+{
+  "template": "topk_boundary_tie_repair@1",
+  "version": 1,
+  "relation": "The above-boundary set is unchanged and complete. Replacing arbitrary kth-boundary IDs by the smallest equal-value IDs leaves the top-k value multiset fixed and establishes the requested total order.",
+  "rank": "Unprocessed valid row coordinates, then unmerged shard summaries.",
+  "assumes": [
+    {
+      "name": "premises",
+      "statement": "All named input, ordering and numerical premises hold."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "There are fewer than k strict winners and enough equal-boundary inputs to fill the quota. Their first IDs are precisely the required canonical boundary set. Sorting the fixed set establishes the same total order for every upstream tie choice. Host exhaustive arbitrary-boundary-subset checks are checks/tie_repair.json; GPU compaction, sort packing and FP32 signed-zero behavior require native admission."
+}

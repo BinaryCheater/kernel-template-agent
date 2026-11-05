@@ -1,0 +1,15 @@
+{
+  "template": "keyed_weighted_race_selection@1",
+  "version": 1,
+  "relation": "Replace the two-stage comparator reduction by a single reduction over the same keyed score records; associative lexicographic max preserves the selected token.",
+  "rank": "Unprocessed valid row coordinates, then unmerged shard summaries.",
+  "assumes": [
+    {
+      "name": "premises",
+      "statement": "All named input, ordering and numerical premises hold."
+    }
+  ],
+  "guarantees": [],
+  "models": [],
+  "note": "Lexicographic maximum is associative and each shard winner dominates every record it replaces. Complement log1p avoids rounding the largest 32-bit hash to u=1. This proof preserves a declared finite-hash selector, not cryptographic quality or an exact categorical law. Native underflow/division may create score ties or infinities; source requires a matching policy. Host partition/endpoint witnesses are checks/keyed_race.json."
+}

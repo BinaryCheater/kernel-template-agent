@@ -1,0 +1,25 @@
+template: grouped_head_row_packing@1
+version: 1
+relation: The hierarchical packed view preserves every logical token/head element and its semantic consumers.
+rank: Unmapped logical token/head coordinates.
+assumes:
+  - {name: groups, statement: "Hq=g*Hkv and within-group query heads share one KV head."}
+  - {name: semantics, statement: "Every output/statistic/mask/derivative consumer uses the inverse original token/head map."}
+  - {name: layout, statement: "The backend accepts original hierarchical strides, bounds and write ownership."}
+guarantees: []
+models: []
+note: >-
+  Euclidean division gives h=kv*g+u with0<=u<g and r=t*g+u, so the inverse
+  t=r//g,u=r modulo g is unique. The original address offset
+  t*token_stride+h*head_stride equals
+  t*token_stride+u*head_stride+kv*g*head_stride. Thus no copy is required by
+  the abstract view. At g3,token2,head7, kv2,u1,r7; incorrectly decoding r as
+  a token would change causal support. Source flash_attn/cute/pack_gqa.py:15-36
+  implements the hierarchical strides for Q/O or LSE head-axis variants, and
+  block_info.py:129-164 decodes packed query bounds before mask tile limits.
+  Forward TMA helper :109 onward repacks modes to avoid increasing descriptor
+  rank; padded sparse-head helpers :63-108 use explicit valid-head extents and
+  guards because ordinary packed coordinates wrap fake heads into a later token.
+  These padding/rank paths require separate bindings. tensor_axis_permutation@1
+  only changes rank-three axis order and cannot supply this split-and-fold view.
+  Native fragment layout and K/V gradient association remain unverified.

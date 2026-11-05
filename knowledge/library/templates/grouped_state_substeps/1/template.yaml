@@ -1,0 +1,154 @@
+name: grouped_state_substeps
+version: 1
+level_from: 2
+level_to: 3
+change: vertical
+refines: map
+produces:
+- map
+- contract
+object:
+  type: real_token_to_ordered_state_update_coordinates
+  description: Represent multiple ordered state corrections per real token as an expanded update stream,
+    keeping decay, readout, checkpoint and acceptance boundaries attached to the real token.
+variables:
+- name: substeps_per_token
+  kind: numeric
+  binding: compile
+  role: boundary
+  domain:
+  - 1
+  - 2
+  - 3
+  - 4
+  meaning: Workload-fixed ordered corrections per token. The concrete GDP decode menu admits1..4; changing
+    this value changes the operator.
+- name: update_grouping
+  kind: structure
+  binding: compile
+  role: software
+  domain:
+  - token_serial
+  - expanded_chunks
+  meaning: Execute substeps under their token loop or flatten into64-update chunks with carried state
+    and explicit final-substep output coordinates.
+constraints:
+- id: c_domain
+  expr: p.real_tokens >= 1 and p.expanded_chunk_updates == 64
+  meaning: One nonempty sequence;64-update expanded prefill binding. Empty sequence identity copies are
+    handled by the caller separately.
+  cls: implementation
+preconditions:
+- id: pre_semantics
+  expr: p.ordered_delta_substeps_and_last_substep_readout_defined
+  meaning: Each real token first decays state once by its scalar alpha, then applies n ordered beta*(v-prediction)
+    rank-one updates, then emits its query readout. n is part of workload semantics, not a tuning replacement.
+  cls: implementation
+- id: pre_coordinates
+  expr: p.real_and_expanded_sequence_prefixes_match_and_never_mix
+  meaning: Real token t and substep j map to m=n*t+j relative to their sequence; global expanded prefix
+    is n times the real prefix. K/V/beta are substep-indexed, Q/gate/output/checkpoint and accepted lengths
+    are real-token-indexed.
+  cls: implementation
+- id: pre_frames
+  expr: p.decay_applied_only_at_first_substep_and_chunk_frame_phase_preserved
+  meaning: Expanded decay alpha_m equals token alpha at j0 and1 otherwise. A chunk beginning inside a
+    token does not repeat that token decay. Local cumulative frames subtract the complete prefix before
+    the chunk, even if its boundary is within a token.
+  cls: implementation
+- id: pre_readouts
+  expr: p.readout_and_checkpoint_boundaries_select_final_substep_only
+  meaning: Token t observes expanded post-update state at m=n*(t+1)-1. Its causal support includes exactly
+    updates0..m. Output/checkpoint stores occur once per real token; accepted token count a maps to n*a
+    committed updates.
+  cls: implementation
+- id: pre_chunks
+  expr: p.expanded_chunk_boundaries_state_carry_and_neutral_tail_valid
+  meaning: Expanded chunks may bisect a token. The next chunk starts from the preceding update state,
+    and every real readout uses all preceding substeps. Invalid padded updates have alpha1,beta0,key/value0
+    and cannot create stores.
+  cls: implementation
+- id: pre_numeric
+  expr: p.normalization_gate_stages_and_substep_reassociation_admitted
+  meaning: Key/query normalization, beta/gate stages, prediction precision, rank-one update order and
+    output/state casts have an explicit admitted numerical policy. Sequential and solve-based realizations
+    do not inherit native bitwise equality.
+  cls: implementation
+- id: pre_slots
+  expr: p.state_snapshot_output_ownership_and_generation_lifetimes_valid
+  meaning: Live state and checkpoint destinations have safe ownership; snapshots represent after-real-token
+    states, old-state readers retire before overwrite, and input records match the same sequence generation.
+  cls: implementation
+- id: pre_backend
+  expr: p.selected_grouping_substep_count_target_and_shape_supported
+  meaning: Selected token-serial or expanded-chunk route is implemented for n,target,shape and precision.
+    Zero seeds, pooled initial state, frozen output and snapshot modes retain their separately supported
+    menus.
+  cls: implementation
+program:
+  description: For each sequence with L real tokens and n substeps, flatten m=n*t+j for0<=t<L,0<=j<n.
+    Expanded inputs are K_m,V_m,beta_m from that exact substep. Set alpha_m=alpha_t for j0 and1 for j>0.
+    token_serial executes these n updates before each token readout directly. expanded_chunks partitions
+    m into64-update chunks, carries the actual state across every chunk (including within-token boundaries)
+    and may use a correctly bound weighted feedback solve to compute residuals. Query/output t selects
+    post-update position e_t=n*(t+1)-1, with causal mask m<=e_t; query t need not be materialized at the
+    other positions. If queries are broadcast over several expanded chunks, accumulate each disjoint update
+    contribution once and include the matching incoming-state contribution once. Store one output/checkpoint
+    per real token. A real accepted prefix a commits exactly n*a updates. Tail/prefix coordinates stay
+    sequence-relative; arbitrary chunk starts use their actual expanded phase. Pad only neutral updates
+    and suppress their readouts/stores.
+backward_map: Group expanded updates n*t..n*t+n-1. Only the first applies alpha_t; ordered corrections
+  match the original token update by induction. Selecting post-update n*(t+1)-1 recovers its inclusive
+  output/checkpoint. Chunk partitioning only inserts intermediate carry boundaries; it cannot change the
+  transition sequence.
+obligations:
+- name: substep_induction
+  statement: Flattening preserves every ordered update and exactly one decay per real token.
+  method: proof
+- name: cross_chunk_phase
+  statement: Within-token chunk cuts preserve incoming state, gate-prefix origins and final-substep readout
+    ownership.
+  method: test
+- name: prefix_units
+  statement: Real token prefixes, snapshots and accepted lengths select exactly the matching complete
+    substep groups.
+  method: test
+- name: native_numeric_and_slots
+  statement: Implemented normalization/rounding and state-slot lifetimes satisfy the selected numerical
+    and ownership contract.
+  method: test
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: p.real_tokens >= 1 and p.expanded_chunk_updates == 64 and (p.ordered_delta_substeps_and_last_substep_readout_defined)
+    and (p.real_and_expanded_sequence_prefixes_match_and_never_mix) and (p.decay_applied_only_at_first_substep_and_chunk_frame_phase_preserved)
+    and (p.readout_and_checkpoint_boundaries_select_final_substep_only) and (p.expanded_chunk_boundaries_state_carry_and_neutral_tail_valid)
+    and (p.normalization_gate_stages_and_substep_reassociation_admitted) and (p.state_snapshot_output_ownership_and_generation_lifetimes_valid)
+    and (p.selected_grouping_substep_count_target_and_shape_supported)
+  text: GDP n1..4. Concrete lane-row decode n2 uses K128,V64, FP32 state and a64-thread CTA with four-lane
+    state-row groups on its SM90/SM100/SM103 exported menu. SM90 V6 prefill walks64 expanded rows while
+    retaining64-real-token Q groups and a rectangular causal mask. This rule is the semantic coordinate
+    adapter; it does not claim source-identical query expansion, a generic native solve-width menu, approximate
+    state resets or safe aliasing of arbitrary pooled checkpoints.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Flatten ordered per-token updates while preserving real-token decay/readout/checkpoint boundaries.
+  storage: Expanded K/V/beta stream and original Q/gate/output coordinates, with intermediate chunk carry
+    state.
+  boundary: One decay at first substep, readout after last, true within-token chunk phase and accepted-prefix
+    units.
+  resources:
+  - registers
+  - smem
+  - tensor
+numeric_risk: Repeating the decay, skipping within-token feedback, using update counts as token counts,
+  or reading out before the final correction changes the operator. Native gate log(alpha+epsilon), normalization
+  and casts require a declared recipe.
+summary: When a token performs several ordered state corrections, expose their update stream to chunked
+  contractions without changing token boundaries. Flatten updates, apply decay only to the first, and
+  gather outputs/checkpoints after the last. A64-update cut can lie inside a token, so preserve its carried
+  state and gate phase.

@@ -1,0 +1,100 @@
+name: resident_overflow_repeated_scan
+version: 1
+level_from: 2
+level_to: 3
+change: vertical
+refines: work_assign
+produces:
+- work_assign
+- map
+- store
+- sync
+object:
+  type: resident_overflow_repeated_scan
+  description: A repeated predicate scan keeps a fixed input window resident and re-streams
+    the remaining immutable chunks.
+variables:
+- name: resident_chunks
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 1
+    hi: 65536
+  meaning: Input chunks retained across repeated passes.
+- name: stream_slots
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 1
+    hi: 65536
+  meaning: Reusable temporary chunk slots for overflow scans.
+constraints: []
+preconditions:
+- id: pre0
+  expr: p.resident_and_overflow_partition_input and p.original_inputs_immutable
+  meaning: Resident and streamed chunks cover the original input once per pass.
+  cls: semantic
+- id: pre1
+  expr: p.current_predicate_applied_to_both_regions and p.original_coordinates_preserved
+  meaning: All regions apply the same active predicate and retain original identities.
+  cls: semantic
+- id: pre2
+  expr: p.stream_slot_completion_before_read_and_reuse and p.resident_storage_fits
+  meaning: Asynchronous loads complete before consumption and every slot retires before
+    refill.
+  cls: semantic
+program:
+  description: Partition each worker input chunks into resident window and overflow.
+    Load resident data once. For each iterative radix/predicate pass, consume resident
+    values and stream all overflow through bounded reusable slots, applying the same
+    current predicate. Resident histogram work may overlap the first overflow load.
+    Source alternates overflow traversal direction between passes so turnaround chunks
+    already in slots need not be reloaded. If final ties require ascending original
+    indices, retain the low-index first-visited window; descending ties retain the
+    high-index window. Final filtering observes that required original-coordinate
+    order rather than slot arrival order.
+backward_map: Forget resident/stream slot placement and traverse each original occurrence
+  once under the pass predicate; the same histogram or selected set is obtained.
+obligations:
+- name: pass_cover
+  statement: Each pass consumes all resident and overflow chunks once with matching
+    predicates and no stale slot generation.
+  method: proof
+- name: tie_order
+  statement: Deterministic final traversal preserves requested original-index preference
+    independent of streaming order.
+  method: test
+- name: slot_lifetime
+  statement: Load completion, consumption and next-generation refill of every stream
+    slot are ordered.
+  method: test
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: (p.resident_and_overflow_partition_input and p.original_inputs_immutable)
+    and (p.current_predicate_applied_to_both_regions and p.original_coordinates_preserved)
+    and (p.stream_slot_completion_before_read_and_reuse and p.resident_storage_fits)
+  text: Repeated scans over immutable chunks with a fixed retained window and bounded
+    asynchronous overflow slots. Histogram passes are order-independent; deterministic
+    final filtering requires explicit original-index ordering. No arbitrary reversal
+    of an ordered scan is allowed.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: A repeated predicate scan keeps a fixed input window resident and re-streams
+    the remaining immutable chunks.
+  storage: Binding-specific counters, partials or output ranges.
+  boundary: Tile prefixes and logical membership.
+  resources: []
+numeric_risk: Integer counts must not overflow; ordering/rounding policy belongs to
+  the bound operation.
+summary: When repeated radix passes outgrow resident shared memory, keep a prefix
+  or suffix window and re-stream the rest through bounded slots. Choose resident capacity
+  and stream slot count; derive final visit order from the tie policy. Reversing histogram
+  sweeps can reuse turnaround chunks, while deterministic filtering must still select
+  original indices in its requested order.

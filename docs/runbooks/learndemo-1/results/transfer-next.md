@@ -1,0 +1,7 @@
+# Next transfer tests
+
+First separate code transfer from knowledge-guided reimplementation. Hold the selected source/configuration fixed and test unseen GEMM (129,1025,1001) and attention (1,8,1025,128), with private validation inputs and a production-versus-mathematical preflight. Record unsupported shape dispatch, tail errors and resource failures without changing the original task or source. Then give a fresh agent the same new task and frozen library, with no prior solution exposed, and compare the repairs it needs.
+
+Next use one W4A16 GEMM variant to exercise mechanisms beyond ordinary FP16 contraction: freeze packed-weight indexing, group size, scale orientation, zero-point policy, rounding and output ABI before launch. Validate an available production implementation against explicit higher-precision dequantization and multiplication on the same GPU. Select the relevant packing, decode, scaling and contraction rules from the current library; do not assume a source instance's backend is installed. This adds a useful contract boundary rather than expanding the workload matrix arbitrarily.
+
+The observed priority is lookup at the moment a new optimization introduces a constraint. Track the selected rule, concrete consumer/layout/lifetime mapping and the check that justifies it. Keep the successful plain-file workflow; trial a small list/search/read helper only if that lookup has measurable friction. New source-study extraction remains a separate assignment.

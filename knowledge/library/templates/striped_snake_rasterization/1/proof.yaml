@@ -1,0 +1,13 @@
+template: striped_snake_rasterization@1
+version: 1
+relation: Erase strip order and alternating direction; Euclidean strip/local decoding
+  yields every original tile exactly once.
+rank: Unprocessed source items or unmerged partials.
+assumes:
+- name: contract
+  statement: The stated partition, comparator/count and publication premises hold.
+guarantees: []
+models: []
+note: Source python/tutorials/gluon/14-multicta.py:668-706. Strip intervals are disjoint;
+  q%w and q//w cover each strip rectangle, and reversing major coordinates is bijective.
+  See unique-coordinate checks in checks/design_witnesses.py.

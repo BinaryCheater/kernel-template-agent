@@ -1,0 +1,59 @@
+name: transpose_attention_chain
+version: 1
+level_from: 2
+level_to: 3
+change: vertical
+refines: contract
+produces: [contract, reduce, contract]
+object:
+  type: token_major_transposed_attention_chain
+  description: A single-position grouped-query attention chain whose score and output matrices are transposed, placing KV tokens on the first score-contraction dimension.
+variables: []
+constraints: []
+preconditions:
+  - {id: pre_group, expr: "p.single_query_position_per_head and p.query_head_group_shares_kv", meaning: "Each query head contributes one query vector, and heads grouped into the small score dimension consume the same K/V sequence.", cls: semantic}
+  - {id: pre_axes, expr: "p.softmax_reduces_tokens_per_query_head and p.mask_and_score_mod_coordinates_remapped and p.metadata_axes_remapped", meaning: "Normalization still runs over tokens independently for each query head; masks, score callbacks, LSE and output indices preserve their logical coordinates.", cls: semantic}
+  - {id: pre_backend, expr: "p.transposed_operand_layouts_supported and p.padded_query_heads_excluded and p.empty_support_contract_preserved", meaning: "The backend supports the new K/Q/V/P orientation and excludes padded head lanes without changing empty-row behavior.", cls: implementation}
+  - {id: pre_numeric, expr: "p.qk_and_pv_order_casts_and_scaling_admitted", meaning: "Reoriented contractions, probability casts, descales and their reduction order satisfy the numerical contract.", cls: implementation}
+program:
+  description: >-
+    For a query-head group Q[H,D], K[T,D], V[T,Dv], replace score S[H,T]=Q*K^T
+    with St[T,H]=K*Q^T. For every head h, apply its original scale, score modifier
+    and logical mask at St[t,h], then normalize down the token axis t to form
+    Pt[T,H]. Compute Ot[Dv,H]=V^T*Pt and store O[h,dv]=Ot[dv,h]. LSE remains
+    one value per logical head, never one value per token. Tile the token and
+    value axes to use the backend's large first MMA dimension, with head padding
+    and subgroup output/metadata guards. This rewrites the contraction chain;
+    any physical transpose/copy and register/TMEM layout are separate bindings.
+backward_map: Transpose St,Pt and Ot back. Column-normalization of St equals row-normalization of S, and (P*V)^T=V^T*P^T, recovering the original grouped attention chain.
+obligations:
+  - {name: contraction_identity, statement: "Every head/token score and head/value output has the same contraction operands and admitted numerical order after the transpose rewrite.", method: proof}
+  - {name: normalization_and_metadata, statement: "Softmax reduces the token axis for each head and all modifiers, masks, LSE and output stores use the original logical coordinates.", method: test}
+  - {name: backend_layout, statement: "Physical operand layouts, padded heads and fragment redistributions implement the transposed chain without alias/lifetime violations.", method: test}
+effects: {transactions: [], storage: [], overlap: []}
+scope:
+  predicate: "p.single_query_position_per_head and p.query_head_group_shares_kv and p.softmax_reduces_tokens_per_query_head and p.mask_and_score_mod_coordinates_remapped and p.metadata_axes_remapped and p.transposed_operand_layouts_supported and p.padded_query_heads_excluded and p.empty_support_contract_preserved and p.qk_and_pv_order_casts_and_scaling_admitted"
+  text: >-
+    Single-position grouped-query decode with a shared KV head per query-head
+    group. Source SM100 uses head tile1/2/4/8/16/32, token tile128/256 and
+    16-aligned head/value dimensions. Other token/head counts need their own
+    implementation binding. This does not authorize row-wise softmax after the
+    transpose, mixing distinct KV heads, arbitrary prefill reshape or a zero-cost
+    physical transpose assumption.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: Transpose both attention contractions and preserve the token-normalization axis.
+  reuse: Query heads sharing one KV sequence become the small MMA output dimension.
+  storage: Backend-dependent transposed views, staged P and output accumulators.
+  boundary: Logical token/head axes and numerical/layout realization.
+  resources: [tensor]
+numeric_risk: Equivalent real contractions can use different MMA association and probability conversion order; normalization over the wrong axis changes the operator completely.
+summary: >-
+  When decoding one token leaves the MMA query dimension too small, place KV
+  tokens on the score MMA's large first dimension and query heads sharing that
+  KV head on its small second dimension. Compute K*Q^T, normalize each head
+  column over tokens, then V^T*P^T and transpose the output indices back.
+  Preserve mask/callback and LSE axes. This is a contraction-chain rewrite, not
+  merely a rank-three strided view; reducing over heads after the swap is invalid.

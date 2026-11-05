@@ -1,0 +1,113 @@
+{
+  "name": "async_store_source_release",
+  "version": 1,
+  "level_from": 3,
+  "level_to": 4,
+  "change": "vertical",
+  "refines": "store",
+  "produces": [
+    "store",
+    "transfer",
+    "sync"
+  ],
+  "object": {
+    "type": "async_store_source_release",
+    "description": "When shared-memory metadata is drained by an asynchronous global store, release its source buffer only after the store engine has finished reading it, and keep destination publication as a separate completion event."
+  },
+  "variables": [
+    {
+      "name": "source_slots",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": {
+        "lo": 1,
+        "hi": 8
+      },
+      "meaning": "Shared source generations retained in rotation; source instance uses one512-byte slot."
+    },
+    {
+      "name": "store_bytes",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "boundary",
+      "domain": [
+        512
+      ],
+      "meaning": "Physical metadata payload bytes per admitted bulk store."
+    }
+  ],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_0",
+      "expr": "p.shared_source_aligned_and_allocated and p.live_source_bytes_initialized and p.padding_bytes_unobserved",
+      "meaning": "All live payload bytes are defined and storage is valid; any physical padding has no logical consumer.",
+      "cls": "implementation"
+    },
+    {
+      "id": "pre_1",
+      "expr": "p.source_writers_complete_and_async_proxy_fence_before_issue and p.one_issuer_owns_store_group",
+      "meaning": "CTA writes are visible to the async engine before the issuing thread commits its store group.",
+      "cls": "implementation"
+    },
+    {
+      "id": "pre_2",
+      "expr": "p.source_read_release_wait_before_every_destructive_refill and p.waiting_thread_releases_all_cta_writers",
+      "meaning": "The same issuer waits for all previous reads of a reused slot, then a CTA barrier lets other writers proceed.",
+      "cls": "implementation"
+    },
+    {
+      "id": "pre_3",
+      "expr": "p.destination_generation_not_read_until_actual_store_completion and p.final_pending_stores_have_supported_completion",
+      "meaning": "Source release alone does not certify global payload readiness; external readers and kernel exit retain a supported completion contract.",
+      "cls": "implementation"
+    },
+    {
+      "id": "pre_4",
+      "expr": "p.source_slot_and_destination_generation_maps_exact and p.pending_store_groups_fit_hardware",
+      "meaning": "Every issued source snapshot writes the intended destination generation within hardware bounds.",
+      "cls": "implementation"
+    }
+  ],
+  "program": {
+    "description": "Write a complete logical metadata tile into an aligned shared slot. Join all source writers, execute the shared\u2192async proxy fence and have one elected issuer issue and commit the bulk shared\u2192global store. The store engine may continue independently. Before any later generation destructively rewrites that slot, the issuing thread waits for the previous committed group to finish reading its source; a CTA barrier then releases all writers. A source-read-release milestone permits refill but does not by itself permit a destination reader. Destination publication and final outstanding-store completion follow their own supported event, not merely the source-release wait."
+  },
+  "backward_map": "Associate every store with the source generation it fully read before reuse and with its later complete destination generation. Collapsing the transfer at actual destination completion recovers one correct metadata store; source release only shortens source occupancy.",
+  "obligations": [
+    {
+      "name": "logical_identity",
+      "statement": "Associate every store with the source generation it fully read before reuse and with its later complete destination generation. Collapsing the transfer at actual destination completion recovers one correct metadata store; source release only shortens source occupancy.",
+      "method": "proof"
+    },
+    {
+      "name": "publication_and_lifetime",
+      "statement": "Native readiness, index maps and memory lifetimes implement the declared complete generation.",
+      "method": "test"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "(p.shared_source_aligned_and_allocated and p.live_source_bytes_initialized and p.padding_bytes_unobserved) and (p.source_writers_complete_and_async_proxy_fence_before_issue and p.one_issuer_owns_store_group) and (p.source_read_release_wait_before_every_destructive_refill and p.waiting_thread_releases_all_cta_writers) and (p.destination_generation_not_read_until_actual_store_completion and p.final_pending_stores_have_supported_completion) and (p.source_slot_and_destination_generation_maps_exact and p.pending_store_groups_fit_hardware)",
+    "text": "Source expert_specialization/es_sm100_mxfp8_blockscaled_group_quant.cuh:230-270 uses one aligned512-byte shared scale tile, thread0 bulk store/commit and next-tile cp_async_bulk_wait_group_read<0> plus CTA barrier before overwrite. Full128-row tiles supply the direct fully initialized live-byte instance; partial-tile padding and final kernel completion retain explicit native obligations. This outgoing transfer is outside async_transfer@1's into-on-chip scope."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "When shared-memory metadata is drained by an asynchronous global store, release its source buffer only after the store engine has finished reading it, and keep destination publication as a separate completion event.",
+    "storage": "Reusable bounded payload slots with explicit generation identity.",
+    "boundary": "Source expert_specialization/es_sm100_mxfp8_blockscaled_group_quant.cuh:230-270 uses one aligned512-byte shared scale tile, thread0 bulk store/commit and next-tile cp_async_bulk_wait_group_read<0> plus CTA barrier before overwrite. Full128-row tiles supply the direct fully initialized live-byte instance; partial-tile padding and final kernel completion retain explicit native obligations. This outgoing transfer is outside async_transfer@1's into-on-chip scope.",
+    "resources": [
+      "gmem",
+      "smem",
+      "registers"
+    ]
+  },
+  "numeric_risk": "The store engine reads a fixed source generation until its read-release event. A refill ordered after that event cannot change transferred bytes; a CTA barrier makes the issuer's wait govern every writer. Proxy visibility precedes issue. Independently waiting for actual destination completion prevents exposing a partially stored generation. No abstract source-release proof discharges the source kernel's final pending-store or partial-padding native contract.",
+  "summary": "When shared-memory metadata is drained by an asynchronous global store, release its source buffer only after the store engine has finished reading it, and keep destination publication as a separate completion event."
+}

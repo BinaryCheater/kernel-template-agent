@@ -1,0 +1,78 @@
+name: local_change_score_delta
+version: 1
+level_from: 3
+level_to: 4
+change: vertical
+refines: reduce
+produces:
+- reduce
+- map
+object:
+  type: local_change_score_delta
+  description: When an objective sums independent local group scores and a candidate
+    changes only a few groups, score only changed groups and subtract their original
+    contributions.
+variables:
+- name: changed_groups
+  kind: numeric
+  binding: compile
+  role: software
+  domain:
+    lo: 1
+    hi: 1024
+  meaning: 'S size: source2 groups for a column swap.'
+constraints: []
+preconditions:
+- id: pre0
+  expr: p.objective_additively_separable and p.unchanged_groups_identical and p.candidate_state_restored
+    and p.reduction_rounding_admitted
+  meaning: Objective decomposes by groups; candidate evaluation has no state leakage.
+  cls: semantic
+program:
+  description: Let J=sum_g f(group_g). For a candidate permutation affecting groups
+    S, compute delta=sum_(g in S)(f(new_group_g)-f(old_group_g)); unchanged groups
+    cancel. Source2:4 sparsity uses f of four values = sum of two largest absolute
+    magnitudes, computed as maximum of six pair sums. Swapping one column from each
+    of two stripes changes only those stripes; enumerate16 swaps, restore original
+    stripe values after each candidate, sum deltas over rows. Accumulate into initialized
+    per-candidate outputs with disjoint or complete reduction ownership. This chooses
+    a grouping permutation, not a lossless pruning of arbitrary dense weights.
+backward_map: Additive local quality objectives, source unweighted absolute-magnitude2:4
+  retention score. Objective equivalence does not claim task accuracy or unbiased
+  training.
+obligations:
+- name: cancellation
+  statement: Every unchanged group contribution cancels from J_new-J_old.
+  method: proof
+- name: candidate_isolation
+  statement: Each trial sees original groups except its own declared local change.
+  method: proof
+- name: reduction_complete
+  statement: Row contributions appear exactly once in each candidate score.
+  method: proof
+effects:
+  transactions: []
+  storage: []
+  overlap: []
+scope:
+  predicate: (p.objective_additively_separable and p.unchanged_groups_identical and
+    p.candidate_state_restored and p.reduction_rounding_admitted)
+  text: Additive local quality objectives, source unweighted absolute-magnitude2:4
+    retention score. Objective equivalence does not claim task accuracy or unbiased
+    training.
+requires: []
+probed_on: []
+relations: []
+signature:
+  algorithm: When an objective sums independent local group scores and a candidate
+    changes only a few groups, score only changed groups and subtract their original
+    contributions.
+  boundary: Additive local quality objectives, source unweighted absolute-magnitude2:4
+    retention score. Objective equivalence does not claim task accuracy or unbiased
+    training.
+  resources:
+  - registers
+numeric_risk: Floating-point reassociation, casts and approximate functions require
+  an admitted numerical contract.
+summary: When an objective sums independent local group scores and a candidate changes
+  only a few groups, score only changed groups and subtract their original contributions.

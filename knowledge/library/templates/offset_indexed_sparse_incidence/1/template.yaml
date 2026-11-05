@@ -1,0 +1,84 @@
+{
+  "name": "offset_indexed_sparse_incidence",
+  "version": 1,
+  "level_from": 2,
+  "level_to": 3,
+  "change": "vertical",
+  "refines": "map",
+  "produces": [
+    "map",
+    "access"
+  ],
+  "object": {
+    "type": "offset_indexed_sparse_incidence",
+    "description": "When sparse convolution reuses one geometric neighbor relation across channels, materialize an offset-indexed incidence map once and consume only present edges."
+  },
+  "variables": [
+    {
+      "name": "mask_word_bits",
+      "kind": "numeric",
+      "binding": "compile",
+      "role": "software",
+      "domain": [
+        32
+      ],
+      "meaning": "Source bit word width; number of words is ceil(kernel_volume/32), not a free choice."
+    }
+  ],
+  "constraints": [],
+  "preconditions": [
+    {
+      "id": "pre_0",
+      "expr": "p.unique_input_coordinates",
+      "meaning": "Input coordinates uniquely identify active sites.",
+      "cls": "semantic"
+    },
+    {
+      "id": "pre_1",
+      "expr": "p.geometry_valid and p.capacity_sufficient",
+      "meaning": "Coordinate transform is valid and output/pair storage covers all admitted sites.",
+      "cls": "semantic"
+    }
+  ],
+  "program": {
+    "description": "For each input and kernel offset, evaluate the integer convolution coordinate transform and bounds/divisibility predicate. Deduplicate valid output coordinates into output identities. Store pair[offset,output]=input, otherwise -1; set bit offset%32 in word offset//32 for each present pair. Consumers sum feature[input,c]*weight[offset,c,o] only for present entries. Native format instead compacts input/output pairs per offset. Submanifold format restricts output identities to existing input sites."
+  },
+  "backward_map": "Erase auxiliary organization and recover the visible results under the stated contract.",
+  "obligations": [
+    {
+      "name": "edge_exactness",
+      "statement": "Each valid geometric edge appears once and no missing neighbor contributes.",
+      "method": "proof"
+    },
+    {
+      "name": "output_identity",
+      "statement": "Competing input contributors share the same deduplicated output identity.",
+      "method": "proof"
+    },
+    {
+      "name": "mask_publication",
+      "statement": "Masks begin at zero, competing bits use atomic OR, and map/mask writes complete before consumption.",
+      "method": "proof"
+    }
+  ],
+  "effects": {
+    "transactions": [],
+    "storage": [],
+    "overlap": []
+  },
+  "scope": {
+    "predicate": "p.unique_input_coordinates and p.geometry_valid and p.capacity_sufficient",
+    "text": "NVIDIA generated CUDA sparse convolution with unique active coordinates. General, transposed and submanifold coordinate predicates are separate bindings. Mask split partitions offset bits without omitting or double counting a contribution. Resource effects: Pair storage O(kernel_volume*active_outputs); bit masks add ceil(kernel_volume/32) words per output and amortize geometry across channels."
+  },
+  "requires": [],
+  "probed_on": [],
+  "relations": [],
+  "signature": {
+    "algorithm": "When sparse convolution reuses one geometric neighbor relation across channels, materialize an offset-indexed incidence map once and consume only present edges.",
+    "storage": "Pair storage O(kernel_volume*active_outputs); bit masks add ceil(kernel_volume/32) words per output and amortize geometry across channels.",
+    "boundary": "For 1D stride-one padded convolution, inputs at 0 and 2 both contribute to output 1 at different offsets; output 1 has two bits, while absent input 1 leaves the center pair -1. Reject duplicate coordinates or insufficient pair capacity.",
+    "resources": []
+  },
+  "numeric_risk": "Preserve the supplied arithmetic contract; reassociation, quantization and approximate search require separate permission.",
+  "summary": "When sparse convolution reuses one geometric neighbor relation across channels, materialize an offset-indexed incidence map once and consume only present edges. For 1D stride-one padded convolution, inputs at 0 and 2 both contribute to output 1 at different offsets; output 1 has two bits, while absent input 1 leaves the center pair -1. Reject duplicate coordinates or insufficient pair capacity."
+}
