@@ -115,7 +115,7 @@ def cell(runs: Path, task: str, arm: str, repeat: int) -> dict:
 def main() -> int:
     command = sys.argv[1]
     if command == "chain-check":
-        return chain_check(Path(sys.argv[2]), sys.argv[3])
+        return chain_check(Path(sys.argv[2]), sys.argv[-1])
     if command == "round":
         out = rounds.run_round(Path(sys.argv[2]), sys.argv[3], int(sys.argv[4]))
         print(json.dumps({k: v for k, v in out.items() if k != "candidates"}, indent=1)[:4000])
