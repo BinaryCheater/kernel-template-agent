@@ -7,7 +7,7 @@ Status: finished as an experiment, not accepted by the user. [Protocol](template
 - **The chain produces production-class kernels on both tasks.** Agent sessions wrote families and forms, a real MIP chose shortlists, and every selected kernel passed the independent reference and changed-input graph replay.
 - **No Template effect is visible.** Two repeats per arm cannot show a small effect, and the spread inside an arm is larger than any gap between arms.
 - **The largest gains came from the revision turn changing structure,** after measurements, in one cell by adding placement and query order. The MIP then chose parameters inside that space.
-- **The form did not rank reliably.** Pairs at least 3 % apart: 64 % overall, about 67 % in round 1 and about 52 % in round 2, where candidates are close.
+- **The form did not rank reliably.** Pairs at least 3 % apart: 258 of 405 overall, 64 %; 206 of 306 in round 1, 67 %; 52 of 99 in round 2, 53 %, where candidates are close.
 
 ## Confirmed results
 
@@ -28,7 +28,7 @@ The best causal cell is BM 64, BN 32, T 128 with a register operand and descendi
 
 ## Search against the agent's guess
 
-The anchor is the agent's untimed guess. In round 1, in the cells where the anchor compiled, the MIP's first pick often lost to it; 3 of 7 compared when this was first read, and the rerun cells do not change the picture. Search space sizes were 32 to 580, so enumeration would have served, and direct measurement of the whole space would take 7 minutes to 2.3 hours per space. MIP matched enumeration in every checked round. The true optimum of each space is unknown.
+The anchor is the agent's untimed guess; it compiled in 11 of 12 cells. Counting a difference under 3 % as a tie, in round 1 the MIP's first pick beat it in 5 cells, lost in 4 and tied in 2. The best of the six measured MIP picks beat it in 6, lost in 2 and tied in 3. Search space sizes were 32 to 580, so enumeration would have served, and direct measurement of the whole space would take 7 minutes to 2.3 hours per space. MIP matched enumeration in every checked round. The true optimum of each space is unknown.
 
 ## Why moves were missed
 

@@ -16,9 +16,9 @@ from pathlib import Path
 import matplotlib
 
 matplotlib.use("Agg")
-import matplotlib.pyplot as plt  # noqa: E402
-from matplotlib.lines import Line2D  # noqa: E402
-from matplotlib.ticker import FuncFormatter, NullFormatter  # noqa: E402
+import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
+from matplotlib.ticker import FuncFormatter, NullFormatter
 
 ARMS = ("none", "prescribed", "selection")
 COLORS = dict(zip(ARMS, ("#2f6fb5", "#d9772b", "#2a9d7a"), strict=True))

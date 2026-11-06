@@ -1,6 +1,6 @@
 """Final confirmation and the cell table. No model is involved.
 
-python -m tools.template_chain.confirm RUNS   three fresh-seed windows per cell, comparator around each
+python -m tools.template_chain.confirm RUNS   three fresh-seed windows per cell
 python -m tools.template_chain.confirm RUNS --table
 """
 
