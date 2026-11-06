@@ -1087,3 +1087,14 @@ Decisions made without the user that need review. Newest last. Each entry: quest
 - **Rationale:** it exports exactly to MIP, and on new shapes found kernels 5 to 24 % faster than anchors. The blind first round failed on MoE, and decode ranks poorly, so this is not settled.
 - **Cost of changing later:** one module; measurements stay usable.
 
+## Scope's home (D968, D969)
+
+- **Question:** should Scope stay a standalone page beside the PERFMODEL records, or become a route of `web/`, and which branch carries it?
+- **Choice:** standalone under `perfmodel/scope/`, exported with `scripts/scope-export`, uncommitted on `wp/LEARNDEMO1`; it reads round 28 from the PERFMODEL worktree.
+- **Rationale:** no build step, and a canvas page gains little from React; the records it reads move with PERFMODEL.
+- **Cost of changing later:** low: the page is plain modules over JSON, and the exporter does not depend on where the page lives.
+
+- **Question:** should the search claim rest on measured ground truth, and on which budget comparison?
+- **Choice:** E3 reports search against the agent's anchor only; a small full measurement and a reuse test on new shapes are proposed, not run.
+- **Rationale:** the true optimum is unknown and MIP optimality holds inside the form, whose ranking was 64 % on E3.
+- **Cost of changing later:** about one hour of GPU per family; no model cost for the reuse test.

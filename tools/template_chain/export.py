@@ -90,10 +90,10 @@ def build(d: Domain, c: dict) -> tuple[Model, dict]:
             out[tuple(p[f] for f in subset)] = v
         return subset, out
 
-    for j in range(len(d.kernels[0])):
+    for j in range(max(map(len, d.kernels))):
         add, branches = [], defaultdict(list)
-        for kernels in d.kernels:
-            additive, br = forms.terms(kernels[j])
+        for kernels in d.kernels:  # a point with fewer kernels costs nothing in this slot
+            additive, br = forms.terms(kernels[j]) if j < len(kernels) else ({}, {})
             add.append(forms.branch_us(additive, c))
             for name in ("compute", "copy", "recurrence", "dram"):
                 branches[name].append(forms.branch_us(br.get(name, {}), c))

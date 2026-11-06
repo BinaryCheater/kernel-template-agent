@@ -112,7 +112,7 @@ def candidate(form, shape: dict, c: dict, key: str, role: str, r: dict | None) -
     if row["correct"] and records:
         try:
             row["post_us"] = export.time_at(form.amounts(shape, x, records), c)
-        except Exception as e:  # a form that cannot read its own records is a reported failure
+        except Exception as e:  # noqa: BLE001  # a form that fails on its records is reported
             row["error"] = f"amounts with records: {e}"
     return row
 

@@ -4,7 +4,7 @@ The [research brief](research-brief.md) connects these results to the proposed
 precompile L2 and MIP work. Start a new implementation session with the
 [Claude handoff prompt](claude-handoff.md).
 
-Latest: the [decision-form pilot](results/decision-form-pilot.md) searched three kernels with a real MIP; not yet driven by Templates or agents. Findability is measured on branch `claude/template-recall-e2-c054b3`, not merged here.
+Latest: [E3](results/template-chain-e3.md) ran agents through form, MIP and GPU on two production comparators, with no visible Template effect in two repeats per arm. Before it, the [decision-form pilot](results/decision-form-pilot.md) searched three kernels with a real MIP. Findability is measured on branch `claude/template-recall-e2-c054b3`, not merged here; its tools are copied onto this branch.
 
 The exact-source attention campaign has finished all nine model sessions and all scheduled final outcomes. Nine selected implementations passed hidden O/LSE correctness checks. Seven have valid three-window timings after the common frozen-source measurement recovery. The fixed performance target was attained by one self-selection run and one no-Template run; no prescribed run attained it. Two measurements remain unresolved.
 

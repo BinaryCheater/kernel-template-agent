@@ -64,7 +64,13 @@ def session(mode: str, state: Path, workspace: Path, prompt: Path) -> dict:
             "--wall-s",
             str(package.WALL_S),
         ],
-        env={**os.environ, "KTA_DATA": "/Users/dingyi/kta-data", "KTA_ENV": "dev", "KTA_WP": "template-chain-e3b", "KTA_MODE": "dev-mac"},
+        env={
+            **os.environ,
+            "KTA_DATA": "/Users/dingyi/kta-data",
+            "KTA_ENV": "dev",
+            "KTA_WP": "template-chain-e3b",
+            "KTA_MODE": "dev-mac",
+        },
         capture_output=True,
         text=True,
         check=False,
@@ -92,7 +98,7 @@ def cell(runs: Path, task: str, arm: str, repeat: int) -> dict:
             break
         try:
             r = rounds.run_round(run, task, n)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             log[f"round{n}"] = {"status": f"harness or form failure: {type(e).__name__}: {e}"}
             r = {"status": "failed"}
         else:

@@ -1,6 +1,6 @@
 # E3: does Template information help the full chain? Protocol
 
-Frozen before any model session of this experiment. Status: running, not accepted by the user.
+Frozen before any model session of this experiment. Status: finished, not accepted by the user. [Results](template-chain-e3.md).
 
 **Question.** With the same form, MIP, funnel and budgets, does Template information change the kernel the chain finds, and when it does not, is the Template missing, unfound, or found and not composed?
 

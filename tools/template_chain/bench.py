@@ -297,7 +297,7 @@ def main() -> None:
     for job in request["jobs"]:
         try:
             results[job["id"]] = one(request, job, records)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             trace = traceback.format_exc()[-3000:]
             results[job["id"]] = {"error": f"{type(e).__name__}: {e}"[:600], "trace": trace}
         torch.cuda.empty_cache()
