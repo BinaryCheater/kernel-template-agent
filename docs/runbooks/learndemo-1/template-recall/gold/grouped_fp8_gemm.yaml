@@ -1,0 +1,113 @@
+task: grouped_fp8_gemm
+source_study: deepgemm
+target_kernel: DeepGEMM SM90 m-grouped FP8 masked GEMM (sm90_fp8_gemm_1d2d)
+provenance:
+  chain: knowledge/studies/deepgemm/delta/chain.yaml
+  study: knowledge/studies/deepgemm/trace.md
+  review: knowledge/studies/deepgemm/review.md
+moves:
+  - id: raw_k_partials
+    role: generic
+    need: Split the K reduction into contiguous partials of 128 so that each partial lies in one scale block.
+    source_rule: reduction_partition@1
+    accept: [reduction_partition@1, reduction_partition@2]
+    equivalent: []
+    provenance: "delta chain item raw_partials"
+  - id: scale_promotion
+    role: distinctive
+    need: Multiply unscaled code products and then promote each partial with its own block scales, rather than decoding full matrices.
+    source_rule: block_scaled_partial_accumulation@1
+    accept: [block_scaled_partial_accumulation@1]
+    equivalent: [block_scaled_instruction_operands@1]
+    provenance: "delta chain item scaled_promotions; trace rows at impl lines 228-247, 285-344; review row 1"
+  - id: grouped_work_decode
+    role: distinctive
+    need: Let persistent workers map an increasing task index to group and tile from per-group valid counts, without host descriptors.
+    source_rule: persistent_tile_scheduler@1
+    accept: []
+    equivalent: [online_group_work_decode@1, online_group_work_decode@2, segmented_axis_work_decode@1, contiguous_group_tile_walk@1]
+    provenance: "trace row scheduler/gemm.cuh:193-217"
+  - id: tile_traversal_locality
+    role: distinctive
+    need: Order tiles across CTAs along a primary axis so that neighbouring CTAs share operand data through multicast or cache.
+    source_rule: block_rasterization@1
+    accept: []
+    equivalent: [rectangular_section_rasterization@1, striped_snake_rasterization@1]
+    provenance: "trace row scheduler/gemm.cuh:112-150"
+  - id: masked_row_filter
+    role: distinctive
+    need: Skip work for tiles past a group's valid rows while keeping pipeline barriers balanced.
+    source_rule: boundary_predication@1
+    accept: []
+    equivalent: [output_prefix_work_filter@1]
+    provenance: "trace rows scheduler/gemm.cuh:153-184,324-338 and device 351-439"
+  - id: stage_handshake
+    role: distinctive
+    need: Use per-slot full and empty barriers between the producer warp and the compute warps.
+    source_rule: per_slot_handshake@1
+    accept: []
+    equivalent: [byte_arrival_completion_join@1, ordered_slot_wait_coalescing@1]
+    provenance: "trace row impl lines 126-205"
+  - id: async_copy
+    role: generic
+    need: Move operands with an asynchronous tensor engine and overlap with computation.
+    source_rule: async_transfer@1
+    accept: [async_transfer@1]
+    equivalent: []
+    provenance: "trace row impl lines 126-205"
+  - id: pipeline_stages
+    role: generic
+    need: Rotate operands through several shared-memory stages, prefetching ahead.
+    source_rule: multi_buffer_rotation@2
+    accept: [multi_buffer_rotation@2]
+    equivalent: [shared_memory_tiling@1]
+    provenance: "trace rows impl lines 126-205 and heuristics/sm90.hpp:154-201"
+  - id: storage_placement
+    role: generic
+    need: Derive stage count from the shared-memory budget and the per-stage bytes.
+    source_rule: physical_storage@1
+    accept: [physical_storage@1]
+    equivalent: []
+    provenance: "trace row heuristics/sm90.hpp:154-201"
+  - id: warp_roles
+    role: distinctive
+    need: Dedicate a producer warp to data movement and other warps to math.
+    source_rule: warp_specialization@1
+    accept: []
+    equivalent: [load_compute_store_role_pipeline@1]
+    provenance: "trace row impl lines 139-143"
+  - id: register_budget
+    role: distinctive
+    need: Give math warps most of the registers and the producer warp few, by a dynamic reallocation.
+    source_rule: register_rebalancing@1
+    accept: []
+    equivalent: []
+    provenance: "trace row impl lines 139-143,169,216-218"
+  - id: matrix_instruction
+    role: generic
+    need: Issue K32 matrix instructions for raw code products with accumulator reset at each partial.
+    source_rule: compute_instruction_selection@1
+    accept: [compute_instruction_selection@2]
+    equivalent: []
+    provenance: "trace row mma/sm90.cuh:14-32"
+  - id: output_tiles
+    role: generic
+    need: Split rows and columns into tiles with per-group ownership and a tile menu chosen before launch.
+    source_rule: output_tiling@1
+    accept: [output_tiling@2]
+    equivalent: []
+    provenance: "trace row heuristics/sm90.hpp:16-114"
+  - id: output_staging
+    role: generic
+    need: Convert accumulators to BF16 and stage through shared memory before a tensor-engine store.
+    source_rule: staged_relayout@1
+    accept: []
+    equivalent: [staged_async_output_store@1]
+    provenance: "trace row device 351-439"
+  - id: compact_scale_metadata
+    role: distinctive
+    need: Store power-of-two scales compactly as exponents packed with the operands' metadata.
+    source_rule: power_of_two_scale_encoding@1
+    accept: [power_of_two_scale_encoding@1, power_of_two_scale_encoding@2]
+    equivalent: []
+    provenance: "review row 2; trace row impls/smxx_layout.cuh:87-196"

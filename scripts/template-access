@@ -1,0 +1,5 @@
+#!/bin/sh
+set -eu
+repo=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+export PYTHONPATH="$repo/tools${PYTHONPATH:+:$PYTHONPATH}"
+exec "$repo/.venv/bin/python" -m template_access "$@"

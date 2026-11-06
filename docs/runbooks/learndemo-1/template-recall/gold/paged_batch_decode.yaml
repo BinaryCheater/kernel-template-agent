@@ -1,0 +1,134 @@
+task: paged_batch_decode
+source_study: flashinfer
+target_kernel: FlashInfer batch decode with paged KV, CUDA-core path
+provenance:
+  chain: knowledge/seed/references/flashinfer_batch_decode/chain.yaml
+  decomposition: knowledge/seed/references/flashinfer_batch_decode/decomposition.md
+  study: knowledge/studies/flashinfer/trace-classic-paged-decode.md
+moves:
+  - id: streamed_normalization
+    role: distinctive
+    need: Compute softmax over keys tile by tile with a running reference and deferred division, without a score buffer.
+    source_rule: online_rescaled_reduction@1
+    accept: [online_rescaled_reduction@2]
+    equivalent: []
+    provenance: "chain key online; decomposition T12; trace row online_rescaled_reduction@2"
+  - id: fuse_score_softmax_pv
+    role: distinctive
+    need: Keep score, softmax and value product in one kernel so scores remain in registers.
+    source_rule: operator_fusion@1
+    accept: [operator_fusion@2, operator_fusion@3, operator_fusion@4]
+    equivalent: []
+    provenance: "chain key fuse"
+  - id: grouped_query_heads
+    role: distinctive
+    need: Give one CTA all query heads that share a key head, so keys and values load once for the whole group.
+    source_rule: output_tiling@1
+    accept: [output_tiling@2]
+    equivalent: [grouped_head_row_packing@1]
+    provenance: "chain key out_cta; decomposition T03"
+  - id: request_chunking
+    role: distinctive
+    need: Split a long request's keys into chunks handled by different CTAs so that long and short requests share the grid.
+    source_rule: reduction_partition@1
+    accept: [reduction_partition@1, reduction_partition@2]
+    equivalent: [runtime_partition_capacity@1]
+    provenance: "chain key split; decomposition T05"
+  - id: host_work_plan
+    role: distinctive
+    need: Plan on the host how ragged requests map to a fixed grid, emitting descriptors and choosing a chunk size to fill occupancy.
+    source_rule: runtime_work_descriptors@1
+    accept: []
+    equivalent: [cost_partitioned_worklists@1, bounded_chunk_launch_table@1, runtime_partition_capacity@1]
+    provenance: "chain key plan; decomposition T01, T02; trace section Planning and empty work"
+  - id: second_kernel_merge
+    role: distinctive
+    need: Write chunk partials to workspace and merge them per request in a following kernel, rescaling their normalization states.
+    source_rule: split_combine_kernel@1
+    accept: []
+    equivalent: [partial_grid_join_placement@1, ordered_workspace_combine@1]
+    provenance: "chain key merge; decomposition T16; trace row split_combine_kernel@1"
+  - id: thread_group_partition
+    role: generic
+    need: Assign different key rows of a tile to separate thread groups in the CTA.
+    source_rule: reduction_partition@1
+    accept: [reduction_partition@1, reduction_partition@2]
+    equivalent: []
+    provenance: "chain key warp_part; decomposition T06"
+  - id: state_merge_in_shared_memory
+    role: distinctive
+    need: Merge the normalization states of thread groups through shared memory after a barrier.
+    source_rule: smem_partial_combine@1
+    accept: []
+    equivalent: [replicated_partial_reduce@1, butterfly_reduce_scatter_chunks@1]
+    provenance: "chain key state_merge; decomposition T14; trace row smem_partial_combine@1"
+  - id: dot_product_instruction
+    role: generic
+    need: Compute the single-row score and value products with fused multiply-adds, not matrix instructions, because a query is one vector.
+    source_rule: compute_instruction_selection@1
+    accept: [compute_instruction_selection@2]
+    equivalent: []
+    provenance: "decomposition T11, step qk_dot"
+  - id: lane_reduction
+    role: distinctive
+    need: Reduce per-lane partial dot products across a half-warp with shuffles.
+    source_rule: cross_lane_reduction@1
+    accept: []
+    equivalent: [distributed_slice_reduce@1]
+    provenance: "decomposition T11, step qk_xlane; trace first table row"
+  - id: exp2_folded_scale
+    role: distinctive
+    need: Use a base-2 exponential instruction for the softmax weight and report the statistic in base 2.
+    source_rule: approximate_math_rewrite@1
+    accept: []
+    equivalent: []
+    provenance: "decomposition T12, step exp2"
+  - id: storage_placement
+    role: generic
+    need: Hold state in registers and reuse the shared key and value ring for final partial output after loads drain.
+    source_rule: physical_storage@1
+    accept: [physical_storage@1]
+    equivalent: []
+    provenance: "decomposition T07, T14, steps q_reg, kv_smem; trace row physical_storage@1"
+  - id: async_copy
+    role: generic
+    need: Issue key and value copies asynchronously and overlap them with computation.
+    source_rule: async_transfer@1
+    accept: [async_transfer@1]
+    equivalent: []
+    provenance: "decomposition T09, step kv_async"
+  - id: pipeline_stages
+    role: generic
+    need: Prefetch several stages of keys and values ahead of the consumer in a ring.
+    source_rule: multi_buffer_rotation@2
+    accept: [multi_buffer_rotation@2]
+    equivalent: [shared_memory_tiling@1]
+    provenance: "decomposition T10, step kv_stages"
+  - id: paged_gather
+    role: distinctive
+    need: Translate logical token positions through a page table, with cooperative prefetch of many page offsets into shared memory.
+    source_rule: indexed_gather@1
+    accept: []
+    equivalent: [multi_step_metadata_staging@1, semantic_block_page_fragments@1, indexed_descriptor_row_transfer@1]
+    provenance: "decomposition T08, step paged_gather; trace rows indexed_gather@1"
+  - id: wide_vector_access
+    role: generic
+    need: Move keys and values with vector-sized thread accesses.
+    source_rule: vectorized_access@1
+    accept: []
+    equivalent: []
+    provenance: "decomposition T09, step vec"
+  - id: tail_predication
+    role: generic
+    need: Predicate key and value loads at the request end, with zero fill for values so stale data cannot contaminate output.
+    source_rule: boundary_predication@1
+    accept: []
+    equivalent: []
+    provenance: "decomposition T13; trace row boundary_predication@1"
+  - id: empty_request_handling
+    role: distinctive
+    need: Define output for a request with no tokens so that normalization of empty support stays finite.
+    source_rule: empty_support_normalization@1
+    accept: [empty_support_normalization@1]
+    equivalent: []
+    provenance: "trace row online_rescaled_reduction@2 / empty_support_normalization@1; section Planning and empty work"

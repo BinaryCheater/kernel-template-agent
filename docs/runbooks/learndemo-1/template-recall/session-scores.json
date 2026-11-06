@@ -1,0 +1,2635 @@
+{
+ "runs": [
+  {
+   "run": "attention_causal_fp16-access-loso-r1",
+   "task": "attention_causal_fp16",
+   "arm": "access",
+   "view": "loso",
+   "moves": [
+    {
+     "move": "streamed_normalization",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "absent_from_view"
+    },
+    {
+     "move": "fuse_score_softmax_pv",
+     "role": "distinctive",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "query_row_tiles",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "key_block_partition",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "causal_tile_pruning",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "absent_from_view"
+    },
+    {
+     "move": "matrix_instruction",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "probability_precision",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "opened_not_selected"
+    },
+    {
+     "move": "accumulator_as_operand",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "absent_from_view"
+    },
+    {
+     "move": "exp2_folded_scale",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "absent_from_view"
+    },
+    {
+     "move": "row_statistic_lane_reduce",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "surfaced_not_opened"
+    },
+    {
+     "move": "storage_placement",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "async_copy",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "slot_lookahead",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "bank_layout",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "wide_vector_access",
+     "role": "generic",
+     "strict": "absent_from_view",
+     "lenient": "absent_from_view"
+    },
+    {
+     "move": "tail_predication",
+     "role": "generic",
+     "strict": "absent_from_view",
+     "lenient": "absent_from_view"
+    },
+    {
+     "move": "fragment_load",
+     "role": "generic",
+     "strict": "absent_from_view",
+     "lenient": "absent_from_view"
+    },
+    {
+     "move": "output_staging",
+     "role": "generic",
+     "strict": "absent_from_view",
+     "lenient": "surfaced_not_opened"
+    }
+   ],
+   "counts": {
+    "surfaced": 133,
+    "opened": 10,
+    "selected": 9
+   },
+   "layer_counts": {
+    "facets": 1,
+    "search": 25,
+    "guide": 11,
+    "card": 2,
+    "template": 9,
+    "proof": 9,
+    "realisation": 2,
+    "select": 9,
+    "need": 3
+   },
+   "selected": [
+    "output_tiling@2",
+    "reduction_partition@1",
+    "compute_instruction_selection@2",
+    "operator_fusion@2",
+    "physical_storage@1",
+    "async_transfer@1",
+    "multi_buffer_rotation@2",
+    "shared_resource_binding@1",
+    "blocked_thread_register_layout@1"
+   ],
+   "selected_outside_gold": [
+    "blocked_thread_register_layout@1"
+   ],
+   "needs": [
+    "Stable fused online softmax with FP32 LSE: for each query row maintain m=-infinity, l=0 and a=0; for each valid score tile set m_new=max(m,max(scores)), alpha=exp(m-m_new), p=exp(scores-m_new), l_new=alpha*l+sum(p), a_new=alpha*a+p@V, and finish O=a/l, LSE=m+ln(l). Define first/empty-tile handling to avoid negative-infinity minus negative-infinity; masked probabilities are exactly zero. Keep denominator/statistics unrounded FP32 while permitting an FP16 PV operand under the task tolerance. The fusion rule requires but does not supply this coupled recurrence; replay/checkpoint, low-bit repair and cluster-combine rules do not replace it.",
+    "Causal attention tile-domain specialization: skip a whole key tile when its first key exceeds the last valid query in the owned tile; use a mask-free interior only when every valid key is at or before the first query, and apply key<=query on intersecting tiles. For S=513 guard Q/K/V loads and O/LSE stores, mask padded key scores with negative infinity rather than merely zero-loading K/V, and suppress arithmetic/stores for padded query rows. Preserve inclusive diagonal and exact support while bounding async prefetch by the same causal tile count. Generic tiling and transfer tail guards do not specify this attention support transformation.",
+    "Fast exponential-coordinate transformation for attention: apply log2(e)/sqrt(128) to FP32 QK scores, evaluate stable exp2 differences, maintain FP32 max/mass/numerator in that same base-2 frame, and restore natural-log LSE as ln(2)*(m2+log2(l)). Specify acceptable approximate-exp2/log2 error and FP16 probability rounding without changing inputs. Searches for exp2, softmax and special-function rules found checkpoint/replay or low-bit gain/anchor rules, not this scale-folding and natural-LSE contract."
+   ],
+   "audit": {
+    "calls": 13,
+    "outside_workspace": [],
+    "bundle_bypass": []
+   },
+   "session": "01a1ad8f-7635-7ec2-8062-d15ff6da904b",
+   "agent_run": "a795a263d81b363ddf425fbd3a2996420882b1add203176a2c4ddae69a7a71c1",
+   "model": "gpt-6.1-sol",
+   "effort": "high",
+   "exit": "ok",
+   "wall_s": 140.47632600006182,
+   "usage": {
+    "input": 619975,
+    "output": 4622,
+    "cached_input": 563200,
+    "scope": "cumulative session totals",
+    "cost": null,
+    "cost_status": "not reported by native harness"
+   }
+  },
+  {
+   "run": "attention_causal_fp16-access-loso-r2",
+   "task": "attention_causal_fp16",
+   "arm": "access",
+   "view": "loso",
+   "moves": [
+    {
+     "move": "streamed_normalization",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "absent_from_view"
+    },
+    {
+     "move": "fuse_score_softmax_pv",
+     "role": "distinctive",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "query_row_tiles",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "key_block_partition",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "causal_tile_pruning",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "absent_from_view"
+    },
+    {
+     "move": "matrix_instruction",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "probability_precision",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "not_surfaced"
+    },
+    {
+     "move": "accumulator_as_operand",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "absent_from_view"
+    },
+    {
+     "move": "exp2_folded_scale",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "absent_from_view"
+    },
+    {
+     "move": "row_statistic_lane_reduce",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "surfaced_not_opened"
+    },
+    {
+     "move": "storage_placement",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "async_copy",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "slot_lookahead",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "bank_layout",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "wide_vector_access",
+     "role": "generic",
+     "strict": "absent_from_view",
+     "lenient": "absent_from_view"
+    },
+    {
+     "move": "tail_predication",
+     "role": "generic",
+     "strict": "absent_from_view",
+     "lenient": "absent_from_view"
+    },
+    {
+     "move": "fragment_load",
+     "role": "generic",
+     "strict": "absent_from_view",
+     "lenient": "absent_from_view"
+    },
+    {
+     "move": "output_staging",
+     "role": "generic",
+     "strict": "absent_from_view",
+     "lenient": "surfaced_not_opened"
+    }
+   ],
+   "counts": {
+    "surfaced": 147,
+    "opened": 12,
+    "selected": 9
+   },
+   "layer_counts": {
+    "search": 23,
+    "facets": 1,
+    "guide": 12,
+    "card": 3,
+    "template": 9,
+    "proof": 9,
+    "realisation": 3,
+    "select": 9,
+    "need": 3
+   },
+   "selected": [
+    "output_tiling@2",
+    "reduction_partition@1",
+    "compute_instruction_selection@2",
+    "operator_fusion@2",
+    "physical_storage@1",
+    "async_transfer@1",
+    "multi_buffer_rotation@2",
+    "shared_resource_binding@1",
+    "thread_ownership_exchange@1"
+   ],
+   "selected_outside_gold": [
+    "thread_ownership_exchange@1"
+   ],
+   "needs": [
+    "Stable single-pass tiled attention with explicit FP32 online (m,l,u) state and natural-log LSE is missing from the searched rules. In base-2 score units x=(QK^T)*log2(e)/sqrt(128), update m_new=max(m,max(x)), alpha=exp2(m-m_new), p=exp2(x-m_new), l_new=alpha*l+sum(p), u_new=alpha*u+FP16(p)@V with FP32 accumulation; initialize m=-infinity,l=0,u=0, define empty/all-masked tile identity without infinity-minus-infinity, and finalize O=FP16(u/l), LSE=(m+log2(l))*ln(2). Need proof of the common numerator/denominator frame, FP16 probability-cast error admission, and log-base conversion. Generic fusion and reduction partitioning do not supply this recurrence; probability recomputation adds an unnecessary score pass for this inference task.",
+    "Exact causal attention tile classification and ragged-tail handling are missing from the searched rules: for a query tile ending at q_max, visit only key tiles with start<=q_max; use an unmasked path only when the full valid key tile ends<=q_min, and otherwise set scores to -infinity when key>query or key>=S before row max/exp. Include the diagonal, zero masked probabilities before PV, guard all Q/K/V loads and O/LSE stores at S=513, and keep padded query rows out of statistics and stores while maintaining converged CTA barriers. Zero-filled K alone is not a softmax mask, and symmetric triangular mirroring or recurrent chunk rules do not implement this attention support.",
+    "Need an actual sm_121 CUDA/PTX realisation binding m16n8k16 FP16/FP32 fragment coordinates, matrix-load layouts, probability exchange, 16-byte cp.async completion/publication and two-stage K/V buffer lifetime, with concrete shared/register capacities and shape-specific tile choices for S=512,513,2048. The selected compute witness only lists static expected HMMA SASS and no probed targets; async_transfer and physical_storage have no realisation. Generic Blackwell tcgen05/TMA/tmem menu entries do not establish GB10 support. This remains a design evidence gap; no compilation or GPU use is performed."
+   ],
+   "audit": {
+    "calls": 13,
+    "outside_workspace": [],
+    "bundle_bypass": []
+   },
+   "session": "01a1ad98-5c95-7c43-9cee-76d8d3e4d864",
+   "agent_run": "1edfb4e46a9be37a6461da1ba7d238c1bd24020aacc4319bae0d68aef6617b89",
+   "model": "gpt-6.1-sol",
+   "effort": "high",
+   "exit": "ok",
+   "wall_s": 151.81895258300938,
+   "usage": {
+    "input": 592703,
+    "output": 4938,
+    "cached_input": 532992,
+    "scope": "cumulative session totals",
+    "cost": null,
+    "cost_status": "not reported by native harness"
+   }
+  },
+  {
+   "run": "attention_causal_fp16-flat-loso-r1",
+   "task": "attention_causal_fp16",
+   "arm": "flat",
+   "view": "loso",
+   "moves": [
+    {
+     "move": "streamed_normalization",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "absent_from_view"
+    },
+    {
+     "move": "fuse_score_softmax_pv",
+     "role": "distinctive",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "query_row_tiles",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "key_block_partition",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "causal_tile_pruning",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "absent_from_view"
+    },
+    {
+     "move": "matrix_instruction",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "probability_precision",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "opened_not_selected"
+    },
+    {
+     "move": "accumulator_as_operand",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "absent_from_view"
+    },
+    {
+     "move": "exp2_folded_scale",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "absent_from_view"
+    },
+    {
+     "move": "row_statistic_lane_reduce",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "surfaced_not_opened"
+    },
+    {
+     "move": "storage_placement",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "async_copy",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "slot_lookahead",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "bank_layout",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "wide_vector_access",
+     "role": "generic",
+     "strict": "absent_from_view",
+     "lenient": "absent_from_view"
+    },
+    {
+     "move": "tail_predication",
+     "role": "generic",
+     "strict": "absent_from_view",
+     "lenient": "absent_from_view"
+    },
+    {
+     "move": "fragment_load",
+     "role": "generic",
+     "strict": "absent_from_view",
+     "lenient": "absent_from_view"
+    },
+    {
+     "move": "output_staging",
+     "role": "generic",
+     "strict": "absent_from_view",
+     "lenient": "surfaced_not_opened"
+    }
+   ],
+   "counts": {
+    "surfaced": 295,
+    "opened": 18,
+    "selected": 8
+   },
+   "layer_counts": null,
+   "selected": [
+    "output_tiling@2",
+    "operator_fusion@2",
+    "reduction_partition@1",
+    "compute_instruction_selection@2",
+    "physical_storage@1",
+    "async_transfer@1",
+    "multi_buffer_rotation@2",
+    "shared_resource_binding@1"
+   ],
+   "selected_outside_gold": [],
+   "needs": [
+    "# Missing contracts for the selected design\n\n- **Single-owner online softmax and natural-log LSE.** Supply the recurrence for each valid row with base-2 scores `x = (QK) * log2(e) / sqrt(128)` and FP32 state `(m, l, A)`. For each tile, set `m_new = max(m, max(x))`, `alpha = exp2(m - m_new)`, and `p = exp2(x - m_new)` on allowed keys. Update `l_new = alpha*l + sum(p)` and `A_new = alpha*A + FP32_MMA(FP16(p), V)`, rescaling only old contributions. Initialize empty state explicitly, with alpha zero on the first nonempty update, to avoid infinity subtraction. Finalize `O = FP16(A/l)` and `LSE = (m + log2(l))*ln(2)` in FP32. Generic fusion only requires a rescalable combination; it does not supply this recurrence. The attention ownership rules describe four cooperating owners or two feature owners with rounded-weight mass, which do not match this per-warp full-feature organization and unrounded FP32 mass. Probability recomputation assumes an already available normalizer.\n\n- **Causal tile traversal and score-mask identities.** For query tile origin `q0` and extent `BM`, visit only key tiles intersecting `[0, min(S, q0+BM))`. A whole key tile ending at or before `q0` needs no elementwise causal comparisons; intersecting tiles must apply `key <= query` before max/exponentiation. Excluded scores contribute negative infinity to max and exactly zero weight to sum/PV. Ordinary zero-filled GEMM padding does not provide this identity. Preserve all input tensors and keep synchronization uniform even when some query rows are inactive. The time/rank causal contraction rule concerns a different MIMO operator and does not supply this attention traversal.\n\n- **Joint query/key tail semantics.** At S=513, the final query CTA contains only query 512, and the final 64-key tile contains only key 512. Existing output-tiling and copy rules cover address guards separately; supply their composition with the softmax state: no invalid global reads or stores, finite zero-filled V padding, zero masked probabilities, and no undefined normalization of padded query rows. Every valid row includes its diagonal and thus has nonempty support. Retain padded threads for collective instructions and barriers.\n\n- **Numerical and target realization.** Supply an error contract for FP32 scaling/statistics, native exp2/log2 approximations, FP16 probability rounding, FP32 MMA accumulation and final division/cast, including LSE in natural units. Existing numeric-recipe rules for E4M3/TF32 preparation do not establish this attention recipe. Check magnitude, negative-logit and cancellation cases without assuming a rounded PV numerator implies a rounded denominator. Establish the SM12.1 fragment conversions, swizzle access maps, aggregate storage limits and source alignment needed by the selected rules; contiguity alone does not promise 16-byte base alignment, so an alignment precondition or legal fallback is needed. The proposed shape-specific tile sizes remain unmeasured; no compilation or GPU execution was performed.\n"
+   ],
+   "audit": {
+    "calls": 14,
+    "outside_workspace": [],
+    "bundle_bypass": []
+   },
+   "session": "01a1ad8f-7650-7912-90b4-b51c3272af8a",
+   "agent_run": "fa08ee0754aee8aead6ab9031b00a820b03d6bd3af6b06b32478fcf96805f558",
+   "model": "gpt-6.1-sol",
+   "effort": "high",
+   "exit": "ok",
+   "wall_s": 170.27510479209013,
+   "usage": {
+    "input": 881280,
+    "output": 6265,
+    "cached_input": 806656,
+    "scope": "cumulative session totals",
+    "cost": null,
+    "cost_status": "not reported by native harness"
+   }
+  },
+  {
+   "run": "attention_causal_fp16-flat-loso-r2",
+   "task": "attention_causal_fp16",
+   "arm": "flat",
+   "view": "loso",
+   "moves": [
+    {
+     "move": "streamed_normalization",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "absent_from_view"
+    },
+    {
+     "move": "fuse_score_softmax_pv",
+     "role": "distinctive",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "query_row_tiles",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "key_block_partition",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "causal_tile_pruning",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "absent_from_view"
+    },
+    {
+     "move": "matrix_instruction",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "probability_precision",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "opened_not_selected"
+    },
+    {
+     "move": "accumulator_as_operand",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "absent_from_view"
+    },
+    {
+     "move": "exp2_folded_scale",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "absent_from_view"
+    },
+    {
+     "move": "row_statistic_lane_reduce",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "surfaced_not_opened"
+    },
+    {
+     "move": "storage_placement",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "async_copy",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "slot_lookahead",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "bank_layout",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "wide_vector_access",
+     "role": "generic",
+     "strict": "absent_from_view",
+     "lenient": "absent_from_view"
+    },
+    {
+     "move": "tail_predication",
+     "role": "generic",
+     "strict": "absent_from_view",
+     "lenient": "absent_from_view"
+    },
+    {
+     "move": "fragment_load",
+     "role": "generic",
+     "strict": "absent_from_view",
+     "lenient": "absent_from_view"
+    },
+    {
+     "move": "output_staging",
+     "role": "generic",
+     "strict": "absent_from_view",
+     "lenient": "surfaced_not_opened"
+    }
+   ],
+   "counts": {
+    "surfaced": 293,
+    "opened": 16,
+    "selected": 9
+   },
+   "layer_counts": null,
+   "selected": [
+    "output_tiling@2",
+    "operator_fusion@2",
+    "reduction_partition@2",
+    "compute_instruction_selection@2",
+    "physical_storage@1",
+    "async_transfer@1",
+    "multi_buffer_rotation@2",
+    "shared_resource_binding@1",
+    "thread_ownership_exchange@1"
+   ],
+   "selected_outside_gold": [
+    "thread_ownership_exchange@1"
+   ],
+   "needs": [
+    "# Missing contracts for this attention design\n\n- **Single-CTA online softmax with an output numerator.** Fusion permits a rescalable consumer but does not supply the recurrence for this ownership scheme. For natural-unit scores `s = QK / sqrt(128)`, retain FP32 `(m, l, u)`, initially `(-infinity, 0, 0)`. For each tile set `m_new = max(m, max(s))`, `a = exp(m - m_new)`, and `p = exp(s - m_new)` on valid keys; update `l_new = a*l + sum(p)` and `u_new = a*u + FP32_MMA(FP16(p), V)`. Rescale only old contributions before adding new ones, and finalize with `O = FP16(u/l)`. Define initialization/empty transitions explicitly to avoid `-infinity - -infinity`; wholly masked tiles leave the state unchanged. The attention value-partition and cluster-merge rules describe different, specialized ownership schemes and do not supply this binding.\n\n- **Causal tile traversal and diagonal masking.** For a query tile beginning at `q0` with `BM` rows, visit only key tiles intersecting `[0, min(S, q0+BM))`. Entirely earlier tiles need only extent guards; intersecting tiles require the absolute predicate `key <= query` as well as `key < S` and `query < S`. Mask excluded scores to negative infinity and weights to exactly zero. Generic output tails and zero-filled transfers do not provide this triangular traversal: a zero-filled key alone would still create a nonzero softmax weight. At S=513, define padded V elements as finite zero and suppress all padded O/LSE stores while every CTA participant still reaches its barriers.\n\n- **Natural-log LSE and admitted numerical recipe.** Emit FP32 `LSE = m + log(l)` for each real row, using the unrounded FP32 mass rather than a sum of the FP16 PV weights. If exponentials use base two, convert scores by `log2(e)` and emit `(m2 + log2(l))*ln(2)`; apply the attention scale exactly once. No selected rule supplies this complete epilogue or an error budget for approximate exponentials, FP16 probability conversion and FP32 MMA accumulation. The task does not give a numeric tolerance threshold or exceptional-input policy. Numerical acceptance remains to be established against the task's FP16 accumulation tolerance, including large magnitudes, cancellation and negative logits.\n\n- **Concrete SM12.1 realization and per-shape resource choice.** The generic rules do not supply a complete GB10 lane/register ABI, vector-copy/swizzle mapping, bank-conflict evidence or resource/performance model for the composed attention kernel. Bind supported FP16 mma.sync fragment loads for Q, transposed K, P and V, plus warp row reductions and unique O/LSE writers. Choose query/key tile sizes and warp count jointly with registers and the two K/V rings; for example, BM=64 and BK=64 require 88 KiB of logical shared Q/K/V/P storage before layout padding if Q is also staged there. Small-shape occupancy, the S=513 tail and triangular CTA cost imbalance need per-shape scheduling decisions; no measured optimal setting follows from these contracts. The FP32 four-byte teaching model in shared_memory_tiling@1 and the specialized cluster/value-owner rules do not close this gap. Compilation, GPU checks and timing are outside this selection task and were not performed.\n"
+   ],
+   "audit": {
+    "calls": 15,
+    "outside_workspace": [],
+    "bundle_bypass": []
+   },
+   "session": "01a1ad9a-963e-7511-a23b-24773debbdf4",
+   "agent_run": "28e629cfa7e18a3c02c596c0e0e25dcf22aba7c10f3105456d61ee7f6e52420b",
+   "model": "gpt-6.1-sol",
+   "effort": "high",
+   "exit": "ok",
+   "wall_s": 154.8272935829591,
+   "usage": {
+    "input": 838598,
+    "output": 4787,
+    "cached_input": 764800,
+    "scope": "cumulative session totals",
+    "cost": null,
+    "cost_status": "not reported by native harness"
+   }
+  },
+  {
+   "run": "grouped_fp8_gemm-access-loso-r1",
+   "task": "grouped_fp8_gemm",
+   "arm": "access",
+   "view": "loso",
+   "moves": [
+    {
+     "move": "raw_k_partials",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "scale_promotion",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "opened_not_selected"
+    },
+    {
+     "move": "grouped_work_decode",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "selected"
+    },
+    {
+     "move": "tile_traversal_locality",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "surfaced_not_opened"
+    },
+    {
+     "move": "masked_row_filter",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "selected"
+    },
+    {
+     "move": "stage_handshake",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "surfaced_not_opened"
+    },
+    {
+     "move": "async_copy",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "pipeline_stages",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "storage_placement",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "warp_roles",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "opened_not_selected"
+    },
+    {
+     "move": "register_budget",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "absent_from_view"
+    },
+    {
+     "move": "matrix_instruction",
+     "role": "generic",
+     "strict": "opened_not_selected",
+     "lenient": "opened_not_selected"
+    },
+    {
+     "move": "output_tiles",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "output_staging",
+     "role": "generic",
+     "strict": "absent_from_view",
+     "lenient": "surfaced_not_opened"
+    },
+    {
+     "move": "compact_scale_metadata",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "absent_from_view"
+    }
+   ],
+   "counts": {
+    "surfaced": 162,
+    "opened": 17,
+    "selected": 8
+   },
+   "layer_counts": {
+    "search": 30,
+    "facets": 1,
+    "guide": 18,
+    "card": 2,
+    "template": 8,
+    "proof": 8,
+    "select": 8,
+    "need": 2
+   },
+   "selected": [
+    "output_tiling@2",
+    "output_prefix_work_filter@1",
+    "online_group_work_decode@2",
+    "reduction_partition@1",
+    "physical_storage@1",
+    "async_transfer@1",
+    "multi_buffer_rotation@2",
+    "shared_resource_binding@1"
+   ],
+   "selected_outside_gold": [
+    "shared_resource_binding@1"
+   ],
+   "needs": [
+    "An SM90-native E4M3 x E4M3 WGMMA rule with FP32 accumulators, supported m64/n/k32 shapes, K-major shared-descriptor layouts, full warpgroup participation, fence/commit/wait semantics and shared-operand retirement. compute_instruction_selection@2 omits an FP8 instruction from its declared menu; block_scaled_instruction_operands@1 is Blackwell-only and cannot implement Hopper's externally supplied 128-K FP32 scales. Need an explicit accuracy/accumulation policy compatible with the FP32-reference-to-BF16 objective, not an assumption that the generic f32 accumulator label proves it.",
+    "A Hopper software block-scale promotion rule: independently form raw FP8 dot partials for each 128-K block, apply sa[g,m,kblock] and sb[g,floor(n/128),kblock] to that block only, and combine scaled partials in FP32 with one final BF16 rounding. Exploit power-of-two scales through a proved exponent adjustment or correctly rounded scaling path, with explicit handling of zeros, subnormals, overflow/underflow and cancellation; do not multiply scale pairs blindly if an intermediate can overflow, and never merge unequal-scale raw partials first. Searches found no matching rule; the referenced block_scaled_partial_accumulation@1 is unavailable, numeric_recipe does not supply this arithmetic, and metadata staging changes transfers only."
+   ],
+   "audit": {
+    "calls": 16,
+    "outside_workspace": [],
+    "bundle_bypass": []
+   },
+   "session": "01a1ad95-87b3-7790-90a1-6c489e1d0b84",
+   "agent_run": "b934da85dd022714c44930c91dcc5d1e399831474dc24dccbc1d9f24462ce434",
+   "model": "gpt-6.1-sol",
+   "effort": "high",
+   "exit": "ok",
+   "wall_s": 183.98389583302196,
+   "usage": {
+    "input": 874502,
+    "output": 5909,
+    "cached_input": 800640,
+    "scope": "cumulative session totals",
+    "cost": null,
+    "cost_status": "not reported by native harness"
+   }
+  },
+  {
+   "run": "grouped_fp8_gemm-access-loso-r2",
+   "task": "grouped_fp8_gemm",
+   "arm": "access",
+   "view": "loso",
+   "moves": [
+    {
+     "move": "raw_k_partials",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "scale_promotion",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "opened_not_selected"
+    },
+    {
+     "move": "grouped_work_decode",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "selected"
+    },
+    {
+     "move": "tile_traversal_locality",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "opened_not_selected"
+    },
+    {
+     "move": "masked_row_filter",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "selected"
+    },
+    {
+     "move": "stage_handshake",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "surfaced_not_opened"
+    },
+    {
+     "move": "async_copy",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "pipeline_stages",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "storage_placement",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "warp_roles",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "opened_not_selected"
+    },
+    {
+     "move": "register_budget",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "absent_from_view"
+    },
+    {
+     "move": "matrix_instruction",
+     "role": "generic",
+     "strict": "opened_not_selected",
+     "lenient": "opened_not_selected"
+    },
+    {
+     "move": "output_tiles",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "output_staging",
+     "role": "generic",
+     "strict": "absent_from_view",
+     "lenient": "selected"
+    },
+    {
+     "move": "compact_scale_metadata",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "absent_from_view"
+    }
+   ],
+   "counts": {
+    "surfaced": 140,
+    "opened": 16,
+    "selected": 9
+   },
+   "layer_counts": {
+    "search": 21,
+    "facets": 1,
+    "guide": 16,
+    "card": 2,
+    "template": 10,
+    "proof": 10,
+    "realisation": 3,
+    "select": 9,
+    "need": 2
+   },
+   "selected": [
+    "output_tiling@2",
+    "output_prefix_work_filter@1",
+    "online_group_work_decode@2",
+    "reduction_partition@2",
+    "physical_storage@1",
+    "async_transfer@1",
+    "multi_buffer_rotation@2",
+    "shared_resource_binding@1",
+    "staged_async_output_store@1"
+   ],
+   "selected_outside_gold": [
+    "shared_resource_binding@1"
+   ],
+   "needs": [
+    "SM90-native E4M3 x E4M3 WGMMA with FP32 accumulators: a rule for legal m64n128k32 shared-memory operand descriptors, warpgroup fragment ownership, issue/fence/commit/wait ordering, and operand-buffer lifetime when combined with TMA K128 staging. compute_instruction_selection@2 has no FP8 instruction choice and its static realization only lists TF32/FP16/BF16 mma.sync; block_scaled_instruction_operands@1 is Blackwell-specific and does not fit CC9.0. Do not infer Hopper support from empty requires lists.",
+    "Block-scaled FP8 raw-partial promotion on Hopper: for each r=floor(k/128), form a fresh FP32 raw dot P_r, then apply sa[g,m,r] and sb[g,floor(n/128),r] to that partial before adding it to a separate FP32 total. Scales are independent powers of two across K blocks, so one final epilogue scale is invalid. Need a numerical/range contract for power-of-two application, internal tensor-core accumulation/promotion interval, scale-product overflow/underflow, cancellation and final BF16 rounding compared with the float32 reference; arbitrary exponent-bit folding or merging differently scaled raw partials is not justified. Generic reduction_partition only partitions the scaled sum, native block-scaled MMA is wrong-target, and multi_step_metadata_staging only moves metadata and is scoped to SM100."
+   ],
+   "audit": {
+    "calls": 17,
+    "outside_workspace": [],
+    "bundle_bypass": []
+   },
+   "session": "01a1ada0-6f1e-7be3-99d0-03a66ac56167",
+   "agent_run": "045fd7b2e3a571ed03687432f1658c692327c58001eb1885139524526a53f65d",
+   "model": "gpt-6.1-sol",
+   "effort": "high",
+   "exit": "ok",
+   "wall_s": 178.47910512506496,
+   "usage": {
+    "input": 903201,
+    "output": 6070,
+    "cached_input": 834432,
+    "scope": "cumulative session totals",
+    "cost": null,
+    "cost_status": "not reported by native harness"
+   }
+  },
+  {
+   "run": "grouped_fp8_gemm-flat-loso-r1",
+   "task": "grouped_fp8_gemm",
+   "arm": "flat",
+   "view": "loso",
+   "moves": [
+    {
+     "move": "raw_k_partials",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "scale_promotion",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "opened_not_selected"
+    },
+    {
+     "move": "grouped_work_decode",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "opened_not_selected"
+    },
+    {
+     "move": "tile_traversal_locality",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "selected"
+    },
+    {
+     "move": "masked_row_filter",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "selected"
+    },
+    {
+     "move": "stage_handshake",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "opened_not_selected"
+    },
+    {
+     "move": "async_copy",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "pipeline_stages",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "storage_placement",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "warp_roles",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "opened_not_selected"
+    },
+    {
+     "move": "register_budget",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "absent_from_view"
+    },
+    {
+     "move": "matrix_instruction",
+     "role": "generic",
+     "strict": "opened_not_selected",
+     "lenient": "opened_not_selected"
+    },
+    {
+     "move": "output_tiles",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "output_staging",
+     "role": "generic",
+     "strict": "absent_from_view",
+     "lenient": "selected"
+    },
+    {
+     "move": "compact_scale_metadata",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "absent_from_view"
+    }
+   ],
+   "counts": {
+    "surfaced": 302,
+    "opened": 25,
+    "selected": 10
+   },
+   "layer_counts": null,
+   "selected": [
+    "output_tiling@2",
+    "output_prefix_work_filter@1",
+    "rectangular_section_rasterization@1",
+    "reduction_partition@2",
+    "operator_fusion@2",
+    "physical_storage@1",
+    "shared_resource_binding@1",
+    "async_transfer@1",
+    "multi_buffer_rotation@2",
+    "staged_async_output_store@1"
+   ],
+   "selected_outside_gold": [
+    "operator_fusion@2",
+    "shared_resource_binding@1"
+   ],
+   "needs": [
+    "# Needs not satisfied by the selected library rules\n\n1. **Native SM90 E4M3 contraction and completion contract.** Add an FP8 E4M3-by-E4M3, FP32-accumulator WGMMA rule, targeting a 64x128x32 instruction atom inside each 128-deep arithmetic block. It must specify legal shared descriptors, the exact lane/register accumulator map, uniform 128-thread participation, fences, commit/wait operations, and operand retirement. `compute_instruction_selection@2` has no FP8 instruction in its declared menu; its FP16 WGMMA option cannot be relabeled as FP8, and `tcgen05_mma` is unavailable on SM90. Neither a TMA wait nor a CTA barrier alone completes an asynchronous MMA.\n\n2. **Block-scaled partial promotion with an accuracy policy.** For block b, establish the numerical realization of\n\n   P_b[g,m,n] = sum over k in [128b, min(128(b+1),K)) of A[g,m,k] B[g,n,k],\n\n   followed by FP32 accumulation of P_b times sa[g,m,b] times sb[g,floor(n/128),b], and one final BF16 round-to-nearest-even cast. Reset the raw partial at each scale boundary; differently scaled raw blocks cannot share an unscaled running accumulator. Power-of-two scales permit exponent-based application within a supported range, but do not remove raw-dot rounding, cancellation, overflow or underflow concerns. Specify a safe scale-application order and the native accumulation/promotion interval needed for accuracy comparable to the stated reference. The task gives no numerical tolerance or scale-range bounds, so a universal accuracy guarantee is not established. Generic partitioning and fusion preserve a supplied recipe rather than proving this rewrite. The referenced `block_scaled_partial_accumulation@1` is absent from this library. `block_scaled_instruction_operands@1` instead requires Blackwell scaled MMA with different scale formats and K groups.\n\n3. **Concrete SM90 tensor maps and scale addressing.** Bind the actual A, B and D strides, pointer alignment, tensor-map dimensions, swizzle encodings and residue behavior to the chosen instruction layouts. A group axis in immutable tensor maps can select experts without device descriptor mutation or knowing length on the host. Derive scale addresses from the supplied scale storage strides, preserving per-row sa and per-128-N-group sb identity. Their physical layout is unspecified in TASK.md. `async_transfer@1` and `shared_resource_binding@1` state requirements but do not supply these native maps. `multi_step_metadata_staging@1` is scoped to an SM100 path and contiguous scale-step storage, so it is not assumed applicable here. Partial-row stores may use allocated, unobservable padding under the selected prefix-filter contract; any stricter preservation requirement would need a separate store-mask path.\n\n4. **SM90 persistent launch and sparse-work cost policy.** Supply an exact-once grid-stride assignment of the section-ordered capacity tiles to a bounded resident CTA grid. All workers inspect device lengths and skip rejected units before entering their pipelines; the all-zero case terminates without transfers or stores. Preserve buffer generations across retained tiles and drain outstanding operations at worker termination. The selected rules supply the local tile permutation and filtering, but no complete persistent launch/resource policy. Establish the residency budget and whether inspecting capacity tiles is cheaper than a device count/compaction pass for the observed sparsity. Tiny prefixes may justify a separate smaller-M native FP8 path, but generic size classification supplies neither that instruction binding nor its crossover cost.\n\nThis is a design selection only. No kernel was written or compiled, and no GPU execution or performance/accuracy validation was performed.\n"
+   ],
+   "audit": {
+    "calls": 16,
+    "outside_workspace": [],
+    "bundle_bypass": []
+   },
+   "session": "01a1ad97-cfc6-7982-856e-a0fd92961407",
+   "agent_run": "c0285ff1006efe84b514068823e160773e2d349ff159097a1f02af778b2ee317",
+   "model": "gpt-6.1-sol",
+   "effort": "high",
+   "exit": "ok",
+   "wall_s": 179.58337291702628,
+   "usage": {
+    "input": 1140942,
+    "output": 6860,
+    "cached_input": 1048832,
+    "scope": "cumulative session totals",
+    "cost": null,
+    "cost_status": "not reported by native harness"
+   }
+  },
+  {
+   "run": "grouped_fp8_gemm-flat-loso-r2",
+   "task": "grouped_fp8_gemm",
+   "arm": "flat",
+   "view": "loso",
+   "moves": [
+    {
+     "move": "raw_k_partials",
+     "role": "generic",
+     "strict": "surfaced_not_opened",
+     "lenient": "surfaced_not_opened"
+    },
+    {
+     "move": "scale_promotion",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "opened_not_selected"
+    },
+    {
+     "move": "grouped_work_decode",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "selected"
+    },
+    {
+     "move": "tile_traversal_locality",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "opened_not_selected"
+    },
+    {
+     "move": "masked_row_filter",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "opened_not_selected"
+    },
+    {
+     "move": "stage_handshake",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "opened_not_selected"
+    },
+    {
+     "move": "async_copy",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "pipeline_stages",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "storage_placement",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "warp_roles",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "opened_not_selected"
+    },
+    {
+     "move": "register_budget",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "absent_from_view"
+    },
+    {
+     "move": "matrix_instruction",
+     "role": "generic",
+     "strict": "opened_not_selected",
+     "lenient": "opened_not_selected"
+    },
+    {
+     "move": "output_tiles",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "output_staging",
+     "role": "generic",
+     "strict": "absent_from_view",
+     "lenient": "opened_not_selected"
+    },
+    {
+     "move": "compact_scale_metadata",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "absent_from_view"
+    }
+   ],
+   "counts": {
+    "surfaced": 261,
+    "opened": 23,
+    "selected": 8
+   },
+   "layer_counts": null,
+   "selected": [
+    "output_tiling@2",
+    "online_group_work_decode@2",
+    "physical_storage@1",
+    "async_transfer@1",
+    "multi_buffer_rotation@2",
+    "shared_resource_binding@1",
+    "operator_fusion@2",
+    "thread_ownership_exchange@1"
+   ],
+   "selected_outside_gold": [
+    "operator_fusion@2",
+    "shared_resource_binding@1",
+    "thread_ownership_exchange@1"
+   ],
+   "needs": [
+    "# Uncovered design needs\n\n- **Native SM90 FP8 matrix instructions and completion contract.** Add an E4M3-by-E4M3, FP32-accumulating instruction binding for Hopper `wgmma.mma_async` with shared operands, including the 64x128 output atom, K=32 instruction steps, operand descriptors, lane/register accumulator coordinates, fences, commit/wait groups, and full warpgroup participation. Four K=32 steps form one 128-K raw partial. `compute_instruction_selection@2` does not list FP8 instructions; its FP16 WGMMA entry cannot be rebound to FP8. `block_scaled_instruction_operands@1` targets Blackwell native scaled MMA with different scale formats/group sizes. The generic transfer and rotation rules do not supply native WGMMA read retirement: shared slots must survive until that retirement before their trailing CTA barrier.\n\n- **Software promotion at each scale boundary, with numerical acceptance.** For block q, form FP32 `Pq[m,n] = sum_k A[g,m,k]*B[g,n,k]` over only that block's 128 K positions, then apply `sa[g,m,q]` and `sb[g,floor(n/128),q]` and accumulate into a separate FP32 result. Reset the raw accumulator for every block; zero-fill an incomplete final block without reading nonexistent scales. Round to BF16 only after all blocks. The library contains no `block_scaled_partial_accumulation` rule: generic fusion only places an already-defined computation, the numeric recipe concerns other operand paths, and metadata staging does not define the arithmetic. Specify the native FP8 accumulation precision and promotion interval, the order of scale application and FP32 updates, admissible scale exponents, and behavior when an intermediate scale product would overflow or underflow. Power-of-two scales do not alone establish equivalence to the FP32 reference under reassociation or cancellation; an error criterion against that reference remains necessary.\n\n- **An economical matrix path for very short active groups.** The selected main path still computes at least 64 rows for length 1. A useful extension would provide an SM90 FP8 `mma.sync` path with 16-row tiles for very short groups, selected uniformly from device lengths within the same launch. It needs a compatible register-fragment/load mapping, class-dependent tile counts in the prefix decoder, and safe transitions between execution bodies. `size_class_cooperative_assignment@1` provides generic thread/subgroup/CTA task partitioning, but does not establish these matrix bodies or their native collective and resource contracts. This remains a performance extension to the concrete 64-row main-path selection, without host length readback or extra classification launches.\n\nThe main path uses an SM-sized persistent CTA pool with monotone strided work indices. All-zero lengths produce no data-pipeline epochs. Descriptors address the allocated batched tensors, while logical row masks retain the capacity strides. Scale addressing must use the supplied physical strides; no contiguous K-scale layout is assumed. The selection uses a CTA-wide ring rather than claiming a warp-specialized protocol from an unrelated event model. No kernel was written, compiled, or executed, and no GPU timing or numerical validation is claimed.\n"
+   ],
+   "audit": {
+    "calls": 14,
+    "outside_workspace": [],
+    "bundle_bypass": []
+   },
+   "session": "01a1ada3-272c-78a0-b778-285d6039077a",
+   "agent_run": "cc98edee12e48a31b2e2e9f3d5ea7a9978f9f973a275d788b719c504d881c2e8",
+   "model": "gpt-6.1-sol",
+   "effort": "high",
+   "exit": "ok",
+   "wall_s": 180.9841665829299,
+   "usage": {
+    "input": 920097,
+    "output": 6127,
+    "cached_input": 831744,
+    "scope": "cumulative session totals",
+    "cost": null,
+    "cost_status": "not reported by native harness"
+   }
+  },
+  {
+   "run": "int4_weight_gemm-access-loso-r1",
+   "task": "int4_weight_gemm",
+   "arm": "access",
+   "view": "loso",
+   "moves": [
+    {
+     "move": "load_time_prepack",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "selected"
+    },
+    {
+     "move": "register_dequantization",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "selected"
+    },
+    {
+     "move": "row_chunking",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "k_major_stripes",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "surfaced_not_opened"
+    },
+    {
+     "move": "k_partition",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "ordered_cross_cta_combine",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "opened_not_selected"
+    },
+    {
+     "move": "shared_memory_warp_tree",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "not_surfaced"
+    },
+    {
+     "move": "matrix_instruction",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "storage_placement",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "async_copy",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "cache_policy",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "surfaced_not_opened"
+    },
+    {
+     "move": "pipeline_stages",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "bank_layout",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "fragment_load",
+     "role": "generic",
+     "strict": "absent_from_view",
+     "lenient": "absent_from_view"
+    },
+    {
+     "move": "wide_vector_access",
+     "role": "generic",
+     "strict": "absent_from_view",
+     "lenient": "absent_from_view"
+    },
+    {
+     "move": "tail_predication",
+     "role": "generic",
+     "strict": "absent_from_view",
+     "lenient": "absent_from_view"
+    },
+    {
+     "move": "output_staging",
+     "role": "generic",
+     "strict": "absent_from_view",
+     "lenient": "surfaced_not_opened"
+    },
+    {
+     "move": "late_scale",
+     "role": "distinctive",
+     "strict": "surfaced_not_opened",
+     "lenient": "selected"
+    }
+   ],
+   "counts": {
+    "surfaced": 166,
+    "opened": 17,
+    "selected": 13
+   },
+   "layer_counts": {
+    "facets": 1,
+    "search": 29,
+    "guide": 17,
+    "card": 3,
+    "template": 13,
+    "proof": 13,
+    "realisation": 3,
+    "select": 13,
+    "need": 3
+   },
+   "selected": [
+    "bitstream_packing@1",
+    "mixed_radix_materialization@1",
+    "integer_operand_widening@1",
+    "output_tiling@2",
+    "reduction_partition@1",
+    "block_scaled_partial_accumulation@1",
+    "compute_instruction_selection@2",
+    "blocked_thread_register_layout@1",
+    "physical_storage@1",
+    "shared_resource_binding@1",
+    "async_transfer@1",
+    "multi_buffer_rotation@2",
+    "decoded_tile_materialization@1"
+   ],
+   "selected_outside_gold": [
+    "blocked_thread_register_layout@1"
+   ],
+   "needs": [
+    "Need an explicit lossless offset-binary INT4 recoding and efficient GB10 sm_121 packed decoder binding: store u=q XOR 8 at model load so signed4(u)=q-8 (q<8 gives u=q+8 then u-16=q-8; q>=8 gives u=q-8). Preserve all (k,n) and scale-group coordinates and map the result efficiently to FP16 MMA fragments. integer_operand_widening@1 covers exact widening only after this recoding, lacks a realisation, and its optimized paired converter is BF16/CUDA>=13.1. mixed_radix_materialization preserves code identities rather than supplying recoding; fused_dequantization@1 is not available. No accessible rule supplies this complete optimized offset-binary-to-FP16 sm_121 binding.",
+    "Need an M,K,N- and workspace-dependent latency policy for GB10 choosing direct warp GEMV/small-row dot versus FP16 MMA, N/row tiles, fragment-local versus shared decode, and split-K count versus an unsplit launch. Include weight/scale traffic, decode throughput, useful versus padded MMA rows, occupancy, and split workspace/merge-launch cost. output_tiling and reduction_partition expose the choices but do not provide their crossover; the searched dispatch/size-assignment rules target other workloads. No measured thresholds are claimed in this design-only task.",
+    "Need numerical and backend assurance for FP16 A times exact centered INT4 values with per-column or per-128-K/per-column FP16 scales on sm_121: FP32 raw dots, FP32 scale promotions/final reduction and exactly one FP16 output cast, including optional private-FP32 split-K combine. Establish an explicit FP32-reference tolerance over cancellation, unequal adjacent scales, long K, subnormal/range extremes and M tails. block_scaled_partial_accumulation@1 provides the algebra but its only recorded backend is SM90 FP8/WGMMA with different scale ownership; ordered_workspace_combine@1 is pinned to SM100-family BF16/FP32 outputs. Neither supplies this task's target-specific rounding/fragment/FP16-output assurance, and no compilation or GPU execution is requested."
+   ],
+   "audit": {
+    "calls": 15,
+    "outside_workspace": [],
+    "bundle_bypass": []
+   },
+   "session": "01a1ad8c-546f-7372-911f-17d4c872baeb",
+   "agent_run": "932a43f237703cc81965dce67daa391fa6d57110d5420894b6f47e668364f111",
+   "model": "gpt-6.1-sol",
+   "effort": "high",
+   "exit": "ok",
+   "wall_s": 191.5356239170069,
+   "usage": {
+    "input": 879331,
+    "output": 6852,
+    "cached_input": 801664,
+    "scope": "cumulative session totals",
+    "cost": null,
+    "cost_status": "not reported by native harness"
+   }
+  },
+  {
+   "run": "int4_weight_gemm-access-loso-r2",
+   "task": "int4_weight_gemm",
+   "arm": "access",
+   "view": "loso",
+   "moves": [
+    {
+     "move": "load_time_prepack",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "selected"
+    },
+    {
+     "move": "register_dequantization",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "selected"
+    },
+    {
+     "move": "row_chunking",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "k_major_stripes",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "surfaced_not_opened"
+    },
+    {
+     "move": "k_partition",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "ordered_cross_cta_combine",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "opened_not_selected"
+    },
+    {
+     "move": "shared_memory_warp_tree",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "surfaced_not_opened"
+    },
+    {
+     "move": "matrix_instruction",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "storage_placement",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "async_copy",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "cache_policy",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "not_surfaced"
+    },
+    {
+     "move": "pipeline_stages",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "bank_layout",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "fragment_load",
+     "role": "generic",
+     "strict": "absent_from_view",
+     "lenient": "absent_from_view"
+    },
+    {
+     "move": "wide_vector_access",
+     "role": "generic",
+     "strict": "absent_from_view",
+     "lenient": "absent_from_view"
+    },
+    {
+     "move": "tail_predication",
+     "role": "generic",
+     "strict": "absent_from_view",
+     "lenient": "absent_from_view"
+    },
+    {
+     "move": "output_staging",
+     "role": "generic",
+     "strict": "absent_from_view",
+     "lenient": "not_surfaced"
+    },
+    {
+     "move": "late_scale",
+     "role": "distinctive",
+     "strict": "not_surfaced",
+     "lenient": "selected"
+    }
+   ],
+   "counts": {
+    "surfaced": 165,
+    "opened": 16,
+    "selected": 11
+   },
+   "layer_counts": {
+    "search": 24,
+    "facets": 1,
+    "guide": 18,
+    "card": 1,
+    "template": 11,
+    "proof": 11,
+    "realisation": 4,
+    "select": 11,
+    "need": 3
+   },
+   "selected": [
+    "bitstream_packing@1",
+    "mixed_radix_materialization@1",
+    "output_tiling@2",
+    "reduction_partition@1",
+    "compute_instruction_selection@2",
+    "block_scaled_partial_accumulation@1",
+    "decoded_tile_materialization@1",
+    "physical_storage@1",
+    "async_transfer@1",
+    "multi_buffer_rotation@2",
+    "shared_resource_binding@1"
+   ],
+   "selected_outside_gold": [],
+   "needs": [
+    "An exact fast offset-binary INT4 decoder for q in [0,15] -> FP16(q-8), matched to coalesced packed-word loads and SM121 mma.sync lane fragments, preferably using packed bit operations/half2 without lookup or activation requantization. Searches found FP4-specific bit interleaving and generic decode-placement rules, but no applicable integer decoder rule; the fused_dequantization@1 reference in another proof is unavailable in this library. Preserve original per-column or g=128 FP16 scale identities.",
+    "A GB10 compute-capability-12.1 realization for the composed integer decode, FP16 mma.sync with FP32 raw/final accumulators, and groupwise FP32 scale promotion, with verified lane/layout maps, capacity and numeric error against unpacked FP32 reference under long K, cancellation, unequal scales and scale extremes. The scale-promotion witness is restricted to SM90 FP8/WGMMA, while decode/materialization have no recorded realization; abstract contracts do not establish this target binding or output tolerance.",
+    "A shape-dependent latency model/dispatch rule for M=1..64 and larger on GB10: choose tiny-M SIMT versus padded FP16 MMA, tile M/N, register versus shared decode, and split-K count using launch overhead, byte traffic, register/shared residency and workspace availability. Existing tiling/partition rules expose these choices but provide no crossover policy. Also missing is a nonblocking last-arrival FP32 workspace combine that removes the extra reduction launch without the residency premise of the designated-waiter protocol."
+   ],
+   "audit": {
+    "calls": 17,
+    "outside_workspace": [],
+    "bundle_bypass": []
+   },
+   "session": "01a1ad9a-b3c1-70e1-99dc-76f406beca10",
+   "agent_run": "8f21b8395a90be5986c6103f563ac51c6013b5583ae5efbd0264d9005852ad3e",
+   "model": "gpt-6.1-sol",
+   "effort": "high",
+   "exit": "ok",
+   "wall_s": 173.89526708400808,
+   "usage": {
+    "input": 945360,
+    "output": 6025,
+    "cached_input": 869120,
+    "scope": "cumulative session totals",
+    "cost": null,
+    "cost_status": "not reported by native harness"
+   }
+  },
+  {
+   "run": "int4_weight_gemm-flat-loso-r1",
+   "task": "int4_weight_gemm",
+   "arm": "flat",
+   "view": "loso",
+   "moves": [
+    {
+     "move": "load_time_prepack",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "selected"
+    },
+    {
+     "move": "register_dequantization",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "selected"
+    },
+    {
+     "move": "row_chunking",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "k_major_stripes",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "surfaced_not_opened"
+    },
+    {
+     "move": "k_partition",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "ordered_cross_cta_combine",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "opened_not_selected"
+    },
+    {
+     "move": "shared_memory_warp_tree",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "surfaced_not_opened"
+    },
+    {
+     "move": "matrix_instruction",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "storage_placement",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "async_copy",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "cache_policy",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "opened_not_selected"
+    },
+    {
+     "move": "pipeline_stages",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "bank_layout",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "fragment_load",
+     "role": "generic",
+     "strict": "absent_from_view",
+     "lenient": "absent_from_view"
+    },
+    {
+     "move": "wide_vector_access",
+     "role": "generic",
+     "strict": "absent_from_view",
+     "lenient": "absent_from_view"
+    },
+    {
+     "move": "tail_predication",
+     "role": "generic",
+     "strict": "absent_from_view",
+     "lenient": "absent_from_view"
+    },
+    {
+     "move": "output_staging",
+     "role": "generic",
+     "strict": "absent_from_view",
+     "lenient": "surfaced_not_opened"
+    },
+    {
+     "move": "late_scale",
+     "role": "distinctive",
+     "strict": "selected",
+     "lenient": "selected"
+    }
+   ],
+   "counts": {
+    "surfaced": 312,
+    "opened": 24,
+    "selected": 13
+   },
+   "layer_counts": null,
+   "selected": [
+    "bitstream_packing@3",
+    "mixed_radix_materialization@1",
+    "output_tiling@2",
+    "reduction_partition@1",
+    "block_scaled_partial_accumulation@1",
+    "compute_instruction_selection@2",
+    "blocked_thread_register_layout@1",
+    "decoded_tile_materialization@1",
+    "physical_storage@1",
+    "async_transfer@1",
+    "multi_buffer_rotation@2",
+    "shared_resource_binding@1",
+    "operator_fusion@2"
+   ],
+   "selected_outside_gold": [
+    "blocked_thread_register_layout@1"
+   ],
+   "needs": [
+    "# Needs not supplied by an applicable library rule\n\nThe selection describes a design, not an implemented or measured kernel. No kernel code, compilation or GPU execution was performed.\n\n1. **Exact integer-weight decoder and its native mapping.** Supply a vectorized unsigned-nibble extractor and exact recentering `q - 8`, producing FP16 integers in `[-8,7]` for MMA and FP32 values for SIMT. Fix nibble order against the selected tiled packing, native B fragment coordinates and each scale lookup. Padding must contribute zero after decoding: an inactive encoded weight needs code 8, or an explicit decoded-zero mask. The packing rule preserves bits; decoded-tile materialization preserves an already specified decoder. Neither supplies this CUDA/PTX decoder. `fused_dequantization@1` is mentioned by an outline but is absent from the catalog. FP4/BF16 bit interleaving and low-float quantizers do not implement this integer format.\n\n2. **A GB10 realization and resource binding.** Establish the sm_121 instruction and operand-load ABI for conventional FP16 `mma.sync` with FP32 accumulation, FP32 FMA, and the selected asynchronous copies. Bind actual shared-memory/register limits, bank geometry and launch occupancy; do not infer SM100 tensor-memory, tcgen05, WGMMA, cluster or TMA support from the Blackwell name. Supply exact widening of FP16 A/scales for FP32 arithmetic, legal vector alignment and a synchronous or narrower-copy fallback when caller alignment is insufficient. Existing instruction/storage rules describe contracts rather than a validated GB10 implementation. Their fragment, decoder and synchronization obligations remain open.\n\n3. **Dispatch by M, shape, scale mode and available workspace.** Supply a low-overhead host dispatch policy between tiny-M SIMT and tiled MMA, including M tails and larger M. Choose tile sizes, useful rows per CTA, and split count from K/N, residency, decoding reuse and total per-call overhead. For grouped scales, stage each FP16 scale once per consuming tile and reuse it over rows without changing its group. For per-column scales, retain or load the single scale vector for the final epilogue. The library's size-class assignment concerns batches of tasks, and its grouped metadata staging is pinned to other formats/targets; neither supplies this GEMM dispatch or FP16 metadata policy. Numerical thresholds and performance crossovers require later evidence; none is claimed here.\n\n4. **An applicable FP32 split-K workspace finalizer.** When the unsplit output grid is too small, use disjoint contiguous ranges of complete 128-element groups and exclusive FP32 partial slots. For grouped scales, apply each group's scale before storing its split partial. For per-column scales, combine unscaled partials first and apply the common scale once. A separate completion-ordered reducer must read only written slots in a declared order, cast each final output once to FP16, and finish before scratch reuse. Bind capacity/strides, overflow-safe address arithmetic and a direct unsplit fallback when workspace is absent or too small. Keep workspace exclusive per concurrent call. `reduction_partition@1` and `physical_storage@1` support the decomposition, but `ordered_workspace_combine@1` is pinned to an SM100-family BF16 weight-gradient tail and `partial_grid_join_placement@1` to a specific convolution backward. Neither is selected as a GB10 FP16 GEMM reducer. The initializing atomic-combine rule also does not supply the chosen exclusive-slot finalizer.\n\n5. **Numerical admission against the requested reference.** Define a concrete meaning of FP16 accuracy comparable to the FP32 unpacked-weight reference, including absolute error near cancellation, supported activation/scale ranges, subnormals, overflow and nonfinite behavior. Validate the centered FP16 raw dots, FP32 scale promotion, implicit unit A scales and single final cast for both scale modes. Moving scales after a group dot changes floating-point association; it avoids FP16 rounding of scaled weights but is not a proof of the requested tolerance. Cover long K, adjacent unequal scales, all 16 nibble values, extreme magnitudes, cancellation, M tails and split counts. No rule supplies an end-to-end error bound or numerical acceptance for this task, and no numerical validation was run.\n"
+   ],
+   "audit": {
+    "calls": 18,
+    "outside_workspace": [],
+    "bundle_bypass": []
+   },
+   "session": "01a1ad91-a2a2-7b93-a165-c435cb3add09",
+   "agent_run": "418686ab75da05a6c0fa0324a53e983f7b4b0cb22b3b8eb44947ec25cb147e3b",
+   "model": "gpt-6.1-sol",
+   "effort": "high",
+   "exit": "ok",
+   "wall_s": 253.3227894579759,
+   "usage": {
+    "input": 1348952,
+    "output": 7864,
+    "cached_input": 1251072,
+    "scope": "cumulative session totals",
+    "cost": null,
+    "cost_status": "not reported by native harness"
+   }
+  },
+  {
+   "run": "int4_weight_gemm-flat-loso-r2",
+   "task": "int4_weight_gemm",
+   "arm": "flat",
+   "view": "loso",
+   "moves": [
+    {
+     "move": "load_time_prepack",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "selected"
+    },
+    {
+     "move": "register_dequantization",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "selected"
+    },
+    {
+     "move": "row_chunking",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "k_major_stripes",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "surfaced_not_opened"
+    },
+    {
+     "move": "k_partition",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "ordered_cross_cta_combine",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "opened_not_selected"
+    },
+    {
+     "move": "shared_memory_warp_tree",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "surfaced_not_opened"
+    },
+    {
+     "move": "matrix_instruction",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "storage_placement",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "async_copy",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "cache_policy",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "opened_not_selected"
+    },
+    {
+     "move": "pipeline_stages",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "bank_layout",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "fragment_load",
+     "role": "generic",
+     "strict": "absent_from_view",
+     "lenient": "absent_from_view"
+    },
+    {
+     "move": "wide_vector_access",
+     "role": "generic",
+     "strict": "absent_from_view",
+     "lenient": "absent_from_view"
+    },
+    {
+     "move": "tail_predication",
+     "role": "generic",
+     "strict": "absent_from_view",
+     "lenient": "absent_from_view"
+    },
+    {
+     "move": "output_staging",
+     "role": "generic",
+     "strict": "absent_from_view",
+     "lenient": "surfaced_not_opened"
+    },
+    {
+     "move": "late_scale",
+     "role": "distinctive",
+     "strict": "selected",
+     "lenient": "selected"
+    }
+   ],
+   "counts": {
+    "surfaced": 294,
+    "opened": 21,
+    "selected": 14
+   },
+   "layer_counts": null,
+   "selected": [
+    "bitstream_packing@3",
+    "mixed_radix_materialization@1",
+    "integer_operand_widening@1",
+    "output_tiling@2",
+    "reduction_partition@2",
+    "block_scaled_partial_accumulation@1",
+    "compute_instruction_selection@2",
+    "blocked_thread_register_layout@1",
+    "physical_storage@1",
+    "async_transfer@1",
+    "multi_buffer_rotation@2",
+    "shared_resource_binding@1",
+    "decoded_tile_materialization@1",
+    "operator_fusion@2"
+   ],
+   "selected_outside_gold": [
+    "blocked_thread_register_layout@1"
+   ],
+   "needs": [
+    "# Unmet needs\n\n- **Lossless offset-binary recoding at model load.** The task decodes a nibble as `q - 8`; `integer_operand_widening@1` decodes s4 as two's complement. Add an explicit recoding rule that stores `u = q XOR 8`, so signed-s4 interpretation of `u` equals `q - 8` for all 16 codes, including original q=0,8,15 becoming -8,0,7. Compose this value recoding with packing and the coordinate permutation without changing FP16 scales. Neither lossless bitstream packing nor mixed-radix permutation changes code interpretation. This is a prerequisite for the selected s4 widening route.\n\n- **GB10 dispatch and cost model.** Add a rule choosing a vector FP32 dot path for tiny M versus FP16 MMA tiles as row reuse grows, including larger-than-64 M and M tails. Select row/column tile sizes, warp count, fragment versus shared decoding, stages, and split count jointly using useful work, packed-weight traffic, decode instructions, two accumulator sets, occupancy and launch cost. The selected rules expose individual choices but supply no SM121 crossover policy. A missing workspace must select a complete unsplit path. Thresholds cannot be established by this read-only design task.\n\n- **General split-K completion and FP16 finalization.** `reduction_partition@2` covers ownership but needs a concrete GB10 GEMM realization: disjoint FP32 partial slots, whole-128 K boundaries, exact producer/reducer range agreement, a following reducer ordered after producer completion, unique final writers, one FP16 output cast, and workspace retained through all readers and isolated across concurrent calls. Per-column scaling belongs after the raw partial merge; groupwise partials must already carry their own scales. Include workspace byte/alignment requirements and empty-slot handling. `ordered_workspace_combine@1` is pinned to SM100/103/107 BF16 weight-gradient outputs, and `partial_grid_join_placement@1` to depthwise-convolution backward; neither supplies this target/output binding.\n\n- **SM121 realization and numerical acceptance.** Add the concrete CUDA C++/PTX bindings and resource model for typed s4-to-FP16 decode, the chosen prepack inverse, FP16 MMA lane/register layouts, FP32 vector reduction, legal copy alignment/fallbacks, swizzles and completion events. The generic contracts do not establish an optimized GB10 implementation. Keep FP16 activations unchanged; native FP4/E2M1 and activation INT8/FP8 quantization do not preserve the supplied integer-weight problem. No additional quantization is selected.\n\n- **Reference-accuracy contract for delayed scaling.** Specify absolute/relative tolerances, finite input/scale ranges and exceptional-value behavior, then establish acceptance of FP32 group raw dots, FP32 scale promotion, split merges and the single final FP16 conversion against the unpacked-weight FP32 reference. Include cancellation, extreme scales, all nibble values, varying M and both scale modes. The scale-partial rule makes rounding obligations explicit but provides no bound for this workload; fusion does not discharge them. Do not substitute FP16-rounded dequantized weights without a separate accuracy justification.\n\nOnly library inspection and artifact validation were performed. No kernel was written, compiled or run, and no GPU was used.\n"
+   ],
+   "audit": {
+    "calls": 16,
+    "outside_workspace": [],
+    "bundle_bypass": []
+   },
+   "session": "01a1ad9c-fc2b-7ed1-aa88-24dbec436bae",
+   "agent_run": "45008265d4a8a4f2be30b23f30329b2447c4f04dca764e15c5e5226bcc66e038",
+   "model": "gpt-6.1-sol",
+   "effort": "high",
+   "exit": "ok",
+   "wall_s": 223.90481329208706,
+   "usage": {
+    "input": 1093023,
+    "output": 7569,
+    "cached_input": 1003008,
+    "scope": "cumulative session totals",
+    "cost": null,
+    "cost_status": "not reported by native harness"
+   }
+  },
+  {
+   "run": "paged_batch_decode-access-loso-r1",
+   "task": "paged_batch_decode",
+   "arm": "access",
+   "view": "loso",
+   "moves": [
+    {
+     "move": "streamed_normalization",
+     "role": "distinctive",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "fuse_score_softmax_pv",
+     "role": "distinctive",
+     "strict": "not_surfaced",
+     "lenient": "not_surfaced"
+    },
+    {
+     "move": "grouped_query_heads",
+     "role": "distinctive",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "request_chunking",
+     "role": "distinctive",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "host_work_plan",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "surfaced_not_opened"
+    },
+    {
+     "move": "second_kernel_merge",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "absent_from_view"
+    },
+    {
+     "move": "thread_group_partition",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "state_merge_in_shared_memory",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "not_surfaced"
+    },
+    {
+     "move": "dot_product_instruction",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "lane_reduction",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "not_surfaced"
+    },
+    {
+     "move": "exp2_folded_scale",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "absent_from_view"
+    },
+    {
+     "move": "storage_placement",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "async_copy",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "pipeline_stages",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "paged_gather",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "opened_not_selected"
+    },
+    {
+     "move": "wide_vector_access",
+     "role": "generic",
+     "strict": "absent_from_view",
+     "lenient": "absent_from_view"
+    },
+    {
+     "move": "tail_predication",
+     "role": "generic",
+     "strict": "absent_from_view",
+     "lenient": "absent_from_view"
+    },
+    {
+     "move": "empty_request_handling",
+     "role": "distinctive",
+     "strict": "selected",
+     "lenient": "selected"
+    }
+   ],
+   "counts": {
+    "surfaced": 116,
+    "opened": 17,
+    "selected": 13
+   },
+   "layer_counts": {
+    "facets": 1,
+    "search": 27,
+    "guide": 17,
+    "card": 2,
+    "template": 13,
+    "proof": 13,
+    "realisation": 5,
+    "select": 13,
+    "need": 4
+   },
+   "selected": [
+    "size_class_cooperative_assignment@1",
+    "online_group_work_decode@2",
+    "grouped_head_row_packing@1",
+    "transpose_attention_chain@1",
+    "output_tiling@2",
+    "compute_instruction_selection@2",
+    "reduction_partition@1",
+    "online_rescaled_reduction@2",
+    "empty_support_normalization@1",
+    "physical_storage@1",
+    "async_transfer@1",
+    "multi_buffer_rotation@2",
+    "shared_resource_binding@1"
+   ],
+   "selected_outside_gold": [
+    "online_group_work_decode@2",
+    "shared_resource_binding@1",
+    "size_class_cooperative_assignment@1",
+    "transpose_attention_chain@1"
+   ],
+   "needs": [
+    "Paged-cache tile addressing and safe coalesced loading for this exact FP16 [num_pages,page_size,Hk,128] layout. Let n=kv_indptr[b+1]-kv_indptr[b], L=0 if n=0 else (n-1)*page_size+kv_last_page_len[b]. For valid t resolve page=kv_indices[kv_indptr[b]+t/page_size], slot=t%page_size, then row=((page*page_size+slot)*Hk+kv_head)*128. Reuse page-table lookup across grouped heads and contiguous channel vectors; split tiles at physical page boundaries or resolve each row separately, guard the final page before dereference, and never assume adjacent logical pages are physically adjacent. Expert-page residency and a generic indexed TMA row gather do not supply this complete mapping or a confirmed SM121 gather backend.",
+    "Stable cross-CTA split-attention merge with empty identities, FP32 framed partial states, exact ownership and completion. For nonempty partials (r_i,L_i,A_i), take R=max_i r_i, L=sum_i exp(r_i-R)*L_i and A=sum_i exp(r_i-R)*A_i; emit FP16 A/L and FP32 base-2 LSE=(R+ln(L))/ln(2). Skip empty partials before reference arithmetic and emit zero/-infinity if all are empty. Use a dependency-ordered combine kernel and bounded reusable scratch, and bypass scratch/merge for unsplit rows. Generic reduction_partition gives coverage and online_rescaled_reduction gives tile streaming, but neither provides the full inter-CTA merge/lifetime realization.",
+    "Per-step host split planning for heterogeneous decode that minimizes GPU step time: derive current valid lengths and grouped-head work, choose short warp versus CTA execution and contiguous page-aware split lengths from total available parallelism, g, GB10 occupancy, register/shared-memory budgets and partial-state/merge traffic. Avoid splitting short rows or a batch already providing sufficient CTAs, cap scratch and split counts, retain original output IDs, handle all-empty batches, and reuse workspace while refreshing metadata every step. Size-class assignment and monotone prefix inversion cover portions of scheduling but no inspected rule supplies this adaptive split policy or supported tuning thresholds.",
+    "Concrete GB10 SM121 CUDA/PTX numerical and fragment mapping for the proposed decode composition: mma.sync FP16 inputs with FP32 QK/PV accumulation, legal cp.async and swizzled shared layouts, transposed fragments, g=3 head padding, and admissible conversions of online weights for PV. Establish error versus the float32 reference for long contexts, large/negative logits and cancellation; admit any exp2(log2(e)*scale*dot) lowering and log2 LSE consistently. Keep a full-FP32 weight/FMA path if FP16 weights fail tolerance. The static HMMA witness has no probed targets, the attention/staging realizations are absent, and the inspected rules do not establish this composed target binding or its tolerance."
+   ],
+   "audit": {
+    "calls": 20,
+    "outside_workspace": [],
+    "bundle_bypass": []
+   },
+   "session": "01a1ad92-16ee-7800-bdf6-040717458249",
+   "agent_run": "df89d24c4d4ef68e4e304bda3075f4d7c336a8ef75685d3969c88906507a634c",
+   "model": "gpt-6.1-sol",
+   "effort": "high",
+   "exit": "ok",
+   "wall_s": 168.8646222500829,
+   "usage": {
+    "input": 1108332,
+    "output": 5924,
+    "cached_input": 1027840,
+    "scope": "cumulative session totals",
+    "cost": null,
+    "cost_status": "not reported by native harness"
+   }
+  },
+  {
+   "run": "paged_batch_decode-access-loso-r2",
+   "task": "paged_batch_decode",
+   "arm": "access",
+   "view": "loso",
+   "moves": [
+    {
+     "move": "streamed_normalization",
+     "role": "distinctive",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "fuse_score_softmax_pv",
+     "role": "distinctive",
+     "strict": "not_surfaced",
+     "lenient": "not_surfaced"
+    },
+    {
+     "move": "grouped_query_heads",
+     "role": "distinctive",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "request_chunking",
+     "role": "distinctive",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "host_work_plan",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "surfaced_not_opened"
+    },
+    {
+     "move": "second_kernel_merge",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "absent_from_view"
+    },
+    {
+     "move": "thread_group_partition",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "state_merge_in_shared_memory",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "surfaced_not_opened"
+    },
+    {
+     "move": "dot_product_instruction",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "lane_reduction",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "not_surfaced"
+    },
+    {
+     "move": "exp2_folded_scale",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "absent_from_view"
+    },
+    {
+     "move": "storage_placement",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "async_copy",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "pipeline_stages",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "paged_gather",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "opened_not_selected"
+    },
+    {
+     "move": "wide_vector_access",
+     "role": "generic",
+     "strict": "absent_from_view",
+     "lenient": "absent_from_view"
+    },
+    {
+     "move": "tail_predication",
+     "role": "generic",
+     "strict": "absent_from_view",
+     "lenient": "absent_from_view"
+    },
+    {
+     "move": "empty_request_handling",
+     "role": "distinctive",
+     "strict": "selected",
+     "lenient": "selected"
+    }
+   ],
+   "counts": {
+    "surfaced": 121,
+    "opened": 18,
+    "selected": 13
+   },
+   "layer_counts": {
+    "search": 19,
+    "facets": 1,
+    "guide": 21,
+    "template": 13,
+    "proof": 13,
+    "card": 1,
+    "realisation": 1,
+    "need": 4,
+    "select": 13
+   },
+   "selected": [
+    "size_class_cooperative_assignment@1",
+    "online_group_work_decode@2",
+    "grouped_head_row_packing@1",
+    "transpose_attention_chain@1",
+    "output_tiling@2",
+    "compute_instruction_selection@2",
+    "reduction_partition@1",
+    "online_rescaled_reduction@2",
+    "empty_support_normalization@1",
+    "physical_storage@1",
+    "async_transfer@1",
+    "multi_buffer_rotation@2",
+    "shared_resource_binding@1"
+   ],
+   "selected_outside_gold": [
+    "online_group_work_decode@2",
+    "shared_resource_binding@1",
+    "size_class_cooperative_assignment@1",
+    "transpose_attention_chain@1"
+   ],
+   "needs": [
+    "Paged FP16 KV traversal for kv_indptr, kv_indices and kv_last_page_len: derive zero length without reading a nonexistent last page; translate each logical token through its physical page and KV head; amortize page-index loads across grouped query heads; issue aligned coalesced copies within pages and predicate the final page and chunk tails. Ragged affine descriptors and sorted independent gathers do not supply this fused paged-attention binding.",
+    "A host mixed-batch decode planner that derives per-request lengths and work counts, chooses unsplit versus page-aware bounded KV chunks from available parallelism and merge traffic, assigns disjoint partial-state offsets, rebuilds immutable metadata when lengths change, and safely reuses workspace after prior readers finish. Size classes and inverse-prefix decoding supply parts but no occupancy-aware split/merge planning rule was found.",
+    "A stable parallel attention-state merge: for nonempty split states (m_i,l_i,a_i), choose m=max_i m_i, rescale l_i and a_i by exp(m_i-m), sum both in FP32, then emit a/l and base-2 LSE. Empty states are identities with guarded arithmetic; never average or simply add locally normalized outputs. Generic sum partitioning and sequential online recurrence do not provide the complete split-state combine contract.",
+    "A GB10 sm_121 realization and numerical binding for the transposed FP16 attention chain using warp mma.sync m16n8k16 with FP32 accumulators: K/Q and V/P fragment layouts and exchanges, g=3 guarded padding without crossing KV groups, score scale supplied by the caller, exp2 with scale*log2(e), base-2 LSE, and FP16 probability conversion meeting output tolerance under cancellation and long sequences. Available instruction evidence is static and unprobed; the approximate-math rewrite and complete native attention mapping are absent."
+   ],
+   "audit": {
+    "calls": 18,
+    "outside_workspace": [],
+    "bundle_bypass": []
+   },
+   "session": "01a1ad9d-6126-7e20-8f08-9069fa097036",
+   "agent_run": "d292c93fa08fd678bc8cbf3671042859ceae056a98765d6d73e7ad50a8b5b5a9",
+   "model": "gpt-6.1-sol",
+   "effort": "high",
+   "exit": "ok",
+   "wall_s": 163.87535274995025,
+   "usage": {
+    "input": 1015796,
+    "output": 5680,
+    "cached_input": 941184,
+    "scope": "cumulative session totals",
+    "cost": null,
+    "cost_status": "not reported by native harness"
+   }
+  },
+  {
+   "run": "paged_batch_decode-flat-loso-r1",
+   "task": "paged_batch_decode",
+   "arm": "flat",
+   "view": "loso",
+   "moves": [
+    {
+     "move": "streamed_normalization",
+     "role": "distinctive",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "fuse_score_softmax_pv",
+     "role": "distinctive",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "grouped_query_heads",
+     "role": "distinctive",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "request_chunking",
+     "role": "distinctive",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "host_work_plan",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "surfaced_not_opened"
+    },
+    {
+     "move": "second_kernel_merge",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "absent_from_view"
+    },
+    {
+     "move": "thread_group_partition",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "state_merge_in_shared_memory",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "surfaced_not_opened"
+    },
+    {
+     "move": "dot_product_instruction",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "lane_reduction",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "surfaced_not_opened"
+    },
+    {
+     "move": "exp2_folded_scale",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "absent_from_view"
+    },
+    {
+     "move": "storage_placement",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "async_copy",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "pipeline_stages",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "paged_gather",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "opened_not_selected"
+    },
+    {
+     "move": "wide_vector_access",
+     "role": "generic",
+     "strict": "absent_from_view",
+     "lenient": "absent_from_view"
+    },
+    {
+     "move": "tail_predication",
+     "role": "generic",
+     "strict": "absent_from_view",
+     "lenient": "absent_from_view"
+    },
+    {
+     "move": "empty_request_handling",
+     "role": "distinctive",
+     "strict": "selected",
+     "lenient": "selected"
+    }
+   ],
+   "counts": {
+    "surfaced": 253,
+    "opened": 20,
+    "selected": 15
+   },
+   "layer_counts": null,
+   "selected": [
+    "size_class_cooperative_assignment@1",
+    "grouped_head_row_packing@1",
+    "transpose_attention_chain@1",
+    "output_tiling@2",
+    "compute_instruction_selection@2",
+    "operator_fusion@2",
+    "online_rescaled_reduction@2",
+    "empty_support_normalization@1",
+    "reduction_partition@1",
+    "blocked_thread_register_layout@1",
+    "physical_storage@1",
+    "async_transfer@1",
+    "multi_buffer_rotation@2",
+    "thread_ownership_exchange@1",
+    "shared_resource_binding@1"
+   ],
+   "selected_outside_gold": [
+    "blocked_thread_register_layout@1",
+    "shared_resource_binding@1",
+    "size_class_cooperative_assignment@1",
+    "thread_ownership_exchange@1",
+    "transpose_attention_chain@1"
+   ],
+   "needs": [
+    "# Missing contracts and implementation bindings\n\n- **Paged KV traversal.** No rule supplies this cache ABI. For request b, let P=kv_indptr[b+1]-kv_indptr[b]. Its length is zero when P=0; otherwise it is (P-1)*page_size+kv_last_page_len[b]. For a valid logical token t and KV head k, resolve page=kv_indices[kv_indptr[b]+t/page_size], offset=t%page_size, and element address (((page*page_size+offset)*Hk+k)*128+d), independently in K and V. Use integer quotient/remainder and sufficiently wide address arithmetic. Cache page-table lookups across tokens/heads where possible and copy contiguous feature vectors within each physical row. Never infer adjacency between request pages or read a final-page tail. Indexed descriptor row transfer and segmented contiguous-axis decoding do not establish this mapping.\n\n- **Adaptive host plan and dispatch.** The size-class rule supplies classification, but no rule chooses per-request split counts from the current length distribution, B, Hk, g, available SM parallelism, and scratch budget. Build immutable work records (request, KV head, token interval, split destination) each step; use page-aligned split boundaries where practical and cover every valid token exactly once. Use direct output for single-split tasks, compact SIMT execution for small work, and grouped MMA execution where reuse amortizes padding and staging. Split long requests when more CTAs are useful, cap scratch and combine cost, and avoid an extra combine launch when nothing is split. Reuse allocations across steps while refreshing lengths, page references and work counts. Actual crossover thresholds and tile sizes need a GB10 cost model or later measurements; none are established here.\n\n- **Framed softmax merge across CTAs.** Reduction partitioning and the online recurrence do not provide this complete split-attention contract. Store each nonempty split's FP32 state (r_i,L_i,U_i[128]) with gain one and natural-logit reference r_i. Combine with r=max_i(r_i), a_i=exp(r_i-r), L=sum_i(a_i*L_i), and U=sum_i(a_i*U_i). Return FP16(U/L) and FP32((r+ln(L))/ln(2)) once. Empty states are identities and are excluded before reference subtraction; an all-empty row follows the separate empty convention. A subsequent kernel in the same CUDA stream can provide publication/completion, with one owner per final head; retain scratch until that consumer finishes. Ordinary summation of local normalized outputs or local LSE values is incorrect.\n\n- **SM121 layout and resource realization.** The transposed-chain source is SM100, and the library does not certify its native layouts on GB10. Bind both contractions to supported warp MMA instructions and register/shared layouts, including the V transpose, probability exchange, coalesced final stores and one LSE writer per real head. For g=3, pad physical head slots to eight while keeping u<g as an independent validity test; padded slots must never decode into another head or request. Account for all K/V stages, probability staging, Q storage and FP32 accumulators against actual register/shared-memory limits. Establish the selected swizzle's bank behavior and 16-byte copy alignment. This design does not depend on WGMMA, tcgen05, TMEM, clusters or indexed TMA gather being available on SM121.\n\n- **Numerical lowering and boundary specification.** No rule supplies an error bound for the complete FP16-probability MMA path or approximate exp/log instructions. Retain FP32 score accumulation, references, denominators, numerators, split states and merge arithmetic; make any FP16 weight conversion explicit. An exp2 lowering must evaluate exp(x-r) as exp2((x-r)*log2(e)), with x=scale*dot(q,k), and compensate LSE consistently. Establish acceptance against the float32 reference for long nearly uniform rows, peaked rows, large negative scores, cancellation in V, all g values and partial pages; retain a FP32-weight SIMT path when the MMA probability conversion exceeds tolerance. TASK.md permits zero lengths but leaves their reference behavior unspecified: this design adopts o=0 and lse=-infinity. Precise output/LSE tolerances and behavior for nonfinite inputs also need an explicit contract. These are outstanding needs, not claims of validation.\n"
+   ],
+   "audit": {
+    "calls": 16,
+    "outside_workspace": [],
+    "bundle_bypass": []
+   },
+   "session": "01a1ad94-b0ef-72b2-9b5e-900a1954e2ea",
+   "agent_run": "ad1925e78ef5fcdd3da6c67c5979a460a77ab5af5e9294566d6c06464e6775e7",
+   "model": "gpt-6.1-sol",
+   "effort": "high",
+   "exit": "ok",
+   "wall_s": 202.2554099590052,
+   "usage": {
+    "input": 953745,
+    "output": 6415,
+    "cached_input": 876544,
+    "scope": "cumulative session totals",
+    "cost": null,
+    "cost_status": "not reported by native harness"
+   }
+  },
+  {
+   "run": "paged_batch_decode-flat-loso-r2",
+   "task": "paged_batch_decode",
+   "arm": "flat",
+   "view": "loso",
+   "moves": [
+    {
+     "move": "streamed_normalization",
+     "role": "distinctive",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "fuse_score_softmax_pv",
+     "role": "distinctive",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "grouped_query_heads",
+     "role": "distinctive",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "request_chunking",
+     "role": "distinctive",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "host_work_plan",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "surfaced_not_opened"
+    },
+    {
+     "move": "second_kernel_merge",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "absent_from_view"
+    },
+    {
+     "move": "thread_group_partition",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "state_merge_in_shared_memory",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "surfaced_not_opened"
+    },
+    {
+     "move": "dot_product_instruction",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "lane_reduction",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "surfaced_not_opened"
+    },
+    {
+     "move": "exp2_folded_scale",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "absent_from_view"
+    },
+    {
+     "move": "storage_placement",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "async_copy",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "pipeline_stages",
+     "role": "generic",
+     "strict": "selected",
+     "lenient": "selected"
+    },
+    {
+     "move": "paged_gather",
+     "role": "distinctive",
+     "strict": "absent_from_view",
+     "lenient": "surfaced_not_opened"
+    },
+    {
+     "move": "wide_vector_access",
+     "role": "generic",
+     "strict": "absent_from_view",
+     "lenient": "absent_from_view"
+    },
+    {
+     "move": "tail_predication",
+     "role": "generic",
+     "strict": "absent_from_view",
+     "lenient": "absent_from_view"
+    },
+    {
+     "move": "empty_request_handling",
+     "role": "distinctive",
+     "strict": "selected",
+     "lenient": "selected"
+    }
+   ],
+   "counts": {
+    "surfaced": 253,
+    "opened": 12,
+    "selected": 16
+   },
+   "layer_counts": null,
+   "selected": [
+    "size_class_cooperative_assignment@1",
+    "grouped_head_row_packing@1",
+    "transpose_attention_chain@1",
+    "output_tiling@2",
+    "reduction_partition@2",
+    "online_rescaled_reduction@2",
+    "empty_support_normalization@1",
+    "masked_tile_pruning@2",
+    "operator_fusion@2",
+    "compute_instruction_selection@2",
+    "physical_storage@1",
+    "async_transfer@1",
+    "multi_buffer_rotation@2",
+    "thread_ownership_exchange@1",
+    "shared_resource_binding@1",
+    "cache_prefetch@1"
+   ],
+   "selected_outside_gold": [
+    "cache_prefetch@1",
+    "masked_tile_pruning@2",
+    "shared_resource_binding@1",
+    "size_class_cooperative_assignment@1",
+    "thread_ownership_exchange@1",
+    "transpose_attention_chain@1"
+   ],
+   "needs": [
+    "The selected rules form a design, not a measured implementation. The following required contracts or realizations are not supplied by the library.\n\n1. **Paged KV addressing and page-aware tile assembly.** Let `n = kv_indptr[b+1] - kv_indptr[b]`. Derive `L_b = 0` for `n == 0`, otherwise `(n-1)*page_size + kv_last_page_len[b]`. For valid token `t`, resolve `p = kv_indices[kv_indptr[b] + t/page_size]` with integer division and `r = t % page_size`. For KV head `k = h/g` and feature `d`, the FP16 element offset is `(((p*page_size + r)*Hk + k)*128 + d)` in each cache. Resolve each page once per reusable head-group tile, and assemble tiles that cross logical pages without assuming physical adjacency. No page-table or cache access is permitted for empty requests, invalid tokens or padded heads. Use wide address arithmetic, check allocation/alignment premises, and keep page metadata and payload stable through the step. Generic async transfer and structural masking do not establish this mapping. The indexed TMA rule has a specific rank-two gather ABI; ragged descriptor rebasing supplies bounds on an affine view. Neither supplies this complete paged-cache operation.\n\n2. **Batch-dependent host planning and reusable worklists.** Build compact descriptors containing original request/KV-head identity, exact token-tile range, class, split ID/count and scratch offset. Jointly choose split counts and short-task thresholds from the current batch's lengths, head counts and legal GB10 resource limits, exposing enough work without splitting every short request. Balance whole logical token tiles, preserve a masked final tile, and use one split when existing batch parallelism suffices. Short/unsplit tasks write final outputs directly; only split tasks require scratch and a merge launch. Reuse workspace capacity across steps, but refresh all length/page-dependent descriptors and offsets; establish host-to-device visibility and completion before reuse. Size classification and quotient partitioning supply individual mechanisms, not this planner or its occupancy/launch/scratch tradeoff. All-empty batches must still write every requested output and LSE.\n\n3. **Stable merge of split attention states.** A nonempty split publishes FP32 `(r_s, L_s, U_s[128])`, with `L_s = sum exp(x-r_s)` and `U_s = sum exp(x-r_s)*V`; keep gain one and do not round partial outputs to FP16. After all producers finish, select `R = max r_s` over nonempty splits, then combine `L = sum exp(r_s-R)*L_s` and `U = sum exp(r_s-R)*U_s`. Return `o = FP16(U/L)` and `lse = (R + ln(L))/ln(2)`, equivalently `R*log2(e) + log2(L)`. Empty states are identities and must be skipped before exponent subtraction; an entirely empty row uses zero output and negative-infinite LSE. Use an ordered second kernel for merging and retire all readers before reusing scratch. Generic reduction partitioning does not define this framed tuple combine, and averaging locally normalized outputs is incorrect. The online rule defines a sequential recurrence, not a complete parallel split merge.\n\n4. **GB10 transposed-attention realization and resource binding.** Supply the actual SM 12.1 register-fragment, shared-memory and reduction maps for `K*Q^T` and `V^T*weights` using FP16 `mma.sync` with FP32 accumulation. Bind token tiles of 32 or 64 and the CTA warp count against the actual shared-memory/register capacities, including both K/V stage rings, Q and the weight exchange. Padding the physical head dimension to eight must preserve exactly `g` logical heads, especially `g=3`; guard before decoding an absent head and never let modulo arithmetic wrap it into another group/request. Preserve one independent token reduction and LSE per real head. The transposed-chain source is SM100, not a supplied GB10 mapping. Generic instruction, swizzle and ownership rules do not themselves deliver these compatible native layouts or establish their performance. The short-task subgroup body likewise needs a legal converged lane/reduction mapping. No SM100-only engine, TMEM or cluster dependency is assumed.\n\n5. **Numerical admission for fast math and FP16 weights.** Keep score scaling by the caller's `scale`, max/sum statistics, state corrections, output accumulation and split scratch in FP32. An exp2 implementation must convert natural scaled logits consistently using `log2(e)`, and produce base-2 LSE without applying that conversion twice. Establish an error budget for approximate exp2/log2, FP16 conversion of unnormalized weights before PV MMA, and reduction reassociation, especially for long rows and cancelling V. Online rescaling and instruction selection explicitly leave these numerical choices open; no library rule supplies the complete tolerance guarantee. FP16 weights may require a more accurate realization when that budget fails. Subsequent implementation validation must cover extreme finite scores, large negative score offsets, cancellation, random page order, lengths 0/1 and page/tile boundaries, all g values, and split/unsplit equivalence. TASK.md does not specify exact error thresholds, nonfinite-input behavior, or the zero-length convention; this design adopts finite inputs and the empty-support rule's zero-output/negative-infinite-LSE convention. No compilation, kernel execution or GPU measurements were performed for this selection.\n"
+   ],
+   "audit": {
+    "calls": 18,
+    "outside_workspace": [],
+    "bundle_bypass": []
+   },
+   "session": "01a1ad9f-ea14-72f3-8d27-598026f83869",
+   "agent_run": "7cba0f98483b0a7e0f5d022379d1ca552f6767c940d87df46b74d29af5a8a6be",
+   "model": "gpt-6.1-sol",
+   "effort": "high",
+   "exit": "ok",
+   "wall_s": 210.24527816602495,
+   "usage": {
+    "input": 1281171,
+    "output": 7825,
+    "cached_input": 1188480,
+    "scope": "cumulative session totals",
+    "cost": null,
+    "cost_status": "not reported by native harness"
+   }
+  }
+ ],
+ "totals": {
+  "access/loso": {
+   "strict": {
+    "absent_from_view": 74,
+    "selected": 58,
+    "opened_not_selected": 2,
+    "surfaced_not_opened": 1,
+    "not_surfaced": 3
+   },
+   "lenient": {
+    "absent_from_view": 32,
+    "selected": 69,
+    "opened_not_selected": 12,
+    "surfaced_not_opened": 16,
+    "not_surfaced": 9
+   }
+  },
+  "flat/loso": {
+   "strict": {
+    "absent_from_view": 74,
+    "selected": 61,
+    "opened_not_selected": 2,
+    "surfaced_not_opened": 1
+   },
+   "lenient": {
+    "absent_from_view": 32,
+    "selected": 69,
+    "opened_not_selected": 19,
+    "surfaced_not_opened": 18
+   }
+  }
+ }
+}

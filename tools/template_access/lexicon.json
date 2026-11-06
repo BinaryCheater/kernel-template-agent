@@ -1,0 +1,38 @@
+{
+  "format_version": 1,
+  "note": "Open facet table. Patterns run over card, summary, signature, program and scope text; a rule that matches nothing keeps tag 'other' so coverage stays visible.",
+  "symptom": {
+    "redundant-operand-loads": {"meaning": "The same input bytes are loaded or decoded more than once.", "patterns": ["re-?(read|load|fetch|stream)", "redundant", "repeated(ly)? (load|read|fetch|decod)", "without rereading", "shared input", "reuse[sd]? .*(operand|input|load)"]},
+    "materialised-intermediate": {"meaning": "A temporary is written to memory only to be read back.", "patterns": ["materiali[sz]", "intermediate", "never written", "fus(e|ion|ed)", "in registers"]},
+    "extra-pass": {"meaning": "A pass exists only to collect a statistic or result for a later pass.", "patterns": ["two-pass", "second pass", "single pass", "online", "stream(s|ed|ing)? exponential", "defer"]},
+    "numeric-range-or-precision": {"meaning": "Values overflow, underflow or lose accuracy in the working format.", "patterns": ["overflow", "underflow", "rounding", "precision", "numerical", "accumulat.* (fp32|f32)", "narrow(ing)? ", "dynamic range", "low-float", "quantiz"]},
+    "scalar-work-where-instruction-exists": {"meaning": "Scalar loops do what a matrix or vector instruction could.", "patterns": ["instruction", "mma", "matrix multipl", "fragment", "umma", "lowered to"]},
+    "shared-memory-capacity": {"meaning": "Staged data does not fit shared memory or tensor memory.", "patterns": ["shared[- ]memory", "smem", "capacity", "tmem", "tensor memory", "bytes? (bound|limit)"]},
+    "register-pressure": {"meaning": "Live values exceed the register budget.", "patterns": ["register"]},
+    "load-imbalance-or-idle-units": {"meaning": "Some executors idle while others carry the work.", "patterns": ["imbalance", "balanc", "idle", "occupancy", "uneven", "steal", "least-estimated", "ragged", "skew"]},
+    "contention-on-shared-state": {"meaning": "Many workers contend for the same lock, atomic or bank.", "patterns": ["contention", "contend", "atomic", "lock", "bank", "privati[sz]"]},
+    "synchronisation-stall": {"meaning": "Workers wait on barriers or completions more than they compute.", "patterns": ["barrier", "wait", "handshake", "semaphore", "completion", "publish", "publication", "signal"]},
+    "transfer-blocks-compute": {"meaning": "Copies do not overlap with computation.", "patterns": ["async", "overlap", "prefetch", "pipeline", "issue and completion", "ahead", "ring"]},
+    "padded-or-empty-work": {"meaning": "Tiles, tails or rows do no useful work yet still cost time.", "patterns": ["empty", "pad(ded|ding)?", "tail", "residue", "prun", "skip", "mask(ed)?", "valid"]},
+    "irregular-or-indirect-access": {"meaning": "Data reached through indices, pages or sparse structure.", "patterns": ["indirect", "gather", "scatter", "page", "index", "sparse", "descriptor", "lookup", "incidence"]},
+    "layout-mismatch": {"meaning": "Stored layout does not match the consumer order.", "patterns": ["layout", "permut", "swizzl", "transpos", "interleav", "stride", "pack(ed|ing)?", "digit"]},
+    "decode-overhead": {"meaning": "Encoded or quantized values cost time to expand.", "patterns": ["decod", "dequant", "widen", "encoded", "code[s]? ", "bitstream", "codebook"]},
+    "repeated-launch-or-setup-cost": {"meaning": "Setup, launch or descriptor work dominates small problems.", "patterns": ["launch", "persistent", "plan", "metadata", "setup", "descriptor generation", "problem key"]},
+    "expensive-math-function": {"meaning": "An exp, log or other costly function dominates.", "patterns": ["\\bexp\\b", "exp2", "\\blog\\b", "logsumexp", "\\bsfu\\b", "approximat", "softmax", "normali[sz]"]}
+  },
+  "resource": {
+    "global-memory": {"meaning": "DRAM or global bytes and bandwidth.", "patterns": ["global memory", "gmem", "\\bdram\\b", "bandwidth", "global (load|store|read|write)"]},
+    "shared-memory": {"meaning": "CTA shared memory.", "patterns": ["shared[- ]memory", "smem", "\\bldsm?\\b"]},
+    "tensor-memory": {"meaning": "Tensor memory on Blackwell-class targets.", "patterns": ["tmem", "tensor memory"]},
+    "registers": {"meaning": "Thread registers and accumulators.", "patterns": ["register", "accumulator"]},
+    "l2-cache": {"meaning": "L2 and last-level cache.", "patterns": ["\\bl2\\b", "cache", "evict"]},
+    "matrix-units": {"meaning": "MMA and other matrix execution.", "patterns": ["mma", "matrix", "contraction", "\\bfma\\b"]},
+    "special-function-units": {"meaning": "SFU operations such as exp and log.", "patterns": ["\\bsfu\\b", "exp2", "\\bexp\\b", "\\blog\\b"]},
+    "shuffles-and-lanes": {"meaning": "Cross-lane shuffles and warp reductions.", "patterns": ["\\bshfl\\b", "shuffle", "cross-lane", "warp reduc", "lanes?\\b", "butterfly"]},
+    "atomics-and-locks": {"meaning": "Atomics, locks and semaphores.", "patterns": ["atomic", "\\block", "semaphore"]},
+    "dma-and-async-copy": {"meaning": "Async copy, TMA and DMA engines.", "patterns": ["cp\\.async", "async", "\\btma\\b", "\\bdma\\b", "copy engine"]},
+    "cta-occupancy": {"meaning": "CTA slots, grid size and launches.", "patterns": ["\\bcta", "grid", "launch", "occupancy", "cluster"]},
+    "interconnect": {"meaning": "Peer links, networks and multi-device transport.", "patterns": ["peer", "network", "nvlink", "\\brdma\\b", "transport", "multicast", "collective"]},
+    "host-cpu": {"meaning": "Host planning and host-side preparation.", "patterns": ["\\bhost\\b", "offline", "prepack", "\\bcpu\\b"]}
+  }
+}

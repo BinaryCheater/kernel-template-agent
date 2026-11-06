@@ -1,0 +1,134 @@
+task: int4_weight_gemm
+source_study: marlin
+target_kernel: Marlin int4 weight FP16 activation GEMM
+provenance:
+  chain: knowledge/seed/references/marlin_int4_gemm/chain.yaml
+  decomposition: knowledge/seed/references/marlin_int4_gemm/decomposition.md
+  study: knowledge/studies/marlin/trace.md
+moves:
+  - id: load_time_prepack
+    role: distinctive
+    need: Permute and pack constant low-bit weights once at load time so their stored order matches what instruction fragments read.
+    source_rule: offline_operand_prepack@1
+    accept: []
+    equivalent: [mixed_radix_materialization@1, fp4_bf16_bit_interleave@1, bitstream_packing@1, bitstream_packing@2, bitstream_packing@3]
+    provenance: "chain key prepack; decomposition T01; marlin review row 1"
+  - id: register_dequantization
+    role: distinctive
+    need: Decode low-bit integers to FP16 in registers right before the contraction with a few bit operations per group of values, folding the zero point.
+    source_rule: fused_dequantization@1
+    accept: []
+    equivalent: [integer_operand_widening@1, fp4_bf16_bit_interleave@1, decoded_tile_materialization@1]
+    provenance: "chain key dequant; decomposition T13; marlin review row 3"
+  - id: row_chunking
+    role: generic
+    need: Split M into chunks served by separate launches or by tiles, and split N into output column tiles.
+    source_rule: output_tiling@1
+    accept: [output_tiling@2]
+    equivalent: []
+    provenance: "chain key m_split; decomposition T02"
+  - id: k_major_stripes
+    role: distinctive
+    need: When M is small, flatten the tile grid and give each CTA a contiguous stripe of K-major tiles so all SMs stay busy.
+    source_rule: linearized_work_partition@1
+    accept: []
+    equivalent: [contiguous_group_tile_walk@1]
+    provenance: "chain key stripes; decomposition T03; marlin review row 2"
+  - id: k_partition
+    role: generic
+    need: Split the K reduction of one output column across CTAs and across warps inside a CTA.
+    source_rule: reduction_partition@1
+    accept: [reduction_partition@1, reduction_partition@2]
+    equivalent: [cyclic_tile_reduction_partition@1]
+    provenance: "chain keys k_part, warp_k; decomposition T05"
+  - id: ordered_cross_cta_combine
+    role: distinctive
+    need: Add partial results from several CTAs into the same output region in a fixed order, without numerical atomics, using a lock word in caller workspace.
+    source_rule: ordered_global_combine@1
+    accept: []
+    equivalent: [ordered_workspace_combine@1, first_writer_atomic_combine@1, partial_grid_join_placement@1]
+    provenance: "chain key global_combine; decomposition T17; marlin review row 5"
+  - id: shared_memory_warp_tree
+    role: distinctive
+    need: Combine warp partial accumulators inside a CTA through shared memory with a log tree.
+    source_rule: smem_partial_combine@1
+    accept: []
+    equivalent: [scatter_reduce_output_shards@1, butterfly_reduce_scatter_chunks@1]
+    provenance: "chain key smem_combine; decomposition T16; marlin review row 4"
+  - id: matrix_instruction
+    role: generic
+    need: Use fixed-shape matrix instructions for the contraction.
+    source_rule: compute_instruction_selection@1
+    accept: [compute_instruction_selection@2]
+    equivalent: []
+    provenance: "decomposition T14, step mma"
+  - id: storage_placement
+    role: generic
+    need: Choose accumulators in registers and a shared-memory ring for operands.
+    source_rule: physical_storage@1
+    accept: [physical_storage@1]
+    equivalent: []
+    provenance: "decomposition T09, T20, steps acc_store, ab_smem"
+  - id: async_copy
+    role: generic
+    need: Issue operand copies asynchronously and overlap them with computation.
+    source_rule: async_transfer@1
+    accept: [async_transfer@1]
+    equivalent: []
+    provenance: "decomposition T06 to T08, step ab_async"
+  - id: cache_policy
+    role: distinctive
+    need: Tell the cache that streamed weights should be evicted first so that repeated activations stay resident.
+    source_rule: cache_eviction_hint@1
+    accept: []
+    equivalent: [cache_prefetch@1]
+    provenance: "decomposition T07, step b_stream_hint"
+  - id: pipeline_stages
+    role: generic
+    need: Prefetch several stages of operands ahead of the consumer in a ring.
+    source_rule: multi_buffer_rotation@2
+    accept: [multi_buffer_rotation@2]
+    equivalent: [shared_memory_tiling@1]
+    provenance: "decomposition T08, T09, step stages"
+  - id: bank_layout
+    role: generic
+    need: Remap shared-memory addresses so concurrent reads avoid bank conflicts.
+    source_rule: shared_resource_binding@1
+    accept: [shared_resource_binding@1]
+    equivalent: [cyclic_warp_row_skew@1]
+    provenance: "decomposition T10, step a_swizzle"
+  - id: fragment_load
+    role: generic
+    need: Load A into instruction fragments with collective warp-level loads.
+    source_rule: collective_fragment_load@1
+    accept: []
+    equivalent: []
+    provenance: "decomposition T11, steps a_frag, b_frag"
+  - id: wide_vector_access
+    role: generic
+    need: Move operands with 128-bit thread accesses.
+    source_rule: vectorized_access@1
+    accept: []
+    equivalent: []
+    provenance: "decomposition T06, step vec"
+  - id: tail_predication
+    role: generic
+    need: Predicate row loads so that rows past M read nothing out of bounds.
+    source_rule: boundary_predication@1
+    accept: []
+    equivalent: []
+    provenance: "decomposition T06, step a_guard"
+  - id: output_staging
+    role: generic
+    need: Stage fragment results through shared memory into row-major output.
+    source_rule: staged_relayout@1
+    accept: []
+    equivalent: [staged_async_output_store@1]
+    provenance: "decomposition T19, step epi_stage"
+  - id: late_scale
+    role: distinctive
+    need: Apply per-column scale once at output, after accumulation, instead of scaling every operand element.
+    source_rule: operator_fusion@1
+    accept: [operator_fusion@2, operator_fusion@3, operator_fusion@4]
+    equivalent: [block_scaled_partial_accumulation@1]
+    provenance: "decomposition T18, step epi_scale"

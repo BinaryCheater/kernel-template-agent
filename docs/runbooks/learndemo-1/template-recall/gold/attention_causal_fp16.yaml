@@ -1,0 +1,134 @@
+task: attention_causal_fp16
+source_study: flash-attention
+target_kernel: FlashAttention-2 CUDA forward, causal FP16 D128
+provenance:
+  chain: knowledge/seed/references/flash_attention_2_fwd/chain.yaml
+  decomposition: knowledge/seed/references/flash_attention_2_fwd/decomposition.md
+  study: knowledge/studies/flash-attention/trace-cuda-fa2.md
+moves:
+  - id: streamed_normalization
+    role: distinctive
+    need: Compute softmax over a long key axis in tiles without storing the whole score or probability matrix, keeping a running reference for the row maximum.
+    source_rule: online_rescaled_reduction@1
+    accept: [online_rescaled_reduction@2]
+    equivalent: []
+    provenance: "chain key online; decomposition T06, T12; trace-cuda-fa2 row online_rescaled_reduction@2"
+  - id: fuse_score_softmax_pv
+    role: distinctive
+    need: Merge the score product, the softmax and the value product into one kernel so scores and probabilities never reach global memory.
+    source_rule: operator_fusion@1
+    accept: [operator_fusion@2, operator_fusion@3, operator_fusion@4]
+    equivalent: []
+    provenance: "chain key fuse; decomposition step fuse"
+  - id: query_row_tiles
+    role: generic
+    need: Split output rows into tiles owned by one CTA per batch and head, and split further among warps along rows.
+    source_rule: output_tiling@1
+    accept: [output_tiling@2]
+    equivalent: []
+    provenance: "chain keys out_cta, out_warp; decomposition T01, T04"
+  - id: key_block_partition
+    role: generic
+    need: Break the reduction over keys into contiguous key blocks consumed one after another by the same executor.
+    source_rule: reduction_partition@1
+    accept: [reduction_partition@1, reduction_partition@2]
+    equivalent: []
+    provenance: "chain key kv_part; decomposition T13"
+  - id: causal_tile_pruning
+    role: distinctive
+    need: Use the known triangular mask to skip key blocks that are fully masked and to run mask-free code on blocks that are fully visible.
+    source_rule: masked_tile_pruning@1
+    accept: [masked_tile_pruning@2]
+    equivalent: []
+    provenance: "chain key causal_prune; decomposition T14, T15"
+  - id: matrix_instruction
+    role: generic
+    need: Issue the score and value contractions with fixed-shape matrix instructions rather than scalar loops.
+    source_rule: compute_instruction_selection@1
+    accept: [compute_instruction_selection@2]
+    equivalent: []
+    provenance: "chain key mma; decomposition T05, T11"
+  - id: probability_precision
+    role: distinctive
+    need: Convert FP32 probabilities to FP16 just before the value contraction, because that instruction takes FP16 operands.
+    source_rule: operand_precision_conversion@1
+    accept: []
+    equivalent: [contraction_numeric_recipe@1]
+    provenance: "chain key p_convert; decomposition T09"
+  - id: accumulator_as_operand
+    role: distinctive
+    need: Reuse the registers that hold the score accumulator directly as the left operand of the next contraction instead of loading it again.
+    source_rule: accumulator_operand_reuse@1
+    accept: []
+    equivalent: []
+    provenance: "decomposition T10, step p_reuse"
+  - id: exp2_folded_scale
+    role: distinctive
+    need: Replace a costly natural exponential with a base-2 approximate instruction by folding the constant scale into a fused multiply-add.
+    source_rule: approximate_math_rewrite@1
+    accept: []
+    equivalent: []
+    provenance: "decomposition T08, step exp2"
+  - id: row_statistic_lane_reduce
+    role: distinctive
+    need: Reduce the row maximum and row sum across the lanes of a warp with shuffles, because each row spans several lanes.
+    source_rule: cross_lane_reduction@1
+    accept: []
+    equivalent: [sparse_lane_rank_reduction@1]
+    provenance: "decomposition T07, step row_xlane"
+  - id: storage_placement
+    role: generic
+    need: Choose which values live in registers and which in shared memory, including reusing the query buffer for output staging.
+    source_rule: physical_storage@1
+    accept: [physical_storage@1]
+    equivalent: []
+    provenance: "decomposition T16 to T18, steps acc_store, q_smem, kv_smem"
+  - id: async_copy
+    role: generic
+    need: Issue global-to-shared copies asynchronously and overlap them with computation.
+    source_rule: async_transfer@1
+    accept: [async_transfer@1]
+    equivalent: []
+    provenance: "decomposition T19, T20, step kv_async"
+  - id: slot_lookahead
+    role: generic
+    need: Refill operand buffers ahead of use so the next tile is already arriving while the current one is consumed.
+    source_rule: multi_buffer_rotation@2
+    accept: [multi_buffer_rotation@2]
+    equivalent: [shared_memory_tiling@1]
+    provenance: "decomposition T21, T25, steps kv_rotation, frag_prefetch"
+  - id: bank_layout
+    role: generic
+    need: Choose a shared-memory swizzle so that concurrent loads spread across banks and avoid conflicts.
+    source_rule: shared_resource_binding@1
+    accept: [shared_resource_binding@1]
+    equivalent: [cyclic_warp_row_skew@1]
+    provenance: "decomposition T23, step swizzle"
+  - id: wide_vector_access
+    role: generic
+    need: Move operands with 128-bit thread accesses rather than element-sized accesses.
+    source_rule: vectorized_access@1
+    accept: []
+    equivalent: []
+    provenance: "decomposition T19, step vec"
+  - id: tail_predication
+    role: generic
+    need: Handle the partial tile at the end of the sequence with predicated loads and zero fill so that stale memory is not consumed.
+    source_rule: boundary_predication@1
+    accept: []
+    equivalent: []
+    provenance: "decomposition T22, steps k_guard, v_guard, o_guard"
+  - id: fragment_load
+    role: generic
+    need: Load operands into matrix-instruction fragments with collective warp-level loads such as ldmatrix.
+    source_rule: collective_fragment_load@1
+    accept: []
+    equivalent: []
+    provenance: "decomposition T24, steps qk_frag, v_frag"
+  - id: output_staging
+    role: generic
+    need: Move results from register fragments through shared memory to get row-major global writes.
+    source_rule: staged_relayout@1
+    accept: []
+    equivalent: [staged_async_output_store@1]
+    provenance: "decomposition T26, step epi_stage"
