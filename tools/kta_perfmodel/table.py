@@ -574,7 +574,7 @@ def _finish(r: dict[str, Any]) -> dict[str, Any]:
 
 def batch_order(name: str) -> tuple[int, str]:
     """Batches in the order they ran: r2c before r10."""
-    return (int(re.sub(r"\D", "", name)), name)
+    return (int(re.sub(r"\D", "", name) or 0), name)
 
 
 def first_scores(root: Path = BATCHES) -> dict[str, dict[str, Any]]:

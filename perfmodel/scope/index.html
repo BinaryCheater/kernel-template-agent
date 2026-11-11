@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GB10 Scope</title>
+<link rel="icon" href="data:,">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="scope.css">
+</head>
+<body>
+<div id="app" data-page="run">
+  <header>
+    <div class="brand">GB10 <span>Scope</span></div>
+    <nav id="pages">
+      <button data-page="run" class="on">Execution</button>
+      <button data-page="atlas">Mechanisms</button>
+      <button data-page="cover">Coverage</button>
+    </nav>
+    <select id="trace" aria-label="Trace" class="mono"></select>
+    <div id="stats"></div>
+    <div id="scope-tag" title="A replay is one SM; other SMs, the L2 and DRAM enter as shares"></div>
+  </header>
+
+  <main id="run">
+    <section id="map" aria-label="Machine map"><svg id="svg"></svg></section>
+    <aside id="insp"></aside>
+    <section id="lanes" aria-label="Timeline">
+      <div class="tabs" id="lens">
+        <button data-lens="resources" class="on">Resources</button>
+        <button data-lens="warps">Warps</button>
+        <button data-lens="phases">Phases</button>
+        <button data-lens="code">Code</button>
+      </div>
+      <canvas id="base"></canvas><canvas id="over"></canvas>
+      <div id="code" hidden></div>
+    </section>
+    <footer>
+      <div class="transport">
+        <button id="play" aria-label="Play or pause">▶</button>
+        <div><div id="clock" class="mono">0 clk</div><div id="clock2"></div></div>
+        <select id="speed" aria-label="Playback speed" class="mono">
+          <option value="200">200 clk/s</option><option value="2000" selected>2k clk/s</option>
+          <option value="20000">20k clk/s</option><option value="150000">150k clk/s</option>
+        </select>
+      </div>
+      <div id="miniwrap"><canvas id="mini"></canvas></div>
+    </footer>
+    <div id="sheet" hidden></div>
+  </main>
+
+  <main id="atlas" hidden></main>
+  <main id="cover" hidden></main>
+  <div id="tip" hidden></div>
+</div>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

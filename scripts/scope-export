@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# Scope traces: scripts/scope-export [--engine TREE] ROW ... | --demo | --atlas  (timeline.py --help)
+# --engine replays on another worktree's engine and reads its records (the newest PERFMODEL round
+# may live on a branch of its own); the tool and the traces stay in this checkout.
+set -euo pipefail
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+tree="$here"
+if [[ "${1:-}" == "--engine" ]]; then tree="$(cd "$2" && pwd)"; shift 2; fi
+export PYTHONPATH="$tree/tools${PYTHONPATH:+:$PYTHONPATH}"
+exec nice -n 10 uv run --project "$tree" --frozen --quiet python "$here/scripts/scope_export.py" "$@"

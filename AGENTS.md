@@ -18,7 +18,7 @@
 2. **真实优先。** 声称接通的能力，必须以 `KTA_ENV=dev` 真实运行过（需要 GPU 的部分在真实的 GPU worker 上执行），记录列入证据清单（conventions §5）。测试替身只能放在 `tests/fakes/`，并通过接口合同测试。做不到的能力抛 `NotSupported`，不要返回假结果。任何 fixture 或简化实现，在代码中加注释 `# kta:fixture <原因>`，并在交付说明中列出。conventions §10 列出的做法一律不允许。
 3. **接口以 spec 为准。** `spec/` 中的函数签名、schema 字段、命令名不得自行修改。确实需要改：如果只影响你的 WP 且可逆，按"决策"一节记录后修改，并同步改 spec；如果影响其他 WP，停下，在交付说明的"需要的变更"中写明。
 4. **依赖方向。** 只能 import `spec/modules/README.md` 中层号比自己小的模块。`checks` 不得 import `knowledge`。
-5. **计算资源只经 Executor。** 本仓库在本机开发，控制面（API、存储、编排器）在本机运行；编译 CUDA、运行 GPU、跑长测试，都由 Executor 交给远端 worker（spark、slai）。不要假设控制面和 worker 在同一台机器或共享文件系统（conventions §6）。施工中的手工远端操作用 skill `remote-run`（WP0 之后可用）。
+5. **计算资源只经 Executor。** 本仓库在本机开发，控制面（API、存储、编排器）在本机运行；编译 CUDA、运行 GPU 由 Executor 交给远端 worker（spark、slai）；CPU 回放和长测试能加速时可在本机运行（用户，2026-11-07）。不要假设控制面和 worker 在同一台机器或共享文件系统（conventions §6）。施工中的手工远端操作用 skill `remote-run`（WP0 之后可用）。
 6. **简单优先。** 能用标准库和已选的依赖解决的，不引入新依赖。新依赖必须写进决策日志。
 7. **环境自包含。** 依赖只经锁文件安装（`uv sync --frozen`、`npm ci`），不装全局包、不装到用户级目录；新机器上用 `scripts/bootstrap`、`scripts/worker-setup` 部署（conventions §7）。
 8. **调用 AI 必须可追溯。** 任何调用 AI 模型的代码都经过 agents 模块的适配器，会话持久保存、用量有记录；禁止临时会话模式和不留记录的临时环境（conventions §7.1）。
